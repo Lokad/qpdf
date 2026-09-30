@@ -20,5 +20,13 @@
     <None Include="../Fixtures/inherited-attrs.pdf" Link="Fixtures/inherited-attrs.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/indirect-length.pdf" Link="Fixtures/indirect-length.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/bogus-filter.pdf" Link="Fixtures/bogus-filter.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/xstream-1page.pdf" Link="Fixtures/xstream-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/xstream-nowtype.pdf" Link="Fixtures/xstream-nowtype.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/xstream-lzw.pdf" Link="Fixtures/xstream-lzw.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/xstream-badtype.pdf" Link="Fixtures/xstream-badtype.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/objstm-1page.pdf" Link="Fixtures/objstm-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/objstm-extends.pdf" Link="Fixtures/objstm-extends.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/prev-chain.pdf" Link="Fixtures/prev-chain.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/xstm-classic.pdf" Link="Fixtures/xstm-classic.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

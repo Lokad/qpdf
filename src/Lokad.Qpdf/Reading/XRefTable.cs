@@ -1,37 +1,71 @@
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Reading;
 
-/// <summary>A classic xref entry: byte offset or free-list link.</summary>
-internal readonly struct XrefEntry
+/// <summary>What an xref entry points at.</summary>
+internal enum XrefEntryKind
 {
-    internal XrefEntry(long offset, int generation, bool inUse)
-    {
-        Offset = offset;
-        Generation = generation;
-        InUse = inUse;
-    }
+    /// <summary>Deleted or never-allocated slot.</summary>
+    Free = 0,
 
-    internal long Offset { get; }
+    /// <summary>Direct byte offset with a generation.</summary>
+    Uncompressed = 1,
 
-    internal int Generation { get; }
-
-    internal bool InUse { get; }
+    /// <summary>Index inside an object stream.</summary>
+    Compressed = 2,
 }
 
 /// <summary>
-/// Strict single-section classic xref table with its trailer. Parses the tail
-/// `startxref` (which must match the actual table position), fixed-width
-/// entries, and the trailer dictionary; validates coverage against `/Size`.
-/// Incremental chains, hybrid structures, and xref streams arrive in M2.
+/// One xref entry. Field meanings follow the kind: free carries the next
+/// free number and generation; uncompressed carries offset and generation;
+/// compressed carries the object-stream number and index.
 /// </summary>
-internal sealed class ClassicXrefTable
+internal readonly struct XrefEntry
+{
+    private XrefEntry(XrefEntryKind kind, long first, int second)
+    {
+        Kind = kind;
+        First = first;
+        Second = second;
+    }
+
+    internal XrefEntryKind Kind { get; }
+
+    internal long First { get; }
+
+    internal int Second { get; }
+
+    internal static XrefEntry Free(long next, int generation)
+    {
+        return new XrefEntry(XrefEntryKind.Free, next, generation);
+    }
+
+    internal static XrefEntry Uncompressed(long offset, int generation)
+    {
+        return new XrefEntry(XrefEntryKind.Uncompressed, offset, generation);
+    }
+
+    internal static XrefEntry Compressed(int streamNumber, int index)
+    {
+        return new XrefEntry(XrefEntryKind.Compressed, streamNumber, index);
+    }
+}
+
+/// <summary>
+/// Strict single-section cross-reference with its trailer, from a classic
+/// table or a stream. Parses the tail `startxref` (which must match the
+/// actual table position), validates entries before reading, and requires
+/// exact `[0, /Size)` coverage. Incremental chains, hybrid structures, and
+/// recovery arrive in later milestones and fail explicitly here.
+/// </summary>
+internal sealed class XRefTable
 {
     private const int TailScanBytes = 65536;
 
-    private ClassicXrefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer)
+    private XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer)
     {
         XrefOffset = xrefOffset;
         Entries = entries;
@@ -44,7 +78,7 @@ internal sealed class ClassicXrefTable
 
     internal PdfDictionary Trailer { get; }
 
-    internal static ClassicXrefTable Parse(
+    internal static XRefTable Parse(
         ReadOnlyMemory<byte> data,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -93,11 +127,32 @@ internal sealed class ClassicXrefTable
 
         PdfTokenizer tokenizer = new(data);
         tokenizer.SetPosition(xrefOffset);
-        if (!tokenizer.TryReadToken(out PdfToken table) || table.Kind != PdfTokenKind.XRef)
+        if (!tokenizer.TryReadToken(out PdfToken head))
         {
-            throw new QpdfParseException("startxref does not point at an xref table.", xrefOffset, null);
+            throw new QpdfParseException("startxref points at end of input.", xrefOffset, null);
         }
 
+        if (head.Kind == PdfTokenKind.XRef)
+        {
+            return ParseClassic(data, limits, governor, diagnostics, tokenizer, xrefOffset);
+        }
+
+        if (head.Kind == PdfTokenKind.Integer)
+        {
+            return ParseStream(data, limits, governor, diagnostics, tokenizer, head, xrefOffset);
+        }
+
+        throw new QpdfParseException("startxref does not point at an xref table or stream.", xrefOffset, null);
+    }
+
+    private static XRefTable ParseClassic(
+        ReadOnlyMemory<byte> data,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        PdfTokenizer tokenizer,
+        long xrefOffset)
+    {
         Dictionary<int, XrefEntry> entries = new();
         while (true)
         {
@@ -131,9 +186,264 @@ internal sealed class ClassicXrefTable
             throw new QpdfParseException("Trailer must be a dictionary.", tokenizer.Position, null);
         }
 
+        RejectChainedTrailer(trailer);
         int size = ReadSize(trailer);
         ValidateCoverage(data, entries, size);
-        return new ClassicXrefTable(xrefOffset, entries, trailer);
+        return new XRefTable(xrefOffset, entries, trailer);
+    }
+
+    private static void RejectChainedTrailer(PdfDictionary trailer)
+    {
+        PdfName prevKey = PdfName.FromAscii("Prev");
+        if (trailer.TryGet(prevKey, out QpdfObject prev) && prev is not PdfNull)
+        {
+            throw new QpdfParseException("Incremental /Prev chains arrive in work item 10.", null, null);
+        }
+
+        PdfName xstmKey = PdfName.FromAscii("XRefStm");
+        if (trailer.TryGet(xstmKey, out QpdfObject xstm) && xstm is not PdfNull)
+        {
+            throw new QpdfParseException("Hybrid /XRefStm structures arrive in work item 10.", null, null);
+        }
+    }
+    private static XRefTable ParseStream(
+        ReadOnlyMemory<byte> data,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        PdfTokenizer tokenizer,
+        PdfToken numberToken,
+        long xrefOffset)
+    {
+        tokenizer.SetPosition(numberToken.Offset);
+        PdfParser parser = new(limits, governor, diagnostics, null);
+        (int streamNumber, int streamGeneration, QpdfObject raw) = parser.ParseIndirectObject(tokenizer, 0);
+        if (raw is not PdfStream stream)
+        {
+            throw new QpdfParseException("startxref does not point at an xref stream.", xrefOffset, streamNumber);
+        }
+
+        PdfDictionary dictionary = stream.Dictionary;
+        PdfName typeKey = PdfName.FromAscii("Type");
+        if (!dictionary.TryGet(typeKey, out QpdfObject typeRaw) || typeRaw is not PdfName typeName || typeName.DisplayText != "XRef")
+        {
+            throw new QpdfParseException("Cross-reference stream must declare /Type /XRef.", xrefOffset, streamNumber);
+        }
+
+        PdfName prevKey = PdfName.FromAscii("Prev");
+        if (dictionary.TryGet(prevKey, out QpdfObject prev) && prev is not PdfNull)
+        {
+            throw new QpdfParseException("Chained /Prev xref streams arrive in work item 10.", xrefOffset, streamNumber);
+        }
+
+        int size = ReadSize(dictionary);
+        int[] widths = ReadWidths(dictionary);
+        List<(int First, int Count)> index = ReadIndex(dictionary, size);
+        byte[] decoded = DecodeXRefData(stream, governor, limits, xrefOffset, streamNumber);
+        Dictionary<int, XrefEntry> entries = ReadStreamEntries(decoded, widths, index, size, data.Length, governor, xrefOffset);
+        ValidateStreamCoverage(entries, size);
+        return new XRefTable(xrefOffset, entries, dictionary);
+    }
+
+    private static int[] ReadWidths(PdfDictionary dictionary)
+    {
+        PdfName key = PdfName.FromAscii("W");
+        if (!dictionary.TryGet(key, out QpdfObject raw) || raw is not PdfArray array || array.Count != 3)
+        {
+            throw new QpdfParseException("Cross-reference stream must declare exactly three /W widths.", null, null);
+        }
+
+        int[] widths = new int[3];
+        int total = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            if (array[i] is not PdfInteger integer || integer.Value < 0L || integer.Value > 8L)
+            {
+                throw new QpdfParseException("Cross-reference stream /W widths must be integers 0..8.", null, null);
+            }
+
+            widths[i] = (int)integer.Value;
+            total += widths[i];
+        }
+
+        if (total < 1)
+        {
+            throw new QpdfParseException("Cross-reference stream /W entry size is zero.", null, null);
+        }
+
+        return widths;
+    }
+
+    private static List<(int First, int Count)> ReadIndex(PdfDictionary dictionary, int size)
+    {
+        PdfName key = PdfName.FromAscii("Index");
+        if (!dictionary.TryGet(key, out QpdfObject raw) || raw is PdfNull)
+        {
+            return new List<(int First, int Count)> { (0, size) };
+        }
+
+        if (raw is not PdfArray array || array.Count < 2 || array.Count % 2 != 0)
+        {
+            throw new QpdfParseException("Cross-reference stream /Index must hold even pairs.", null, null);
+        }
+
+        List<(int First, int Count)> index = new(array.Count / 2);
+        for (int i = 0; i < array.Count; i += 2)
+        {
+            if (array[i] is not PdfInteger first || array[i + 1] is not PdfInteger count)
+            {
+                throw new QpdfParseException("Cross-reference stream /Index entries must be integers.", null, null);
+            }
+
+            if (first.Value < 0L || first.Value >= size || count.Value <= 0L || first.Value + count.Value > size)
+            {
+                throw new QpdfParseException($"Cross-reference stream /Index range [{first.Value}, {first.Value + count.Value}) is outside /Size {size}.", null, null);
+            }
+
+            index.Add(((int)first.Value, (int)count.Value));
+        }
+
+        return index;
+    }
+
+    private static byte[] DecodeXRefData(
+        PdfStream stream,
+        ResourceGovernor governor,
+        QpdfLimits limits,
+        long xrefOffset,
+        int streamNumber)
+    {
+        IReadOnlyList<FilterStage> stages;
+        try
+        {
+            stages = FilterChain.Resolve(stream.Dictionary);
+        }
+        catch (QpdfParseException ex)
+        {
+            throw new QpdfParseException($"Cross-reference stream declares invalid filters: {ex.Message}", xrefOffset, streamNumber);
+        }
+
+        return FilterChain.Decode(stream.Data, stages, limits, governor);
+    }
+
+    private static Dictionary<int, XrefEntry> ReadStreamEntries(
+        byte[] decoded,
+        int[] widths,
+        List<(int First, int Count)> index,
+        int size,
+        int dataLength,
+        ResourceGovernor governor,
+        long xrefOffset)
+    {
+        int entrySize = widths[0] + widths[1] + widths[2];
+        long total = 0L;
+        foreach ((int first, int count) in index)
+        {
+            checked
+            {
+                total += count;
+            }
+        }
+
+        checked
+        {
+            if (total * entrySize != decoded.Length)
+            {
+                throw new QpdfParseException($"Cross-reference stream data holds {decoded.Length} bytes for {total} entries of {entrySize}.", xrefOffset, null);
+            }
+        }
+
+        governor.ReserveMemory(checked(total * 32L));
+        Dictionary<int, XrefEntry> entries = new();
+        int position = 0;
+        foreach ((int first, int count) in index)
+        {
+            for (int k = 0; k < count; k++)
+            {
+                int number = first + k;
+                long[] fields = new long[3];
+                for (int field = 0; field < 3; field++)
+                {
+                    long value = 0L;
+                    for (int b = 0; b < widths[field]; b++)
+                    {
+                        value = (value << 8) | decoded[position];
+                        position += 1;
+                    }
+
+                    fields[field] = value;
+                }
+
+                if (widths[0] == 0)
+                {
+                    fields[0] = 1L;
+                }
+
+                if (number == 0)
+                {
+                    continue;
+                }
+
+                XrefEntry entry = ReadStreamEntry(fields, number, dataLength, xrefOffset);
+                if (entries.ContainsKey(number))
+                {
+                    throw new QpdfParseException($"Duplicate xref entry for object {number}.", xrefOffset, number);
+                }
+
+                governor.ChargeWork(1L);
+                entries[number] = entry;
+            }
+        }
+
+        return entries;
+    }
+
+    private static XrefEntry ReadStreamEntry(long[] fields, int number, int dataLength, long xrefOffset)
+    {
+        if (fields[0] == 0L)
+        {
+            if (fields[1] < 0L || fields[1] > int.MaxValue || fields[2] < 0L || fields[2] > int.MaxValue)
+            {
+                throw new QpdfParseException($"Free xref entry for object {number} is out of range.", xrefOffset, number);
+            }
+
+            return XrefEntry.Free(fields[1], (int)fields[2]);
+        }
+
+        if (fields[0] == 1L)
+        {
+            if (fields[1] < 0L || fields[1] >= dataLength || fields[2] < 0L || fields[2] > 65535L)
+            {
+                throw new QpdfParseException($"Xref entry for object {number} points outside the input.", xrefOffset, number);
+            }
+
+            return XrefEntry.Uncompressed(fields[1], (int)fields[2]);
+        }
+
+        if (fields[0] == 2L)
+        {
+            if (fields[1] < 0L || fields[1] > int.MaxValue || fields[2] < 0L || fields[2] > int.MaxValue)
+            {
+                throw new QpdfParseException($"Compressed xref entry for object {number} is out of range.", xrefOffset, number);
+            }
+
+            return XrefEntry.Compressed((int)fields[1], (int)fields[2]);
+        }
+
+        throw new QpdfParseException($"Unknown xref entry type {fields[0]} for object {number}.", xrefOffset, number);
+    }
+
+    private static void ValidateStreamCoverage(Dictionary<int, XrefEntry> entries, int size)
+    {
+        // Object 0 entries in streams are ignored like the reference reader;
+        // object 0 still resolves as free. Coverage therefore starts at 1.
+        for (int number = 1; number < size; number++)
+        {
+            if (!entries.ContainsKey(number))
+            {
+                throw new QpdfParseException($"Object {number} has no xref entry.", null, number);
+            }
+        }
     }
 
     private static long FindStartXRef(ReadOnlyMemory<byte> data)
@@ -370,7 +680,7 @@ internal sealed class ClassicXrefTable
             generation = (generation * 10) + (span[(int)entryOffset + i] - (byte)'0');
         }
 
-        return new XrefEntry(target, generation, kind == (byte)'n');
+        return kind == (byte)'n' ? XrefEntry.Uncompressed(target, generation) : XrefEntry.Free(target, generation);
     }
 
     private static int ReadSize(PdfDictionary trailer)
@@ -398,7 +708,7 @@ internal sealed class ClassicXrefTable
                 throw new QpdfParseException($"Object {number} has no xref entry.", null, number);
             }
 
-            if (entry.InUse && (entry.Offset < 0L || entry.Offset >= data.Length))
+            if (entry.Kind == XrefEntryKind.Uncompressed && (entry.First < 0L || entry.First >= data.Length))
             {
                 throw new QpdfParseException($"xref entry for object {number} points outside the input.", null, number);
             }
@@ -412,9 +722,10 @@ internal sealed class ClassicXrefTable
             }
         }
 
-        if (!entries.TryGetValue(0, out XrefEntry head) || head.InUse)
+        if (!entries.TryGetValue(0, out XrefEntry head) || head.Kind != XrefEntryKind.Free)
         {
             throw new QpdfParseException("Object 0 must be a free xref entry.", null, 0);
         }
     }
 }
+

@@ -2,28 +2,28 @@
 
 ## Current checkpoint
 
-Work item 08: governed Flate and predictors. The internal `Filters/`
-pipeline resolves `/Filter` and `/DecodeParms` (abbreviated names honored,
-single-dict and aligned-array parms) and decodes FlateDecode chains with
-strict zlib framing, Adler-32 verification, and TIFF/PNG predictor
-transforms under output budgets. All other filters fail explicitly as
-unsupported. No engine consumer is wired yet; structural decoding lands
-with xref/object streams in work item 09.
+Work item 09: xref streams and object streams. The unified `XRefTable`
+parses classic tables and Flate-compressed xref streams (`/W`, `/Index`,
+exact data sizing) with trailer duties taken by the stream dictionary;
+`/Prev`, `/XRefStm`, and `/Extends` fail explicitly as work-item-10 scope.
+The engine decodes object streams once through the governed filter pipeline
+(`N`/`First` validation, ascending offsets, per-entry extents, xref-backed
+caching) with cycle guards. Compressed references resolve transparently;
+selection output normalizes to classic xref.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 199 tests (166
-  prior plus 33 filter cases: round-trips, header/adler/truncation/
-  corruption rejection, expansion budgets, chain order and parms alignment,
-  TIFF 8-bit/RGB/packed/1-bit and PNG None/Sub/Up/Average/Paeth round-trips
-  including mixed row types, predictor defaults, dimension/value rejection,
-  and row-mismatch cases).
-- Strictness deltas against the pinned reference are recorded in
-  `docs/COMPATIBILITY.md` (partial rows, unknown PNG row bytes, parms
-  length mismatch, preset dictionaries); mirrored behaviors are noted too
-  (single-dict alignment, upstream parms defaults, ignored unknown keys).
+- Locked restore, Release build with zero warnings, and all 209 tests (199
+  prior plus 10 xref-stream cases: stream opens with catalog/spot checks,
+  typeless `/W` entries, compressed dict/int resolution, selection from
+  both new forms with reopened outputs, LZW-labeled stream rejection with
+  `UnsupportedFilter`, unknown entry types, `/Prev`, `/XRefStm`, `/Extends`,
+  and entry offsets outside the input).
+- Eight new synthetic fixtures (four xref-stream variants, two object-stream
+  files, two chained-structure negatives); classic coverage and the 05b
+  strict rules are unchanged and still green.
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency.
 - Real qpdf 12.4.2 executable smoke has still not run; no exe checksum or
@@ -34,10 +34,11 @@ binary.
 
 ## Next work
 
-1. Work item 09: resolve xref streams and object streams, wiring the governed
-   pipeline into structural decoding.
+1. Work item 10: incremental/hybrid precedence with deleted and replaced
+   references (`/Prev` chains, `/XRefStm`, `/Extends`).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
-   run `tools/run-reference-checks.ps1` and reconcile the result.
+   run `tools/run-reference-checks.ps1` and reconcile the result, including
+   upstream acceptance of M1 outputs.
 
 Continue in small tested local commits. Update the compatibility entries and
 this record with concrete evidence. Do not report full completion until all

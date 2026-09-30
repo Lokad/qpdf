@@ -125,7 +125,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             ReadOnlyMemory<byte> data = bytes;
             PdfVersion version = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
-            ClassicXrefTable table = ClassicXrefTable.Parse(data, limits, governor, diagnostics);
+            XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics);
             DocumentEngine engine = new(data, table, limits, governor, diagnostics);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);

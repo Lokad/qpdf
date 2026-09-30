@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Commands;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Jobs;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -408,6 +409,11 @@ public static class Qpdf
         if (ex is QpdfLimitException)
         {
             return Failed(QpdfDiagnosticCode.BudgetExceeded, ex.Message);
+        }
+
+        if (ex is QpdfFilterException)
+        {
+            return Failed(QpdfDiagnosticCode.UnsupportedFeature, ex.Message);
         }
 
         if (ex is QpdfParseException)

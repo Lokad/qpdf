@@ -39,6 +39,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Invocation arguments or job fields are invalid.</summary>
     InvalidArguments = 6,
+
+    /// <summary>Valid input needs an unimplemented feature.</summary>
+    UnsupportedFeature = 7,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

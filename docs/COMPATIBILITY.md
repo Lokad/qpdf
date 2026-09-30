@@ -140,6 +140,25 @@ rejected (upstream ignores them), parms-length mismatches are rejected
 rejected. Structural decoding consumes this pipeline starting with xref
 and object streams in work item 09.
 
+## Xref and object streams (work item 09)
+
+`startxref` may point at a classic table or a Flate-compressed xref
+stream (`/Type /XRef`, `/Size`, `/W`, optional `/Index`, decoded under
+output budgets with exact data sizing). Entry types are free,
+uncompressed with pre-read offset validation, and compressed with
+generation forced to zero; unknown types fail. Object-0 stream entries
+are ignored like the reference reader while object 0 still resolves as
+free. Coverage of `[1, /Size)` is exact; free-head rules match classic.
+Object streams (`/Type /ObjStm`, `/N`, `/First`) decode once with
+ascending, in-bounds offsets and per-entry extents, caching only what
+the xref table points at the stream. Strict deltas versus warn-and-continue:
+corrupt headers, self-containment,
+low object numbers, non-ascending offsets, and trailing entry bytes all
+fail, where the reference warns and continues. `/Prev`, `/XRefStm`, and
+`/Extends` fail explicitly as work-item-10 scope, replacing silent
+staleness with errors. Selection output normalizes to classic xref;
+object-stream preservation arrives with writer controls (M6).
+
 ## Single-page selection (work item 06a)
 
 Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the
