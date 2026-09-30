@@ -37,6 +37,9 @@ public sealed record QpdfLimits
     /// <summary>Operations between cancellation checks. Must be at least 1.</summary>
     public long CancellationCheckInterval { get; init; } = 1024L;
 
+    /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion.</summary>
+    public long MaxNestingDepth { get; init; } = 256L;
+
     /// <summary>Gets the default budgets.</summary>
     public static QpdfLimits Default { get; } = new QpdfLimits();
 
@@ -93,5 +96,11 @@ public sealed record QpdfLimits
         {
             throw new ArgumentOutOfRangeException(nameof(CancellationCheckInterval), "Budget must be positive.");
         }
+
+        if (MaxNestingDepth <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaxNestingDepth), "Budget must be positive.");
+        }
     }
 }
+

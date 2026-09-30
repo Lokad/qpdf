@@ -27,6 +27,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Planned outputs conflict with each other or with inputs.</summary>
     OutputConflict = 2,
+
+    /// <summary>A dictionary repeats a key; the last value wins.</summary>
+    DuplicateKey = 3,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>
@@ -50,3 +53,4 @@ public sealed record QpdfDiagnostic
         Message = message ?? throw new ArgumentNullException(nameof(message));
     }
 }
+
