@@ -114,6 +114,32 @@ mismatched `/Type` fails. Trailer `/Encrypt` rejects structurally as
 prompts, or value echo. Catalog `/Version` overrides and indirect-length edge
 cases stay open for M2 byte/version review.
 
+## Governed Flate and predictors (work item 08)
+
+The internal filter pipeline resolves `/Filter` names and arrays with
+canonical abbreviations (`Fl`, `LZW`, `A85`, `AHx`, `RL`, `CCF`, `DCT`)
+and aligns `/DecodeParms` as upstream does: a single dictionary applies
+to every stage, an array must match the filter count, and empty chains
+ignore parms. Only FlateDecode executes; every other filter fails
+explicitly as unsupported, never silently. LZW (both EarlyChange values),
+ASCIIHex, ASCII85, and RunLength arrive in work item 11; DCT stays M8.
+
+Flate uses BCL inflate inside strict zlib framing: method/window/header
+checks, preset-dictionary rejection, per-chunk output budgets, and an
+Adler-32 trailer verification that catches truncations BCL alone would
+decode short without error. Corrupt bodies and checksum mismatches fail
+as truncated input; decompression bombs fail on budgets.
+
+Predictors mirror upstream parameters (`/Predictor` 1, 2, or 10-15 with
+defaults 1/1/1/8 for predictor/columns/colors/bits, unknown keys
+ignored): TIFF horizontal differencing per sample with packed rows, PNG
+per-row Sub/Up/Average/Paeth at byte granularity. Strict deltas: partial
+rows are rejected (upstream pads them), unknown PNG row bytes are
+rejected (upstream ignores them), parms-length mismatches are rejected
+(upstream warns and skips decoding), and preset dictionaries are
+rejected. Structural decoding consumes this pipeline starting with xref
+and object streams in work item 09.
+
 ## Single-page selection (work item 06a)
 
 Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the
