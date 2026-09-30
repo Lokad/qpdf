@@ -1,0 +1,5230 @@
+{
+  "schemaVersion": 1,
+  "reference": {
+    "repository": "https://github.com/qpdf/qpdf",
+    "version": "12.4.2",
+    "commit": "4eba95899886e851cc41d76886483b347612f2a8",
+    "documentedFlagCount": 140,
+    "sources": {
+      "job.yml": "138ec180062ab204de2126cc93c8b5d9fb7ef3f635777dd2e28b18550cd1f1d9",
+      "manual/cli.rst": "39175c7a8578e109a3b91bf4956e954cf60f64829813384b2a89cddfe7403cd1"
+    }
+  },
+  "contexts": [
+    {
+      "name": "help",
+      "triggers": [],
+      "positional": false
+    },
+    {
+      "name": "global",
+      "triggers": [],
+      "positional": false
+    },
+    {
+      "name": "main",
+      "triggers": [],
+      "positional": true
+    },
+    {
+      "name": "pages",
+      "triggers": [
+        "main.pages"
+      ],
+      "positional": true
+    },
+    {
+      "name": "encryption",
+      "triggers": [
+        "main.encrypt"
+      ],
+      "positional": true
+    },
+    {
+      "name": "40-bit-encryption",
+      "triggers": [
+        "encryption.bits.40"
+      ],
+      "positional": false
+    },
+    {
+      "name": "128-bit-encryption",
+      "triggers": [
+        "encryption.bits.128"
+      ],
+      "positional": false
+    },
+    {
+      "name": "256-bit-encryption",
+      "triggers": [
+        "encryption.bits.256"
+      ],
+      "positional": false
+    },
+    {
+      "name": "underlay/overlay",
+      "triggers": [
+        "main.overlay",
+        "main.underlay"
+      ],
+      "positional": true
+    },
+    {
+      "name": "attachment",
+      "triggers": [
+        "main.add-attachment"
+      ],
+      "positional": true
+    },
+    {
+      "name": "copy-attachment",
+      "triggers": [
+        "main.copy-attachments-from"
+      ],
+      "positional": true
+    },
+    {
+      "name": "set-page-labels",
+      "triggers": [
+        "main.set-page-labels"
+      ],
+      "positional": true
+    }
+  ],
+  "parserForms": [
+    "input/output operands",
+    "@file",
+    "@-",
+    "--",
+    "page-range syntax"
+  ],
+  "supplementalRequirements": [
+    "--json-key=encrypt is excluded",
+    "fix-qdf companion",
+    "zlib-flate companion"
+  ],
+  "options": [
+    {
+      "context": "128-bit-encryption",
+      "flag": "--accessibility",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.accessibility"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--accessibility=[y|n]",
+          "source": "manual/cli.rst:2305"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--annotate",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.annotate"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--annotate=[y|n]",
+          "source": "manual/cli.rst:2324"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--assemble",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.assemble"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--assemble=[y|n]",
+          "source": "manual/cli.rst:2339"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--cleartext-metadata",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.128bit.cleartextMetadata"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--cleartext-metadata",
+          "source": "manual/cli.rst:2494"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--extract",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.extract"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--extract=[y|n]",
+          "source": "manual/cli.rst:2351"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--force-V4",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.128bit.forceV4"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--force-V4",
+          "source": "manual/cli.rst:2543"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--form",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.form"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--form=[y|n]",
+          "source": "manual/cli.rst:2361"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--modify",
+      "argumentKind": "required_choices",
+      "parameter": "modify128",
+      "choices": [
+        "all",
+        "annotate",
+        "form",
+        "assembly",
+        "none"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.modify"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "all": "excluded-crypto",
+        "annotate": "excluded-crypto",
+        "form": "excluded-crypto",
+        "assembly": "excluded-crypto",
+        "none": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--modify=modify-opt",
+          "source": "manual/cli.rst:2392"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--modify-other",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.modifyOther"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--modify-other=[y|n]",
+          "source": "manual/cli.rst:2375"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--print",
+      "argumentKind": "required_choices",
+      "parameter": "print128",
+      "choices": [
+        "full",
+        "low",
+        "none"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.print"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "full": "excluded-crypto",
+        "low": "excluded-crypto",
+        "none": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--print=print-opt",
+          "source": "manual/cli.rst:2462"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "128-bit-encryption",
+      "flag": "--use-aes",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.128bit.useAes"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--use-aes=[y|n]",
+          "source": "manual/cli.rst:2508"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--accessibility",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.accessibility"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--accessibility=[y|n]",
+          "source": "manual/cli.rst:2305"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--allow-insecure",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.256bit.allowInsecure"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--allow-insecure",
+          "source": "manual/cli.rst:2524"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--annotate",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.annotate"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--annotate=[y|n]",
+          "source": "manual/cli.rst:2324"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--assemble",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.assemble"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--assemble=[y|n]",
+          "source": "manual/cli.rst:2339"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--cleartext-metadata",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.256bit.cleartextMetadata"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--cleartext-metadata",
+          "source": "manual/cli.rst:2494"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--extract",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.extract"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--extract=[y|n]",
+          "source": "manual/cli.rst:2351"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--force-R5",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.256bit.forceR5"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--force-R5",
+          "source": "manual/cli.rst:2557"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--form",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.form"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--form=[y|n]",
+          "source": "manual/cli.rst:2361"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--modify",
+      "argumentKind": "required_choices",
+      "parameter": "modify128",
+      "choices": [
+        "all",
+        "annotate",
+        "form",
+        "assembly",
+        "none"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.modify"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "all": "excluded-crypto",
+        "annotate": "excluded-crypto",
+        "form": "excluded-crypto",
+        "assembly": "excluded-crypto",
+        "none": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--modify=modify-opt",
+          "source": "manual/cli.rst:2392"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--modify-other",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.modifyOther"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--modify-other=[y|n]",
+          "source": "manual/cli.rst:2375"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "256-bit-encryption",
+      "flag": "--print",
+      "argumentKind": "required_choices",
+      "parameter": "print128",
+      "choices": [
+        "full",
+        "low",
+        "none"
+      ],
+      "jobJsonPaths": [
+        "encrypt.256bit.print"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "full": "excluded-crypto",
+        "low": "excluded-crypto",
+        "none": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--print=print-opt",
+          "source": "manual/cli.rst:2462"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "40-bit-encryption",
+      "flag": "--annotate",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.40bit.annotate"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--annotate=[y|n]",
+          "source": "manual/cli.rst:2324"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "40-bit-encryption",
+      "flag": "--extract",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.40bit.extract"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--extract=[y|n]",
+          "source": "manual/cli.rst:2351"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "40-bit-encryption",
+      "flag": "--modify",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.40bit.modify"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--modify=modify-opt",
+          "source": "manual/cli.rst:2392"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "40-bit-encryption",
+      "flag": "--print",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "encrypt.40bit.print"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "y": "excluded-crypto",
+        "n": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--print=print-opt",
+          "source": "manual/cli.rst:2462"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--creationdate",
+      "argumentKind": "required_parameter",
+      "parameter": "creation-date",
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].creationdate"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--creationdate=date",
+          "source": "manual/cli.rst:3178"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--description",
+      "argumentKind": "required_parameter",
+      "parameter": "description",
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].description"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--description=\"text\"",
+          "source": "manual/cli.rst:3221"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--filename",
+      "argumentKind": "required_parameter",
+      "parameter": "displayed-filename",
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].filename"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--filename=name",
+          "source": "manual/cli.rst:3162"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--key",
+      "argumentKind": "required_parameter",
+      "parameter": "attachment-key",
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].key"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--key=key",
+          "source": "manual/cli.rst:3149"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--mimetype",
+      "argumentKind": "required_parameter",
+      "parameter": "mime/type",
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].mimetype"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--mimetype=type/subtype",
+          "source": "manual/cli.rst:3202"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--moddate",
+      "argumentKind": "required_parameter",
+      "parameter": "modification-date",
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].moddate"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--moddate=date",
+          "source": "manual/cli.rst:3190"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "attachment",
+      "flag": "--replace",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment[].replace"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--replace",
+          "source": "manual/cli.rst:3231"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "copy-attachment",
+      "flag": "--password",
+      "argumentKind": "required_parameter",
+      "parameter": "password",
+      "choices": [],
+      "jobJsonPaths": [
+        "copyAttachmentsFrom[].password"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--password=password",
+          "source": "manual/cli.rst:390"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "copy-attachment",
+      "flag": "--prefix",
+      "argumentKind": "required_parameter",
+      "parameter": "prefix",
+      "choices": [],
+      "jobJsonPaths": [
+        "copyAttachmentsFrom[].prefix"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--prefix=prefix",
+          "source": "manual/cli.rst:3259"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "encryption",
+      "flag": "--bits",
+      "argumentKind": "required_choices",
+      "parameter": "enc_bits",
+      "choices": [
+        "40",
+        "128",
+        "256"
+      ],
+      "jobJsonPaths": [],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "40": "excluded-crypto",
+        "128": "excluded-crypto",
+        "256": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--bits={48|128|256}",
+          "source": "manual/cli.rst:2294"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "encryption",
+      "flag": "--owner-password",
+      "argumentKind": "required_parameter",
+      "parameter": "owner_password",
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.ownerPassword"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--owner-password=owner-password",
+          "source": "manual/cli.rst:2284"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "encryption",
+      "flag": "--user-password",
+      "argumentKind": "required_parameter",
+      "parameter": "user_password",
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt.userPassword"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--user-password=user-password",
+          "source": "manual/cli.rst:2275"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "global",
+      "flag": "--max-stream-filters",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "global.maxStreamFilters"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--max-stream-filters=n",
+          "source": "manual/cli.rst:3903"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "global",
+      "flag": "--no-default-limits",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "global.noDefaultLimits"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--no-default-limits",
+          "source": "manual/cli.rst:3830"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "global",
+      "flag": "--parser-max-container-size",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "global.parserMaxContainerSize"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--parser-max-container-size=n",
+          "source": "manual/cli.rst:3867"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "global",
+      "flag": "--parser-max-container-size-damaged",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "global.parserMaxContainerSizeDamaged"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--parser-max-container-size-damaged=n",
+          "source": "manual/cli.rst:3882"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "global",
+      "flag": "--parser-max-errors",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "global.parserMaxErrors"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--parser-max-errors=n",
+          "source": "manual/cli.rst:3857"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "global",
+      "flag": "--parser-max-nesting",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "global.parserMaxNesting"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--parser-max-nesting=n",
+          "source": "manual/cli.rst:3847"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "help",
+      "flag": "--copyright",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--copyright",
+          "source": "manual/cli.rst:327"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "help",
+      "flag": "--job-json-help",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--job-json-help",
+          "source": "manual/cli.rst:346"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "help",
+      "flag": "--json-help",
+      "argumentKind": "optional_choices",
+      "parameter": "json_version",
+      "choices": [
+        "1",
+        "2",
+        "latest"
+      ],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {
+        "1": "required",
+        "2": "required",
+        "latest": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--json-help[=version]",
+          "source": "manual/cli.rst:3653"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "help",
+      "flag": "--show-crypto",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-crypto",
+          "source": "manual/cli.rst:335"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "help",
+      "flag": "--version",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--version",
+          "source": "manual/cli.rst:315"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "help",
+      "flag": "--zopfli",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "documented-host/build-difference",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--zopfli",
+          "source": "manual/cli.rst:357"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--add-attachment",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "addAttachment"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--add-attachment file [options] --",
+          "source": "manual/cli.rst:3054"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--allow-weak-crypto",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "allowWeakCrypto"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--allow-weak-crypto",
+          "source": "manual/cli.rst:493"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--check",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "check"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--check",
+          "source": "manual/cli.rst:3380"
+        }
+      ],
+      "milestone": "M10",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--check-linearization",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "checkLinearization"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--check-linearization",
+          "source": "manual/cli.rst:3451"
+        }
+      ],
+      "milestone": "M10",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--coalesce-contents",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "coalesceContents"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--coalesce-contents",
+          "source": "manual/cli.rst:1204"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--collate",
+      "argumentKind": "optional_parameter",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "collate"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--collate[=n[,m,...]]",
+          "source": "manual/cli.rst:1475"
+        }
+      ],
+      "milestone": "M5",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--compress-streams",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "compressStreams"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "y": "required",
+        "n": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--compress-streams=[y|n]",
+          "source": "manual/cli.rst:877"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--compression-level",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "compressionLevel"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--compression-level=level",
+          "source": "manual/cli.rst:1007"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--copy-attachments-from",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "copyAttachmentsFrom"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--copy-attachments-from file [options] --",
+          "source": "manual/cli.rst:3068"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--copy-encryption",
+      "argumentKind": "file_parameter",
+      "parameter": "file",
+      "choices": [],
+      "jobJsonPaths": [
+        "copyEncryption"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--copy-encryption=file",
+          "source": "manual/cli.rst:773"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--decode-level",
+      "argumentKind": "required_choices",
+      "parameter": "decode_level",
+      "choices": [
+        "none",
+        "generalized",
+        "specialized",
+        "all"
+      ],
+      "jobJsonPaths": [
+        "decodeLevel"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "none": "required",
+        "generalized": "required",
+        "specialized": "required",
+        "all": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--decode-level=parameter",
+          "source": "manual/cli.rst:894"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--decrypt",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "decrypt"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--decrypt",
+          "source": "manual/cli.rst:741"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--deterministic-id",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "deterministicId"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--deterministic-id",
+          "source": "manual/cli.rst:466"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--empty",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "empty"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--empty",
+          "source": "manual/cli.rst:135"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--encrypt",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "encrypt"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--encrypt [options] --",
+          "source": "manual/cli.rst:732"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--encryption-file-password",
+      "argumentKind": "required_parameter",
+      "parameter": "password",
+      "choices": [],
+      "jobJsonPaths": [
+        "encryptionFilePassword"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--encryption-file-password=password",
+          "source": "manual/cli.rst:798"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--externalize-inline-images",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "externalizeInlineImages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--externalize-inline-images",
+          "source": "manual/cli.rst:1222"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--filtered-stream-data",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "filteredStreamData"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--filtered-stream-data",
+          "source": "manual/cli.rst:3518"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--flatten-annotations",
+      "argumentKind": "required_choices",
+      "parameter": "flatten",
+      "choices": [
+        "all",
+        "print",
+        "screen"
+      ],
+      "jobJsonPaths": [
+        "flattenAnnotations"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "all": "required",
+        "print": "required",
+        "screen": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--flatten-annotations=parameter",
+          "source": "manual/cli.rst:1598"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--flatten-rotation",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "flattenRotation"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--flatten-rotation",
+          "source": "manual/cli.rst:1580"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--force-version",
+      "argumentKind": "required_parameter",
+      "parameter": "version",
+      "choices": [],
+      "jobJsonPaths": [
+        "forceVersion"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--force-version=version",
+          "source": "manual/cli.rst:1273"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--generate-appearances",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "generateAppearances"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--generate-appearances",
+          "source": "manual/cli.rst:1706"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--global",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "global"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--global [options] --",
+          "source": "manual/cli.rst:3813"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--ignore-xref-streams",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "ignoreXrefStreams"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--ignore-xref-streams",
+          "source": "manual/cli.rst:680"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--ii-min-bytes",
+      "argumentKind": "required_parameter",
+      "parameter": "minimum",
+      "choices": [],
+      "jobJsonPaths": [
+        "iiMinBytes"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--ii-min-bytes=size-in-bytes",
+          "source": "manual/cli.rst:1235"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--is-encrypted",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "isEncrypted"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--is-encrypted",
+          "source": "manual/cli.rst:3291"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--job-json-file",
+      "argumentKind": "file_parameter",
+      "parameter": "file",
+      "choices": [],
+      "jobJsonPaths": [
+        "jobJsonFile"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--job-json-file=file",
+          "source": "manual/cli.rst:161"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--jpeg-quality",
+      "argumentKind": "required_parameter",
+      "parameter": "level",
+      "choices": [],
+      "jobJsonPaths": [
+        "jpegQuality"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--jpeg-quality=level",
+          "source": "manual/cli.rst:1031"
+        }
+      ],
+      "milestone": "M8",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json",
+      "argumentKind": "optional_choices",
+      "parameter": "json_version",
+      "choices": [
+        "1",
+        "2",
+        "latest"
+      ],
+      "jobJsonPaths": [
+        "json"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "1": "required",
+        "2": "required",
+        "latest": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--json[=version]",
+          "source": "manual/cli.rst:3624"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json-input",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "jsonInput"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--json-input",
+          "source": "manual/cli.rst:3771"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json-key",
+      "argumentKind": "required_choices",
+      "parameter": "json_key",
+      "choices": [
+        "acroform",
+        "attachments",
+        "encrypt",
+        "objectinfo",
+        "objects",
+        "outlines",
+        "pagelabels",
+        "pages",
+        "qpdf"
+      ],
+      "jobJsonPaths": [
+        "jsonKey"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "acroform": "required",
+        "attachments": "required",
+        "encrypt": "excluded-crypto",
+        "objectinfo": "required",
+        "objects": "required",
+        "outlines": "required",
+        "pagelabels": "required",
+        "pages": "required",
+        "qpdf": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--json-key=key",
+          "source": "manual/cli.rst:3669"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json-object",
+      "argumentKind": "required_parameter",
+      "parameter": "trailer",
+      "choices": [],
+      "jobJsonPaths": [
+        "jsonObject"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--json-object={trailer|obj[,gen]}",
+          "source": "manual/cli.rst:3686"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json-output",
+      "argumentKind": "optional_choices",
+      "parameter": "json_output",
+      "choices": [
+        "2",
+        "latest"
+      ],
+      "jobJsonPaths": [
+        "jsonOutput"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "2": "required",
+        "latest": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--json-output[=version]",
+          "source": "manual/cli.rst:3739"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json-stream-data",
+      "argumentKind": "required_choices",
+      "parameter": "json_stream_data",
+      "choices": [
+        "none",
+        "inline",
+        "file"
+      ],
+      "jobJsonPaths": [
+        "jsonStreamData"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "none": "required",
+        "inline": "required",
+        "file": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--json-stream-data={none|inline|file}",
+          "source": "manual/cli.rst:3699"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--json-stream-prefix",
+      "argumentKind": "file_parameter",
+      "parameter": "stream-file-prefix",
+      "choices": [],
+      "jobJsonPaths": [
+        "jsonStreamPrefix"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--json-stream-prefix=file-prefix",
+          "source": "manual/cli.rst:3722"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--keep-files-open",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "keepFilesOpen"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "y": "required",
+        "n": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--keep-files-open=[y|n]",
+          "source": "manual/cli.rst:513"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--keep-files-open-threshold",
+      "argumentKind": "required_parameter",
+      "parameter": "count",
+      "choices": [],
+      "jobJsonPaths": [
+        "keepFilesOpenThreshold"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--keep-files-open-threshold=count",
+          "source": "manual/cli.rst:547"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--keep-inline-images",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "keepInlineImages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--keep-inline-images",
+          "source": "manual/cli.rst:1812"
+        }
+      ],
+      "milestone": "M8",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--linearize",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "linearize"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--linearize",
+          "source": "manual/cli.rst:719"
+        }
+      ],
+      "milestone": "M10",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--linearize-pass1",
+      "argumentKind": "file_parameter",
+      "parameter": "filename",
+      "choices": [],
+      "jobJsonPaths": [
+        "linearizePass1"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--linearize-pass1=file",
+          "source": "manual/cli.rst:4003"
+        }
+      ],
+      "milestone": "M10",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--list-attachments",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "listAttachments"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--list-attachments",
+          "source": "manual/cli.rst:3578"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--min-version",
+      "argumentKind": "required_parameter",
+      "parameter": "version",
+      "choices": [],
+      "jobJsonPaths": [
+        "minVersion"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--min-version=version",
+          "source": "manual/cli.rst:1246"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--newline-before-endstream",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "newlineBeforeEndstream"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--newline-before-endstream",
+          "source": "manual/cli.rst:1189"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--no-original-object-ids",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "noOriginalObjectIds"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--no-original-object-ids",
+          "source": "manual/cli.rst:863"
+        }
+      ],
+      "milestone": "M9",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--no-warn",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "noWarn"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--no-warn",
+          "source": "manual/cli.rst:450"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--normalize-content",
+      "argumentKind": "required_choices",
+      "parameter": "yn",
+      "choices": [
+        "y",
+        "n"
+      ],
+      "jobJsonPaths": [
+        "normalizeContent"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "y": "required",
+        "n": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--normalize-content=[y|n]",
+          "source": "manual/cli.rst:1051"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--object-streams",
+      "argumentKind": "required_choices",
+      "parameter": "object_streams",
+      "choices": [
+        "disable",
+        "preserve",
+        "generate"
+      ],
+      "jobJsonPaths": [
+        "objectStreams"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "disable": "required",
+        "preserve": "required",
+        "generate": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--object-streams=mode",
+          "source": "manual/cli.rst:1069"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--oi-min-area",
+      "argumentKind": "required_parameter",
+      "parameter": "minimum",
+      "choices": [],
+      "jobJsonPaths": [
+        "oiMinArea"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--oi-min-area=area-in-pixels",
+          "source": "manual/cli.rst:1802"
+        }
+      ],
+      "milestone": "M8",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--oi-min-height",
+      "argumentKind": "required_parameter",
+      "parameter": "minimum",
+      "choices": [],
+      "jobJsonPaths": [
+        "oiMinHeight"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--oi-min-height=height",
+          "source": "manual/cli.rst:1793"
+        }
+      ],
+      "milestone": "M8",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--oi-min-width",
+      "argumentKind": "required_parameter",
+      "parameter": "minimum",
+      "choices": [],
+      "jobJsonPaths": [
+        "oiMinWidth"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--oi-min-width=width",
+          "source": "manual/cli.rst:1784"
+        }
+      ],
+      "milestone": "M8",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--optimize-images",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "optimizeImages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--optimize-images",
+          "source": "manual/cli.rst:1760"
+        }
+      ],
+      "milestone": "M8",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--overlay",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "overlay"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--overlay file [options] --",
+          "source": "manual/cli.rst:1558"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--pages",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "pages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--pages [--file=]file [options] [...] --",
+          "source": "manual/cli.rst:1428"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--password",
+      "argumentKind": "required_parameter",
+      "parameter": "password",
+      "choices": [],
+      "jobJsonPaths": [
+        "password"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--password=password",
+          "source": "manual/cli.rst:390"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--password-file",
+      "argumentKind": "file_parameter",
+      "parameter": "password",
+      "choices": [],
+      "jobJsonPaths": [
+        "passwordFile"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--password-file=filename",
+          "source": "manual/cli.rst:412"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--password-is-hex-key",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "passwordIsHexKey"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--password-is-hex-key",
+          "source": "manual/cli.rst:576"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--password-mode",
+      "argumentKind": "required_choices",
+      "parameter": "password_mode",
+      "choices": [
+        "bytes",
+        "hex-bytes",
+        "unicode",
+        "auto"
+      ],
+      "jobJsonPaths": [
+        "passwordMode"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {
+        "bytes": "excluded-crypto",
+        "hex-bytes": "excluded-crypto",
+        "unicode": "excluded-crypto",
+        "auto": "excluded-crypto"
+      },
+      "manualForms": [
+        {
+          "syntax": "--password-mode=mode",
+          "source": "manual/cli.rst:617"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--preserve-unreferenced",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "preserveUnreferenced"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--preserve-unreferenced",
+          "source": "manual/cli.rst:1119"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--preserve-unreferenced-resources",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "preserveUnreferencedResources"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--preserve-unreferenced-resources",
+          "source": "manual/cli.rst:1176"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--progress",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "progress"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--progress",
+          "source": "manual/cli.rst:439"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--qdf",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "qdf"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--qdf",
+          "source": "manual/cli.rst:811"
+        }
+      ],
+      "milestone": "M9",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--raw-stream-data",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "rawStreamData"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--raw-stream-data",
+          "source": "manual/cli.rst:3503"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--recompress-flate",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "recompressFlate"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--recompress-flate",
+          "source": "manual/cli.rst:988"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-acroform",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "removeAcroform"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-acroform",
+          "source": "manual/cli.rst:1821"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-attachment",
+      "argumentKind": "required_parameter",
+      "parameter": "attachment",
+      "choices": [],
+      "jobJsonPaths": [
+        "removeAttachment"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-attachment=key",
+          "source": "manual/cli.rst:3083"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-info",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "removeInfo"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-info",
+          "source": "manual/cli.rst:1845"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-metadata",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "removeMetadata"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-metadata",
+          "source": "manual/cli.rst:1856"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-page-labels",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "removePageLabels"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-page-labels",
+          "source": "manual/cli.rst:1866"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-restrictions",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "removeRestrictions"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-restrictions",
+          "source": "manual/cli.rst:757"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-structure",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "removeStructure"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--remove-structure",
+          "source": "manual/cli.rst:1876"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--remove-unreferenced-resources",
+      "argumentKind": "required_choices",
+      "parameter": "remove_unref",
+      "choices": [
+        "auto",
+        "yes",
+        "no"
+      ],
+      "jobJsonPaths": [
+        "removeUnreferencedResources"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "auto": "required",
+        "yes": "required",
+        "no": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--remove-unreferenced-resources=parameter",
+          "source": "manual/cli.rst:1142"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--replace-input",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "replaceInput"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--replace-input",
+          "source": "manual/cli.rst:147"
+        }
+      ],
+      "milestone": "M5",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--report-memory-usage",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "reportMemoryUsage"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--report-memory-usage",
+          "source": "manual/cli.rst:4034"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--requires-password",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "requiresPassword"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--requires-password",
+          "source": "manual/cli.rst:3328"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--rotate",
+      "argumentKind": "required_parameter",
+      "parameter": "[+|-]angle",
+      "choices": [],
+      "jobJsonPaths": [
+        "rotate"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--rotate=[+|-]angle[:page-range]",
+          "source": "manual/cli.rst:1652"
+        }
+      ],
+      "milestone": "M5",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--set-page-labels",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "setPageLabels"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--set-page-labels label-spec ... --",
+          "source": "manual/cli.rst:1889"
+        }
+      ],
+      "milestone": "M5",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-attachment",
+      "argumentKind": "required_parameter",
+      "parameter": "attachment",
+      "choices": [],
+      "jobJsonPaths": [
+        "showAttachment"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-attachment=key",
+          "source": "manual/cli.rst:3595"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-encryption",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "showEncryption"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-encryption",
+          "source": "manual/cli.rst:3417"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-encryption-key",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "showEncryptionKey"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-encryption-key",
+          "source": "manual/cli.rst:3433"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-linearization",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "showLinearization"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-linearization",
+          "source": "manual/cli.rst:3465"
+        }
+      ],
+      "milestone": "M10",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-npages",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "showNpages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-npages",
+          "source": "manual/cli.rst:3544"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-object",
+      "argumentKind": "required_parameter",
+      "parameter": "trailer",
+      "choices": [],
+      "jobJsonPaths": [
+        "showObject"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-object={trailer|obj[,gen]}",
+          "source": "manual/cli.rst:3491"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-pages",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "showPages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-pages",
+          "source": "manual/cli.rst:3556"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--show-xref",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "showXref"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--show-xref",
+          "source": "manual/cli.rst:3473"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--split-pages",
+      "argumentKind": "optional_parameter",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "splitPages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--split-pages[=n]",
+          "source": "manual/cli.rst:1493"
+        }
+      ],
+      "milestone": "M5",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--static-aes-iv",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "staticAesIv"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--static-aes-iv",
+          "source": "manual/cli.rst:3985"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--static-id",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "staticId"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--static-id",
+          "source": "manual/cli.rst:3971"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--stream-data",
+      "argumentKind": "required_choices",
+      "parameter": "stream_data",
+      "choices": [
+        "compress",
+        "preserve",
+        "uncompress"
+      ],
+      "jobJsonPaths": [
+        "streamData"
+      ],
+      "scope": "required",
+      "choiceScopes": {
+        "compress": "required",
+        "preserve": "required",
+        "uncompress": "required"
+      },
+      "manualForms": [
+        {
+          "syntax": "--stream-data=parameter",
+          "source": "manual/cli.rst:956"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--suppress-password-recovery",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "suppressPasswordRecovery"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--suppress-password-recovery",
+          "source": "manual/cli.rst:604"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--suppress-recovery",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "suppressRecovery"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--suppress-recovery",
+          "source": "manual/cli.rst:666"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--test-json-schema",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "testJsonSchema"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--test-json-schema",
+          "source": "manual/cli.rst:4021"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--underlay",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "underlay"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--underlay file [options] --",
+          "source": "manual/cli.rst:1569"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--update-from-json",
+      "argumentKind": "file_parameter",
+      "parameter": "qpdf-json file",
+      "choices": [],
+      "jobJsonPaths": [
+        "updateFromJson"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--update-from-json=qpdf-json-file",
+          "source": "manual/cli.rst:3785"
+        }
+      ],
+      "milestone": "M6",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--verbose",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "verbose"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--verbose",
+          "source": "manual/cli.rst:426"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--warning-exit-0",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "warningExit-0"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--warning-exit-0",
+          "source": "manual/cli.rst:228"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "main",
+      "flag": "--with-images",
+      "argumentKind": "bare",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [
+        "withImages"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--with-images",
+          "source": "manual/cli.rst:3568"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "pages",
+      "flag": "--file",
+      "argumentKind": "file_parameter",
+      "parameter": "file",
+      "choices": [],
+      "jobJsonPaths": [
+        "pages[].file"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--file=file",
+          "source": "manual/cli.rst:1443"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "pages",
+      "flag": "--password",
+      "argumentKind": "required_parameter",
+      "parameter": "password",
+      "choices": [],
+      "jobJsonPaths": [
+        "pages[].password"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--password=password",
+          "source": "manual/cli.rst:390"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "pages",
+      "flag": "--range",
+      "argumentKind": "required_parameter",
+      "parameter": "page-range",
+      "choices": [],
+      "jobJsonPaths": [
+        "pages[].range"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--range=numeric-range",
+          "source": "manual/cli.rst:1459"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "parser",
+      "flag": "--completion-bash",
+      "argumentKind": "manual",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--completion-bash",
+          "source": "manual/cli.rst:269"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "parser",
+      "flag": "--completion-zsh",
+      "argumentKind": "manual",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--completion-zsh",
+          "source": "manual/cli.rst:278"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "parser",
+      "flag": "--help",
+      "argumentKind": "manual",
+      "parameter": null,
+      "choices": [],
+      "jobJsonPaths": [],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--help[=--option|topic]",
+          "source": "manual/cli.rst:303"
+        }
+      ],
+      "milestone": "M4",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "underlay/overlay",
+      "flag": "--file",
+      "argumentKind": "file_parameter",
+      "parameter": "file",
+      "choices": [],
+      "jobJsonPaths": [
+        "overlay[].file",
+        "underlay[].file"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--file=file",
+          "source": "manual/cli.rst:1443"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "underlay/overlay",
+      "flag": "--from",
+      "argumentKind": "required_parameter",
+      "parameter": "page-range",
+      "choices": [],
+      "jobJsonPaths": [
+        "overlay[].from",
+        "underlay[].from"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--from=[page-range]",
+          "source": "manual/cli.rst:2976"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "underlay/overlay",
+      "flag": "--password",
+      "argumentKind": "required_parameter",
+      "parameter": "password",
+      "choices": [],
+      "jobJsonPaths": [
+        "overlay[].password",
+        "underlay[].password"
+      ],
+      "scope": "excluded-crypto",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--password=password",
+          "source": "manual/cli.rst:390"
+        }
+      ],
+      "milestone": "excluded",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Runtime rejection not implemented."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "underlay/overlay",
+      "flag": "--repeat",
+      "argumentKind": "required_parameter",
+      "parameter": "page-range",
+      "choices": [],
+      "jobJsonPaths": [
+        "overlay[].repeat",
+        "underlay[].repeat"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--repeat=page-range",
+          "source": "manual/cli.rst:2993"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    },
+    {
+      "context": "underlay/overlay",
+      "flag": "--to",
+      "argumentKind": "required_parameter",
+      "parameter": "page-range",
+      "choices": [],
+      "jobJsonPaths": [
+        "overlay[].to",
+        "underlay[].to"
+      ],
+      "scope": "required",
+      "choiceScopes": {},
+      "manualForms": [
+        {
+          "syntax": "--to=page-range",
+          "source": "manual/cli.rst:2964"
+        }
+      ],
+      "milestone": "M7",
+      "status": "not-started",
+      "defaultReview": "pending",
+      "remainingGaps": [
+        "Behavior review and implementation pending."
+      ],
+      "evidence": {
+        "positive": [],
+        "negative": [],
+        "interaction": [],
+        "resource": [],
+        "oracle": []
+      }
+    }
+  ]
+}

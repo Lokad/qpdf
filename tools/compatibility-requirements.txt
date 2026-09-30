@@ -1,0 +1,2 @@
+# Developer-only YAML reader for explicit inventory regeneration.
+PyYAML==6.0.3

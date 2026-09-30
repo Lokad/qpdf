@@ -1,0 +1,20 @@
+# Local implementation handoff and upstream reference checkouts.
+/PLAN.md
+/external/
+
+# .NET build, test, benchmark, and package artifacts.
+**/bin/
+**/obj/
+.vs/
+TestResults/
+BenchmarkDotNet.Artifacts/
+artifacts/
+*.nupkg
+*.snupkg
+*.nettrace
+*.gcdump
+
+# Optional inventory-generation environment.
+.venv/
+__pycache__/
+*.pyc

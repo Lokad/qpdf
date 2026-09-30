@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scaffold:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore locked dependencies
+        run: dotnet restore Lokad.Qpdf.slnx --locked-mode
+      - name: Build Release
+        run: dotnet build Lokad.Qpdf.slnx -c Release --no-restore
+      - name: Test scaffold contracts
+        run: dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
+      - name: Pack Release
+        run: dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
+      - name: Inspect package boundary
+        shell: pwsh
+        run: ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg

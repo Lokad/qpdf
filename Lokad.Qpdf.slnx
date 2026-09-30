@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lokad.Qpdf.Tests/Lokad.Qpdf.Tests.csproj" />
+  </Folder>
+</Solution>

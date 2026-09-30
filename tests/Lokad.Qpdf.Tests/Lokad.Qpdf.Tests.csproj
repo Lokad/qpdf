@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="All" />
+    <PackageReference Include="xunit" PrivateAssets="All" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />
+    <ProjectReference Include="../../src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
+    <Using Include="Xunit" />
+    <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,28 @@
+<Project>
+  <ItemGroup>
+    <AllowedPackageReference Include="SixLabors.ImageSharp" />
+    <AllowedPackageReference Include="Microsoft.SourceLink.GitHub" />
+    <AllowedPackageReference Include="Microsoft.NET.Test.Sdk;xunit;xunit.runner.visualstudio"
+                             Condition="'$(IsTestProject)' == 'true'" />
+  </ItemGroup>
+
+  <Target Name="EnforcePackageAllowlist" BeforeTargets="CollectPackageReferences">
+    <ItemGroup>
+      <DisallowedPackageReference Include="@(PackageReference)" Exclude="@(AllowedPackageReference)" />
+    </ItemGroup>
+    <Error Condition="'@(DisallowedPackageReference)' != ''"
+           Text="PackageReference(s) not in the project allowlist: @(DisallowedPackageReference). Change the dependency policy explicitly before adding packages." />
+    <Error Condition="'%(PackageReference.Identity)' == 'Microsoft.SourceLink.GitHub' and '%(PackageReference.PrivateAssets)' != 'All'"
+           Text="SourceLink must have PrivateAssets=All." />
+  </Target>
+
+  <Target Name="EnforceManagedBuild" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(AllowUnsafeBlocks)' != 'false'"
+           Text="All project-authored code must build with AllowUnsafeBlocks=false." />
+  </Target>
+
+  <Target Name="EnforceReleasePackageConfiguration" BeforeTargets="Pack;GenerateNuspec"
+          Condition="'$(IsPackable)' == 'true' and '$(Configuration)' != 'Release'">
+    <Error Text="NuGet packages must be produced with -c Release." />
+  </Target>
+</Project>

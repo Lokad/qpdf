@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <DebugType>portable</DebugType>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <IsPackable>false</IsPackable>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <EmbedAllSources>false</EmbedAllSources>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <!-- Use real CI metadata when available; never invent a public repository URL. -->
+    <RepositoryUrl Condition="'$(RepositoryUrl)' == '' and '$(GITHUB_SERVER_URL)' != '' and '$(GITHUB_REPOSITORY)' != ''">$(GITHUB_SERVER_URL)/$(GITHUB_REPOSITORY)</RepositoryUrl>
+    <EnableSourceLink Condition="'$(RepositoryUrl)' == ''">false</EnableSourceLink>
+    <EnableSourceControlManagerQueries Condition="'$(RepositoryUrl)' == ''">false</EnableSourceControlManagerQueries>
+  </PropertyGroup>
+</Project>

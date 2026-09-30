@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "Microsoft.SourceLink.GitHub": {
+        "type": "Direct",
+        "requested": "[10.0.111, )",
+        "resolved": "10.0.111",
+        "contentHash": "ebijs4AieV43Anczb4JjtazG+bd6RcLl+k324ISeTiZ9lqk3pozbvav+BOt8CJxeRkCAhjjHlYzDQYg+93UIeA==",
+        "dependencies": {
+          "Microsoft.Build.Tasks.Git": "10.0.111",
+          "Microsoft.SourceLink.Common": "10.0.111"
+        }
+      },
+      "SixLabors.ImageSharp": {
+        "type": "Direct",
+        "requested": "[3.1.12, 3.1.12]",
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+      },
+      "Microsoft.Build.Tasks.Git": {
+        "type": "Transitive",
+        "resolved": "10.0.111",
+        "contentHash": "IRJmiczCoN50PaT8pCFVGXEN1erN1kqWJaink4zN/2QprrQ/4rFhuhawaOQRoxnXQQw0ZFc+Hd+WuxNwz9RqbQ=="
+      },
+      "Microsoft.SourceLink.Common": {
+        "type": "Transitive",
+        "resolved": "10.0.111",
+        "contentHash": "UMlgtOondQTLESEKkPhF0m/btzzA9bnJnj4S2Tm6mBe+Ls0ZQ5ZPJ9mG3+DoWIVUk7oVPD08uaYtj4rFz/liNg=="
+      }
+    }
+  }
+}

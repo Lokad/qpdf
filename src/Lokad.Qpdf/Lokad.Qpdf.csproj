@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageId>Lokad.qpdf</PackageId>
+    <Title>Lokad.qpdf</Title>
+    <Description>Scaffold for a managed, host-mediated PDF structural processor targeting qpdf's non-cryptographic functionality. PDF operations are not implemented in this prerelease.</Description>
+    <Authors>Lokad</Authors>
+    <Company>Lokad</Company>
+    <Copyright>Copyright (c) 2026 Lokad</Copyright>
+    <Version>0.1.0-alpha.1</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <RootNamespace>Lokad.Qpdf</RootNamespace>
+    <AssemblyName>Lokad.Qpdf</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>Initial solution scaffold only. See CHANGELOG.md.</PackageReleaseNotes>
+    <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageOutputPath>../../artifacts/nuget/</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md;../../LICENSE.txt;../../CHANGELOG.md;../../icon.png"
+          Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+</Project>
