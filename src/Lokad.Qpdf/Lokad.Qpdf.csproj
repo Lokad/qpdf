@@ -4,7 +4,7 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>Lokad.qpdf</PackageId>
     <Title>Lokad.qpdf</Title>
-    <Description>Managed, host-mediated PDF structural processor targeting qpdf's non-cryptographic functionality. This prerelease contains the host, governor, diagnostics, and staging foundations; PDF operations are not implemented yet.</Description>
+    <Description>Managed, host-mediated PDF structural processor targeting qpdf's non-cryptographic functionality. This prerelease contains the host, governor, diagnostics, staging, and strict inspection foundations; page operations are not implemented yet.</Description>
     <Authors>Lokad</Authors>
     <Company>Lokad</Company>
     <Copyright>Copyright (c) 2026 Lokad</Copyright>
@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>M1 foundations (host, governor, diagnostics, staging). No PDF operations yet. See CHANGELOG.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>M1 foundations plus strict classic-xref inspection. No page operations yet. See CHANGELOG.md.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

@@ -15,5 +15,7 @@
     <None Include="../Fixtures/minimal-1page.pdf" Link="Fixtures/minimal-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-2page.pdf" Link="Fixtures/minimal-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/truncated-1page.pdf" Link="Fixtures/truncated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/encrypted-decl.pdf" Link="Fixtures/encrypted-decl.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/cyclic-pages.pdf" Link="Fixtures/cyclic-pages.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

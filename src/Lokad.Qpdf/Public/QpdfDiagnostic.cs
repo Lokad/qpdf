@@ -30,6 +30,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>A dictionary repeats a key; the last value wins.</summary>
     DuplicateKey = 3,
+
+    /// <summary>A declared page count disagrees with traversal.</summary>
+    PageCountMismatch = 4,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

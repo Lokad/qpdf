@@ -97,6 +97,23 @@ no Drawing, SkiaSharp, native libjpeg or alternative codec is introduced.
 The pin remains exactly `3.1.12` in central versions, lock files and the
 package dependency group.
 
+## Strict inspection (work item 05b)
+
+`QpdfDocument` strictly inspects single-section classic-xref PDFs: `%PDF-` header
+at offset 0 with versions 1.0-1.7 and 2.0, tail `startxref` that must match the
+actual table position, mandatory `%%EOF`, fixed-width entries validated before
+reading, exact `[0, /Size)` coverage with a free object 0, and header/xref
+consistency per object. XRef streams, hybrid/incremental structures, and recovery
+are explicit later work and fail as strict parse errors today.
+
+Page counting traverses `/Kids` with a cycle set and the nesting budget;
+traversal wins over `/Count`, which only warns. Absent `/Type` tolerates
+`/Kids`-bearing nodes as page branches and others as leaves; present but
+mismatched `/Type` fails. Trailer `/Encrypt` rejects structurally as
+`EncryptedInput` (including empty-password forms), without password fields,
+prompts, or value echo. Catalog `/Version` overrides and indirect-length edge
+cases stay open for M2 byte/version review.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,
