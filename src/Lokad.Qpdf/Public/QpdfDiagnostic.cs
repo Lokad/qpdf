@@ -33,6 +33,12 @@ public enum QpdfDiagnosticCode
 
     /// <summary>A declared page count disagrees with traversal.</summary>
     PageCountMismatch = 4,
+
+    /// <summary>An excluded cryptographic operation was requested.</summary>
+    UnsupportedCryptoOperation = 5,
+
+    /// <summary>Invocation arguments or job fields are invalid.</summary>
+    InvalidArguments = 6,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

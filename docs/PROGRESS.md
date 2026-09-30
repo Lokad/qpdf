@@ -2,42 +2,41 @@
 
 ## Current checkpoint
 
-Work item 06a: single-page selection through the shared engine. The memoized
-`GraphCopier` (shared-subgraph-once, `/Parent` never followed, tree-node
-guards), the deterministic classic-xref `PdfSerializer` (counting pass plus
-emitting pass with replay-length check, recomputed stream lengths, no `/ID`),
-and the typed `Qpdf.SelectPageAsync` (inherited-attribute materialization,
-staged publication, shared per-job governor) are implemented. Narrow argv/job
-adapters (06b) and the package consumer (07) are next.
+Work item 06b: narrow argv and job JSON adapters over the shared selection
+plan. `ArgvParser` accepts the upstream spelling subset
+(`input --pages [--file=]file [--range=]n -- output`, positional forms
+included); `JobJsonParser` accepts `{inputFile, outputFile,
+pages:[{file, range}]}` with upstream field names. Both converge on
+`Qpdf.SelectPageAsync` through one `SelectionPlan`; crypto options reject
+with the stable `UnsupportedCryptoOperation` diagnostic and exit 2 without
+echoing values. Everything outside the subset fails explicitly.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 122 tests (114
-  prior plus 8 selection cases: preserved opaque streams, second-page
-  indexing, inherited-attribute materialization, byte-identical repeated
-  runs, invalid/conflicting/budget/cancelled paths with untouched targets
-  and closed leases).
-- Outputs reopen in our strict reader and in PdfPig with matching page
-  counts; new synthetic fixture `inherited-attrs.pdf` (page-local bare,
-  attributes on the Pages node).
+- Locked restore, Release build with zero warnings, and all 164 tests (122
+  prior plus 42 adapter cases: happy argv/job paths and their byte-identical
+  parity, structural errors, range/file/terminator rules, response files,
+  `--empty`, stdout, unknown options, multi-source, malformed/oversized job
+  JSON, encrypted inputs, warning-exit mapping, cancellation, null guards).
+- Crypto evidence: `--password=s3cret-value`, `--decrypt`, `--encrypt`,
+  `--remove-restrictions`, job `encrypt`/`password` keys all yield
+  `UnsupportedCryptoOperation` with exit 2 and no secret echo.
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency.
 - Real qpdf 12.4.2 executable smoke has still not run; no exe checksum or
   JPEG/Zopfli build features are recorded.
 
 Ordinary `dotnet test` stays offline and never needs `external/` or a qpdf
-binary. The typed selection covers the initial single-page profile only; the
-full section 9 contract (ranges, duplicates, forms, pruning) remains M3 work.
+binary. No compatibility-inventory entry changes: the narrow subset proves
+routes, not full option contracts, which remain later work.
 
 ## Next work
 
-1. Work item 06b: narrow argv and job JSON adapters converging on the same
-   selection plan, with explicit rejection of everything outside the subset.
-2. Work item 07: clean package-consumer exercise of the path and the
+1. Work item 07: clean package-consumer exercise of the path and the
    documented supported profile.
-3. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
+2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result.
 
 Continue in small tested local commits. Update the compatibility entries and

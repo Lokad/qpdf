@@ -127,6 +127,22 @@ an emitting pass whose lengths must agree (the M1 replay canary); repeated
 runs are byte-identical. References to page-tree nodes or foreign pages fail
 explicitly: annotations, forms, and multi-page surgery stay open for M3/M5.
 
+## Command adapters (work item 06b)
+
+`Qpdf.ExecuteAsync` (argv) and `Qpdf.ExecuteJobAsync` (job JSON) parse a
+narrow single-page subset into one shared selection plan executed by the
+typed path. The argv subset follows upstream spelling (`--pages`, `--file`,
+`--range`, `.` for the primary input, the terminating `--`); the job subset
+uses upstream field names (`inputFile`, `outputFile`, `pages[].file`,
+`pages[].range`). Both require an explicit single numeric range; ranges,
+collation, multiple sources, `--empty`, `--replace-input`, stdout `-`,
+response files, flexible operand order, and unknown options fail
+explicitly. All documented password/encryption flags reject with the
+stable `UnsupportedCryptoOperation` diagnostic and exit 2 without retaining
+or echoing values; encrypted inputs map to the same code. Adapter outcomes
+reuse the execution-result mapping, including the warning exit. No inventory
+entry changes: parsing a name never completes its behavior contract.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

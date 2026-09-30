@@ -1,4 +1,6 @@
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Commands;
+using Lokad.Qpdf.Jobs;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
@@ -12,6 +14,7 @@ namespace Lokad.Qpdf;
 /// counting pass, and publishes through a staged host transaction.
 /// </summary>
 public static class Qpdf
+    // Command adapters: argv and job JSON converge on the typed selection plan.
 {
     /// <summary>
     /// Copies one page into a standalone PDF with default budgets. Streams
@@ -263,5 +266,166 @@ public static class Qpdf
                 _length += chunk.Length;
             }
         }
+    }
+
+    /// <summary>Executes a command invocation with default budgets.</summary>
+    public static ValueTask<QpdfExecutionResult> ExecuteAsync(
+        IQpdfHost host,
+        QpdfCommandInvocation invocation,
+        CancellationToken cancellationToken)
+    {
+        return ExecuteAsync(host, invocation, new QpdfExecutionOptions(), cancellationToken);
+    }
+
+    /// <summary>Executes a command invocation with explicit budgets.</summary>
+    /// <exception cref="ArgumentNullException">Host, invocation, or options are null.</exception>
+    public static async ValueTask<QpdfExecutionResult> ExecuteAsync(
+        IQpdfHost host,
+        QpdfCommandInvocation invocation,
+        QpdfExecutionOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (invocation is null)
+        {
+            throw new ArgumentNullException(nameof(invocation));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        SelectionPlan plan;
+        try
+        {
+            plan = ArgvParser.Parse(invocation.Arguments);
+        }
+        catch (QpdfException ex)
+        {
+            return ToFailedResult(ex);
+        }
+        return await RunPlanAsync(host, plan, options.Limits, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Executes a job-JSON invocation with default budgets.</summary>
+    public static ValueTask<QpdfExecutionResult> ExecuteJobAsync(
+        IQpdfHost host,
+        string jobJson,
+        CancellationToken cancellationToken)
+    {
+        return ExecuteJobAsync(host, jobJson, new QpdfExecutionOptions(), cancellationToken);
+    }
+
+    /// <summary>Executes a job-JSON invocation with explicit budgets.</summary>
+    /// <exception cref="ArgumentNullException">Host, JSON, or options are null.</exception>
+    public static async ValueTask<QpdfExecutionResult> ExecuteJobAsync(
+        IQpdfHost host,
+        string jobJson,
+        QpdfExecutionOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (jobJson is null)
+        {
+
+            throw new ArgumentNullException(nameof(jobJson));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        SelectionPlan plan;
+        try
+        {
+            plan = JobJsonParser.Parse(jobJson, options.Limits);
+        }
+        catch (QpdfException ex)
+        {
+            return ToFailedResult(ex);
+        }
+        return await RunPlanAsync(host, plan, options.Limits, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<QpdfExecutionResult> RunPlanAsync(
+        IQpdfHost host,
+        SelectionPlan plan,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            PdfPageSelectionResult selected = await SelectPageAsync(
+                host,
+                plan.Input,
+                plan.Output,
+                new PdfPageSelectionOptions(plan.Page),
+                limits,
+                cancellationToken).ConfigureAwait(false);
+            return QpdfExecutionResult.Completed(selected.Warnings, selected.Counters);
+        }
+        catch (QpdfException ex)
+        {
+            return ToFailedResult(ex);
+        }
+        catch (OperationCanceledException)
+        {
+            return QpdfExecutionResult.Canceled([], ZeroCounters());
+        }
+    }
+
+    private static QpdfExecutionResult CryptoFailed(string option)
+    {
+        QpdfDiagnostic diagnostic = new(
+            QpdfDiagnosticCode.UnsupportedCryptoOperation,
+            QpdfDiagnosticSeverity.Error,
+            $"Cryptographic option '{option}' is permanently out of scope.");
+        return QpdfExecutionResult.Failed([diagnostic], ZeroCounters());
+    }
+
+    private static QpdfExecutionResult ToFailedResult(QpdfException ex)
+    {
+        if (ex is QpdfCryptoException crypto)
+        {
+            return CryptoFailed(crypto.Option);
+        }
+
+        if (ex is QpdfEncryptedInputException)
+        {
+            return Failed(QpdfDiagnosticCode.UnsupportedCryptoOperation, ex.Message);
+        }
+
+        if (ex is QpdfLimitException)
+        {
+            return Failed(QpdfDiagnosticCode.BudgetExceeded, ex.Message);
+        }
+
+        if (ex is QpdfParseException)
+        {
+            return Failed(QpdfDiagnosticCode.InvalidArguments, ex.Message);
+        }
+
+        return Failed(QpdfDiagnosticCode.HostOperationFailed, ex.Message);
+    }
+
+    private static QpdfExecutionResult Failed(QpdfDiagnosticCode code, string message)
+    {
+        QpdfDiagnostic diagnostic = new(code, QpdfDiagnosticSeverity.Error, message);
+        return QpdfExecutionResult.Failed([diagnostic], ZeroCounters());
+    }
+
+    private static QpdfExecutionCounters ZeroCounters()
+    {
+        return new QpdfExecutionCounters(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
     }
 }

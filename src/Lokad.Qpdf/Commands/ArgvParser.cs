@@ -1,0 +1,346 @@
+namespace Lokad.Qpdf.Commands;
+
+/// <summary>
+/// Narrow argv parser for the initial single-page profile. Accepts the upstream
+/// spelling subset `qpdf input --pages [--file=]file [--range=]n -- output`
+/// (positional file/range forms included); everything else fails explicitly.
+/// Unknown `--*` tokens map to the documented crypto set (rejected as crypto)
+/// or to unsupported-option errors. Response files, `--empty`,
+/// `--replace-input`, stdin/stdout `-`, and flexible operand order arrive later.
+/// </summary>
+internal static class ArgvParser
+{
+    private static readonly HashSet<string> CryptoOptions = new(StringComparer.Ordinal)
+    {
+        "password", "password-file", "password-mode", "password-is-hex-key",
+        "suppress-password-recovery", "encryption-file-password", "user-password",
+        "owner-password", "bits", "allow-weak-crypto", "allow-insecure", "use-aes",
+        "force-V4", "force-R5", "cleartext-metadata", "static-aes-iv",
+        "accessibility", "annotate", "assemble", "extract", "form", "modify-other",
+        "modify", "print", "show-crypto", "show-encryption", "show-encryption-key",
+        "is-encrypted", "requires-password", "remove-restrictions", "encrypt",
+        "decrypt", "copy-encryption",
+    };
+
+    internal static SelectionPlan Parse(IReadOnlyList<string> argv)
+    {
+        if (argv is null)
+        {
+            throw new ArgumentNullException(nameof(argv));
+        }
+
+        if (argv.Count == 0)
+        {
+            throw new QpdfParseException("No command arguments were supplied.", 0L, null);
+        }
+
+        RejectResponseFiles(argv);
+        int pagesAt = FindPages(argv);
+        int terminatorAt = FindTerminator(argv, pagesAt);
+        string input = ParseInputArea(argv, pagesAt);
+        (string file, string range) = ParsePagesArea(argv, pagesAt, terminatorAt);
+        string output = ParseOutputArea(argv, terminatorAt);
+        string resolvedFile = ResolveFile(file, input);
+        int page = SelectionPlan.ParsePageNumber(range);
+        return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page);
+    }
+
+    internal static string OptionName(string token)
+    {
+        int equals = token.IndexOf('=');
+        return equals < 0 ? token.Substring(2) : token.Substring(2, equals - 2);
+    }
+
+    internal static void CheckOptionToken(string token, long index)
+    {
+        string name = OptionName(token);
+        if (CryptoOptions.Contains(name))
+        {
+            throw new QpdfCryptoException("--" + name);
+        }
+
+        throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", index, null);
+    }
+
+    private static void RejectResponseFiles(IReadOnlyList<string> argv)
+    {
+        for (int i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] is not null && argv[i].StartsWith("@", StringComparison.Ordinal) && argv[i].Length > 1)
+            {
+                throw new QpdfParseException("Response files (@file/@-) are outside the narrow selection profile.", i, null);
+            }
+        }
+    }
+
+    private static int FindPages(IReadOnlyList<string> argv)
+    {
+        int found = -1;
+        for (int i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] == "--pages")
+            {
+                if (found >= 0)
+                {
+                    throw new QpdfParseException("Duplicate --pages is outside the narrow selection profile.", i, null);
+                }
+
+                found = i;
+            }
+        }
+
+        if (found < 0)
+        {
+            throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range.", 0L, null);
+        }
+
+        return found;
+    }
+
+    private static int FindTerminator(IReadOnlyList<string> argv, int pagesAt)
+    {
+        for (int i = 0; i < pagesAt; i++)
+        {
+            if (argv[i] == "--")
+            {
+                throw new QpdfParseException("Misplaced -- terminator before --pages.", i, null);
+            }
+        }
+
+        for (int i = pagesAt + 1; i < argv.Count; i++)
+        {
+            if (argv[i] == "--")
+            {
+                return i;
+            }
+        }
+
+        throw new QpdfParseException("Missing -- terminator after the --pages selection.", pagesAt, null);
+    }
+
+    private static string ParseInputArea(IReadOnlyList<string> argv, int pagesAt)
+    {
+        string? input = null;
+        for (int i = 0; i < pagesAt; i++)
+        {
+            string token = argv[i];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", i, null);
+            }
+
+            if (token == "--empty")
+            {
+                throw new QpdfParseException("--empty is outside the narrow selection profile.", i, null);
+            }
+
+            if (token == "--replace-input")
+            {
+                throw new QpdfParseException("--replace-input is outside the narrow selection profile.", i, null);
+            }
+
+            if (token == "-")
+            {
+                throw new QpdfParseException("Standard input is not a seekable PDF input.", i, null);
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                CheckOptionToken(token, i);
+            }
+
+            if (input is not null)
+            {
+                throw new QpdfParseException("A single positional input must precede --pages.", i, null);
+            }
+
+            input = token;
+        }
+
+        if (input is null)
+        {
+            throw new QpdfParseException("A positional input file is required before --pages.", pagesAt, null);
+        }
+
+        return input;
+    }
+
+    private static (string File, string Range) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    {
+        string? file = null;
+        string? range = null;
+        bool fileTaken = false;
+        bool rangeTaken = false;
+        int i = pagesAt + 1;
+        while (i < terminatorAt)
+        {
+            string token = argv[i];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", i, null);
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                string name = OptionName(token);
+                if (CryptoOptions.Contains(name))
+                {
+                    throw new QpdfCryptoException("--" + name);
+                }
+
+                if (name == "file")
+                {
+                    if (fileTaken)
+                    {
+                        throw new QpdfParseException("Duplicate file specification in --pages.", i, null);
+                    }
+
+                    file = TakeParameter(argv, terminatorAt, ref i, "--file");
+                    fileTaken = true;
+                    continue;
+                }
+
+                if (name == "range")
+                {
+                    if (!fileTaken)
+                    {
+                        throw new QpdfParseException("--range must follow the file specification.", i, null);
+                    }
+
+                    if (rangeTaken)
+                    {
+                        throw new QpdfParseException("Duplicate range specification in --pages.", i, null);
+                    }
+
+                    range = TakeParameter(argv, terminatorAt, ref i, "--range");
+                    rangeTaken = true;
+                    continue;
+                }
+
+                throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", i, null);
+            }
+
+            if (!fileTaken)
+            {
+                file = token;
+                fileTaken = true;
+            }
+            else if (!rangeTaken)
+            {
+                range = token;
+                rangeTaken = true;
+            }
+            else
+            {
+                throw new QpdfParseException($"Unexpected argument '{token}' in --pages.", i, null);
+            }
+
+            i += 1;
+        }
+
+        if (!fileTaken || file is null)
+        {
+            throw new QpdfParseException("The --pages selection requires one file.", pagesAt, null);
+        }
+
+        if (!rangeTaken || range is null)
+        {
+            throw new QpdfParseException("The --pages selection requires one range in this profile.", pagesAt, null);
+        }
+
+        return (file, range);
+    }
+
+    private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf('=');
+        if (equals >= 0)
+        {
+            string inline = token.Substring(equals + 1);
+            if (inline.Length == 0)
+            {
+                throw new QpdfParseException($"Empty parameter for {option}.", i, null);
+            }
+
+            i += 1;
+            return inline;
+        }
+
+        if (i + 1 >= terminatorAt)
+        {
+            throw new QpdfParseException($"Missing parameter for {option}.", i, null);
+        }
+
+        string next = argv[i + 1];
+        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+        {
+            throw new QpdfParseException($"Missing parameter for {option}.", i, null);
+        }
+
+        i += 2;
+        return next;
+    }
+
+    private static string ParseOutputArea(IReadOnlyList<string> argv, int terminatorAt)
+    {
+        string? output = null;
+        for (int i = terminatorAt + 1; i < argv.Count; i++)
+        {
+            string token = argv[i];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", i, null);
+            }
+
+            if (token == "--")
+            {
+                throw new QpdfParseException("Unexpected -- terminator.", i, null);
+            }
+
+            if (token == "--replace-input")
+            {
+                throw new QpdfParseException("--replace-input is outside the narrow selection profile.", i, null);
+            }
+
+            if (token == "-")
+            {
+                throw new QpdfParseException("Stdout output requires an explicit streaming contract.", i, null);
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                CheckOptionToken(token, i);
+            }
+
+            if (output is not null)
+            {
+                throw new QpdfParseException("A single positional output must follow --.", i, null);
+            }
+
+            output = token;
+        }
+
+        if (output is null)
+        {
+            throw new QpdfParseException("A positional output file is required after --.", terminatorAt, null);
+        }
+
+        return output;
+    }
+
+    private static string ResolveFile(string file, string input)
+    {
+        if (file == ".")
+        {
+            return input;
+        }
+
+        if (!string.Equals(file, input, StringComparison.Ordinal))
+        {
+            throw new QpdfParseException("Multiple page sources are outside the narrow selection profile.", 0L, null);
+        }
+
+        return file;
+    }
+}
