@@ -16,6 +16,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     private readonly DocumentEngine _engine;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
+    private readonly List<PageLocation> _pages;
     private bool _disposed;
 
     private QpdfDocument(
@@ -23,19 +24,19 @@ public sealed class QpdfDocument : IAsyncDisposable
         DocumentEngine engine,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        List<PageLocation> pages,
         QpdfPath path,
         QpdfLimits limits,
-        PdfVersion version,
-        int pageCount)
+        PdfVersion version)
     {
         _input = input;
         _engine = engine;
         _governor = governor;
         _diagnostics = diagnostics;
+        _pages = pages;
         Path = path;
         Limits = limits;
         Version = version;
-        PageCount = pageCount;
     }
 
     /// <summary>Gets the logical input path.</summary>
@@ -48,13 +49,17 @@ public sealed class QpdfDocument : IAsyncDisposable
     public PdfVersion Version { get; }
 
     /// <summary>Gets the page count from page-tree traversal.</summary>
-    public int PageCount { get; }
+    public int PageCount => _pages.Count;
 
     /// <summary>Gets a live snapshot of the job counters.</summary>
     public QpdfExecutionCounters Counters => _governor.Snapshot();
 
     /// <summary>Gets the warnings recorded while opening (duplicate keys, count mismatches).</summary>
     public IReadOnlyList<QpdfDiagnostic> Warnings => [.. _diagnostics.Entries];
+
+    internal DocumentEngine Engine => _engine;
+
+    internal IReadOnlyList<PageLocation> PageReferences => _pages;
 
     /// <summary>Opens a document with default budgets.</summary>
     public static ValueTask<QpdfDocument> OpenAsync(IQpdfHost host, QpdfPath path, CancellationToken cancellationToken)
@@ -83,6 +88,17 @@ public sealed class QpdfDocument : IAsyncDisposable
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
+        return await OpenCore(host, path, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async ValueTask<QpdfDocument> OpenCore(
+        IQpdfHost host,
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
         IQpdfInput input = await host.OpenInputAsync(path, cancellationToken).ConfigureAwait(false);
         governor.NoteHostOperation();
         try
@@ -113,8 +129,8 @@ public sealed class QpdfDocument : IAsyncDisposable
             DocumentEngine engine = new(data, table, limits, governor, diagnostics);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
-            int pages = CountPages(engine, diagnostics, governor, limits, cancellationToken);
-            return new QpdfDocument(input, engine, governor, diagnostics, path, limits, version, pages);
+            List<PageLocation> pages = ListPages(engine, diagnostics, governor, limits, cancellationToken);
+            return new QpdfDocument(input, engine, governor, diagnostics, pages, path, limits, version);
         }
         catch
         {
@@ -154,7 +170,6 @@ public sealed class QpdfDocument : IAsyncDisposable
             await _input.DisposeAsync().ConfigureAwait(false);
         }
     }
-
     private static PdfVersion ParseHeader(ReadOnlyMemory<byte> data)
     {
         ReadOnlySpan<byte> prefix = [(byte)'%', (byte)'P', (byte)'D', (byte)'F', (byte)'-'];
@@ -196,12 +211,12 @@ public sealed class QpdfDocument : IAsyncDisposable
         {
             if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? unresolved))
             {
-                throw new QpdfParseException($"Unresolvable trailer /Encrypt reference.", null, reference.ObjectNumber);
+                throw new QpdfParseException("Unresolvable trailer /Encrypt reference.", null, reference.ObjectNumber);
             }
 
             if (unresolved is null)
             {
-                throw new QpdfParseException($"Unresolvable trailer /Encrypt reference.", null, reference.ObjectNumber);
+                throw new QpdfParseException("Unresolvable trailer /Encrypt reference.", null, reference.ObjectNumber);
             }
 
             QpdfObject resolved = unresolved;
@@ -214,7 +229,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         throw new QpdfEncryptedInputException(path);
     }
 
-    private static int CountPages(
+    private static List<PageLocation> ListPages(
         DocumentEngine engine,
         DiagnosticBag diagnostics,
         ResourceGovernor governor,
@@ -250,13 +265,9 @@ public sealed class QpdfDocument : IAsyncDisposable
             pages = ResolveDictionary(engine, pagesRaw, "page tree");
         }
 
-        long total = WalkPages(engine, diagnostics, governor, limits, pages, new HashSet<int>(), 0, cancellationToken);
-        if (total > int.MaxValue)
-        {
-            throw new QpdfParseException($"Page count {total} exceeds the supported maximum.", null, null);
-        }
-
-        return (int)total;
+        List<PageLocation> collector = new();
+        WalkPages(engine, diagnostics, governor, limits, pages, null, new HashSet<int>(), collector, 0, cancellationToken);
+        return collector;
     }
 
     private static PdfDictionary ResolveDictionary(DocumentEngine engine, QpdfObject raw, string role)
@@ -306,13 +317,15 @@ public sealed class QpdfDocument : IAsyncDisposable
         return name.DisplayText;
     }
 
-    private static long WalkPages(
+    private static void WalkPages(
         DocumentEngine engine,
         DiagnosticBag diagnostics,
         ResourceGovernor governor,
         QpdfLimits limits,
         PdfDictionary node,
+        PdfReference? incoming,
         HashSet<int> path,
+        List<PageLocation> collector,
         int depth,
         CancellationToken cancellationToken)
     {
@@ -326,31 +339,22 @@ public sealed class QpdfDocument : IAsyncDisposable
         string type = ReadType(node);
         if (type == "Page")
         {
-            return 1L;
+            collector.Add(new PageLocation(incoming, node));
+            return;
         }
 
-        if (type.Length != 0 && type != "Pages")
+        if (type != "Pages")
         {
-            throw new QpdfParseException($"Page tree node has unexpected /Type /{type}.", null, null);
+            throw new QpdfParseException("Page tree nodes must have /Type /Page or /Pages.", null, null);
         }
 
         PdfName kidsKey = new([(byte)'K', (byte)'i', (byte)'d', (byte)'s']);
-        if (!node.TryGet(kidsKey, out QpdfObject kidsRaw))
+        if (!node.TryGet(kidsKey, out QpdfObject kidsRaw) || kidsRaw is not PdfArray kids)
         {
-            if (type.Length == 0)
-            {
-                return 1L;
-            }
-
-            throw new QpdfParseException("Pages node must declare /Kids.", null, null);
+            throw new QpdfParseException("Pages node must declare a /Kids array.", null, null);
         }
 
-        if (kidsRaw is not PdfArray kids)
-        {
-            throw new QpdfParseException("The /Kids entry must be an array.", null, null);
-        }
-
-        long total = 0L;
+        long before = collector.Count;
         for (int i = 0; i < kids.Count; i++)
         {
             QpdfObject kid = kids[i];
@@ -366,14 +370,14 @@ public sealed class QpdfDocument : IAsyncDisposable
                     throw new QpdfParseException($"Page kid does not resolve to a dictionary.", null, reference.ObjectNumber);
                 }
 
-                total += WalkPages(engine, diagnostics, governor, limits, child, path, depth + 1, cancellationToken);
+                WalkPages(engine, diagnostics, governor, limits, child, reference, path, collector, depth + 1, cancellationToken);
                 path.Remove(reference.ObjectNumber);
                 continue;
             }
 
             if (kid is PdfDictionary direct)
             {
-                total += WalkPages(engine, diagnostics, governor, limits, direct, path, depth + 1, cancellationToken);
+                WalkPages(engine, diagnostics, governor, limits, direct, null, path, collector, depth + 1, cancellationToken);
                 continue;
             }
 
@@ -383,6 +387,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         PdfName countKey = new([(byte)'C', (byte)'o', (byte)'u', (byte)'n', (byte)'t']);
         if (node.TryGet(countKey, out QpdfObject countRaw) && countRaw is PdfInteger declared)
         {
+            long total = collector.Count - before;
             if (declared.Value != total)
             {
                 diagnostics.Add(
@@ -391,7 +396,6 @@ public sealed class QpdfDocument : IAsyncDisposable
                     $"A /Pages /Count of {declared.Value} disagrees with traversal ({total}); traversal wins.");
             }
         }
-
-        return total;
     }
 }
+

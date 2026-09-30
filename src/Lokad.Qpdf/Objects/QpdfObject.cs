@@ -169,6 +169,30 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         _raw = (byte[])rawBytes.Clone();
     }
 
+    /// <summary>Creates a name from ASCII text, rejecting non-ASCII input.</summary>
+    /// <exception cref="ArgumentNullException">The text is null.</exception>
+    /// <exception cref="ArgumentException">The text is not ASCII.</exception>
+    internal static PdfName FromAscii(string text)
+    {
+        if (text is null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+
+        byte[] raw = new byte[text.Length];
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] > 0x7F)
+            {
+                throw new ArgumentException("Name text must be ASCII.", nameof(text));
+            }
+
+            raw[i] = (byte)text[i];
+        }
+
+        return new PdfName(raw);
+    }
+
     /// <summary>Gets a copy of the raw name bytes (without the leading slash).</summary>
     public byte[] RawBytes => (byte[])_raw.Clone();
 

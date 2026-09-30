@@ -114,6 +114,19 @@ mismatched `/Type` fails. Trailer `/Encrypt` rejects structurally as
 prompts, or value echo. Catalog `/Version` overrides and indirect-length edge
 cases stay open for M2 byte/version review.
 
+## Single-page selection (work item 06a)
+
+Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the
+same reader, graph copier, and classic-xref writer. Reachable shared objects
+are copied once with destination identities registered before descending;
+`/Parent` links are dropped and the four inheritable attributes are
+materialized from ancestry (missing `/MediaBox` fails). Streams travel
+opaque with recomputed `/Length`; output carries a fresh catalog, no `/ID`,
+and generation 0 throughout. Every serialization runs a counting pass and
+an emitting pass whose lengths must agree (the M1 replay canary); repeated
+runs are byte-identical. References to page-tree nodes or foreign pages fail
+explicitly: annotations, forms, and multi-page surgery stay open for M3/M5.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,
