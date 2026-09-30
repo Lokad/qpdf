@@ -7,6 +7,7 @@
     <PackageReference Include="xunit" PrivateAssets="All" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="SixLabors.ImageSharp" />
     <ProjectReference Include="../../src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
     <Using Include="Xunit" />
     <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />

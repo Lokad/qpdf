@@ -6,9 +6,9 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 
 **Implemented PDF operations: none.** Every inventory entry is initially
 `not-started`, including excluded operations whose future runtime rejection
-still needs tests. Passing the scaffold and runner tests establishes inventory
-consistency, fixture/independent-reader contracts and package boundaries, not
-PDF compatibility.
+still needs tests. Passing the scaffold, runner and codec-probe tests
+establishes inventory consistency, fixture/independent-reader contracts,
+codec feasibility and package boundaries, not PDF compatibility.
 
 ## Inventory
 
@@ -29,7 +29,8 @@ Supported behavior should match documented qpdf semantics. Stable inspection
 data, page sequence, sharing, lossless stream bytes and exit classes need
 appropriate comparisons. Compressed output need not be byte-identical.
 JPEG component/color invariants and narrowly defined sample tolerances must be
-established against the approved codec; no JPEG capability has been proved yet.
+established against the approved codec; the M0 probe bounds feasibility only
+(see below) and full JPEG integration remains M8.
 
 ## Validation runners and fixtures
 
@@ -47,8 +48,54 @@ missing.
 Recorded gap: no real qpdf 12.4.2 executable has been bootstrapped yet, so no
 executable checksum, `--version` text or JPEG/Zopfli build features are
 recorded. The target baseline remains JPEG support with no optional Zopfli
-support. Bounded ImageSharp JPEG and BCL Flate probes (work item 03) are also
-pending; no JPEG capability has been proved yet.
+support.
+
+## Codec feasibility probes (work item 03)
+
+`QpdfProbe probe-jpeg` exercises the pinned ImageSharp `3.1.12` JPEG codec
+through public APIs with per-call encoders, checked dimensions, bounded
+streams and prompt disposal; global defaults are never mutated.
+
+- Grayscale (`L8`) and RGB (`Rgb24`) 8x8 round-trips preserve dimensions;
+  encoded sizes vary with quality as expected. Feasible for M8 DCT work.
+- `JpegEncoder.Quality` accepts `1..100` (default `75`) and rejects `0` and
+  `101` with `ArgumentException`. qpdf `--jpeg-quality` accepts `0..100`
+  (`QPDFJob_config.cc`); the adapter mapping is `0 -> 1`, identity on
+  `1..100`, rejection outside. This clamping is the documented intentional
+  difference.
+- `JpegEncodingColor.Cmyk`/`Ycck` labels exist, but decoding yields
+  color-converted RGB pixels; raw four-component samples are not preserved
+  through the public pixel API. Displaying a JPEG or selecting a CMYK enum
+  does not prove PDF component preservation. This gap stays open for M8:
+  DCT decode must preserve component count, color interpretation, dimensions
+  and sample ordering, with explicit narrow per-sample tolerances only for
+  rounding/upsampling.
+- Allocation is bounded by checked `width * height` against a caller
+  pixel budget before any image is allocated; codec-internal buffers remain
+  ImageSharp-owned and must be budgeted conservatively in M8.
+  Cancellation flows through `LoadAsync`/`SaveAsync` overloads.
+
+`QpdfProbe probe-flate` exercises the governed BCL Flate pipeline.
+
+- `ZLibStream` handles the zlib-wrapped (RFC1950) form used by PDF
+  `FlateDecode`; `DeflateStream` handles raw deflate.
+- qpdf `--compression-level` accepts `1..9`; BCL exposes `Fastest`,
+  `Optimal`, `SmallestSize`, `NoCompression`. The mapping is `1 -> Fastest`,
+  `2..8 -> Optimal`, `9 -> SmallestSize`, rejection outside. Numeric levels
+  are buckets, not 1:1 zlib levels; record this intentional difference for
+  M6 writer controls.
+- Corrupted input is rejected with `InvalidDataException`. Half-truncated
+  input may decode to short output without throwing (observed `20` vs `3072`
+  bytes); callers must validate expected stream length rather than assuming
+  the codec rejects every truncation. Expansion limits are enforced by a
+  bounded copy loop (8 KiB buffer, checked total) because the output cap does
+  not itself cap codec allocations. Cancellation flows through the async
+  read/write overloads.
+
+ImageSharp stays behind the future JPEG adapter and out of the public API;
+no Drawing, SkiaSharp, native libjpeg or alternative codec is introduced.
+The pin remains exactly `3.1.12` in central versions, lock files and the
+package dependency group.
 
 ## Exclusions and differences
 
@@ -74,7 +121,7 @@ even when a caller disables qpdf-compatible default parser limits.
 
 | Phase | Intended result |
 | --- | --- |
-| M0 | Build/package baseline, inventory, reference runner and dependency probes. Scaffold plus reference/independent runners and fixtures are present; JPEG/Flate probes and a real-executable smoke remain. |
+| M0 | Build/package baseline, inventory, reference runner and dependency probes. Scaffold, runners, fixtures and JPEG/Flate probes are present; a real-executable smoke remains. |
 | M1 | Minimal strict classic-xref read/select/write path, shared typed/argv/job entry points and a real package consumer. |
 | M2 | Strict reader breadth: structural filters, xref/object streams and incremental/hybrid inputs. |
 | M3 | Complete bounded selector: first/last and explicit ranges, source mapping, duplicates, inheritance and retained page structures. |
@@ -96,3 +143,4 @@ checks. Keep those entries partial until their dependencies are validated.
 Each implementation step includes limits, cancellation and failure behavior.
 Milestones need reproducible evidence, not just accepted option names. A known
 gap can permit independent later work, but cannot be declared complete.
+

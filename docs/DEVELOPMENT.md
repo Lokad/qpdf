@@ -6,7 +6,9 @@ with central package versions and checked-in lock files. Only ImageSharp
 `[3.1.12]` also prevents the produced package from selecting a different version.
 PdfPig `[0.1.16]` is pinned for development validation only in `tools/QpdfProbe`
 and the test project; it must never become a runtime dependency of `Lokad.Qpdf`.
-Test packages are only allowed in test projects. SourceLink is private build
+ImageSharp is also referenced by the probe and tests for codec feasibility
+work; the library keeps it behind the future JPEG adapter. Test packages are
+only allowed in test projects. SourceLink is private build
 tooling. Debug packaging and unsafe compilation are rejected by build targets.
 
 SourceLink is enabled when an actual repository URL is supplied, including
@@ -35,7 +37,7 @@ Regeneration must not turn partial coverage into a completion claim.
 ordinary tests depend on them. Public generated metadata is intentionally
 tracked so normal development remains independent of the reference checkout.
 
-## Reference and independent validation
+## Reference, independent and codec probes
 
 `tools/QpdfProbe` is the developer-only oracle runner. It is built with the
 solution but is never packed. These commands have been executed:
@@ -46,15 +48,21 @@ dotnet run -c Release --project tools/QpdfProbe -- --help
 dotnet run -c Release --project tools/QpdfProbe -- validate --input tests/Fixtures/minimal-1page.pdf
 dotnet run -c Release --project tools/QpdfProbe -- probe-oracle --qpdf-exe <path-to-qpdf-12.4.2> --input tests/Fixtures/minimal-1page.pdf
 dotnet run -c Release --project tools/QpdfProbe -- compare --qpdf-exe <path-to-qpdf-12.4.2> --input tests/Fixtures/minimal-1page.pdf --expected-npages 1
+dotnet run -c Release --project tools/QpdfProbe -- probe-jpeg
+dotnet run -c Release --project tools/QpdfProbe -- probe-flate
 ```
 
 `probe-oracle` runs `qpdf --version` (must contain 12.4.2), `qpdf --show-npages`
 and `qpdf --check`. `validate` opens the PDF with PdfPig 0.1.16 and reports
 header version, page count and SHA-256. `compare` requires oracle, independent
-and expected page counts to agree; a mismatch exits 2. Missing executables or
-inputs are explicit failures, never silent skips. Ordinary `dotnet test` covers
-these contracts with synthetic fixtures and a fake oracle; it never requires a
-real qpdf binary.
+and expected page counts to agree; a mismatch exits 2. `probe-jpeg` exercises
+grayscale/RGB round-trips, quality endpoints (`1..100`, qpdf `0 -> 1`),
+the CMYK/YCCK raw-sample gap, dimension bounds and cancellation.
+`probe-flate` exercises zlib round-trips, qpdf `1..9` to BCL level buckets,
+truncation/corruption behavior, expansion limits and cancellation. Missing
+executables or inputs are explicit failures, never silent skips. Ordinary
+`dotnet test` covers these contracts with synthetic fixtures and a fake oracle;
+it never requires a real qpdf binary.
 
 Synthetic fixtures live in `tests/Fixtures` with `manifest.json` recording
 SHA-256, byte counts, expected page counts and provenance. No upstream bytes.
@@ -74,6 +82,5 @@ features are unrecorded (see `docs/COMPATIBILITY.md`).
 
 ## Next tooling
 
-Bounded ImageSharp JPEG and BCL Flate feasibility probes (work item 03) are
-not present yet. Add them as a focused commit. Keep those jobs separate from
-ordinary tests and fail explicitly when required tools are unavailable.
+M0 probes are complete. M1 begins the minimal strict reader, writer and
+host/governor work; codec decisions above constrain M6/M8 integration.

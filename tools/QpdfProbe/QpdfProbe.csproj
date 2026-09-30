@@ -12,5 +12,6 @@
 
   <ItemGroup>
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="SixLabors.ImageSharp" />
   </ItemGroup>
 </Project>

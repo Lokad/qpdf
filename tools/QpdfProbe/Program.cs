@@ -21,6 +21,8 @@ internal static class Program
                 "probe-oracle" => ProbeOracle(args[1..]),
                 "validate" => Validate(args[1..]),
                 "compare" => Compare(args[1..]),
+                "probe-jpeg" => ProbeJpeg(),
+                "probe-flate" => ProbeFlate(),
                 _ => Fail($"Unknown command '{args[0]}'. Use --help for usage."),
             };
         }
@@ -51,11 +53,27 @@ internal static class Program
         Console.WriteLine("  QpdfProbe probe-oracle --qpdf-exe <path> --input <pdf>");
         Console.WriteLine("  QpdfProbe validate --input <pdf>");
         Console.WriteLine("  QpdfProbe compare --qpdf-exe <path> --input <pdf> --expected-npages <N>");
+        Console.WriteLine("  QpdfProbe probe-jpeg");
+        Console.WriteLine("  QpdfProbe probe-flate");
         Console.WriteLine();
         Console.WriteLine("probe-oracle runs: qpdf --version (must contain 12.4.2), qpdf --show-npages, qpdf --check.");
         Console.WriteLine("validate opens the PDF with the pinned independent reader (PdfPig 0.1.16) and reports page count, header version and SHA-256.");
         Console.WriteLine("compare requires oracle npages, independent npages and --expected-npages to agree; mismatch exits 2.");
+        Console.WriteLine("probe-jpeg exercises the pinned ImageSharp 3.1.12 JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK gap, bounds, cancellation).");
+        Console.WriteLine("probe-flate exercises the governed BCL Flate pipeline (zlib round-trip, level mapping, truncation, expansion limit, cancellation).");
         Console.WriteLine("Missing executables or inputs are explicit failures, never silent skips.");
+    }
+
+    private static int ProbeJpeg()
+    {
+        JpegProbe.Run();
+        return 0;
+    }
+
+    private static int ProbeFlate()
+    {
+        FlateProbe.RunAsync().GetAwaiter().GetResult();
+        return 0;
     }
 
     private static int ProbeOracle(string[] args)
