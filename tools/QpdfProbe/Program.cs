@@ -1,0 +1,168 @@
+using System.Security.Cryptography;
+
+namespace Lokad.Qpdf.Probe;
+
+internal static class Program
+{
+    private const string ExpectedQpdfVersion = "12.4.2";
+
+    internal static int Main(string[] args)
+    {
+        if (args.Length == 0 || IsHelp(args[0]))
+        {
+            PrintHelp();
+            return 0;
+        }
+
+        try
+        {
+            return args[0] switch
+            {
+                "probe-oracle" => ProbeOracle(args[1..]),
+                "validate" => Validate(args[1..]),
+                "compare" => Compare(args[1..]),
+                _ => Fail($"Unknown command '{args[0]}'. Use --help for usage."),
+            };
+        }
+        catch (ProbeException ex)
+        {
+            Console.Error.WriteLine($"qpdfprobe: {ex.Message}");
+            return ex.ExitCode;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"qpdfprobe: unexpected failure: {ex.GetType().Name}: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static bool IsHelp(string value)
+    {
+        return value == "--help" || value == "-h" || value == "help";
+    }
+
+    private static void PrintHelp()
+    {
+        Console.WriteLine("QpdfProbe 0.1.0: developer-only qpdf oracle and independent validation runner.");
+        Console.WriteLine("Not part of the shipped Lokad.qpdf package. Requires an explicit qpdf 12.4.2 executable for oracle commands.");
+        Console.WriteLine();
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  QpdfProbe --help");
+        Console.WriteLine("  QpdfProbe probe-oracle --qpdf-exe <path> --input <pdf>");
+        Console.WriteLine("  QpdfProbe validate --input <pdf>");
+        Console.WriteLine("  QpdfProbe compare --qpdf-exe <path> --input <pdf> --expected-npages <N>");
+        Console.WriteLine();
+        Console.WriteLine("probe-oracle runs: qpdf --version (must contain 12.4.2), qpdf --show-npages, qpdf --check.");
+        Console.WriteLine("validate opens the PDF with the pinned independent reader (PdfPig 0.1.16) and reports page count, header version and SHA-256.");
+        Console.WriteLine("compare requires oracle npages, independent npages and --expected-npages to agree; mismatch exits 2.");
+        Console.WriteLine("Missing executables or inputs are explicit failures, never silent skips.");
+    }
+
+    private static int ProbeOracle(string[] args)
+    {
+        string qpdfExe = GetOption(args, "--qpdf-exe");
+        string input = GetOption(args, "--input");
+        OracleResult result = OracleRunner.Run(qpdfExe, input, ExpectedQpdfVersion);
+        Console.WriteLine($"oracle: exe={result.ExePath}");
+        Console.WriteLine($"oracle: version-ok={ExpectedQpdfVersion}");
+        Console.WriteLine($"oracle: version-output={SingleLine(result.VersionOutput)}");
+        Console.WriteLine($"oracle: input-sha256={result.InputSha256}");
+        Console.WriteLine($"oracle: npages={result.Npages}");
+        Console.WriteLine($"oracle: check-exit={result.CheckExitCode}");
+        return 0;
+    }
+
+    private static int Validate(string[] args)
+    {
+        string input = GetOption(args, "--input");
+        IndependentResult result = IndependentReader.Read(input);
+        Console.WriteLine($"independent: input-sha256={result.InputSha256}");
+        Console.WriteLine($"independent: header-version={result.HeaderVersion}");
+        Console.WriteLine($"independent: npages={result.Npages}");
+        Console.WriteLine("independent: reader=PdfPig 0.1.16");
+        return 0;
+    }
+
+    private static int Compare(string[] args)
+    {
+        string qpdfExe = GetOption(args, "--qpdf-exe");
+        string input = GetOption(args, "--input");
+        string expectedText = GetOption(args, "--expected-npages");
+        if (!int.TryParse(expectedText, out int expected) || expected <= 0)
+        {
+            throw new ProbeException($"Invalid --expected-npages '{expectedText}'. Expected a positive integer.", 1);
+        }
+
+        OracleResult oracle = OracleRunner.Run(qpdfExe, input, ExpectedQpdfVersion);
+        IndependentResult independent = IndependentReader.Read(input);
+        string sha = ComputeSha256(input);
+        Console.WriteLine($"compare: input-sha256={sha}");
+        Console.WriteLine($"compare: expected-npages={expected}");
+        Console.WriteLine($"compare: oracle-npages={oracle.Npages}");
+        Console.WriteLine($"compare: independent-npages={independent.Npages}");
+
+        if (oracle.Npages != independent.Npages || oracle.Npages != expected)
+        {
+            Console.Error.WriteLine($"qpdfprobe: page-count mismatch (expected={expected}, oracle={oracle.Npages}, independent={independent.Npages}).");
+            return 2;
+        }
+
+        if (!string.Equals(oracle.InputSha256, independent.InputSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("qpdfprobe: input checksum changed between oracle and independent reads.");
+            return 2;
+        }
+
+        Console.WriteLine("compare: match");
+        return 0;
+    }
+
+    private static string GetOption(string[] args, string name)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.Ordinal))
+            {
+                if (i + 1 >= args.Length)
+                {
+                    throw new ProbeException($"Missing value for {name}.", 1);
+                }
+
+                return args[i + 1];
+            }
+        }
+
+        throw new ProbeException($"Missing required option {name}.", 1);
+    }
+
+    private static int Fail(string message)
+    {
+        Console.Error.WriteLine($"qpdfprobe: {message}");
+        return 1;
+    }
+
+    private static string SingleLine(string value)
+    {
+        string trimmed = value.Trim();
+        int newline = trimmed.IndexOf('\n');
+        if (newline >= 0)
+        {
+            trimmed = trimmed[..newline];
+        }
+
+        newline = trimmed.IndexOf('\r');
+        if (newline >= 0)
+        {
+            trimmed = trimmed[..newline];
+        }
+
+        return trimmed.Length <= 200 ? trimmed : trimmed[..200];
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        byte[] hash = SHA256.HashData(stream);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+}

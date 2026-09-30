@@ -6,8 +6,13 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="All" />
     <PackageReference Include="xunit" PrivateAssets="All" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />
+    <PackageReference Include="PdfPig" />
     <ProjectReference Include="../../src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
     <Using Include="Xunit" />
     <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/manifest.json" Link="Fixtures/manifest.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/minimal-1page.pdf" Link="Fixtures/minimal-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/minimal-2page.pdf" Link="Fixtures/minimal-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/truncated-1page.pdf" Link="Fixtures/truncated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

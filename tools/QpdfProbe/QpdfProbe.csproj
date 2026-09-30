@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsQpdfProbeTool>true</IsQpdfProbeTool>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Lokad.Qpdf.Probe</RootNamespace>
+    <AssemblyName>QpdfProbe</AssemblyName>
+    <Description>Developer-only qpdf oracle and independent validation runner. Not part of the shipped package.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PdfPig" />
+  </ItemGroup>
+</Project>

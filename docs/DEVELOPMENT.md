@@ -4,6 +4,8 @@ Use the build/test/pack commands in the root README. The solution is .NET 10,
 with central package versions and checked-in lock files. Only ImageSharp
 3.1.12 is allowed as a production dependency; its closed NuGet version range
 `[3.1.12]` also prevents the produced package from selecting a different version.
+PdfPig `[0.1.16]` is pinned for development validation only in `tools/QpdfProbe`
+and the test project; it must never become a runtime dependency of `Lokad.Qpdf`.
 Test packages are only allowed in test projects. SourceLink is private build
 tooling. Debug packaging and unsafe compilation are rejected by build targets.
 
@@ -33,10 +35,45 @@ Regeneration must not turn partial coverage into a completion claim.
 ordinary tests depend on them. Public generated metadata is intentionally
 tracked so normal development remains independent of the reference checkout.
 
+## Reference and independent validation
+
+`tools/QpdfProbe` is the developer-only oracle runner. It is built with the
+solution but is never packed. These commands have been executed:
+
+```sh
+dotnet build tools/QpdfProbe/QpdfProbe.csproj -c Release
+dotnet run -c Release --project tools/QpdfProbe -- --help
+dotnet run -c Release --project tools/QpdfProbe -- validate --input tests/Fixtures/minimal-1page.pdf
+dotnet run -c Release --project tools/QpdfProbe -- probe-oracle --qpdf-exe <path-to-qpdf-12.4.2> --input tests/Fixtures/minimal-1page.pdf
+dotnet run -c Release --project tools/QpdfProbe -- compare --qpdf-exe <path-to-qpdf-12.4.2> --input tests/Fixtures/minimal-1page.pdf --expected-npages 1
+```
+
+`probe-oracle` runs `qpdf --version` (must contain 12.4.2), `qpdf --show-npages`
+and `qpdf --check`. `validate` opens the PDF with PdfPig 0.1.16 and reports
+header version, page count and SHA-256. `compare` requires oracle, independent
+and expected page counts to agree; a mismatch exits 2. Missing executables or
+inputs are explicit failures, never silent skips. Ordinary `dotnet test` covers
+these contracts with synthetic fixtures and a fake oracle; it never requires a
+real qpdf binary.
+
+Synthetic fixtures live in `tests/Fixtures` with `manifest.json` recording
+SHA-256, byte counts, expected page counts and provenance. No upstream bytes.
+
+The explicit reference lane needs a pinned executable:
+
+```powershell
+pwsh -File tools/bootstrap-qpdf.ps1 -QpdfExe $env:QPDF_EXE
+pwsh -File tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE
+```
+
+Both scripts fail explicitly when `QPDF_EXE` is missing. The reference lane
+runs the positive compares plus deliberate negative cases (wrong expected
+count must exit 2; truncated input must fail validation). A real 12.4.2
+executable has not been bootstrapped yet; its checksum and JPEG/Zopfli build
+features are unrecorded (see `docs/COMPATIBILITY.md`).
+
 ## Next tooling
 
-The executable oracle/independent-renderer runner and codec feasibility probes
-are not present yet. Add them as subsequent focused commits. Pin executable
-versions, build features and checksums; demonstrate a deliberate failing
-comparison as well as a successful smoke case. Keep these jobs separate from
+Bounded ImageSharp JPEG and BCL Flate feasibility probes (work item 03) are
+not present yet. Add them as a focused commit. Keep those jobs separate from
 ordinary tests and fail explicitly when required tools are unavailable.

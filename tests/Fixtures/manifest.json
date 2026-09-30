@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "reference": {
+    "qpdf": "12.4.2",
+    "commit": "4eba95899886e851cc41d76886483b347612f2a8",
+    "independentReader": "PdfPig 0.1.16"
+  },
+  "provenance": "Synthetic fixtures authored for Lokad.qpdf. No upstream bytes. MIT with the repository.",
+  "generation": "Deterministic classic-xref PDFs with LF endings, Helvetica text, ordered objects and computed xref offsets. Truncated fixture is the first 120 bytes of minimal-1page.pdf.",
+  "fixtures": [
+    {
+      "file": "minimal-1page.pdf",
+      "sha256": "2a42129ba3fe8014e8b461878f975cd58442b3f217cf46b2e3397d8749e0fb78",
+      "bytes": 581,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page, classic xref, unencrypted. Oracle --check and --show-npages must succeed; independent reader must report 1 page."
+    },
+    {
+      "file": "minimal-2page.pdf",
+      "sha256": "c3ee267167a354a0bb401a1e852676bd1dc552c66c2ded5f4b80437eadd11085",
+      "bytes": 841,
+      "expectedNpages": 2,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two pages sharing one font, classic xref, unencrypted. Oracle and independent page counts must agree on 2."
+    },
+    {
+      "file": "truncated-1page.pdf",
+      "sha256": "6aafbe19f99a8eb28e0d87a061dbaa3973e148214a6d3dfbc4b67723ad5cdd2a",
+      "bytes": 120,
+      "expectedNpages": 0,
+      "headerVersion": "1.4",
+      "valid": false,
+      "description": "Negative fixture: truncated input. Both oracle --check and the independent reader must fail explicitly; a passing validation is a test failure."
+    }
+  ]
+}
