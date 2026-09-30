@@ -2,42 +2,39 @@
 
 ## Current checkpoint
 
-Work item 03: bounded JPEG/Flate feasibility probes. `QpdfProbe probe-jpeg`
-and `probe-flate` plus `CodecProbeTests` establish the M0 codec decisions in
-`docs/COMPATIBILITY.md`. Work items 01-03 are complete; M0 still needs a real
-qpdf 12.4.2 executable smoke. No PDF operation or public execution API exists.
+Work item 04: minimal M1 foundation in the shipped library. `IQpdfHost`,
+`IQpdfInput`, staged `IQpdfOutputTransaction`, logical `QpdfPath`, `QpdfLimits`,
+structured diagnostics, execution results/counters, and the public
+`InMemoryQpdfHost` are implemented with per-job governor budgets, ownership
+rules, and failure semantics. No PDF parsing or operation exists yet.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 39 tests (13
-  scaffold, 12 runner/fixture, 14 codec-probe cases).
-- Executed `probe-jpeg`: grayscale/RGB 8x8 round-trips preserve dimensions;
-  quality endpoints `1..100` enforced with qpdf `0 -> 1`; CMYK/YCCK gap
-  confirmed (color-converted RGB, raw samples not preserved); dimension
-  bounds and cancellation honored.
-- Executed `probe-flate`: zlib round-trip exact; qpdf `1..9` to BCL
-  Fastest/Optimal/SmallestSize buckets; corruption throws
-  `InvalidDataException` while half-truncation yields short output (callers
-  must validate length); expansion limit and cancellation enforced.
+- Locked restore, Release build with zero warnings, and all 79 tests (39
+  prior plus 40 foundation cases: governor budgets/cancellation, diagnostic
+  mapping and message hygiene, in-memory host ownership/reads/leases,
+  staged commit/discard/conflict/budget/cancellation paths).
+- Failure evidence: over-budget reservations fail before allocating;
+  non-progressing reads and alias conflicts fail explicitly; failed commits
+  leave existing targets untouched; uncommitted staging never publishes and
+  every lease closes on success, failure, and cancellation.
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
-  with exactly ImageSharp 3.1.12 as the runtime dependency. PdfPig and probe
-  ImageSharp use are development-only and are not packaged.
+  with exactly ImageSharp 3.1.12 as the runtime dependency.
 - Real qpdf 12.4.2 executable smoke has still not run; no exe checksum or
   JPEG/Zopfli build features are recorded.
 
-The Windows/Linux CI workflow builds the probe via the solution; the
-reference lane remains an explicit local job requiring `QPDF_EXE`. Ordinary
-`dotnet test` stays offline and never needs `external/` or a qpdf binary.
+Ordinary `dotnet test` stays offline and never needs `external/` or a qpdf
+binary; internals are white-box tested via `InternalsVisibleTo`.
 
 ## Next work
 
-1. M1: implement minimal owned input/output, governor and diagnostics, then a
-   strict classic-xref reader and one complete read/select/write operation.
-   Exercise it through narrow argv/job routes and a real package consumer.
-   Reuse the codec bounds above; do not build the M8 JPEG adapter yet.
-2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
+1. Work item 05: parse binary objects/classic xrefs and expose bounded
+   page-count/object inspection over this foundation for the initial profile.
+2. Work item 06: copy and serialize a selected page, add narrow argv/job
+   adapters, verify independent output plus replay counts.
+3. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result.
 
 Continue in small tested local commits. Update the compatibility entries and

@@ -1,7 +1,6 @@
 # Architecture
 
-This describes the intended implementation. At the scaffold checkpoint the
-library builds and packs but has no PDF execution code or public API.
+This describes the intended implementation. The library now ships its M1 foundations (host contracts, in-memory host, per-job governor, diagnostics, staged output); PDF parsing, operations, and command adapters arrive in later work items.
 
 Three entry points will converge on one operation plan: familiar qpdf argv,
 qpdf job JSON, and typed operations including bounded page selection. The
@@ -29,3 +28,4 @@ The initial solution contains a packable library project and a test project
 referencing its built assembly. Add a dedicated public API consumer, probe and
 benchmarks when their operations exist. Do not create duplicate engines or
 empty project layers solely to match the eventual architecture.
+
