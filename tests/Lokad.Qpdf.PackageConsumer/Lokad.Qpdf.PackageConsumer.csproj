@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Clean package consumer: restores the PACKED Lokad.qpdf NuGet (never a
+    project reference) and exercises only the public embedding surface.
+    Excluded from the solution; runs after pack. Bump the central
+    Lokad.qpdf version together with src/Lokad.Qpdf releases.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackageConsumer>true</IsPackageConsumer>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PackageConsumer</RootNamespace>
+    <AssemblyName>Lokad.Qpdf.PackageConsumer</AssemblyName>
+    <Description>Clean consumer smoke for the packed Lokad.qpdf package. Not shipped.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Lokad.qpdf" />
+  </ItemGroup>
+</Project>

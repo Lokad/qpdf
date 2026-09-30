@@ -134,6 +134,76 @@ public sealed class SelectPageTests
     }
 
     [Fact]
+    public async Task PreservesStreamsWithIndirectLengths()
+    {
+        (InMemoryQpdfHost host, byte[] _) = await LoadFixture("indirect-length.pdf");
+        await Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/indirect-length.pdf"),
+            QpdfPath.From("outputs/indirect.pdf"),
+            new PdfPageSelectionOptions(1),
+            CancellationToken.None);
+
+        await using QpdfDocument output = await Reopen(host, "outputs/indirect.pdf");
+        Assert.Equal(1, output.PageCount);
+        await using QpdfDocument source = await QpdfDocument.OpenAsync(
+            host, QpdfPath.From("inputs/indirect-length.pdf"), CancellationToken.None);
+        PdfStream sourceStream = Assert.IsType<PdfStream>(source.GetObject(4));
+        bool preserved = false;
+        foreach (int number in new[] { 3, 4, 5, 6, 7 })
+        {
+            try
+            {
+                if (output.GetObject(number) is PdfStream candidate
+                    && candidate.Data.AsSpan().SequenceEqual(sourceStream.Data))
+                {
+                    preserved = true;
+                }
+            }
+            catch (QpdfParseException)
+            {
+            }
+        }
+
+        Assert.True(preserved);
+    }
+
+    [Fact]
+    public async Task PreservesStreamsWithUnknownFiltersUndecoded()
+    {
+        (InMemoryQpdfHost host, byte[] _) = await LoadFixture("bogus-filter.pdf");
+        await Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/bogus-filter.pdf"),
+            QpdfPath.From("outputs/bogus.pdf"),
+            new PdfPageSelectionOptions(1),
+            CancellationToken.None);
+
+        await using QpdfDocument output = await Reopen(host, "outputs/bogus.pdf");
+        Assert.Equal(1, output.PageCount);
+        await using QpdfDocument source = await QpdfDocument.OpenAsync(
+            host, QpdfPath.From("inputs/bogus-filter.pdf"), CancellationToken.None);
+        PdfStream sourceStream = Assert.IsType<PdfStream>(source.GetObject(4));
+        bool preserved = false;
+        foreach (int number in new[] { 3, 4, 5, 6 })
+        {
+            try
+            {
+                if (output.GetObject(number) is PdfStream candidate
+                    && candidate.Data.AsSpan().SequenceEqual(sourceStream.Data))
+                {
+                    preserved = true;
+                }
+            }
+            catch (QpdfParseException)
+            {
+            }
+        }
+
+        Assert.True(preserved);
+    }
+
+    [Fact]
     public async Task RepeatedSelectionsAreByteIdentical()
     {
         (InMemoryQpdfHost first, byte[] _) = await LoadFixture("minimal-2page.pdf");

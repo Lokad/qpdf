@@ -8,5 +8,8 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <!-- Pinned independent PDF reader for development validation only. Never a runtime dependency. -->
     <PackageVersion Include="PdfPig" Version="[0.1.16]" />
+    <!-- In-repo consumer pins the built package; bump together with src/Lokad.Qpdf releases. -->
+    <PackageVersion Include="Lokad.qpdf" Version="0.1.0-alpha.1" />
   </ItemGroup>
 </Project>
+

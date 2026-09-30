@@ -80,7 +80,27 @@ count must exit 2; truncated input must fail validation). A real 12.4.2
 executable has not been bootstrapped yet; its checksum and JPEG/Zopfli build
 features are unrecorded (see `docs/COMPATIBILITY.md`).
 
+## Package consumer
+
+`tests/Lokad.Qpdf.PackageConsumer` is a clean console project outside the
+solution. It restores the packed `Lokad.qpdf` NuGet from
+`artifacts/nuget` (never a project reference) plus approved dependencies
+from NuGet, then exercises typed selection, argv and job routes, their
+parity, and crypto rejection using only the public API and an in-memory
+host. It needs no upstream checkout, reference executable, or renderer.
+
+```sh
+dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
+dotnet restore tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj --locked-mode
+dotnet run --project tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj -c Release --no-restore
+```
+
+The consumer pins the built package version centrally; bump it together
+with `src/Lokad.Qpdf` releases. Its lock file is committed. CI runs the
+smoke on Windows and Linux after pack.
+
 ## Next tooling
 
-M0 probes are complete. M1 begins the minimal strict reader, writer and
-host/governor work; codec decisions above constrain M6/M8 integration.
+M1 paths are complete. M2 begins strict-reader breadth (filters, xref and
+object streams, incremental and hybrid structures); the M0 codec decisions
+constrain M6/M8 integration.

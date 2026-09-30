@@ -7,6 +7,8 @@
     <!-- Independent validation reader: development tooling only, never the shipped library. -->
     <AllowedPackageReference Include="PdfPig" Condition="'$(IsTestProject)' == 'true'" />
     <AllowedPackageReference Include="PdfPig" Condition="'$(IsQpdfProbeTool)' == 'true'" />
+    <!-- Clean consumer restores the packed library, never project sources. -->
+    <AllowedPackageReference Include="Lokad.qpdf" Condition="'$(IsPackageConsumer)' == 'true'" />
   </ItemGroup>
 
   <Target Name="EnforcePackageAllowlist" BeforeTargets="CollectPackageReferences">
@@ -29,3 +31,4 @@
     <Error Text="NuGet packages must be produced with -c Release." />
   </Target>
 </Project>
+

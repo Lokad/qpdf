@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "Lokad.qpdf": {
+        "type": "Direct",
+        "requested": "[0.1.0-alpha.1, )",
+        "resolved": "0.1.0-alpha.1",
+        "contentHash": "/EYpnGDDAVabjibc6LnYE7EtdyMWjVF1AAorWqhBO+pZ5Rs6xGR/uWmqHvVjKr6sbjLNpptcgr+MSV7msTAJKQ==",
+        "dependencies": {
+          "SixLabors.ImageSharp": "[3.1.12]"
+        }
+      },
+      "SixLabors.ImageSharp": {
+        "type": "CentralTransitive",
+        "requested": "[3.1.12, 3.1.12]",
+        "resolved": "3.1.12",
+        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+      }
+    }
+  }
+}

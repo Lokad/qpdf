@@ -5,9 +5,11 @@ non-cryptographic PDF structural operations in managed, memory-safe C#.
 The intended embedding boundary is explicit inputs, host-mediated effects,
 resource limits, and structured outputs and diagnostics.
 
-**Current status: solution scaffold only.** No PDF reader, writer, command
-execution, or page-selection API is implemented. The `0.1.0-alpha.1` package
-is a build/packaging checkpoint, not a usable PDF processor.
+**Current status: M1 first operation.** The `0.1.0-alpha.1` package reads
+strict single-section classic-xref PDFs and copies one page by index through
+typed, argv, and job JSON routes with staged publication. See
+`docs/SUPPORTED-PROFILE.md` for the exact profile; everything else in
+`docs/COMPATIBILITY.md` is roadmap, not behavior.
 
 The compatibility target is qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`. The initial inventory accounts for
@@ -29,12 +31,14 @@ dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
 dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 pwsh -File tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
+dotnet restore tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj --locked-mode
+dotnet run --project tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj -c Release --no-restore
 ```
 
 The library uses namespace/assembly `Lokad.Qpdf` and package ID `Lokad.qpdf`.
 Only explicit Release packing produces packages. Ordinary tests and builds
 do not require an upstream checkout, qpdf executable, Python, or a renderer.
-CI runs the scaffold checks on Windows and Linux.
+CI runs the offline checks plus the package consumer smoke on Windows and Linux.
 
 ## Scope and dependencies
 

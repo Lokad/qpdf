@@ -18,5 +18,7 @@
     <None Include="../Fixtures/encrypted-decl.pdf" Link="Fixtures/encrypted-decl.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/cyclic-pages.pdf" Link="Fixtures/cyclic-pages.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/inherited-attrs.pdf" Link="Fixtures/inherited-attrs.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/indirect-length.pdf" Link="Fixtures/indirect-length.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/bogus-filter.pdf" Link="Fixtures/bogus-filter.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

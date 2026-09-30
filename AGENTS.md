@@ -23,6 +23,8 @@ dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
 dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 pwsh -File tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
+dotnet restore tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj --locked-mode
+dotnet run --project tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj -c Release --no-restore
 ```
 
 After an intentional dependency change, restore without locked mode once,
