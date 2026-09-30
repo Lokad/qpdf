@@ -40,6 +40,9 @@ public sealed record QpdfLimits
     /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion.</summary>
     public long MaxNestingDepth { get; init; } = 256L;
 
+    /// <summary>Maximum cross-reference sections followed per file.</summary>
+    public long MaxRevisions { get; init; } = 64L;
+
     /// <summary>Gets the default budgets.</summary>
     public static QpdfLimits Default { get; } = new QpdfLimits();
 
@@ -100,6 +103,11 @@ public sealed record QpdfLimits
         if (MaxNestingDepth <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(MaxNestingDepth), "Budget must be positive.");
+        }
+
+        if (MaxRevisions <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaxRevisions), "Budget must be positive.");
         }
     }
 }

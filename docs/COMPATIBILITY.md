@@ -159,6 +159,21 @@ fail, where the reference warns and continues. `/Prev`, `/XRefStm`, and
 staleness with errors. Selection output normalizes to classic xref;
 object-stream preservation arrives with writer controls (M6).
 
+## Incremental and hybrid chains (work item 10)
+
+`/Prev` chains across classic and stream sections resolve with
+latest-wins precedence; hybrid `/XRefStm` links merge without
+overriding their own revision and their own `/Prev` stays ignored like
+upstream. Cycles terminate explicitly, section counts run against a
+revision budget, and link targets must be integers inside the input.
+Deleted entries (latest free) resolve as null; replaced entries and
+generations resolve transparently, including compressed objects whose
+streams were superseded. Union coverage of the effective `/Size` is
+exact with absent-or-free object 0, and over-range entries fail rather
+than being ignored. Every chained trailer is checked for encryption
+declarations. Recovery of damaged structures stays M4 work and fails
+explicitly here.
+
 ## Single-page selection (work item 06a)
 
 Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the

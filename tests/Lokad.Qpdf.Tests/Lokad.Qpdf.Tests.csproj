@@ -28,5 +28,10 @@
     <None Include="../Fixtures/objstm-extends.pdf" Link="Fixtures/objstm-extends.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/prev-chain.pdf" Link="Fixtures/prev-chain.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/xstm-classic.pdf" Link="Fixtures/xstm-classic.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/incremental-1page.pdf" Link="Fixtures/incremental-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/incremental-delete.pdf" Link="Fixtures/incremental-delete.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/hybrid-xstm.pdf" Link="Fixtures/hybrid-xstm.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/cyclic-prev.pdf" Link="Fixtures/cyclic-prev.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/prev-stream.pdf" Link="Fixtures/prev-stream.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

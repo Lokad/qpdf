@@ -23,15 +23,15 @@ echoing values.
 
 ## Input profile
 
-- Single-section cross references: classic tables or Flate-compressed
+- Chained cross references: classic tables and Flate-compressed
   xref streams with exact entry sizing and coverage; object streams
   decode once with validated headers and extents. No `/Prev` chains,
-  hybrid `/XRefStm`, `/Extends` links, recovery, or incremental updates.
+  `/Extends` links, recovery, or object-stream preservation in output.
 - `%PDF-` header at offset 0; versions 1.0–1.7 and 2.0.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
   structurally, including empty-password forms.
 - Strict parsing: damaged inputs fail as parse errors. There is no recovery,
-  no hybrid or incremental structures, and no catalog
+  no catalog
   `/Version` override yet.
 - Streams travel opaquely and are never decoded: direct and indirect
   `/Length` resolve, unknown filter encodings pass through untouched, and

@@ -42,6 +42,8 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     internal PdfDictionary Trailer => _table.Trailer;
 
+    internal IReadOnlyList<PdfDictionary> Trailers => _table.Trailers;
+
     internal DiagnosticBag Diagnostics => _diagnostics;
 
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)

@@ -201,10 +201,21 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     private static void RejectEncrypted(QpdfPath path, DocumentEngine engine)
     {
-        PdfName encryptKey = new([(byte)'E', (byte)'n', (byte)'c', (byte)'r', (byte)'y', (byte)'p', (byte)'t']);
-        if (!engine.Trailer.TryGet(encryptKey, out QpdfObject raw) || raw is PdfNull)
+        foreach (PdfDictionary trailer in engine.Trailers)
         {
-            return;
+            if (TrailerDeclaresEncryption(trailer, engine))
+            {
+                throw new QpdfEncryptedInputException(path);
+            }
+        }
+    }
+
+    private static bool TrailerDeclaresEncryption(PdfDictionary trailer, DocumentEngine engine)
+    {
+        PdfName encryptKey = new([(byte)'E', (byte)'n', (byte)'c', (byte)'r', (byte)'y', (byte)'p', (byte)'t']);
+        if (!trailer.TryGet(encryptKey, out QpdfObject raw) || raw is PdfNull)
+        {
+            return false;
         }
 
         if (raw is PdfReference reference)
@@ -222,11 +233,11 @@ public sealed class QpdfDocument : IAsyncDisposable
             QpdfObject resolved = unresolved;
             if (resolved is PdfNull)
             {
-                return;
+                return false;
             }
         }
 
-        throw new QpdfEncryptedInputException(path);
+        return true;
     }
 
     private static List<PageLocation> ListPages(
