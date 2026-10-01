@@ -242,6 +242,17 @@ report skipped; non-linearized files pass linearization trivially. `qpdf input
 --check` maps to the same engine with exit 0/2/3 from the diagnostics; job-JSON
 check has no upstream schema basis yet and fails explicitly.
 
+## Invocation breadth (work item 18)
+
+Response files expand once through the host with one argument per line, UTF-8
+checked, budgeted per line, and leases closed; `@-` has no stdin descriptor and
+fails explicitly, missing files stay literal like the reference parser, and
+nested `@` tokens never re-expand. `--job-json-file` reads the identical job
+schema through the host with plan parity. `--warning-exit-0` maps warnings to
+exit 0, `--no-warn` drops warning diagnostics, and both ride the shared plan.
+`--help` and `--version` return identity text as info diagnostics with exit 0;
+`--copyright`, completion, and all other operations stay explicitly unsupported.
+
 ## Bounded repair (work item 17)
 
 Strict parsing runs first; only its failure engages bounded repair, which scans

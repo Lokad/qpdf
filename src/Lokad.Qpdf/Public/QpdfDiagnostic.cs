@@ -51,6 +51,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Bounded repair rebuilt cross-references after strict parsing failed.</summary>
     RecoveryEngaged = 10,
+
+    /// <summary>Help or version text for an identity request.</summary>
+    HelpText = 11,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

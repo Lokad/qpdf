@@ -36,8 +36,8 @@ internal static class ArgvParser
             throw new QpdfParseException("No command arguments were supplied.", 0L, null);
         }
 
-        RejectResponseFiles(argv);
-        QpdfRecoveryMode recovery = ExtractRecoveryMode(ref argv);
+        GlobalOptions globals = ExtractGlobalOptions(ref argv);
+        QpdfRecoveryMode recovery = globals.Recovery;
         int checkAt = FindFlag(argv, "--check");
         int pagesAt = FindFlag(argv, "--pages");
         if (checkAt >= 0 && pagesAt >= 0)
@@ -47,7 +47,11 @@ internal static class ArgvParser
 
         if (checkAt >= 0)
         {
-            return ParseCheck(argv, checkAt, recovery);
+            return ParseCheck(argv, checkAt, recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
         }
 
         if (pagesAt < 0)
@@ -61,7 +65,11 @@ internal static class ArgvParser
         string output = ParseOutputArea(argv, terminatorAt);
         string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(range);
-        return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery);
+        return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
+        {
+            WarningExitZero = globals.WarningExitZero,
+            NoWarn = globals.NoWarn,
+        };
     }
 
     internal static string OptionName(string token)
@@ -79,17 +87,6 @@ internal static class ArgvParser
         }
 
         throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", index, null);
-    }
-
-    private static void RejectResponseFiles(IReadOnlyList<string> argv)
-    {
-        for (int i = 0; i < argv.Count; i++)
-        {
-            if (argv[i] is not null && argv[i].StartsWith("@", StringComparison.Ordinal) && argv[i].Length > 1)
-            {
-                throw new QpdfParseException("Response files (@file/@-) are outside the narrow selection profile.", i, null);
-            }
-        }
     }
 
     private static int FindFlag(IReadOnlyList<string> argv, string flag)
@@ -111,20 +108,52 @@ internal static class ArgvParser
         return found;
     }
 
-    private static QpdfRecoveryMode ExtractRecoveryMode(ref IReadOnlyList<string> argv)
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn);
+
+    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
         List<string> kept = new(argv.Count);
-        int suppressions = 0;
+        QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
+        bool warningExitZero = false;
+        bool noWarn = false;
+        bool seenSuppress = false;
+        bool seenWarningExitZero = false;
+        bool seenNoWarn = false;
         for (int i = 0; i < argv.Count; i++)
         {
             if (argv[i] == "--suppress-recovery")
             {
-                suppressions += 1;
-                if (suppressions > 1)
+                if (seenSuppress)
                 {
                     throw new QpdfParseException("Duplicate --suppress-recovery is outside the narrow profile.", i, null);
                 }
 
+                seenSuppress = true;
+                recovery = QpdfRecoveryMode.Strict;
+                continue;
+            }
+
+            if (argv[i] == "--warning-exit-0")
+            {
+                if (seenWarningExitZero)
+                {
+                    throw new QpdfParseException("Duplicate --warning-exit-0 is outside the narrow profile.", i, null);
+                }
+
+                seenWarningExitZero = true;
+                warningExitZero = true;
+                continue;
+            }
+
+            if (argv[i] == "--no-warn")
+            {
+                if (seenNoWarn)
+                {
+                    throw new QpdfParseException("Duplicate --no-warn is outside the narrow profile.", i, null);
+                }
+
+                seenNoWarn = true;
+                noWarn = true;
                 continue;
             }
 
@@ -132,7 +161,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return suppressions > 0 ? QpdfRecoveryMode.Strict : QpdfRecoveryMode.BoundedRepair;
+        return new GlobalOptions(recovery, warningExitZero, noWarn);
     }
 
     private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)

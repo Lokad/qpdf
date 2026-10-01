@@ -89,6 +89,27 @@ internal static class Program
         await CheckOutputAsync(repairHost, "outputs/repaired.pdf", "First");
         Console.WriteLine("PASS bounded repair of damaged input");
 
+        InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
+        responseHost.AddInput(
+            QpdfPath.From("args.txt"),
+            Encoding.ASCII.GetBytes("inputs/in.pdf\n--pages\n.\n1\n--\noutputs/response.pdf\n"),
+            QpdfInputOwnership.Copy);
+        QpdfExecutionResult response = await Qpdf.ExecuteAsync(
+            responseHost,
+            new QpdfCommandInvocation(["@args.txt"]),
+            CancellationToken.None);
+        Check(response.Status == QpdfExecutionStatus.Completed && response.ExitCode == QpdfExitCode.Success, "response file execution");
+        await CheckOutputAsync(responseHost, "outputs/response.pdf", "First");
+        Console.WriteLine("PASS response file selection (@file)");
+
+        InMemoryQpdfHost helpHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult help = await Qpdf.ExecuteAsync(
+            helpHost,
+            new QpdfCommandInvocation(["--help"]),
+            CancellationToken.None);
+        Check(help.Status == QpdfExecutionStatus.Completed && help.ExitCode == QpdfExitCode.Success, "help execution");
+        Console.WriteLine("PASS help identity (--help)");
+
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(
             cryptoHost,

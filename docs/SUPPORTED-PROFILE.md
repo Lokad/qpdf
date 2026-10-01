@@ -10,7 +10,9 @@ Three routes converge on one selection plan executed by the shared engine:
 - Typed: `Qpdf.SelectPageAsync` with explicit, `FirstAndLast`, or `Normalized` page sets;
   `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
-  -- output` (single positive-integer range) and `input --check` for inspection.
+  -- output` (single positive-integer range), `input --check`, `--job-json-file
+  file`, `@file` response files (one argument per line), `--help`/`--version`,
+  and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,
   pages:[{file, range}]}` with exactly one entry; inspection has no job key yet.
 

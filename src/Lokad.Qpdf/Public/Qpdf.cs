@@ -60,7 +60,9 @@ public static class Qpdf
         }
 
         limits.Validate();
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -70,10 +72,10 @@ public static class Qpdf
         PdfPageSelectionOptions options,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag diagnostics = new(governor);
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         int total = document.PageReferences.Count;
         IReadOnlyList<int> requested = options.Resolve(total);
@@ -188,7 +190,9 @@ public static class Qpdf
         }
 
         limits.Validate();
-        return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<QpdfCheckResult> CheckCoreAsync(
@@ -197,10 +201,10 @@ public static class Qpdf
         QpdfCheckOptions options,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        ResourceGovernor governor = new(limits, CancellationToken.None);
-        DiagnosticBag diagnostics = new(governor);
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         List<QpdfCheckOutcome> checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, cancellationToken);
         return new QpdfCheckResult(document.PageCount, document.Version, checks, [.. diagnostics.Entries], governor.Snapshot());
@@ -388,16 +392,127 @@ public static class Qpdf
             throw new ArgumentNullException(nameof(options));
         }
 
-        JobPlan plan;
+        options.Limits.Validate();
+        ResourceGovernor governor = new(options.Limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        IReadOnlyList<string> expanded;
         try
         {
-            plan = ArgvParser.Parse(invocation.Arguments);
+            expanded = await ResponseFileExpander.ExpandAsync(host, invocation.Arguments, options.Limits, governor, cancellationToken).ConfigureAwait(false);
         }
         catch (QpdfException ex)
         {
             return ToFailedResult(ex);
         }
-        return await RunPlanAsync(host, plan, options.Limits, cancellationToken).ConfigureAwait(false);
+        catch (OperationCanceledException)
+        {
+            return QpdfExecutionResult.Canceled([], ZeroCounters());
+        }
+
+        if (HelpText.TryMatchHelp(expanded, out string help))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, help)],
+                governor.Snapshot());
+        }
+
+        if (HelpText.TryMatchVersion(expanded, out string version))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, version)],
+                governor.Snapshot());
+        }
+
+        if (TryTakeJobJsonFile(expanded, out string? jobPath, out QpdfException? jobError))
+        {
+            if (jobError is not null)
+            {
+                return ToFailedResult(jobError);
+            }
+
+            if (jobPath is null)
+            {
+                return ToFailedResult(new QpdfParseException("Null argument.", 1, null));
+            }
+
+            string jobJson;
+            try
+            {
+                jobJson = await ResponseFileExpander.ReadTextFileAsync(host, SelectionPlan.CheckedPath(jobPath), options.Limits, governor, cancellationToken).ConfigureAwait(false);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+
+            SelectionPlan jobPlan;
+            try
+            {
+                jobPlan = JobJsonParser.Parse(jobJson, options.Limits);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+
+            return await RunPlanAsync(host, jobPlan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        }
+
+        JobPlan plan;
+        try
+        {
+            plan = ArgvParser.Parse(expanded);
+        }
+        catch (QpdfException ex)
+        {
+            return ToFailedResult(ex);
+        }
+
+        return await RunPlanAsync(host, plan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static bool TryTakeJobJsonFile(IReadOnlyList<string> argv, out string? jobPath, out QpdfException? error)
+    {
+        jobPath = null;
+        error = null;
+        int found = -1;
+        for (int i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] == "--job-json-file")
+            {
+                if (found >= 0)
+                {
+                    error = new QpdfParseException("Duplicate --job-json-file is outside the narrow profile.", i, null);
+                    return true;
+                }
+
+                found = i;
+            }
+        }
+
+        if (found < 0)
+        {
+            return false;
+        }
+
+        if (argv.Count != 2)
+        {
+            error = new QpdfParseException("--job-json-file takes exactly one file and no other operation.", found, null);
+            return true;
+        }
+
+        jobPath = argv[1];
+        if (jobPath is null)
+        {
+            error = new QpdfParseException("Null argument.", 1, null);
+            return true;
+        }
+
+        return true;
     }
 
     /// <summary>Executes a job-JSON invocation with default budgets.</summary>
@@ -433,6 +548,9 @@ public static class Qpdf
             throw new ArgumentNullException(nameof(options));
         }
 
+        options.Limits.Validate();
+        ResourceGovernor governor = new(options.Limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
         SelectionPlan plan;
         try
         {
@@ -442,13 +560,15 @@ public static class Qpdf
         {
             return ToFailedResult(ex);
         }
-        return await RunPlanAsync(host, plan, options.Limits, cancellationToken).ConfigureAwait(false);
+        return await RunPlanAsync(host, plan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<QpdfExecutionResult> RunPlanAsync(
         IQpdfHost host,
         JobPlan plan,
         QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         if (plan is CheckPlan check)
@@ -461,8 +581,10 @@ public static class Qpdf
                     new QpdfCheckOptions(),
                     limits,
                     check.Recovery,
+                    governor,
+                    diagnostics,
                     cancellationToken).ConfigureAwait(false);
-                return QpdfExecutionResult.Completed(inspected.Diagnostics, inspected.Counters);
+                return CompleteWithPresentation(inspected.Diagnostics, inspected.Counters, plan);
             }
             catch (QpdfException ex)
             {
@@ -484,8 +606,10 @@ public static class Qpdf
                 new PdfPageSelectionOptions(selection.Page),
                 limits,
                 selection.Recovery,
+                governor,
+                diagnostics,
                 cancellationToken).ConfigureAwait(false);
-            return QpdfExecutionResult.Completed(selected.Warnings, selected.Counters);
+            return CompleteWithPresentation(selected.Warnings, selected.Counters, plan);
         }
         catch (QpdfException ex)
         {
@@ -495,6 +619,45 @@ public static class Qpdf
         {
             return QpdfExecutionResult.Canceled([], ZeroCounters());
         }
+    }
+
+    private static QpdfExecutionResult CompleteWithPresentation(
+        IReadOnlyList<QpdfDiagnostic> diagnostics,
+        QpdfExecutionCounters counters,
+        JobPlan plan)
+    {
+        List<QpdfDiagnostic> effective = new();
+        foreach (QpdfDiagnostic diagnostic in diagnostics)
+        {
+            if (plan.NoWarn && diagnostic.Severity == QpdfDiagnosticSeverity.Warning)
+            {
+                continue;
+            }
+
+            effective.Add(diagnostic);
+        }
+
+        bool error = false;
+        foreach (QpdfDiagnostic diagnostic in effective)
+        {
+            if (diagnostic.Severity == QpdfDiagnosticSeverity.Error)
+            {
+                error = true;
+                break;
+            }
+        }
+
+        if (error)
+        {
+            return QpdfExecutionResult.Failed(effective, counters);
+        }
+
+        if (plan.WarningExitZero)
+        {
+            return new QpdfExecutionResult(QpdfExecutionStatus.Completed, QpdfExitCode.Success, effective, counters);
+        }
+
+        return QpdfExecutionResult.Completed(effective, counters);
     }
 
     private static QpdfExecutionResult CryptoFailed(string option)

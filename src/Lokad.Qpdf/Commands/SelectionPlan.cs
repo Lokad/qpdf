@@ -1,7 +1,12 @@
 namespace Lokad.Qpdf.Commands;
 
 /// <summary>Validated job plan shared by every entry path.</summary>
-internal abstract record JobPlan(QpdfPath Input);
+internal abstract record JobPlan(QpdfPath Input)
+{
+    public bool WarningExitZero { get; init; }
+
+    public bool NoWarn { get; init; }
+}
 
 /// <summary>Validated single-page selection.</summary>
 internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, QpdfRecoveryMode Recovery) : JobPlan(Input)
