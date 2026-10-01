@@ -77,6 +77,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --json cannot be combined with --flatten-rotation.", jsonEntryAt, null);
             }
 
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --flatten-annotations.", jsonEntryAt, null);
+            }
+
             if (jsonImportAt >= 0)
             {
                 throw new QpdfParseException("Option --json cannot be combined with JSON import.", jsonEntryAt, null);
@@ -115,6 +120,11 @@ internal static class ArgvParser
             if (globals.FlattenRotation)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --flatten-rotation.", jsonImportAt, null);
+            }
+
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --flatten-annotations.", jsonImportAt, null);
             }
 
             if (jsonEntryAt >= 0)
@@ -159,6 +169,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("Attachment inspection cannot be combined with --flatten-rotation.", showAt >= 0 ? showAt : listAt, null);
             }
 
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --flatten-annotations.", showAt >= 0 ? showAt : listAt, null);
+            }
+
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
@@ -177,6 +192,11 @@ internal static class ArgvParser
         if (checkAt >= 0 && globals.FlattenRotation)
         {
             throw new QpdfParseException("Options --check and --flatten-rotation cannot be combined.", checkAt, null);
+        }
+
+        if (checkAt >= 0 && globals.FlattenAnnotations is not null)
+        {
+            throw new QpdfParseException("Options --check and --flatten-annotations cannot be combined.", checkAt, null);
         }
 
         if (checkAt >= 0)
@@ -353,6 +373,7 @@ internal static class ArgvParser
                 ExternalizeInlineImages = globals.ExternalizeInlineImages,
                 IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
+            FlattenAnnotations = globals.FlattenAnnotations,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
@@ -392,6 +413,7 @@ internal static class ArgvParser
             ExternalizeInlineImages = globals.ExternalizeInlineImages,
             IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
+            FlattenAnnotations = globals.FlattenAnnotations,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
@@ -565,7 +587,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -617,6 +639,8 @@ internal static class ArgvParser
         long iiMinBytes = 1024L;
         bool seenFlattenRotation = false;
         bool flattenRotation = false;
+        bool seenFlattenAnnotations = false;
+        string? flattenAnnotations = null;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -959,6 +983,18 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Option --flatten-rotation takes no value.", i, null);
             }
+
+            if (argv[i] == "--flatten-annotations" || argv[i].StartsWith("--flatten-annotations=", StringComparison.Ordinal))
+            {
+                if (seenFlattenAnnotations)
+                {
+                    throw new QpdfParseException("Duplicate --flatten-annotations is outside the narrow profile.", i, null);
+                }
+
+                seenFlattenAnnotations = true;
+                flattenAnnotations = ParseStreamChoice(argv, ref i, "--flatten-annotations", new string[] { "all", "print", "screen" });
+                continue;
+            }
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -975,7 +1011,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2248,6 +2284,7 @@ internal static class ArgvParser
             ExternalizeInlineImages = globals.ExternalizeInlineImages,
             IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
+            FlattenAnnotations = globals.FlattenAnnotations,
         };
     }
 
@@ -2296,6 +2333,7 @@ internal static class ArgvParser
             ExternalizeInlineImages = globals.ExternalizeInlineImages,
             IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
+            FlattenAnnotations = globals.FlattenAnnotations,
         };
     }
 

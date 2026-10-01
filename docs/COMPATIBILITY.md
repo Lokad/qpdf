@@ -611,6 +611,10 @@ Repeatable --overlay and --underlay blocks (--file or positional file, --to, --f
 
 --flatten-rotation (plus job key) mirrors upstream page baking: boxes rotate about the media box per 90/180/270 degrees, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Pages without actionable rotation stay byte-identical. The page-content check now tokenizes page content streams (honoring the check decode level) instead of reporting skipped. Intentional differences: annotation appearance streams are untouched, damaged pages warn and stay as is, and form-field restructuring is left to later appearance work.
 
+## Annotation flattening (work item 31b)
+
+--flatten-annotations with ll, print, or screen (plus job key) mirrors upstream stamping: appearance streams become /Fxo form XObjects placed by annotation-derived matrices with flag filtering and page-rotation counter-rotation, and flattened annotations leave /Annots. Widgets defer to generated appearances when the document needs them, and appearance-less annotations drop only when they carry an appearance dictionary. Intentional differences: field default resources are not merged into appearances, and indirect damage keeps originals with a warning instead of failing.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

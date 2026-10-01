@@ -118,6 +118,8 @@ internal static class JobJsonParser
             bool seenUnderlay = false;
             bool flattenRotation = false;
             bool seenFlattenRotation = false;
+            string? flattenAnnotations = null;
+            bool seenFlattenAnnotations = false;
             string? jsonVersion = null;
             bool seenJson = false;
             List<string> jsonKeys = new();
@@ -404,6 +406,20 @@ internal static class JobJsonParser
 
                         seenFlattenRotation = true;
                         flattenRotation = RequireBareFlag(property.Value, "flattenRotation");
+                        break;
+                    case "flattenAnnotations":
+                        if (seenFlattenAnnotations)
+                        {
+                            throw new QpdfParseException("Duplicate job key flattenAnnotations.", 0L, null);
+                        }
+
+                        seenFlattenAnnotations = true;
+                        flattenAnnotations = RequireString(property.Value, "flattenAnnotations");
+                        if (flattenAnnotations != "all" && flattenAnnotations != "print" && flattenAnnotations != "screen")
+                        {
+                            throw new QpdfParseException("Job flattenAnnotations must be one of: all, print, screen.", 0L, null);
+                        }
+
                         break;
                     case "listAttachments":
                         if (seenListAttachments)
@@ -746,7 +762,7 @@ internal static class JobJsonParser
             bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
             bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null || externalizeInlineImages || seenIiMinBytes;
             bool wantOverlays = overlays.Count > 0 || underlays.Count > 0;
-            bool wantFlatten = flattenRotation;
+            bool wantFlatten = flattenRotation || flattenAnnotations is not null;
             if (!hasPages)
             {
                 if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten)
@@ -791,6 +807,7 @@ internal static class JobJsonParser
                     Overlays = overlays,
                     Underlays = underlays,
                     FlattenRotation = flattenRotation,
+                    FlattenAnnotations = flattenAnnotations,
                 };
             }
 
@@ -833,6 +850,7 @@ internal static class JobJsonParser
                     Overlays = overlays,
                     Underlays = underlays,
                     FlattenRotation = flattenRotation,
+                    FlattenAnnotations = flattenAnnotations,
                 };
             }
 
@@ -872,6 +890,7 @@ internal static class JobJsonParser
                     Overlays = overlays,
                     Underlays = underlays,
                     FlattenRotation = flattenRotation,
+                    FlattenAnnotations = flattenAnnotations,
             };
         }
     }

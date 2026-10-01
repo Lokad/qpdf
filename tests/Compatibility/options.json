@@ -2491,15 +2491,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Appearance stamping with flag filtering is covered; field default-resource merging and appearance regeneration arrive with later appearance work."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["FlattenAnnotationsTests.StampTextAnnotationOnTop", "FlattenAnnotationsTests.PrintModeFiltersOnFlag", "FlattenAnnotationsTests.UncheckedCheckboxIsDropped", "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages"],
+        "negative": ["FlattenAnnotationsTests.MalformedFlattenFlagsFail"],
+        "interaction": ["FlattenAnnotationsTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }

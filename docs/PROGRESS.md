@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 31b: annotation flattening with appearance stamping. Flag-filtered stamping of appearance streams with rotation-aware placement across argv and job paths.
+
+Prior gate
+
 Work item 31a: rotation flattening and page-content checks. Counter-transform baking with box and annotation geometry across argv and job paths, plus tokenizer-backed page-content inspection.
 
 Prior gate
@@ -84,8 +88,8 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 822 tests (790
-  prior plus 22 rotation cases (box geometry, annotation rects, merge coverage, job round trips) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 25 content transform cases: coalescing, normalization,
+- Locked restore, Release build with zero warnings, and all 868 tests (844
+  prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 22 rotation cases plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 25 content transform cases: coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
@@ -99,7 +103,7 @@ binary.
 
 ## Next work
 
-1. Work item 31b: annotation flattening with appearance stamping (M7).
+1. Work item 31c: appearance generation for form fields (M7).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
