@@ -118,7 +118,26 @@ internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecove
 internal sealed record AttachmentPlan(QpdfPath Input, QpdfPath? Output, string? Key, bool List, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated JSON inspection.</summary>
-internal sealed record JsonPlan(QpdfPath Input, QpdfPath Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input);
+internal sealed record JsonPlan(QpdfPath Input, QpdfPath Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input)
+{
+    public string StreamDataMode { get; init; } = "none";
+
+    public string? StreamPrefix { get; init; }
+
+    public IReadOnlyList<string> Objects { get; init; } = [];
+
+    public bool MinimalOutput { get; init; }
+}
+
+/// <summary>Validated JSON inspection bundle shared by every entry path.</summary>
+internal sealed record JsonInspection(
+    int Version,
+    IReadOnlyList<string> Keys,
+    string? DecodeLevel,
+    string StreamData,
+    string? StreamPrefix,
+    IReadOnlyList<string> Objects,
+    bool MinimalOutput);
 
 /// <summary>One multi-source group: a raw file token plus its range text.</summary>
 internal sealed record PageGroup(string File, string Range);

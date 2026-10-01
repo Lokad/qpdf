@@ -2811,7 +2811,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Stream payloads, object filtering, minimal serialization output, acroform details, and page images stay unsupported."
+        "Page images stay unsupported."
       ],
       "evidence": {
         "positive": [
@@ -2822,11 +2822,14 @@
         "negative": [
           "JsonInspectionTests.BadVersionFails",
           "JsonInspectionTests.BadKeyFails",
-          "JsonInspectionTests.JsonCombinationsFail"
+          "JsonInspectionTests.JsonCombinationsFail",
+          "JsonModesTests.JsonOutputRejectsVersionOne",
+          "JsonModesTests.JobModesMalformedFail"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
-          "JsonInspectionTests.TypedRoundTripMatchesArgv"
+          "JsonInspectionTests.TypedRoundTripMatchesArgv",
+          "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [],
         "oracle": []
@@ -2904,17 +2907,19 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Acroform keys and deferred JSON options stay unsupported."
+        "Deferred JSON help and input stay unsupported."
       ],
       "evidence": {
         "positive": [
-          "JsonInspectionTests.KeySelectionLimitsOutput"
+          "JsonInspectionTests.KeySelectionLimitsOutput",
+          "JsonModesTests.AcroformReportsFields"
         ],
         "negative": [
           "JsonInspectionTests.BadKeyFails"
         ],
         "interaction": [
-          "JsonInspectionTests.JobRoundTripMatchesArgv"
+          "JsonInspectionTests.JobRoundTripMatchesArgv",
+          "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [],
         "oracle": []
@@ -2938,15 +2943,22 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonModesTests.ObjectFilterSelectsObjects",
+          "JsonModesTests.ObjectFilterSelectsTrailer",
+          "JsonModesTests.ObjectFilterAppliesToVersionOne"
+        ],
+        "negative": [
+          "JsonModesTests.BadObjectSelectorsFail"
+        ],
+        "interaction": [
+          "JsonModesTests.JobStreamModesRoundTrip",
+          "JsonModesTests.TypedModesRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2975,15 +2987,21 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonModesTests.JsonOutputIsMinimal",
+          "JsonModesTests.JsonOutputAcceptsKeys"
+        ],
+        "negative": [
+          "JsonModesTests.JsonOutputRejectsVersionOne"
+        ],
+        "interaction": [
+          "JsonModesTests.JobModesRoundTrip",
+          "JsonModesTests.TypedMinimalOmitsVersion"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3014,15 +3032,23 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonModesTests.InlineDecodesStreams",
+          "JsonModesTests.InlineFallsBackToRaw",
+          "JsonModesTests.DecodeNoneKeepsRaw",
+          "JsonModesTests.VersionOneIgnoresStreamData"
+        ],
+        "negative": [
+          "JsonModesTests.BadStreamOptionsFail"
+        ],
+        "interaction": [
+          "JsonModesTests.JobStreamModesRoundTrip",
+          "JsonModesTests.TypedModesRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3045,15 +3071,21 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonModesTests.FileModeWritesSidecars",
+          "JsonModesTests.FileModeHonorsPrefix"
+        ],
+        "negative": [
+          "JsonModesTests.BadStreamOptionsFail",
+          "JsonModesTests.StrayStreamOptionsFail"
+        ],
+        "interaction": [
+          "JsonModesTests.JobStreamModesRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }

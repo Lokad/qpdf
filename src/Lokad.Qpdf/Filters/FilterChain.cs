@@ -38,6 +38,41 @@ internal static class FilterChain
         return stages;
     }
 
+    internal static bool AllStagesInLevel(IReadOnlyList<FilterStage> stages, string decode)
+    {
+        if (stages is null)
+        {
+            throw new ArgumentNullException(nameof(stages));
+        }
+
+        foreach (FilterStage stage in stages)
+        {
+            bool allowed;
+            if (decode == "generalized")
+            {
+                allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
+                    || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName;
+            }
+            else if (decode == "specialized" || decode == "all")
+            {
+                allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
+                    || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName
+                    || stage.Name == RunLengthFilter.FilterName;
+            }
+            else
+            {
+                allowed = false;
+            }
+
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal static byte[] Decode(
         byte[] input,
         IReadOnlyList<FilterStage> stages,

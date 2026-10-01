@@ -537,6 +537,21 @@ images yet; named outline destinations do not resolve; `acroform`,
 `--json-object`, `--json-stream-data`, `--json-stream-prefix`,
 `--json-output`, `--json-help`, and JSON input stay explicitly unsupported.
 
+## PDF JSON stream modes and serialization output (work item 26b)
+
+Repeatable `--json-object` selectors (trailer or obj[,gen], canonicalized)
+filter the objects, objectinfo, and qpdf dictionaries across versions.
+`--json-stream-data=inline` embeds base64 payloads (decoded per the decode
+level with raw fallback and slimmed dictionaries); `=file` publishes sidecar
+outputs named after the output file or `--json-stream-prefix` and records
+`datafile` paths. `--json-output[=2|latest]` implies JSON with inline
+payloads, decode level none, the qpdf key by default, and no version or
+parameters keys. The `acroform` key reports field type inheritance, qualified
+names, values, choices, and widget annotations. Intentional differences: JSON
+requires a declared output file (no stdout contract); version 1 ignores
+stream payloads; `--json-output` with version 1 fails; `--json-help` and JSON
+input stay explicitly unsupported.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

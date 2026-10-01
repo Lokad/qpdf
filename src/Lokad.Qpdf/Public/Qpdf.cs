@@ -1753,20 +1753,7 @@ public static class Qpdf
 
     private static bool StreamFilterInLevel(string name, string decode)
     {
-        if (decode == "generalized")
-        {
-            return name == FlateFilter.FilterName || name == LzwFilter.FilterName
-                || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName;
-        }
-
-        if (decode == "specialized" || decode == "all")
-        {
-            return name == FlateFilter.FilterName || name == LzwFilter.FilterName
-                || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName
-                || name == RunLengthFilter.FilterName;
-        }
-
-        return false;
+        return Filters.FilterChain.AllStagesInLevel([new Filters.FilterStage(name, null, null)], decode);
     }
 
     private static void TransformCopierStreams(
@@ -2639,7 +2626,9 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await JsonCoreAsync(host, inputPath, outputPath, options.Version, options.Keys, null, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
+        Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
+        return await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -2925,11 +2914,6 @@ public static class Qpdf
                 throw new QpdfParseException("Unknown JSON key '" + (key ?? string.Empty) + "'.", 0L, null);
             }
 
-            if (string.Equals(key, "acroform", StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("Option --json-key=acroform is outside the narrow profile.", 0L, null);
-            }
-
             if (version == 1 && string.Equals(key, "qpdf", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("JSON key 'qpdf' is only valid for JSON version 2.", 0L, null);
@@ -2942,28 +2926,117 @@ public static class Qpdf
         }
     }
 
+    internal static List<string> ValidateJsonObjects(IReadOnlyList<string> objects, long index)
+    {
+        if (objects is null)
+        {
+            throw new ArgumentNullException(nameof(objects));
+        }
+
+        List<string> canonical = new(objects.Count);
+        foreach (string spec in objects)
+        {
+            if (spec is null)
+            {
+                throw new QpdfParseException("JSON object selectors must not be null.", index, null);
+            }
+
+            if (string.Equals(spec, "trailer", StringComparison.Ordinal))
+            {
+                canonical.Add("trailer");
+                continue;
+            }
+
+            string[] parts = spec.Split((char)44);
+            if (parts.Length > 2)
+            {
+                throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
+            }
+
+            if (!TryParseObjectNumber(parts[0], out int number))
+            {
+                throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
+            }
+
+            int generation = 0;
+            if (parts.Length == 2 && !TryParseObjectNumber(parts[1], out generation))
+            {
+                throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
+            }
+
+            canonical.Add("obj:" + number.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R");
+        }
+
+        return canonical;
+    }
+
+    private static bool TryParseObjectNumber(string text, out int number)
+    {
+        number = 0;
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            return false;
+        }
+
+        long value = 0L;
+        foreach (char c in text)
+        {
+            if (c < (char)48 || c > (char)57)
+            {
+                return false;
+            }
+
+            value = checked(value * 10L + (c - (char)48));
+        }
+
+        if (value > (long)int.MaxValue)
+        {
+            return false;
+        }
+
+        number = (int)value;
+        return true;
+    }
+
     private static async ValueTask<QpdfJsonResult> JsonCoreAsync(
         IQpdfHost host,
         QpdfPath inputPath,
         QpdfPath? outputPath,
-        int version,
-        IReadOnlyList<string> keys,
-        string? decodeLevel,
+        JsonInspection inspection,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        ValidateJsonKeys(version, keys);
+        ValidateJsonKeys(inspection.Version, inspection.Keys);
+        List<string> wanted = [.. inspection.Objects];
         if (outputPath.HasValue && string.Equals(inputPath.Value, outputPath.Value.Value, StringComparison.Ordinal))
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
 
+        string decodeLevel = inspection.DecodeLevel ?? (inspection.MinimalOutput ? "none" : "generalized");
+        if (decodeLevel != "none" && decodeLevel != "generalized" && decodeLevel != "specialized" && decodeLevel != "all")
+        {
+            throw new QpdfParseException("JSON decode level must be one of: none, generalized, specialized, all.", 0L, null);
+        }
+
+        string? prefix = inspection.StreamPrefix;
+        if (inspection.StreamData == "file" && prefix is null)
+        {
+            if (!outputPath.HasValue)
+            {
+                throw new QpdfParseException("JSON file stream data needs an output file or --json-stream-prefix.", 0L, null);
+            }
+
+            prefix = outputPath.Value.Value;
+        }
+
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        Json.JsonRequest request = new(version, keys, decodeLevel ?? "generalized");
-        string json = Json.DocumentJson.WriteDocument(document, request, limits, governor, diagnostics, cancellationToken);
+        Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
+        List<Json.JsonSidecar> sidecars = new();
+        string json = Json.DocumentJson.WriteDocument(document, request, sidecars, limits, governor, diagnostics, cancellationToken);
         byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
         if (data.Length > limits.MaxOutputBytes)
         {
@@ -2977,6 +3050,22 @@ public static class Qpdf
             TransactionSink sink = new(transaction, governor);
             await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (Json.JsonSidecar sidecar in sidecars)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null);
+            }
+
+            QpdfPath sidecarPath = QpdfPath.From(sidecar.Name);
+            governor.NoteHostOperation();
+            await using IQpdfOutputTransaction staging = await host.CreateOutputAsync(sidecarPath, cancellationToken).ConfigureAwait(false);
+            TransactionSink sidecarSink = new(staging, governor);
+            await sidecarSink.AppendAsync(sidecar.Data, cancellationToken).ConfigureAwait(false);
+            await staging.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return new QpdfJsonResult(json, [.. diagnostics.Entries], governor.Snapshot());
@@ -3494,13 +3583,12 @@ public static class Qpdf
         {
             try
             {
+                Commands.JsonInspection inspection = new(json.Version, json.Keys, json.DecodeLevel, json.StreamDataMode, json.StreamPrefix, json.Objects, json.MinimalOutput);
                 QpdfJsonResult inspected = await JsonCoreAsync(
                     host,
                     json.Input,
                     json.Output,
-                    json.Version,
-                    json.Keys,
-                    json.DecodeLevel,
+                    inspection,
                     limits,
                     json.Recovery,
                     governor,

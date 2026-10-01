@@ -216,7 +216,6 @@ public sealed class JsonInspectionTests
     [InlineData("--json=2", "--json-key=objects")]
     [InlineData("--json=2", "--json-key=objectinfo")]
     [InlineData("--json", "--json-key=bogus")]
-    [InlineData("--json", "--json-key=acroform")]
     public async Task BadKeyFails(params string[] flags)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
@@ -266,10 +265,6 @@ public sealed class JsonInspectionTests
     }
 
     [Theory]
-    [InlineData("--json-object=trailer")]
-    [InlineData("--json-stream-data=inline")]
-    [InlineData("--json-stream-prefix=streams/stream")]
-    [InlineData("--json-output")]
     [InlineData("--json-help")]
     [InlineData("--json-input")]
     public async Task DeferredOptionsFail(params string[] flags)
@@ -401,12 +396,10 @@ public sealed class JsonInspectionTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonKey\": [\"pages\"]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"jsonKey\": \"pages\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"jsonKey\": [\"bogus\"]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"jsonKey\": [\"acroform\"]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"1\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"2\", \"listAttachments\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonStreamData\": \"inline\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonObject\": [\"trailer\"]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonOutput\": \"latest\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"jsonInput\": true}")]
     public async Task JobMalformedFails(string jobJson)
     {

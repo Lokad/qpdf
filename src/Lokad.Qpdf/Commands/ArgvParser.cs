@@ -44,35 +44,37 @@ internal static class ArgvParser
         (int firstShowAt, int showAt, string? showKey) = FindShowAttachment(argv);
         int firstAttachmentAt = listAt >= 0 ? (firstShowAt >= 0 ? Math.Min(listAt, firstShowAt) : listAt) : firstShowAt;
         int jsonAt = FindJson(argv);
-        if (jsonAt >= 0)
+        int jsonOutputAt = FindJsonOutput(argv);
+        int jsonEntryAt = jsonAt >= 0 && jsonOutputAt >= 0 ? (jsonAt < jsonOutputAt ? jsonAt : jsonOutputAt) : (jsonAt >= 0 ? jsonAt : jsonOutputAt);
+        if (jsonEntryAt >= 0)
         {
             if (checkAt >= 0 || pagesAt >= 0)
             {
-                throw new QpdfParseException("Option --json cannot be combined with --check or --pages.", jsonAt, null);
+                throw new QpdfParseException("Option --json cannot be combined with --check or --pages.", jsonEntryAt, null);
             }
 
             if (listAt >= 0 || showAt >= 0)
             {
-                throw new QpdfParseException("Option --json cannot be combined with attachment inspection.", jsonAt, null);
+                throw new QpdfParseException("Option --json cannot be combined with attachment inspection.", jsonEntryAt, null);
             }
 
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
-                throw new QpdfParseException("Option --json cannot be combined with attachment editing.", jsonAt, null);
+                throw new QpdfParseException("Option --json cannot be combined with attachment editing.", jsonEntryAt, null);
             }
 
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", jsonAt, null);
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", jsonEntryAt, null);
             }
 
-            return ParseJson(argv, jsonAt, recovery, globals);
+            return ParseJson(argv, jsonEntryAt, recovery, globals);
         }
 
         int strayJson = FindStrayJsonOption(argv);
         if (strayJson >= 0)
         {
-            throw new QpdfParseException("JSON options require --json.", strayJson, null);
+            throw new QpdfParseException("JSON options require --json or --json-output.", strayJson, null);
         }
 
         if (listAt >= 0 || showAt >= 0)
@@ -1013,20 +1015,62 @@ internal static class ArgvParser
         return -1;
     }
 
-    private static JobPlan ParseJson(IReadOnlyList<string> argv, int jsonAt, QpdfRecoveryMode recovery, GlobalOptions globals)
+    private static int FindJsonOutput(IReadOnlyList<string> argv)
     {
-        string input = ParseInputArea(argv, jsonAt, "--json");
-        int cursor = jsonAt;
-        string versionText = ParseOptionalChoice(argv, ref cursor, "--json", new string[] { "1", "2", "latest" }, "latest");
-        int version = versionText == "1" ? 1 : 2;
-        cursor += 1;
+        int found = -1;
+        for (int i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] is not null && (argv[i] == "--json-output" || argv[i].StartsWith("--json-output=", StringComparison.Ordinal)))
+            {
+                if (found >= 0)
+                {
+                    throw new QpdfParseException("Duplicate --json-output is outside the narrow profile.", i, null);
+                }
+
+                found = i;
+            }
+        }
+
+        return found;
+    }
+
+    private static JobPlan ParseJson(IReadOnlyList<string> argv, int entryAt, QpdfRecoveryMode recovery, GlobalOptions globals)
+    {
+        string input = ParseInputArea(argv, entryAt, "--json");
+        int cursor = entryAt;
+        bool seenJsonVersion = false;
+        int jsonVersion = 0;
         List<string> keys = new();
+        List<string> objects = new();
+        string? streamData = null;
+        bool seenStreamData = false;
+        string? streamPrefix = null;
+        bool seenStreamPrefix = false;
+        bool minimalOutput = false;
+        int outputVersion = 0;
         while (cursor < argv.Count && argv[cursor] != "--")
         {
             string token = argv[cursor];
             if (token is null)
             {
                 throw new QpdfParseException("Null argument.", cursor, null);
+            }
+
+            if (IsJsonFlag(token))
+            {
+                if (seenJsonVersion)
+                {
+                    throw new QpdfParseException("Duplicate --json is outside the narrow profile.", cursor, null);
+                }
+
+                bool explicitVersion = token.StartsWith("--json=", StringComparison.Ordinal)
+                    || (cursor + 1 < argv.Count && argv[cursor + 1] is not null && argv[cursor + 1] != "--"
+                        && !(argv[cursor + 1].StartsWith("--", StringComparison.Ordinal) && argv[cursor + 1].Length > 2));
+                string versionText = ParseOptionalChoice(argv, ref cursor, "--json", new string[] { "1", "2", "latest" }, "latest");
+                seenJsonVersion = explicitVersion;
+                jsonVersion = versionText == "1" ? 1 : 2;
+                cursor += 1;
+                continue;
             }
 
             if (token == "--json-key" || token.StartsWith("--json-key=", StringComparison.Ordinal))
@@ -1038,22 +1082,53 @@ internal static class ArgvParser
 
             if (token == "--json-object" || token.StartsWith("--json-object=", StringComparison.Ordinal))
             {
-                throw new QpdfParseException("Option --json-object is outside the narrow profile.", cursor, null);
+                string selector = TakeParameter(argv, argv.Count, ref cursor, "--json-object");
+                objects.AddRange(Qpdf.ValidateJsonObjects([selector], cursor));
+                continue;
             }
 
             if (token == "--json-stream-data" || token.StartsWith("--json-stream-data=", StringComparison.Ordinal))
             {
-                throw new QpdfParseException("Option --json-stream-data is outside the narrow profile.", cursor, null);
+                if (seenStreamData)
+                {
+                    throw new QpdfParseException("Duplicate --json-stream-data is outside the narrow profile.", cursor, null);
+                }
+
+                seenStreamData = true;
+                streamData = ParseStreamChoice(argv, ref cursor, "--json-stream-data", new string[] { "none", "inline", "file" });
+                cursor += 1;
+                continue;
             }
 
             if (token == "--json-stream-prefix" || token.StartsWith("--json-stream-prefix=", StringComparison.Ordinal))
             {
-                throw new QpdfParseException("Option --json-stream-prefix is outside the narrow profile.", cursor, null);
+                if (seenStreamPrefix)
+                {
+                    throw new QpdfParseException("Duplicate --json-stream-prefix is outside the narrow profile.", cursor, null);
+                }
+
+                seenStreamPrefix = true;
+                streamPrefix = TakeParameter(argv, argv.Count, ref cursor, "--json-stream-prefix");
+                if (streamPrefix.Length > QpdfPath.MaxLength || streamPrefix.Contains((char)0))
+                {
+                    throw new QpdfParseException("Option --json-stream-prefix is not a valid logical path.", cursor, null);
+                }
+
+                continue;
             }
 
             if (token == "--json-output" || token.StartsWith("--json-output=", StringComparison.Ordinal))
             {
-                throw new QpdfParseException("Option --json-output is outside the narrow profile.", cursor, null);
+                if (minimalOutput)
+                {
+                    throw new QpdfParseException("Duplicate --json-output is outside the narrow profile.", cursor, null);
+                }
+
+                minimalOutput = true;
+                ParseOptionalChoice(argv, ref cursor, "--json-output", new string[] { "2", "latest" }, "latest");
+                outputVersion = 2;
+                cursor += 1;
+                continue;
             }
 
             if (token == "--json-help" || token.StartsWith("--json-help=", StringComparison.Ordinal))
@@ -1066,17 +1141,28 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --json-input is outside the narrow profile.", cursor, null);
             }
 
-            if (IsJsonFlag(token))
-            {
-                throw new QpdfParseException("Duplicate --json is outside the narrow profile.", cursor, null);
-            }
-
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
                 CheckOptionToken(token, cursor);
             }
 
             throw new QpdfParseException("Unexpected argument '" + token + "' after --json.", cursor, null);
+        }
+
+        int version = seenJsonVersion ? jsonVersion : outputVersion;
+        if (version == 0)
+        {
+            version = 2;
+        }
+
+        if (minimalOutput && version == 1)
+        {
+            throw new QpdfParseException("Option --json-output requires JSON version 2.", entryAt, null);
+        }
+
+        if (minimalOutput && !keys.Contains("qpdf"))
+        {
+            keys.Add("qpdf");
         }
 
         Qpdf.ValidateJsonKeys(version, keys);
@@ -1088,7 +1174,11 @@ internal static class ArgvParser
         string output = ParseOutputArea(argv, cursor);
         return new JsonPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), version, keys, recovery) with
         {
-            DecodeLevel = globals.DecodeLevel ?? "generalized",
+            DecodeLevel = globals.DecodeLevel ?? (minimalOutput ? "none" : "generalized"),
+            StreamDataMode = seenStreamData ? streamData! : (minimalOutput ? "inline" : "none"),
+            StreamPrefix = streamPrefix,
+            Objects = objects,
+            MinimalOutput = minimalOutput,
         };
     }
 

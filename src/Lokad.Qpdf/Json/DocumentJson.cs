@@ -9,13 +9,28 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Json;
 
 /// <summary>Validated JSON inspection request: format version plus key filter.</summary>
-internal sealed record JsonRequest(int Version, IReadOnlyList<string> Keys, string DecodeLevel)
+internal sealed record JsonRequest(
+    int Version,
+    IReadOnlyList<string> Keys,
+    string DecodeLevel,
+    string StreamData,
+    string? StreamPrefix,
+    IReadOnlyList<string> Objects,
+    bool MinimalOutput)
 {
     internal bool Wants(string key)
     {
         return Keys.Count == 0 || Keys.Contains(key);
     }
+
+    internal bool WantsObject(string canonical)
+    {
+        return Objects.Count == 0 || Objects.Contains(canonical);
+    }
 }
+
+/// <summary>A stream-data sidecar file produced by file stream-data mode.</summary>
+internal sealed record JsonSidecar(string Name, byte[] Data);
 
 /// <summary>
 /// Document to JSON inspection driver. Emits the upstream top-level layout
@@ -27,6 +42,7 @@ internal static class DocumentJson
     internal static string WriteDocument(
         QpdfDocument document,
         JsonRequest request,
+        List<JsonSidecar> sidecars,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -45,8 +61,13 @@ internal static class DocumentJson
 
         StringBuilder builder = new(4096);
         builder.Append((char)123);
-        AppendVersionAndParameters(builder, request);
-        bool touchesPages = request.Wants("pages") || request.Wants("pagelabels") || request.Wants("outlines");
+        bool firstKey = request.MinimalOutput;
+        if (!request.MinimalOutput)
+        {
+            AppendVersionAndParameters(builder, request);
+        }
+
+        bool touchesPages = request.Wants("pages") || request.Wants("pagelabels") || request.Wants("outlines") || request.Wants("acroform");
         Dictionary<int, int> pageIndex = BuildPageIndex(document);
         SortedDictionary<int, QpdfObject> labels = new();
         if (request.Wants("pages") || request.Wants("pagelabels"))
@@ -63,47 +84,55 @@ internal static class DocumentJson
         if (request.Wants("pages"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Append(",\"pages\": ");
+            AppendKey(builder, ref firstKey, "pages");
             AppendPages(builder, document, outlines, request, labels, resolver, limits, governor, diagnostics, cancellationToken);
         }
 
         if (request.Wants("pagelabels"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Append(",\"pagelabels\": ");
+            AppendKey(builder, ref firstKey, "pagelabels");
             AppendPageLabels(builder, request, labels, resolver, governor, limits);
         }
 
         if (request.Wants("attachments"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Append(",\"attachments\": ");
+            AppendKey(builder, ref firstKey, "attachments");
             AppendAttachments(builder, engine, request, limits, governor, diagnostics, cancellationToken);
         }
 
         if (request.Wants("encrypt"))
         {
-            builder.Append(",\"encrypt\": ");
+            AppendKey(builder, ref firstKey, "encrypt");
             AppendEncrypt(builder, request.Version);
         }
 
         if (request.Wants("outlines"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Append(",\"outlines\": ");
+            AppendKey(builder, ref firstKey, "outlines");
             AppendOutlines(builder, outlines, request, resolver, governor, limits);
+        }
+
+        if (request.Wants("acroform"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AppendKey(builder, ref firstKey, "acroform");
+            AppendAcroform(builder, document, request, resolver, limits, governor, diagnostics, cancellationToken);
         }
 
         if (request.Wants("objects") || request.Wants("qpdf"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            AppendObjects(builder, document, request, touchesPages, resolver, limits, governor, diagnostics, cancellationToken);
+            AppendKey(builder, ref firstKey, request.Version == 1 ? "objects" : "qpdf");
+            AppendObjects(builder, document, request, touchesPages, sidecars, resolver, limits, governor, diagnostics, cancellationToken);
         }
 
         if (request.Version == 1 && request.Wants("objectinfo"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            builder.Append(",\"objectinfo\": ");
+            AppendKey(builder, ref firstKey, "objectinfo");
             AppendObjectInfo(builder, document, request, resolver, limits, governor, diagnostics, cancellationToken);
         }
 
@@ -111,6 +140,18 @@ internal static class DocumentJson
         builder.Append((char)10);
         return builder.ToString();
     }
+    private static void AppendKey(StringBuilder builder, ref bool firstKey, string key)
+    {
+        if (!firstKey)
+        {
+            builder.Append((char)44);
+        }
+
+        firstKey = false;
+        PdfJsonWriter.AppendJsonString(builder, key);
+        builder.Append(": ");
+    }
+
     private static void AppendVersionAndParameters(StringBuilder builder, JsonRequest request)
     {
         builder.Append("\"version\": ");
@@ -1078,6 +1119,7 @@ internal static class DocumentJson
         QpdfDocument document,
         JsonRequest request,
         bool touchesPages,
+        List<JsonSidecar> sidecars,
         Func<PdfReference, QpdfObject?> resolver,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -1104,7 +1146,7 @@ internal static class DocumentJson
         numbers.Sort();
         if (request.Version == 1)
         {
-            builder.Append(",\"objects\": {");
+            builder.Append((char)123);
             bool first = true;
             foreach (int number in numbers)
             {
@@ -1113,6 +1155,11 @@ internal static class DocumentJson
                 int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                     ? 0
                     : engine.XRefEntries[number].Second;
+                if (!request.WantsObject("obj:" + number.ToString(CultureInfo.InvariantCulture) + " " + generation.ToString(CultureInfo.InvariantCulture) + " R"))
+                {
+                    continue;
+                }
+
                 QpdfObject value = engine.Load(number);
                 if (!first)
                 {
@@ -1125,18 +1172,22 @@ internal static class DocumentJson
                 PdfJsonWriter.AppendValue(builder, value, 1, resolver, governor, 0, limits);
             }
 
-            if (!first)
+            if (request.WantsObject("trailer"))
             {
-                builder.Append((char)44);
+                if (!first)
+                {
+                    builder.Append((char)44);
+                }
+
+                builder.Append("\"trailer\": ");
+                PdfJsonWriter.AppendValue(builder, engine.Trailer, 1, resolver, governor, 0, limits);
             }
 
-            builder.Append("\"trailer\": ");
-            PdfJsonWriter.AppendValue(builder, engine.Trailer, 1, resolver, governor, 0, limits);
             builder.Append((char)125);
             return;
         }
 
-        builder.Append(",\"qpdf\": [{");
+        builder.Append("[{");
         builder.Append("\"jsonversion\": 2,\"pdfversion\": ");
         PdfJsonWriter.AppendJsonString(builder, document.HeaderVersion.Major.ToString(CultureInfo.InvariantCulture) + "." + document.HeaderVersion.Minor.ToString(CultureInfo.InvariantCulture));
         builder.Append(",\"pushedinheritedpageresources\": false,\"calledgetallpages\": ");
@@ -1152,6 +1203,11 @@ internal static class DocumentJson
             int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                 ? 0
                 : engine.XRefEntries[number].Second;
+            if (!request.WantsObject("obj:" + number.ToString(CultureInfo.InvariantCulture) + " " + generation.ToString(CultureInfo.InvariantCulture) + " R"))
+            {
+                continue;
+            }
+
             QpdfObject value = engine.Load(number);
             if (!firstObject)
             {
@@ -1163,9 +1219,7 @@ internal static class DocumentJson
             builder.Append(": ");
             if (value is PdfStream stream)
             {
-                builder.Append("{\"stream\": {\"dict\": ");
-                PdfJsonWriter.AppendDictionary(builder, stream.Dictionary, 2, resolver, governor, 0, limits);
-                builder.Append("}}");
+                AppendJsonStream(builder, engine, number, stream, request, sidecars, resolver, governor, limits, cancellationToken);
             }
             else
             {
@@ -1175,14 +1229,126 @@ internal static class DocumentJson
             }
         }
 
-        if (!firstObject)
+        if (request.WantsObject("trailer"))
         {
-            builder.Append((char)44);
+            if (!firstObject)
+            {
+                builder.Append((char)44);
+            }
+
+            builder.Append("\"trailer\": {\"value\": ");
+            PdfJsonWriter.AppendValue(builder, engine.Trailer, 2, resolver, governor, 0, limits);
+            builder.Append((char)125);
         }
 
-        builder.Append("\"trailer\": {\"value\": ");
-        PdfJsonWriter.AppendValue(builder, engine.Trailer, 2, resolver, governor, 0, limits);
-        builder.Append("}}]");
+        builder.Append("}]");
+    }
+
+    private static (byte[] Data, bool Decoded) ResolveStreamPayload(
+        DocumentEngine engine,
+        PdfStream stream,
+        string decodeLevel,
+        QpdfLimits limits,
+        ResourceGovernor governor)
+    {
+        byte[] raw = stream.Data;
+        governor.ReserveMemory(raw.Length);
+        if (decodeLevel == "none")
+        {
+            return (raw, false);
+        }
+
+        IReadOnlyList<Filters.FilterStage> stages;
+        try
+        {
+            stages = Filters.FilterChain.Resolve(stream.Dictionary, engine);
+        }
+        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        {
+            return (raw, false);
+        }
+
+        if (stages.Count == 0 || !Filters.FilterChain.AllStagesInLevel(stages, decodeLevel))
+        {
+            return (raw, false);
+        }
+
+        try
+        {
+            return (Filters.FilterChain.Decode(raw, stages, limits, governor), true);
+        }
+        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        {
+            return (raw, false);
+        }
+    }
+
+    private static PdfDictionary StreamJsonDictionary(PdfDictionary dictionary, bool decoded)
+    {
+        Dictionary<PdfName, QpdfObject> entries = new();
+        foreach (PdfName key in dictionary.Keys)
+        {
+            string text = key.DisplayText;
+            if (text == "Length" || (decoded && (text == "Filter" || text == "DecodeParms")))
+            {
+                continue;
+            }
+
+            if (dictionary.TryGet(key, out QpdfObject? found) && found is not null && found is not PdfNull)
+            {
+                entries[key] = found;
+            }
+        }
+
+        return new PdfDictionary(entries);
+    }
+
+    private static void AppendJsonStream(
+        StringBuilder builder,
+        DocumentEngine engine,
+        int number,
+        PdfStream stream,
+        JsonRequest request,
+        List<JsonSidecar> sidecars,
+        Func<PdfReference, QpdfObject?> resolver,
+        ResourceGovernor governor,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (request.Version == 1 || request.StreamData == "none")
+        {
+            builder.Append("{\"stream\": {\"dict\": ");
+            PdfJsonWriter.AppendDictionary(builder, stream.Dictionary, request.Version, resolver, governor, 0, limits);
+            builder.Append("}}");
+            return;
+        }
+
+        (byte[] data, bool decoded) = ResolveStreamPayload(engine, stream, request.DecodeLevel, limits, governor);
+        PdfDictionary slim = StreamJsonDictionary(stream.Dictionary, decoded);
+        if (request.StreamData == "file")
+        {
+            string name = (request.StreamPrefix ?? string.Empty) + "-" + number.ToString(CultureInfo.InvariantCulture);
+            if (data.Length > limits.MaxOutputBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
+            }
+
+            governor.ReserveMemory(data.Length);
+            sidecars.Add(new JsonSidecar(name, data));
+            builder.Append("{\"stream\": {\"datafile\": ");
+            PdfJsonWriter.AppendJsonString(builder, name);
+            builder.Append(",\"dict\": ");
+            PdfJsonWriter.AppendDictionary(builder, slim, request.Version, resolver, governor, 0, limits);
+            builder.Append("}}");
+            return;
+        }
+
+        builder.Append("{\"stream\": {\"data\": ");
+        PdfJsonWriter.AppendJsonString(builder, Convert.ToBase64String(data));
+        builder.Append(",\"dict\": ");
+        PdfJsonWriter.AppendDictionary(builder, slim, request.Version, resolver, governor, 0, limits);
+        builder.Append("}}");
     }
 
     private static void AppendObjectInfo(
@@ -1215,6 +1381,11 @@ internal static class DocumentJson
             int generation = engine.XRefEntries[number].Kind == XrefEntryKind.Compressed
                 ? 0
                 : engine.XRefEntries[number].Second;
+            if (!request.WantsObject("obj:" + number.ToString(CultureInfo.InvariantCulture) + " " + generation.ToString(CultureInfo.InvariantCulture) + " R"))
+            {
+                continue;
+            }
+
             QpdfObject value = engine.Load(number);
             if (!first)
             {
@@ -1268,5 +1439,424 @@ internal static class DocumentJson
         }
 
         return value;
+    }
+    private static string DecodeText(byte[] value)
+    {
+        if (value.Length >= 3 && value[0] == 0xEF && value[1] == 0xBB && value[2] == 0xBF)
+        {
+            return System.Text.Encoding.UTF8.GetString(value, 3, value.Length - 3);
+        }
+
+        return PdfText.Decode(value);
+    }
+
+    private static void AppendAcroform(
+        StringBuilder builder,
+        QpdfDocument document,
+        JsonRequest request,
+        Func<PdfReference, QpdfObject?> resolver,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        DocumentEngine engine = document.Engine;
+        PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
+        PdfDictionary? acroform = null;
+        if (catalog is not null
+            && catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? acroRaw)
+            && acroRaw is not null
+            && acroRaw is not PdfNull)
+        {
+            QpdfObject target = acroRaw;
+            if (acroRaw is PdfReference acroReference)
+            {
+                target = TryResolve(engine, acroRaw) ?? acroRaw;
+            }
+
+            acroform = target as PdfDictionary;
+        }
+
+        bool hasAcroform = catalog is not null
+            && catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? hasRaw)
+            && hasRaw is not null
+            && hasRaw is not PdfNull;
+        bool needAppearances = false;
+        if (acroform is not null
+            && acroform.TryGet(PdfName.FromAscii("NeedAppearances"), out QpdfObject? needRaw)
+            && needRaw is PdfBoolean need)
+        {
+            needAppearances = need.Value;
+        }
+
+        builder.Append("{\"hasacroform\": ");
+        builder.Append(hasAcroform ? "true" : "false");
+        builder.Append(",\"needappearances\": ");
+        builder.Append(needAppearances ? "true" : "false");
+        builder.Append(",\"fields\": [");
+        bool firstField = true;
+        IReadOnlyList<PageLocation> pages = document.PageReferences;
+        for (int i = 0; i < pages.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!pages[i].Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
+            {
+                continue;
+            }
+
+            QpdfObject annotsTarget = TryResolve(engine, annotsRaw) ?? annotsRaw;
+            if (annotsTarget is not PdfArray annots)
+            {
+                continue;
+            }
+
+            foreach (QpdfObject item in annots.Items)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                PdfReference? annotReference = item as PdfReference;
+                QpdfObject node = TryResolve(engine, item) ?? item;
+                if (node is not PdfDictionary annot)
+                {
+                    continue;
+                }
+
+                if (!annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw) || subtypeRaw is not PdfName subtype || subtype.DisplayText != "Widget")
+                {
+                    continue;
+                }
+
+                AcroField field = ResolveAcroField(engine, annotReference, annot, limits, governor);
+                if (!firstField)
+                {
+                    builder.Append((char)44);
+                }
+
+                firstField = false;
+                AppendAcroField(builder, engine, field, annotReference, annot, i + 1, acroform, request, resolver, governor, limits);
+            }
+        }
+
+        builder.Append("]}");
+    }
+    private sealed record AcroField(
+        PdfReference? NodeReference,
+        PdfDictionary Node,
+        List<PdfDictionary> Ancestors,
+        string FieldType,
+        string QualifiedName);
+
+    private static AcroField ResolveAcroField(
+        DocumentEngine engine,
+        PdfReference? annotReference,
+        PdfDictionary annot,
+        QpdfLimits limits,
+        ResourceGovernor governor)
+    {
+        List<PdfDictionary> chain = new() { annot };
+        List<PdfReference?> refs = new() { annotReference };
+        HashSet<int> visited = new();
+        if (annotReference is not null)
+        {
+            visited.Add(annotReference.ObjectNumber);
+        }
+
+        PdfDictionary current = annot;
+        int depth = 0;
+        while (depth < limits.MaxNestingDepth)
+        {
+            if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull)
+            {
+                break;
+            }
+
+            PdfReference? parentReference = parentRaw as PdfReference;
+            QpdfObject parent = TryResolve(engine, parentRaw) ?? parentRaw;
+            if (parent is not PdfDictionary parentDict)
+            {
+                break;
+            }
+
+            if (parentReference is not null && !visited.Add(parentReference.ObjectNumber))
+            {
+                break;
+            }
+
+            governor.ChargeWork(1L);
+            chain.Add(parentDict);
+            refs.Add(parentReference);
+            current = parentDict;
+            depth += 1;
+        }
+
+        int fieldIndex = 0;
+        for (int i = 0; i < chain.Count; i++)
+        {
+            if (chain[i].TryGet(PdfName.FromAscii("FT"), out QpdfObject? own) && own is not null && own is not PdfNull)
+            {
+                fieldIndex = i;
+                break;
+            }
+        }
+
+        string fieldType = string.Empty;
+        for (int i = fieldIndex; i < chain.Count; i++)
+        {
+            if (chain[i].TryGet(PdfName.FromAscii("FT"), out QpdfObject? ftRaw) && ftRaw is not null && ftRaw is not PdfNull)
+            {
+                QpdfObject ft = TryResolve(engine, ftRaw) ?? ftRaw;
+                if (ft is PdfName ftName)
+                {
+                    fieldType = "/" + ftName.DisplayText;
+                    break;
+                }
+            }
+        }
+
+        List<string> parts = new();
+        for (int i = chain.Count - 1; i >= 0; i--)
+        {
+            if (chain[i].TryGet(PdfName.FromAscii("T"), out QpdfObject? tRaw) && tRaw is not null && tRaw is not PdfNull)
+            {
+                QpdfObject t = TryResolve(engine, tRaw) ?? tRaw;
+                if (t is PdfByteString text)
+                {
+                    parts.Add(DecodeText(text.Value));
+                }
+            }
+        }
+
+        return new AcroField(refs[fieldIndex], chain[fieldIndex], chain, fieldType, string.Join(".", parts));
+    }
+
+    private static QpdfObject? InheritedValue(DocumentEngine engine, List<PdfDictionary> chain, string key)
+    {
+        foreach (PdfDictionary node in chain)
+        {
+            if (node.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) && raw is not null && raw is not PdfNull)
+            {
+                return TryResolve(engine, raw) ?? raw;
+            }
+        }
+
+        return null;
+    }
+
+    private static int InheritedInt(DocumentEngine engine, List<PdfDictionary> chain, string key)
+    {
+        return InheritedIntOrNull(engine, chain, key) ?? 0;
+    }
+
+    private static int? InheritedIntOrNull(DocumentEngine engine, List<PdfDictionary> chain, string key)
+    {
+        QpdfObject? found = InheritedValue(engine, chain, key);
+        return found is PdfInteger integer ? (int?)Math.Min(Math.Max(integer.Value, (long)int.MinValue), (long)int.MaxValue) : null;
+    }
+    private static void AppendAcroField(
+        StringBuilder builder,
+        DocumentEngine engine,
+        AcroField field,
+        PdfReference? annotReference,
+        PdfDictionary annot,
+        int pageposfrom1,
+        PdfDictionary? acroform,
+        JsonRequest request,
+        Func<PdfReference, QpdfObject?> resolver,
+        ResourceGovernor governor,
+        QpdfLimits limits)
+    {
+        builder.Append("{\"object\": ");
+        if (field.NodeReference is PdfReference fieldReference)
+        {
+            builder.Append((char)34);
+            PdfJsonWriter.AppendReference(builder, fieldReference.ObjectNumber, fieldReference.Generation);
+            builder.Append((char)34);
+        }
+        else
+        {
+            PdfJsonWriter.AppendValue(builder, field.Node, request.Version, resolver, governor, 0, limits);
+        }
+
+        builder.Append(",\"parent\": ");
+        if (field.Node.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) && parentRaw is not null && parentRaw is not PdfNull)
+        {
+            PdfJsonWriter.AppendValue(builder, parentRaw, request.Version, resolver, governor, 0, limits);
+        }
+        else
+        {
+            builder.Append("null");
+        }
+
+        builder.Append(",\"pageposfrom1\": ");
+        builder.Append(pageposfrom1.ToString(CultureInfo.InvariantCulture));
+        builder.Append(",\"fieldtype\": ");
+        PdfJsonWriter.AppendJsonString(builder, field.FieldType);
+        int flags = InheritedInt(engine, field.Ancestors, "Ff");
+        builder.Append(",\"fieldflags\": ");
+        builder.Append(flags.ToString(CultureInfo.InvariantCulture));
+        string partial = string.Empty;
+        if (field.Node.TryGet(PdfName.FromAscii("T"), out QpdfObject? ownRaw) && ownRaw is not null && ownRaw is not PdfNull)
+        {
+            QpdfObject own = TryResolve(engine, ownRaw) ?? ownRaw;
+            if (own is PdfByteString ownText)
+            {
+                partial = DecodeText(ownText.Value);
+            }
+        }
+
+        builder.Append(",\"fullname\": ");
+        PdfJsonWriter.AppendJsonString(builder, field.QualifiedName);
+        builder.Append(",\"partialname\": ");
+        PdfJsonWriter.AppendJsonString(builder, partial);
+        string alternative = field.QualifiedName;
+        QpdfObject? tu = InheritedValue(engine, field.Ancestors, "TU");
+        if (tu is PdfByteString tuText)
+        {
+            alternative = DecodeText(tuText.Value);
+        }
+
+        builder.Append(",\"alternativename\": ");
+        PdfJsonWriter.AppendJsonString(builder, alternative);
+        string mapping = alternative;
+        QpdfObject? tm = InheritedValue(engine, field.Ancestors, "TM");
+        if (tm is PdfByteString tmText)
+        {
+            mapping = DecodeText(tmText.Value);
+        }
+
+        builder.Append(",\"mappingname\": ");
+        PdfJsonWriter.AppendJsonString(builder, mapping);
+        builder.Append(",\"value\": ");
+        QpdfObject? value = InheritedValue(engine, field.Ancestors, "V");
+        if (value is null)
+        {
+            builder.Append("null");
+        }
+        else
+        {
+            PdfJsonWriter.AppendValue(builder, value, request.Version, resolver, governor, 0, limits);
+        }
+
+        builder.Append(",\"defaultvalue\": ");
+        QpdfObject? defaultValue = InheritedValue(engine, field.Ancestors, "DV");
+        if (defaultValue is null)
+        {
+            builder.Append("null");
+        }
+        else
+        {
+            PdfJsonWriter.AppendValue(builder, defaultValue, request.Version, resolver, governor, 0, limits);
+        }
+
+        int? quadding = InheritedIntOrNull(engine, field.Ancestors, "Q");
+        if (!quadding.HasValue && acroform is not null
+            && acroform.TryGet(PdfName.FromAscii("Q"), out QpdfObject? acroQ)
+            && acroQ is not null && acroQ is not PdfNull)
+        {
+            QpdfObject resolvedQ = TryResolve(engine, acroQ) ?? acroQ;
+            if (resolvedQ is PdfInteger acroQInt)
+            {
+                quadding = (int)Math.Min(Math.Max(acroQInt.Value, (long)int.MinValue), (long)int.MaxValue);
+            }
+        }
+
+        int quad = quadding ?? 0;
+
+        builder.Append(",\"quadding\": ");
+        builder.Append(quad.ToString(CultureInfo.InvariantCulture));
+        bool isText = field.FieldType == "/Tx";
+        bool isChoice = field.FieldType == "/Ch";
+        bool isRadio = field.FieldType == "/Btn" && (flags & 32768) == 32768;
+        bool isCheckbox = field.FieldType == "/Btn" && (flags & (32768 | 65536)) == 0;
+        builder.Append(",\"ischeckbox\": ");
+        builder.Append(isCheckbox ? "true" : "false");
+        builder.Append(",\"isradiobutton\": ");
+        builder.Append(isRadio ? "true" : "false");
+        builder.Append(",\"ischoice\": ");
+        builder.Append(isChoice ? "true" : "false");
+        builder.Append(",\"istext\": ");
+        builder.Append(isText ? "true" : "false");
+        builder.Append(",\"choices\": [");
+        if (isChoice)
+        {
+            QpdfObject? opt = InheritedValue(engine, field.Ancestors, "Opt");
+            QpdfObject optTarget = opt is null ? PdfNull.Instance : opt;
+            if (optTarget is PdfReference optReference)
+            {
+                optTarget = TryResolve(engine, optReference) ?? optTarget;
+            }
+
+            if (optTarget is PdfArray optArray)
+            {
+                bool firstChoice = true;
+                foreach (QpdfObject item in optArray.Items)
+                {
+                    QpdfObject entry = item is PdfReference itemReference ? TryResolve(engine, itemReference) ?? item : item;
+                    string? choice = null;
+                    if (entry is PdfByteString entryText)
+                    {
+                        choice = DecodeText(entryText.Value);
+                    }
+                    else if (entry is PdfArray pair && pair.Count == 2)
+                    {
+                        QpdfObject display = pair[1] is PdfReference displayReference ? TryResolve(engine, displayReference) ?? pair[1] : pair[1];
+                        if (display is PdfByteString displayText)
+                        {
+                            choice = DecodeText(displayText.Value);
+                        }
+                    }
+
+                    if (choice is not null)
+                    {
+                        if (!firstChoice)
+                        {
+                            builder.Append((char)44);
+                        }
+
+                        firstChoice = false;
+                        PdfJsonWriter.AppendJsonString(builder, choice);
+                    }
+                }
+            }
+        }
+
+        builder.Append("],\"annotation\": {\"object\": ");
+        if (annotReference is PdfReference annotLink)
+        {
+            builder.Append((char)34);
+            PdfJsonWriter.AppendReference(builder, annotLink.ObjectNumber, annotLink.Generation);
+            builder.Append((char)34);
+        }
+        else
+        {
+            PdfJsonWriter.AppendValue(builder, annot, request.Version, resolver, governor, 0, limits);
+        }
+
+        string appearance = string.Empty;
+        if (annot.TryGet(PdfName.FromAscii("AS"), out QpdfObject? asRaw) && asRaw is not null && asRaw is not PdfNull)
+        {
+            QpdfObject asTarget = TryResolve(engine, asRaw) ?? asRaw;
+            if (asTarget is PdfName asName)
+            {
+                appearance = "/" + asName.DisplayText;
+            }
+        }
+
+        builder.Append(",\"appearancestate\": ");
+        PdfJsonWriter.AppendJsonString(builder, appearance);
+        int annotFlags = 0;
+        if (annot.TryGet(PdfName.FromAscii("F"), out QpdfObject? fRaw) && fRaw is not null && fRaw is not PdfNull)
+        {
+            QpdfObject fTarget = TryResolve(engine, fRaw) ?? fRaw;
+            if (fTarget is PdfInteger fInt)
+            {
+                annotFlags = (int)Math.Min(Math.Max(fInt.Value, (long)int.MinValue), (long)int.MaxValue);
+            }
+        }
+
+        builder.Append(",\"annotationflags\": ");
+        builder.Append(annotFlags.ToString(CultureInfo.InvariantCulture));
+        builder.Append("}}");
     }
 }

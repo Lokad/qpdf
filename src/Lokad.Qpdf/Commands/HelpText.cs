@@ -41,6 +41,10 @@ internal static class HelpText
           --remove-attachment=key       drop an embedded file
           --copy-attachments-from file [--prefix=] --  copy embedded files
           --json[=1|2|latest] [--json-key=key] --  write document JSON
+          --json-object={trailer|obj[,gen]}  limit JSON objects
+          --json-stream-data={none|inline|file}  stream payloads in JSON
+          --json-stream-prefix=file-prefix  prefix for JSON stream files
+          --json-output[=2|latest]  minimal JSON for serialization
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target
