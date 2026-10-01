@@ -5,6 +5,12 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Writing;
 
+/// <summary>QDF output options: editable-view formatting with indirect stream lengths and original-ID comments.</summary>
+internal sealed record QdfOptions(bool Enabled, bool NoOriginalIds)
+{
+    internal static QdfOptions Disabled { get; } = new(false, false);
+}
+
 /// <summary>Destination for serialized bytes.</summary>
 internal interface IByteSink
 {
@@ -59,7 +65,7 @@ internal readonly struct NumberedObject
 /// within the contained profile, unlike upstream time-based random IDs);
 /// `--static-id` selects the upstream test constant.
 /// </summary>
-internal sealed class PdfSerializer
+internal sealed partial class PdfSerializer
 {
     private const int WriteSplitBytes = 32768;
 

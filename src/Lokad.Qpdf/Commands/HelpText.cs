@@ -45,6 +45,8 @@ internal static class HelpText
           --flatten-rotation                  bake page rotation into content
           --flatten-annotations=all|print|screen  push annotations into content
           --generate-appearances              regenerate widget appearances
+          --qdf                             editable QDF view of the PDF
+          --no-original-object-ids          omit original object IDs in QDF
           --optimize-images                   recompress images as JPEG when smaller
           --oi-min-width=n                  minimum width for image optimization
           --oi-min-height=n                 minimum height for image optimization

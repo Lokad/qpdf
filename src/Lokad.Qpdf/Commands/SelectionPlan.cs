@@ -81,6 +81,10 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public int? JpegQuality { get; init; }
 
+    public bool Qdf { get; init; }
+
+    public bool NoOriginalObjectIds { get; init; }
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);

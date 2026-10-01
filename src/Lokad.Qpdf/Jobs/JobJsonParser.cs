@@ -122,6 +122,10 @@ internal static class JobJsonParser
             bool seenFlattenAnnotations = false;
             bool generateAppearances = false;
             bool seenGenerateAppearances = false;
+            bool qdf = false;
+            bool seenQdf = false;
+            bool noOriginalObjectIds = false;
+            bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
             bool seenOptimizeImages = false;
             long oiMinWidth = 128L;
@@ -443,6 +447,24 @@ internal static class JobJsonParser
 
                         seenGenerateAppearances = true;
                         generateAppearances = RequireBareFlag(property.Value, "generateAppearances");
+                        break;
+                    case "qdf":
+                        if (seenQdf)
+                        {
+                            throw new QpdfParseException("Duplicate job key qdf.", 0L, null);
+                        }
+
+                        seenQdf = true;
+                        qdf = RequireBareFlag(property.Value, "qdf");
+                        break;
+                    case "noOriginalObjectIds":
+                        if (seenNoOriginalObjectIds)
+                        {
+                            throw new QpdfParseException("Duplicate job key noOriginalObjectIds.", 0L, null);
+                        }
+
+                        seenNoOriginalObjectIds = true;
+                        noOriginalObjectIds = RequireBareFlag(property.Value, "noOriginalObjectIds");
                         break;
                     case "optimizeImages":
                         if (seenOptimizeImages)
@@ -841,10 +863,11 @@ internal static class JobJsonParser
             bool wantOverlays = overlays.Count > 0 || underlays.Count > 0;
             bool wantFlatten = flattenRotation || flattenAnnotations is not null;
             bool wantGenerate = generateAppearances;
+            bool wantQdf = qdf || seenNoOriginalObjectIds;
             bool wantOptimize = optimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize)
+                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize && !wantQdf)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -876,7 +899,7 @@ internal static class JobJsonParser
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
-                    NormalizeContent = normalizeContent,
+                    NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                     RemoveUnreferencedResources = removeUnreferencedResources,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,
@@ -888,6 +911,8 @@ internal static class JobJsonParser
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
+                    Qdf = qdf,
+                    NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
                     OiMinHeight = oiMinHeight,
@@ -926,7 +951,7 @@ internal static class JobJsonParser
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
-                    NormalizeContent = normalizeContent,
+                    NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                     RemoveUnreferencedResources = removeUnreferencedResources,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,
@@ -938,6 +963,8 @@ internal static class JobJsonParser
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
+                    Qdf = qdf,
+                    NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
                     OiMinHeight = oiMinHeight,
@@ -973,7 +1000,7 @@ internal static class JobJsonParser
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
-                    NormalizeContent = normalizeContent,
+                    NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                     RemoveUnreferencedResources = removeUnreferencedResources,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,
@@ -985,6 +1012,8 @@ internal static class JobJsonParser
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
+                    Qdf = qdf,
+                    NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
                     OiMinHeight = oiMinHeight,

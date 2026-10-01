@@ -86,6 +86,10 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Option --json cannot be combined with --generate-appearances.", jsonEntryAt, null);
             }
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --qdf.", jsonEntryAt, null);
+            }
 
             if (jsonImportAt >= 0)
             {
@@ -136,6 +140,10 @@ internal static class ArgvParser
             if (globals.GenerateAppearances)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --generate-appearances.", jsonImportAt, null);
+            }
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --qdf.", jsonImportAt, null);
             }
             if (jsonEntryAt >= 0)
             {
@@ -189,6 +197,10 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Attachment inspection cannot be combined with --generate-appearances.", showAt >= 0 ? showAt : listAt, null);
             }
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --qdf.", showAt >= 0 ? showAt : listAt, null);
+            }
 
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
@@ -217,6 +229,10 @@ internal static class ArgvParser
         if (checkAt >= 0 && globals.GenerateAppearances)
         {
             throw new QpdfParseException("Options --check and --generate-appearances cannot be combined.", checkAt, null);
+        }
+        if (checkAt >= 0 && globals.Qdf)
+        {
+            throw new QpdfParseException("Options --check and --qdf cannot be combined.", checkAt, null);
         }
 
         if (checkAt >= 0)
@@ -401,6 +417,8 @@ internal static class ArgvParser
             OiMinArea = globals.OiMinArea,
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
+            Qdf = globals.Qdf,
+            NoOriginalObjectIds = globals.NoOriginalObjectIds,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
@@ -448,6 +466,8 @@ internal static class ArgvParser
             OiMinArea = globals.OiMinArea,
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
+            Qdf = globals.Qdf,
+            NoOriginalObjectIds = globals.NoOriginalObjectIds,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
@@ -621,7 +641,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -689,6 +709,10 @@ internal static class ArgvParser
         bool keepInlineImages = false;
         bool seenJpegQuality = false;
         int? jpegQuality = null;
+        bool seenQdf = false;
+        bool qdf = false;
+        bool seenNoOriginalObjectIds = false;
+        bool noOriginalObjectIds = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -1135,6 +1159,40 @@ internal static class ArgvParser
                 jpegQuality = ParseJpegQuality(argv, ref i);
                 continue;
             }
+            if (argv[i] == "--qdf")
+            {
+                if (seenQdf)
+                {
+                    throw new QpdfParseException("Duplicate --qdf is outside the narrow profile.", i, null);
+                }
+
+                seenQdf = true;
+                qdf = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--qdf=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --qdf takes no value.", i, null);
+            }
+
+            if (argv[i] == "--no-original-object-ids")
+            {
+                if (seenNoOriginalObjectIds)
+                {
+                    throw new QpdfParseException("Duplicate --no-original-object-ids is outside the narrow profile.", i, null);
+                }
+
+                seenNoOriginalObjectIds = true;
+                noOriginalObjectIds = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--no-original-object-ids=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --no-original-object-ids takes no value.", i, null);
+            }
+
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -1151,7 +1209,8 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality);
+        bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2512,6 +2571,8 @@ internal static class ArgvParser
             OiMinArea = globals.OiMinArea,
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
+            Qdf = globals.Qdf,
+            NoOriginalObjectIds = globals.NoOriginalObjectIds,
         };
     }
 
@@ -2568,6 +2629,8 @@ internal static class ArgvParser
             OiMinArea = globals.OiMinArea,
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
+            Qdf = globals.Qdf,
+            NoOriginalObjectIds = globals.NoOriginalObjectIds,
         };
     }
 

@@ -239,6 +239,17 @@ public sealed class CompressionTests
     }
 
     [Fact]
+    public async Task StreamDataUncompressDecodesFlate()
+    {
+        byte[] input = BuildFlatePage();
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--stream-data=uncompress");
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        AssertNoFilter(stream.Dictionary);
+        Assert.Equal(PageRaw, stream.Data);
+    }
+
+    [Fact]
     public async Task StreamDataPreserveKeepsEncoding()
     {
         byte[] input = BuildFlatePage();
