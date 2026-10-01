@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 29: page content operations. Coalescing, newline normalization, and unreferenced-resource pruning with shared-resource heuristics across argv and job paths.
+
+Prior gate
+
 Work item 28: content tokenizer and inline-image boundary tests. Strict operand tokenizing with governed inline-image scanning backs upcoming content transforms.
 
 Prior gate
@@ -68,11 +72,10 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 739 tests (720
-  prior plus 21 content tokenizer cases: operators and operands, keyword and
-  number boundaries, strings/arrays/dicts, comments, malformed input,
-  inline-image boundaries with binary lookahead, fallback and unterminated
-  handling, plus governor budgets).
+- Locked restore, Release build with zero warnings, and all 764 tests (739
+  prior plus 25 content transform cases: coalescing, normalization,
+  resource pruning with shared heuristics and form recursion, damaged
+  content warnings, merge/split coverage, and job round trips).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -84,7 +87,7 @@ binary.
 
 ## Next work
 
-1. Work item 29: coalescing/normalization/resource pruning with revisited page-operation defaults (M7).
+1. Work item 30: inline-image externalization and overlay/underlay transforms (M7).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

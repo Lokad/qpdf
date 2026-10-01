@@ -96,6 +96,12 @@ internal static class JobJsonParser
             bool seenRemoveInfo = false;
             bool removeMetadata = false;
             bool seenRemoveMetadata = false;
+            bool coalesceContents = false;
+            bool seenCoalesceContents = false;
+            bool normalizeContent = false;
+            bool seenNormalizeContent = false;
+            string? removeUnreferencedResources = null;
+            bool seenRemoveUnreferencedResources = false;
             List<AttachmentAdd> attachmentsToAdd = new();
             bool seenAddAttachment = false;
             List<AttachmentCopy> attachmentsToCopy = new();
@@ -311,6 +317,38 @@ internal static class JobJsonParser
 
                         seenRemoveMetadata = true;
                         removeMetadata = RequireBareFlag(property.Value, "removeMetadata");
+                        break;
+                    case "coalesceContents":
+                        if (seenCoalesceContents)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027coalesceContents\u0027.", 0L, null);
+                        }
+
+                        seenCoalesceContents = true;
+                        coalesceContents = RequireBareFlag(property.Value, "coalesceContents");
+                        break;
+                    case "normalizeContent":
+                        if (seenNormalizeContent)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027normalizeContent\u0027.", 0L, null);
+                        }
+
+                        seenNormalizeContent = true;
+                        normalizeContent = RequireNormalizeContent(property.Value);
+                        break;
+                    case "removeUnreferencedResources":
+                        if (seenRemoveUnreferencedResources)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027removeUnreferencedResources\u0027.", 0L, null);
+                        }
+
+                        seenRemoveUnreferencedResources = true;
+                        removeUnreferencedResources = RequireString(property.Value, "removeUnreferencedResources");
+                        if (removeUnreferencedResources != "auto" && removeUnreferencedResources != "yes" && removeUnreferencedResources != "no")
+                        {
+                            throw new QpdfParseException("Job \u0027removeUnreferencedResources\u0027 must be one of: auto, yes, no.", 0L, null);
+                        }
+
                         break;
                     case "listAttachments":
                         if (seenListAttachments)
@@ -651,9 +689,10 @@ internal static class JobJsonParser
             }
 
             bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
+            bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null;
             if (!hasPages)
             {
-                if (!wantEdits)
+                if (!wantEdits && !wantContent)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -684,6 +723,9 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
+                    CoalesceContents = coalesceContents,
+                    NormalizeContent = normalizeContent,
+                    RemoveUnreferencedResources = removeUnreferencedResources,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
@@ -718,6 +760,9 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
+                    CoalesceContents = coalesceContents,
+                    NormalizeContent = normalizeContent,
+                    RemoveUnreferencedResources = removeUnreferencedResources,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
@@ -749,6 +794,9 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
+                    CoalesceContents = coalesceContents,
+                    NormalizeContent = normalizeContent,
+                    RemoveUnreferencedResources = removeUnreferencedResources,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
@@ -1119,6 +1167,24 @@ internal static class JobJsonParser
         }
 
         return selectors;
+    }
+
+    private static bool RequireNormalizeContent(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String && element.GetString() is string text)
+        {
+            if (text == "y")
+            {
+                return true;
+            }
+
+            if (text == "n")
+            {
+                return false;
+            }
+        }
+
+        throw new QpdfParseException("Job \"normalizeContent\" must be one of: y, n.", 0L, null);
     }
 
     private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)

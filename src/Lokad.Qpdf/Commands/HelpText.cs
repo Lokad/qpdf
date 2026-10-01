@@ -35,6 +35,9 @@ internal static class HelpText
           --compression-level=1..9      flate effort for compressed streams
           --remove-info               drop info except modification date
           --remove-metadata           drop the document metadata stream
+          --coalesce-contents         combine page content streams
+          --normalize-content=[y|n]     normalize newlines in content streams
+          --remove-unreferenced-resources=parameter  drop unused page resources
           --list-attachments          list embedded files
           --show-attachment=key         write one attachment to the output file
           --add-attachment file [options] --  embed host files

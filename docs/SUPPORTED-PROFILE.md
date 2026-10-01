@@ -121,6 +121,18 @@ echoing values.
   attributes stay explicitly unsupported. The typed
   `UpdatePdfFromJsonAsync` shares the engine.
 
+## Page content profile
+
+- `--coalesce-contents` joins each page content array into one stream with
+  newline separators, decoding first and recompressing when compression is
+  active. `--normalize-content=y` rewrites newlines to LF and recodes strings
+  and names canonically, keeping damaged streams with a warning.
+- `--remove-unreferenced-resources` (auto by default, `yes`/`no`) drops
+  unused `/Font` and `/XObject` entries using content analysis that recurses
+  into form XObjects; pages with unreadable content or unresolvable names
+  keep everything. Auto mode prunes only when resource dictionaries are
+  shared. Pruning applies to page selection, merge, and split outputs.
+
 ## Writer profile
 
 - Classic xref tables with 20-byte entries, generation 0 throughout, and a

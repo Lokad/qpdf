@@ -43,6 +43,12 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool RemoveMetadata { get; init; }
 
+    public bool CoalesceContents { get; init; }
+
+    public bool NormalizeContent { get; init; }
+
+    public string? RemoveUnreferencedResources { get; init; }
+
     public IReadOnlyList<AttachmentAdd> AttachmentsToAdd { get; init; } = [];
 
     public IReadOnlyList<string> AttachmentsToRemove { get; init; } = [];

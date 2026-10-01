@@ -1982,15 +1982,23 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ContentTransformsTests.CoalesceJoinsStreams",
+          "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
+          "ContentTransformsTests.CoalesceWholeFile",
+          "ContentTransformsTests.CoalesceKeepsOpaqueStreams"
+        ],
+        "negative": [
+          "ContentTransformsTests.MalformedContentFlagsFail"
+        ],
+        "interaction": [
+          "ContentTransformsTests.JobContentFlagsRoundTrip",
+          "ContentTransformsTests.PruneAppliesOnMerge"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3468,15 +3476,22 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ContentTransformsTests.NormalizeRewritesNewlines",
+          "ContentTransformsTests.NormalizeRecodesStringsAndNames",
+          "ContentTransformsTests.NormalizeDecodesFlate"
+        ],
+        "negative": [
+          "ContentTransformsTests.MalformedContentFlagsFail",
+          "ContentTransformsTests.NormalizeKeepsDamagedStreamsWithWarning"
+        ],
+        "interaction": [
+          "ContentTransformsTests.JobContentFlagsRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -4331,15 +4346,29 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ContentTransformsTests.PruneYesRemovesUnused",
+          "ContentTransformsTests.PruneNoKeepsEverything",
+          "ContentTransformsTests.PruneAutoKeepsUnshared",
+          "ContentTransformsTests.PruneAutoPrunesShared",
+          "ContentTransformsTests.PruneKeepsUnresolvedPageNames",
+          "ContentTransformsTests.PruneRecursesIntoForms",
+          "ContentTransformsTests.PruneUnresolvedFormNameBlocksFormOnly",
+          "ContentTransformsTests.SplitOutputsPrune"
+        ],
+        "negative": [
+          "ContentTransformsTests.MalformedContentFlagsFail",
+          "ContentTransformsTests.PruneSkipsDamagedContentWithWarning"
+        ],
+        "interaction": [
+          "ContentTransformsTests.JobContentFlagsRoundTrip",
+          "ContentTransformsTests.JobContentFlagsMalformedFail",
+          "ContentTransformsTests.PruneAppliesOnMerge"
+        ],
         "resource": [],
         "oracle": []
       }

@@ -164,6 +164,9 @@ internal static class ArgvParser
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
             RemoveMetadata = globals.RemoveMetadata,
+            CoalesceContents = globals.CoalesceContents,
+            NormalizeContent = globals.NormalizeContent,
+            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
             };
         }
 
@@ -272,6 +275,9 @@ internal static class ArgvParser
                 CompressionLevel = globals.CompressionLevel,
                 RemoveInfo = globals.RemoveInfo,
                 RemoveMetadata = globals.RemoveMetadata,
+                CoalesceContents = globals.CoalesceContents,
+                NormalizeContent = globals.NormalizeContent,
+                RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
@@ -303,6 +309,9 @@ internal static class ArgvParser
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
             RemoveMetadata = globals.RemoveMetadata,
+            CoalesceContents = globals.CoalesceContents,
+            NormalizeContent = globals.NormalizeContent,
+            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
@@ -474,7 +483,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -514,6 +523,12 @@ internal static class ArgvParser
         bool removeInfo = false;
         bool seenRemoveMetadata = false;
         bool removeMetadata = false;
+        bool seenCoalesceContents = false;
+        bool coalesceContents = false;
+        bool seenNormalizeContent = false;
+        bool normalizeContent = false;
+        bool seenRemoveUnreferencedResources = false;
+        string? removeUnreferencedResources = null;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -770,6 +785,47 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --remove-metadata takes no value.", i, null);
             }
 
+            if (argv[i] == "--coalesce-contents")
+            {
+                if (seenCoalesceContents)
+                {
+                    throw new QpdfParseException("Duplicate --coalesce-contents is outside the narrow profile.", i, null);
+                }
+
+                seenCoalesceContents = true;
+                coalesceContents = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--coalesce-contents=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --coalesce-contents takes no value.", i, null);
+            }
+
+            if (argv[i] == "--normalize-content" || argv[i].StartsWith("--normalize-content=", StringComparison.Ordinal))
+            {
+                if (seenNormalizeContent)
+                {
+                    throw new QpdfParseException("Duplicate --normalize-content is outside the narrow profile.", i, null);
+                }
+
+                seenNormalizeContent = true;
+                normalizeContent = ParseStreamChoice(argv, ref i, "--normalize-content", new string[] { "y", "n" }) == "y";
+                continue;
+            }
+
+            if (argv[i] == "--remove-unreferenced-resources" || argv[i].StartsWith("--remove-unreferenced-resources=", StringComparison.Ordinal))
+            {
+                if (seenRemoveUnreferencedResources)
+                {
+                    throw new QpdfParseException("Duplicate --remove-unreferenced-resources is outside the narrow profile.", i, null);
+                }
+
+                seenRemoveUnreferencedResources = true;
+                removeUnreferencedResources = ParseStreamChoice(argv, ref i, "--remove-unreferenced-resources", new string[] { "auto", "yes", "no" });
+                continue;
+            }
+
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -786,7 +842,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources);
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -1825,6 +1881,9 @@ internal static class ArgvParser
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
             RemoveMetadata = globals.RemoveMetadata,
+            CoalesceContents = globals.CoalesceContents,
+            NormalizeContent = globals.NormalizeContent,
+            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
         };
     }
 
@@ -1867,6 +1926,9 @@ internal static class ArgvParser
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
             RemoveMetadata = globals.RemoveMetadata,
+            CoalesceContents = globals.CoalesceContents,
+            NormalizeContent = globals.NormalizeContent,
+            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
         };
     }
 

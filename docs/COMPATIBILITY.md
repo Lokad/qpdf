@@ -588,6 +588,17 @@ ten-token lookahead, falling back to the last candidate, with the separator
 before EI included in the payload. No command surface changes yet; page
 content checks, image reporting, and appearance work build on this next.
 
+## Page content operations (work item 29)
+
+`--coalesce-contents`, `--normalize-content=y/n`, and
+`--remove-unreferenced-resources=auto/yes/no` (plus job keys) share one
+engine over copied pages: coalescing joins decoded streams, normalization
+rewrites newlines and recodes strings/names with warnings on damage, and
+pruning drops unused font and XObject entries with form recursion and
+unresolved-name guards. Intentional differences: content flags combine only
+with page operations and whole-file output, never with inspection; damaged
+content keeps original bytes where upstream writes partial output.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

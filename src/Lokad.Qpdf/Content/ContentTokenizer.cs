@@ -17,6 +17,8 @@ internal enum ContentTokenKind
     DictionaryOpen,
     DictionaryClose,
     Operator,
+    Comment,
+    Whitespace,
     InlineImage,
 }
 
@@ -58,11 +60,27 @@ internal sealed class ContentTokenizer
         limits.Validate();
     }
 
+    internal bool IncludeComments { get; set; }
+
+    internal bool IncludeWhitespace { get; set; }
+
     internal long Position => _position;
 
     internal bool TryReadToken(out ContentToken token)
     {
         SkipWhitespaceAndComments();
+        if (TakePendingComment(out token))
+        {
+            _governor.ChargeWork(1L);
+            return true;
+        }
+
+        if (TakePendingWhitespace(out token))
+        {
+            _governor.ChargeWork(1L);
+            return true;
+        }
+
         if (_position >= _data.Length)
         {
             token = new ContentToken(ContentTokenKind.Operator, ReadOnlyMemory<byte>.Empty, _position);
@@ -563,22 +581,76 @@ internal sealed class ContentTokenizer
             byte b = span[_position];
             if (IsWhitespace(b))
             {
-                _position += 1;
-                continue;
+                if (!IncludeWhitespace)
+                {
+                    _position += 1;
+                    continue;
+                }
+
+                long start = _position;
+                while (_position < span.Length && IsWhitespace(span[_position]))
+                {
+                    _position += 1;
+                }
+
+                _pendingWhitespace = new ContentToken(ContentTokenKind.Whitespace, _data.Slice((int)start, _position - (int)start), start);
+                break;
             }
 
             if (b == (byte)'%')
             {
+                if (!IncludeComments)
+                {
+                    while (_position < span.Length && span[_position] != (byte)'\n' && span[_position] != (byte)'\r')
+                    {
+                        _position += 1;
+                    }
+
+                    continue;
+                }
+
+                long start = _position;
                 while (_position < span.Length && span[_position] != (byte)'\n' && span[_position] != (byte)'\r')
                 {
                     _position += 1;
                 }
 
-                continue;
+                _pendingComment = new ContentToken(ContentTokenKind.Comment, _data.Slice((int)start, _position - (int)start), start);
+                break;
             }
 
             break;
         }
+    }
+
+    private ContentToken? _pendingComment;
+
+    private ContentToken? _pendingWhitespace;
+
+    private bool TakePendingWhitespace(out ContentToken token)
+    {
+        if (_pendingWhitespace is ContentToken pending)
+        {
+            _pendingWhitespace = null;
+            token = pending;
+            return true;
+        }
+
+        token = default;
+        return false;
+    }
+
+    private bool TakePendingComment(out ContentToken token)
+    {
+        if (_pendingComment is ContentToken pending)
+        {
+            _pendingComment = null;
+            token = pending;
+            return true;
+        }
+
+        token = default;
+        return false;
     }
 
     private static bool IsWhitespace(byte b)
