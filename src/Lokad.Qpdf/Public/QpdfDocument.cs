@@ -27,7 +27,8 @@ public sealed class QpdfDocument : IAsyncDisposable
         List<PageLocation> pages,
         QpdfPath path,
         QpdfLimits limits,
-        PdfVersion version)
+        PdfVersion version,
+        PdfVersion headerVersion)
     {
         _input = input;
         _engine = engine;
@@ -37,6 +38,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         Path = path;
         Limits = limits;
         Version = version;
+        HeaderVersion = headerVersion;
     }
 
     /// <summary>Gets the logical input path.</summary>
@@ -47,6 +49,9 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     /// <summary>Gets the effective version: catalog /Version overrides the header.</summary>
     public PdfVersion Version { get; }
+
+    /// <summary>Gets the version from the file header.</summary>
+    public PdfVersion HeaderVersion { get; }
 
     /// <summary>Gets the page count from page-tree traversal.</summary>
     public int PageCount => _pages.Count;
@@ -132,7 +137,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             RejectEncrypted(path, engine);
             PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
             List<PageLocation> pages = ListPages(engine, diagnostics, governor, limits, cancellationToken);
-            return new QpdfDocument(input, engine, governor, diagnostics, pages, path, limits, version);
+            return new QpdfDocument(input, engine, governor, diagnostics, pages, path, limits, version, headerVersion);
         }
         catch
         {

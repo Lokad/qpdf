@@ -93,6 +93,14 @@ echoing values.
   filters skip streams with a warning at level `all`.
 - `input --check` publishes no files and maps diagnostics to exit 0/2/3.
   Inspection never claims conformance, safe content, or rendering correctness.
+- `input --json[=1|2|latest] [--json-key=]... -- output` writes document JSON
+  (version plus parameters, then pages, pagelabels, attachments, encrypt,
+  outlines, and objects/objectinfo for version 1 or qpdf for version 2) with
+  stream data omitted. Pages carry object, contents, label, outlines, and
+  pageposfrom1 with empty images until content parsing lands (M7); outlines
+  resolve explicit destinations only; page images, acroform details, stream
+  payloads, object filtering, and minimal serialization output follow next.
+  The typed `GetDocumentJsonAsync` shares the engine.
 
 ## Writer profile
 

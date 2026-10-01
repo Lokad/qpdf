@@ -117,6 +117,9 @@ internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecove
 /// <summary>Validated attachment inspection and extraction.</summary>
 internal sealed record AttachmentPlan(QpdfPath Input, QpdfPath? Output, string? Key, bool List, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
+/// <summary>Validated JSON inspection.</summary>
+internal sealed record JsonPlan(QpdfPath Input, QpdfPath Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input);
+
 /// <summary>One multi-source group: a raw file token plus its range text.</summary>
 internal sealed record PageGroup(string File, string Range);
 

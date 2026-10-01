@@ -102,6 +102,10 @@ internal static class JobJsonParser
             bool seenCopyAttachments = false;
             List<string> attachmentsToRemove = new();
             bool seenRemoveAttachment = false;
+            string? jsonVersion = null;
+            bool seenJson = false;
+            List<string> jsonKeys = new();
+            bool seenJsonKey = false;
             bool listAttachments = false;
             bool seenListAttachments = false;
             string? showAttachment = null;
@@ -346,6 +350,32 @@ internal static class JobJsonParser
                         seenCopyAttachments = true;
                         attachmentsToCopy.AddRange(ParseCopyAttachmentsArray(property.Value));
                         break;
+                    case "json":
+                        if (seenJson)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'json'.", 0L, null);
+                        }
+
+                        seenJson = true;
+                        jsonVersion = ParseJsonVersion(property.Value);
+                        break;
+                    case "jsonKey":
+                        if (seenJsonKey)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'jsonKey'.", 0L, null);
+                        }
+
+                        seenJsonKey = true;
+                        jsonKeys.AddRange(ParseJsonKeyArray(property.Value));
+                        break;
+                    case "jsonObject":
+                    case "jsonStreamData":
+                    case "jsonStreamPrefix":
+                    case "jsonOutput":
+                        throw new QpdfParseException("Job key '" + property.Name + "' is outside the narrow profile.", 0L, null);
+                    case "jsonInput":
+                    case "updateFromJson":
+                        throw new QpdfParseException("Job key '" + property.Name + "' is outside the narrow profile.", 0L, null);
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -398,6 +428,42 @@ internal static class JobJsonParser
             if (output is null)
             {
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
+            }
+
+            if (seenJson && hasPages)
+            {
+                throw new QpdfParseException("Job \"json\" cannot be combined with \"pages\".", 0L, null);
+            }
+
+            if (seenJson && (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0))
+            {
+                throw new QpdfParseException("Job \"json\" cannot be combined with attachment keys.", 0L, null);
+            }
+
+            if (seenJson)
+            {
+                if (output is null)
+                {
+                    throw new QpdfParseException("Job JSON requires \"outputFile\" with \"json\".", 0L, null);
+                }
+
+                int jsonNumber = jsonVersion is null || jsonVersion == "latest" ? 2 : int.Parse(jsonVersion, System.Globalization.CultureInfo.InvariantCulture);
+                Qpdf.ValidateJsonKeys(jsonNumber, jsonKeys);
+                string jsonDecode = decodeLevel ?? "generalized";
+                if (jsonDecode != "none" && jsonDecode != "generalized" && jsonDecode != "specialized" && jsonDecode != "all")
+                {
+                    throw new QpdfParseException("Job \"decodeLevel\" must be one of: none, generalized, specialized, all.", 0L, null);
+                }
+
+                return new JsonPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), jsonNumber, jsonKeys, QpdfRecoveryMode.BoundedRepair) with
+                {
+                    DecodeLevel = jsonDecode,
+                };
+            }
+
+            if (seenJsonKey && !seenJson)
+            {
+                throw new QpdfParseException("Job \"jsonKey\" requires \"json\".", 0L, null);
             }
 
             bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
@@ -785,6 +851,48 @@ internal static class JobJsonParser
         }
 
         return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix);
+    }
+
+    private static string ParseJsonVersion(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out int number)
+            && (number == 1 || number == 2))
+        {
+            return number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            string? text = value.GetString();
+            if (text == "1" || text == "2" || text == "latest")
+            {
+                return text;
+            }
+        }
+
+        throw new QpdfParseException("Job \"json\" must be one of: 1, 2, latest.", 0L, null);
+    }
+
+    private static List<string> ParseJsonKeyArray(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job \"jsonKey\" must be an array of key names.", 0L, null);
+        }
+
+        List<string> keys = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.String || entry.GetString() is not string text)
+            {
+                throw new QpdfParseException("Job \"jsonKey\" entries must be strings.", 0L, null);
+            }
+
+            keys.Add(text);
+        }
+
+        return keys;
     }
 
     private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)

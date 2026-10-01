@@ -40,6 +40,7 @@ internal static class HelpText
           --add-attachment file [options] --  embed host files
           --remove-attachment=key       drop an embedded file
           --copy-attachments-from file [--prefix=] --  copy embedded files
+          --json[=1|2|latest] [--json-key=key] --  write document JSON
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

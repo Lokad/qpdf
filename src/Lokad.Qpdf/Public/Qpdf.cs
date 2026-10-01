@@ -2596,6 +2596,53 @@ public static class Qpdf
     }
 
     /// <summary>
+    /// Inspects a document as JSON with default budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static ValueTask<QpdfJsonResult> GetDocumentJsonAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        QpdfJsonOptions options,
+        CancellationToken cancellationToken)
+    {
+        return GetDocumentJsonAsync(host, inputPath, outputPath, options, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Inspects a document as JSON with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static async ValueTask<QpdfJsonResult> GetDocumentJsonAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        QpdfJsonOptions options,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await JsonCoreAsync(host, inputPath, outputPath, options.Version, options.Keys, null, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Embeds host files into a document with default budgets.
     /// </summary>
     public static ValueTask<QpdfAttachmentEditResult> AddAttachmentsAsync(
@@ -2857,6 +2904,82 @@ public static class Qpdf
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return new QpdfAttachmentExtraction(match.Key, data.Length, [.. diagnostics.Entries], governor.Snapshot());
+    }
+
+    private static readonly string[] JsonKeys =
+    [
+        "acroform", "attachments", "encrypt", "objectinfo", "objects", "outlines", "pagelabels", "pages", "qpdf",
+    ];
+
+    internal static void ValidateJsonKeys(int version, IReadOnlyList<string> keys)
+    {
+        if (keys is null)
+        {
+            throw new ArgumentNullException(nameof(keys));
+        }
+
+        foreach (string key in keys)
+        {
+            if (key is null || Array.IndexOf(JsonKeys, key) < 0)
+            {
+                throw new QpdfParseException("Unknown JSON key '" + (key ?? string.Empty) + "'.", 0L, null);
+            }
+
+            if (string.Equals(key, "acroform", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --json-key=acroform is outside the narrow profile.", 0L, null);
+            }
+
+            if (version == 1 && string.Equals(key, "qpdf", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("JSON key 'qpdf' is only valid for JSON version 2.", 0L, null);
+            }
+
+            if (version == 2 && (string.Equals(key, "objects", StringComparison.Ordinal) || string.Equals(key, "objectinfo", StringComparison.Ordinal)))
+            {
+                throw new QpdfParseException("JSON keys 'objects' and 'objectinfo' are only valid for JSON version 1.", 0L, null);
+            }
+        }
+    }
+
+    private static async ValueTask<QpdfJsonResult> JsonCoreAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath? outputPath,
+        int version,
+        IReadOnlyList<string> keys,
+        string? decodeLevel,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        ValidateJsonKeys(version, keys);
+        if (outputPath.HasValue && string.Equals(inputPath.Value, outputPath.Value.Value, StringComparison.Ordinal))
+        {
+            throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
+        }
+
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        Json.JsonRequest request = new(version, keys, decodeLevel ?? "generalized");
+        string json = Json.DocumentJson.WriteDocument(document, request, limits, governor, diagnostics, cancellationToken);
+        byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
+        if (data.Length > limits.MaxOutputBytes)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
+        }
+
+        if (outputPath.HasValue)
+        {
+            governor.NoteHostOperation();
+            await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath.Value, cancellationToken).ConfigureAwait(false);
+            TransactionSink sink = new(transaction, governor);
+            await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return new QpdfJsonResult(json, [.. diagnostics.Entries], governor.Snapshot());
     }
 
     private static async ValueTask<QpdfCheckResult> CheckCoreAsync(
@@ -3356,6 +3479,34 @@ public static class Qpdf
                 }
 
                 return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
+        if (plan is JsonPlan json)
+        {
+            try
+            {
+                QpdfJsonResult inspected = await JsonCoreAsync(
+                    host,
+                    json.Input,
+                    json.Output,
+                    json.Version,
+                    json.Keys,
+                    json.DecodeLevel,
+                    limits,
+                    json.Recovery,
+                    governor,
+                    diagnostics,
+                    cancellationToken).ConfigureAwait(false);
+                return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan);
             }
             catch (QpdfException ex)
             {

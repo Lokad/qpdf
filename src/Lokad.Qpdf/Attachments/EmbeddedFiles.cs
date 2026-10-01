@@ -17,7 +17,9 @@ internal sealed record EmbeddedAttachment(
     int StreamObjectNumber,
     long Size,
     PdfStream Stream,
-    QpdfObject Spec);
+    QpdfObject Spec,
+    string? SpecReference,
+    string? StreamReference);
 
 internal static class EmbeddedFiles
 {
@@ -294,6 +296,7 @@ internal static class EmbeddedFiles
         }
 
         int streamNumber = -1;
+        string? streamReference = null;
         PdfStream? data = null;
         foreach (string name in NameKeys)
         {
@@ -308,6 +311,11 @@ internal static class EmbeddedFiles
             {
                 data = stream;
                 streamNumber = candidateNumber;
+                if (candidate is PdfReference streamLink)
+                {
+                    streamReference = streamLink.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + streamLink.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R";
+                }
+
                 break;
             }
         }
@@ -358,6 +366,9 @@ internal static class EmbeddedFiles
         }
 
         governor.ChargeWork(1L);
-        return new EmbeddedAttachment(key, fileName, description, mimeType, creationDate, modDate, checksum, streamNumber, size, data, value);
+        string? specReference = value is PdfReference specLink
+            ? specLink.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + specLink.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R"
+            : null;
+        return new EmbeddedAttachment(key, fileName, description, mimeType, creationDate, modDate, checksum, streamNumber, size, data, value, specReference, streamReference);
     }
 }

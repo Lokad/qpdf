@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 26a: PDF JSON inspection. Canonical v1/v2 object encoding with omitted stream data backs selected top-level keys (pages, labels, outlines, attachments, encrypt, objects) across argv, job, and typed paths.
+
+Prior gate
+
 Work item 25b: attachment copy plus the typed editing surface. Repeatable copy blocks rechains per-source filespecs after removals and additions with grouped collision errors, and the typed add/remove/copy surface shares the engine while reporting final attachment counts.
 
 Prior gate
@@ -48,11 +52,11 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 577 tests (554
-  prior plus 23 attachment-copy cases: basic/prefix/space-prefix copies,
-  collision/unknown/encrypted/nested-password failures, add-plus-copy
-  collisions, block grammar, job round trips plus malformed payloads, and
-  typed add/remove/copy round trips with validation).
+- Locked restore, Release build with zero warnings, and all 620 tests (577
+  prior plus 43 JSON inspection cases: v1/v2 shapes, key selection, version
+  and key errors, combination and deferred-option rejections, name/string
+  encodings, outlines/labels/attachments/encrypt keys, job round trips plus
+  malformed payloads, and typed round trips with validation).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -64,7 +68,7 @@ binary.
 
 ## Next work
 
-1. Work item 26 (M6).
+1. Work item 26b: JSON stream modes, object filtering, acroform details, and minimal serialization output (M6).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

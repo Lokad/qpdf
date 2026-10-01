@@ -2808,15 +2808,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Stream payloads, object filtering, minimal serialization output, acroform details, and page images stay unsupported."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonInspectionTests.DefaultVersionIsTwo",
+          "JsonInspectionTests.ExplicitVersionOne",
+          "JsonInspectionTests.NamesAndStringsEncode"
+        ],
+        "negative": [
+          "JsonInspectionTests.BadVersionFails",
+          "JsonInspectionTests.BadKeyFails",
+          "JsonInspectionTests.JsonCombinationsFail"
+        ],
+        "interaction": [
+          "JsonInspectionTests.JobRoundTripMatchesArgv",
+          "JsonInspectionTests.TypedRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2890,15 +2901,21 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Acroform keys and deferred JSON options stay unsupported."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonInspectionTests.KeySelectionLimitsOutput"
+        ],
+        "negative": [
+          "JsonInspectionTests.BadKeyFails"
+        ],
+        "interaction": [
+          "JsonInspectionTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": []
       }

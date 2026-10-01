@@ -522,6 +522,21 @@ shares the engine and reports the final attachment count without reopening
 the output. Intentional differences: no ambient clock reads; trees stay
 flat-chunked past 64 entries.
 
+## PDF JSON inspection (work item 26a)
+
+`--json[=1|2|latest]` with repeatable `--json-key` (plus job `json`/`jsonKey`
+and typed `GetDocumentJsonAsync`) emits the upstream top-level layout with
+stream data omitted: canonical v1/v2 name and string encodings (u:/b:/n:
+forms, arbitrary-precision numbers with upstream real normalization),
+sorted dictionary keys, per-key selection with version rules, page entries
+with contents/labels/per-page outlines, number-tree page labels, recursive
+outlines with page positions, attachment details with ISO-8601 dates, and a
+constant unencrypted report for the encrypt key. Intentional differences:
+JSON requires a declared output file (no stdout contract); pages report no
+images yet; named outline destinations do not resolve; `acroform`,
+`--json-object`, `--json-stream-data`, `--json-stream-prefix`,
+`--json-output`, `--json-help`, and JSON input stay explicitly unsupported.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,
