@@ -13,5 +13,6 @@
   <ItemGroup>
     <PackageReference Include="PdfPig" />
     <PackageReference Include="SixLabors.ImageSharp" />
+    <ProjectReference Include="..\..\src\Lokad.Qpdf\Lokad.Qpdf.csproj" />
   </ItemGroup>
 </Project>

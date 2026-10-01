@@ -36,8 +36,10 @@ if ($null -eq $probeDll) {
 
 function Invoke-Probe {
   param([string[]] $ProbeArgs)
-  & dotnet $probeDll @ProbeArgs
-  return $LASTEXITCODE
+  $output = & dotnet $probeDll @ProbeArgs 2>&1
+  $code = $LASTEXITCODE
+  foreach ($line in $output) { Write-Host $line }
+  return $code
 }
 
 Write-Output "--- bootstrap oracle ---"
@@ -68,3 +70,6 @@ if ($code -eq 0) {
 }
 
 Write-Output "Reference lane passed: oracle and independent readers agree on valid fixtures and disagree explicitly on negative cases."
+
+Write-Output "--- differential: library vs oracle outputs ---"
+& (Join-Path $repoRoot 'tools/run-differential-checks.ps1') -QpdfExe $QpdfExe -Configuration $Configuration
