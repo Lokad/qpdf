@@ -120,9 +120,9 @@ The internal filter pipeline resolves `/Filter` names and arrays with
 canonical abbreviations (`Fl`, `LZW`, `A85`, `AHx`, `RL`, `CCF`, `DCT`)
 and aligns `/DecodeParms` as upstream does: a single dictionary applies
 to every stage, an array must match the filter count, and empty chains
-ignore parms. Only FlateDecode executes; every other filter fails
-explicitly as unsupported, never silently. LZW (both EarlyChange values),
-ASCIIHex, ASCII85, and RunLength arrive in work item 11; DCT stays M8.
+ignore parms. FlateDecode, LZWDecode (both EarlyChange values), ASCIIHexDecode,
+ASCII85Decode, and RunLengthDecode execute; anything else fails explicitly as
+unsupported, never silently. DCT stays M8.
 
 Flate uses BCL inflate inside strict zlib framing: method/window/header
 checks, preset-dictionary rejection, per-chunk output budgets, and an
@@ -140,9 +140,27 @@ rejected (upstream ignores them), parms-length mismatches are rejected
 rejected. Structural decoding consumes this pipeline starting with xref
 and object streams in work item 09.
 
+## LZW, ASCIIHex, ASCII85, and RunLength (work item 11)
+
+LZW mirrors the reference bit packing (MSB-first), table rules (clear 256, end 257,
+entries 258-4095), both EarlyChange settings (default 1, explicit 0/1 only), KwKwK
+handling, width growth at 511/1023/2047 with the EarlyChange delta, and table-full
+rejection. Codes after end-of-data and trailing partial codes are ignored like
+upstream. LZW predictors reuse the Flate predictor stage with the same strict deltas.
+
+ASCIIHex ignores ASCII whitespace, ends at `>`, pads a trailing odd digit with zero,
+tolerates a missing end marker, and ignores later bytes; bad digits fail. ASCII85
+ignores ASCII whitespace, allows `z` only as a full group, ends at `~>`, pads partial
+final groups with `u`, wraps group overflow like the reference, and ignores later
+bytes; misplaced `z`, broken end sequences, and out-of-range bytes fail. RunLength
+copies below 128, repeats above 128, continues past 128 markers like upstream, and
+drops truncated tails instead of failing. All four stay budget-bounded per emitted
+chunk. ASCIIHex, ASCII85, and RunLength reject DecodeParms; mixed chains decode in
+filter order. Structural decoding accepts LZW xref streams through the same pipeline.
+
 ## Xref and object streams (work item 09)
 
-`startxref` may point at a classic table or a Flate-compressed xref
+`startxref` may point at a classic table or a Flate- or LZW-compressed xref
 stream (`/Type /XRef`, `/Size`, `/W`, optional `/Index`, decoded under
 output budgets with exact data sizing). Entry types are free,
 uncompressed with pre-read offset validation, and compressed with

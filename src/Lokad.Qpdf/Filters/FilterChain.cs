@@ -8,9 +8,9 @@ internal sealed record FilterStage(string Name, PdfDictionary? Parms);
 
 /// <summary>
 /// Resolves `/Filter` and `/DecodeParms` into an ordered stage list and
-/// decodes governed Flate chains. Abbreviated names (`Fl`, `LZW`, `A85`,
-/// `AHx`, `RL`, `CCF`, `DCT`) resolve canonically; only FlateDecode stages
-/// execute in this milestone, everything else fails explicitly as unsupported.
+/// decodes governed Flate, LZW, ASCIIHex, ASCII85, and RunLength chains.
+/// Abbreviated names (`Fl`, `LZW`, `A85`,
+/// `AHx`, `RL`, `CCF`, `DCT`) resolve canonically; anything else fails explicitly as unsupported.
 /// </summary>
 internal static class FilterChain
 {
@@ -70,23 +70,85 @@ internal static class FilterChain
         byte[] current = input;
         for (int i = 0; i < stages.Count; i++)
         {
-            if (stages[i].Name != FlateFilter.FilterName)
-            {
-                throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stages[i].Name, "Filter is not implemented in this milestone.");
-            }
-
-            PredictorParameters? parms = PredictorParameters.FromDictionary(stages[i].Parms);
-            byte[] decoded = FlateFilter.Decode(current, parms, limits, governor);
-            if (decoded.Length > limits.MaxDecodedBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), decoded.Length, limits.MaxDecodedBytes);
-            }
-
-            governor.ChargeDecodedBytes(decoded.Length);
-            current = decoded;
+            current = DecodeStage(current, stages[i], limits, governor);
         }
 
         return current;
+    }
+
+    private static byte[] DecodeStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor)
+    {
+        if (stage.Name == FlateFilter.FilterName)
+        {
+            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, FlateFilter.FilterName);
+            return DecodeChecked(FlateFilter.Decode(input, parms, limits, governor), limits, governor);
+        }
+
+        if (stage.Name == LzwFilter.FilterName)
+        {
+            bool earlyChange = ReadEarlyChange(stage.Parms);
+            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, LzwFilter.FilterName);
+            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor);
+            if (parms is not null && parms.Predictor != 1)
+            {
+                return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor), limits, governor);
+            }
+
+            return DecodeChecked(inflated, limits, governor);
+        }
+
+        if (stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName || stage.Name == RunLengthFilter.FilterName)
+        {
+            RequireNoParms(stage);
+            byte[] decoded = stage.Name == AsciiHexFilter.FilterName
+                ? AsciiHexFilter.Decode(input, limits, governor)
+                : stage.Name == Ascii85Filter.FilterName
+                    ? Ascii85Filter.Decode(input, limits, governor)
+                    : RunLengthFilter.Decode(input, limits, governor);
+            return DecodeChecked(decoded, limits, governor);
+        }
+
+        throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "Filter is not implemented in this milestone.");
+    }
+
+    private static byte[] DecodeChecked(byte[] decoded, QpdfLimits limits, ResourceGovernor governor)
+    {
+        if (decoded.Length > limits.MaxDecodedBytes)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), decoded.Length, limits.MaxDecodedBytes);
+        }
+
+        governor.ChargeDecodedBytes(decoded.Length);
+        return decoded;
+    }
+
+    private static bool ReadEarlyChange(PdfDictionary? parms)
+    {
+        if (parms is null)
+        {
+            return true;
+        }
+
+        PdfName key = PdfName.FromAscii("EarlyChange");
+        if (!parms.TryGet(key, out QpdfObject raw) || raw is PdfNull)
+        {
+            return true;
+        }
+
+        if (raw is PdfInteger integer && (integer.Value == 0L || integer.Value == 1L))
+        {
+            return integer.Value == 1L;
+        }
+
+        throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, LzwFilter.FilterName, "DecodeParms /EarlyChange must be 0 or 1.");
+    }
+
+    private static void RequireNoParms(FilterStage stage)
+    {
+        if (stage.Parms is not null)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, stage.Name, "DecodeParms are not supported for this filter.");
+        }
     }
 
     private static List<string> ReadFilters(PdfDictionary streamDict)

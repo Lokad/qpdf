@@ -101,12 +101,12 @@ public sealed class XRefStreamTests
     }
 
     [Fact]
-    public async Task RejectsUnsupportedXRefFilterExplicitly()
+    public async Task AcceptsLzwXRefStream()
     {
         (InMemoryQpdfHost host, byte[] _) = await LoadFixture("xstream-lzw.pdf");
-        QpdfFilterException ex = await Assert.ThrowsAsync<QpdfFilterException>(() => QpdfDocument.OpenAsync(
-            host, QpdfPath.From("inputs/xstream-lzw.pdf"), CancellationToken.None).AsTask());
-        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, ex.Reason);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(
+            host, QpdfPath.From("inputs/xstream-lzw.pdf"), CancellationToken.None);
+        Assert.Equal(1, document.PageCount);
     }
 
     [Fact]

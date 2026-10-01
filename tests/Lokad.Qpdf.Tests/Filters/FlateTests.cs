@@ -156,23 +156,36 @@ public sealed class FlateTests
     public void UnsupportedFiltersFailExplicitly()
     {
         byte[] payload = ZLibCompress(Encoding.ASCII.GetBytes("unsupported stage"));
-        QpdfFilterException lzw = Assert.Throws<QpdfFilterException>(
-            () => DecodeThroughChain(payload, StreamDict("LZWDecode", null)));
-        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, lzw.Reason);
-        Assert.Equal("LZWDecode", lzw.FilterName);
-
         QpdfFilterException dct = Assert.Throws<QpdfFilterException>(
             () => DecodeThroughChain(payload, StreamDict("DCTDecode", null)));
         Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, dct.Reason);
+        Assert.Equal("DCTDecode", dct.FilterName);
+
+        QpdfFilterException jpx = Assert.Throws<QpdfFilterException>(
+            () => DecodeThroughChain(payload, StreamDict("JPXDecode", null)));
+        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, jpx.Reason);
 
         Dictionary<PdfName, QpdfObject> entries = new()
         {
-            [PdfName.FromAscii("Filter")] = new PdfArray([PdfName.FromAscii("FlateDecode"), PdfName.FromAscii("LZWDecode")]),
+            [PdfName.FromAscii("Filter")] = new PdfArray([PdfName.FromAscii("FlateDecode"), PdfName.FromAscii("DCTDecode")]),
         };
         QpdfFilterException ordered = Assert.Throws<QpdfFilterException>(
             () => DecodeThroughChain(payload, new PdfDictionary(entries)));
         Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, ordered.Reason);
-        Assert.Equal("LZWDecode", ordered.FilterName);
+        Assert.Equal("DCTDecode", ordered.FilterName);
+    }
+
+    [Fact]
+    public void AppliesMixedChainsInOrder()
+    {
+        byte[] payload = Encoding.ASCII.GetBytes("Mixed supported chains decode in order. Mixed.");
+        string hex = Convert.ToHexString(ZLibCompress(payload));
+        Dictionary<PdfName, QpdfObject> entries = new()
+        {
+            [PdfName.FromAscii("Filter")] = new PdfArray([PdfName.FromAscii("ASCIIHexDecode"), PdfName.FromAscii("FlateDecode")]),
+        };
+        byte[] decoded = DecodeThroughChain(Encoding.ASCII.GetBytes(hex), new PdfDictionary(entries));
+        Assert.Equal(payload, decoded);
     }
 
     [Fact]

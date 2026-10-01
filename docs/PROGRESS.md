@@ -2,27 +2,27 @@
 
 ## Current checkpoint
 
-Work item 10: incremental and hybrid precedence. `XRefTable` walks `/Prev`
-chains and hybrid `/XRefStm` links with latest-wins merging (classic entries
-win ties within a revision, mirroring upstream), cycle termination, a
-revision-count budget, and exact union coverage of the effective `/Size`.
-Deleted entries resolve as null; replaced entries, generations, and
-compressed objects resolve transparently. Every trailer in the chain is
-checked for encryption declarations.
+Work item 11: LZW, ASCIIHex, ASCII85, and RunLength filters. `FilterChain` decodes
+Flate, LZW (EarlyChange 0/1, default 1), ASCIIHex, ASCII85, and RunLength in filter
+order with predictors shared between Flate and LZW; DCT and other filters still fail
+explicitly as unsupported. LZW mirrors upstream table, width-growth, KwKwK, EOD, and
+table-full rules; ASCIIHex/ASCII85/RunLength mirror upstream state machines with
+budget-bounded output. LZW xref streams open through the same pipeline.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 216 tests (209
-  prior plus 7 chain cases: incremental replacement and deletion, hybrid
-  stream merge, stream-led chains, `/Prev` cycle termination with closed
-  leases, revision-cap enforcement, and selection from an update).
-- Five new synthetic fixtures (incremental replacement/deletion, hybrid
-  merge, stream-led chain, self-looping `/Prev`); classic and stream
-  behavior is unchanged and still green.
+- Locked restore, Release build with zero warnings, and all 261 tests (216
+  prior plus 45 filter cases: LZW round-trips across width growth for both
+  EarlyChange values, hand vectors, growth boundaries, predictors after LZW,
+  ASCIIHex/ASCII85/RunLength round-trips and edge cases, mixed-chain order, and
+  an LZW xref-stream open).
+- Regenerated `tests/Fixtures/xstream-lzw.pdf` with genuine LZW entry data;
+  prior and chain behavior is unchanged and still green.
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
-  with exactly ImageSharp 3.1.12 as the runtime dependency.
+  with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
+  package-consumer smoke (`CONSUMER SMOKE PASSED`).
 - Real qpdf 12.4.2 executable smoke has still not run; no exe checksum or
   JPEG/Zopfli build features are recorded.
 
@@ -31,8 +31,7 @@ binary.
 
 ## Next work
 
-1. Work item 11: LZW (both EarlyChange values), ASCIIHex, ASCII85, and
-   RunLength filters with chain edge cases.
+1. Work item 12: byte/version/indirect-length semantics with bounded reader cases.
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
