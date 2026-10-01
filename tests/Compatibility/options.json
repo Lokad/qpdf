@@ -2514,7 +2514,9 @@
         "negative": ["FlattenAnnotationsTests.MalformedFlattenFlagsFail"],
         "interaction": ["FlattenAnnotationsTests.JobRoundTripMatchesArgv"],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:forms-appearances"
+        ]
       }
     },
     {
@@ -2631,7 +2633,9 @@
           "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:forms-appearances"
+        ]
       }
     },
     {
@@ -2877,7 +2881,9 @@
           "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:json-pages"
+        ]
       }
     },
     {
@@ -2980,7 +2986,9 @@
           "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:json-pages"
+        ]
       }
     },
     {
@@ -3534,7 +3542,9 @@
           "ContentTransformsTests.JobContentFlagsRoundTrip"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:normalize-payloads"
+        ]
       }
     },
     {
@@ -3780,7 +3790,9 @@
         "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
         "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:overlay"
+        ]
       }
     },
     {
@@ -3811,7 +3823,10 @@
         "negative": [],
         "interaction": [],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:select",
+          "diff:merge"
+        ]
       }
     },
     {
@@ -5043,7 +5058,9 @@
           "CompressionTests.JobJsonParityHolds"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:uncompress-payloads"
+        ]
       }
     },
     {

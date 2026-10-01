@@ -77,9 +77,9 @@ pwsh -File tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE
 Both scripts fail explicitly when `QPDF_EXE` is missing. The reference lane
 runs the positive compares plus deliberate negative cases (wrong expected
 count must exit 2; truncated input must fail validation). A real 12.4.2
-executable has not been bootstrapped yet; its checksum and JPEG/Zopfli build
-features are unrecorded (see `docs/COMPATIBILITY.md`).
-
+executable is pinned at `external/oracle/msvc64/qpdf-12.4.2-msvc64/bin/qpdf.exe` (ignored by git; set `QPDF_EXE` to it).
+Checksum, version output and JPEG/Zopfli build features are recorded in `docs/COMPATIBILITY.md`.
+The differential lane (`tools/run-differential-checks.ps1`, via `QpdfProbe emit`) compares managed and oracle outputs operation by operation.
 ## Package consumer
 
 `tests/Lokad.Qpdf.PackageConsumer` is a clean console project outside the

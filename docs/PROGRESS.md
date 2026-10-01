@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-
+Work item 34 extended: external validation lane. Bootstrapped the official qpdf 12.4.2 portable build (checksums recorded in docs/COMPATIBILITY.md), fixed the reference script exit-code capture, and added tools/run-differential-checks.ps1 comparing managed vs oracle outputs (select, merge, uncompress/normalize payload identity, JSON pages, forms appearances, overlay) with oracle trios green and no engine discrepancies.
 Work item 34: inline optimization and codec hardening. Externalized inline images join shrink-only DCT optimization, plus adversarial JPEG cases (truncation, components, chains, budgets), DCT attachment extraction, and valid-JPEG check coverage.
 
 Prior gate
@@ -95,8 +95,7 @@ Verified locally on Windows with SDK 10.0.401:
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
-- Real qpdf 12.4.2 executable smoke has still not run; no exe checksum or
-  JPEG/Zopfli build features are recorded.
+- Pinned oracle bootstrapped: official qpdf-12.4.2-msvc64.zip (zip SHA-256 db87077e…, exe SHA-256 1bdaf878…), `qpdf version 12.4.2`, libjpeg linked, Zopfli absent. Reference lane passes; differential lane (select, merge, uncompress, normalize, json, forms, overlay) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
 
 Ordinary `dotnet test` stays offline and never needs `external/` or a qpdf
 binary.
@@ -104,7 +103,7 @@ binary.
 ## Next work
 
 1. Work item 35: interoperable QDF on the mature writer/content pipeline (M9).
-2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
+2. Extend differential coverage (rotation flattening with /Rotate fixtures, error-path parity, QDF once item 35 lands).
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
 

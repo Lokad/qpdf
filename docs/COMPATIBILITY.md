@@ -45,11 +45,30 @@ binary. The explicit reference lane (`tools/bootstrap-qpdf.ps1`,
 `tools/run-reference-checks.ps1`) requires `QPDF_EXE` and fails when it is
 missing.
 
-Recorded gap: no real qpdf 12.4.2 executable has been bootstrapped yet, so no
-executable checksum, `--version` text or JPEG/Zopfli build features are
-recorded. The target baseline remains JPEG support with no optional Zopfli
-support.
+Pinned oracle (bootstrapped 2026-10-01): official `qpdf-12.4.2-msvc64.zip`
+(SHA-256 `db87077e683630c1217e0e8f9a20a9749d952ab676e881c3689187763a5de25d`,
+matching the release `qpdf-12.4.2.sha256`), extracted under the ignored
+`external/oracle/` directory. `bin/qpdf.exe` (SHA-256
+`1bdaf878f37eaffea1ea3c30591214c77636a0f2fc7432427516b6e22e36c0ff`)
+reports `qpdf version 12.4.2`. Build features: libjpeg statically linked
+(`libjpeg` present in `qpdf30.dll`, no separate JPEG DLL); Zopfli absent
+(`--zopfli` reports `zopfli support is not enabled`, exit 2; the remaining
+`zopfli` strings in the binary are the disabled-build messages). Set
+`QPDF_EXE` to `external/oracle/msvc64/qpdf-12.4.2-msvc64/bin/qpdf.exe`
+to run the reference and differential lanes.
 
+`tools/run-differential-checks.ps1` (via `QpdfProbe emit`, public API only)
+compares managed and oracle outputs operation by operation under ignored
+`external/diff/`: oracle `--check` must pass on both outputs, oracle and
+independent page counts must agree, plus per-case assertions. Current
+coverage, all passing with no engine discrepancies: select, merge,
+uncompress (decoded stream payloads identical), normalize (normalized
+content payloads identical), JSON page-count agreement, forms (generated
+appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
+placement), and overlay. Confirmed intentional differences: our default
+output stays uncompressed where upstream compresses, and our `--overlay`
+block requires a second `--` terminator before the output file while
+upstream takes the output directly after the block terminator.
 ## Codec feasibility probes (work item 03)
 
 `QpdfProbe probe-jpeg` exercises the pinned ImageSharp `3.1.12` JPEG codec
