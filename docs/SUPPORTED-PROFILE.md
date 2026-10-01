@@ -27,14 +27,14 @@ echoing values.
   xref streams with exact entry sizing and coverage; object streams
   decode once with validated headers and extents. No `/Prev` chains,
   `/Extends` links, recovery, or object-stream preservation in output.
-- `%PDF-` header at offset 0; versions 1.0–1.7 and 2.0.
+- `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0 with catalog `/Version` override.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
   structurally, including empty-password forms.
-- Strict parsing: damaged inputs fail as parse errors. There is no recovery,
-  no catalog
-  `/Version` override yet.
+- Strict parsing: damaged inputs fail as parse errors. There is no recovery.
+  Malformed, mistyped, unresolvable, or unsupported catalog `/Version` fails;
+  null or absent `/Version` keeps the header.
 - Streams travel opaquely and are never decoded: direct and indirect
-  `/Length` resolve, unknown filter encodings pass through untouched, and
+  `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support.
 - One input file per job through host-mediated ranged reads.
 
@@ -58,7 +58,7 @@ echoing values.
 
 - Classic xref tables with 20-byte entries, generation 0 throughout, and a
   trailer with `/Size`, `/Root`, `startxref`, and `%%EOF`.
-- Version label echoes the source header. Numbers keep their original token
+- Version label echoes the effective version (header with catalog `/Version` override). Numbers keep their original token
   text; names re-emit raw bytes with non-regular bytes `#`-escaped; literal
   and hexadecimal string kinds are preserved with value-faithful escapes.
 - Stream `/Length` is always recomputed from the emitted bytes and written

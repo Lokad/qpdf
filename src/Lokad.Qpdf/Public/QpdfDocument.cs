@@ -45,7 +45,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     /// <summary>Gets the effective budgets.</summary>
     public QpdfLimits Limits { get; }
 
-    /// <summary>Gets the header version.</summary>
+    /// <summary>Gets the effective version: catalog /Version overrides the header.</summary>
     public PdfVersion Version { get; }
 
     /// <summary>Gets the page count from page-tree traversal.</summary>
@@ -123,12 +123,13 @@ public sealed class QpdfDocument : IAsyncDisposable
             governor.NoteHostOperation();
             cancellationToken.ThrowIfCancellationRequested();
             ReadOnlyMemory<byte> data = bytes;
-            PdfVersion version = ParseHeader(data);
+            PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics);
             DocumentEngine engine = new(data, table, limits, governor, diagnostics);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
+            PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
             List<PageLocation> pages = ListPages(engine, diagnostics, governor, limits, cancellationToken);
             return new QpdfDocument(input, engine, governor, diagnostics, pages, path, limits, version);
         }
@@ -197,6 +198,88 @@ public sealed class QpdfDocument : IAsyncDisposable
     private static bool IsDigit(byte b)
     {
         return b >= (byte)'0' && b <= (byte)'9';
+    }
+
+    private static PdfVersion ResolveEffectiveVersion(PdfVersion header, DocumentEngine engine)
+    {
+        PdfName rootKey = new([(byte)'R', (byte)'o', (byte)'o', (byte)'t']);
+        if (!engine.Trailer.TryGet(rootKey, out QpdfObject rootRaw))
+        {
+            return header;
+        }
+
+        PdfDictionary root;
+        if (rootRaw is PdfDictionary direct)
+        {
+            root = direct;
+        }
+        else if (rootRaw is PdfReference reference)
+        {
+            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedRoot)
+            {
+                return header;
+            }
+
+            root = resolvedRoot;
+        }
+        else
+        {
+            return header;
+        }
+
+        if (ReadType(root).Length != 0 && ReadType(root) != "Catalog")
+        {
+            return header;
+        }
+
+        PdfName versionKey = new([(byte)'V', (byte)'e', (byte)'r', (byte)'s', (byte)'i', (byte)'o', (byte)'n']);
+        if (!root.TryGet(versionKey, out QpdfObject raw) || raw is PdfNull)
+        {
+            return header;
+        }
+
+        if (raw is PdfReference versionReference)
+        {
+            if (!((IIndirectResolver)engine).TryResolve(versionReference, out QpdfObject? versionResolved) || versionResolved is null)
+            {
+                throw new QpdfParseException("Unresolvable catalog /Version reference.", null, versionReference.ObjectNumber);
+            }
+
+            raw = versionResolved;
+            if (raw is PdfNull)
+            {
+                return header;
+            }
+        }
+
+        if (raw is not PdfName versionName)
+        {
+            throw new QpdfParseException("Catalog /Version must be a name.", null, null);
+        }
+
+        return ParseVersionName(versionName.DisplayText);
+    }
+
+    private static PdfVersion ParseVersionName(string text)
+    {
+        if (text is null || text.Length != 3 || text[1] != (char)46)
+        {
+            throw new QpdfParseException($"Malformed catalog /Version /{text}.", null, null);
+        }
+
+        if (text[0] < (char)48 || text[0] > (char)57 || text[2] < (char)48 || text[2] > (char)57)
+        {
+            throw new QpdfParseException($"Malformed catalog /Version /{text}.", null, null);
+        }
+
+        int major = text[0] - (char)48;
+        int minor = text[2] - (char)48;
+        if ((major == 1 && minor > 7) || (major == 2 && minor != 0) || (major != 1 && major != 2))
+        {
+            throw new QpdfParseException($"Unsupported PDF version {major}.{minor}.", null, null);
+        }
+
+        return new PdfVersion(major, minor);
     }
 
     private static void RejectEncrypted(QpdfPath path, DocumentEngine engine)

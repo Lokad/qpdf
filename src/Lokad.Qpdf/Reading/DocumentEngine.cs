@@ -23,6 +23,7 @@ internal sealed class DocumentEngine : IIndirectResolver
     private readonly PdfParser _parser;
     private readonly Dictionary<int, QpdfObject> _cache = new();
     private readonly HashSet<int> _decodingStreams = new();
+    private readonly HashSet<int> _loading = new();
 
     internal DocumentEngine(
         ReadOnlyMemory<byte> data,
@@ -108,22 +109,34 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     private QpdfObject Load(int number, XrefEntry entry)
     {
-        if (entry.Kind == XrefEntryKind.Compressed)
+        if (!_loading.Add(number))
         {
-            return LoadCompressed(number, (int)entry.First, entry.Second);
+            throw new QpdfParseException($"Object {number} is referenced cyclically during load.", null, number);
         }
 
-        _governor.ChargeWork(1L);
-        PdfTokenizer tokenizer = new(_data);
-        tokenizer.SetPosition(entry.First);
-        (int foundNumber, int foundGeneration, QpdfObject value) = _parser.ParseIndirectObject(tokenizer, 0);
-        if (foundNumber != number || foundGeneration != entry.Second)
+        try
         {
-            throw new QpdfParseException($"Object header contradicts its xref entry for object {number}.", entry.First, number);
-        }
+            if (entry.Kind == XrefEntryKind.Compressed)
+            {
+                return LoadCompressed(number, (int)entry.First, entry.Second);
+            }
 
-        _cache[number] = value;
-        return value;
+            _governor.ChargeWork(1L);
+            PdfTokenizer tokenizer = new(_data);
+            tokenizer.SetPosition(entry.First);
+            (int foundNumber, int foundGeneration, QpdfObject value) = _parser.ParseIndirectObject(tokenizer, 0);
+            if (foundNumber != number || foundGeneration != entry.Second)
+            {
+                throw new QpdfParseException($"Object header contradicts its xref entry for object {number}.", entry.First, number);
+            }
+
+            _cache[number] = value;
+            return value;
+        }
+        finally
+        {
+            _loading.Remove(number);
+        }
     }
 
     private QpdfObject LoadCompressed(int number, int streamNumber, int index)

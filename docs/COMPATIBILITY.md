@@ -111,8 +111,12 @@ traversal wins over `/Count`, which only warns. Absent `/Type` tolerates
 `/Kids`-bearing nodes as page branches and others as leaves; present but
 mismatched `/Type` fails. Trailer `/Encrypt` rejects structurally as
 `EncryptedInput` (including empty-password forms), without password fields,
-prompts, or value echo. Catalog `/Version` overrides and indirect-length edge
-cases stay open for M2 byte/version review.
+prompts, or value echo. The effective version is the header version overridden by a
+valid catalog /Version name (direct or indirect); malformed, mistyped, unresolvable,
+or unsupported catalog versions fail. Stream /Length resolves direct integers and
+indirect integers with a load-cycle guard; missing, negative, non-integer,
+unresolvable, and hugely over-declared lengths fail; stream bytes come from /Length,
+so delimiter-like bytes inside the data are preserved.
 
 ## Governed Flate and predictors (work item 08)
 
@@ -191,6 +195,17 @@ exact with absent-or-free object 0, and over-range entries fail rather
 than being ignored. Every chained trailer is checked for encryption
 declarations. Recovery of damaged structures stays M4 work and fails
 explicitly here.
+
+## Byte, version, and indirect-length semantics (work item 12)
+
+`QpdfDocument.Version` is the effective version: the `%PDF-` header (offset 0,
+1.0-1.7 and 2.0) overridden by a valid catalog `/Version` name, direct or
+indirect. Null or absent `/Version` keeps the header; malformed, mistyped,
+unresolvable, or unsupported values fail. Selection output echoes the effective
+version in its header. Object loads carry a reentrancy guard so a
+self-referential indirect `/Length` fails as a parse error instead of recursing.
+Over-declared lengths fail before allocating; stream data is sliced strictly by
+`/Length`, preserving delimiter-like bytes.
 
 ## Single-page selection (work item 06a)
 
