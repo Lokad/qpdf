@@ -208,7 +208,9 @@ public sealed class CheckTests
         // Four-component JPEGs have no raw-sample path through the approved codec, so DCTDecode
         // stays genuinely unavailable for this input and the check skips instead of failing.
         byte[] jpeg = CmykJpeg();
-        byte[] bytes = Assemble(SinglePage("<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg), 1);
+        List<(int, string, byte[]?)> objects = SinglePage("<< /Length 37 >>", HelloContents());
+        objects.Add((6, "<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg));
+        byte[] bytes = Assemble(objects, 1);
         InMemoryQpdfHost host = HostWith("inputs/dct.pdf", bytes);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/dct.pdf"), CancellationToken.None);
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");
@@ -217,6 +219,36 @@ public sealed class CheckTests
         Assert.True(result.Passed);
         Assert.True(result.HasSkipped);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped && diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+    }
+
+    [Fact]
+    public async Task ValidDctPassesStreamsCheck()
+    {
+        byte[] jpeg;
+        using (Image<Rgb24> image = new(8, 8))
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
+                }
+            }
+
+            using MemoryStream buffer = new();
+            image.Save(buffer, new JpegEncoder { Quality = 75 });
+            jpeg = buffer.ToArray();
+        }
+
+        List<(int, string, byte[]?)> objects = SinglePage("<< /Length 37 >>", HelloContents());
+        objects.Add((6, "<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg));
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/dct.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/dct.pdf"), CancellationToken.None);
+        QpdfCheckOutcome streams = SingleOutcome(result, "streams");
+        Assert.Equal(QpdfCheckStatus.Passed, streams.Status);
+        Assert.Contains("decoded", streams.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed);
     }
 
     [Fact]

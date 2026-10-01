@@ -1,7 +1,12 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Runtime;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -359,6 +364,44 @@ public sealed class AttachmentTests
     }
 
     [Fact]
+    public async Task ShowDecodesDctStream()
+    {
+        byte[] jpeg;
+        using (Image<Rgb24> image = new(8, 6))
+        {
+            for (int y = 0; y < 6; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
+                }
+            }
+
+            using MemoryStream buffer = new();
+            image.Save(buffer, new JpegEncoder { Quality = 75 });
+            jpeg = buffer.ToArray();
+        }
+
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        byte[] expected = DctFilter.Decode(jpeg, QpdfLimits.Default, governor);
+        Assert.Equal(144, expected.Length);
+        byte[] fixture = BuildPdf(
+            " /Names 6 0 R",
+            string.Empty,
+            new List<(string Dict, byte[]? StreamData)>
+            {
+                ("<< /EmbeddedFiles 7 0 R >>", null),
+                ("<< /Names [(photo.jpg) 8 0 R] >>", null),
+                ("<< /Type /Filespec /F (photo.jpg) /EF << /F 9 0 R >> >>", null),
+                ("<< /Type /EmbeddedFile /Length " + jpeg.Length.ToString() + " /Filter /DCTDecode /Params << /Size " + expected.Length.ToString() + " >> >>", jpeg),
+            });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-attachment=photo.jpg", "--", "outputs/photo.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/photo.bin"), out byte[] data));
+        Assert.Equal(expected, data);
+    }    [Fact]
     public async Task ShowLastKeyWins()
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", AttachmentFixture());

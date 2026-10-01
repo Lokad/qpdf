@@ -2234,17 +2234,21 @@
         "positive": [
           "CompressionTests.DecodeGeneralizedUncompressesHex",
           "DctDecodeTests.GrayJpegDecodesAtAll",
-          "DctDecodeTests.RgbJpegDecodesAtAll"
+          "DctDecodeTests.RgbJpegDecodesAtAll",
+          "DctDecodeTests.ChainedFlateDctDecodesAtAll"
         ],
         "negative": [
           "DctDecodeTests.FourComponentFrameStaysOpaque",
           "DctDecodeTests.CmykLabeledJpegStaysOpaque",
-          "DctDecodeTests.SpecializedLevelKeepsDctOpaqueSilently"
+          "DctDecodeTests.SpecializedLevelKeepsDctOpaqueSilently",
+          "DctDecodeTests.TruncatedJpegAtAllWarnsAndStaysOpaque",
+          "DctDecodeTests.TwoComponentFrameStaysOpaque"
         ],
         "interaction": [
           "CompressionTests.DctBeyondLevelStaysOpaque",
           "CompressionTests.DctAtAllWarnsAndStaysOpaque",
-          "DctDecodeTests.JobParityHoldsForDecodeAll"
+          "DctDecodeTests.JobParityHoldsForDecodeAll",
+          "CheckTests.ValidDctPassesStreamsCheck"
         ],
         "resource": [
           "DctDecodeTests.OversizedFrameFailsBeforeAllocation"
@@ -3233,10 +3237,12 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Accepted but inert until inline-image optimization (work item 34)."
+        "Inline images stay inline and are excluded from optimization."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone"
+        ],
         "negative": [],
         "interaction": [
           "ImageOptimizeTests.DuplicateFlagsFail"
@@ -3606,7 +3612,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Gates --optimize-images by pixel area (default 16384, 0 disables). Inline-image thresholds arrive with work item 34."
+        "Gates --optimize-images by pixel area (default 16384, 0 disables), including externalized inline images."
       ],
       "evidence": {
         "positive": [
@@ -3642,7 +3648,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Gates --optimize-images by height (default 128, 0 disables). Inline-image thresholds arrive with work item 34."
+        "Gates --optimize-images by height (default 128, 0 disables), including externalized inline images."
       ],
       "evidence": {
         "positive": [
@@ -3677,11 +3683,12 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Gates --optimize-images by width (default 128, 0 disables). Inline-image thresholds arrive with work item 34."
+        "Gates --optimize-images by width (default 128, 0 disables), including externalized inline images."
       ],
       "evidence": {
         "positive": [
-          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
+          "ImageOptimizeTests.ExternalizedInlineRespectsOiThresholds"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
@@ -3715,7 +3722,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Inline images are never optimized here (work item 34).",
+        "Large inline images externalize first (unless --keep-inline-images) and join the same shrink-only rules.",
         "Four-component CMYK has no raw-sample encode path and stays as is.",
         "Masks, exotic colorspaces, and non-shrinking results are skipped silently."
       ],
@@ -3723,14 +3730,19 @@
         "positive": [
           "ImageOptimizeTests.NoisyPhotoOptimizesToSmallerDct",
           "ImageOptimizeTests.GrayPhotoOptimizesToSingleComponentDct",
-          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
+          "ImageOptimizeTests.LargeInlineImageExternalizesAndOptimizes"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
           "ImageOptimizeTests.IncompressibleSolidKeepsFlate",
           "ImageOptimizeTests.UnsupportedColorspaceStaysUntouched",
           "ImageOptimizeTests.BitMaskStaysUntouched",
-          "ImageOptimizeTests.ExistingDctStaysUntouchedWithoutQuality"
+          "ImageOptimizeTests.ExistingDctStaysUntouchedWithoutQuality",
+          "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone",
+          "ImageOptimizeTests.SmallInlineImageStaysInline",
+          "ImageOptimizeTests.ExternalizedInlineRespectsOiThresholds",
+          "ImageOptimizeTests.DimensionMismatchSkipsSilently"
         ],
         "interaction": [
           "ImageOptimizeTests.MergeOptimizesEveryPage",
@@ -4641,12 +4653,13 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Extraction publishes to the declared output file instead of stdout (no stdout binary contract); undecodable streams fall back to raw bytes with a warning until JPEG support (M8)."
+        "Extraction publishes to the declared output file instead of stdout (no stdout binary contract); genuinely undecodable streams (JPX, four-component DCT) fall back to raw bytes with a warning; DCT now decodes."
       ],
       "evidence": {
         "positive": [
           "AttachmentTests.ShowExtractsToOutputFile",
           "AttachmentTests.ShowDecodesStreams",
+          "AttachmentTests.ShowDecodesDctStream",
           "AttachmentTests.ShowLastKeyWins",
           "AttachmentTests.TypedExtractReturnsRawAndDecodedBytes"
         ],

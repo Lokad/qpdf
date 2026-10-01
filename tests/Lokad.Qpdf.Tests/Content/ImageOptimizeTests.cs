@@ -335,6 +335,31 @@ public sealed class ImageOptimizeTests
     }
 
     [Fact]
+    public async Task DimensionMismatchSkipsSilently()
+    {
+        byte[] raw = NoiseRgb(8, 8);
+        byte[] input = BuildImagePage(200, 200, "DeviceRGB", 8, string.Empty, raw);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal(string.Empty, FilterOf(image));
+        Assert.Equal(raw, image.Data);
+    }
+
+    [Fact]
+    public void EncodeBudgetsFailExplicitly()
+    {
+        byte[] raw = NoiseRgb(64, 64);
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 1000L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        QpdfLimitException ex = Assert.Throws<QpdfLimitException>(
+            () => JpegCodec.EncodeRgb(raw, 64, 64, 75, limits, governor));
+        Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), ex.LimitName);
+    }    [Fact]
     public async Task MergeOptimizesEveryPage()
     {
         byte[] raw = NoiseRgb(200, 200);

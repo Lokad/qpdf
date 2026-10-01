@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
@@ -344,5 +345,84 @@ public sealed class DctDecodeTests
         Assert.Equal(1, components);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(patched, QpdfLimits.Default, governor));
+    }
+    [Fact]
+    public async Task TruncatedJpegAtAllWarnsAndStaysOpaque()
+    {
+        byte[] jpeg = EncodeRgbJpeg(32, 32);
+        byte[] cut = new byte[200];
+        Buffer.BlockCopy(jpeg, 0, cut, 0, 200);
+        Assert.True(DctFilter.TryParseFrame(cut, out int width, out int height, out int components));
+        Assert.Equal(32, width);
+        Assert.Equal(32, height);
+        Assert.Equal(3, components);
+        byte[] input = BuildDctPage(cut);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
+        Assert.Equal("DCTDecode", Assert.IsType<PdfName>(raw).DisplayText);
+        Assert.Equal(cut, stream.Data);
+    }
+
+    [Fact]
+    public async Task TwoComponentFrameStaysOpaque()
+    {
+        byte[] jpeg = EncodeRgbJpeg(8, 8);
+        byte[] patched = (byte[])jpeg.Clone();
+        int at = FindFrameHeightOffset(jpeg);
+        patched[at + 4] = 2;
+        Assert.True(DctFilter.TryParseFrame(patched, out int width, out int height, out int components));
+        Assert.Equal(2, components);
+        byte[] input = BuildDctPage(patched);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
+        Assert.Equal("DCTDecode", Assert.IsType<PdfName>(raw).DisplayText);
+        Assert.Equal(patched, stream.Data);
+    }
+
+    [Fact]
+    public async Task ChainedFlateDctDecodesAtAll()
+    {
+        byte[] jpeg = EncodeRgbJpeg(8, 6);
+        byte[] flated = ZLibCompress(jpeg);
+        byte[] input = BuildFilteredPage("<< /Length " + flated.Length.ToString() + " /Filter [/FlateDecode /DCTDecode] >>", flated);
+        // A leading FlateDecode stays untouched by design (matching upstream); --recompress-flate
+        // decodes the whole chain and recompresses the raw samples.
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--decode-level=all", "--compress-streams=y", "--recompress-flate");
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter) && filter is PdfName filtered && filtered.DisplayText == "FlateDecode");
+        Assert.Equal(144, DecodeFully(stream.Data, stream.Dictionary).Length);
+    }
+
+    private static byte[] DecodeFully(byte[] data, PdfDictionary dictionary)
+    {
+        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dictionary);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        return FilterChain.Decode(data, stages, QpdfLimits.Default, governor);
+    }
+
+    private static byte[] ZLibCompress(byte[] input)
+    {
+        using MemoryStream output = new();
+        using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
+        {
+            compressor.Write(input, 0, input.Length);
+        }
+
+        return output.ToArray();
     }
 }

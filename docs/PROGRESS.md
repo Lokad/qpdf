@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-Work item 33: JPEG encoding and image optimization. Eligible image XObjects (8-bit DeviceGray/DeviceRGB above oi-min thresholds) recompress to DCT only when strictly smaller, with quality mapping and silent skips, across argv and job paths.
+Work item 34: inline optimization and codec hardening. Externalized inline images join shrink-only DCT optimization, plus adversarial JPEG cases (truncation, components, chains, budgets), DCT attachment extraction, and valid-JPEG check coverage.
 
 Prior gate
 
@@ -88,8 +88,8 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 918 tests (844
-  prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 22 rotation cases plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 25 content transform cases: coalescing, normalization,
+- Locked restore, Release build with zero warnings, and all 929 tests (844
+  prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 22 rotation cases plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 25 content transform cases: coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
@@ -103,7 +103,7 @@ binary.
 
 ## Next work
 
-1. Work item 34: inline-image optimization, adversarial codec tests, and DCT-dependent cases (M8).
+1. Work item 35: interoperable QDF on the mature writer/content pipeline (M9).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
