@@ -132,6 +132,7 @@ echoing values.
   into form XObjects; pages with unreadable content or unresolvable names
   keep everything. Auto mode prunes only when resource dictionaries are
   shared. Pruning applies to page selection, merge, and split outputs.
+- --externalize-inline-images with --ii-min-bytes (default 1024) lifts inline images at or above the threshold into /IIm1, /IIm2 image XObjects referenced by Do. Abbreviated keys, filters, and device color names expand, other color names resolve through page resources with a warning on miss, taken names are skipped, and smaller images keep their bytes. Runs before coalescing and normalization on pages and indirect forms across selection, merge, split, and whole-file output, keeping damaged content with a warning.
 
 ## Writer profile
 

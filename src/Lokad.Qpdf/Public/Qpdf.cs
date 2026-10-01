@@ -64,7 +64,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static void ApplySourceContentTransforms(
@@ -72,6 +72,8 @@ public static class Qpdf
         IReadOnlyList<int> pageIds,
         bool coalesceContents,
         bool normalizeContent,
+        bool externalizeInlineImages,
+        long iiMinBytes,
         bool compress,
         int? level,
         Content.ContentPrunePolicy prune,
@@ -83,12 +85,12 @@ public static class Qpdf
     {
         bool pruneHere = prune.Enabled && (prune.Mode == "yes"
             || (prune.Mode is null && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
-        if (!coalesceContents && !normalizeContent && !pruneHere)
+        if (!coalesceContents && !normalizeContent && !pruneHere && !externalizeInlineImages)
         {
             return;
         }
 
-        Content.ContentTransformRequest request = new(coalesceContents, normalizeContent, compress, level);
+        Content.ContentTransformRequest request = new(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes);
         Content.ContentTransforms.ApplyPageTransforms(copier, pageIds, request, pruneHere, limits, governor, diagnostics, cancellationToken);
     }
 
@@ -115,6 +117,8 @@ public static class Qpdf
         AttachmentEdits edits,
         bool coalesceContents,
         bool normalizeContent,
+        bool externalizeInlineImages,
+        long iiMinBytes,
         Content.ContentPrunePolicy prune,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -173,7 +177,7 @@ public static class Qpdf
             occurrenceIds.Add(occurrenceId);
         }
 
-        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
+        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages, iiMinBytes, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
 
 
         (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
@@ -287,7 +291,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -353,7 +357,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -432,7 +436,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, new Content.ContentPrunePolicy(false, null), governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> SelectPagesCoreAsync(
@@ -460,6 +464,8 @@ public static class Qpdf
         AttachmentEdits edits,
         bool coalesceContents,
         bool normalizeContent,
+        bool externalizeInlineImages,
+        long iiMinBytes,
         Content.ContentPrunePolicy prune,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -571,7 +577,7 @@ public static class Qpdf
                 takenIds.Add(takenId);
             }
 
-            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
+            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages, iiMinBytes, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
 
             nextId = copier.NextId;
             copiers.Add(copier);
@@ -2464,6 +2470,8 @@ public static class Qpdf
             plan.Edits(),
             plan.CoalesceContents,
             plan.NormalizeContent,
+            plan.ExternalizeInlineImages,
+            plan.IiMinBytes,
             new Content.ContentPrunePolicy(plan.SplitPages.HasValue, plan.RemoveUnreferencedResources),
             governor,
             diagnostics,
@@ -3926,6 +3934,8 @@ public static class Qpdf
                         merge.Edits(),
                         merge.CoalesceContents,
                         merge.NormalizeContent,
+                        merge.ExternalizeInlineImages,
+                        merge.IiMinBytes,
                         new Content.ContentPrunePolicy(true, merge.RemoveUnreferencedResources),
                         governor,
                         diagnostics,
@@ -3983,6 +3993,8 @@ public static class Qpdf
                         selection.Edits(),
                         selection.CoalesceContents,
                         selection.NormalizeContent,
+                        selection.ExternalizeInlineImages,
+                        selection.IiMinBytes,
                         new Content.ContentPrunePolicy(true, selection.RemoveUnreferencedResources),
                         governor,
                         diagnostics,
@@ -4027,6 +4039,8 @@ public static class Qpdf
                 selection.Edits(),
                 selection.CoalesceContents,
                 selection.NormalizeContent,
+                selection.ExternalizeInlineImages,
+                selection.IiMinBytes,
                 new Content.ContentPrunePolicy(true, selection.RemoveUnreferencedResources),
                 governor,
                 diagnostics,

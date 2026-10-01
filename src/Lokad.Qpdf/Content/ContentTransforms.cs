@@ -9,7 +9,7 @@ using Lokad.Qpdf.Writing;
 namespace Lokad.Qpdf.Content;
 
 /// <summary>Page content operation request: coalescing, normalization, compression.</summary>
-internal sealed record ContentTransformRequest(bool Coalesce, bool Normalize, bool Compress, int? Level);
+internal sealed record ContentTransformRequest(bool Coalesce, bool Normalize, bool Compress, int? Level, bool Externalize, long MinBytes);
 
 /// <summary>Resource pruning policy: enabled flag plus auto/yes/no mode.</summary>
 internal sealed record ContentPrunePolicy(bool Enabled, string? Mode);
@@ -95,7 +95,7 @@ internal static class ContentTransforms
         }
 
         limits.Validate();
-        if (!request.Coalesce && !request.Normalize && !prune)
+        if (!request.Coalesce && !request.Normalize && !prune && !request.Externalize)
         {
             return;
         }
@@ -110,6 +110,11 @@ internal static class ContentTransforms
             }
 
             PdfDictionary page = (PdfDictionary)raw;
+            if (request.Externalize)
+            {
+                page = ExternalizePageWithForms(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
+            }
+
             if (request.Coalesce)
             {
                 page = CoalescePage(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken);
@@ -126,6 +131,51 @@ internal static class ContentTransforms
             }
         }
     }
+    private static PdfDictionary ExternalizePageWithForms(GraphCopier copier, int pageId, PdfDictionary page, ContentTransformRequest request, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    {
+        PdfDictionary current = InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken);
+        if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) || refreshed is not PdfDictionary freshPage)
+        {
+            return current;
+        }
+
+        current = freshPage;
+        PoolResolver resolver = new(copier.CopiedObjects);
+        if (!current.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) || resourcesRaw is null || resourcesRaw is PdfNull)
+        {
+            return current;
+        }
+
+        QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference ? ResolvePool(resolver, resourcesReference) ?? resourcesRaw : resourcesRaw;
+        if (resourcesTarget is not PdfDictionary resources)
+        {
+            return current;
+        }
+
+        foreach ((int? formId, PdfStream _) in CollectFormStreams(copier, resources, governor, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!formId.HasValue)
+            {
+                continue;
+            }
+
+            if (!copier.CopiedObjects.TryGetValue(formId.Value, out QpdfObject? formRaw) || formRaw is not PdfStream form)
+            {
+                continue;
+            }
+
+            InlineImages.ExternalizeForm(copier, formId.Value, form, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken);
+        }
+
+        if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? finalRaw) && finalRaw is PdfDictionary finalPage)
+        {
+            return finalPage;
+        }
+
+        return current;
+    }
+
     private sealed record ContentEntry(int? ObjectId, int ArrayIndex, PdfStream Stream);
 
     private static List<ContentEntry>? ReadPageContents(

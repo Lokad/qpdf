@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 30a: inline-image externalization. Threshold-based lifting to image XObjects with abbreviation expansion, color lookup, unique naming, and form recursion across argv and job paths.
+
+Prior gate
+
 Work item 29: page content operations. Coalescing, newline normalization, and unreferenced-resource pruning with shared-resource heuristics across argv and job paths.
 
 Prior gate
@@ -72,8 +76,8 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 764 tests (739
-  prior plus 25 content transform cases: coalescing, normalization,
+- Locked restore, Release build with zero warnings, and all 790 tests (764
+  prior plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 25 content transform cases: coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
@@ -87,7 +91,7 @@ binary.
 
 ## Next work
 
-1. Work item 30: inline-image externalization and overlay/underlay transforms (M7).
+1. Work item 30b: overlay and underlay transforms (M7).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

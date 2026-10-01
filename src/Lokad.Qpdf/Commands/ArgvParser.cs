@@ -167,6 +167,8 @@ internal static class ArgvParser
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+            ExternalizeInlineImages = globals.ExternalizeInlineImages,
+            IiMinBytes = globals.IiMinBytes,
             };
         }
 
@@ -278,6 +280,8 @@ internal static class ArgvParser
                 CoalesceContents = globals.CoalesceContents,
                 NormalizeContent = globals.NormalizeContent,
                 RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+                ExternalizeInlineImages = globals.ExternalizeInlineImages,
+                IiMinBytes = globals.IiMinBytes,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
@@ -312,6 +316,8 @@ internal static class ArgvParser
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+            ExternalizeInlineImages = globals.ExternalizeInlineImages,
+            IiMinBytes = globals.IiMinBytes,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
@@ -483,7 +489,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -529,6 +535,10 @@ internal static class ArgvParser
         bool normalizeContent = false;
         bool seenRemoveUnreferencedResources = false;
         string? removeUnreferencedResources = null;
+        bool seenExternalizeInlineImages = false;
+        bool externalizeInlineImages = false;
+        bool seenIiMinBytes = false;
+        long iiMinBytes = 1024L;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -826,6 +836,35 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--externalize-inline-images")
+            {
+                if (seenExternalizeInlineImages)
+                {
+                    throw new QpdfParseException("Duplicate --externalize-inline-images is outside the narrow profile.", i, null);
+                }
+
+                seenExternalizeInlineImages = true;
+                externalizeInlineImages = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--externalize-inline-images=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --externalize-inline-images takes no value.", i, null);
+            }
+
+            if (argv[i] == "--ii-min-bytes" || argv[i].StartsWith("--ii-min-bytes=", StringComparison.Ordinal))
+            {
+                if (seenIiMinBytes)
+                {
+                    throw new QpdfParseException("Duplicate --ii-min-bytes is outside the narrow profile.", i, null);
+                }
+
+                seenIiMinBytes = true;
+                iiMinBytes = ParseIiMinBytes(argv, ref i);
+                continue;
+            }
+
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -842,7 +881,45 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes);
+    }
+
+    private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        string? value = null;
+        if (equals >= 0)
+        {
+            value = token.Substring(equals + 1);
+        }
+        else if (i + 1 < argv.Count)
+        {
+            string next = argv[i + 1];
+            if (next is not null && next != "--" && !(next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            {
+                value = next;
+                i += 1;
+            }
+        }
+
+        if (value is null || value.Length == 0 || value.Length > 10)
+        {
+            throw new QpdfParseException($"Invalid --ii-min-bytes value '{value}' : expected a non-negative byte count.", i, null);
+        }
+
+        long size = 0L;
+        foreach (char digit in value)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException($"Invalid --ii-min-bytes value '{value}' : expected a non-negative byte count.", i, null);
+            }
+
+            size = checked(size * 10L + (digit - (char)48));
+        }
+
+        return size;
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -1884,6 +1961,8 @@ internal static class ArgvParser
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+            ExternalizeInlineImages = globals.ExternalizeInlineImages,
+            IiMinBytes = globals.IiMinBytes,
         };
     }
 
@@ -1929,6 +2008,8 @@ internal static class ArgvParser
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+            ExternalizeInlineImages = globals.ExternalizeInlineImages,
+            IiMinBytes = globals.IiMinBytes,
         };
     }
 

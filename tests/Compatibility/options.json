@@ -2421,15 +2421,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Inline image threshold and naming review complete for the narrow profile."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["InlineImagesTests.ExternalizeAboveThreshold", "InlineImagesTests.CustomThresholdExternalizesSmall", "InlineImagesTests.AbbreviationsExpandInXObject", "InlineImagesTests.FilterAbbreviationExpands", "InlineImagesTests.FormXObjectExternalizes"],
+        "negative": ["InlineImagesTests.MalformedExternalizeFlagsFail"],
+        "interaction": ["InlineImagesTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }
@@ -2684,15 +2684,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Inline image threshold and naming review complete for the narrow profile."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["InlineImagesTests.CustomThresholdKeepsLarge", "InlineImagesTests.ZeroThresholdExternalizesSingleByte", "InlineImagesTests.UniqueNamingSkipsTaken", "InlineImagesTests.WholeFileJobExternalizes"],
+        "negative": ["InlineImagesTests.JobMalformedFails"],
+        "interaction": ["InlineImagesTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }

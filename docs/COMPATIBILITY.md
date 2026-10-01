@@ -599,6 +599,10 @@ unresolved-name guards. Intentional differences: content flags combine only
 with page operations and whole-file output, never with inspection; damaged
 content keeps original bytes where upstream writes partial output.
 
+## Inline image externalization (work item 30a)
+
+--externalize-inline-images with --ii-min-bytes (default 1024, plus job keys) mirrors the upstream tracker: threshold on image bytes, abbreviation expansion, device color mapping with resource lookup and warn-and-keep on miss, unique /IIm naming, byte-identical kept images, and Flate-aware page and indirect-form rewriting before other content ops. Intentional differences: direct form XObjects stay untouched, content flags combine only with page operations and whole-file output, and damaged content keeps original bytes with a warning.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

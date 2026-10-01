@@ -38,6 +38,8 @@ internal static class HelpText
           --coalesce-contents         combine page content streams
           --normalize-content=[y|n]     normalize newlines in content streams
           --remove-unreferenced-resources=parameter  drop unused page resources
+          --externalize-inline-images       lift large inline images to XObjects
+          --ii-min-bytes=size-in-bytes      inline-image threshold (default 1024)
           --list-attachments          list embedded files
           --show-attachment=key         write one attachment to the output file
           --add-attachment file [options] --  embed host files

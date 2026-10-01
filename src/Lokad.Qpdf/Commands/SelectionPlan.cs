@@ -47,6 +47,10 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool NormalizeContent { get; init; }
 
+    public bool ExternalizeInlineImages { get; init; }
+
+    public long IiMinBytes { get; init; } = 1024L;
+
     public string? RemoveUnreferencedResources { get; init; }
 
     public IReadOnlyList<AttachmentAdd> AttachmentsToAdd { get; init; } = [];

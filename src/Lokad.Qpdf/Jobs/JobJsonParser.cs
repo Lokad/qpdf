@@ -98,6 +98,10 @@ internal static class JobJsonParser
             bool seenRemoveMetadata = false;
             bool coalesceContents = false;
             bool seenCoalesceContents = false;
+            bool externalizeInlineImages = false;
+            bool seenExternalizeInlineImages = false;
+            long iiMinBytes = 1024L;
+            bool seenIiMinBytes = false;
             bool normalizeContent = false;
             bool seenNormalizeContent = false;
             string? removeUnreferencedResources = null;
@@ -335,6 +339,24 @@ internal static class JobJsonParser
 
                         seenNormalizeContent = true;
                         normalizeContent = RequireNormalizeContent(property.Value);
+                        break;
+                    case "externalizeInlineImages":
+                        if (seenExternalizeInlineImages)
+                        {
+                            throw new QpdfParseException("Duplicate job key " + (char)39 + "externalizeInlineImages" + (char)39 + ".", 0L, null);
+                        }
+
+                        seenExternalizeInlineImages = true;
+                        externalizeInlineImages = RequireBareFlag(property.Value, "externalizeInlineImages");
+                        break;
+                    case "iiMinBytes":
+                        if (seenIiMinBytes)
+                        {
+                            throw new QpdfParseException("Duplicate job key " + (char)39 + "iiMinBytes" + (char)39 + ".", 0L, null);
+                        }
+
+                        seenIiMinBytes = true;
+                        iiMinBytes = RequireIiMinBytes(property.Value);
                         break;
                     case "removeUnreferencedResources":
                         if (seenRemoveUnreferencedResources)
@@ -689,7 +711,7 @@ internal static class JobJsonParser
             }
 
             bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
-            bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null;
+            bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null || externalizeInlineImages || seenIiMinBytes;
             if (!hasPages)
             {
                 if (!wantEdits && !wantContent)
@@ -726,6 +748,8 @@ internal static class JobJsonParser
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent,
                     RemoveUnreferencedResources = removeUnreferencedResources,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
@@ -763,6 +787,8 @@ internal static class JobJsonParser
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent,
                     RemoveUnreferencedResources = removeUnreferencedResources,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
@@ -797,6 +823,8 @@ internal static class JobJsonParser
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent,
                     RemoveUnreferencedResources = removeUnreferencedResources,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
@@ -1167,6 +1195,43 @@ internal static class JobJsonParser
         }
 
         return selectors;
+    }
+
+    private static long RequireIiMinBytes(JsonElement element)
+    {
+        string? text = null;
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
+        {
+            if (number < 0L)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "iiMinBytes" + (char)34 + " must be a non-negative byte count.", 0L, null);
+            }
+
+            return number;
+        }
+
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            text = element.GetString();
+        }
+
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            throw new QpdfParseException("Job " + (char)34 + "iiMinBytes" + (char)34 + " must be a non-negative byte count.", 0L, null);
+        }
+
+        long size = 0L;
+        foreach (char digit in text)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "iiMinBytes" + (char)34 + " must be a non-negative byte count.", 0L, null);
+            }
+
+            size = checked(size * 10L + (digit - (char)48));
+        }
+
+        return size;
     }
 
     private static bool RequireNormalizeContent(JsonElement element)
