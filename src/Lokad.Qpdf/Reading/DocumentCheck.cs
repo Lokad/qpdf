@@ -2,6 +2,7 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Content;
 
 namespace Lokad.Qpdf.Reading;
 
@@ -64,7 +65,7 @@ internal static class DocumentCheck
         List<(int Number, PdfStream Stream)> streams = new();
         outcomes.Add(CheckObjectGraph(engine, governor, streams, cancellationToken));
         outcomes.Add(CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken));
-        outcomes.Add(CheckPageContent(diagnostics));
+        outcomes.Add(CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken));
         outcomes.Add(CheckLinearization(engine, limits, governor, diagnostics, cancellationToken));
         foreach (QpdfCheckOutcome outcome in outcomes)
         {
@@ -265,11 +266,186 @@ internal static class DocumentCheck
         return new QpdfCheckOutcome("streams", QpdfCheckStatus.Passed, detail);
     }
 
-    private static QpdfCheckOutcome CheckPageContent(DiagnosticBag diagnostics)
+    private static QpdfCheckOutcome CheckPageContent(
+        QpdfDocument document,
+        QpdfCheckOptions options,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
     {
-        diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check 'page-content': content tokenizing arrives in M7.");
-        return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Skipped, "Content tokenizing arrives in M7; content streams were not parsed.");
+        if (options.DecodeLevel == QpdfStreamDecodeLevel.None)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check page-content: decode level none disables stream decoding.");
+            return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
+        }
+
+        DocumentEngine engine = document.Engine;
+        IIndirectResolver resolver = (IIndirectResolver)engine;
+        int examined = 0;
+        int skipped = 0;
+        List<string> failures = new();
+        int pageNumber = 0;
+        foreach (PageLocation location in document.PageReferences)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            pageNumber += 1;
+            if (!location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
+            {
+                continue;
+            }
+
+            List<PdfStream> streams = new();
+            bool unreadable = false;
+            if (contents is PdfArray array)
+            {
+                foreach (QpdfObject item in array.Items)
+                {
+                    QpdfObject target = item;
+                    if (item is PdfReference reference)
+                    {
+                        if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
+                        {
+                            unreadable = true;
+                            break;
+                        }
+
+                        target = resolved;
+                    }
+
+                    if (target is not PdfStream stream)
+                    {
+                        unreadable = true;
+                        break;
+                    }
+
+                    streams.Add(stream);
+                }
+            }
+            else if (contents is PdfReference singleReference)
+            {
+                if (!resolver.TryResolve(singleReference, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
+                {
+                    unreadable = true;
+                }
+                else
+                {
+                    streams.Add(resolvedStream);
+                }
+            }
+            else if (contents is PdfStream single)
+            {
+                streams.Add(single);
+            }
+            else
+            {
+                unreadable = true;
+            }
+
+            if (unreadable)
+            {
+                skipped += 1;
+                continue;
+            }
+
+            foreach (PdfStream stream in streams)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                byte[]? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor);
+                if (bytes is null)
+                {
+                    skipped += 1;
+                    continue;
+                }
+
+                try
+                {
+                    TokenizeCheckStream(bytes, limits, governor, cancellationToken);
+                    examined += 1;
+                }
+                catch (QpdfException ex) when (ex is not QpdfLimitException)
+                {
+                    failures.Add(string.Concat("Page ", pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), " content: ", ex.Message));
+                    if (failures.Count >= MaxStreamFailures)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (failures.Count >= MaxStreamFailures)
+            {
+                break;
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Failed, string.Join(" ", failures));
+        }
+
+        return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Passed, string.Concat(examined.ToString(System.Globalization.CultureInfo.InvariantCulture), " content streams tokenized, ", skipped.ToString(System.Globalization.CultureInfo.InvariantCulture), " skipped."));
     }
+
+    private static byte[]? DecodeCheckStream(
+        PdfStream stream,
+        IIndirectResolver resolver,
+        QpdfStreamDecodeLevel level,
+        QpdfLimits limits,
+        ResourceGovernor governor)
+    {
+        IReadOnlyList<FilterStage> stages;
+        try
+        {
+            stages = FilterChain.Resolve(stream.Dictionary, resolver);
+        }
+        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        {
+            return null;
+        }
+
+        if (stages.Count == 0)
+        {
+            return stream.Data;
+        }
+
+        foreach (FilterStage stage in stages)
+        {
+            if (!InLevel(stage.Name, level))
+            {
+                return null;
+            }
+        }
+
+        try
+        {
+            return FilterChain.Decode(stream.Data, stages, limits, governor);
+        }
+        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        {
+            return null;
+        }
+    }
+
+    private static void TokenizeCheckStream(
+        byte[] bytes,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        ContentTokenizer tokenizer = new(bytes, limits, governor);
+        byte[] idMarker = [(byte)73, (byte)68];
+        while (tokenizer.TryReadToken(out ContentToken token))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual(idMarker))
+            {
+                tokenizer.TryReadInlineImageData(out ContentToken _);
+            }
+        }
+    }
+
 
     private static QpdfCheckOutcome CheckLinearization(
         DocumentEngine engine,

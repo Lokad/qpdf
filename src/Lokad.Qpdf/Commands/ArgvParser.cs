@@ -72,6 +72,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --json cannot be combined with --overlay or --underlay.", jsonEntryAt, null);
             }
 
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --flatten-rotation.", jsonEntryAt, null);
+            }
+
             if (jsonImportAt >= 0)
             {
                 throw new QpdfParseException("Option --json cannot be combined with JSON import.", jsonEntryAt, null);
@@ -105,6 +110,11 @@ internal static class ArgvParser
             if (firstOverlayAt >= 0)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --overlay or --underlay.", jsonImportAt, null);
+            }
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --flatten-rotation.", jsonImportAt, null);
             }
 
             if (jsonEntryAt >= 0)
@@ -143,6 +153,12 @@ internal static class ArgvParser
                 throw new QpdfParseException("Attachment inspection cannot be combined with --overlay or --underlay.", showAt >= 0 ? showAt : listAt, null);
             }
 
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --flatten-rotation.", showAt >= 0 ? showAt : listAt, null);
+            }
+
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
@@ -157,6 +173,10 @@ internal static class ArgvParser
         if (checkAt >= 0 && firstOverlayAt >= 0)
         {
             throw new QpdfParseException("Options --check and --overlay or --underlay cannot be combined.", checkAt, null);
+        }
+        if (checkAt >= 0 && globals.FlattenRotation)
+        {
+            throw new QpdfParseException("Options --check and --flatten-rotation cannot be combined.", checkAt, null);
         }
 
         if (checkAt >= 0)
@@ -332,6 +352,7 @@ internal static class ArgvParser
                 RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
                 ExternalizeInlineImages = globals.ExternalizeInlineImages,
                 IiMinBytes = globals.IiMinBytes,
+            FlattenRotation = globals.FlattenRotation,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
@@ -370,6 +391,7 @@ internal static class ArgvParser
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
             ExternalizeInlineImages = globals.ExternalizeInlineImages,
             IiMinBytes = globals.IiMinBytes,
+            FlattenRotation = globals.FlattenRotation,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
@@ -543,7 +565,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -593,6 +615,8 @@ internal static class ArgvParser
         bool externalizeInlineImages = false;
         bool seenIiMinBytes = false;
         long iiMinBytes = 1024L;
+        bool seenFlattenRotation = false;
+        bool flattenRotation = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -919,6 +943,22 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--flatten-rotation")
+            {
+                if (seenFlattenRotation)
+                {
+                    throw new QpdfParseException("Duplicate --flatten-rotation is outside the narrow profile.", i, null);
+                }
+
+                seenFlattenRotation = true;
+                flattenRotation = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--flatten-rotation=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --flatten-rotation takes no value.", i, null);
+            }
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -935,7 +975,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2207,6 +2247,7 @@ internal static class ArgvParser
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
             ExternalizeInlineImages = globals.ExternalizeInlineImages,
             IiMinBytes = globals.IiMinBytes,
+            FlattenRotation = globals.FlattenRotation,
         };
     }
 
@@ -2254,6 +2295,7 @@ internal static class ArgvParser
             RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
             ExternalizeInlineImages = globals.ExternalizeInlineImages,
             IiMinBytes = globals.IiMinBytes,
+            FlattenRotation = globals.FlattenRotation,
         };
     }
 

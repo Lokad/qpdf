@@ -147,11 +147,13 @@ public sealed class CheckTests
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");
         Assert.Equal(QpdfCheckStatus.Passed, streams.Status);
         Assert.Contains("unfiltered", streams.Detail, StringComparison.Ordinal);
-        Assert.Equal(QpdfCheckStatus.Skipped, SingleOutcome(result, "page-content").Status);
+        QpdfCheckOutcome pageContent = SingleOutcome(result, "page-content");
+        Assert.Equal(QpdfCheckStatus.Passed, pageContent.Status);
+        Assert.Contains("tokenized", pageContent.Detail, StringComparison.Ordinal);
         Assert.Equal(QpdfCheckStatus.Passed, SingleOutcome(result, "linearization").Status);
         Assert.True(result.Passed);
-        Assert.True(result.HasSkipped);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped);
+        Assert.False(result.HasSkipped);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped);
     }
 
     [Fact]

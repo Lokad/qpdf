@@ -63,6 +63,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public IReadOnlyList<OverlaySpec> Underlays { get; init; } = [];
 
+    public bool FlattenRotation { get; init; }
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);

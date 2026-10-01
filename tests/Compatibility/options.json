@@ -2522,15 +2522,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Box rotation, content wrapping, and annotation rectangles are covered; appearance streams are untouched and inherited user units are out of scope until later items."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent", "FlattenRotationTests.Flatten180KeepsMediaBox", "FlattenRotationTests.AnnotationRectanglesMoveWithPage", "FlattenRotationTests.MergeThenFlattenAppliesToFinalPages"],
+        "negative": ["FlattenRotationTests.MalformedFlattenFlagsFail"],
+        "interaction": ["FlattenRotationTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }

@@ -607,6 +607,10 @@ content keeps original bytes where upstream writes partial output.
 
 Repeatable --overlay and --underlay blocks (--file or positional file, --to, --from with empty allowed, --repeat, plus job keys) mirror upstream stacking: underlays in order, then the original page as /Fx0, then overlays in order, each placed from TrimBox fallbacks with centered shrink-to-fit matrices that invert destination rotation and scale. Page ranges accept plain numbers, dash ranges in either direction, and comma lists. Intentional differences: relative numbers, exclusions, and odd/even positions stay unsupported; overlay annotations are not copied; inherited /UserUnit on output pages is not inverted; damaged overlay content warns and skips instead of emitting partial forms.
 
+## Rotation flattening and page-content checks (work item 31a)
+
+--flatten-rotation (plus job key) mirrors upstream page baking: boxes rotate about the media box per 90/180/270 degrees, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Pages without actionable rotation stay byte-identical. The page-content check now tokenizes page content streams (honoring the check decode level) instead of reporting skipped. Intentional differences: annotation appearance streams are untouched, damaged pages warn and stay as is, and form-field restructuring is left to later appearance work.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

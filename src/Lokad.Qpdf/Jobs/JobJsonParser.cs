@@ -116,6 +116,8 @@ internal static class JobJsonParser
             bool seenOverlay = false;
             List<OverlaySpec> underlays = new();
             bool seenUnderlay = false;
+            bool flattenRotation = false;
+            bool seenFlattenRotation = false;
             string? jsonVersion = null;
             bool seenJson = false;
             List<string> jsonKeys = new();
@@ -393,6 +395,15 @@ internal static class JobJsonParser
 
                         seenUnderlay = true;
                         underlays.AddRange(ParseOverlayArray(property.Value, "underlay"));
+                        break;
+                    case "flattenRotation":
+                        if (seenFlattenRotation)
+                        {
+                            throw new QpdfParseException("Duplicate job key flattenRotation.", 0L, null);
+                        }
+
+                        seenFlattenRotation = true;
+                        flattenRotation = RequireBareFlag(property.Value, "flattenRotation");
                         break;
                     case "listAttachments":
                         if (seenListAttachments)
@@ -735,9 +746,10 @@ internal static class JobJsonParser
             bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
             bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null || externalizeInlineImages || seenIiMinBytes;
             bool wantOverlays = overlays.Count > 0 || underlays.Count > 0;
+            bool wantFlatten = flattenRotation;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent && !wantOverlays)
+                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -778,6 +790,7 @@ internal static class JobJsonParser
                     AttachmentsToCopy = attachmentsToCopy,
                     Overlays = overlays,
                     Underlays = underlays,
+                    FlattenRotation = flattenRotation,
                 };
             }
 
@@ -819,6 +832,7 @@ internal static class JobJsonParser
                     AttachmentsToCopy = attachmentsToCopy,
                     Overlays = overlays,
                     Underlays = underlays,
+                    FlattenRotation = flattenRotation,
                 };
             }
 
@@ -857,6 +871,7 @@ internal static class JobJsonParser
                     AttachmentsToCopy = attachmentsToCopy,
                     Overlays = overlays,
                     Underlays = underlays,
+                    FlattenRotation = flattenRotation,
             };
         }
     }

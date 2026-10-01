@@ -42,6 +42,7 @@ internal static class HelpText
           --ii-min-bytes=size-in-bytes      inline-image threshold (default 1024)
           --overlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
           --underlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages below
+          --flatten-rotation                  bake page rotation into content
           --list-attachments          list embedded files
           --show-attachment=key         write one attachment to the output file
           --add-attachment file [options] --  embed host files

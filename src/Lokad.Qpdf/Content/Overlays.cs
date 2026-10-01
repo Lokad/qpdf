@@ -10,7 +10,7 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal sealed record OverlayApplication(List<GraphCopier> Copiers);
+internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId);
 
 internal static class Overlays
 {
@@ -69,7 +69,7 @@ internal static class Overlays
         Dictionary<string, OverlaySource> sources = new(StringComparer.Ordinal);
         if ((underlays.Count == 0 && overlays.Count == 0) || occurrences.Count == 0)
         {
-            return new OverlayApplication(new List<GraphCopier>(sources.Values.Select(static source => source.Copier)));
+            return new OverlayApplication(new List<GraphCopier>(sources.Values.Select(static source => source.Copier)), nextId);
         }
 
         if ((long)occurrences.Count > limits.MaxWork)
@@ -143,7 +143,7 @@ internal static class Overlays
             copiers.Add(source.Copier);
         }
 
-        return new OverlayApplication(copiers);
+        return new OverlayApplication(copiers, allocator);
     }
 
     private static int MaxAllocator(int allocator, Dictionary<string, OverlaySource> sources)

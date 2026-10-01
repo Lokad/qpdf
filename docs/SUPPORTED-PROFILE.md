@@ -82,6 +82,7 @@ echoing values.
   sliced labels; `--replace-input` overwrites the single input with no backup.
   Partial split outputs can remain if a later group fails.
 - --overlay and --underlay blocks (--file, --to, --from, --repeat, repeatable with order kept) stamp whole pages from other files as /Fx form XObjects below or above each output page, centered with shrink-to-fit placement that inverts destination rotation and scale. Ranges accept plain numbers, dash ranges, and comma lists, and an empty --from= lets --repeat supply every page. Missing files fail, damaged overlay content warns and skips, and overlay annotations are not copied.
+- --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Pages without actionable rotation stay byte-identical; damaged content or boxes warn and keep the page.
 
 ## Inspection profile
 
