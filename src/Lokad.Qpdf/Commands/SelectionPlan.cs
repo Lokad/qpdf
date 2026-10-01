@@ -39,6 +39,10 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public string? CompressionLevel { get; init; }
 
+    public bool RemoveInfo { get; init; }
+
+    public bool RemoveMetadata { get; init; }
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);

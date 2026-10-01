@@ -184,7 +184,7 @@ public sealed class PreviewPolicyTests
     }
 
     [Fact]
-    public async Task CatalogExtrasAreDroppedByPolicy()
+    public async Task CatalogPolicyKeepsMetadataDropsOutlines()
     {
         List<(string, byte[]?)> extras = new() { ("<< /Foo (bar) >>", null), ("<< /NamesMap 1 >>", null) };
         byte[] bytes = BuildPolicyPdf(" /Outlines 8 0 R /Metadata 9 0 R", extras, string.Empty, string.Empty, false, false);
@@ -202,7 +202,8 @@ public sealed class PreviewPolicyTests
             keys.Add(key.DisplayText);
         }
 
-        Assert.Equal(new HashSet<string>(["Type", "Pages"]), keys);
+        Assert.Equal(new HashSet<string>(["Type", "Pages", "Metadata"]), keys);
+        Assert.False(catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject _));
     }
 
     [Fact]

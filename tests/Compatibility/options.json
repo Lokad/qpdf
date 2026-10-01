@@ -4012,15 +4012,24 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Unpreservable extras warn-and-skip instead of byte-preserving; preserved metadata stays linked only in catalog, trailer relinking beyond /Info is later structural work."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "MetadataTests.RemoveInfoKeepsOnlyModDate",
+          "MetadataTests.RemoveInfoWithoutModDateDropsInfo"
+        ],
+        "negative": [
+          "MetadataTests.ValuedFlagsFail",
+          "MetadataTests.DuplicateFlagsFail"
+        ],
+        "interaction": [
+          "MetadataTests.BothRemovalsDropBoth",
+          "MetadataTests.JobJsonParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -4043,15 +4052,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Same preservation warnings as --remove-info."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "MetadataTests.RemoveMetadataDropsMetadataKeepsInfo",
+          "MetadataTests.MetadataPreservedByDefault"
+        ],
+        "negative": [
+          "MetadataTests.ValuedFlagsFail",
+          "MetadataTests.JobJsonInvalidValuesFail"
+        ],
+        "interaction": [
+          "MetadataTests.BothRemovalsDropBoth",
+          "MetadataTests.MergeKeepsPrimaryInfo",
+          "MetadataTests.SplitGroupsCarryInfo",
+          "MetadataTests.InfoSurvivesObjectStreams"
+        ],
         "resource": [],
         "oracle": []
       }

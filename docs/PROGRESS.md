@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 24a: document info and metadata. Trailer `/Info` and catalog `/Metadata` are preserved by default with `--remove-info` (ModDate-only info, also drops metadata) and `--remove-metadata` semantics matching upstream, across typed/argv/job paths with replay-checked serialization.
+
+Prior gate
+
 Work item 23b: container Flate packing. Generated object/xref streams Flate-encode (plain `/FlateDecode`, no predictor) when compression is active, honoring `--compression-level` through the governed pipeline with replay-checked serialization; otherwise they stay raw.
 
 Prior gate
@@ -32,10 +36,10 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 484 tests (477
-  prior plus 7 container-packing cases: Flate containers with reread,
-  raw-by-default, determinism, levels, preserve interaction, and CLI/job
-  parity).
+- Locked restore, Release build with zero warnings, and all 499 tests (484
+  prior plus 15 metadata cases: default preservation, ModDate-only and
+  metadata removals, primary-source merge, split groups, object-stream
+  survival, argv/job parity, and duplicate/valued/invalid rejections).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -47,7 +51,7 @@ binary.
 
 ## Next work
 
-1. Work item 24: names/number-tree operations, metadata editing, and attachment list/extract (M6).
+1. Work item 24b: attachment list/extract on the EmbeddedFiles name tree (M6).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

@@ -33,6 +33,8 @@ internal static class HelpText
           --decode-level=level          none, generalized, specialized, or all
           --recompress-flate            recompress already-flate streams
           --compression-level=1..9      flate effort for compressed streams
+          --remove-info               drop info except modification date
+          --remove-metadata           drop the document metadata stream
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

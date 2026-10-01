@@ -92,6 +92,10 @@ internal static class JobJsonParser
             bool seenRecompressFlate = false;
             string? compressionLevel = null;
             bool seenCompressionLevel = false;
+            bool removeInfo = false;
+            bool seenRemoveInfo = false;
+            bool removeMetadata = false;
+            bool seenRemoveMetadata = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -264,6 +268,24 @@ internal static class JobJsonParser
                         seenCompressionLevel = true;
                         compressionLevel = RequireString(property.Value, "compressionLevel");
                         break;
+                    case "removeInfo":
+                        if (seenRemoveInfo)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027removeInfo\u0027.", 0L, null);
+                        }
+
+                        seenRemoveInfo = true;
+                        removeInfo = RequireBareFlag(property.Value, "removeInfo");
+                        break;
+                    case "removeMetadata":
+                        if (seenRemoveMetadata)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027removeMetadata\u0027.", 0L, null);
+                        }
+
+                        seenRemoveMetadata = true;
+                        removeMetadata = RequireBareFlag(property.Value, "removeMetadata");
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -323,6 +345,8 @@ internal static class JobJsonParser
                     DecodeLevel = decodeLevel,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
+                    RemoveInfo = removeInfo,
+                    RemoveMetadata = removeMetadata,
                 };
             }
 
@@ -349,6 +373,8 @@ internal static class JobJsonParser
                     DecodeLevel = decodeLevel,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
+                    RemoveInfo = removeInfo,
+                    RemoveMetadata = removeMetadata,
             };
         }
     }

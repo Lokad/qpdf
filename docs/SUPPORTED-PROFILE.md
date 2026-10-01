@@ -70,7 +70,10 @@ echoing values.
   `/Count`, which only warns. Page-tree (`/Pages`) and catalog references fail
   explicitly; references to already-copied objects remap while references to any
   other page prune to null, so omitted pages never resurrect. Widget annotations
-  travel with appearances; `/AcroForm`, outlines, names, and metadata are dropped.
+  travel with appearances; `/AcroForm`, outlines, and names are dropped, while
+  document info (`/Info`, ModDate-only under `--remove-info`) and the catalog
+  metadata stream are preserved unless `--remove-info`/`--remove-metadata`
+  drop them (`--remove-info` also drops metadata).
 - Repeated runs over the same input and options are byte-identical.
 - Publication is staged: validation, budgets, and serialization complete
   before commit, so failures leave existing targets untouched. Every lease

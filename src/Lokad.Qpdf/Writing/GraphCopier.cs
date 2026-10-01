@@ -70,6 +70,37 @@ internal sealed class GraphCopier
     internal IReadOnlyDictionary<int, int> SourceToDestination => _mapping;
 
     /// <summary>
+    /// Links an already-resolved value into the destination graph as an
+    /// indirect object, returning its reference (or null when a reference
+    /// prunes to null under page policy). References remap through the shared
+    /// memo table; direct values are deep-copied under a fresh number.
+    /// </summary>
+    internal PdfReference? AddIndirectObject(QpdfObject value)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        if (value is PdfReference reference)
+        {
+            QpdfObject copied = CopyValue(reference, 0);
+            return copied as PdfReference;
+        }
+
+        int id = _nextId;
+        checked
+        {
+            _nextId += 1;
+        }
+
+        _governor.ReserveMemory(64L);
+        _copied[id] = CopyValue(value, 0);
+        return new PdfReference(id, 0);
+    }
+
+
+    /// <summary>
     /// Copies every input object that page selection did not reach, in
     /// ascending original object-number order, returning the new destination
     /// numbers. Shares the memoized copier so references into the selected

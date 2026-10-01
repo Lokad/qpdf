@@ -68,6 +68,8 @@ internal static class ArgvParser
             DecodeLevel = globals.DecodeLevel,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
+            RemoveInfo = globals.RemoveInfo,
+            RemoveMetadata = globals.RemoveMetadata,
             };
         }
 
@@ -130,6 +132,8 @@ internal static class ArgvParser
             DecodeLevel = globals.DecodeLevel,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
+            RemoveInfo = globals.RemoveInfo,
+            RemoveMetadata = globals.RemoveMetadata,
         };
     }
 
@@ -169,7 +173,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -205,6 +209,10 @@ internal static class ArgvParser
         bool recompressFlate = false;
         bool seenCompressionLevel = false;
         string? compressionLevel = null;
+        bool seenRemoveInfo = false;
+        bool removeInfo = false;
+        bool seenRemoveMetadata = false;
+        bool removeMetadata = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -427,6 +435,40 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--remove-info")
+            {
+                if (seenRemoveInfo)
+                {
+                    throw new QpdfParseException("Duplicate --remove-info is outside the narrow profile.", i, null);
+                }
+
+                seenRemoveInfo = true;
+                removeInfo = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--remove-info=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --remove-info takes no value.", i, null);
+            }
+
+            if (argv[i] == "--remove-metadata")
+            {
+                if (seenRemoveMetadata)
+                {
+                    throw new QpdfParseException("Duplicate --remove-metadata is outside the narrow profile.", i, null);
+                }
+
+                seenRemoveMetadata = true;
+                removeMetadata = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--remove-metadata=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --remove-metadata takes no value.", i, null);
+            }
+
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -443,7 +485,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata);
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -909,6 +951,8 @@ internal static class ArgvParser
             DecodeLevel = globals.DecodeLevel,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
+            RemoveInfo = globals.RemoveInfo,
+            RemoveMetadata = globals.RemoveMetadata,
         };
     }
 
@@ -949,6 +993,8 @@ internal static class ArgvParser
             DecodeLevel = globals.DecodeLevel,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
+            RemoveInfo = globals.RemoveInfo,
+            RemoveMetadata = globals.RemoveMetadata,
         };
     }
 

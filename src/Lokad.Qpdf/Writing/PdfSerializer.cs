@@ -81,6 +81,7 @@ internal sealed class PdfSerializer
     internal async ValueTask<long> SerializeAsync(
         PdfVersion version,
         IReadOnlyList<NumberedObject> objects,
+        int? infoRef,
         byte[] id1,
         byte[] id2,
         bool newlineBeforeEndstream,
@@ -151,7 +152,8 @@ internal sealed class PdfSerializer
         string idHex1 = ToHex(id1);
         string idHex2 = ToHex(id2);
         _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        await AppendAsciiAsync($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R /ID [<" + idHex1 + "><" + idHex2 + ">] >>\n", sink, cancellationToken).ConfigureAwait(false);
+        string infoText = infoRef.HasValue ? $" /Info {infoRef.Value} 0 R" : string.Empty;
+        await AppendAsciiAsync($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R" + infoText + " /ID [<" + idHex1 + "><" + idHex2 + ">] >>\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
     }
@@ -169,6 +171,7 @@ internal sealed class PdfSerializer
         IReadOnlyList<IReadOnlyList<int>> groups,
         bool compressStreams,
         int? compressionLevel,
+        int? infoRef,
         byte[] id1,
         byte[] id2,
         bool newlineBeforeEndstream,
@@ -433,7 +436,8 @@ internal sealed class PdfSerializer
         string idHex1 = ToHex(id1);
         string idHex2 = ToHex(id2);
         _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        await AppendAsciiAsync($"{xrefId} 0 obj\n<< /Type /XRef /Length {storedXref.Length}" + xrefFilter + $" /Size {size} /Root 1 0 R /ID [<" + idHex1 + "><" + idHex2 + ">] /W [1 " + f1.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + f2.ToString(System.Globalization.CultureInfo.InvariantCulture) + "] >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
+        string infoText = infoRef.HasValue ? $" /Info {infoRef.Value} 0 R" : string.Empty;
+        await AppendAsciiAsync($"{xrefId} 0 obj\n<< /Type /XRef /Length {storedXref.Length}" + xrefFilter + $" /Size {size} /Root 1 0 R" + infoText + " /ID [<" + idHex1 + "><" + idHex2 + ">] /W [1 " + f1.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + f2.ToString(System.Globalization.CultureInfo.InvariantCulture) + "] >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(storedXref, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nendstream\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);

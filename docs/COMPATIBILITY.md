@@ -466,6 +466,19 @@ agree). Otherwise containers stay raw. No predictor is emitted, unlike
 upstream xref streams: readers must not require decode parameters, and the
 strict decoder accepts plain Flate.
 
+## Document info and metadata (work item 24a)
+
+The output trailer carries the input `/Info` dictionary and the output
+catalog carries the input `/Metadata` stream by default (copied through the
+shared memoized copier, so streams honor the compression knobs and indirect
+values remap; multi-source output takes the primary input, single-source and
+split groups likewise). `--remove-metadata` omits the catalog stream while
+keeping info; `--remove-info` reduces `/Info` to a lone `/ModDate` entry (or
+omits `/Info` when absent) and also omits the metadata stream, matching
+upstream. Both flags accept argv bare and job-JSON empty-string/boolean
+forms. Unpreservable extras are skipped under one aggregated warning instead
+of failing the job; old catalog structure is never relinked.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

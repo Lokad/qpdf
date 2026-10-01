@@ -63,7 +63,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -83,6 +83,8 @@ public static class Qpdf
         string? objectStreams,
         bool preserveUnreferenced,
         CompressionRequest compression,
+        bool removeInfo,
+        bool removeMetadata,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -130,6 +132,8 @@ public static class Qpdf
             TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken);
         }
 
+        (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+
         (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
         string streamMode = ResolveObjectStreamMode(objectStreams);
         if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
@@ -150,7 +154,7 @@ public static class Qpdf
 
         byte[]? originalId = TryGetOriginalId(document.Engine);
         string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel);
+        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata);
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
@@ -171,7 +175,7 @@ public static class Qpdf
 
         List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
         IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
-        await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, originalId, staticId, newlineBeforeEndstream, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+        await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
         return new PdfPageSelectionResult(total, [.. requested], kids.Count, [.. diagnostics.Entries], governor.Snapshot());
     }
 
@@ -236,7 +240,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -302,7 +306,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -381,13 +385,14 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
         IQpdfHost host,
         IReadOnlyList<PdfPageSource> sources,
         QpdfPath outputPath,
+        QpdfPath primaryInput,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         PdfPageCollation? collation,
@@ -403,6 +408,8 @@ public static class Qpdf
         string? objectStreams,
         bool preserveUnreferenced,
         CompressionRequest compression,
+        bool removeInfo,
+        bool removeMetadata,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -415,6 +422,19 @@ public static class Qpdf
         byte[]? originalId1 = null;
         List<HashSet<int>> sourceCompressed = new(sources.Count);
         HashSet<int> allPreserved = new();
+        int primaryIdx = 0;
+        for (int p = 0; p < sources.Count; p++)
+        {
+            if (sources[p].Input.Value == primaryInput.Value)
+            {
+                primaryIdx = p;
+                break;
+            }
+        }
+
+        PdfReference? primaryInfo = null;
+        PdfReference? primaryMetadata = null;
+        HashSet<int> catalogExtraIds = new();
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(compression);
         for (int s = 0; s < sources.Count; s++)
@@ -473,6 +493,19 @@ public static class Qpdf
             if (multiCompress || multiDecode != "none")
             {
                 TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken);
+            }
+            if (s == primaryIdx)
+            {
+                (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+                if (primaryInfo is not null)
+                {
+                    catalogExtraIds.Add(primaryInfo.ObjectNumber);
+                }
+
+                if (primaryMetadata is not null)
+                {
+                    catalogExtraIds.Add(primaryMetadata.ObjectNumber);
+                }
             }
 
             nextId = copier.NextId;
@@ -573,7 +606,7 @@ public static class Qpdf
         {
             List<NumberedObject> model = new()
             {
-                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel)),
+                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata)),
                 new NumberedObject(2, PagesNode(kids)),
             };
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -581,7 +614,7 @@ public static class Qpdf
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
 
-            await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, originalId1, staticId, newlineBeforeEndstream, target, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, target, limits, governor, cancellationToken).ConfigureAwait(false);
             outputPaths.Add(target);
             return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot());
         }
@@ -626,6 +659,7 @@ public static class Qpdf
 
             List<int> roots = new(groupIds);
             roots.AddRange(allPreserved);
+            roots.AddRange(catalogExtraIds);
             HashSet<int> reachable = ReachableIds(pool, roots, governor);
             List<int> kept = new(reachable.Count);
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -649,9 +683,21 @@ public static class Qpdf
                 renumberedKids.Add(new PdfReference(renumber[kid.ObjectNumber], 0));
             }
 
+            PdfReference? groupMetadata = null;
+            if (primaryMetadata is not null && renumber.TryGetValue(primaryMetadata.ObjectNumber, out int mappedMetadata))
+            {
+                groupMetadata = new PdfReference(mappedMetadata, 0);
+            }
+
+            int? groupInfo = null;
+            if (primaryInfo is not null && renumber.TryGetValue(primaryInfo.ObjectNumber, out int mappedInfo))
+            {
+                groupInfo = mappedInfo;
+            }
+
             List<NumberedObject> sub = new()
             {
-                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel)),
+                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata)),
                 new NumberedObject(2, PagesNode(renumberedKids)),
             };
             foreach (int id in kept)
@@ -663,7 +709,7 @@ public static class Qpdf
             HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber);
             List<List<int>> groupGroups = PlanObjectStreamGroups(groupCompressed, governor);
             IReadOnlyList<IReadOnlyList<int>>? groupStreams = groupGroups.Count == 0 ? null : groupGroups;
-            await PublishModelAsync(host, effective, extensionLevel, sub, groupStreams, multiCompress, multiLevel, originalId1, staticId, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, extensionLevel, sub, groupStreams, multiCompress, multiLevel, groupInfo, originalId1, staticId, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
             outputPaths.Add(path);
         }
 
@@ -838,10 +884,10 @@ public static class Qpdf
 
     private static PdfDictionary NewCatalog(PdfDictionary? pageLabels)
     {
-        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0);
+        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null);
     }
 
-    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel)
+    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef)
     {
         if (finalVersion is null)
         {
@@ -856,6 +902,11 @@ public static class Qpdf
         if (pageLabels is not null)
         {
             entries[PdfName.FromAscii("PageLabels")] = pageLabels;
+        }
+
+        if (metadataRef is not null)
+        {
+            entries[PdfName.FromAscii("Metadata")] = metadataRef;
         }
 
         if (extensionLevel > 0)
@@ -1179,6 +1230,7 @@ public static class Qpdf
         IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
         bool compressStreams,
         int? compressionLevel,
+        int? infoRef,
         byte[]? originalId1,
         bool staticId,
         bool newlineBeforeEndstream,
@@ -1203,7 +1255,7 @@ public static class Qpdf
         {
             id2 = (byte[])StaticIdBytes.Clone();
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -1213,17 +1265,17 @@ public static class Qpdf
         MemorySink memory = new(limits, governor);
         if (objectStreamGroups is null || objectStreamGroups.Count == 0)
         {
-            await probe.SerializeAsync(version, model, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+            await probe.SerializeAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            await probe.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+            await probe.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
         }
         byte[] placeholderBytes = memory.ToArray();
         byte[] digest = MD5.HashData(placeholderBytes);
         id2 = digest;
         id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-        await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
+        await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask PublishWithIdsAsync(
@@ -1233,6 +1285,7 @@ public static class Qpdf
         IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
         bool compressStreams,
         int? compressionLevel,
+        int? infoRef,
         byte[] id1,
         byte[] id2,
         bool newlineBeforeEndstream,
@@ -1246,11 +1299,11 @@ public static class Qpdf
         long counted;
         if (objectStreamGroups is null || objectStreamGroups.Count == 0)
         {
-            counted = await serializer.SerializeAsync(version, model, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
+            counted = await serializer.SerializeAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            counted = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
+            counted = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
         }
         if (counted > limits.MaxOutputBytes)
         {
@@ -1264,11 +1317,11 @@ public static class Qpdf
         long written;
         if (objectStreamGroups is null || objectStreamGroups.Count == 0)
         {
-            written = await serializer.SerializeAsync(version, model, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+            written = await serializer.SerializeAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            written = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+            written = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
         }
         if (written != counted)
         {
@@ -1832,6 +1885,133 @@ public static class Qpdf
         return new PdfDictionary(entries);
     }
 
+    private static PdfDictionary? TryGetInputCatalog(DocumentEngine engine)
+    {
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) || root is null || root is PdfNull)
+        {
+            return null;
+        }
+
+        if (root is PdfReference rootReference)
+        {
+            if (((IIndirectResolver)engine).TryResolve(rootReference, out QpdfObject? resolved) && resolved is PdfDictionary catalog)
+            {
+                return catalog;
+            }
+
+            return null;
+        }
+
+        return root as PdfDictionary;
+    }
+
+    private static (PdfReference? InfoRef, PdfReference? MetadataRef) CopyCatalogExtras(
+        GraphCopier copier,
+        DocumentEngine engine,
+        bool removeInfo,
+        bool removeMetadata,
+        DiagnosticBag diagnostics)
+    {
+        if (copier is null)
+        {
+            throw new ArgumentNullException(nameof(copier));
+        }
+
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (diagnostics is null)
+        {
+            throw new ArgumentNullException(nameof(diagnostics));
+        }
+
+        PdfReference? infoRef = null;
+        PdfReference? metadataRef = null;
+        // Upstream --remove-info also omits the catalog metadata stream.
+        if (!removeMetadata && !removeInfo)
+        {
+            try
+            {
+                PdfDictionary? catalog = TryGetInputCatalog(engine);
+                if (catalog is not null
+                    && catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject? raw)
+                    && raw is not null && raw is not PdfNull)
+                {
+                    metadataRef = copier.AddIndirectObject(raw);
+                }
+            }
+            catch (QpdfException)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document metadata.");
+                metadataRef = null;
+            }
+        }
+
+        if (!removeInfo)
+        {
+            try
+            {
+                if (engine.Trailer.TryGet(PdfName.FromAscii("Info"), out QpdfObject? raw)
+                    && raw is not null && raw is not PdfNull)
+                {
+                    infoRef = copier.AddIndirectObject(raw);
+                }
+            }
+            catch (QpdfException)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
+                infoRef = null;
+            }
+        }
+        else
+        {
+            try
+            {
+                PdfDictionary? infoDict = null;
+                if (engine.Trailer.TryGet(PdfName.FromAscii("Info"), out QpdfObject? raw)
+                    && raw is not null && raw is not PdfNull)
+                {
+                    if (raw is PdfReference infoReference)
+                    {
+                        if (((IIndirectResolver)engine).TryResolve(infoReference, out QpdfObject? resolved) && resolved is PdfDictionary indirect)
+                        {
+                            infoDict = indirect;
+                        }
+                    }
+                    else if (raw is PdfDictionary direct)
+                    {
+                        infoDict = direct;
+                    }
+                }
+
+                if (infoDict is not null
+                    && infoDict.TryGet(PdfName.FromAscii("ModDate"), out QpdfObject? modDate)
+                    && modDate is not null && modDate is not PdfNull)
+                {
+                    PdfDictionary reduced = new(new Dictionary<PdfName, QpdfObject>
+                    {
+                        [PdfName.FromAscii("ModDate")] = modDate,
+                    });
+                    infoRef = copier.AddIndirectObject(reduced);
+                }
+            }
+            catch (QpdfException)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
+                infoRef = null;
+            }
+        }
+
+        return (infoRef, metadataRef);
+    }
+
     private static List<PageLabelSpec> ConvertLabels(IReadOnlyList<PdfPageLabel>? labels)
     {
         if (labels is null)
@@ -2332,6 +2512,7 @@ public static class Qpdf
                         host,
                         resolved,
                         merge.Output,
+                        merge.Input,
                         limits,
                         merge.Recovery,
                         merge.Collation,
@@ -2347,6 +2528,8 @@ public static class Qpdf
                         merge.ObjectStreams,
                         merge.PreserveUnreferenced,
                         merge.Compression(),
+                        merge.RemoveInfo,
+                        merge.RemoveMetadata,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2382,6 +2565,7 @@ public static class Qpdf
                         host,
                         solo,
                         target,
+                        selection.Input,
                         limits,
                         selection.Recovery,
                         null,
@@ -2397,6 +2581,8 @@ public static class Qpdf
                         selection.ObjectStreams,
                         selection.PreserveUnreferenced,
                         selection.Compression(),
+                        selection.RemoveInfo,
+                        selection.RemoveMetadata,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2435,6 +2621,8 @@ public static class Qpdf
                 selection.ObjectStreams,
                 selection.PreserveUnreferenced,
                 selection.Compression(),
+                selection.RemoveInfo,
+                selection.RemoveMetadata,
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);
