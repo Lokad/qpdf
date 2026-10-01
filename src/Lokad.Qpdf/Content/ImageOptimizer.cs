@@ -360,7 +360,20 @@ internal static class ImageOptimizer
         }
 
         long expected = checked(checked(width * height) * components);
-        if ((long)raw.Length != expected || width > int.MaxValue || height > int.MaxValue)
+        if ((long)raw.Length != expected)
+        {
+            // Inline-image extraction conventionally retains the separator whitespace before EI;
+            // trim trailing PDF whitespace so such samples still validate, and skip anything else.
+            byte[]? trimmed = TrimSeparators(raw, expected);
+            if (trimmed is null)
+            {
+                return null;
+            }
+
+            raw = trimmed;
+        }
+
+        if (width > int.MaxValue || height > int.MaxValue)
         {
             return null;
         }
@@ -400,6 +413,34 @@ internal static class ImageOptimizer
         governor.ReserveMemory(64L);
         entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("DCTDecode");
         return new PdfStream(new PdfDictionary(entries), encoded);
+    }
+
+    private static byte[]? TrimSeparators(byte[] raw, long expected)
+    {
+        int length = raw.Length;
+        while ((long)length > expected && length > 0 && IsPdfWhitespace(raw[length - 1]))
+        {
+            length -= 1;
+        }
+
+        if ((long)length != expected)
+        {
+            return null;
+        }
+
+        if (length == raw.Length)
+        {
+            return raw;
+        }
+
+        byte[] trimmed = new byte[length];
+        Buffer.BlockCopy(raw, 0, trimmed, 0, length);
+        return trimmed;
+    }
+
+    private static bool IsPdfWhitespace(byte value)
+    {
+        return value == 0 || value == 9 || value == 10 || value == 12 || value == 13 || value == 32;
     }
 
     private static byte[] CopyBytes(byte[] data, QpdfLimits limits, ResourceGovernor governor)

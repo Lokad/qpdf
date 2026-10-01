@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json;
 using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
@@ -456,5 +457,209 @@ public sealed class ImageOptimizeTests
         Assert.Equal(100, JpegCodec.MapQuality(100));
         Assert.Throws<ArgumentOutOfRangeException>(() => JpegCodec.MapQuality(-1));
         Assert.Throws<ArgumentOutOfRangeException>(() => JpegCodec.MapQuality(101));
+    }
+    private static byte[] InlineContent(string dict, byte[] image)
+    {
+        byte[] head = Encoding.ASCII.GetBytes(string.Concat("BT ", "BI", " ", dict, " ", "ID", " "));
+        byte[] tail = Encoding.ASCII.GetBytes(string.Concat(" ", "EI", " ", "ET"));
+        byte[] output = new byte[head.Length + image.Length + tail.Length];
+        Buffer.BlockCopy(head, 0, output, 0, head.Length);
+        Buffer.BlockCopy(image, 0, output, head.Length, image.Length);
+        Buffer.BlockCopy(tail, 0, output, head.Length + image.Length, tail.Length);
+        return output;
+    }
+
+    private static byte[] BuildInlinePage(byte[] content)
+    {
+        List<string> bodies = new()
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>",
+            "<< /Length " + content.Length.ToString() + " >>",
+        };
+        List<byte[]> parts = new();
+        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
+        parts.Add(header);
+        List<long> offsets = new();
+        long position = header.Length;
+        for (int i = 0; i < bodies.Count; i++)
+        {
+            int number = i + 1;
+            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
+            byte[] streamData = number == 4 ? content : Array.Empty<byte>();
+            if (number == 4)
+            {
+                byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
+                byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
+                offsets.Add(position);
+                position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
+                byte[] payload = new byte[open.Length + streamOpen.Length + streamData.Length + streamClose.Length];
+                int at = 0;
+                Buffer.BlockCopy(open, 0, payload, at, open.Length);
+                at += open.Length;
+                Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
+                at += streamOpen.Length;
+                Buffer.BlockCopy(streamData, 0, payload, at, streamData.Length);
+                at += streamData.Length;
+                Buffer.BlockCopy(streamClose, 0, payload, at, streamClose.Length);
+                parts.Add(payload);
+                continue;
+            }
+
+            byte[] close = Encoding.ASCII.GetBytes("endobj\n");
+            offsets.Add(position);
+            position += open.Length + close.Length;
+            byte[] plain = new byte[open.Length + close.Length];
+            Buffer.BlockCopy(open, 0, plain, 0, open.Length);
+            Buffer.BlockCopy(close, 0, plain, open.Length, close.Length);
+            parts.Add(plain);
+        }
+
+        int size = bodies.Count + 1;
+        StringBuilder xref = new();
+        xref.Append("xref\n0 " + size.ToString() + "\n");
+        xref.Append("0000000000 65535 f \n");
+        foreach (long offset in offsets)
+        {
+            xref.Append(offset.ToString("D10") + " 00000 n \n");
+        }
+
+        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
+        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
+        byte[] tail = Encoding.ASCII.GetBytes(xref.ToString());
+        parts.Add(tail);
+        int total = 0;
+        foreach (byte[] part in parts)
+        {
+            total += part.Length;
+        }
+
+        byte[] output = new byte[total];
+        int cursor = 0;
+        foreach (byte[] part in parts)
+        {
+            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+            cursor += part.Length;
+        }
+
+        return output;
+    }
+
+    private static async Task<byte[]> PageContentAsync(byte[] pdf)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/r.pdf"), pdf, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/r.pdf", "--json", "--json-stream-data=inline", "--", "outputs/r.json"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/r.json"), out byte[] json));
+        using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(json));
+        JsonElement objects = document.RootElement.GetProperty("qpdf")[1];
+        JsonElement page = document.RootElement.GetProperty("pages")[0];
+        List<byte> joined = new();
+        foreach (JsonElement content in page.GetProperty("contents").EnumerateArray())
+        {
+            string reference = content.GetString() ?? string.Empty;
+            string[] parts = reference.Split((char)32);
+            string key = string.Concat("obj:", parts[0], " ", parts[1], " R");
+            string data = objects.GetProperty(key).GetProperty("stream").GetProperty("data").GetString() ?? string.Empty;
+            joined.AddRange(Convert.FromBase64String(data));
+        }
+
+        return [.. joined];
+    }
+
+    private static async Task<bool> HasImageXObjectAsync(byte[] pdf)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/r.pdf"), pdf, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        for (int number = 1; number <= 60; number++)
+        {
+            try
+            {
+                if (document.GetObject(number) is PdfStream stream
+                    && stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype)
+                    && subtype is PdfName name && name.DisplayText == "Image")
+                {
+                    return true;
+                }
+            }
+            catch (QpdfParseException)
+            {
+            }
+        }
+
+        return false;
+    }
+
+    [Fact]
+    public async Task LargeInlineImageExternalizesAndOptimizes()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] content = InlineContent("/W 200 /H 200 /CS /RGB /BPC 8", raw);
+        byte[] fixture = BuildInlinePage(content);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        byte[] output = await PageContentAsync(pdf);
+        string text = Encoding.ASCII.GetString(output);
+        Assert.DoesNotContain("BI", text);
+        Assert.Contains("Do", text);
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.True(image.Data.Length < raw.Length);
+    }
+
+    [Fact]
+    public async Task KeepInlineImagesLeavesInlineAlone()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] content = InlineContent("/W 200 /H 200 /CS /RGB /BPC 8", raw);
+        byte[] fixture = BuildInlinePage(content);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--keep-inline-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        byte[] output = await PageContentAsync(pdf);
+        string text = Encoding.ASCII.GetString(output);
+        Assert.Contains("BI", text);
+        Assert.False(await HasImageXObjectAsync(pdf));
+    }
+
+    [Fact]
+    public async Task SmallInlineImageStaysInline()
+    {
+        byte[] raw = NoiseGray(8, 8);
+        byte[] content = InlineContent("/W 8 /H 8 /CS /G /BPC 8", raw);
+        byte[] fixture = BuildInlinePage(content);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        byte[] output = await PageContentAsync(pdf);
+        string text = Encoding.ASCII.GetString(output);
+        Assert.Contains("BI", text);
+        Assert.False(await HasImageXObjectAsync(pdf));
+    }
+
+    [Fact]
+    public async Task ExternalizedInlineRespectsOiThresholds()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] content = InlineContent("/W 200 /H 200 /CS /RGB /BPC 8", raw);
+        byte[] fixture = BuildInlinePage(content);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--oi-min-width=1000", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.True(await HasImageXObjectAsync(pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.NotEqual("DCTDecode", FilterOf(image));
     }
 }

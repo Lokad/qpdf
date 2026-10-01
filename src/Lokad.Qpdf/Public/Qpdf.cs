@@ -183,7 +183,7 @@ public static class Qpdf
             occurrenceIds.Add(occurrenceId);
         }
 
-        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages, iiMinBytes, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
+        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
 
         List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
         foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
@@ -625,7 +625,7 @@ public static class Qpdf
                 takenIds.Add(takenId);
             }
 
-            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages, iiMinBytes, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
+            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
 
             if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
             {
