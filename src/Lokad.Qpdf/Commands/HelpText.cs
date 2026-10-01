@@ -39,6 +39,7 @@ internal static class HelpText
           --show-attachment=key         write one attachment to the output file
           --add-attachment file [options] --  embed host files
           --remove-attachment=key       drop an embedded file
+          --copy-attachments-from file [--prefix=] --  copy embedded files
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

@@ -98,6 +98,8 @@ internal static class JobJsonParser
             bool seenRemoveMetadata = false;
             List<AttachmentAdd> attachmentsToAdd = new();
             bool seenAddAttachment = false;
+            List<AttachmentCopy> attachmentsToCopy = new();
+            bool seenCopyAttachments = false;
             List<string> attachmentsToRemove = new();
             bool seenRemoveAttachment = false;
             bool listAttachments = false;
@@ -335,6 +337,15 @@ internal static class JobJsonParser
                         seenRemoveAttachment = true;
                         attachmentsToRemove.AddRange(ParseRemoveAttachmentArray(property.Value));
                         break;
+                    case "copyAttachmentsFrom":
+                        if (seenCopyAttachments)
+                        {
+                            throw new QpdfParseException("Duplicate job key copyAttachmentsFrom.", 0L, null);
+                        }
+
+                        seenCopyAttachments = true;
+                        attachmentsToCopy.AddRange(ParseCopyAttachmentsArray(property.Value));
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -389,7 +400,7 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
 
-            bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0;
+            bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
             if (!hasPages)
             {
                 if (!wantEdits)
@@ -425,6 +436,7 @@ internal static class JobJsonParser
                     RemoveMetadata = removeMetadata,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
+                    AttachmentsToCopy = attachmentsToCopy,
                 };
             }
 
@@ -458,6 +470,7 @@ internal static class JobJsonParser
                     RemoveMetadata = removeMetadata,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
+                    AttachmentsToCopy = attachmentsToCopy,
                 };
             }
 
@@ -488,6 +501,7 @@ internal static class JobJsonParser
                     RemoveMetadata = removeMetadata,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
+                    AttachmentsToCopy = attachmentsToCopy,
             };
         }
     }
@@ -706,6 +720,71 @@ internal static class JobJsonParser
         }
 
         return removes;
+    }
+
+    private static List<AttachmentCopy> ParseCopyAttachmentsArray(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job copyAttachmentsFrom must be an array.", 0L, null);
+        }
+
+        if (value.GetArrayLength() == 0)
+        {
+            throw new QpdfParseException("Job copyAttachmentsFrom must not be empty.", 0L, null);
+        }
+
+        List<AttachmentCopy> copies = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new QpdfParseException("Job copyAttachmentsFrom entries must be objects.", 0L, null);
+            }
+
+            copies.Add(ParseCopyAttachmentsEntry(entry));
+        }
+
+        return copies;
+    }
+
+    private static AttachmentCopy ParseCopyAttachmentsEntry(JsonElement entry)
+    {
+        string? file = null;
+        string? prefix = null;
+        foreach (JsonProperty property in entry.EnumerateObject())
+        {
+            switch (property.Name)
+            {
+                case "file":
+                    if (file is not null)
+                    {
+                        throw new QpdfParseException("Duplicate copyAttachmentsFrom key.", 0L, null);
+                    }
+
+                    file = RequireString(property.Value, "copyAttachmentsFrom-file");
+                    break;
+                case "prefix":
+                    if (prefix is not null)
+                    {
+                        throw new QpdfParseException("Duplicate copyAttachmentsFrom key.", 0L, null);
+                    }
+
+                    prefix = RequireString(property.Value, "copyAttachmentsFrom-prefix");
+                    break;
+                case "password":
+                    throw new QpdfCryptoException("password");
+                default:
+                    throw new QpdfParseException("Unsupported copyAttachmentsFrom key.", 0L, null);
+            }
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            throw new QpdfParseException("Job copyAttachmentsFrom entries require a file.", 0L, null);
+        }
+
+        return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix);
     }
 
     private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)

@@ -47,6 +47,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public IReadOnlyList<string> AttachmentsToRemove { get; init; } = [];
 
+    public IReadOnlyList<AttachmentCopy> AttachmentsToCopy { get; init; } = [];
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);
@@ -54,7 +56,7 @@ internal abstract record JobPlan(QpdfPath Input)
 
     internal AttachmentEdits Edits()
     {
-        return new AttachmentEdits(AttachmentsToAdd, AttachmentsToRemove);
+        return new AttachmentEdits(AttachmentsToAdd, AttachmentsToRemove, AttachmentsToCopy);
     }
 }
 
@@ -129,14 +131,18 @@ internal sealed record AttachmentAdd(
     string? Description,
     bool Replace);
 
+/// <summary>One attachment source to copy: a document plus a key prefix.</summary>
+internal sealed record AttachmentCopy(string File, string? Prefix);
+
 /// <summary>Attachment edits applied to the output model.</summary>
 internal sealed record AttachmentEdits(
     IReadOnlyList<AttachmentAdd> Adds,
-    IReadOnlyList<string> Removes)
+    IReadOnlyList<string> Removes,
+    IReadOnlyList<AttachmentCopy> Copies)
 {
-    internal static AttachmentEdits Empty { get; } = new([], []);
+    internal static AttachmentEdits Empty { get; } = new([], [], []);
 
-    internal bool HasEdits => Adds.Count > 0 || Removes.Count > 0;
+    internal bool HasEdits => Adds.Count > 0 || Removes.Count > 0 || Copies.Count > 0;
 }
 
 /// <summary>Validated multi-source merge.</summary>

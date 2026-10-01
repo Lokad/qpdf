@@ -1342,14 +1342,19 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --copy-attachments-from; empty prefixes are ignored."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "AttachmentCopyTests.CopyPrefix",
+          "AttachmentCopyTests.CopySpacePrefixForm"
+        ],
+        "negative": [
+          "AttachmentCopyTests.CopyStrayPrefixFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1845,7 +1850,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); --copy-attachments-from stays unsupported."
+        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); copies apply after removals and additions (see --copy-attachments-from)."
       ],
       "evidence": {
         "positive": [
@@ -2129,15 +2134,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Copies apply after removals and additions with per-file grouped collision errors; nested password keys reject as crypto."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "AttachmentCopyTests.CopyBasic",
+          "AttachmentCopyTests.CopyPrefix"
+        ],
+        "negative": [
+          "AttachmentCopyTests.CopyCollisionFails",
+          "AttachmentCopyTests.CopyUnknownSourceFails",
+          "AttachmentCopyTests.CopyMalformedFails",
+          "AttachmentCopyTests.JobMalformedCopiesFail"
+        ],
+        "interaction": [
+          "AttachmentCopyTests.JobCopyRoundTrip",
+          "AttachmentCopyTests.CopyAddCollisionFails"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -4031,7 +4047,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); --copy-attachments-from stays unsupported."
+        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); copies apply after removals and additions (see --copy-attachments-from)."
       ],
       "evidence": {
         "positive": [

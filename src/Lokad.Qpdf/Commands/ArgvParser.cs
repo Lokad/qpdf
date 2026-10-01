@@ -157,6 +157,7 @@ internal static class ArgvParser
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
+                AttachmentsToCopy = edits.Copies,
             };
         }
 
@@ -172,6 +173,7 @@ internal static class ArgvParser
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
+                AttachmentsToCopy = edits.Copies,
             };
         }
 
@@ -200,6 +202,7 @@ internal static class ArgvParser
                 RemoveMetadata = globals.RemoveMetadata,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
+                AttachmentsToCopy = edits.Copies,
             };
         }
 
@@ -230,6 +233,7 @@ internal static class ArgvParser
             RemoveMetadata = globals.RemoveMetadata,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
+            AttachmentsToCopy = edits.Copies,
         };
     }
 
@@ -955,6 +959,7 @@ internal static class ArgvParser
     {
         List<AttachmentAdd> adds = new();
         List<string> removes = new();
+        List<AttachmentCopy> copies = new();
         while (cursor < argv.Count && argv[cursor] != "--")
         {
             string token = argv[cursor];
@@ -987,9 +992,15 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --remove-attachment requires =key.", cursor, null);
             }
 
-            if (token == "--copy-attachments-from" || token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal))
+            if (token == "--copy-attachments-from")
             {
-                throw new QpdfParseException("Option --copy-attachments-from is outside the narrow profile.", cursor, null);
+                copies.Add(ParseCopyBlock(argv, ref cursor));
+                continue;
+            }
+
+            if (token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --copy-attachments-from takes no value.", cursor, null);
             }
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
@@ -1001,7 +1012,60 @@ internal static class ArgvParser
             throw new QpdfParseException($"Unexpected argument '{token}' after the page selection.", cursor, null);
         }
 
-        return new AttachmentEdits(adds, removes);
+        return new AttachmentEdits(adds, removes, copies);
+    }
+
+    private static AttachmentCopy ParseCopyBlock(IReadOnlyList<string> argv, ref int cursor)
+    {
+        cursor += 1;
+        if (cursor >= argv.Count || argv[cursor] is null || argv[cursor] == "--" || (argv[cursor].StartsWith("--", StringComparison.Ordinal) && argv[cursor].Length > 2))
+        {
+            throw new QpdfParseException("Option --copy-attachments-from requires a file.", cursor, null);
+        }
+
+        string file = argv[cursor];
+        if (file.Length == 0)
+        {
+            throw new QpdfParseException("Option --copy-attachments-from requires a file.", cursor, null);
+        }
+
+        cursor += 1;
+        string? prefix = null;
+        while (cursor < argv.Count && argv[cursor] != "--")
+        {
+            string token = argv[cursor];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", cursor, null);
+            }
+
+            if (token == "--prefix" || token.StartsWith("--prefix=", StringComparison.Ordinal))
+            {
+                prefix = TakeParameter(argv, argv.Count, ref cursor, "--prefix");
+                continue;
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                string name = OptionName(token);
+                if (CryptoOptions.Contains(name))
+                {
+                    throw new QpdfCryptoException("--" + name);
+                }
+
+                throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", cursor, null);
+            }
+
+            throw new QpdfParseException($"Unexpected argument '{token}' inside --copy-attachments-from.", cursor, null);
+        }
+
+        if (cursor >= argv.Count)
+        {
+            throw new QpdfParseException("Missing -- terminator after --copy-attachments-from.", cursor, null);
+        }
+
+        cursor += 1;
+        return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix);
     }
 
     private static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor)
@@ -1087,7 +1151,8 @@ internal static class ArgvParser
                 }
 
                 if (name == "pages" || name == "check" || name == "add-attachment" || name == "copy-attachments-from"
-                    || name == "remove-attachment" || name == "list-attachments" || name.StartsWith("show-attachment", StringComparison.Ordinal))
+                    || name == "remove-attachment" || name == "list-attachments" || name == "prefix"
+                    || name.StartsWith("show-attachment", StringComparison.Ordinal))
                 {
                     throw new QpdfParseException($"Option '--{name}' cannot appear inside --add-attachment.", cursor, null);
                 }

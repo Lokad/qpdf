@@ -84,3 +84,96 @@ public sealed record QpdfAttachmentExtraction
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
 }
+
+/// <summary>An attachment to embed from a host file.</summary>
+public sealed record QpdfAttachmentSpec
+{
+    /// <summary>Creates an attachment specification.</summary>
+    /// <exception cref="ArgumentNullException">The file is null.</exception>
+    public QpdfAttachmentSpec(
+        string file,
+        string? key,
+        string? fileName,
+        string? description,
+        string? mimeType,
+        string? creationDate,
+        string? modDate,
+        bool replace)
+    {
+        File = file ?? throw new ArgumentNullException(nameof(file));
+        Key = key;
+        FileName = fileName;
+        Description = description;
+        MimeType = mimeType;
+        CreationDate = creationDate;
+        ModDate = modDate;
+        Replace = replace;
+    }
+
+    /// <summary>Gets the host file to embed.</summary>
+    public string File { get; }
+
+    /// <summary>Gets the attachment key, defaulting to the file basename.</summary>
+    public string? Key { get; }
+
+    /// <summary>Gets the displayed filename, defaulting to the file basename.</summary>
+    public string? FileName { get; }
+
+    /// <summary>Gets the description.</summary>
+    public string? Description { get; }
+
+    /// <summary>Gets the MIME type.</summary>
+    public string? MimeType { get; }
+
+    /// <summary>Gets the creation date in PDF timestamp syntax.</summary>
+    public string? CreationDate { get; }
+
+    /// <summary>Gets the modification date in PDF timestamp syntax.</summary>
+    public string? ModDate { get; }
+
+    /// <summary>Gets whether a same-key attachment is replaced.</summary>
+    public bool Replace { get; }
+}
+
+/// <summary>An attachment source to copy: a document plus a key prefix.</summary>
+public sealed record QpdfAttachmentCopy
+{
+    /// <summary>Creates an attachment copy source.</summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public QpdfAttachmentCopy(QpdfPath input, string? prefix)
+    {
+        Input = input;
+        Prefix = prefix;
+    }
+
+    /// <summary>Gets the source document path.</summary>
+    public QpdfPath Input { get; }
+
+    /// <summary>Gets the key prefix.</summary>
+    public string? Prefix { get; }
+}
+
+/// <summary>Outcome of an attachment edit.</summary>
+public sealed record QpdfAttachmentEditResult
+{
+    /// <summary>Creates an edit outcome.</summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public QpdfAttachmentEditResult(
+        int attachmentCount,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters)
+    {
+        AttachmentCount = attachmentCount;
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
+    }
+
+    /// <summary>Gets the final attachment count.</summary>
+    public int AttachmentCount { get; }
+
+    /// <summary>Gets the warnings recorded by the job.</summary>
+    public IReadOnlyList<QpdfDiagnostic> Warnings { get; }
+
+    /// <summary>Gets the final job counters.</summary>
+    public QpdfExecutionCounters Counters { get; }
+}

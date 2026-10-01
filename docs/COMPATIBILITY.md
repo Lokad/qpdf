@@ -507,8 +507,20 @@ additions into a rebuilt sorted tree; output uses `/PageMode
 /UseAttachments` on insertions. Intentional differences: unspecified dates
 are omitted rather than stamped (no ambient clock reads); keys and names
 encode as ASCII literals or UTF-16 hex; trees use flat leaves chunked past
-64 entries without balancing; `--copy-attachments-from` stays explicitly
-unsupported until copy support lands with the typed editing surface.
+64 entries without balancing.
+
+## Attachment copy and typed editing surface (work item 25b)
+
+Repeatable `--copy-attachments-from FILE [--prefix=] --` blocks copy
+entries from other files through the same engine after removals and
+additions: copied filespecs are rechained per source with dense numbering,
+prefixed keys colliding as a group per source file, and unknown sources
+failing without echoing key bytes. Nested `--password` (argv) and job
+`password` keys reject as crypto operations. The typed surface
+(`QpdfAttachmentSpec`, `QpdfAttachmentCopy`, `Add/Remove/CopyAttachmentsAsync`)
+shares the engine and reports the final attachment count without reopening
+the output. Intentional differences: no ambient clock reads; trees stay
+flat-chunked past 64 entries.
 
 ## Exclusions and differences
 

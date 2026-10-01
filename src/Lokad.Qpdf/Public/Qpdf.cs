@@ -147,8 +147,12 @@ public static class Qpdf
 
         HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine);
         Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
-        AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, new List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> { (copier.SourceToDestination, compressedOrig) }, governor);
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> singleSources = new(2)
+        {
+            (copier.SourceToDestination, compressedOrig),
+        };
+        AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, singleSources, recovery, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
         PdfVersion effective = negotiated;
         int extensionLevel = negotiatedExtension;
         if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
@@ -245,7 +249,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -311,7 +315,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -390,10 +394,10 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
     }
 
-    private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
+    private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> SelectPagesCoreAsync(
         IQpdfHost host,
         IReadOnlyList<PdfPageSource> sources,
         QpdfPath outputPath,
@@ -587,7 +591,13 @@ public static class Qpdf
             }
         }
 
-        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> multiSources = new(copiers.Count + 1);
+        for (int s = 0; s < copiers.Count; s++)
+        {
+            multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
+        }
+
+        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, multiSources, recovery, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
 
         List<(int Index, PdfDictionary Label)> labelItems = ResolveLabelItems(labels, kids.Count, governor);
         PdfVersion inputMax = version ?? new PdfVersion(1, 4);
@@ -596,12 +606,6 @@ public static class Qpdf
         if (forceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
         {
             multiStreamMode = "disable";
-        }
-
-        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> multiSources = new(copiers.Count);
-        for (int s = 0; s < copiers.Count; s++)
-        {
-            multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
         }
 
         HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, governor);
@@ -630,7 +634,7 @@ public static class Qpdf
 
             await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, target, limits, governor, cancellationToken).ConfigureAwait(false);
             outputPaths.Add(target);
-            return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot());
+            return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot()), multiAttached.FinalCount);
         }
 
         List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value);
@@ -734,7 +738,7 @@ public static class Qpdf
             outputPaths.Add(path);
         }
 
-        return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot());
+        return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot()), multiAttached.FinalCount);
     }
 
     private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
@@ -2043,7 +2047,7 @@ public static class Qpdf
         return (infoRef, metadataRef);
     }
 
-    private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, HashSet<int> ObjectIds);
+    private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, HashSet<int> ObjectIds, int FinalCount);
 
     private static string? ReadInputPageMode(DocumentEngine engine)
     {
@@ -2105,6 +2109,8 @@ public static class Qpdf
         string? inputPageMode,
         bool compress,
         int? level,
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> compressibleSources,
+        QpdfRecoveryMode recovery,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -2130,10 +2136,15 @@ public static class Qpdf
             throw new ArgumentNullException(nameof(edits));
         }
 
+        if (compressibleSources is null)
+        {
+            throw new ArgumentNullException(nameof(compressibleSources));
+        }
+
         HashSet<int> ids = new();
         if (!edits.HasEdits)
         {
-            return new AttachmentAssembly(null, null, ids);
+            return new AttachmentAssembly(null, null, ids, 0);
         }
 
         foreach (string key in edits.Removes)
@@ -2219,9 +2230,71 @@ public static class Qpdf
             throw new QpdfParseException("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key.", 0L, null);
         }
 
+        bool copiedAny = false;
+        List<string> copyConflicts = new();
+        foreach (AttachmentCopy copy in edits.Copies)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            await using QpdfDocument source = await QpdfDocument.OpenCore(host, SelectionPlan.CheckedPath(copy.File), limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(source.Engine, limits, governor, diagnostics, cancellationToken);
+            GraphCopier copyCopier = new(source.Engine, governor, limits, nextId);
+            foreach (EmbeddedAttachment attachment in found)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                string newKey = (copy.Prefix ?? string.Empty) + attachment.Key;
+                if (existing.ContainsKey(newKey))
+                {
+                    if (!copyConflicts.Contains(copy.File))
+                    {
+                        copyConflicts.Add(copy.File);
+                    }
+
+                    continue;
+                }
+
+                PdfReference? link;
+                try
+                {
+                    link = copyCopier.AddIndirectObject(attachment.Spec);
+                }
+                catch (QpdfException)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
+                    continue;
+                }
+
+                if (link is null)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
+                    continue;
+                }
+
+                existing[newKey] = link;
+                copiedAny = true;
+            }
+
+            nextId = copyCopier.NextId;
+            List<int> copiedIds = new(copyCopier.CopiedObjects.Keys);
+            copiedIds.Sort();
+            foreach (int id in copiedIds)
+            {
+                pool[id] = copyCopier.CopiedObjects[id];
+            }
+
+            compressibleSources.Add((copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine)));
+        }
+
+        if (copyConflicts.Count > 0)
+        {
+            string files = string.Join("', '", copyConflicts);
+            throw new QpdfParseException("Attachments copied from '" + files + "' conflict with existing keys; use --prefix to specify a key prefix.", 0L, null);
+        }
+
         if (existing.Count == 0)
         {
-            return new AttachmentAssembly(null, null, ids);
+            return new AttachmentAssembly(null, null, ids, 0);
         }
 
         List<KeyValuePair<string, PdfReference>> pairs = new(existing.Count);
@@ -2245,8 +2318,8 @@ public static class Qpdf
         governor.ReserveMemory(128L);
         pool[rootId] = wrapper;
         ids.Add(rootId);
-        string? pageMode = edits.Adds.Count > 0 ? inputPageMode ?? "UseAttachments" : inputPageMode;
-        return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, ids);
+        string? pageMode = edits.Adds.Count > 0 || copiedAny ? inputPageMode ?? "UseAttachments" : inputPageMode;
+        return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, ids, existing.Count);
     }
 
     private static bool IsAscii(string text)
@@ -2295,7 +2368,7 @@ public static class Qpdf
         }
     }
 
-    private static async ValueTask<PdfMultiPageSelectionResult> WholeFileCoreAsync(
+    private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> WholeFileCoreAsync(
         IQpdfHost host,
         WholeFilePlan plan,
         QpdfLimits limits,
@@ -2520,6 +2593,223 @@ public static class Qpdf
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         return await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Embeds host files into a document with default budgets.
+    /// </summary>
+    public static ValueTask<QpdfAttachmentEditResult> AddAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        IReadOnlyList<QpdfAttachmentSpec> attachments,
+        CancellationToken cancellationToken)
+    {
+        return AddAttachmentsAsync(host, inputPath, outputPath, attachments, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Embeds host files into a document with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">No attachment, an empty file, or an empty key or filename was supplied.</exception>
+    public static ValueTask<QpdfAttachmentEditResult> AddAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        IReadOnlyList<QpdfAttachmentSpec> attachments,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        return EditAttachmentsAsync(host, inputPath, outputPath, ToAttachmentAdds(attachments, nameof(attachments)), [], [], limits, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes embedded files by key with default budgets.
+    /// </summary>
+    public static ValueTask<QpdfAttachmentEditResult> RemoveAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        IReadOnlyList<string> keys,
+        CancellationToken cancellationToken)
+    {
+        return RemoveAttachmentsAsync(host, inputPath, outputPath, keys, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes embedded files by key with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">No key, or an empty key, was supplied.</exception>
+    public static ValueTask<QpdfAttachmentEditResult> RemoveAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        IReadOnlyList<string> keys,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (keys is null)
+        {
+            throw new ArgumentNullException(nameof(keys));
+        }
+
+        if (keys.Count == 0)
+        {
+            throw new ArgumentException("At least one attachment key is required.", nameof(keys));
+        }
+
+        List<string> removes = new(keys.Count);
+        foreach (string key in keys)
+        {
+            if (key is null)
+            {
+                throw new ArgumentException("Attachment keys must not contain null entries.", nameof(keys));
+            }
+
+            if (key.Length == 0)
+            {
+                throw new ArgumentException("Attachment keys must not be empty.", nameof(keys));
+            }
+
+            removes.Add(key);
+        }
+
+        return EditAttachmentsAsync(host, inputPath, outputPath, [], removes, [], limits, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies embedded files from other documents with default budgets.
+    /// </summary>
+    public static ValueTask<QpdfAttachmentEditResult> CopyAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        IReadOnlyList<QpdfAttachmentCopy> sources,
+        CancellationToken cancellationToken)
+    {
+        return CopyAttachmentsAsync(host, inputPath, outputPath, sources, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies embedded files from other documents with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">No source was supplied.</exception>
+    public static ValueTask<QpdfAttachmentEditResult> CopyAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        IReadOnlyList<QpdfAttachmentCopy> sources,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (sources is null)
+        {
+            throw new ArgumentNullException(nameof(sources));
+        }
+
+        if (sources.Count == 0)
+        {
+            throw new ArgumentException("At least one attachment source is required.", nameof(sources));
+        }
+
+        List<AttachmentCopy> copies = new(sources.Count);
+        foreach (QpdfAttachmentCopy source in sources)
+        {
+            if (source is null)
+            {
+                throw new ArgumentException("Attachment sources must not contain null entries.", nameof(sources));
+            }
+
+            copies.Add(new AttachmentCopy(source.Input.Value, source.Prefix));
+        }
+
+        return EditAttachmentsAsync(host, inputPath, outputPath, [], [], copies, limits, cancellationToken);
+    }
+
+    private static List<AttachmentAdd> ToAttachmentAdds(IReadOnlyList<QpdfAttachmentSpec> attachments, string name)
+    {
+        if (attachments is null)
+        {
+            throw new ArgumentNullException(name);
+        }
+
+        if (attachments.Count == 0)
+        {
+            throw new ArgumentException("At least one attachment is required.", name);
+        }
+
+        List<AttachmentAdd> adds = new(attachments.Count);
+        foreach (QpdfAttachmentSpec spec in attachments)
+        {
+            if (spec is null)
+            {
+                throw new ArgumentException("Attachments must not contain null entries.", name);
+            }
+
+            if (spec.File.Length == 0)
+            {
+                throw new ArgumentException("Attachment files must not be empty.", name);
+            }
+
+            if (spec.Key is not null && spec.Key.Length == 0)
+            {
+                throw new ArgumentException("Attachment keys must not be empty.", name);
+            }
+
+            if (spec.FileName is not null && spec.FileName.Length == 0)
+            {
+                throw new ArgumentException("Attachment filenames must not be empty.", name);
+            }
+
+            adds.Add(new AttachmentAdd(
+                spec.File,
+                spec.Key,
+                spec.FileName,
+                spec.CreationDate is null || spec.CreationDate.Length == 0 ? null : spec.CreationDate,
+                spec.ModDate is null || spec.ModDate.Length == 0 ? null : spec.ModDate,
+                spec.MimeType is null || spec.MimeType.Length == 0 ? null : spec.MimeType,
+                spec.Description is null || spec.Description.Length == 0 ? null : spec.Description,
+                spec.Replace));
+        }
+
+        return adds;
+    }
+
+    private static async ValueTask<QpdfAttachmentEditResult> EditAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        List<AttachmentAdd> adds,
+        List<string> removes,
+        List<AttachmentCopy> copies,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        WholeFilePlan plan = new(inputPath, outputPath, QpdfRecoveryMode.Strict)
+        {
+            AttachmentsToAdd = adds,
+            AttachmentsToRemove = removes,
+            AttachmentsToCopy = copies,
+        };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        (PdfMultiPageSelectionResult result, int attachmentCount) = await WholeFileCoreAsync(
+            host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return new QpdfAttachmentEditResult(attachmentCount, result.Warnings, result.Counters);
     }
 
     private static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentCoreAsync(
@@ -3081,7 +3371,7 @@ public static class Qpdf
         {
             try
             {
-                PdfMultiPageSelectionResult result = await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                PdfMultiPageSelectionResult result = (await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
                 return CompleteWithPresentation(result.Warnings, result.Counters, plan);
             }
             catch (QpdfException ex)
@@ -3113,7 +3403,7 @@ public static class Qpdf
                         resolved.Add(new PdfPageSource(path, source.Selection));
                     }
 
-                    PdfMultiPageSelectionResult merged = await SelectPagesCoreAsync(
+                    PdfMultiPageSelectionResult merged = (await SelectPagesCoreAsync(
                         host,
                         resolved,
                         merge.Output,
@@ -3138,7 +3428,7 @@ public static class Qpdf
                         merge.Edits(),
                         governor,
                         diagnostics,
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
                 }
                 catch (QpdfException ex)
@@ -3167,7 +3457,7 @@ public static class Qpdf
                         new PdfPageSource(selection.Input, new PdfPageSelectionOptions(selection.Page)),
                     };
                     QpdfPath target = selection.ReplaceInput ? selection.Input : selection.Output;
-                    PdfMultiPageSelectionResult merged = await SelectPagesCoreAsync(
+                    PdfMultiPageSelectionResult merged = (await SelectPagesCoreAsync(
                         host,
                         solo,
                         target,
@@ -3192,7 +3482,7 @@ public static class Qpdf
                         selection.Edits(),
                         governor,
                         diagnostics,
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
                 }
                 catch (QpdfException ex)
