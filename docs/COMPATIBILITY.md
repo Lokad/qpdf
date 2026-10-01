@@ -229,6 +229,17 @@ hierarchy is not reconstructed. Only the four inheritable attributes materialize
 with explicit null treated as absent (ancestor fallback, else `/MediaBox` failure);
 page-only boxes such as `/BleedBox` and `/UserUnit` never inherit.
 
+## Selector audit (work item 15)
+
+Indirect `/Filter` and `/DecodeParms` resolve through the document engine,
+including indirect predictor integers and `/EarlyChange`; unresolvable or
+mistyped indirect specs fail explicitly. Cross-reference stream filter specs
+stay direct-only. Empty documents resolve `FirstAndLast` to an empty selection
+with a zero-page rewrite; cyclic resource graphs terminate through memoized
+copies; escaped names and strings round-trip value-faithfully with canonical
+re-escapes. The clean package consumer validates single- and multi-page typed,
+argv, and job paths with source-mapping checks.
+
 ## Single-page selection (work item 06a)
 
 Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the
@@ -239,8 +250,9 @@ materialized from ancestry (missing `/MediaBox` fails). Streams travel
 opaque with recomputed `/Length`; output carries a fresh catalog, no `/ID`,
 and generation 0 throughout. Every serialization runs a counting pass and
 an emitting pass whose lengths must agree (the M1 replay canary); repeated
-runs are byte-identical. References to page-tree nodes or foreign pages fail
-explicitly: annotations, forms, and multi-page surgery stay open for M3/M5.
+runs are byte-identical. Page-tree references fail explicitly; page references across
+pages follow the item-13 multi-page and item-14 prune policies above: annotations,
+forms, and multi-page surgery stay open for M3/M5.
 
 ## Command adapters (work item 06b)
 

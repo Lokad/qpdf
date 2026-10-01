@@ -1,10 +1,11 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Filters;
 
-/// <summary>A resolved filter stage: canonical name plus its parms, if any.</summary>
-internal sealed record FilterStage(string Name, PdfDictionary? Parms);
+/// <summary>A resolved filter stage: canonical name, its parms, and the resolver for indirect specs.</summary>
+internal sealed record FilterStage(string Name, PdfDictionary? Parms, IIndirectResolver? Resolver);
 
 /// <summary>
 /// Resolves `/Filter` and `/DecodeParms` into an ordered stage list and
@@ -16,17 +17,22 @@ internal static class FilterChain
 {
     internal static IReadOnlyList<FilterStage> Resolve(PdfDictionary streamDict)
     {
+        return Resolve(streamDict, null);
+    }
+
+    internal static IReadOnlyList<FilterStage> Resolve(PdfDictionary streamDict, IIndirectResolver? resolver)
+    {
         if (streamDict is null)
         {
             throw new ArgumentNullException(nameof(streamDict));
         }
 
-        List<string> filters = ReadFilters(streamDict);
-        List<PdfDictionary?> parms = ReadParms(streamDict, filters.Count);
+        List<string> filters = ReadFilters(streamDict, resolver);
+        List<PdfDictionary?> parms = ReadParms(streamDict, filters.Count, resolver);
         List<FilterStage> stages = new(filters.Count);
         for (int i = 0; i < filters.Count; i++)
         {
-            stages.Add(new FilterStage(filters[i], parms[i]));
+            stages.Add(new FilterStage(filters[i], parms[i], resolver));
         }
 
         return stages;
@@ -80,14 +86,14 @@ internal static class FilterChain
     {
         if (stage.Name == FlateFilter.FilterName)
         {
-            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, FlateFilter.FilterName);
+            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, FlateFilter.FilterName, stage.Resolver);
             return DecodeChecked(FlateFilter.Decode(input, parms, limits, governor), limits, governor);
         }
 
         if (stage.Name == LzwFilter.FilterName)
         {
-            bool earlyChange = ReadEarlyChange(stage.Parms);
-            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, LzwFilter.FilterName);
+            bool earlyChange = ReadEarlyChange(stage.Parms, stage.Resolver);
+            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, LzwFilter.FilterName, stage.Resolver);
             byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor);
             if (parms is not null && parms.Predictor != 1)
             {
@@ -122,7 +128,7 @@ internal static class FilterChain
         return decoded;
     }
 
-    private static bool ReadEarlyChange(PdfDictionary? parms)
+    private static bool ReadEarlyChange(PdfDictionary? parms, IIndirectResolver? resolver)
     {
         if (parms is null)
         {
@@ -131,6 +137,12 @@ internal static class FilterChain
 
         PdfName key = PdfName.FromAscii("EarlyChange");
         if (!parms.TryGet(key, out QpdfObject raw) || raw is PdfNull)
+        {
+            return true;
+        }
+
+        raw = Deref(raw, resolver, "/EarlyChange");
+        if (raw is PdfNull)
         {
             return true;
         }
@@ -151,10 +163,36 @@ internal static class FilterChain
         }
     }
 
-    private static List<string> ReadFilters(PdfDictionary streamDict)
+    private static QpdfObject Deref(QpdfObject raw, IIndirectResolver? resolver, string role)
+    {
+        if (raw is not PdfReference reference)
+        {
+            return raw;
+        }
+
+        if (resolver is null)
+        {
+            throw new QpdfParseException($"Indirect stream {role} needs an object resolver.", null, null);
+        }
+
+        if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
+        {
+            throw new QpdfParseException($"Unresolvable indirect stream {role}.", null, reference.ObjectNumber);
+        }
+
+        return resolved;
+    }
+
+    private static List<string> ReadFilters(PdfDictionary streamDict, IIndirectResolver? resolver)
     {
         PdfName filterKey = PdfName.FromAscii("Filter");
         if (!streamDict.TryGet(filterKey, out QpdfObject raw) || raw is PdfNull)
+        {
+            return new List<string>();
+        }
+
+        raw = Deref(raw, resolver, "/Filter");
+        if (raw is PdfNull)
         {
             return new List<string>();
         }
@@ -170,7 +208,8 @@ internal static class FilterChain
         {
             for (int i = 0; i < array.Count; i++)
             {
-                if (array[i] is not PdfName name)
+                QpdfObject entry = Deref(array[i], resolver, "/Filter");
+                if (entry is not PdfName name)
                 {
                     throw new QpdfParseException("Stream /Filter array entries must be names.", null, null);
                 }
@@ -183,8 +222,7 @@ internal static class FilterChain
 
         throw new QpdfParseException("Stream /Filter must be a name or an array of names.", null, null);
     }
-
-    private static List<PdfDictionary?> ReadParms(PdfDictionary streamDict, int filterCount)
+    private static List<PdfDictionary?> ReadParms(PdfDictionary streamDict, int filterCount, IIndirectResolver? resolver)
     {
         List<PdfDictionary?> parms = new();
         for (int i = 0; i < filterCount; i++)
@@ -194,6 +232,12 @@ internal static class FilterChain
 
         PdfName parmsKey = PdfName.FromAscii("DecodeParms");
         if (!streamDict.TryGet(parmsKey, out QpdfObject raw) || raw is PdfNull)
+        {
+            return parms;
+        }
+
+        raw = Deref(raw, resolver, "/DecodeParms");
+        if (raw is PdfNull)
         {
             return parms;
         }
@@ -217,11 +261,12 @@ internal static class FilterChain
 
             for (int i = 0; i < array.Count; i++)
             {
-                if (array[i] is PdfNull)
+                QpdfObject entry = Deref(array[i], resolver, "/DecodeParms");
+                if (entry is PdfNull)
                 {
                     parms[i] = null;
                 }
-                else if (array[i] is PdfDictionary dictionary)
+                else if (entry is PdfDictionary dictionary)
                 {
                     parms[i] = dictionary;
                 }

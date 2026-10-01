@@ -23,19 +23,22 @@ echoing values.
 
 ## Input profile
 
-- Chained cross references: classic tables and Flate-compressed
-  xref streams with exact entry sizing and coverage; object streams
-  decode once with validated headers and extents. No `/Prev` chains,
-  `/Extends` links, recovery, or object-stream preservation in output.
+- Chained cross references: classic tables and Flate- or LZW-compressed
+  xref streams with exact entry sizing and coverage; `/Prev` chains and hybrid
+  `/XRefStm` links merge latest-wins with cycle and revision budgets. Object streams
+  decode once with validated headers and extents. No `/Extends` links, recovery,
+  or object-stream preservation in output.
 - `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0 with catalog `/Version` override.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
   structurally, including empty-password forms.
 - Strict parsing: damaged inputs fail as parse errors. There is no recovery.
   Malformed, mistyped, unresolvable, or unsupported catalog `/Version` fails;
   null or absent `/Version` keeps the header.
-- Streams travel opaquely and are never decoded: direct and indirect
+- Page streams travel opaquely and are never decoded: direct and indirect
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
-  copying a page needs no image support.
+  copying a page needs no image support. Structural streams decode through Flate,
+  LZW, ASCIIHex, ASCII85, and RunLength (direct or indirect filter specs), with
+  shared predictors; anything else fails explicitly as unsupported.
 - One input file per job through host-mediated ranged reads.
 
 ## Selection semantics

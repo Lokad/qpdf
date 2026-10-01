@@ -29,6 +29,11 @@ public sealed class PageSelectionTests
 
     private static byte[] BuildNPages(int count)
     {
+        return BuildNPages(count, string.Empty);
+    }
+
+    private static byte[] BuildNPages(int count, string fontExtra)
+    {
         int fontNumber = 3 + (count * 2);
         List<string> bodies = new()
         {
@@ -48,7 +53,7 @@ public sealed class PageSelectionTests
         }
 
         bodies.AddRange(streams.Select(data => "<< /Length " + data.Length.ToString() + " >>"));
-        bodies.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+        bodies.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica" + fontExtra + " >>");
 
         List<byte[]> parts = new();
         byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
@@ -283,4 +288,119 @@ public sealed class PageSelectionTests
         PdfPageSelectionOptions options = PdfPageSelectionOptions.Normalized([3, 1, 2, 1]);
         Assert.Equal([1, 2, 3], options.Pages);
     }
-}
+
+    [Fact]
+    public async Task EmptyDocumentFirstAndLastYieldsEmpty()
+    {
+        byte[] bytes = BuildNPages(0);
+        InMemoryQpdfHost host = HostWith("inputs/empty.pdf", bytes);
+        await using QpdfDocument source = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/empty.pdf"), CancellationToken.None);
+        Assert.Equal(0, source.PageCount);
+        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(
+            host, QpdfPath.From("inputs/empty.pdf"), QpdfPath.From("outputs/empty.pdf"),
+            PdfPageSelectionOptions.FirstAndLast(2), CancellationToken.None);
+        Assert.Equal(0, result.SourcePageCount);
+        Assert.Empty(result.SourcePages);
+        Assert.Equal(0, result.PageCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/empty.pdf"), out byte[] published));
+        host.AddInput(QpdfPath.From("inputs/reread.pdf"), published, QpdfInputOwnership.Copy);
+        await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        Assert.Equal(0, output.PageCount);
+    }
+
+    [Fact]
+    public async Task SharedResourcesCopiedOnceAcrossDuplicates()
+    {
+        (InMemoryQpdfHost host, byte[] _) = await LoadFixture("minimal-2page.pdf");
+        await Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/minimal-2page.pdf"),
+            QpdfPath.From("outputs/dup.pdf"),
+            PdfPageSelectionOptions.FromPages([1, 1]),
+            CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/dup.pdf"), out byte[] published));
+        host.AddInput(QpdfPath.From("inputs/reread.pdf"), published, QpdfInputOwnership.Copy);
+        await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        Assert.Equal(2, output.PageCount);
+        int firstFont = FontObject(output, 0);
+        int secondFont = FontObject(output, 1);
+        Assert.Equal(firstFont, secondFont);
+    }
+
+    [Fact]
+    public async Task EscapedNamesAndStringsPreserved()
+    {
+        byte[] bytes = BuildNPages(1, " /BaseFontX /Helv#E9tica /FontName (A\\(B)");
+        InMemoryQpdfHost host = HostWith("inputs/esc.pdf", bytes);
+        await Qpdf.SelectPageAsync(
+            host, QpdfPath.From("inputs/esc.pdf"), QpdfPath.From("outputs/esc.pdf"),
+            PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/esc.pdf"), out byte[] published));
+        bool hasEscape = false;
+        byte[] marker = Encoding.ASCII.GetBytes("#E9");
+        for (int i = 0; i + marker.Length <= published.Length; i++)
+        {
+            bool match = true;
+            for (int j = 0; j < marker.Length; j++)
+            {
+                if (published[i + j] != marker[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match)
+            {
+                hasEscape = true;
+                break;
+            }
+        }
+
+        Assert.True(hasEscape);
+        host.AddInput(QpdfPath.From("inputs/reread.pdf"), published, QpdfInputOwnership.Copy);
+        await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        PdfDictionary font = FindFont(output, 0);
+        Assert.True(font.TryGet(PdfName.FromAscii("BaseFontX"), out QpdfObject nameRaw));
+        Assert.Equal([0x48, 0x65, 0x6C, 0x76, 0xE9, 0x74, 0x69, 0x63, 0x61], Assert.IsType<PdfName>(nameRaw).RawBytes);
+        Assert.True(font.TryGet(PdfName.FromAscii("FontName"), out QpdfObject textRaw));
+        Assert.Equal([0x41, 0x28, 0x42], Assert.IsType<PdfByteString>(textRaw).Value);
+    }
+
+    [Fact]
+    public async Task CyclicResourcesTerminate()
+    {
+        byte[] bytes = BuildNPages(1, " /Self 5 0 R");
+        InMemoryQpdfHost host = HostWith("inputs/cyclic.pdf", bytes);
+        await Qpdf.SelectPageAsync(
+            host, QpdfPath.From("inputs/cyclic.pdf"), QpdfPath.From("outputs/cyclic.pdf"),
+            PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/cyclic.pdf"), out byte[] published));
+        host.AddInput(QpdfPath.From("inputs/reread.pdf"), published, QpdfInputOwnership.Copy);
+        await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        Assert.Equal(1, output.PageCount);
+    }
+
+    private static int FontObject(QpdfDocument document, int index)
+    {
+        PdfDictionary page = document.PageReferences[index].Page;
+        Assert.True(page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject resourcesRaw));
+        PdfDictionary resources = Assert.IsType<PdfDictionary>(resourcesRaw);
+        Assert.True(resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject fontRaw));
+        PdfDictionary fonts = Assert.IsType<PdfDictionary>(fontRaw);
+        Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out QpdfObject f1Raw));
+        PdfReference reference = Assert.IsType<PdfReference>(f1Raw);
+        return reference.ObjectNumber;
+    }
+
+    private static PdfDictionary FindFont(QpdfDocument document, int index)
+    {
+        PdfDictionary page = document.PageReferences[index].Page;
+        Assert.True(page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject resourcesRaw));
+        PdfDictionary resources = Assert.IsType<PdfDictionary>(resourcesRaw);
+        Assert.True(resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject fontRaw));
+        PdfDictionary fonts = Assert.IsType<PdfDictionary>(fontRaw);
+        Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out QpdfObject f1Raw));
+        PdfReference reference = Assert.IsType<PdfReference>(f1Raw);
+        return Assert.IsType<PdfDictionary>(document.GetObject(reference.ObjectNumber));
+    }}

@@ -37,6 +37,18 @@ internal static class Program
         await CheckOutputAsync(typedHost, "outputs/typed.pdf", "Second");
         Console.WriteLine("PASS typed selection (page 2, opaque streams)");
 
+        InMemoryQpdfHost multiHost = NewHost("inputs/in.pdf", input);
+        PdfPageSelectionResult multi = await Qpdf.SelectPageAsync(
+            multiHost,
+            QpdfPath.From("inputs/in.pdf"),
+            QpdfPath.From("outputs/multi.pdf"),
+            PdfPageSelectionOptions.FromPages([2, 1, 2]),
+            CancellationToken.None);
+        Check(multi.PageCount == 3 && multi.SourcePageCount == 2, "multi selection counts");
+        Check(multi.SourcePages.Count == 3 && multi.SourcePages[0] == 2 && multi.SourcePages[1] == 1 && multi.SourcePages[2] == 2, "multi source mapping");
+        await CheckMultiOutputAsync(multiHost, "outputs/multi.pdf", ["Second", "First", "Second"]);
+        Console.WriteLine("PASS typed multi-page selection with source mapping");
+
         InMemoryQpdfHost argvHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             argvHost,
@@ -109,7 +121,55 @@ internal static class Program
             }
         }
 
-        Check(found, "output stream marker " + marker);
+    }
+
+
+    private static async Task CheckMultiOutputAsync(InMemoryQpdfHost host, string output, string[] markers)
+    {
+        QpdfPath reread = QpdfPath.From("inputs/reread-multi.pdf");
+        host.AddInput(reread, Published(host, output), QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
+        Check(document.PageCount == markers.Length, "multi output page count");
+        List<string> ordered = new();
+        for (int number = 1; number <= 64; number++)
+        {
+            QpdfObject candidate;
+            try
+            {
+                candidate = document.GetObject(number);
+            }
+            catch (QpdfParseException)
+            {
+                continue;
+            }
+
+            if (candidate is not PdfDictionary page)
+            {
+                continue;
+            }
+
+            if (!page.TryGet(new PdfName(Encoding.ASCII.GetBytes("Type")), out QpdfObject typeRaw)
+                || typeRaw is not PdfName typeName
+                || typeName.DisplayText != "Page")
+            {
+                continue;
+            }
+
+            if (!page.TryGet(new PdfName(Encoding.ASCII.GetBytes("Contents")), out QpdfObject contentsRaw)
+                || contentsRaw is not PdfReference contentsRef
+                || document.GetObject(contentsRef.ObjectNumber) is not PdfStream contents)
+            {
+                throw new InvalidOperationException("Multi output page has no contents stream.");
+            }
+
+            ordered.Add(Encoding.ASCII.GetString(contents.Data));
+        }
+
+        Check(ordered.Count == markers.Length, "multi output page count");
+        for (int i = 0; i < markers.Length; i++)
+        {
+            Check(ordered[i].Contains(markers[i], StringComparison.Ordinal), "multi output marker " + i.ToString());
+        }
     }
 
     private static void Check(bool condition, string what)

@@ -273,7 +273,7 @@ internal sealed class DocumentEngine : IIndirectResolver
         IReadOnlyList<FilterStage> stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary);
+            stages = FilterChain.Resolve(stream.Dictionary, this);
         }
         catch (QpdfParseException ex)
         {

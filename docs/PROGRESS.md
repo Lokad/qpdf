@@ -2,21 +2,20 @@
 
 ## Current checkpoint
 
-Work item 14: catalog, inheritance, and widget policy. Preview output keeps a fresh
-catalog (`/Type`+`/Pages` only); page-tree/catalog refs fail, copied refs remap, and
-other page refs prune to null so omitted pages never resurrect. Widget annots keep
-appearances without field reconstruction. Null attributes count as absent; page-only
-boxes never inherit.
-Oversized selections fail on work budgets; out-of-range pages fail explicitly.
+Work item 15: selector audit and M3 close-out. Indirect `/Filter`/`/DecodeParms`
+(plus predictor integers and `/EarlyChange`) resolve via the document engine;
+xref-stream specs stay direct-only. Empty-document `FirstAndLast` yields an empty
+rewrite, cyclic resources terminate, and escaped names/strings round-trip. The
+consumer validates multi-page mapping; the supported profile records the M3 subset.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 294 tests (286
-  prior plus 8 policy cases: omitted-dest prune, backward remap, catalog-drop,
-  page-only-box guard, null/missing MediaBox handling, and widget appearance).
-- Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
+- Locked restore, Release build with zero warnings, and all 307 tests (294
+  prior plus 13 audit cases: indirect filter/parms/predictor/EarlyChange specs
+  with an object-stream end-to-end, empty-document selection, shared-once
+  resources, escaped name/string fidelity, and cyclic-resource termination).
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
 - Real qpdf 12.4.2 executable smoke has still not run; no exe checksum or
@@ -27,7 +26,7 @@ binary.
 
 ## Next work
 
-1. Work item 15: selector regression families, package/API validation, subset record.
+1. Work item 16: inspection breadth and partial-check orchestration (M4).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

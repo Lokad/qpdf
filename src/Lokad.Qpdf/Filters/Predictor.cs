@@ -1,12 +1,13 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>Predictor parameters resolved from a DecodeParms dictionary.</summary>
 internal sealed record PredictorParameters(int Predictor, int Columns, int Colors, int BitsPerComponent)
 {
-    internal static PredictorParameters? FromDictionary(PdfDictionary? parms, string filterName)
+    internal static PredictorParameters? FromDictionary(PdfDictionary? parms, string filterName, IIndirectResolver? resolver)
     {
         if (parms is null)
         {
@@ -25,7 +26,13 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
                 continue;
             }
 
-            if (!parms.TryGet(key, out QpdfObject raw) || raw is not PdfInteger integer)
+            if (!parms.TryGet(key, out QpdfObject raw))
+            {
+                throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");
+            }
+
+            raw = DerefValue(raw, resolver, filterName, name);
+            if (raw is not PdfInteger integer)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");
             }
@@ -70,6 +77,26 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
         }
 
         return new PredictorParameters(predictor, columns, colors, bitsPerComponent);
+    }
+
+    private static QpdfObject DerefValue(QpdfObject raw, IIndirectResolver? resolver, string filterName, string role)
+    {
+        if (raw is not PdfReference reference)
+        {
+            return raw;
+        }
+
+        if (resolver is null)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Indirect DecodeParms /{role} needs an object resolver.");
+        }
+
+        if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Unresolvable indirect DecodeParms /{role}.");
+        }
+
+        return resolved;
     }
 
     private static int CheckRange(long value, string filterName, string role)
