@@ -47,6 +47,7 @@ echoing values.
   copying a page needs no image support. Structural streams decode through Flate,
   LZW, ASCIIHex, ASCII85, and RunLength (direct or indirect filter specs), with
   shared predictors, plus DCTDecode at `--decode-level=all` for 1- and 3-component JPEGs (four-component stays opaque); anything else fails explicitly as unsupported.
+- --optimize-images recompresses eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller, with --jpeg-quality remapping 0 to 1; already-DCT images recompress only under an explicit quality, and every skip is silent.
 - One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics

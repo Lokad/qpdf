@@ -1,0 +1,460 @@
+using System.IO.Compression;
+using System.Text;
+using Lokad.Qpdf.Filters;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.PixelFormats;
+
+namespace Lokad.Qpdf.Tests.Content;
+
+public sealed class ImageOptimizeTests
+{
+    private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
+        return host;
+    }
+
+    private static byte[] NoiseRgb(int width, int height)
+    {
+        Random random = new(42);
+        byte[] raw = new byte[checked(width * height * 3)];
+        random.NextBytes(raw);
+        return raw;
+    }
+
+    private static byte[] NoiseGray(int width, int height)
+    {
+        Random random = new(7);
+        byte[] raw = new byte[checked(width * height)];
+        random.NextBytes(raw);
+        return raw;
+    }
+
+    private static byte[] ZLibCompress(byte[] input)
+    {
+        using MemoryStream output = new();
+        using (ZLibStream compressor = new(output, CompressionLevel.Optimal))
+        {
+            compressor.Write(input, 0, input.Length);
+        }
+
+        return output.ToArray();
+    }
+
+    private static byte[] EncodePhotoJpeg(int width, int height)
+    {
+        using Image<Rgb24> image = new(width, height);
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                image[x, y] = new Rgb24((byte)((x * 2 + y) & 0xFF), (byte)((x + y * 3) & 0xFF), (byte)((x * y) & 0xFF));
+            }
+        }
+
+        using MemoryStream buffer = new();
+        image.Save(buffer, new JpegEncoder { Quality = 75 });
+        return buffer.ToArray();
+    }
+
+    private static byte[] BuildImagePage(int width, int height, string colorspace, int bits, string filter, byte[] data)
+    {
+        byte[] content = Encoding.ASCII.GetBytes("q " + width.ToString() + " 0 0 " + height.ToString() + " 0 0 cm /Im0 Do Q");
+        List<string> bodies = new()
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>",
+            "<< /Length " + content.Length.ToString() + " >>",
+            "<< /Type /XObject /Subtype /Image /Width " + width.ToString() + " /Height " + height.ToString() + " /ColorSpace /" + colorspace + " /BitsPerComponent " + bits.ToString() + " /Length " + data.Length.ToString() + filter + " >>",
+        };
+        List<byte[]> payloads = new()
+        {
+            content,
+            data,
+        };
+        List<byte[]> parts = new();
+        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
+        parts.Add(header);
+        List<long> offsets = new();
+        long position = header.Length;
+        for (int i = 0; i < bodies.Count; i++)
+        {
+            int number = i + 1;
+            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
+            if (number == 4 || number == 5)
+            {
+                byte[] streamData = number == 4 ? payloads[0] : payloads[1];
+                byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
+                byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
+                offsets.Add(position);
+                position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
+                byte[] payload = new byte[open.Length + streamOpen.Length + streamData.Length + streamClose.Length];
+                int at = 0;
+                Buffer.BlockCopy(open, 0, payload, at, open.Length);
+                at += open.Length;
+                Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
+                at += streamOpen.Length;
+                Buffer.BlockCopy(streamData, 0, payload, at, streamData.Length);
+                at += streamData.Length;
+                Buffer.BlockCopy(streamClose, 0, payload, at, streamClose.Length);
+                parts.Add(payload);
+                continue;
+            }
+
+            byte[] close = Encoding.ASCII.GetBytes("endobj\n");
+            offsets.Add(position);
+            position += open.Length + close.Length;
+            byte[] plain = new byte[open.Length + close.Length];
+            Buffer.BlockCopy(open, 0, plain, 0, open.Length);
+            Buffer.BlockCopy(close, 0, plain, open.Length, close.Length);
+            parts.Add(plain);
+        }
+
+        int size = bodies.Count + 1;
+        StringBuilder xref = new();
+        xref.Append("xref\n0 " + size.ToString() + "\n");
+        xref.Append("0000000000 65535 f \n");
+        foreach (long offset in offsets)
+        {
+            xref.Append(offset.ToString("D10") + " 00000 n \n");
+        }
+
+        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
+        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
+        byte[] tail = Encoding.ASCII.GetBytes(xref.ToString());
+        parts.Add(tail);
+        int total = 0;
+        foreach (byte[] part in parts)
+        {
+            total += part.Length;
+        }
+
+        byte[] output = new byte[total];
+        int cursor = 0;
+        foreach (byte[] part in parts)
+        {
+            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+            cursor += part.Length;
+        }
+
+        return output;
+    }
+
+    private static async Task<PdfStream> OutputImageAsync(InMemoryQpdfHost host, byte[] pdf)
+    {
+        QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
+        host.AddInput(reread, pdf, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
+        for (int number = 1; number <= 40; number++)
+        {
+            try
+            {
+                if (document.GetObject(number) is PdfStream stream
+                    && stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype)
+                    && subtype is PdfName name && name.DisplayText == "Image")
+                {
+                    return stream;
+                }
+            }
+            catch (QpdfParseException)
+            {
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException("No image XObject found in output.");
+    }
+
+    private static string FilterOf(PdfStream stream)
+    {
+        if (stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw) && raw is PdfName name)
+        {
+            return name.DisplayText;
+        }
+
+        return string.Empty;
+    }
+
+    [Fact]
+    public async Task NoisyPhotoOptimizesToSmallerDct()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] flated = ZLibCompress(raw);
+        byte[] input = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.True(image.Data.Length < flated.Length);
+        Assert.True(DctFilter.TryParseFrame(image.Data, out int width, out int height, out int components));
+        Assert.Equal(200, width);
+        Assert.Equal(200, height);
+        Assert.Equal(3, components);
+    }
+
+    [Fact]
+    public async Task GrayPhotoOptimizesToSingleComponentDct()
+    {
+        byte[] raw = NoiseGray(200, 200);
+        byte[] input = BuildImagePage(200, 200, "DeviceGray", 8, string.Empty, raw);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.True(image.Data.Length < raw.Length);
+        Assert.True(DctFilter.TryParseFrame(image.Data, out int width, out int height, out int components));
+        Assert.Equal(200, width);
+        Assert.Equal(200, height);
+        Assert.Equal(1, components);
+    }
+
+    [Fact]
+    public async Task SmallImageStaysUntouched()
+    {
+        byte[] raw = NoiseRgb(64, 64);
+        byte[] flated = ZLibCompress(raw);
+        byte[] input = BuildImagePage(64, 64, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("FlateDecode", FilterOf(image));
+        Assert.Equal(flated, image.Data);
+    }
+
+    [Fact]
+    public async Task ZeroThresholdsOptimizeSmallImages()
+    {
+        byte[] raw = NoiseRgb(64, 64);
+        byte[] flated = ZLibCompress(raw);
+        byte[] input = BuildImagePage(64, 64, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--oi-min-width=0", "--oi-min-height=0", "--oi-min-area=0", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+    }
+
+    [Fact]
+    public async Task IncompressibleSolidKeepsFlate()
+    {
+        byte[] raw = new byte[200 * 200 * 3];
+        byte[] flated = ZLibCompress(raw);
+        byte[] input = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("FlateDecode", FilterOf(image));
+        Assert.Equal(flated, image.Data);
+    }
+
+    [Fact]
+    public async Task ExistingDctStaysUntouchedWithoutQuality()
+    {
+        byte[] jpeg = EncodePhotoJpeg(200, 200);
+        byte[] input = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /DCTDecode", jpeg);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.Equal(jpeg, image.Data);
+    }
+
+    [Fact]
+    public async Task QualityForcesDctRecompression()
+    {
+        byte[] jpeg = EncodePhotoJpeg(200, 200);
+        byte[] input = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /DCTDecode", jpeg);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--jpeg-quality=5", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.NotEqual(jpeg, image.Data);
+    }
+
+    [Fact]
+    public async Task UnsupportedColorspaceStaysUntouched()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] flated = ZLibCompress(raw);
+        byte[] input = BuildImagePage(200, 200, "DeviceCMYK", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("FlateDecode", FilterOf(image));
+        Assert.Equal(flated, image.Data);
+    }
+
+    [Fact]
+    public async Task BitMaskStaysUntouched()
+    {
+        byte[] raw = new byte[200 * 200];
+        byte[] input = BuildImagePage(200, 200, "DeviceGray", 1, string.Empty, raw);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal(string.Empty, FilterOf(image));
+        Assert.Equal(raw, image.Data);
+    }
+
+    [Fact]
+    public async Task MergeOptimizesEveryPage()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] flated = ZLibCompress(raw);
+        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
+        List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--optimize-images", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
+        host.AddInput(reread, pdf, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
+        Assert.Equal(2, document.PageCount);
+        int optimized = 0;
+        for (int number = 1; number <= 40; number++)
+        {
+            try
+            {
+                if (document.GetObject(number) is PdfStream stream
+                    && stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype)
+                    && subtype is PdfName name && name.DisplayText == "Image"
+                    && FilterOf(stream) == "DCTDecode")
+                {
+                    optimized += 1;
+                }
+            }
+            catch (QpdfParseException)
+            {
+            }
+        }
+
+        Assert.Equal(2, optimized);
+    }
+
+    [Fact]
+    public async Task JobParityHolds()
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] flated = ZLibCompress(raw);
+        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", fixture);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] argvPdf));
+        PdfStream argvImage = await OutputImageAsync(HostWith("inputs/x.pdf", argvPdf), argvPdf);
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"optimizeImages\": \"\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] jobPdf));
+        PdfStream jobImage = await OutputImageAsync(HostWith("inputs/y.pdf", jobPdf), jobPdf);
+        Assert.Equal(argvImage.Data, jobImage.Data);
+    }
+
+    [Theory]
+    [InlineData("--jpeg-quality=101")]
+    [InlineData("--jpeg-quality=abc")]
+    [InlineData("--jpeg-quality")]
+    [InlineData("--oi-min-width=abc")]
+    [InlineData("--oi-min-area=-1")]
+    public async Task InvalidValuesFail(params string[] flags)
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, string.Empty, raw);
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic error = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, error.Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--optimize-images", "--optimize-images")]
+    [InlineData("--jpeg-quality=5", "--jpeg-quality=6")]
+    [InlineData("--oi-min-width=1", "--oi-min-width=2")]
+    [InlineData("--keep-inline-images", "--keep-inline-images")]
+    public async Task DuplicateFlagsFail(params string[] flags)
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, string.Empty, raw);
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic error = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, error.Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"jpegQuality\": 101}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"oiMinWidth\": -1}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"optimizeImages\": \"yes\"}")]
+    public async Task JobMalformedFails(string jobJson)
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, string.Empty, raw);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public void QualityMappingMatchesReference()
+    {
+        Assert.Equal(1, JpegCodec.MapQuality(0));
+        Assert.Equal(75, JpegCodec.MapQuality(75));
+        Assert.Equal(100, JpegCodec.MapQuality(100));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JpegCodec.MapQuality(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => JpegCodec.MapQuality(101));
+    }
+}

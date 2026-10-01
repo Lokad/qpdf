@@ -69,6 +69,18 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool GenerateAppearances { get; init; }
 
+    public bool OptimizeImages { get; init; }
+
+    public long OiMinWidth { get; init; } = 128L;
+
+    public long OiMinHeight { get; init; } = 128L;
+
+    public long OiMinArea { get; init; } = 16384L;
+
+    public bool KeepInlineImages { get; init; }
+
+    public int? JpegQuality { get; init; }
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);

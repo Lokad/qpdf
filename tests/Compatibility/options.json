@@ -2803,15 +2803,22 @@
         }
       ],
       "milestone": "M8",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Only effective with --optimize-images; also recompresses already-DCT images. Quality 0 maps to 1 and the default is 75."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ImageOptimizeTests.QualityForcesDctRecompression",
+          "ImageOptimizeTests.QualityMappingMatchesReference"
+        ],
+        "negative": [
+          "ImageOptimizeTests.InvalidValuesFail"
+        ],
+        "interaction": [
+          "ImageOptimizeTests.JobMalformedFails"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3223,15 +3230,17 @@
         }
       ],
       "milestone": "M8",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Accepted but inert until inline-image optimization (work item 34)."
       ],
       "evidence": {
         "positive": [],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "ImageOptimizeTests.DuplicateFlagsFail"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3594,14 +3603,19 @@
         }
       ],
       "milestone": "M8",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Gates --optimize-images by pixel area (default 16384, 0 disables). Inline-image thresholds arrive with work item 34."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+        ],
+        "negative": [
+          "ImageOptimizeTests.SmallImageStaysUntouched",
+          "ImageOptimizeTests.InvalidValuesFail"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -3625,14 +3639,18 @@
         }
       ],
       "milestone": "M8",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Gates --optimize-images by height (default 128, 0 disables). Inline-image thresholds arrive with work item 34."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+        ],
+        "negative": [
+          "ImageOptimizeTests.SmallImageStaysUntouched"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -3656,15 +3674,22 @@
         }
       ],
       "milestone": "M8",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Gates --optimize-images by width (default 128, 0 disables). Inline-image thresholds arrive with work item 34."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+        ],
+        "negative": [
+          "ImageOptimizeTests.SmallImageStaysUntouched",
+          "ImageOptimizeTests.InvalidValuesFail"
+        ],
+        "interaction": [
+          "ImageOptimizeTests.JobMalformedFails"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3687,15 +3712,30 @@
         }
       ],
       "milestone": "M8",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Inline images are never optimized here (work item 34).",
+        "Four-component CMYK has no raw-sample encode path and stays as is.",
+        "Masks, exotic colorspaces, and non-shrinking results are skipped silently."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ImageOptimizeTests.NoisyPhotoOptimizesToSmallerDct",
+          "ImageOptimizeTests.GrayPhotoOptimizesToSingleComponentDct",
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+        ],
+        "negative": [
+          "ImageOptimizeTests.SmallImageStaysUntouched",
+          "ImageOptimizeTests.IncompressibleSolidKeepsFlate",
+          "ImageOptimizeTests.UnsupportedColorspaceStaysUntouched",
+          "ImageOptimizeTests.BitMaskStaysUntouched",
+          "ImageOptimizeTests.ExistingDctStaysUntouchedWithoutQuality"
+        ],
+        "interaction": [
+          "ImageOptimizeTests.MergeOptimizesEveryPage",
+          "ImageOptimizeTests.JobParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }

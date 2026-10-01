@@ -45,6 +45,12 @@ internal static class HelpText
           --flatten-rotation                  bake page rotation into content
           --flatten-annotations=all|print|screen  push annotations into content
           --generate-appearances              regenerate widget appearances
+          --optimize-images                   recompress images as JPEG when smaller
+          --oi-min-width=n                  minimum width for image optimization
+          --oi-min-height=n                 minimum height for image optimization
+          --oi-min-area=n                   minimum area for image optimization
+          --keep-inline-images              exclude inline images from optimization
+          --jpeg-quality=n                  JPEG quality 0..100 for optimized images
           --list-attachments          list embedded files
           --show-attachment=key         write one attachment to the output file
           --add-attachment file [options] --  embed host files

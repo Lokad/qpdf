@@ -122,6 +122,18 @@ internal static class JobJsonParser
             bool seenFlattenAnnotations = false;
             bool generateAppearances = false;
             bool seenGenerateAppearances = false;
+            bool optimizeImages = false;
+            bool seenOptimizeImages = false;
+            long oiMinWidth = 128L;
+            bool seenOiMinWidth = false;
+            long oiMinHeight = 128L;
+            bool seenOiMinHeight = false;
+            long oiMinArea = 16384L;
+            bool seenOiMinArea = false;
+            bool keepInlineImages = false;
+            bool seenKeepInlineImages = false;
+            int? jpegQuality = null;
+            bool seenJpegQuality = false;
             string? jsonVersion = null;
             bool seenJson = false;
             List<string> jsonKeys = new();
@@ -431,6 +443,60 @@ internal static class JobJsonParser
 
                         seenGenerateAppearances = true;
                         generateAppearances = RequireBareFlag(property.Value, "generateAppearances");
+                        break;
+                    case "optimizeImages":
+                        if (seenOptimizeImages)
+                        {
+                            throw new QpdfParseException("Duplicate job key optimizeImages.", 0L, null);
+                        }
+
+                        seenOptimizeImages = true;
+                        optimizeImages = RequireBareFlag(property.Value, "optimizeImages");
+                        break;
+                    case "oiMinWidth":
+                        if (seenOiMinWidth)
+                        {
+                            throw new QpdfParseException("Duplicate job key oiMinWidth.", 0L, null);
+                        }
+
+                        seenOiMinWidth = true;
+                        oiMinWidth = RequireOiMin(property.Value, "oiMinWidth");
+                        break;
+                    case "oiMinHeight":
+                        if (seenOiMinHeight)
+                        {
+                            throw new QpdfParseException("Duplicate job key oiMinHeight.", 0L, null);
+                        }
+
+                        seenOiMinHeight = true;
+                        oiMinHeight = RequireOiMin(property.Value, "oiMinHeight");
+                        break;
+                    case "oiMinArea":
+                        if (seenOiMinArea)
+                        {
+                            throw new QpdfParseException("Duplicate job key oiMinArea.", 0L, null);
+                        }
+
+                        seenOiMinArea = true;
+                        oiMinArea = RequireOiMin(property.Value, "oiMinArea");
+                        break;
+                    case "keepInlineImages":
+                        if (seenKeepInlineImages)
+                        {
+                            throw new QpdfParseException("Duplicate job key keepInlineImages.", 0L, null);
+                        }
+
+                        seenKeepInlineImages = true;
+                        keepInlineImages = RequireBareFlag(property.Value, "keepInlineImages");
+                        break;
+                    case "jpegQuality":
+                        if (seenJpegQuality)
+                        {
+                            throw new QpdfParseException("Duplicate job key jpegQuality.", 0L, null);
+                        }
+
+                        seenJpegQuality = true;
+                        jpegQuality = RequireJpegQuality(property.Value);
                         break;
                     case "listAttachments":
                         if (seenListAttachments)
@@ -775,9 +841,10 @@ internal static class JobJsonParser
             bool wantOverlays = overlays.Count > 0 || underlays.Count > 0;
             bool wantFlatten = flattenRotation || flattenAnnotations is not null;
             bool wantGenerate = generateAppearances;
+            bool wantOptimize = optimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate)
+                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -821,6 +888,12 @@ internal static class JobJsonParser
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
+                    OptimizeImages = optimizeImages,
+                    OiMinWidth = oiMinWidth,
+                    OiMinHeight = oiMinHeight,
+                    OiMinArea = oiMinArea,
+                    KeepInlineImages = keepInlineImages,
+                    JpegQuality = jpegQuality,
                 };
             }
 
@@ -865,6 +938,12 @@ internal static class JobJsonParser
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
+                    OptimizeImages = optimizeImages,
+                    OiMinWidth = oiMinWidth,
+                    OiMinHeight = oiMinHeight,
+                    OiMinArea = oiMinArea,
+                    KeepInlineImages = keepInlineImages,
+                    JpegQuality = jpegQuality,
                 };
             }
 
@@ -906,6 +985,12 @@ internal static class JobJsonParser
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
+                    OptimizeImages = optimizeImages,
+                    OiMinWidth = oiMinWidth,
+                    OiMinHeight = oiMinHeight,
+                    OiMinArea = oiMinArea,
+                    KeepInlineImages = keepInlineImages,
+                    JpegQuality = jpegQuality,
             };
         }
     }
@@ -1275,6 +1360,76 @@ internal static class JobJsonParser
         return selectors;
     }
 
+    private static long RequireOiMin(JsonElement element, string role)
+    {
+        string? text = null;
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
+        {
+            if (number < 0L)
+            {
+                throw new QpdfParseException("Job " + (char)34 + role + (char)34 + " must be a non-negative pixel count.", 0L, null);
+            }
+
+            return number;
+        }
+
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            text = element.GetString();
+        }
+
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            throw new QpdfParseException("Job " + (char)34 + role + (char)34 + " must be a non-negative pixel count.", 0L, null);
+        }
+
+        long size = 0L;
+        foreach (char digit in text)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException("Job " + (char)34 + role + (char)34 + " must be a non-negative pixel count.", 0L, null);
+            }
+
+            size = checked(size * 10L + (digit - (char)48));
+        }
+
+        return size;
+    }
+
+    private static int RequireJpegQuality(JsonElement element)
+    {
+        long number;
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long direct))
+        {
+            number = direct;
+        }
+        else if (element.ValueKind == JsonValueKind.String && element.GetString() is string text
+            && text.Length > 0 && text.Length <= 3)
+        {
+            number = 0L;
+            foreach (char digit in text)
+            {
+                if (digit < (char)48 || digit > (char)57)
+                {
+                    throw new QpdfParseException("Job jpegQuality must be an integer 0..100.", 0L, null);
+                }
+
+                number = checked(number * 10L + (digit - (char)48));
+            }
+        }
+        else
+        {
+            throw new QpdfParseException("Job jpegQuality must be an integer 0..100.", 0L, null);
+        }
+
+        if (number < 0L || number > 100L)
+        {
+            throw new QpdfParseException("Job jpegQuality must be an integer 0..100.", 0L, null);
+        }
+
+        return (int)number;
+    }
     private static long RequireIiMinBytes(JsonElement element)
     {
         string? text = null;

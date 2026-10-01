@@ -621,6 +621,10 @@ Repeatable --overlay and --underlay blocks (--file or positional file, --to, --f
 
 DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 adapter: frame dimensions and component counts are read from the JPEG header before any pixel buffer is allocated, work and memory budgets are charged up front, and 1-component (grayscale) and 3-component images decode to raw sample bytes with the filter removed. Intentional differences: four-component CMYK/YCCK JPEGs stay opaque with an `UnsupportedFeature` warning because the approved public pixel API only yields color-converted RGB and cannot preserve raw component samples; lower decode levels keep DCT streams opaque silently; corrupt JPEG data warns and stays opaque. Content and overlay paths still gate on `specialized` and never decode images implicitly.
 
+## Image optimization (work item 33)
+
+--optimize-images (plus job key optimizeImages) recompresses eligible image XObjects with DCT exactly when the JPEG is strictly smaller: 8 bits per component with /DeviceGray or /DeviceRGB, width, height, and area strictly above --oi-min-width/--oi-min-height/--oi-min-area (defaults 128/128/16384, 0 disables), and already-DCT images left alone unless --jpeg-quality (0..100, mapped 0 to 1, default 75) forces recompression. Replacement keeps every dictionary key except /Filter//DecodeParms, which become /DCTDecode. Recursion follows form XObjects with a cycle guard and shared images stay consistent. Intentional differences: four-component CMYK has no raw-sample encode path and stays as is; masks and exotic colorspaces are skipped; every skip is silent; inline images are never touched here (work item 34) so --keep-inline-images is accepted but inert.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,
