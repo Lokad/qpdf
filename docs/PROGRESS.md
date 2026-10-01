@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 24b: attachment list and extract. EmbeddedFiles name-tree traversal with text-key decoding backs shared typed/argv/job paths: listing diagnostics plus staged byte extraction with decode-or-raw fallback warnings.
+
+Prior gate
+
 Work item 24a: document info and metadata. Trailer `/Info` and catalog `/Metadata` are preserved by default with `--remove-info` (ModDate-only info, also drops metadata) and `--remove-metadata` semantics matching upstream, across typed/argv/job paths with replay-checked serialization.
 
 Prior gate
@@ -36,10 +40,11 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 499 tests (484
-  prior plus 15 metadata cases: default preservation, ModDate-only and
-  metadata removals, primary-source merge, split groups, object-stream
-  survival, argv/job parity, and duplicate/valued/invalid rejections).
+- Locked restore, Release build with zero warnings, and all 527 tests (499
+  prior plus 28 attachment cases: typed list/extract, kids and Unicode keys,
+  CLI listing/extract/last-wins/unknown-key, dangling-entry warning,
+  broken-tree failure, combination rejections, and job paths including
+  malformed payloads).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -51,7 +56,7 @@ binary.
 
 ## Next work
 
-1. Work item 24b: attachment list/extract on the EmbeddedFiles name tree (M6).
+1. Work item 25: attachment insertion/removal/copy with collision handling (M6).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

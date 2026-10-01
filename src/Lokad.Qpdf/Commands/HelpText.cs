@@ -35,6 +35,8 @@ internal static class HelpText
           --compression-level=1..9      flate effort for compressed streams
           --remove-info               drop info except modification date
           --remove-metadata           drop the document metadata stream
+          --list-attachments          list embedded files
+          --show-attachment=key         write one attachment to the output file
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

@@ -54,6 +54,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Help or version text for an identity request.</summary>
     HelpText = 11,
+
+    /// <summary>Attachment listing line.</summary>
+    AttachmentListing = 12,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

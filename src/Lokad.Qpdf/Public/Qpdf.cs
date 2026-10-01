@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Filters;
@@ -2087,6 +2088,142 @@ public static class Qpdf
         return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Lists the embedded files of a document with default budgets.
+    /// </summary>
+    public static ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        CancellationToken cancellationToken)
+    {
+        return ListAttachmentsAsync(host, inputPath, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists the embedded files of a document with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
+    public static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await ListAttachmentsCoreAsync(host, inputPath, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Extracts one embedded file by key into an output path with default budgets.
+    /// </summary>
+    public static ValueTask<QpdfAttachmentExtraction> ExtractAttachmentAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        string key,
+        QpdfPath outputPath,
+        CancellationToken cancellationToken)
+    {
+        return ExtractAttachmentAsync(host, inputPath, key, outputPath, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Extracts one embedded file by key into an output path with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The key is empty.</exception>
+    public static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        string key,
+        QpdfPath outputPath,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
+
+        if (key.Length == 0)
+        {
+            throw new ArgumentException("Attachment key must not be empty.", nameof(key));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentCoreAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        string key,
+        QpdfPath outputPath,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(inputPath.Value, outputPath.Value, StringComparison.Ordinal))
+        {
+            throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
+        }
+
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, cancellationToken);
+        EmbeddedAttachment? match = null;
+        foreach (EmbeddedAttachment attachment in found)
+        {
+            if (string.Equals(attachment.Key, key, StringComparison.Ordinal))
+            {
+                match = attachment;
+                break;
+            }
+        }
+
+        if (match is null)
+        {
+            throw new QpdfParseException("The requested attachment was not found.", 0L, null);
+        }
+
+        byte[] data = EmbeddedFiles.ExtractData(match.Stream, match.StreamObjectNumber, document.Engine, limits, governor, diagnostics);
+        if (data.Length > limits.MaxOutputBytes)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
+        }
+
+        governor.NoteHostOperation();
+        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+        TransactionSink sink = new(transaction, governor);
+        await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return new QpdfAttachmentExtraction(match.Key, data.Length, [.. diagnostics.Entries], governor.Snapshot());
+    }
+
     private static async ValueTask<QpdfCheckResult> CheckCoreAsync(
         IQpdfHost host,
         QpdfPath inputPath,
@@ -2462,6 +2599,79 @@ public static class Qpdf
         return await RunPlanAsync(host, plan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
+    private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, cancellationToken);
+        List<QpdfAttachmentInfo> infos = new(found.Count);
+        foreach (EmbeddedAttachment attachment in found)
+        {
+            infos.Add(new QpdfAttachmentInfo(attachment.Key, attachment.FileName, attachment.Description, attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.StreamObjectNumber, attachment.Size));
+        }
+
+        if (infos.Count == 0)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} has no embedded files");
+            return infos;
+        }
+
+        foreach (QpdfAttachmentInfo info in infos)
+        {
+            int generation = 0;
+            if (info.StreamObjectNumber >= 0
+                && document.Engine.XRefEntries.TryGetValue(info.StreamObjectNumber, out XrefEntry entry)
+                && entry.Kind == XrefEntryKind.Uncompressed)
+            {
+                generation = entry.Second;
+            }
+
+            diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"{info.Key} -> {info.StreamObjectNumber},{generation}");
+            if (info.FileName.Length > 0)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  filename: {info.FileName}");
+            }
+
+            if (info.Description.Length > 0)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  description: {info.Description}");
+            }
+
+            if (info.MimeType.Length > 0)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  mime type: {info.MimeType}");
+            }
+
+            if (info.CreationDate.Length > 0)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  creation date: {info.CreationDate}");
+            }
+
+            if (info.ModDate.Length > 0)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  modification date: {info.ModDate}");
+            }
+
+            if (info.Checksum.Length > 0)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  checksum: {info.Checksum}");
+            }
+
+            if (info.Size >= 0L)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  size: {info.Size}");
+            }
+        }
+
+        return infos;
+    }
+
     private static async ValueTask<QpdfExecutionResult> RunPlanAsync(
         IQpdfHost host,
         JobPlan plan,
@@ -2484,6 +2694,33 @@ public static class Qpdf
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
                 return CompleteWithPresentation(inspected.Diagnostics, inspected.Counters, plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
+        if (plan is AttachmentPlan attachments)
+        {
+            try
+            {
+                if (attachments.List)
+                {
+                    await ListAttachmentsCoreAsync(host, attachments.Input, limits, attachments.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                }
+
+                if (attachments.Key is not null)
+                {
+                    QpdfPath output = attachments.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
+                    await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, limits, attachments.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                }
+
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
             catch (QpdfException ex)
             {

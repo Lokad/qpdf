@@ -96,6 +96,10 @@ internal static class JobJsonParser
             bool seenRemoveInfo = false;
             bool removeMetadata = false;
             bool seenRemoveMetadata = false;
+            bool listAttachments = false;
+            bool seenListAttachments = false;
+            string? showAttachment = null;
+            bool seenShowAttachment = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -286,6 +290,29 @@ internal static class JobJsonParser
                         seenRemoveMetadata = true;
                         removeMetadata = RequireBareFlag(property.Value, "removeMetadata");
                         break;
+                    case "listAttachments":
+                        if (seenListAttachments)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027listAttachments\u0027.", 0L, null);
+                        }
+
+                        seenListAttachments = true;
+                        listAttachments = RequireBareFlag(property.Value, "listAttachments");
+                        break;
+                    case "showAttachment":
+                        if (seenShowAttachment)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027showAttachment\u0027.", 0L, null);
+                        }
+
+                        seenShowAttachment = true;
+                        showAttachment = RequireString(property.Value, "showAttachment");
+                        if (showAttachment.Length == 0)
+                        {
+                            throw new QpdfParseException("Job \"showAttachment\" must not be empty.", 0L, null);
+                        }
+
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -307,6 +334,32 @@ internal static class JobJsonParser
             if (input is null)
             {
                 throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null);
+            }
+
+            bool wantAttachments = listAttachments || showAttachment is not null;
+            if (wantAttachments && hasPages)
+            {
+                throw new QpdfParseException("Job attachment keys cannot be combined with \"pages\".", 0L, null);
+            }
+
+            if (wantAttachments)
+            {
+                if (showAttachment is not null)
+                {
+                    if (output is null)
+                    {
+                        throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
+                    }
+
+                    return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, QpdfRecoveryMode.BoundedRepair);
+                }
+
+                if (output is not null)
+                {
+                    throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
+                }
+
+                return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, QpdfRecoveryMode.BoundedRepair);
             }
 
             if (output is null)

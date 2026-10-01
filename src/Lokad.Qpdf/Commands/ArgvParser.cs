@@ -40,6 +40,23 @@ internal static class ArgvParser
         QpdfRecoveryMode recovery = globals.Recovery;
         int checkAt = FindFlag(argv, "--check");
         int pagesAt = FindFlag(argv, "--pages");
+        int listAt = FindFlag(argv, "--list-attachments");
+        (int firstShowAt, int showAt, string? showKey) = FindShowAttachment(argv);
+        int firstAttachmentAt = listAt >= 0 ? (firstShowAt >= 0 ? Math.Min(listAt, firstShowAt) : listAt) : firstShowAt;
+        if (listAt >= 0 || showAt >= 0)
+        {
+            if (checkAt >= 0 || pagesAt >= 0)
+            {
+                throw new QpdfParseException("Options --list-attachments and --show-attachment cannot be combined with --check or --pages.", showAt >= 0 ? showAt : listAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
+            }
+
+            return ParseAttachments(argv, listAt, firstAttachmentAt, showKey, recovery, globals);
+        }
         if (checkAt >= 0 && pagesAt >= 0)
         {
             throw new QpdfParseException("Options --check and --pages cannot be combined.", checkAt, null);
@@ -152,6 +169,135 @@ internal static class ArgvParser
         }
 
         throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", index, null);
+    }
+
+    private static (int FirstAt, int At, string? Key) FindShowAttachment(IReadOnlyList<string> argv)
+    {
+        int firstAt = -1;
+        int at = -1;
+        string? key = null;
+        for (int i = 0; i < argv.Count; i++)
+        {
+            string token = argv[i];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", i, null);
+            }
+
+            if (token == "--show-attachment")
+            {
+                throw new QpdfParseException("Option --show-attachment requires =key.", i, null);
+            }
+
+            if (token.StartsWith("--show-attachment=", StringComparison.Ordinal))
+            {
+                if (firstAt < 0)
+                {
+                    firstAt = i;
+                }
+
+                at = i;
+                key = token.Substring("--show-attachment=".Length);
+            }
+        }
+
+        if (at >= 0 && (key is null || key.Length == 0))
+        {
+            throw new QpdfParseException("Option --show-attachment requires a non-empty key.", at, null);
+        }
+
+        return (firstAt, at, key);
+    }
+
+    private static JobPlan ParseAttachments(
+        IReadOnlyList<string> argv,
+        int listAt,
+        int firstAt,
+        string? showKey,
+        QpdfRecoveryMode recovery,
+        GlobalOptions globals)
+    {
+
+        for (int i = 0; i < firstAt; i++)
+        {
+            if (argv[i] == "--")
+            {
+                throw new QpdfParseException("Misplaced -- terminator.", i, null);
+            }
+        }
+
+        string input = ParseInputArea(argv, firstAt, "attachment inspection");
+        if (showKey is not null)
+        {
+            int termAt = -1;
+            for (int i = firstAt; i < argv.Count; i++)
+            {
+                if (argv[i] == "--")
+                {
+                    termAt = i;
+                    break;
+                }
+            }
+
+            ValidateAttachmentFlags(argv, firstAt, termAt < 0 ? argv.Count : termAt);
+            if (termAt < 0)
+            {
+                throw new QpdfParseException("An output file is required after --.", firstAt, null);
+            }
+
+            string output = ParseOutputArea(argv, termAt);
+            if (string.Equals(input, output, StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("The output file must differ from the input file.", termAt, null);
+            }
+
+            return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showKey, listAt >= 0, recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
+        }
+
+        ValidateAttachmentFlags(argv, firstAt, argv.Count);
+        foreach (string token in argv)
+        {
+            if (token == "--")
+            {
+                throw new QpdfParseException("No output file may be given with --list-attachments.", listAt, null);
+            }
+        }
+
+        return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery) with
+        {
+            WarningExitZero = globals.WarningExitZero,
+            NoWarn = globals.NoWarn,
+        };
+    }
+
+    private static void ValidateAttachmentFlags(IReadOnlyList<string> argv, int first, int end)
+    {
+        for (int i = first; i < end; i++)
+        {
+            string token = argv[i];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", i, null);
+            }
+
+            if (token == "--list-attachments" || token.StartsWith("--show-attachment=", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                CheckOptionToken(token, i);
+            }
+            else
+            {
+                throw new QpdfParseException($"Unexpected argument '{token}' in the attachment options.", i, null);
+            }
+        }
     }
 
     private static int FindFlag(IReadOnlyList<string> argv, string flag)

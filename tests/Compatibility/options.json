@@ -3169,15 +3169,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Listing detail lines use this profile's stable diagnostic format instead of --verbose gating (verbose is not in the narrow profile)."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "AttachmentTests.ListShowsKeysAndStreams",
+          "AttachmentTests.ListEmptyReportsNone",
+          "AttachmentTests.KidsTreeListsAllAttachments",
+          "AttachmentTests.UnicodeKeysMatchAndList",
+          "AttachmentTests.TypedListReturnsAttachments"
+        ],
+        "negative": [
+          "AttachmentTests.BrokenTreeFails"
+        ],
+        "interaction": [
+          "AttachmentTests.DanglingEntryWarnsButListsRest",
+          "AttachmentTests.JobListSucceedsWithoutOutput",
+          "AttachmentTests.MalformedAttachmentsFail"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -4411,15 +4423,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Extraction publishes to the declared output file instead of stdout (no stdout binary contract); undecodable streams fall back to raw bytes with a warning until JPEG support (M8)."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "AttachmentTests.ShowExtractsToOutputFile",
+          "AttachmentTests.ShowDecodesStreams",
+          "AttachmentTests.ShowLastKeyWins",
+          "AttachmentTests.TypedExtractReturnsRawAndDecodedBytes"
+        ],
+        "negative": [
+          "AttachmentTests.ShowUnknownKeyFails",
+          "AttachmentTests.TypedExtractUnknownKeyThrows",
+          "AttachmentTests.JobMalformedAttachmentsFail"
+        ],
+        "interaction": [
+          "AttachmentTests.JobShowExtracts",
+          "AttachmentTests.ShowOutputAliasingInputFails"
+        ],
         "resource": [],
         "oracle": []
       }

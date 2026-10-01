@@ -149,6 +149,25 @@ echoing values.
   split group under the same rules. Without the flag, unreferenced objects
   are discarded.
 
+## Attachments profile
+
+- Embedded files live in the catalog `/Names` `/EmbeddedFiles` name tree
+  (`/Names` pairs plus `/Kids` branches, within nesting and work budgets).
+  Keys decode as PDF text (UTF-16 with a byte-order mark, otherwise
+  PDFDocEncoding) and match request keys by exact ordinal text.
+- `Qpdf.ListAttachmentsAsync` reports key, preferred file name, description,
+  MIME type, PDF-syntax dates, stored checksum, stream number, and declared
+  size; `Qpdf.ExtractAttachmentAsync` stages fully decoded bytes to an
+  explicit output path (raw bytes plus a warning where decoding is
+  unavailable, e.g. JPEG until M8). The same engine backs
+  `--list-attachments` (info diagnostics, no output file) and
+  `--show-attachment=key` (last key wins; output file required). Upstream
+  writes extracts to stdout; without a stdout binary contract this profile
+  publishes them to the declared output instead.
+- Page selection still drops `/Names`: attachments are read from inputs and
+  survive only as unlinked orphans under `--preserve-unreferenced`.
+  Add/copy/remove arrive next.
+
 ## Governance
 
 Every path runs under one per-job governor: validated `QpdfLimits` budgets

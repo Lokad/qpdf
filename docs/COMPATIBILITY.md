@@ -479,6 +479,22 @@ upstream. Both flags accept argv bare and job-JSON empty-string/boolean
 forms. Unpreservable extras are skipped under one aggregated warning instead
 of failing the job; old catalog structure is never relinked.
 
+## Attachment list and extract (work item 24b)
+
+`--list-attachments` prints one `key -> obj,gen` line per embedded file
+plus filename, description, MIME type, dates, checksum, and size detail
+lines; `--show-attachment=key` (repeatable, last wins) extracts fully
+decoded bytes, falling back to raw bytes with a warning where decoding is
+unavailable. Both share the typed `ListAttachmentsAsync` /
+`ExtractAttachmentAsync` engine over name-tree traversal with cycle, depth,
+and work budgets: malformed tree skeletons fail explicitly while bad entries
+are skipped with warnings, and unknown keys fail without echoing key bytes.
+Intentional differences: extraction publishes to the declared output file
+instead of stdout (no stdout binary contract exists); listing detail lines
+use this profile's stable diagnostic format rather than `--verbose` gating;
+keys compare as decoded text with exact ordinal match. Selection output still
+drops `/Names`; attachment add/copy/remove follow separately.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,
