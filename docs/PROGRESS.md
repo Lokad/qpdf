@@ -2,19 +2,19 @@
 
 ## Current checkpoint
 
-Work item 18: invocation breadth. Response files expand once through the host
-(one per line, budgeted, `@-` explicit failure); `--job-json-file` reuses the
-identical job schema; `--warning-exit-0`/`--no-warn` ride the shared plan; and
-`--help`/`--version` return identity text with exit 0.
+Work item 19: cross-document import identity. `Qpdf.SelectPagesAsync` merges
+ordered pages from several inputs with per-source object identity (separate
+copiers, one numbering sequence, one governor); per-page resources keep
+same-named cross-document entries inert, widgets keep within-source links, the
+output catalog stays fresh, and the version is the highest source.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 333 tests (323
-  prior plus 10 invocation cases: response expansion, missing/stdin/nested files,
-  response budgets, job-file parity and errors, warning-exit-0, no-warn, and
-  help/version identity).
+- Locked restore, Release build with zero warnings, and all 339 tests (333
+  prior plus 6 merge cases: cross-document identity, inert field names, duplicate
+  imports, highest-version wins, clean range failure, and fast validation).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -26,7 +26,7 @@ binary.
 
 ## Next work
 
-1. Work item 19: cross-document annotation/form import identity (M5).
+1. Work item 20: multi-source merge, collate, labels, and rotation (M5).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

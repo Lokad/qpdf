@@ -110,6 +110,19 @@ internal static class Program
         Check(help.Status == QpdfExecutionStatus.Completed && help.ExitCode == QpdfExitCode.Success, "help execution");
         Console.WriteLine("PASS help identity (--help)");
 
+        InMemoryQpdfHost mergeHost = NewHost("inputs/in.pdf", input);
+        mergeHost.AddInput(QpdfPath.From("inputs/in2.pdf"), input, QpdfInputOwnership.Copy);
+        PdfMultiPageSelectionResult merged = await Qpdf.SelectPagesAsync(
+            mergeHost,
+            [new PdfPageSource(QpdfPath.From("inputs/in.pdf"), new PdfPageSelectionOptions(2)),
+             new PdfPageSource(QpdfPath.From("inputs/in2.pdf"), new PdfPageSelectionOptions(1))],
+            QpdfPath.From("outputs/merged.pdf"),
+            CancellationToken.None);
+        Check(merged.PageCount == 2 && merged.SourcePageCounts.Count == 2, "merge counts");
+        Check(merged.Mapping.Count == 2 && merged.Mapping[0].SourceIndex == 0 && merged.Mapping[1].SourceIndex == 1, "merge mapping");
+        await CheckOutputAsync(mergeHost, "outputs/merged.pdf", "Second", 2);
+        Console.WriteLine("PASS typed multi-source selection with identity");
+
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(
             cryptoHost,
@@ -138,12 +151,17 @@ internal static class Program
         return bytes;
     }
 
-    private static async Task CheckOutputAsync(InMemoryQpdfHost host, string output, string marker)
+    private static Task CheckOutputAsync(InMemoryQpdfHost host, string output, string marker)
+    {
+        return CheckOutputAsync(host, output, marker, 1);
+    }
+
+    private static async Task CheckOutputAsync(InMemoryQpdfHost host, string output, string marker, int pageCount)
     {
         QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
         host.AddInput(reread, Published(host, output), QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
-        Check(document.PageCount == 1, "output page count");
+        Check(document.PageCount == pageCount, "output page count");
         bool found = false;
         for (int number = 1; number <= 12 && !found; number++)
         {

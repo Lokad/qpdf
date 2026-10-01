@@ -242,6 +242,16 @@ report skipped; non-linearized files pass linearization trivially. `qpdf input
 --check` maps to the same engine with exit 0/2/3 from the diagnostics; job-JSON
 check has no upstream schema basis yet and fails explicitly.
 
+## Cross-document import identity (work item 19)
+
+`Qpdf.SelectPagesAsync` merges ordered pages from several inputs with per-source
+object identity: separate copiers share one destination numbering sequence and one
+governor, so equal object numbers across documents never collide while widgets
+keep their within-source field links. Every page keeps its own resources, so
+same-named resources and fields stay inert without content rewriting; the output
+catalog stays fresh with no merged `/AcroForm`. Output takes the highest source
+version and carries per-page source mapping plus per-source page counts.
+
 ## Invocation breadth (work item 18)
 
 Response files expand once through the host with one argument per line, UTF-8

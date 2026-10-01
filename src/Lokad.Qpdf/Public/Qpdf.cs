@@ -152,6 +152,183 @@ public static class Qpdf
     }
 
     /// <summary>
+    /// Copies pages from several inputs into one standalone PDF with default
+    /// budgets. Each source keeps its own object identity: shared numbers across
+    /// documents never collide, and every page keeps its own resources, so
+    /// conflicting resource or field names stay inert without content rewriting.
+    /// </summary>
+    public static ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+        IQpdfHost host,
+        IReadOnlyList<PdfPageSource> sources,
+        QpdfPath outputPath,
+        CancellationToken cancellationToken)
+    {
+        return SelectPagesAsync(host, sources, outputPath, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies pages from several inputs into one standalone PDF with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">No page source was supplied.</exception>
+    public static async ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+        IQpdfHost host,
+        IReadOnlyList<PdfPageSource> sources,
+        QpdfPath outputPath,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (sources is null)
+        {
+            throw new ArgumentNullException(nameof(sources));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        List<PdfPageSource> frozen = new(sources.Count);
+        foreach (PdfPageSource source in sources)
+        {
+            if (source is null)
+            {
+                throw new ArgumentException("Page sources must not contain null entries.", nameof(sources));
+            }
+
+            frozen.Add(source);
+        }
+
+        if (frozen.Count == 0)
+        {
+            throw new ArgumentException("At least one page source is required.", nameof(sources));
+        }
+
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
+        IQpdfHost host,
+        IReadOnlyList<PdfPageSource> sources,
+        QpdfPath outputPath,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        List<PdfPageSelectionMapping> mapping = new();
+        List<int> sourceCounts = new(sources.Count);
+        List<PdfReference> kids = new();
+        List<NumberedObject> model = new()
+        {
+            new NumberedObject(1, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("Type")] = PdfName.FromAscii("Catalog"),
+                [PdfName.FromAscii("Pages")] = new PdfReference(2, 0),
+            })),
+        };
+        int nextId = 3;
+        PdfVersion? version = null;
+        long selected = 0L;
+        for (int s = 0; s < sources.Count; s++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await using QpdfDocument document = await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+            sourceCounts.Add(document.PageReferences.Count);
+            if (version is null || IsNewerVersion(document.Version, version))
+            {
+                version = document.Version;
+            }
+
+            IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count);
+            foreach (int pageNumber in requested)
+            {
+                if (pageNumber > document.PageReferences.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(sources), $"Source {s} page {pageNumber} exceeds the page count of {document.PageReferences.Count}.");
+                }
+            }
+
+            selected += requested.Count;
+            if (selected > limits.MaxWork)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), selected, limits.MaxWork);
+            }
+
+            GraphCopier copier = new(document.Engine, governor, limits, nextId);
+            foreach (int pageNumber in requested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                PageLocation location = document.PageReferences[pageNumber - 1];
+                Dictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken);
+                (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                RequireMediaBox(page);
+                kids.Add(new PdfReference(pageId, 0));
+                mapping.Add(new PdfPageSelectionMapping(s, pageNumber));
+            }
+
+            List<int> ids = new(copier.CopiedObjects.Keys);
+            ids.Sort();
+            foreach (int id in ids)
+            {
+                model.Add(new NumberedObject(id, copier.CopiedObjects[id]));
+            }
+
+            nextId = copier.NextId;
+        }
+
+        string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        model.Insert(1, new NumberedObject(2, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
+            [PdfName.FromAscii("Kids")] = new PdfArray([.. kids]),
+            [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
+        })));
+
+        PdfVersion effective = version ?? new PdfVersion(1, 4);
+        PdfSerializer serializer = new(limits, governor);
+        CountingSink counter = new();
+        long counted = await serializer.SerializeAsync(effective, model, counter, cancellationToken).ConfigureAwait(false);
+        if (counted > limits.MaxOutputBytes)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), counted, limits.MaxOutputBytes);
+        }
+
+        governor.ReserveMemory(counted);
+        governor.NoteHostOperation();
+        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+        TransactionSink sink = new(transaction, governor);
+        long written = await serializer.SerializeAsync(effective, model, sink, cancellationToken).ConfigureAwait(false);
+        if (written != counted)
+        {
+            throw new QpdfException($"Writer replay mismatch: counted {counted} bytes but wrote {written}.");
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, [.. diagnostics.Entries], governor.Snapshot());
+    }
+
+    private static bool IsNewerVersion(PdfVersion candidate, PdfVersion current)
+    {
+        if (candidate.Major != current.Major)
+        {
+            return candidate.Major > current.Major;
+        }
+
+        return candidate.Minor > current.Minor;
+    }
+
+    /// <summary>
     /// Inspects a document with default budgets. Skipped stages stay visible;
     /// this partial check never claims conformance, safe content, or rendering.
     /// </summary>

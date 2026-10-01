@@ -50,6 +50,8 @@ internal sealed class GraphCopier
 
     internal IReadOnlyDictionary<int, QpdfObject> CopiedObjects => _copied;
 
+    internal int NextId => _nextId;
+
     internal IReadOnlyDictionary<int, int> SourceToDestination => _mapping;
 
     internal (int Id, PdfDictionary Page) CopyPageRoot(

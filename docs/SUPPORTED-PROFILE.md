@@ -8,7 +8,8 @@ This describes exactly what the library does today. Everything else in
 Three routes converge on one selection plan executed by the shared engine:
 
 - Typed: `Qpdf.SelectPageAsync` with explicit, `FirstAndLast`, or `Normalized` page sets;
-  `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
+  `Qpdf.SelectPagesAsync` merges ordered `PdfPageSource` inputs with per-page source
+  mapping; `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
   -- output` (single positive-integer range), `input --check`, `--job-json-file
   file`, `@file` response files (one argument per line), `--help`/`--version`,
@@ -43,7 +44,7 @@ echoing values.
   copying a page needs no image support. Structural streams decode through Flate,
   LZW, ASCIIHex, ASCII85, and RunLength (direct or indirect filter specs), with
   shared predictors; anything else fails explicitly as unsupported.
-- One input file per job through host-mediated ranged reads.
+- One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics
 
