@@ -69,6 +69,129 @@ internal sealed class GraphCopier
 
     internal IReadOnlyDictionary<int, int> SourceToDestination => _mapping;
 
+    /// <summary>
+    /// Copies every input object that page selection did not reach, in
+    /// ascending original object-number order, returning the new destination
+    /// numbers. Shares the memoized copier so references into the selected
+    /// graph remap and omitted pages still prune to null. The input catalog,
+    /// page-tree, page, and object/xref-stream containers are skipped by
+    /// contained-preview policy: structure is rebuilt fresh and stream
+    /// payloads travel through their members. Objects that fail to load or
+    /// copy are skipped under one aggregated warning. Call only when the
+    /// validated plan requests preservation.
+    /// </summary>
+    internal HashSet<int> PreserveUnreferencedObjects(
+        DocumentEngine engine,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (diagnostics is null)
+        {
+            throw new ArgumentNullException(nameof(diagnostics));
+        }
+
+        List<int> unmapped = new();
+        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _governor.ChargeWork(1L);
+            if (entry.Key <= 0 || _mapping.ContainsKey(entry.Key))
+            {
+                continue;
+            }
+
+            if (entry.Value.Kind == XrefEntryKind.Free)
+            {
+                continue;
+            }
+
+            unmapped.Add(entry.Key);
+        }
+
+        unmapped.Sort();
+        HashSet<int> preserved = new();
+        int skipped = 0;
+        IIndirectResolver resolver = (IIndirectResolver)engine;
+        foreach (int number in unmapped)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _governor.ChargeWork(1L);
+            XrefEntry entry = engine.XRefEntries[number];
+            int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
+            PdfReference reference = new(number, generation);
+            if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            {
+                skipped += 1;
+                continue;
+            }
+
+            if (IsSkippedStructure(resolved))
+            {
+                continue;
+            }
+
+            try
+            {
+                int id = _nextId;
+                checked
+                {
+                    _nextId += 1;
+                }
+
+                _mapping[number] = id;
+                QpdfObject copied = CopyValue(resolved, 0);
+                _copied[id] = copied;
+                preserved.Add(id);
+            }
+            catch (QpdfException)
+            {
+                _mapping.Remove(number);
+                skipped += 1;
+            }
+        }
+
+        if (skipped == 1)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped 1 unpreservable object.");
+        }
+        else if (skipped > 1)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Skipped {skipped} unpreservable objects.");
+        }
+
+        return preserved;
+    }
+
+    private static bool IsSkippedStructure(QpdfObject value)
+    {
+        if (value is PdfDictionary dictionary)
+        {
+            string type = ReadType(dictionary);
+            if (type == "Catalog" || type == "Pages" || type == "Page")
+            {
+                return true;
+            }
+        }
+
+        if (value is PdfStream stream)
+        {
+            PdfName typeKey = PdfName.FromAscii("Type");
+            if (stream.Dictionary.TryGet(typeKey, out QpdfObject raw) && raw is PdfName name
+                && (name.DisplayText == "ObjStm" || name.DisplayText == "XRef"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
     internal (int Id, PdfDictionary Page) CopyPageRoot(
         PdfDictionary page,
         int? sourceNumber,

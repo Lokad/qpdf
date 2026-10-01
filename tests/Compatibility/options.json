@@ -3722,15 +3722,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Reachable objects keep copy order instead of upstream original-ID ordering; old catalog/page-tree/page nodes and stream containers excluded by contained-preview policy; preserved metadata stays unlinked (structural editing is later)."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "PreserveUnreferencedTests.PreserveKeepsUnreferencedObjects",
+          "PreserveUnreferencedTests.PreserveAcrossMergeKeepsBothOrphans",
+          "PreserveUnreferencedTests.PreserveAcrossSplitKeepsOrphansPerGroup",
+          "PreserveUnreferencedTests.PreserveWithGenerateCompressesOrphans"
+        ],
+        "negative": [
+          "PreserveUnreferencedTests.DefaultDropsUnreferencedObjects",
+          "PreserveUnreferencedTests.JobJsonInvalidValueFails"
+        ],
+        "interaction": [
+          "PreserveUnreferencedTests.PreserveSkipsOldDocumentStructure",
+          "PreserveUnreferencedTests.PreserveSkipsUnpreservableWithWarning",
+          "PreserveUnreferencedTests.JobJsonParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }

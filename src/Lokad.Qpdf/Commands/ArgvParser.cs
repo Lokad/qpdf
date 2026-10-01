@@ -62,6 +62,7 @@ internal static class ArgvParser
                 StaticId = globals.StaticId,
                 NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
+            PreserveUnreferenced = globals.PreserveUnreferenced,
             };
         }
 
@@ -118,6 +119,7 @@ internal static class ArgvParser
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
+            PreserveUnreferenced = globals.PreserveUnreferenced,
         };
     }
 
@@ -157,7 +159,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -181,6 +183,8 @@ internal static class ArgvParser
         string? forceVersion = null;
         bool seenObjectStreams = false;
         string? objectStreams = null;
+        bool seenPreserveUnreferenced = false;
+        bool preserveUnreferenced = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -321,6 +325,23 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--preserve-unreferenced")
+            {
+                if (seenPreserveUnreferenced)
+                {
+                    throw new QpdfParseException("Duplicate --preserve-unreferenced is outside the narrow profile.", i, null);
+                }
+
+                seenPreserveUnreferenced = true;
+                preserveUnreferenced = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--preserve-unreferenced=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --preserve-unreferenced takes no value.", i, null);
+            }
+
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -337,7 +358,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced);
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -718,6 +739,7 @@ internal static class ArgvParser
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
+            PreserveUnreferenced = globals.PreserveUnreferenced,
         };
     }
 
@@ -752,6 +774,7 @@ internal static class ArgvParser
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
+            PreserveUnreferenced = globals.PreserveUnreferenced,
         };
     }
 

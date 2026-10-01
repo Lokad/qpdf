@@ -80,6 +80,8 @@ internal static class JobJsonParser
             bool seenNewline = false;
             string? objectStreams = null;
             bool seenObjectStreams = false;
+            bool preserveUnreferenced = false;
+            bool seenPreserveUnreferenced = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -198,6 +200,15 @@ internal static class JobJsonParser
                         seenObjectStreams = true;
                         objectStreams = RequireObjectStreams(property.Value);
                         break;
+                    case "preserveUnreferenced":
+                        if (seenPreserveUnreferenced)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027preserveUnreferenced\u0027.", 0L, null);
+                        }
+
+                        seenPreserveUnreferenced = true;
+                        preserveUnreferenced = RequireBareFlag(property.Value, "preserveUnreferenced");
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -251,6 +262,7 @@ internal static class JobJsonParser
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
+                    PreserveUnreferenced = preserveUnreferenced,
                 };
             }
 
@@ -271,6 +283,7 @@ internal static class JobJsonParser
                 StaticId = staticId,
                 NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
+                    PreserveUnreferenced = preserveUnreferenced,
             };
         }
     }

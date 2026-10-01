@@ -63,7 +63,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -81,6 +81,7 @@ public static class Qpdf
         bool staticId,
         bool newlineBeforeEndstream,
         string? objectStreams,
+        bool preserveUnreferenced,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -117,6 +118,11 @@ public static class Qpdf
         }
 
         ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
+        if (preserveUnreferenced)
+        {
+            copier.PreserveUnreferencedObjects(document.Engine, diagnostics, cancellationToken);
+        }
+
         (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
         string streamMode = ResolveObjectStreamMode(objectStreams);
         if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
@@ -223,7 +229,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -289,7 +295,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -368,7 +374,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
@@ -388,6 +394,7 @@ public static class Qpdf
         bool staticId,
         bool newlineBeforeEndstream,
         string? objectStreams,
+        bool preserveUnreferenced,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -399,6 +406,7 @@ public static class Qpdf
         PdfVersion? version = null;
         byte[]? originalId1 = null;
         List<HashSet<int>> sourceCompressed = new(sources.Count);
+        HashSet<int> allPreserved = new();
         long selected = 0L;
         for (int s = 0; s < sources.Count; s++)
         {
@@ -443,6 +451,14 @@ public static class Qpdf
                 (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
                 RequireMediaBox(page);
                 taken.Add((copier, pageId, page, pageNumber));
+            }
+
+            if (preserveUnreferenced)
+            {
+                foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, diagnostics, cancellationToken))
+                {
+                    allPreserved.Add(preserved);
+                }
             }
 
             nextId = copier.NextId;
@@ -594,7 +610,9 @@ public static class Qpdf
                 groupIds.Add(kid.ObjectNumber);
             }
 
-            HashSet<int> reachable = ReachableIds(pool, groupIds, governor);
+            List<int> roots = new(groupIds);
+            roots.AddRange(allPreserved);
+            HashSet<int> reachable = ReachableIds(pool, roots, governor);
             List<int> kept = new(reachable.Count);
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
@@ -2071,6 +2089,7 @@ public static class Qpdf
                         merge.StaticId,
                         merge.NewlineBeforeEndstream,
                         merge.ObjectStreams,
+                        merge.PreserveUnreferenced,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2119,6 +2138,7 @@ public static class Qpdf
                         selection.StaticId,
                         selection.NewlineBeforeEndstream,
                         selection.ObjectStreams,
+                        selection.PreserveUnreferenced,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2155,6 +2175,7 @@ public static class Qpdf
                 selection.StaticId,
                 selection.NewlineBeforeEndstream,
                 selection.ObjectStreams,
+                selection.PreserveUnreferenced,
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);

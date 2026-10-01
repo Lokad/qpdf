@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 22c: preserve-unreferenced objects. `--preserve-unreferenced` keeps unreached input objects (ascending original order per source) through the shared copier with omitted-page pruning intact, joins object-stream packing and split-group closure, and skips unloadable objects under one warning. One implementation across typed/argv/job paths with replay-checked serialization.
+
+Prior gate
+
 Work item 22b: writer object-stream modes. `--object-streams` (`disable`/`preserve` default/`generate`) packs eligible non-stream objects into uncompressed object streams with a cross-reference stream, raising the header to at least 1.5 unless a forced version below 1.5 disables them; `preserve` keeps input compressed-ness without exact grouping. One shared implementation across typed/argv/job paths with replay-checked serialization.
 
 Prior gate
@@ -20,10 +24,10 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 431 tests (414
-  prior plus 17 object-stream cases: disable/preserve/generate, version
-  bumping, forced-version interaction, determinism, multi-stream chunking,
-  argv/job parity, and invalid/duplicate rejections).
+- Locked restore, Release build with zero warnings, and all 443 tests (431
+  prior plus 12 preserve-unreferenced cases: drop-by-default, keep, old-structure
+  exclusion, unloadable warning, merge/split coverage, generate interaction,
+  argv/job parity, and duplicate/valued/invalid rejections).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -35,7 +39,7 @@ binary.
 
 ## Next work
 
-1. Work item 22c: preserve-unreferenced objects (remainder of item 22), then non-JPEG compression controls (item 23, M6).
+1. Work item 23: non-JPEG compression and preservation controls (M6).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

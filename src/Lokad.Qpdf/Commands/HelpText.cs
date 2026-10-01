@@ -27,6 +27,7 @@ internal static class HelpText
           --static-id               fixed test document ID
           --newline-before-endstream  extra newline before endstream
           --object-streams=mode     disable, preserve (default), or generate
+          --preserve-unreferenced       keep unreferenced input objects
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

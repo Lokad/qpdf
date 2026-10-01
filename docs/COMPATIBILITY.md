@@ -408,6 +408,24 @@ that our reader and the independent reader accept, but larger than upstream
 Flate-packed output. Flate packing arrives with the compression controls
 (work item 23). Typed callers default to `preserve` like the CLI.
 
+## Preserve-unreferenced objects (work item 22c)
+
+`--preserve-unreferenced` (bare; job JSON `preserveUnreferenced` as `""` or
+boolean) keeps every input object the page selection did not reach, in
+ascending original object-number order per source, appended after the
+reachable graph with shared references remapped through the same memoized
+copier. Fresh catalog/pages stay 1/2. Preserved objects participate in
+`--object-streams` packing (compressed-ness or generation eligibility apply
+to them like any selected object) and are included in every split group via
+the reachability closure, so no dangling references are emitted. Intentional
+differences from upstream: reachable objects keep copy order rather than
+being re-sorted by original ID; the input catalog, page-tree, page, and
+object/xref-stream containers are excluded by contained-preview policy
+(omitted pages can never resurrect; stream payloads travel through their
+members); preserved metadata stays unlinked (catalog relinking is structural
+editing, a later milestone); objects that fail to load or copy are skipped
+under one aggregated `UnsupportedFeature` warning instead of failing the job.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

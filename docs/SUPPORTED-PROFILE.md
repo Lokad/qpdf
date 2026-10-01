@@ -120,8 +120,16 @@ echoing values.
   a cross-reference stream instead of a classic table and raise the header to
   at least 1.5; a forced version below 1.5 disables object streams.
   Payloads and xref entries are emitted uncompressed (no `/Filter`);
-  Flate packing arrives with the compression controls. Unreferenced-object
-  preservation arrives next in M6.
+  Flate packing arrives with the compression controls.
+- `--preserve-unreferenced` keeps every input object the selection did not
+  reach, appended in ascending original object-number order per source after
+  the reachable graph (fresh catalog/pages stay 1/2). The input catalog,
+  page-tree, page, and object/xref-stream containers are excluded by
+  contained-preview policy (structure is rebuilt; stream payloads travel
+  through their members), and unloadable objects are skipped under one
+  aggregated warning. Preserved objects join object-stream packing and every
+  split group under the same rules. Without the flag, unreferenced objects
+  are discarded.
 
 ## Governance
 
