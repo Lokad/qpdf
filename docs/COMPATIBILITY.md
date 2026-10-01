@@ -579,6 +579,15 @@ true is rejected. Intentional differences mirror creation: generations must
 be 0, stream and metadata writer options cannot combine, and outputs are
 renumbered classic files.
 
+## Content tokenizing (work item 28)
+
+An internal content-stream tokenizer covers operators, numbers, strings,
+names, arrays, dictionaries, and inline images with upstream-compatible
+boundary rules: image data ends at a delimiter-surrounded EI validated by a
+ten-token lookahead, falling back to the last candidate, with the separator
+before EI included in the payload. No command surface changes yet; page
+content checks, image reporting, and appearance work build on this next.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

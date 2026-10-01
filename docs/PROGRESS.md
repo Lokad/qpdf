@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 28: content tokenizer and inline-image boundary tests. Strict operand tokenizing with governed inline-image scanning backs upcoming content transforms.
+
+Prior gate
+
 Work item 27b: PDF update from JSON. Merged object identity with kept stream bytes, optional trailer replacement, and pdfversion override across argv, job, and typed paths.
 
 Prior gate
@@ -64,10 +68,11 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 720 tests (695
-  prior plus 25 JSON update cases: value/stream/object/trailer merges, kept
-  payloads, version override, no-op stability, pushed-attribute rejection,
-  combination rejections, job and typed round trips).
+- Locked restore, Release build with zero warnings, and all 739 tests (720
+  prior plus 21 content tokenizer cases: operators and operands, keyword and
+  number boundaries, strings/arrays/dicts, comments, malformed input,
+  inline-image boundaries with binary lookahead, fallback and unterminated
+  handling, plus governor budgets).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -79,7 +84,7 @@ binary.
 
 ## Next work
 
-1. Work item 28: content tokenizer and inline-image boundary tests (M7).
+1. Work item 29: coalescing/normalization/resource pruning with revisited page-operation defaults (M7).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
