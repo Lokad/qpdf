@@ -218,6 +218,17 @@ to an independent page object while immutable resources stay shared; selecting
 every page still rewrites the graph rather than echoing input bytes. Oversized
 selections fail on work budgets and out-of-range pages fail explicitly.
 
+## Catalog, inheritance, and widget policy (work item 14)
+
+Preview output carries a fresh catalog with only `/Type` and `/Pages`: outlines,
+names, metadata, and `/AcroForm` never transfer. Page-tree (`/Pages`) and catalog
+references stay structural errors; references to already-copied objects remap, and
+references to any other page prune to null so omitted pages can never resurrect.
+Widget annotations travel with the page with appearance bytes preserved; the field
+hierarchy is not reconstructed. Only the four inheritable attributes materialize,
+with explicit null treated as absent (ancestor fallback, else `/MediaBox` failure);
+page-only boxes such as `/BleedBox` and `/UserUnit` never inherit.
+
 ## Single-page selection (work item 06a)
 
 Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the

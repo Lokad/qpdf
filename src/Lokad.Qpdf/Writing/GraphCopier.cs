@@ -9,8 +9,10 @@ namespace Lokad.Qpdf.Writing;
 /// The single memoized graph copier: destination identities are registered
 /// before descending, so cyclic and shared subgraphs are copied once. Page
 /// ancestry (`/Parent`) is never followed here; the selector materializes
-/// inherited attributes explicitly. Dictionaries typed as pages or catalogs
-/// reached by reference are outside the selection profile and fail loudly.
+/// inherited attributes explicitly. References to already-copied objects remap to
+/// their copies; references to other pages prune to null under the contained-preview
+/// policy so omitted pages can never resurrect. Page-tree (`/Pages`) and catalog
+/// references stay structural errors and fail loudly.
 /// </summary>
 internal sealed class GraphCopier
 {
@@ -96,7 +98,7 @@ internal sealed class GraphCopier
 
         foreach (KeyValuePair<PdfName, QpdfObject> materialized in extra)
         {
-            if (!entries.ContainsKey(materialized.Key))
+            if (!entries.TryGetValue(materialized.Key, out QpdfObject? existing) || existing is PdfNull)
             {
                 _governor.ReserveMemory(32L);
                 entries[materialized.Key] = materialized.Value;
@@ -184,7 +186,7 @@ internal sealed class GraphCopier
 
             if (type == "Page" && reference.ObjectNumber != _rootPageNumber)
             {
-                throw new QpdfParseException("Page copy reached another page; annotations are outside the initial profile.", null, reference.ObjectNumber);
+                return PdfNull.Instance;
             }
         }
 

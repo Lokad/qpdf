@@ -150,7 +150,7 @@ public static class Qpdf
         foreach (string name in inheritable)
         {
             PdfName key = PdfName.FromAscii(name);
-            if (location.Page.TryGet(key, out QpdfObject _))
+            if (location.Page.TryGet(key, out QpdfObject present) && present is not PdfNull)
             {
                 continue;
             }
@@ -256,7 +256,7 @@ public static class Qpdf
 
     private static void RequireMediaBox(PdfDictionary page)
     {
-        if (!page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject _))
+        if (!page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject box) || box is PdfNull)
         {
             throw new QpdfParseException("Selected page has no /MediaBox in its ancestry.", null, null);
         }

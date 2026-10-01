@@ -48,11 +48,13 @@ echoing values.
   are copied once; `/Parent` links are dropped. Results carry the source page
   count and the exact per-output-page source mapping.
 - The four inheritable attributes (`Resources`, `MediaBox`, `CropBox`,
-  `/Rotate`) materialize from ancestry into each copied page. A missing
-  `/MediaBox` after ancestry fails; missing `Resources` stays absent.
+  `/Rotate`) materialize from ancestry into each copied page; explicit null counts
+  as absent. A missing `/MediaBox` after ancestry fails; missing `Resources` stays absent.
 - Page-tree nodes require `/Type /Page` or `/Pages`. Traversal wins over
-  `/Count`, which only warns. References to foreign page-tree nodes fail
-  explicitly rather than duplicating pages.
+  `/Count`, which only warns. Page-tree (`/Pages`) and catalog references fail
+  explicitly; references to already-copied objects remap while references to any
+  other page prune to null, so omitted pages never resurrect. Widget annotations
+  travel with appearances; `/AcroForm`, outlines, names, and metadata are dropped.
 - Repeated runs over the same input and options are byte-identical.
 - Publication is staged: validation, budgets, and serialization complete
   before commit, so failures leave existing targets untouched. Every lease
