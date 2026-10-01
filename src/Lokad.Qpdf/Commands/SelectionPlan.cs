@@ -43,9 +43,18 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool RemoveMetadata { get; init; }
 
+    public IReadOnlyList<AttachmentAdd> AttachmentsToAdd { get; init; } = [];
+
+    public IReadOnlyList<string> AttachmentsToRemove { get; init; } = [];
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);
+    }
+
+    internal AttachmentEdits Edits()
+    {
+        return new AttachmentEdits(AttachmentsToAdd, AttachmentsToRemove);
     }
 }
 
@@ -100,11 +109,35 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
+/// <summary>Validated whole-file transformation.</summary>
+internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
+
 /// <summary>Validated attachment inspection and extraction.</summary>
 internal sealed record AttachmentPlan(QpdfPath Input, QpdfPath? Output, string? Key, bool List, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>One multi-source group: a raw file token plus its range text.</summary>
 internal sealed record PageGroup(string File, string Range);
+
+/// <summary>One attachment to embed: a host file plus display metadata.</summary>
+internal sealed record AttachmentAdd(
+    string File,
+    string? Key,
+    string? FileName,
+    string? CreationDate,
+    string? ModDate,
+    string? MimeType,
+    string? Description,
+    bool Replace);
+
+/// <summary>Attachment edits applied to the output model.</summary>
+internal sealed record AttachmentEdits(
+    IReadOnlyList<AttachmentAdd> Adds,
+    IReadOnlyList<string> Removes)
+{
+    internal static AttachmentEdits Empty { get; } = new([], []);
+
+    internal bool HasEdits => Adds.Count > 0 || Removes.Count > 0;
+}
 
 /// <summary>Validated multi-source merge.</summary>
 internal sealed record MergePlan(

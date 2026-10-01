@@ -164,9 +164,17 @@ echoing values.
   `--show-attachment=key` (last key wins; output file required). Upstream
   writes extracts to stdout; without a stdout binary contract this profile
   publishes them to the declared output instead.
-- Page selection still drops `/Names`: attachments are read from inputs and
-  survive only as unlinked orphans under `--preserve-unreferenced`.
-  Add/copy/remove arrive next.
+- Page selection still drops `/Names` unless attachment edits apply.
+  `--add-attachment FILE [--key=] [--filename=] [--creationdate=] [--moddate=]
+  [--mimetype=] [--description=] [--replace] --` (repeatable) embeds host
+  files with key/filename defaulting to the path basename; unspecified dates
+  are omitted (no ambient clock) while size and content checksums are always
+  recorded. `--remove-attachment=key` (repeatable) drops entries; unknown keys
+  fail without echoing bytes, and removals precede additions so re-adding wins
+  ties. Collisions without `--replace` fail; existing attachments merge into
+  the rebuilt tree (flat leaf, chunked past 64 entries) with `/PageMode
+  /UseAttachments` on insertions. Copying from other files and the typed
+  editing surface follow next.
 
 ## Governance
 

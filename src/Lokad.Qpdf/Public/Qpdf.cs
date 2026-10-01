@@ -64,7 +64,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -86,6 +86,7 @@ public static class Qpdf
         CompressionRequest compression,
         bool removeInfo,
         bool removeMetadata,
+        AttachmentEdits edits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -127,13 +128,15 @@ public static class Qpdf
             copier.PreserveUnreferencedObjects(document.Engine, diagnostics, cancellationToken);
         }
 
+        (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+        SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
+        string? singlePageMode = ReadInputPageMode(document.Engine);
+
         (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(compression);
         if (singleCompress || singleDecode != "none")
         {
             TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken);
         }
-
-        (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
 
         (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
         string streamMode = ResolveObjectStreamMode(objectStreams);
@@ -144,6 +147,7 @@ public static class Qpdf
 
         HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine);
         Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
+        AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, new List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> { (copier.SourceToDestination, compressedOrig) }, governor);
         PdfVersion effective = negotiated;
         int extensionLevel = negotiatedExtension;
@@ -155,7 +159,7 @@ public static class Qpdf
 
         byte[]? originalId = TryGetOriginalId(document.Engine);
         string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata);
+        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode);
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
@@ -167,11 +171,11 @@ public static class Qpdf
             new NumberedObject(1, catalog),
             new NumberedObject(2, pages),
         };
-        List<int> ids = new(copier.CopiedObjects.Keys);
+        List<int> ids = new(singlePool.Keys);
         ids.Sort();
         foreach (int id in ids)
         {
-            model.Add(new NumberedObject(id, copier.CopiedObjects[id]));
+            model.Add(new NumberedObject(id, singlePool[id]));
         }
 
         List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
@@ -241,7 +245,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -307,7 +311,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -386,7 +390,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
@@ -411,6 +415,7 @@ public static class Qpdf
         CompressionRequest compression,
         bool removeInfo,
         bool removeMetadata,
+        AttachmentEdits edits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -423,6 +428,8 @@ public static class Qpdf
         byte[]? originalId1 = null;
         List<HashSet<int>> sourceCompressed = new(sources.Count);
         HashSet<int> allPreserved = new();
+        SortedDictionary<string, PdfReference> primaryExisting = new(StringComparer.Ordinal);
+        string? primaryPageMode = null;
         int primaryIdx = 0;
         for (int p = 0; p < sources.Count; p++)
         {
@@ -491,10 +498,6 @@ public static class Qpdf
                 }
             }
 
-            if (multiCompress || multiDecode != "none")
-            {
-                TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken);
-            }
             if (s == primaryIdx)
             {
                 (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
@@ -507,6 +510,14 @@ public static class Qpdf
                 {
                     catalogExtraIds.Add(primaryMetadata.ObjectNumber);
                 }
+
+                primaryExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
+                primaryPageMode = ReadInputPageMode(document.Engine);
+            }
+
+            if (multiCompress || multiDecode != "none")
+            {
+                TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken);
             }
 
             nextId = copier.NextId;
@@ -576,6 +587,8 @@ public static class Qpdf
             }
         }
 
+        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+
         List<(int Index, PdfDictionary Label)> labelItems = ResolveLabelItems(labels, kids.Count, governor);
         PdfVersion inputMax = version ?? new PdfVersion(1, 4);
         (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, minVersion, forceVersion);
@@ -607,7 +620,7 @@ public static class Qpdf
         {
             List<NumberedObject> model = new()
             {
-                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata)),
+                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode)),
                 new NumberedObject(2, PagesNode(kids)),
             };
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -661,6 +674,7 @@ public static class Qpdf
             List<int> roots = new(groupIds);
             roots.AddRange(allPreserved);
             roots.AddRange(catalogExtraIds);
+            roots.AddRange(multiAttached.ObjectIds);
             HashSet<int> reachable = ReachableIds(pool, roots, governor);
             List<int> kept = new(reachable.Count);
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
@@ -690,6 +704,12 @@ public static class Qpdf
                 groupMetadata = new PdfReference(mappedMetadata, 0);
             }
 
+            PdfReference? groupNames = null;
+            if (multiAttached.NamesRef is not null && renumber.TryGetValue(multiAttached.NamesRef.ObjectNumber, out int mappedNames))
+            {
+                groupNames = new PdfReference(mappedNames, 0);
+            }
+
             int? groupInfo = null;
             if (primaryInfo is not null && renumber.TryGetValue(primaryInfo.ObjectNumber, out int mappedInfo))
             {
@@ -698,7 +718,7 @@ public static class Qpdf
 
             List<NumberedObject> sub = new()
             {
-                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata)),
+                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode)),
                 new NumberedObject(2, PagesNode(renumberedKids)),
             };
             foreach (int id in kept)
@@ -885,10 +905,10 @@ public static class Qpdf
 
     private static PdfDictionary NewCatalog(PdfDictionary? pageLabels)
     {
-        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null);
+        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null);
     }
 
-    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef)
+    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode)
     {
         if (finalVersion is null)
         {
@@ -908,6 +928,16 @@ public static class Qpdf
         if (metadataRef is not null)
         {
             entries[PdfName.FromAscii("Metadata")] = metadataRef;
+        }
+
+        if (namesRef is not null)
+        {
+            entries[PdfName.FromAscii("Names")] = namesRef;
+        }
+
+        if (pageMode is not null)
+        {
+            entries[PdfName.FromAscii("PageMode")] = PdfName.FromAscii(pageMode);
         }
 
         if (extensionLevel > 0)
@@ -2013,6 +2043,321 @@ public static class Qpdf
         return (infoRef, metadataRef);
     }
 
+    private sealed record AttachmentAssembly(PdfReference? NamesRef, string? PageMode, HashSet<int> ObjectIds);
+
+    private static string? ReadInputPageMode(DocumentEngine engine)
+    {
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        PdfDictionary? catalog = TryGetInputCatalog(engine);
+        if (catalog is not null
+            && catalog.TryGet(PdfName.FromAscii("PageMode"), out QpdfObject? raw)
+            && raw is PdfName name)
+        {
+            return name.DisplayText;
+        }
+
+        return null;
+    }
+
+    private static SortedDictionary<string, PdfReference> PreserveExistingAttachments(
+        GraphCopier copier,
+        DocumentEngine engine,
+        AttachmentEdits edits,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        SortedDictionary<string, PdfReference> kept = new(StringComparer.Ordinal);
+        if (edits.HasEdits)
+        {
+            List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(engine, limits, governor, diagnostics, cancellationToken);
+            foreach (EmbeddedAttachment attachment in found)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    PdfReference? link = copier.AddIndirectObject(attachment.Spec);
+                    if (link is not null)
+                    {
+                        kept[attachment.Key] = link;
+                    }
+                }
+                catch (QpdfException)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
+                }
+            }
+        }
+
+        return kept;
+    }
+
+    private static async ValueTask<AttachmentAssembly> AssembleAttachmentsAsync(
+        IQpdfHost host,
+        SortedDictionary<string, PdfReference> existing,
+        Dictionary<int, QpdfObject> pool,
+        AttachmentEdits edits,
+        string? inputPageMode,
+        bool compress,
+        int? level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (existing is null)
+        {
+            throw new ArgumentNullException(nameof(existing));
+        }
+
+        if (pool is null)
+        {
+            throw new ArgumentNullException(nameof(pool));
+        }
+
+        if (edits is null)
+        {
+            throw new ArgumentNullException(nameof(edits));
+        }
+
+        HashSet<int> ids = new();
+        if (!edits.HasEdits)
+        {
+            return new AttachmentAssembly(null, null, ids);
+        }
+
+        foreach (string key in edits.Removes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!existing.Remove(key))
+            {
+                throw new QpdfParseException("The requested attachment was not found.", 0L, null);
+            }
+        }
+
+        int nextId = 3;
+        foreach (int number in pool.Keys)
+        {
+            if (number >= nextId)
+            {
+                nextId = checked(number + 1);
+            }
+        }
+
+        List<string> duplicates = new();
+        foreach (AttachmentAdd add in edits.Adds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            string key = add.Key ?? AttachmentBuilder.Basename(add.File);
+            string fileName = add.FileName ?? AttachmentBuilder.Basename(add.File);
+            if (key.Length == 0)
+            {
+                throw new QpdfParseException("Attachment key must not be empty.", 0L, null);
+            }
+
+            if (fileName.Length == 0)
+            {
+                throw new QpdfParseException("Attachment filename must not be empty.", 0L, null);
+            }
+
+            if (!add.Replace && existing.ContainsKey(key))
+            {
+                duplicates.Add(key);
+                continue;
+            }
+
+            byte[] data = await ReadAttachmentFileAsync(host, add.File, limits, governor, cancellationToken).ConfigureAwait(false);
+            if (add.MimeType is not null && !IsAscii(add.MimeType))
+            {
+                throw new QpdfParseException("Attachment MIME type must be ASCII.", 0L, null);
+            }
+
+            byte[] checksum = AttachmentBuilder.Checksum(data);
+            PdfDictionary streamDict = AttachmentBuilder.BuildStreamDictionary(data.Length, checksum, add.MimeType, add.CreationDate, add.ModDate, governor);
+            byte[] stored = data;
+            if (compress && data.Length > 0)
+            {
+                stored = FlateFilter.Encode(data, level, limits, governor);
+                streamDict = AttachmentBuilder.WithFilter(streamDict, governor);
+            }
+
+            int streamId = nextId;
+            checked
+            {
+                nextId += 1;
+            }
+
+            governor.ReserveMemory(64L);
+            pool[streamId] = new PdfStream(streamDict, stored);
+            ids.Add(streamId);
+            PdfDictionary spec = AttachmentBuilder.BuildFilespecDictionary(fileName, add.Description, streamId);
+            int specId = nextId;
+            checked
+            {
+                nextId += 1;
+            }
+
+            governor.ReserveMemory(128L);
+            pool[specId] = spec;
+            ids.Add(specId);
+            existing[key] = new PdfReference(specId, 0);
+        }
+
+        if (duplicates.Count > 0)
+        {
+            throw new QpdfParseException("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key.", 0L, null);
+        }
+
+        if (existing.Count == 0)
+        {
+            return new AttachmentAssembly(null, null, ids);
+        }
+
+        List<KeyValuePair<string, PdfReference>> pairs = new(existing.Count);
+        foreach (KeyValuePair<string, PdfReference> entry in existing)
+        {
+            pairs.Add(entry);
+        }
+
+        PdfDictionary tree = AttachmentBuilder.BuildNameTree(pairs, governor);
+        governor.ReserveMemory(64L);
+        PdfDictionary wrapper = new(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("EmbeddedFiles")] = tree,
+        });
+        int rootId = nextId;
+        checked
+        {
+            nextId += 1;
+        }
+
+        governor.ReserveMemory(128L);
+        pool[rootId] = wrapper;
+        ids.Add(rootId);
+        string? pageMode = edits.Adds.Count > 0 ? inputPageMode ?? "UseAttachments" : inputPageMode;
+        return new AttachmentAssembly(new PdfReference(rootId, 0), pageMode, ids);
+    }
+
+    private static bool IsAscii(string text)
+    {
+        foreach (char c in text)
+        {
+            if (c > 127)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static async ValueTask<byte[]> ReadAttachmentFileAsync(
+        IQpdfHost host,
+        string file,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        QpdfPath path = SelectionPlan.CheckedPath(file);
+        IQpdfInput input = await host.OpenInputAsync(path, cancellationToken).ConfigureAwait(false);
+        governor.NoteHostOperation();
+        try
+        {
+            if (input.Length > limits.MaxInputBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+            }
+
+            if (input.Length > int.MaxValue)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+            }
+
+            governor.ReserveMemory(input.Length);
+            byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+            governor.NoteHostOperation();
+            return bytes;
+        }
+        finally
+        {
+            await input.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async ValueTask<PdfMultiPageSelectionResult> WholeFileCoreAsync(
+        IQpdfHost host,
+        WholeFilePlan plan,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (plan is null)
+        {
+            throw new ArgumentNullException(nameof(plan));
+        }
+
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false);
+        int total = document.PageReferences.Count;
+        if (total <= 0)
+        {
+            throw new QpdfParseException("The input document has no pages.", 0L, null);
+        }
+
+        if ((long)total > limits.MaxWork)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), total, limits.MaxWork);
+        }
+
+        List<int> pages = new(total);
+        for (int page = 1; page <= total; page++)
+        {
+            pages.Add(page);
+        }
+
+        List<PdfPageSource> solo = new(1)
+        {
+            new PdfPageSource(plan.Input, PdfPageSelectionOptions.FromPages(pages)),
+        };
+        return await SelectPagesCoreAsync(
+            host,
+            solo,
+            plan.Output,
+            plan.Input,
+            limits,
+            plan.Recovery,
+            null,
+            plan.Rotations,
+            plan.Labels,
+            plan.SplitPages,
+            false,
+            plan.MinVersion,
+            plan.ForceVersion,
+            plan.DeterministicId,
+            plan.StaticId,
+            plan.NewlineBeforeEndstream,
+            plan.ObjectStreams,
+            plan.PreserveUnreferenced,
+            plan.Compression(),
+            plan.RemoveInfo,
+            plan.RemoveMetadata,
+            plan.Edits(),
+            governor,
+            diagnostics,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     private static List<PageLabelSpec> ConvertLabels(IReadOnlyList<PdfPageLabel>? labels)
     {
         if (labels is null)
@@ -2732,6 +3077,29 @@ public static class Qpdf
             }
         }
 
+        if (plan is WholeFilePlan whole)
+        {
+            try
+            {
+                PdfMultiPageSelectionResult result = await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                return CompleteWithPresentation(result.Warnings, result.Counters, plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                return QpdfExecutionResult.Failed(
+                    [new QpdfDiagnostic(QpdfDiagnosticCode.InvalidArguments, QpdfDiagnosticSeverity.Error, ex.Message)],
+                    ZeroCounters());
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
         try
         {
             if (plan is MergePlan merge)
@@ -2767,6 +3135,7 @@ public static class Qpdf
                         merge.Compression(),
                         merge.RemoveInfo,
                         merge.RemoveMetadata,
+                        merge.Edits(),
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2820,6 +3189,7 @@ public static class Qpdf
                         selection.Compression(),
                         selection.RemoveInfo,
                         selection.RemoveMetadata,
+                        selection.Edits(),
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2860,6 +3230,7 @@ public static class Qpdf
                 selection.Compression(),
                 selection.RemoveInfo,
                 selection.RemoveMetadata,
+                selection.Edits(),
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);

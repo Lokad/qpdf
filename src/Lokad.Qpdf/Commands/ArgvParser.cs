@@ -50,6 +50,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --list-attachments and --show-attachment cannot be combined with --check or --pages.", showAt >= 0 ? showAt : listAt, null);
             }
 
+            if (HasAttachmentEdit(argv, 0, argv.Count))
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with attachment editing.", showAt >= 0 ? showAt : listAt, null);
+            }
+
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
@@ -90,40 +95,112 @@ internal static class ArgvParser
             };
         }
 
-        if (pagesAt < 0)
+        if (pagesAt < 0 && !HasAttachmentEdit(argv, 0, argv.Count))
         {
-            throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, or --check.", 0L, null);
+            throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, --check, or attachment editing.", 0L, null);
         }
 
-        int terminatorAt;
-        if (globals.ReplaceInput)
+        string input;
+        List<PageGroup> groups = new();
+        List<OutputRotation> rotations = new();
+        List<PageLabelSpec> labels = new();
+        List<int> collate = new();
+        int cursor;
+        if (pagesAt >= 0)
         {
-            foreach (string token in argv)
+            int blockAt = FirstAttachmentEdit(argv, pagesAt + 1, argv.Count);
+            if (globals.ReplaceInput)
             {
-                if (token == "--")
+                int areaEnd = blockAt >= 0 ? blockAt : argv.Count;
+                for (int i = pagesAt + 1; i < areaEnd; i++)
                 {
-                    throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
+                    if (argv[i] == "--")
+                    {
+                        throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
+                    }
                 }
-            }
 
-            terminatorAt = argv.Count;
+                input = ParseInputArea(argv, pagesAt, "--pages");
+                (groups, rotations, labels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                cursor = areaEnd;
+            }
+            else
+            {
+                int termAt = FindTerminator(argv, pagesAt);
+                input = ParseInputArea(argv, pagesAt, "--pages");
+                int areaEnd = blockAt >= 0 && blockAt < termAt ? blockAt : termAt;
+                (groups, rotations, labels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                cursor = areaEnd;
+            }
         }
         else
         {
-            terminatorAt = FindTerminator(argv, pagesAt);
+            if (globals.ReplaceInput)
+            {
+                throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, --check, or attachment editing.", 0L, null);
+            }
+
+            int blockAt = FirstAttachmentEdit(argv, 0, argv.Count);
+            input = ParseInputArea(argv, blockAt, "attachment editing");
+            cursor = blockAt;
         }
 
-        string input = ParseInputArea(argv, pagesAt, "--pages");
-        (List<PageGroup> groups, List<OutputRotation> rotations, List<PageLabelSpec> labels, List<int> collate) = ParsePagesArea(argv, pagesAt, terminatorAt);
+        AttachmentEdits edits = ParseAttachmentEdits(argv, ref cursor);
         if (globals.ReplaceInput)
         {
-            return ParseReplace(input, groups, rotations, labels, collate, recovery, globals);
+            if (cursor != argv.Count)
+            {
+                throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
+            }
+
+            return ParseReplace(input, groups, rotations, labels, collate, recovery, globals) with
+            {
+                AttachmentsToAdd = edits.Adds,
+                AttachmentsToRemove = edits.Removes,
+            };
         }
 
-        string output = ParseOutputArea(argv, terminatorAt);
+        if (cursor >= argv.Count || argv[cursor] != "--")
+        {
+            throw new QpdfParseException("An output file is required after --.", cursor, null);
+        }
+
+        string output = ParseOutputArea(argv, cursor);
         if (groups.Count > 1 || collate.Count > 0)
         {
-            return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals);
+            return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals) with
+            {
+                AttachmentsToAdd = edits.Adds,
+                AttachmentsToRemove = edits.Removes,
+            };
+        }
+
+        if (groups.Count == 0)
+        {
+            return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+                Rotations = rotations,
+                Labels = labels,
+                SplitPages = globals.SplitPages,
+                MinVersion = globals.MinVersion,
+                ForceVersion = globals.ForceVersion,
+                DeterministicId = globals.DeterministicId,
+                StaticId = globals.StaticId,
+                NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+                ObjectStreams = globals.ObjectStreams,
+                PreserveUnreferenced = globals.PreserveUnreferenced,
+                StreamData = globals.StreamData,
+                CompressStreams = globals.CompressStreams,
+                DecodeLevel = globals.DecodeLevel,
+                RecompressFlate = globals.RecompressFlate,
+                CompressionLevel = globals.CompressionLevel,
+                RemoveInfo = globals.RemoveInfo,
+                RemoveMetadata = globals.RemoveMetadata,
+                AttachmentsToAdd = edits.Adds,
+                AttachmentsToRemove = edits.Removes,
+            };
         }
 
         string file = groups[0].File;
@@ -151,6 +228,8 @@ internal static class ArgvParser
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
             RemoveMetadata = globals.RemoveMetadata,
+            AttachmentsToAdd = edits.Adds,
+            AttachmentsToRemove = edits.Removes,
         };
     }
 
@@ -842,6 +921,208 @@ internal static class ArgvParser
         }
 
         throw new QpdfParseException($"Unexpected argument '{token}' after --check; inspection takes no output file.", checkAt + 1, null);
+    }
+
+    private static bool HasAttachmentEdit(IReadOnlyList<string> argv, int start, int end)
+    {
+        return FirstAttachmentEdit(argv, start, end) >= 0;
+    }
+
+    private static int FirstAttachmentEdit(IReadOnlyList<string> argv, int start, int end)
+    {
+        for (int i = start; i < end; i++)
+        {
+            string token = argv[i];
+            if (token is null)
+            {
+                continue;
+            }
+
+            if (token == "--add-attachment"
+                || token.StartsWith("--remove-attachment=", StringComparison.Ordinal)
+                || token == "--remove-attachment"
+                || token == "--copy-attachments-from"
+                || token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static AttachmentEdits ParseAttachmentEdits(IReadOnlyList<string> argv, ref int cursor)
+    {
+        List<AttachmentAdd> adds = new();
+        List<string> removes = new();
+        while (cursor < argv.Count && argv[cursor] != "--")
+        {
+            string token = argv[cursor];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", cursor, null);
+            }
+
+            if (token == "--add-attachment")
+            {
+                adds.Add(ParseAddBlock(argv, ref cursor));
+                continue;
+            }
+
+            if (token.StartsWith("--remove-attachment=", StringComparison.Ordinal))
+            {
+                string key = token.Substring("--remove-attachment=".Length);
+                if (key.Length == 0)
+                {
+                    throw new QpdfParseException("Option --remove-attachment requires a non-empty key.", cursor, null);
+                }
+
+                removes.Add(key);
+                cursor += 1;
+                continue;
+            }
+
+            if (token == "--remove-attachment")
+            {
+                throw new QpdfParseException("Option --remove-attachment requires =key.", cursor, null);
+            }
+
+            if (token == "--copy-attachments-from" || token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --copy-attachments-from is outside the narrow profile.", cursor, null);
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                CheckOptionToken(token, cursor);
+                continue;
+            }
+
+            throw new QpdfParseException($"Unexpected argument '{token}' after the page selection.", cursor, null);
+        }
+
+        return new AttachmentEdits(adds, removes);
+    }
+
+    private static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor)
+    {
+        cursor += 1;
+        if (cursor >= argv.Count || argv[cursor] is null || argv[cursor] == "--" || (argv[cursor].StartsWith("--", StringComparison.Ordinal) && argv[cursor].Length > 2))
+        {
+            throw new QpdfParseException("Option --add-attachment requires a file.", cursor, null);
+        }
+
+        string file = argv[cursor];
+        if (file.Length == 0)
+        {
+            throw new QpdfParseException("Option --add-attachment requires a file.", cursor, null);
+        }
+
+        cursor += 1;
+        string? key = null;
+        string? fileName = null;
+        string? creationDate = null;
+        string? modDate = null;
+        string? mimeType = null;
+        string? description = null;
+        bool replace = false;
+        while (cursor < argv.Count && argv[cursor] != "--")
+        {
+            string token = argv[cursor];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", cursor, null);
+            }
+
+            if (token == "--key" || token.StartsWith("--key=", StringComparison.Ordinal)
+                || token == "--filename" || token.StartsWith("--filename=", StringComparison.Ordinal)
+                || token == "--creationdate" || token.StartsWith("--creationdate=", StringComparison.Ordinal)
+                || token == "--moddate" || token.StartsWith("--moddate=", StringComparison.Ordinal)
+                || token == "--mimetype" || token.StartsWith("--mimetype=", StringComparison.Ordinal)
+                || token == "--description" || token.StartsWith("--description=", StringComparison.Ordinal))
+            {
+                string name = OptionName(token);
+                string value = TakeParameter(argv, argv.Count, ref cursor, "--" + name);
+                if (name == "key")
+                {
+                    key = value;
+                }
+                else if (name == "filename")
+                {
+                    fileName = value;
+                }
+                else if (name == "creationdate")
+                {
+                    creationDate = value;
+                }
+                else if (name == "moddate")
+                {
+                    modDate = value;
+                }
+                else if (name == "mimetype")
+                {
+                    mimeType = value;
+                }
+                else
+                {
+                    description = value;
+                }
+
+                continue;
+            }
+
+            if (token == "--replace")
+            {
+                replace = true;
+                cursor += 1;
+                continue;
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                string name = OptionName(token);
+                if (CryptoOptions.Contains(name))
+                {
+                    throw new QpdfCryptoException("--" + name);
+                }
+
+                if (name == "pages" || name == "check" || name == "add-attachment" || name == "copy-attachments-from"
+                    || name == "remove-attachment" || name == "list-attachments" || name.StartsWith("show-attachment", StringComparison.Ordinal))
+                {
+                    throw new QpdfParseException($"Option '--{name}' cannot appear inside --add-attachment.", cursor, null);
+                }
+
+                throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", cursor, null);
+            }
+
+            throw new QpdfParseException($"Unexpected argument '{token}' inside --add-attachment.", cursor, null);
+        }
+
+        if (cursor >= argv.Count)
+        {
+            throw new QpdfParseException("Missing -- terminator after --add-attachment.", cursor, null);
+        }
+
+        cursor += 1;
+        if (key is not null && key.Length == 0)
+        {
+            throw new QpdfParseException("Option --key requires a non-empty key.", cursor, null);
+        }
+
+        if (fileName is not null && fileName.Length == 0)
+        {
+            throw new QpdfParseException("Option --filename requires a non-empty name.", cursor, null);
+        }
+
+        return new AttachmentAdd(
+            file,
+            key,
+            fileName,
+            creationDate is null || creationDate.Length == 0 ? null : creationDate,
+            modDate is null || modDate.Length == 0 ? null : modDate,
+            mimeType is null || mimeType.Length == 0 ? null : mimeType,
+            description is null || description.Length == 0 ? null : description,
+            replace);
     }
 
     private static int FindTerminator(IReadOnlyList<string> argv, int pagesAt)

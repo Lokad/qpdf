@@ -1070,13 +1070,15 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "AttachmentEditTests.AddExplicitMetadata"
+        ],
         "negative": [],
         "interaction": [],
         "resource": [],
@@ -1101,13 +1103,15 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "AttachmentEditTests.AddExplicitMetadata"
+        ],
         "negative": [],
         "interaction": [],
         "resource": [],
@@ -1132,14 +1136,18 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "AttachmentEditTests.AddExplicitMetadata"
+        ],
+        "negative": [
+          "AttachmentEditTests.MalformedEditsFail"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1163,15 +1171,21 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "AttachmentEditTests.AddExplicitMetadata"
+        ],
+        "negative": [
+          "AttachmentEditTests.MalformedEditsFail"
+        ],
+        "interaction": [
+          "AttachmentEditTests.JobAddRemoveRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -1194,15 +1208,19 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "AttachmentEditTests.AddExplicitMetadata"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "AttachmentEditTests.AddWithoutDatesOmitsParams"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -1225,13 +1243,15 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "AttachmentEditTests.AddExplicitMetadata"
+        ],
         "negative": [],
         "interaction": [],
         "resource": [],
@@ -1256,14 +1276,18 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Nested option of --add-attachment; see --add-attachment gaps."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "AttachmentEditTests.AddReplaceOverwrites"
+        ],
+        "negative": [
+          "AttachmentEditTests.AddDuplicateKeyFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1818,15 +1842,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); --copy-attachments-from stays unsupported."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "AttachmentEditTests.AddSingleAttachment",
+          "AttachmentEditTests.AddExplicitMetadata",
+          "AttachmentEditTests.AddWithPagesSelectsAndAttaches"
+        ],
+        "negative": [
+          "AttachmentEditTests.AddMissingFileFails",
+          "AttachmentEditTests.MalformedEditsFail",
+          "AttachmentEditTests.JobMalformedEditsFail"
+        ],
+        "interaction": [
+          "AttachmentEditTests.AddPreservesExisting",
+          "AttachmentEditTests.JobAddRemoveRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3993,15 +4028,22 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); --copy-attachments-from stays unsupported."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "AttachmentEditTests.RemoveExisting"
+        ],
+        "negative": [
+          "AttachmentEditTests.RemoveUnknownKeyFails"
+        ],
+        "interaction": [
+          "AttachmentEditTests.RemoveThenReaddWins",
+          "AttachmentEditTests.JobAddRemoveRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }

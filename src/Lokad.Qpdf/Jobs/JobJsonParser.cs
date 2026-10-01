@@ -96,6 +96,10 @@ internal static class JobJsonParser
             bool seenRemoveInfo = false;
             bool removeMetadata = false;
             bool seenRemoveMetadata = false;
+            List<AttachmentAdd> attachmentsToAdd = new();
+            bool seenAddAttachment = false;
+            List<string> attachmentsToRemove = new();
+            bool seenRemoveAttachment = false;
             bool listAttachments = false;
             bool seenListAttachments = false;
             string? showAttachment = null;
@@ -313,6 +317,24 @@ internal static class JobJsonParser
                         }
 
                         break;
+                    case "addAttachment":
+                        if (seenAddAttachment)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027addAttachment\u0027.", 0L, null);
+                        }
+
+                        seenAddAttachment = true;
+                        attachmentsToAdd.AddRange(ParseAddAttachmentArray(property.Value));
+                        break;
+                    case "removeAttachment":
+                        if (seenRemoveAttachment)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027removeAttachment\u0027.", 0L, null);
+                        }
+
+                        seenRemoveAttachment = true;
+                        attachmentsToRemove.AddRange(ParseRemoveAttachmentArray(property.Value));
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -367,9 +389,43 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
 
+            bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0;
             if (!hasPages)
             {
-                throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
+                if (!wantEdits)
+                {
+                    throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
+                }
+
+                if (seenRotate || seenLabels || seenRemoveLabels)
+                {
+                    throw new QpdfParseException("Job rotation and label keys require \"pages\".", 0L, null);
+                }
+
+                if (output is null)
+                {
+                    throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
+                }
+
+                return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), QpdfRecoveryMode.BoundedRepair) with
+                {
+                    MinVersion = minVersion,
+                    ForceVersion = forceVersion,
+                    DeterministicId = deterministicId,
+                    StaticId = staticId,
+                    NewlineBeforeEndstream = newlineBeforeEndstream,
+                    ObjectStreams = objectStreams,
+                    PreserveUnreferenced = preserveUnreferenced,
+                    StreamData = streamData,
+                    CompressStreams = compressStreams,
+                    DecodeLevel = decodeLevel,
+                    RecompressFlate = recompressFlate,
+                    CompressionLevel = compressionLevel,
+                    RemoveInfo = removeInfo,
+                    RemoveMetadata = removeMetadata,
+                    AttachmentsToAdd = attachmentsToAdd,
+                    AttachmentsToRemove = attachmentsToRemove,
+                };
             }
 
             if (removeLabels && labels.Count > 0)
@@ -400,6 +456,8 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
+                    AttachmentsToAdd = attachmentsToAdd,
+                    AttachmentsToRemove = attachmentsToRemove,
                 };
             }
 
@@ -428,6 +486,8 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
+                    AttachmentsToAdd = attachmentsToAdd,
+                    AttachmentsToRemove = attachmentsToRemove,
             };
         }
     }
@@ -484,6 +544,168 @@ internal static class JobJsonParser
         }
 
         return labels;
+    }
+
+    private static List<AttachmentAdd> ParseAddAttachmentArray(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job addAttachment must be an array.", 0L, null);
+        }
+
+        if (value.GetArrayLength() == 0)
+        {
+            throw new QpdfParseException("Job addAttachment must not be empty.", 0L, null);
+        }
+
+        List<AttachmentAdd> adds = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new QpdfParseException("Job addAttachment entries must be objects.", 0L, null);
+            }
+
+            adds.Add(ParseAddAttachmentEntry(entry));
+        }
+
+        return adds;
+    }
+
+    private static AttachmentAdd ParseAddAttachmentEntry(JsonElement entry)
+    {
+        string? file = null;
+        string? key = null;
+        string? fileName = null;
+        string? creationDate = null;
+        string? modDate = null;
+        string? mimeType = null;
+        string? description = null;
+        bool replace = false;
+        foreach (JsonProperty property in entry.EnumerateObject())
+        {
+            switch (property.Name)
+            {
+                case "file":
+                    if (file is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    file = RequireString(property.Value, "addAttachment-file");
+                    break;
+                case "key":
+                    if (key is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    key = RequireString(property.Value, "addAttachment-key");
+                    break;
+                case "filename":
+                    if (fileName is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    fileName = RequireString(property.Value, "addAttachment-filename");
+                    break;
+                case "creationdate":
+                    if (creationDate is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    creationDate = RequireString(property.Value, "addAttachment-creationdate");
+                    break;
+                case "moddate":
+                    if (modDate is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    modDate = RequireString(property.Value, "addAttachment-moddate");
+                    break;
+                case "mimetype":
+                    if (mimeType is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    mimeType = RequireString(property.Value, "addAttachment-mimetype");
+                    break;
+                case "description":
+                    if (description is not null)
+                    {
+                        throw new QpdfParseException("Duplicate addAttachment key.", 0L, null);
+                    }
+
+                    description = RequireString(property.Value, "addAttachment-description");
+                    break;
+                case "replace":
+                    replace = RequireBareFlag(property.Value, "addAttachment-replace");
+                    break;
+                default:
+                    throw new QpdfParseException("Unsupported addAttachment key.", 0L, null);
+            }
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            throw new QpdfParseException("Job addAttachment entries require a file.", 0L, null);
+        }
+
+        if (key is not null && key.Length == 0)
+        {
+            throw new QpdfParseException("Job addAttachment key must not be empty.", 0L, null);
+        }
+
+        if (fileName is not null && fileName.Length == 0)
+        {
+            throw new QpdfParseException("Job addAttachment filename must not be empty.", 0L, null);
+        }
+
+        return new AttachmentAdd(
+            file,
+            key,
+            fileName,
+            creationDate is null || creationDate.Length == 0 ? null : creationDate,
+            modDate is null || modDate.Length == 0 ? null : modDate,
+            mimeType is null || mimeType.Length == 0 ? null : mimeType,
+            description is null || description.Length == 0 ? null : description,
+            replace);
+    }
+
+    private static List<string> ParseRemoveAttachmentArray(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job removeAttachment must be an array.", 0L, null);
+        }
+
+        if (value.GetArrayLength() == 0)
+        {
+            throw new QpdfParseException("Job removeAttachment must not be empty.", 0L, null);
+        }
+
+        List<string> removes = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.String)
+            {
+                throw new QpdfParseException("Job removeAttachment entries must be strings.", 0L, null);
+            }
+
+            string? key = entry.GetString();
+            if (key is null || key.Length == 0)
+            {
+                throw new QpdfParseException("Job removeAttachment entries must be non-empty.", 0L, null);
+            }
+
+            removes.Add(key);
+        }
+
+        return removes;
     }
 
     private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)

@@ -16,7 +16,8 @@ internal sealed record EmbeddedAttachment(
     string Checksum,
     int StreamObjectNumber,
     long Size,
-    PdfStream Stream);
+    PdfStream Stream,
+    QpdfObject Spec);
 
 internal static class EmbeddedFiles
 {
@@ -357,6 +358,6 @@ internal static class EmbeddedFiles
         }
 
         governor.ChargeWork(1L);
-        return new EmbeddedAttachment(key, fileName, description, mimeType, creationDate, modDate, checksum, streamNumber, size, data);
+        return new EmbeddedAttachment(key, fileName, description, mimeType, creationDate, modDate, checksum, streamNumber, size, data, value);
     }
 }

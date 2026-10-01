@@ -495,6 +495,21 @@ use this profile's stable diagnostic format rather than `--verbose` gating;
 keys compare as decoded text with exact ordinal match. Selection output still
 drops `/Names`; attachment add/copy/remove follow separately.
 
+## Attachment add and remove (work item 25a)
+
+`--add-attachment` blocks (file plus `= `/space nested options, repeatable,
+`--`-terminated) and repeatable `--remove-attachment=key` combine with page
+selection, replacement, and split groups (every group carries the full set)
+through one shared engine: removals first (unknown keys fail), then sequential
+adds with per-add `--replace` handling and collected collision errors.
+Existing attachments are preserved from the primary input and merged with
+additions into a rebuilt sorted tree; output uses `/PageMode
+/UseAttachments` on insertions. Intentional differences: unspecified dates
+are omitted rather than stamped (no ambient clock reads); keys and names
+encode as ASCII literals or UTF-16 hex; trees use flat leaves chunked past
+64 entries without balancing; `--copy-attachments-from` stays explicitly
+unsupported until copy support lands with the typed editing surface.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

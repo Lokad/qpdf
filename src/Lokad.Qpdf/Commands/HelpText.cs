@@ -37,6 +37,8 @@ internal static class HelpText
           --remove-metadata           drop the document metadata stream
           --list-attachments          list embedded files
           --show-attachment=key         write one attachment to the output file
+          --add-attachment file [options] --  embed host files
+          --remove-attachment=key       drop an embedded file
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target
