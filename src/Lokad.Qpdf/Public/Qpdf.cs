@@ -18,7 +18,7 @@ public static class Qpdf
     // Command adapters: argv and job JSON converge on the typed selection plan.
 {
     /// <summary>
-    /// Copies one page into a standalone PDF with default budgets. Streams
+    /// Copies the selected pages into a standalone PDF with default budgets. Streams
     /// travel opaquely; inherited page attributes are materialized.
     /// </summary>
     public static ValueTask<PdfPageSelectionResult> SelectPageAsync(
@@ -32,10 +32,10 @@ public static class Qpdf
     }
 
     /// <summary>
-    /// Copies one page into a standalone PDF with explicit budgets.
+    /// Copies the selected pages into a standalone PDF with explicit budgets.
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">The page exceeds the count.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A page exceeds the count.</exception>
     public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(
         IQpdfHost host,
         QpdfPath inputPath,
@@ -63,17 +63,35 @@ public static class Qpdf
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        if (options.PageNumber > document.PageReferences.Count)
+        int total = document.PageReferences.Count;
+        IReadOnlyList<int> requested = options.Resolve(total);
+        if ((long)requested.Count > limits.MaxWork)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), $"Page {options.PageNumber} exceeds the page count of {document.PageReferences.Count}.");
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested.Count, limits.MaxWork);
         }
 
-        PageLocation location = document.PageReferences[options.PageNumber - 1];
-        cancellationToken.ThrowIfCancellationRequested();
+        foreach (int pageNumber in requested)
+        {
+            if (pageNumber > total)
+            {
+                throw new ArgumentOutOfRangeException(nameof(options), $"Page {pageNumber} exceeds the page count of {total}.");
+            }
+        }
+
         GraphCopier copier = new(document.Engine, governor, limits, 3);
-        Dictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken);
-        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
-        RequireMediaBox(page);
+        List<PdfReference> kids = new(requested.Count);
+        foreach (int pageNumber in requested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            PageLocation location = document.PageReferences[pageNumber - 1];
+            Dictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken);
+            (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+            RequireMediaBox(page);
+            kids.Add(new PdfReference(pageId, 0));
+        }
+
+        string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         PdfDictionary catalog = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Catalog"),
@@ -82,8 +100,8 @@ public static class Qpdf
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-            [PdfName.FromAscii("Kids")] = new PdfArray([new PdfReference(pageId, 0)]),
-            [PdfName.FromAscii("Count")] = new PdfInteger("1", 1L),
+            [PdfName.FromAscii("Kids")] = new PdfArray([.. kids]),
+            [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
         });
         List<NumberedObject> model = new()
         {
@@ -116,7 +134,7 @@ public static class Qpdf
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return new PdfPageSelectionResult(options.PageNumber, 1, [.. diagnostics.Entries], governor.Snapshot());
+        return new PdfPageSelectionResult(total, [.. requested], kids.Count, [.. diagnostics.Entries], governor.Snapshot());
     }
 
     private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(

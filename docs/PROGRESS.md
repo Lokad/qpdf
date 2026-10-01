@@ -2,24 +2,21 @@
 
 ## Current checkpoint
 
-Work item 12: byte, version, and indirect-length semantics. `QpdfDocument.Version` is
-the effective version (header overridden by a valid catalog `/Version` name, direct or
-indirect); malformed, mistyped, unresolvable, or unsupported catalog versions fail.
-Object loads carry a reentrancy guard so self-referential indirect `/Length` fails as
-a parse error; over-declared lengths fail before allocating and stream bytes slice
-strictly by `/Length`, preserving delimiter-like bytes. Selection output echoes the
-effective version in its header.
+Work item 13: ordered multi-page selection. `PdfPageSelectionOptions` accepts explicit
+ordered pages (duplicates preserved), `FirstAndLast(N)` windows, and
+sorted/deduplicated `Normalized` sets; results carry the source page count and the
+exact per-output-page source mapping. Each occurrence copies to an independent page
+object with shared resources; full selections rewrite rather than echo.
+Oversized selections fail on work budgets; out-of-range pages fail explicitly.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 277 tests (261
-  prior plus 16 version/length cases: header preservation, catalog override
-  (direct, indirect, null-keeps-header), effective-version output echo,
-  malformed/mistyped/unresolvable/unsupported version rejection, indirect
-  length resolution, self-referential cycle guard, missing/negative/
-  unresolvable/huge length rejection, and delimiter-like stream bytes).
+- Locked restore, Release build with zero warnings, and all 286 tests (277
+  prior plus 9 selection cases: ordered/duplicated pages with source mapping,
+  distinct duplicate objects, `FirstAndLast` windows/meet/overlap, full-selection
+  rewrite, out-of-range failure, fast option validation, and normalization).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -31,7 +28,7 @@ binary.
 
 ## Next work
 
-1. Work item 13: ordered ranges, duplicates, first/last selection, source mapping.
+1. Work item 14: catalog/inheritance/form/widget policies, omitted-page references.
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

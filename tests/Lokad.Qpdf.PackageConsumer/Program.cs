@@ -33,7 +33,7 @@ internal static class Program
             QpdfPath.From("outputs/typed.pdf"),
             new PdfPageSelectionOptions(2),
             CancellationToken.None);
-        Check(typed.PageCount == 1 && typed.SourcePageNumber == 2, "typed selection result");
+        Check(typed.PageCount == 1 && typed.SourcePageCount == 2 && typed.SourcePages.Count == 1 && typed.SourcePages[0] == 2, "typed selection result");
         await CheckOutputAsync(typedHost, "outputs/typed.pdf", "Second");
         Console.WriteLine("PASS typed selection (page 2, opaque streams)");
 

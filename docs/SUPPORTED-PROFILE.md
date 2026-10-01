@@ -40,11 +40,15 @@ echoing values.
 
 ## Selection semantics
 
-- One page by 1-based index; out-of-range indexes fail explicitly.
-- Output carries a fresh catalog with the copied page only. Shared objects
-  are copied once; `/Parent` links are dropped.
+- Explicit ordered pages by 1-based index (order and duplicates preserved),
+  `FirstAndLast(N)` windows, or sorted/deduplicated `Normalized` sets; out-of-range
+  indexes fail explicitly and empty explicit selections are rejected.
+- Output carries a fresh catalog with the copied pages only; each occurrence is an
+  independent page object sharing immutable resources. Shared non-page objects
+  are copied once; `/Parent` links are dropped. Results carry the source page
+  count and the exact per-output-page source mapping.
 - The four inheritable attributes (`Resources`, `MediaBox`, `CropBox`,
-  `/Rotate`) materialize from ancestry into the copied page. A missing
+  `/Rotate`) materialize from ancestry into each copied page. A missing
   `/MediaBox` after ancestry fails; missing `Resources` stays absent.
 - Page-tree nodes require `/Type /Page` or `/Pages`. Traversal wins over
   `/Count`, which only warns. References to foreign page-tree nodes fail

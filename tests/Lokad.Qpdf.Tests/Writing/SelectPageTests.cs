@@ -43,7 +43,7 @@ public sealed class SelectPageTests
             QpdfPath.From("outputs/page.pdf"),
             new PdfPageSelectionOptions(1),
             CancellationToken.None);
-        Assert.Equal(1, result.SourcePageNumber);
+        Assert.Equal([1], result.SourcePages);
         Assert.Equal(1, result.PageCount);
         Assert.True(result.Counters.TotalOutputBytes > 0L);
 
@@ -72,7 +72,7 @@ public sealed class SelectPageTests
             QpdfPath.From("outputs/second.pdf"),
             new PdfPageSelectionOptions(2),
             CancellationToken.None);
-        Assert.Equal(2, result.SourcePageNumber);
+        Assert.Equal([2], result.SourcePages);
 
         await using QpdfDocument output = await Reopen(host, "outputs/second.pdf");
         Assert.Equal(1, output.PageCount);

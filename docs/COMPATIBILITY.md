@@ -207,6 +207,17 @@ self-referential indirect `/Length` fails as a parse error instead of recursing.
 Over-declared lengths fail before allocating; stream data is sliced strictly by
 `/Length`, preserving delimiter-like bytes.
 
+## Ordered multi-page selection (work item 13)
+
+The typed selection accepts explicit ordered pages (duplicates and order
+preserved), `FirstAndLast(N)` windows, and sorted/deduplicated `Normalized`
+sets. `FirstAndLast(N)` returns the first N and last N pages in document order,
+or every page once when the windows meet or overlap. Results carry the source
+page count and the exact per-output-page source mapping. Each occurrence copies
+to an independent page object while immutable resources stay shared; selecting
+every page still rewrites the graph rather than echoing input bytes. Oversized
+selections fail on work budgets and out-of-range pages fail explicitly.
+
 ## Single-page selection (work item 06a)
 
 Typed `Qpdf.SelectPageAsync` copies one page by 1-based index through the
