@@ -13,7 +13,8 @@ Three routes converge on one selection plan executed by the shared engine:
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
   -- output` (repeated file/range groups with single-integer ranges), `input --check`, `--job-json-file`
   file`, `@file` response files (one argument per line), `--help`/`--version`,
-  `--rotate=[+|-]angle[:range]`, and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
+  `--rotate=[+|-]angle[:range]`, `--split-pages[=n]`, `--replace-input`,
+  and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,
   pages:[{file, range}, ...]}` concatenating entries in order, plus optional
   `rotate` and `setPageLabels` arrays; inspection and `collate` have no job
@@ -74,6 +75,9 @@ echoing values.
 - Publication is staged: validation, budgets, and serialization complete
   before commit, so failures leave existing targets untouched. Every lease
   closes on success, failure, and cancellation.
+- `--split-pages` publishes one file per page group with pruned objects and
+  sliced labels; `--replace-input` overwrites the single input with no backup.
+  Partial split outputs can remain if a later group fails.
 
 ## Inspection profile
 

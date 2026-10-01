@@ -213,7 +213,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -279,7 +279,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -358,7 +358,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
@@ -370,13 +370,14 @@ public static class Qpdf
         PdfPageCollation? collation,
         IReadOnlyList<OutputRotation> rotations,
         IReadOnlyList<PageLabelSpec> labels,
+        int? splitPages,
+        bool replaceInput,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         List<int> sourceCounts = new(sources.Count);
         List<List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)>> perSource = new(sources.Count);
-        List<NumberedObject> model = new();
         int nextId = 3;
         List<GraphCopier> copiers = new(sources.Count);
         PdfVersion? version = null;
@@ -437,46 +438,152 @@ public static class Qpdf
         }
 
         ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
+
+        if (replaceInput && splitPages.HasValue)
+        {
+            throw new QpdfParseException("--split-pages may not be used with --replace-input.", null, null);
+        }
+
+        if (splitPages.HasValue && splitPages.Value < 1)
+        {
+            throw new QpdfParseException("--split-pages needs a positive group size.", null, null);
+        }
+
+        QpdfPath target = outputPath;
+        if (replaceInput)
+        {
+            HashSet<string> distinct = new(StringComparer.Ordinal);
+            foreach (PdfPageSource source in sources)
+            {
+                distinct.Add(source.Input.Value);
+            }
+
+            if (distinct.Count != 1)
+            {
+                throw new QpdfParseException("--replace-input needs a single distinct input.", null, null);
+            }
+
+            target = sources[0].Input;
+        }
+        else
+        {
+            foreach (PdfPageSource source in sources)
+            {
+                if (source.Input.Value == outputPath.Value)
+                {
+                    throw new QpdfParseException("Output aliases an input; use --replace-input to overwrite it.", null, null);
+                }
+            }
+        }
+
+        Dictionary<int, QpdfObject> pool = new();
         foreach (GraphCopier copier in copiers)
         {
             List<int> ids = new(copier.CopiedObjects.Keys);
             ids.Sort();
             foreach (int id in ids)
             {
-                model.Add(new NumberedObject(id, copier.CopiedObjects[id]));
+                pool[id] = copier.CopiedObjects[id];
             }
         }
 
-        string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        model.Insert(0, new NumberedObject(1, NewCatalog(BuildPageLabels(labels, kids.Count, governor))));
-        model.Insert(1, new NumberedObject(2, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-        {
-            [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-            [PdfName.FromAscii("Kids")] = new PdfArray([.. kids]),
-            [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
-        })));
-
+        List<(int Index, PdfDictionary Label)> labelItems = ResolveLabelItems(labels, kids.Count, governor);
         PdfVersion effective = version ?? new PdfVersion(1, 4);
-        PdfSerializer serializer = new(limits, governor);
-        CountingSink counter = new();
-        long counted = await serializer.SerializeAsync(effective, model, counter, cancellationToken).ConfigureAwait(false);
-        if (counted > limits.MaxOutputBytes)
+        List<QpdfPath> outputPaths = new();
+        if (!splitPages.HasValue)
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), counted, limits.MaxOutputBytes);
+            List<NumberedObject> model = new()
+            {
+                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems))),
+                new NumberedObject(2, PagesNode(kids)),
+            };
+            foreach (KeyValuePair<int, QpdfObject> entry in pool)
+            {
+                model.Add(new NumberedObject(entry.Key, entry.Value));
+            }
+
+            await PublishModelAsync(host, effective, model, target, limits, governor, cancellationToken).ConfigureAwait(false);
+            outputPaths.Add(target);
+            return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot());
         }
 
-        governor.ReserveMemory(counted);
-        governor.NoteHostOperation();
-        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
-        TransactionSink sink = new(transaction, governor);
-        long written = await serializer.SerializeAsync(effective, model, sink, cancellationToken).ConfigureAwait(false);
-        if (written != counted)
+        List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value);
+        HashSet<string> distinctInputs = new(StringComparer.Ordinal);
+        foreach (PdfPageSource source in sources)
         {
-            throw new QpdfException($"Writer replay mismatch: counted {counted} bytes but wrote {written}.");
+            distinctInputs.Add(source.Input.Value);
         }
 
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, [.. diagnostics.Entries], governor.Snapshot());
+        HashSet<string> seenNames = new(StringComparer.Ordinal);
+        foreach (string name in names)
+        {
+            if (name.Length > QpdfPath.MaxLength)
+            {
+                throw new QpdfParseException("A split output name exceeds the path budget.", null, null);
+            }
+
+            if (distinctInputs.Contains(name))
+            {
+                throw new QpdfParseException($"Split output '{name}' aliases an input.", null, null);
+            }
+
+            if (!seenNames.Add(name))
+            {
+                throw new QpdfParseException($"Split outputs collide on '{name}'.", null, null);
+            }
+        }
+
+        List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value);
+        for (int g = 0; g < groups.Count; g++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            (int first, int last) = groups[g];
+            List<PdfReference> groupKids = kids.GetRange(first - 1, last - first + 1);
+            List<int> groupIds = new(groupKids.Count);
+            foreach (PdfReference kid in groupKids)
+            {
+                groupIds.Add(kid.ObjectNumber);
+            }
+
+            HashSet<int> reachable = ReachableIds(pool, groupIds, governor);
+            List<int> kept = new(reachable.Count);
+            foreach (KeyValuePair<int, QpdfObject> entry in pool)
+            {
+                if (reachable.Contains(entry.Key))
+                {
+                    kept.Add(entry.Key);
+                }
+            }
+
+            kept.Sort();
+            Dictionary<int, int> renumber = new(kept.Count);
+            for (int r = 0; r < kept.Count; r++)
+            {
+                renumber[kept[r]] = 3 + r;
+            }
+
+            List<PdfReference> renumberedKids = new(groupKids.Count);
+            foreach (PdfReference kid in groupKids)
+            {
+                renumberedKids.Add(new PdfReference(renumber[kid.ObjectNumber], 0));
+            }
+
+            List<NumberedObject> sub = new()
+            {
+                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last))),
+                new NumberedObject(2, PagesNode(renumberedKids)),
+            };
+            foreach (int id in kept)
+            {
+                sub.Add(new NumberedObject(renumber[id], RemapIds(pool[id], renumber, governor)));
+            }
+
+            QpdfPath path = QpdfPath.From(names[g]);
+            await PublishModelAsync(host, effective, sub, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            outputPaths.Add(path);
+        }
+
+        return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot());
     }
 
     private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
@@ -630,6 +737,17 @@ public static class Qpdf
         return order;
     }
 
+    private static PdfDictionary PagesNode(List<PdfReference> groupKids)
+    {
+        string text = groupKids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
+            [PdfName.FromAscii("Kids")] = new PdfArray([.. groupKids]),
+            [PdfName.FromAscii("Count")] = new PdfInteger(text, groupKids.Count),
+        });
+    }
+
     private static PdfDictionary NewCatalog(PdfDictionary? pageLabels)
     {
         Dictionary<PdfName, QpdfObject> entries = new()
@@ -650,9 +768,24 @@ public static class Qpdf
         int total,
         ResourceGovernor governor)
     {
-        if (labels.Count == 0)
+        List<(int Index, PdfDictionary Label)> items = ResolveLabelItems(labels, total, governor);
+        if (items.Count == 0)
         {
             return null;
+        }
+
+        return NumbersDictionary(items);
+    }
+
+    private static List<(int Index, PdfDictionary Label)> ResolveLabelItems(
+        IReadOnlyList<PageLabelSpec> labels,
+        int total,
+        ResourceGovernor governor)
+    {
+        List<(int Index, PdfDictionary Label)> items = new(labels.Count);
+        if (labels.Count == 0)
+        {
+            return items;
         }
 
         if (total == 0)
@@ -660,7 +793,6 @@ public static class Qpdf
             throw new ArgumentOutOfRangeException(nameof(labels), "Page labels need at least one output page.");
         }
 
-        List<(int Index, PdfDictionary Label)> items = new(labels.Count);
         foreach (PageLabelSpec specification in labels)
         {
             governor.ChargeWork(1L);
@@ -681,6 +813,11 @@ public static class Qpdf
             }
         }
 
+        return items;
+    }
+
+    private static PdfDictionary NumbersDictionary(List<(int Index, PdfDictionary Label)> items)
+    {
         List<QpdfObject> numbers = new(items.Count * 2);
         foreach ((int index, PdfDictionary label) in items)
         {
@@ -694,6 +831,223 @@ public static class Qpdf
         {
             [PdfName.FromAscii("Nums")] = new PdfArray(numbers),
         });
+    }
+
+    private static PdfDictionary? SlicePageLabels(List<(int Index, PdfDictionary Label)> items, int first, int last)
+    {
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        (int Index, PdfDictionary Label) carry = items[0];
+        List<(int Index, PdfDictionary Label)> sliced = new();
+        foreach ((int index, PdfDictionary label) in items)
+        {
+            if (index + 1 <= first)
+            {
+                carry = (index, label);
+            }
+            else if (index + 1 <= last)
+            {
+                sliced.Add((index - (first - 1), label));
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        sliced.Insert(0, (0, carry.Label));
+        return NumbersDictionary(sliced);
+    }
+
+    private static List<(int First, int Last)> PartitionGroups(int total, int groupSize)
+    {
+        List<(int First, int Last)> groups = new();
+        for (int first = 1; first <= total; first += groupSize)
+        {
+            groups.Add((first, Math.Min(first + groupSize - 1, total)));
+        }
+
+        return groups;
+    }
+
+    private static string PadGroupNumber(int value, int width)
+    {
+        return value.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(width, '0');
+    }
+
+    private static List<string> GenerateSplitNames(string pattern, int total, int groupSize)
+    {
+        int width = total.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+        List<string> names = new();
+        foreach ((int first, int last) in PartitionGroups(total, groupSize))
+        {
+            string range = first == last
+                ? PadGroupNumber(first, width)
+                : PadGroupNumber(first, width) + "-" + PadGroupNumber(last, width);
+            int marker = pattern.IndexOf("%d", StringComparison.Ordinal);
+            if (marker >= 0)
+            {
+                names.Add(pattern.Substring(0, marker) + range + pattern.Substring(marker + 2));
+                continue;
+            }
+
+            if (pattern.Length >= 4 && pattern.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(pattern.Substring(0, pattern.Length - 4) + "-" + range + pattern.Substring(pattern.Length - 4));
+                continue;
+            }
+
+            names.Add(pattern + "-" + range);
+        }
+
+        return names;
+    }
+
+    private static QpdfObject RemapIds(QpdfObject value, Dictionary<int, int> renumber, ResourceGovernor governor)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        governor.ChargeWork(1L);
+        if (value is PdfReference reference)
+        {
+            if (!renumber.TryGetValue(reference.ObjectNumber, out int mapped))
+            {
+                throw new QpdfException($"Split publication reached unmapped object {reference.ObjectNumber}.");
+            }
+
+            return new PdfReference(mapped, 0);
+        }
+
+        if (value is PdfArray array)
+        {
+            List<QpdfObject> items = new(array.Count);
+            for (int i = 0; i < array.Count; i++)
+            {
+                items.Add(RemapIds(array[i], renumber, governor));
+            }
+
+            return new PdfArray(items);
+        }
+
+        if (value is PdfDictionary dictionary)
+        {
+            Dictionary<PdfName, QpdfObject> entries = new();
+            foreach (PdfName key in dictionary.Keys)
+            {
+                if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
+                {
+                    entries[key] = RemapIds(entry, renumber, governor);
+                }
+            }
+
+            return new PdfDictionary(entries);
+        }
+
+        if (value is PdfStream stream)
+        {
+            if (RemapIds(stream.Dictionary, renumber, governor) is not PdfDictionary remapped)
+            {
+                throw new QpdfException("Split publication reached a non-dictionary stream header.");
+            }
+
+            byte[] data = stream.Data;
+            byte[] preserved = new byte[data.Length];
+            Buffer.BlockCopy(data, 0, preserved, 0, data.Length);
+            return new PdfStream(remapped, preserved);
+        }
+
+        return value;
+    }
+
+    private static HashSet<int> ReachableIds(Dictionary<int, QpdfObject> pool, List<int> roots, ResourceGovernor governor)
+    {
+        HashSet<int> seen = new();
+        Queue<int> queue = new();
+        foreach (int root in roots)
+        {
+            queue.Enqueue(root);
+        }
+
+        while (queue.TryDequeue(out int id))
+        {
+            if (!pool.TryGetValue(id, out QpdfObject? value) || !seen.Add(id))
+            {
+                continue;
+            }
+
+            governor.ChargeWork(1L);
+            Stack<QpdfObject> stack = new();
+            stack.Push(value);
+            while (stack.TryPop(out QpdfObject? current))
+            {
+                if (current is PdfReference reference)
+                {
+                    if (!seen.Contains(reference.ObjectNumber))
+                    {
+                        queue.Enqueue(reference.ObjectNumber);
+                    }
+                }
+                else if (current is PdfArray array)
+                {
+                    for (int i = 0; i < array.Count; i++)
+                    {
+                        stack.Push(array[i]);
+                    }
+                }
+                else if (current is PdfDictionary dictionary)
+                {
+                    foreach (PdfName key in dictionary.Keys)
+                    {
+                        if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
+                        {
+                            stack.Push(entry);
+                        }
+                    }
+                }
+                else if (current is PdfStream stream)
+                {
+                    stack.Push(stream.Dictionary);
+                }
+            }
+        }
+
+        return seen;
+    }
+
+    private static async ValueTask PublishModelAsync(
+        IQpdfHost host,
+        PdfVersion version,
+        List<NumberedObject> model,
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        PdfSerializer serializer = new(limits, governor);
+        CountingSink counter = new();
+        long counted = await serializer.SerializeAsync(version, model, counter, cancellationToken).ConfigureAwait(false);
+        if (counted > limits.MaxOutputBytes)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), counted, limits.MaxOutputBytes);
+        }
+
+        governor.ReserveMemory(counted);
+        governor.NoteHostOperation();
+        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, cancellationToken).ConfigureAwait(false);
+        TransactionSink sink = new(transaction, governor);
+        long written = await serializer.SerializeAsync(version, model, sink, cancellationToken).ConfigureAwait(false);
+        if (written != counted)
+        {
+            throw new QpdfException($"Writer replay mismatch: counted {counted} bytes but wrote {written}.");
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static List<PageLabelSpec> ConvertLabels(IReadOnlyList<PdfPageLabel>? labels)
@@ -1194,6 +1548,8 @@ public static class Qpdf
                         merge.Collation,
                         merge.Rotations,
                         merge.Labels,
+                        merge.SplitPages,
+                        merge.ReplaceInput,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -1216,6 +1572,47 @@ public static class Qpdf
             }
 
             SelectionPlan selection = (SelectionPlan)plan;
+            if (selection.SplitPages.HasValue || selection.ReplaceInput)
+            {
+                try
+                {
+                    List<PdfPageSource> solo = new(1)
+                    {
+                        new PdfPageSource(selection.Input, new PdfPageSelectionOptions(selection.Page)),
+                    };
+                    QpdfPath target = selection.ReplaceInput ? selection.Input : selection.Output;
+                    PdfMultiPageSelectionResult merged = await SelectPagesCoreAsync(
+                        host,
+                        solo,
+                        target,
+                        limits,
+                        selection.Recovery,
+                        null,
+                        selection.Rotations,
+                        selection.Labels,
+                        selection.SplitPages,
+                        selection.ReplaceInput,
+                        governor,
+                        diagnostics,
+                        cancellationToken).ConfigureAwait(false);
+                    return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
+                }
+                catch (QpdfException ex)
+                {
+                    return ToFailedResult(ex);
+                }
+                catch (ArgumentOutOfRangeException ex)
+                {
+                    return QpdfExecutionResult.Failed(
+                        [new QpdfDiagnostic(QpdfDiagnosticCode.InvalidArguments, QpdfDiagnosticSeverity.Error, ex.Message)],
+                        ZeroCounters());
+                }
+                catch (OperationCanceledException)
+                {
+                    return QpdfExecutionResult.Canceled([], ZeroCounters());
+                }
+            }
+
             PdfPageSelectionResult selected = await SelectPageCoreAsync(
                 host,
                 selection.Input,

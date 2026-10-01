@@ -17,6 +17,8 @@ internal static class HelpText
           --no-warn             suppress warning diagnostics
           @file                 read arguments from a host file, one per line
           --rotate=[+|-]angle[:range] rotate output pages (n, n-m, comma lists, z)
+          --split-pages[=n]         write page groups to separate files
+          --replace-input             overwrite the single input in place
           --collate[=n[,m]]         interleave multi-file page groups
           --set-page-labels specs  number output pages explicitly
           --remove-page-labels      drop explicit page numbers (accepted no-op)

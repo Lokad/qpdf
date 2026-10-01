@@ -47,6 +47,11 @@ internal static class ArgvParser
 
         if (checkAt >= 0)
         {
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", checkAt, null);
+            }
+
             return ParseCheck(argv, checkAt, recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
@@ -59,9 +64,31 @@ internal static class ArgvParser
             throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, or --check.", 0L, null);
         }
 
-        int terminatorAt = FindTerminator(argv, pagesAt);
+        int terminatorAt;
+        if (globals.ReplaceInput)
+        {
+            foreach (string token in argv)
+            {
+                if (token == "--")
+                {
+                    throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
+                }
+            }
+
+            terminatorAt = argv.Count;
+        }
+        else
+        {
+            terminatorAt = FindTerminator(argv, pagesAt);
+        }
+
         string input = ParseInputArea(argv, pagesAt, "--pages");
         (List<PageGroup> groups, List<OutputRotation> rotations, List<PageLabelSpec> labels, List<int> collate) = ParsePagesArea(argv, pagesAt, terminatorAt);
+        if (globals.ReplaceInput)
+        {
+            return ParseReplace(input, groups, rotations, labels, collate, recovery, globals);
+        }
+
         string output = ParseOutputArea(argv, terminatorAt);
         if (groups.Count > 1 || collate.Count > 0)
         {
@@ -78,6 +105,7 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             Rotations = rotations,
             Labels = labels,
+            SplitPages = globals.SplitPages,
         };
     }
 
@@ -117,7 +145,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -128,6 +156,10 @@ internal static class ArgvParser
         bool seenSuppress = false;
         bool seenWarningExitZero = false;
         bool seenNoWarn = false;
+        bool seenSplit = false;
+        bool seenReplace = false;
+        int? splitPages = null;
+        bool replaceInput = false;
         for (int i = 0; i < argv.Count; i++)
         {
             if (argv[i] == "--suppress-recovery")
@@ -166,11 +198,83 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--split-pages" || argv[i].StartsWith("--split-pages=", StringComparison.Ordinal))
+            {
+                if (seenSplit)
+                {
+                    throw new QpdfParseException("Duplicate --split-pages is outside the narrow profile.", i, null);
+                }
+
+                seenSplit = true;
+                splitPages = ParseSplitPages(argv, ref i);
+                continue;
+            }
+
+            if (argv[i] == "--replace-input")
+            {
+                if (seenReplace)
+                {
+                    throw new QpdfParseException("Duplicate --replace-input is outside the narrow profile.", i, null);
+                }
+
+                seenReplace = true;
+                replaceInput = true;
+                continue;
+            }
+
             kept.Add(argv[i]);
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput);
+    }
+
+    private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf('=');
+        string? value = null;
+        if (equals >= 0)
+        {
+            value = token.Substring(equals + 1);
+        }
+        else if (i + 1 < argv.Count)
+        {
+            string next = argv[i + 1];
+            if (next is not null && next != "--" && !(next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            {
+                value = next;
+                i += 1;
+            }
+        }
+
+        if (value is null)
+        {
+            return 1;
+        }
+
+        if (value.Length == 0 || value.Length > 10)
+        {
+            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", i, null);
+        }
+
+        long size = 0L;
+        foreach (char digit in value)
+        {
+            if (digit < '0' || digit > '9')
+            {
+                throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", i, null);
+            }
+
+            size = checked(size * 10L + (digit - '0'));
+        }
+
+        if (size < 1L || size > int.MaxValue)
+        {
+            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", i, null);
+        }
+
+        return (int)size;
     }
 
     private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)
@@ -402,6 +506,38 @@ internal static class ArgvParser
         return (groups, rotations, labels, collate);
     }
 
+    private static JobPlan ParseReplace(
+        string input,
+        List<PageGroup> groups,
+        List<OutputRotation> rotations,
+        List<PageLabelSpec> labels,
+        List<int> collate,
+        QpdfRecoveryMode recovery,
+        GlobalOptions globals)
+    {
+        if (groups.Count > 1 || collate.Count > 0)
+        {
+            return ParseMerge(input, input, groups, rotations, labels, collate, recovery, globals) with
+            {
+                ReplaceInput = true,
+            };
+        }
+
+        string file = groups[0].File;
+        string range = groups[0].Range;
+        string resolvedFile = ResolveFile(file, input);
+        int page = SelectionPlan.ParsePageNumber(range);
+        return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(input), page, recovery) with
+        {
+            WarningExitZero = globals.WarningExitZero,
+            NoWarn = globals.NoWarn,
+            Rotations = rotations,
+            Labels = labels,
+            SplitPages = globals.SplitPages,
+            ReplaceInput = true,
+        };
+    }
+
     private static JobPlan ParseMerge(
         string input,
         string output,
@@ -426,6 +562,7 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             Rotations = rotations,
             Labels = labels,
+            SplitPages = globals.SplitPages,
         };
     }
 

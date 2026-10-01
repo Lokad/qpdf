@@ -30,12 +30,14 @@ public sealed record PdfMultiPageSelectionResult
         int pageCount,
         IReadOnlyList<PdfPageSelectionMapping> mapping,
         IReadOnlyList<int> sourcePageCounts,
+        IReadOnlyList<QpdfPath> outputPaths,
         IReadOnlyList<QpdfDiagnostic> warnings,
         QpdfExecutionCounters counters)
     {
         PageCount = pageCount;
         Mapping = mapping is null ? throw new ArgumentNullException(nameof(mapping)) : [.. mapping];
         SourcePageCounts = sourcePageCounts is null ? throw new ArgumentNullException(nameof(sourcePageCounts)) : [.. sourcePageCounts];
+        OutputPaths = outputPaths is null ? throw new ArgumentNullException(nameof(outputPaths)) : [.. outputPaths];
         Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
@@ -48,6 +50,9 @@ public sealed record PdfMultiPageSelectionResult
 
     /// <summary>Gets the page count of every source document, in order.</summary>
     public IReadOnlyList<int> SourcePageCounts { get; }
+
+    /// <summary>Gets every published output path: one entry, or one per split group.</summary>
+    public IReadOnlyList<QpdfPath> OutputPaths { get; }
 
     /// <summary>Gets the warnings recorded by the job.</summary>
     public IReadOnlyList<QpdfDiagnostic> Warnings { get; }

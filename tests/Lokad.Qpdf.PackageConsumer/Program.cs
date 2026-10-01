@@ -137,6 +137,21 @@ internal static class Program
             CancellationToken.None);
         Check(labeled.Status == QpdfExecutionStatus.Completed && labeled.ExitCode == QpdfExitCode.Success, "labeled execution");
         Console.WriteLine("PASS labeled selection (--set-page-labels)");
+        InMemoryQpdfHost splitHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult split = await Qpdf.ExecuteAsync(
+            splitHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split.pdf"]),
+            CancellationToken.None);
+        Check(split.Status == QpdfExecutionStatus.Completed && split.ExitCode == QpdfExitCode.Success, "split execution");
+        Console.WriteLine("PASS split publication (--split-pages)");
+
+        InMemoryQpdfHost replaceHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult replaced = await Qpdf.ExecuteAsync(
+            replaceHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--replace-input"]),
+            CancellationToken.None);
+        Check(replaced.Status == QpdfExecutionStatus.Completed && replaced.ExitCode == QpdfExitCode.Success, "replace execution");
+        Console.WriteLine("PASS in-place replacement (--replace-input)");
         InMemoryQpdfHost mergeArgvHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult mergeArgv = await Qpdf.ExecuteAsync(
             mergeArgvHost,

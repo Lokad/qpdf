@@ -10,6 +10,10 @@ internal abstract record JobPlan(QpdfPath Input)
     public IReadOnlyList<OutputRotation> Rotations { get; init; } = [];
 
     public IReadOnlyList<PageLabelSpec> Labels { get; init; } = [];
+
+    public int? SplitPages { get; init; }
+
+    public bool ReplaceInput { get; init; }
 }
 
 /// <summary>Validated single-page selection.</summary>

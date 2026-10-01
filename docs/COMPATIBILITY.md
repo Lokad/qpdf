@@ -252,6 +252,16 @@ same-named resources and fields stay inert without content rewriting; the output
 catalog stays fresh with no merged `/AcroForm`. Output takes the highest source
 version and carries per-page source mapping plus per-source page counts.
 
+## Split publication and replacement (work item 21)
+
+`qpdf --split-pages[=n]` partitions the selected pages into groups sharing one
+object pool with per-group reachability pruning and renumbering, upstream `%d`
+and `-NN[-MM]` naming, sliced page labels, and upfront collision validation;
+partial outputs can remain if a later group fails. `--replace-input` rewrites
+the single distinct input in place with no backup files and no output operand.
+Both reject contradictory combinations explicitly; typed callers split by looping
+single-output selections.
+
 ## Collation and page labels (work item 20, part 2)
 
 `PdfPageMergeOptions` carries collation (absent concatenates; one group size
