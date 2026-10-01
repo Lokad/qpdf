@@ -4214,15 +4214,26 @@
         }
       ],
       "milestone": "M5",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Multi-file --pages input forms stay unsupported.",
+        "Range forms rN, :odd, :even, and x-groups stay unsupported.",
+        "Typed single-page rotation overloads are open; use the multi-source API."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "RotationTests.AddRotatesFromInheritedBase",
+          "RotationTests.ArgvRotateCoversAllPagesByDefault",
+          "RotationTests.JobRotateKeyMatchesArgv"
+        ],
+        "negative": [
+          "RotationTests.OutOfRangePositionsFailCleanly",
+          "RotationTests.ArgvRotateInvalidSpecsFail"
+        ],
+        "interaction": [
+          "RotationTests.SetIgnoresBaseAndLaterSpecsWin"
+        ],
         "resource": [],
         "oracle": []
       }

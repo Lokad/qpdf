@@ -16,6 +16,7 @@ internal static class HelpText
           --warning-exit-0      exit 0 despite warnings
           --no-warn             suppress warning diagnostics
           @file                 read arguments from a host file, one per line
+          --rotate=[+|-]angle[:range] rotate output pages (n, n-m, comma lists, z)
           --help                show this help
           --version             show version and compatibility target
         """;

@@ -13,9 +13,10 @@ Three routes converge on one selection plan executed by the shared engine:
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
   -- output` (single positive-integer range), `input --check`, `--job-json-file
   file`, `@file` response files (one argument per line), `--help`/`--version`,
-  and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
+  `--rotate=[+|-]angle[:range]`, and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,
-  pages:[{file, range}]}` with exactly one entry; inspection has no job key yet.
+  pages:[{file, range}]}` with exactly one entry, plus an optional `rotate`
+  array of rotation specifications; inspection has no job key yet.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the subset —
@@ -51,6 +52,9 @@ echoing values.
 - Explicit ordered pages by 1-based index (order and duplicates preserved),
   `FirstAndLast(N)` windows, or sorted/deduplicated `Normalized` sets; out-of-range
   indexes fail explicitly and empty explicit selections are rejected.
+- Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
+  folds over the inherited base; untouched pages keep their bytes. Flattening
+  stays unsupported.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
   are copied once; `/Parent` links are dropped. Results carry the source page

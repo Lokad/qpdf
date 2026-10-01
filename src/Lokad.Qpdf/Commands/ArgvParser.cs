@@ -61,7 +61,7 @@ internal static class ArgvParser
 
         int terminatorAt = FindTerminator(argv, pagesAt);
         string input = ParseInputArea(argv, pagesAt, "--pages");
-        (string file, string range) = ParsePagesArea(argv, pagesAt, terminatorAt);
+        (string file, string range, List<OutputRotation> rotations) = ParsePagesArea(argv, pagesAt, terminatorAt);
         string output = ParseOutputArea(argv, terminatorAt);
         string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(range);
@@ -69,6 +69,7 @@ internal static class ArgvParser
         {
             WarningExitZero = globals.WarningExitZero,
             NoWarn = globals.NoWarn,
+            Rotations = rotations,
         };
     }
 
@@ -249,12 +250,13 @@ internal static class ArgvParser
         return input;
     }
 
-    private static (string File, string Range) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    private static (string File, string Range, List<OutputRotation> Rotations) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
     {
         string? file = null;
         string? range = null;
         bool fileTaken = false;
         bool rangeTaken = false;
+        List<OutputRotation> rotations = new();
         int i = pagesAt + 1;
         while (i < terminatorAt)
         {
@@ -301,6 +303,13 @@ internal static class ArgvParser
                     continue;
                 }
 
+                if (name == "rotate")
+                {
+                    string specification = TakeParameter(argv, terminatorAt, ref i, "--rotate");
+                    rotations.Add(OutputRotation.Parse(specification, i));
+                    continue;
+                }
+
                 throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", i, null);
             }
 
@@ -332,7 +341,7 @@ internal static class ArgvParser
             throw new QpdfParseException("The --pages selection requires one range in this profile.", pagesAt, null);
         }
 
-        return (file, range);
+        return (file, range, rotations);
     }
 
     private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)

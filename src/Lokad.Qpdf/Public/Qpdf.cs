@@ -62,7 +62,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -72,6 +72,7 @@ public static class Qpdf
         PdfPageSelectionOptions options,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
+        IReadOnlyList<OutputRotation> rotations,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -94,6 +95,7 @@ public static class Qpdf
 
         GraphCopier copier = new(document.Engine, governor, limits, 3);
         List<PdfReference> kids = new(requested.Count);
+        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(requested.Count);
         foreach (int pageNumber in requested)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -103,7 +105,10 @@ public static class Qpdf
             (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
             RequireMediaBox(page);
             kids.Add(new PdfReference(pageId, 0));
+            occurrences.Add((copier, pageId, page));
         }
+
+        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
 
         string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         PdfDictionary catalog = new(new Dictionary<PdfName, QpdfObject>
@@ -212,7 +217,73 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, [], governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Copies pages from several inputs into one standalone PDF, rotating output
+    /// pages, with default budgets.
+    /// </summary>
+    public static ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+        IQpdfHost host,
+        IReadOnlyList<PdfPageSource> sources,
+        QpdfPath outputPath,
+        IReadOnlyList<PdfPageRotation> rotations,
+        CancellationToken cancellationToken)
+    {
+        return SelectPagesAsync(host, sources, outputPath, rotations, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies pages from several inputs into one standalone PDF, rotating output
+    /// pages, with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">No page source was supplied.</exception>
+    public static async ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+        IQpdfHost host,
+        IReadOnlyList<PdfPageSource> sources,
+        QpdfPath outputPath,
+        IReadOnlyList<PdfPageRotation> rotations,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (sources is null)
+        {
+            throw new ArgumentNullException(nameof(sources));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        List<PdfPageSource> frozen = new(sources.Count);
+        foreach (PdfPageSource source in sources)
+        {
+            if (source is null)
+            {
+                throw new ArgumentException("Page sources must not contain null entries.", nameof(sources));
+            }
+
+            frozen.Add(source);
+        }
+
+        if (frozen.Count == 0)
+        {
+            throw new ArgumentException("At least one page source is required.", nameof(sources));
+        }
+
+        List<OutputRotation> specifications = ConvertRotations(rotations);
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, specifications, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
@@ -221,6 +292,7 @@ public static class Qpdf
         QpdfPath outputPath,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
+        IReadOnlyList<OutputRotation> rotations,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -228,6 +300,7 @@ public static class Qpdf
         List<PdfPageSelectionMapping> mapping = new();
         List<int> sourceCounts = new(sources.Count);
         List<PdfReference> kids = new();
+        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new();
         List<NumberedObject> model = new()
         {
             new NumberedObject(1, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
@@ -237,6 +310,7 @@ public static class Qpdf
             })),
         };
         int nextId = 3;
+        List<GraphCopier> copiers = new(sources.Count);
         PdfVersion? version = null;
         long selected = 0L;
         for (int s = 0; s < sources.Count; s++)
@@ -275,16 +349,22 @@ public static class Qpdf
                 RequireMediaBox(page);
                 kids.Add(new PdfReference(pageId, 0));
                 mapping.Add(new PdfPageSelectionMapping(s, pageNumber));
+                occurrences.Add((copier, pageId, page));
             }
 
+            nextId = copier.NextId;
+            copiers.Add(copier);
+        }
+
+        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
+        foreach (GraphCopier copier in copiers)
+        {
             List<int> ids = new(copier.CopiedObjects.Keys);
             ids.Sort();
             foreach (int id in ids)
             {
                 model.Add(new NumberedObject(id, copier.CopiedObjects[id]));
             }
-
-            nextId = copier.NextId;
         }
 
         string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -316,6 +396,109 @@ public static class Qpdf
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, [.. diagnostics.Entries], governor.Snapshot());
+    }
+
+    private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
+    {
+        if (rotations is null)
+        {
+            throw new ArgumentNullException(nameof(rotations));
+        }
+
+        List<OutputRotation> specifications = new(rotations.Count);
+        foreach (PdfPageRotation rotation in rotations)
+        {
+            specifications.Add(OutputRotation.FromPages(rotation));
+        }
+
+        return specifications;
+    }
+
+    private static List<List<(PdfRotationMode Mode, int Angle)>> ResolveRotationFolds(
+        IReadOnlyList<OutputRotation> rotations,
+        int total,
+        ResourceGovernor governor)
+    {
+        List<List<(PdfRotationMode Mode, int Angle)>> folds = new(total);
+        for (int i = 0; i < total; i++)
+        {
+            folds.Add(new List<(PdfRotationMode Mode, int Angle)>());
+        }
+
+        foreach (OutputRotation specification in rotations)
+        {
+            foreach (int position in specification.Expand(total))
+            {
+                governor.ChargeWork(1L);
+                folds[position - 1].Add((specification.Mode, specification.Angle));
+            }
+        }
+
+        return folds;
+    }
+
+    private static void ApplyRotations(
+        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences,
+        List<List<(PdfRotationMode Mode, int Angle)>> folds,
+        ResourceGovernor governor)
+    {
+        PdfName rotateKey = PdfName.FromAscii("Rotate");
+        for (int i = 0; i < occurrences.Count; i++)
+        {
+            List<(PdfRotationMode Mode, int Angle)> specifications = folds[i];
+            if (specifications.Count == 0)
+            {
+                continue;
+            }
+
+            int current = 0;
+            if (occurrences[i].Page.TryGet(rotateKey, out QpdfObject raw))
+            {
+                if (raw is PdfNull)
+                {
+                    current = 0;
+                }
+                else if (raw is PdfInteger inherited)
+                {
+                    current = NormalizeRotation(inherited.Value);
+                }
+                else
+                {
+                    throw new QpdfParseException($"Output page {i + 1} has an invalid /Rotate value.", null, null);
+                }
+            }
+
+            foreach ((PdfRotationMode mode, int angle) in specifications)
+            {
+                current = mode switch
+                {
+                    PdfRotationMode.Set => angle,
+                    PdfRotationMode.Add => NormalizeRotation((long)current + angle),
+                    PdfRotationMode.Subtract => NormalizeRotation((long)current - angle),
+                    _ => throw new QpdfException($"Unknown rotation mode {(int)mode}."),
+                };
+            }
+
+            governor.ReserveMemory(64L);
+            Dictionary<PdfName, QpdfObject> entries = new();
+            foreach (PdfName key in occurrences[i].Page.Keys)
+            {
+                if (occurrences[i].Page.TryGet(key, out QpdfObject value))
+                {
+                    entries[key] = value;
+                }
+            }
+
+            entries[rotateKey] = new PdfInteger(
+                current.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                current);
+            occurrences[i].Copier.ReplaceCopiedObject(occurrences[i].Id, new PdfDictionary(entries));
+        }
+    }
+
+    private static int NormalizeRotation(long value)
+    {
+        return (int)(((value % 360L) + 360L) % 360L);
     }
 
     private static bool IsNewerVersion(PdfVersion candidate, PdfVersion current)
@@ -783,6 +966,7 @@ public static class Qpdf
                 new PdfPageSelectionOptions(selection.Page),
                 limits,
                 selection.Recovery,
+                selection.Rotations,
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);
@@ -791,6 +975,12 @@ public static class Qpdf
         catch (QpdfException ex)
         {
             return ToFailedResult(ex);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return QpdfExecutionResult.Failed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.InvalidArguments, QpdfDiagnosticSeverity.Error, ex.Message)],
+                ZeroCounters());
         }
         catch (OperationCanceledException)
         {

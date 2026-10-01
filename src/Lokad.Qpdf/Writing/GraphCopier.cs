@@ -52,6 +52,21 @@ internal sealed class GraphCopier
 
     internal int NextId => _nextId;
 
+    internal void ReplaceCopiedObject(int id, QpdfObject value)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        if (!_copied.ContainsKey(id))
+        {
+            throw new QpdfException($"Destination object {id} does not exist.");
+        }
+
+        _copied[id] = value;
+    }
+
     internal IReadOnlyDictionary<int, int> SourceToDestination => _mapping;
 
     internal (int Id, PdfDictionary Page) CopyPageRoot(

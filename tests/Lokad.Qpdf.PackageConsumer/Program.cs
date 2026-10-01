@@ -123,6 +123,14 @@ internal static class Program
         await CheckOutputAsync(mergeHost, "outputs/merged.pdf", "Second", 2);
         Console.WriteLine("PASS typed multi-source selection with identity");
 
+        InMemoryQpdfHost rotateHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult rotated = await Qpdf.ExecuteAsync(
+            rotateHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--rotate=+90", "--", "outputs/rotated.pdf"]),
+            CancellationToken.None);
+        Check(rotated.Status == QpdfExecutionStatus.Completed && rotated.ExitCode == QpdfExitCode.Success, "rotated execution");
+        Console.WriteLine("PASS rotated selection (--rotate)");
+
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(
             cryptoHost,

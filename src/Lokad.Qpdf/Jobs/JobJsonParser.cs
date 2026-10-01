@@ -62,6 +62,8 @@ internal static class JobJsonParser
             string? output = null;
             JsonElement pages = default;
             bool hasPages = false;
+            List<OutputRotation> rotations = new();
+            bool seenRotate = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -93,6 +95,15 @@ internal static class JobJsonParser
                         seenPages = true;
                         pages = property.Value;
                         hasPages = true;
+                        break;
+                    case "rotate":
+                        if (seenRotate)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'rotate'.", 0L, null);
+                        }
+
+                        seenRotate = true;
+                        rotations.AddRange(ParseRotateArray(property.Value));
                         break;
                     case "encrypt":
                     case "decrypt":
@@ -130,8 +141,38 @@ internal static class JobJsonParser
             (string file, string range) = ParsePagesEntry(pages);
             string resolved = ResolveFile(file, input);
             int page = SelectionPlan.ParsePageNumber(range);
-            return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair);
+            return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair) with
+            {
+                Rotations = rotations,
+            };
         }
+    }
+
+    private static List<OutputRotation> ParseRotateArray(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job \"rotate\" must be an array of rotation specifications.", 0L, null);
+        }
+
+        List<OutputRotation> rotations = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.String)
+            {
+                throw new QpdfParseException("Job \"rotate\" entries must be strings.", 0L, null);
+            }
+
+            string? specification = entry.GetString();
+            if (specification is null)
+            {
+                throw new QpdfParseException("Job \"rotate\" entries must be strings.", 0L, null);
+            }
+
+            rotations.Add(OutputRotation.Parse(specification, 0L));
+        }
+
+        return rotations;
     }
 
     private static (string File, string Range) ParsePagesEntry(JsonElement pages)

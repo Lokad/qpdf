@@ -252,6 +252,17 @@ same-named resources and fields stay inert without content rewriting; the output
 catalog stays fresh with no merged `/AcroForm`. Output takes the highest source
 version and carries per-page source mapping plus per-source page counts.
 
+## Ordinary rotation (work item 20, part 1)
+
+`PdfPageRotation` (`Set`/`Add`/`Subtract` over output positions, any multiple of
+90 normalized modulo 360) rides the multi-source selection; `qpdf --rotate` and
+job-JSON `rotate` share the `[+|-]angle[:range]` specification with `n`, `n-m`,
+comma lists, and `z`. Later specifications win per page, duplicates apply once,
+and out-of-range positions fail explicitly. Rotation folds over the inherited
+base (explicit page values beat ancestry, null counts as absent); pages without
+applicable specifications keep their bytes untouched. Collation, page labels,
+and multi-file `--pages` forms stay open.
+
 ## Invocation breadth (work item 18)
 
 Response files expand once through the host with one argument per line, UTF-8
