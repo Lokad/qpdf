@@ -4,7 +4,8 @@ namespace Lokad.Qpdf.Commands;
 /// Narrow argv parser for selection and inspection. Accepts the upstream
 /// spelling subset `qpdf input --pages [--file=]file [--range=]n -- output`
 /// (positional file/range forms included) and `qpdf input --check`;
-/// everything else fails explicitly.
+/// `--suppress-recovery` selects strict opening, otherwise damaged inputs
+/// repair within bounds; everything else fails explicitly.
 /// Unknown `--*` tokens map to the documented crypto set (rejected as crypto)
 /// or to unsupported-option errors. Response files, `--empty`,
 /// `--replace-input`, stdin/stdout `-`, and flexible operand order arrive later.
@@ -36,6 +37,7 @@ internal static class ArgvParser
         }
 
         RejectResponseFiles(argv);
+        QpdfRecoveryMode recovery = ExtractRecoveryMode(ref argv);
         int checkAt = FindFlag(argv, "--check");
         int pagesAt = FindFlag(argv, "--pages");
         if (checkAt >= 0 && pagesAt >= 0)
@@ -45,7 +47,7 @@ internal static class ArgvParser
 
         if (checkAt >= 0)
         {
-            return ParseCheck(argv, checkAt);
+            return ParseCheck(argv, checkAt, recovery);
         }
 
         if (pagesAt < 0)
@@ -59,7 +61,7 @@ internal static class ArgvParser
         string output = ParseOutputArea(argv, terminatorAt);
         string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(range);
-        return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page);
+        return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery);
     }
 
     internal static string OptionName(string token)
@@ -109,12 +111,36 @@ internal static class ArgvParser
         return found;
     }
 
-    private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt)
+    private static QpdfRecoveryMode ExtractRecoveryMode(ref IReadOnlyList<string> argv)
+    {
+        List<string> kept = new(argv.Count);
+        int suppressions = 0;
+        for (int i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] == "--suppress-recovery")
+            {
+                suppressions += 1;
+                if (suppressions > 1)
+                {
+                    throw new QpdfParseException("Duplicate --suppress-recovery is outside the narrow profile.", i, null);
+                }
+
+                continue;
+            }
+
+            kept.Add(argv[i]);
+        }
+
+        argv = kept;
+        return suppressions > 0 ? QpdfRecoveryMode.Strict : QpdfRecoveryMode.BoundedRepair;
+    }
+
+    private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)
     {
         string input = ParseInputArea(argv, checkAt, "--check");
         if (checkAt + 1 >= argv.Count)
         {
-            return new CheckPlan(SelectionPlan.CheckedPath(input));
+            return new CheckPlan(SelectionPlan.CheckedPath(input), recovery);
         }
 
         string? token = argv[checkAt + 1];

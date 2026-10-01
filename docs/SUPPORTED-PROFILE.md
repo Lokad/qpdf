@@ -31,7 +31,9 @@ echoing values.
 - `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0 with catalog `/Version` override.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
   structurally, including empty-password forms.
-- Strict parsing: damaged inputs fail as parse errors. There is no recovery.
+- Strict parsing: damaged inputs fail as parse errors. The CLI repairs boundedly by
+  default (warning, exit 3); `--suppress-recovery` keeps strict failure. Typed
+  selection and inspection stay strict.
   Malformed, mistyped, unresolvable, or unsupported catalog `/Version` fails;
   null or absent `/Version` keeps the header.
 - Page streams travel opaquely and are never decoded: direct and indirect

@@ -130,7 +130,7 @@ internal static class JobJsonParser
             (string file, string range) = ParsePagesEntry(pages);
             string resolved = ResolveFile(file, input);
             int page = SelectionPlan.ParsePageNumber(range);
-            return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page);
+            return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair);
         }
     }
 

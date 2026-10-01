@@ -59,13 +59,14 @@ internal readonly struct XrefEntry
 /// tables and streams. Parses the tail `startxref`, follows `/Prev` chains and
 /// hybrid `/XRefStm` links with latest-wins precedence, validates entries
 /// before reading, and requires exact union coverage of the effective `/Size`.
-/// Recovery arrives separately and fails explicitly here.
+/// Bounded repair lives in <see cref="XRefRecovery"/> and only runs when the
+/// caller selects it after strict parsing fails.
 /// </summary>
 internal sealed class XRefTable
 {
     private const int TailScanBytes = 65536;
 
-    private XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer, List<PdfDictionary> trailers)
+    internal XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer, List<PdfDictionary> trailers)
     {
         XrefOffset = xrefOffset;
         Entries = entries;
@@ -85,7 +86,8 @@ internal sealed class XRefTable
         ReadOnlyMemory<byte> data,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics)
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery)
     {
         if (limits is null)
         {
@@ -108,6 +110,27 @@ internal sealed class XRefTable
             throw new QpdfParseException("Input is empty.", 0L, null);
         }
 
+        try
+        {
+            return ParseStrict(data, limits, governor, diagnostics);
+        }
+        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        {
+            if (recovery == QpdfRecoveryMode.Strict)
+            {
+                throw;
+            }
+
+            return XRefRecovery.Recover(data, limits, governor, diagnostics, ex.Message);
+        }
+    }
+
+    private static XRefTable ParseStrict(
+        ReadOnlyMemory<byte> data,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics)
+    {
         long startxrefPosition = FindStartXRef(data);
         PdfTokenizer tail = new(data);
         tail.SetPosition(startxrefPosition);

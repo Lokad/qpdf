@@ -79,6 +79,16 @@ internal static class Program
         Check(check.Status == QpdfExecutionStatus.Completed && check.ExitCode == QpdfExitCode.Success, "check execution");
         Console.WriteLine("PASS argv inspection (--check)");
 
+        byte[] damaged = BreakStartXref(input);
+        InMemoryQpdfHost repairHost = NewHost("inputs/damaged.pdf", damaged);
+        QpdfExecutionResult repair = await Qpdf.ExecuteAsync(
+            repairHost,
+            new QpdfCommandInvocation(["inputs/damaged.pdf", "--pages", ".", "1", "--", "outputs/repaired.pdf"]),
+            CancellationToken.None);
+        Check(repair.Status == QpdfExecutionStatus.Completed && repair.ExitCode == QpdfExitCode.Warning, "repair warning exit");
+        await CheckOutputAsync(repairHost, "outputs/repaired.pdf", "First");
+        Console.WriteLine("PASS bounded repair of damaged input");
+
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(
             cryptoHost,
@@ -186,6 +196,42 @@ internal static class Program
         {
             throw new InvalidOperationException("Check failed: " + what + ".");
         }
+    }
+
+    private static byte[] BreakStartXref(byte[] input)
+    {
+        byte[] marker = Encoding.ASCII.GetBytes("startxref\n");
+        int at = -1;
+        for (int i = 0; i + marker.Length <= input.Length; i++)
+        {
+            bool match = true;
+            for (int j = 0; j < marker.Length; j++)
+            {
+                if (input[i + j] != marker[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match)
+            {
+                at = i;
+            }
+        }
+
+        if (at < 0)
+        {
+            throw new InvalidOperationException("Test input has no startxref.");
+        }
+
+        byte[] copy = (byte[])input.Clone();
+        for (int i = at + marker.Length; i < copy.Length && copy[i] >= (byte)'0' && copy[i] <= (byte)'9'; i++)
+        {
+            copy[i] = (byte)'9';
+        }
+
+        return copy;
     }
 
     private static byte[] TwoPagePdf()

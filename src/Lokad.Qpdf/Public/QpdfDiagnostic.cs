@@ -48,6 +48,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>A declared check ran and found a defect.</summary>
     CheckFailed = 9,
+
+    /// <summary>Bounded repair rebuilt cross-references after strict parsing failed.</summary>
+    RecoveryEngaged = 10,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

@@ -242,6 +242,18 @@ report skipped; non-linearized files pass linearization trivially. `qpdf input
 --check` maps to the same engine with exit 0/2/3 from the diagnostics; job-JSON
 check has no upstream schema basis yet and fails explicitly.
 
+## Bounded repair (work item 17)
+
+Strict parsing runs first; only its failure engages bounded repair, which scans
+for object headers, trial-parses each candidate, keeps the last valid
+occurrence, and fills unscanned gaps as free. Streams with indirect lengths are
+skipped by the scanner. The tail trailer wins when its root resolves, otherwise
+the last scanned catalog wins; files without a catalog fail. Repaired output is
+rewritten, never the original bytes. The CLI repairs by default and emits a
+recovery warning (exit 3); `--suppress-recovery` keeps strict failure. Typed
+selection and inspection stay strict. `--ignore-xref-streams` arrives with the
+M4 parsing work.
+
 ## Selector audit (work item 15)
 
 Indirect `/Filter` and `/DecodeParms` resolve through the document engine,

@@ -60,9 +60,21 @@ public static class Qpdf
         }
 
         limits.Validate();
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        PdfPageSelectionOptions options,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken)
+    {
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         int total = document.PageReferences.Count;
         IReadOnlyList<int> requested = options.Resolve(total);
         if ((long)requested.Count > limits.MaxWork)
@@ -176,9 +188,20 @@ public static class Qpdf
         }
 
         limits.Validate();
+        return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<QpdfCheckResult> CheckCoreAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfCheckOptions options,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken)
+    {
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         List<QpdfCheckOutcome> checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, cancellationToken);
         return new QpdfCheckResult(document.PageCount, document.Version, checks, [.. diagnostics.Entries], governor.Snapshot());
     }
@@ -432,11 +455,12 @@ public static class Qpdf
         {
             try
             {
-                QpdfCheckResult inspected = await CheckAsync(
+                QpdfCheckResult inspected = await CheckCoreAsync(
                     host,
                     check.Input,
                     new QpdfCheckOptions(),
                     limits,
+                    check.Recovery,
                     cancellationToken).ConfigureAwait(false);
                 return QpdfExecutionResult.Completed(inspected.Diagnostics, inspected.Counters);
             }
@@ -453,12 +477,13 @@ public static class Qpdf
         try
         {
             SelectionPlan selection = (SelectionPlan)plan;
-            PdfPageSelectionResult selected = await SelectPageAsync(
+            PdfPageSelectionResult selected = await SelectPageCoreAsync(
                 host,
                 selection.Input,
                 selection.Output,
                 new PdfPageSelectionOptions(selection.Page),
                 limits,
+                selection.Recovery,
                 cancellationToken).ConfigureAwait(false);
             return QpdfExecutionResult.Completed(selected.Warnings, selected.Counters);
         }

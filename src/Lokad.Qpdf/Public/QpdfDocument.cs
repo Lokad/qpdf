@@ -88,7 +88,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await OpenCore(host, path, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
     }
 
     internal static async ValueTask<QpdfDocument> OpenCore(
@@ -97,6 +97,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
         CancellationToken cancellationToken)
     {
         IQpdfInput input = await host.OpenInputAsync(path, cancellationToken).ConfigureAwait(false);
@@ -125,7 +126,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             ReadOnlyMemory<byte> data = bytes;
             PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
-            XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics);
+            XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
             DocumentEngine engine = new(data, table, limits, governor, diagnostics);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
