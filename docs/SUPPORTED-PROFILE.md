@@ -46,7 +46,7 @@ echoing values.
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,
   LZW, ASCIIHex, ASCII85, and RunLength (direct or indirect filter specs), with
-  shared predictors; anything else fails explicitly as unsupported.
+  shared predictors, plus DCTDecode at `--decode-level=all` for 1- and 3-component JPEGs (four-component stays opaque); anything else fails explicitly as unsupported.
 - One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics

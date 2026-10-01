@@ -155,10 +155,12 @@ public sealed class FlateTests
     [Fact]
     public void UnsupportedFiltersFailExplicitly()
     {
+        // DCTDecode now decodes through the governed JPEG adapter, so non-JPEG bytes fail as invalid data;
+        // JPXDecode below still pins the genuinely-unimplemented filter path.
         byte[] payload = ZLibCompress(Encoding.ASCII.GetBytes("unsupported stage"));
         QpdfFilterException dct = Assert.Throws<QpdfFilterException>(
             () => DecodeThroughChain(payload, StreamDict("DCTDecode", null)));
-        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, dct.Reason);
+        Assert.Equal(QpdfFilterFailureReason.InvalidData, dct.Reason);
         Assert.Equal("DCTDecode", dct.FilterName);
 
         QpdfFilterException jpx = Assert.Throws<QpdfFilterException>(
@@ -171,7 +173,7 @@ public sealed class FlateTests
         };
         QpdfFilterException ordered = Assert.Throws<QpdfFilterException>(
             () => DecodeThroughChain(payload, new PdfDictionary(entries)));
-        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, ordered.Reason);
+        Assert.Equal(QpdfFilterFailureReason.InvalidData, ordered.Reason);
         Assert.Equal("DCTDecode", ordered.FilterName);
     }
 

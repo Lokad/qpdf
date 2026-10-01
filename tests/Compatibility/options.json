@@ -2228,18 +2228,27 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "all behaves as specialized until JPEG support (M8); default none instead of upstream generalized (intentional)."
+        "level `all` decodes 1- and 3-component DCT; four-component CMYK/YCCK stays opaque (approved codec has no raw-sample path). Default none instead of upstream generalized (intentional)."
       ],
       "evidence": {
         "positive": [
-          "CompressionTests.DecodeGeneralizedUncompressesHex"
+          "CompressionTests.DecodeGeneralizedUncompressesHex",
+          "DctDecodeTests.GrayJpegDecodesAtAll",
+          "DctDecodeTests.RgbJpegDecodesAtAll"
         ],
-        "negative": [],
+        "negative": [
+          "DctDecodeTests.FourComponentFrameStaysOpaque",
+          "DctDecodeTests.CmykLabeledJpegStaysOpaque",
+          "DctDecodeTests.SpecializedLevelKeepsDctOpaqueSilently"
+        ],
         "interaction": [
           "CompressionTests.DctBeyondLevelStaysOpaque",
-          "CompressionTests.DctAtAllWarnsAndStaysOpaque"
+          "CompressionTests.DctAtAllWarnsAndStaysOpaque",
+          "DctDecodeTests.JobParityHoldsForDecodeAll"
         ],
-        "resource": [],
+        "resource": [
+          "DctDecodeTests.OversizedFrameFailsBeforeAllocation"
+        ],
         "oracle": []
       }
     },

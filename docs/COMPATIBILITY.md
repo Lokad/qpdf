@@ -126,7 +126,7 @@ and aligns `/DecodeParms` as upstream does: a single dictionary applies
 to every stage, an array must match the filter count, and empty chains
 ignore parms. FlateDecode, LZWDecode (both EarlyChange values), ASCIIHexDecode,
 ASCII85Decode, and RunLengthDecode execute; anything else fails explicitly as
-unsupported, never silently. DCT stays M8.
+unsupported, never silently. DCTDecode executes at decode level all (work item 32).
 
 Flate uses BCL inflate inside strict zlib framing: method/window/header
 checks, preset-dictionary rejection, per-chunk output budgets, and an
@@ -441,9 +441,7 @@ without output compression, `preserve` implies neither; explicit
 (upstream applies these in argument order instead). Already-Flate streams are
 left untouched unless `--recompress-flate` is combined with a covering decode
 level; empty results stay uncompressed; indirect filter specs resolve through
-the document engine. Decode coverage mirrors inspection; `all` behaves as
-`specialized` until JPEG support (M8) and warns per undecodable stream, while
-filters above the requested level stay opaque silently. Corrupt streams and
+the document engine. Decode coverage mirrors inspection; `all` additionally decodes 1- and 3-component DCTDecode streams (work item 32) and warns per undecodable stream, while filters above the requested level stay opaque silently. Four-component CMYK/YCCK JPEGs stay opaque with a warning because the approved codec cannot preserve their raw samples. Corrupt streams and
 bad specs fall back to opaque bytes under a warning; `/Crypt` is never
 decoded or stripped. Levels bucket to BCL Flate effort (`1` fastest, `2..8`
 optimal, `9` smallest size; default optimal) with governed bounded encoding
@@ -618,6 +616,10 @@ Repeatable --overlay and --underlay blocks (--file or positional file, --to, --f
 ## Appearance generation (work item 31c)
 
 --generate-appearances (plus job key generateAppearances) mirrors upstream generation order (generate, then flatten-annotations, then flatten-rotation): when the catalog needs appearances it regenerates text/list appearance streams from field values and default appearance (ASCII fallback, WinAnsi/MacRoman encodings, BMC/EMC value rewrite, list highlight) and synchronizes checkbox/radio /V and /AS state, then clears the condition so a later --flatten-annotations stamps fresh appearances. Appearances are rewritten raw (no /Filter). Intentional differences: parent-held field nodes never reach output pools so field context resolves by subtree search and parent-held radios degrade to skip; field default resources are not merged; signature fields are skipped and pushbuttons warn; damaged appearance streams warn and keep the field.
+
+## Governed JPEG decoding (work item 32)
+
+DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 adapter: frame dimensions and component counts are read from the JPEG header before any pixel buffer is allocated, work and memory budgets are charged up front, and 1-component (grayscale) and 3-component images decode to raw sample bytes with the filter removed. Intentional differences: four-component CMYK/YCCK JPEGs stay opaque with an `UnsupportedFeature` warning because the approved public pixel API only yields color-converted RGB and cannot preserve raw component samples; lower decode levels keep DCT streams opaque silently; corrupt JPEG data warns and stays opaque. Content and overlay paths still gate on `specialized` and never decode images implicitly.
 
 ## Exclusions and differences
 

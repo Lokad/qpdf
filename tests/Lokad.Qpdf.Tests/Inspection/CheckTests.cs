@@ -1,4 +1,7 @@
 using System.Text;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.PixelFormats;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 
@@ -126,6 +129,22 @@ public sealed class CheckTests
         };
     }
 
+    private static byte[] CmykJpeg()
+    {
+        using Image<Rgb24> image = new(8, 8);
+        for (int y = 0; y < 8; y++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                image[x, y] = new Rgb24((byte)((x * 32) & 0xFF), (byte)((y * 32) & 0xFF), 128);
+            }
+        }
+
+        using MemoryStream buffer = new();
+        image.Save(buffer, new JpegEncoder { Quality = 75, ColorType = JpegEncodingColor.Cmyk });
+        return buffer.ToArray();
+    }
+
     private static QpdfCheckOutcome SingleOutcome(QpdfCheckResult result, string name)
     {
         return Assert.Single(result.Checks, check => check.Name == name);
@@ -186,7 +205,10 @@ public sealed class CheckTests
     [Fact]
     public async Task UnavailableFilterSkipsStreamsWithWarning()
     {
-        byte[] bytes = Assemble(SinglePage("<< /Filter /DCTDecode /Length 4 >>", [0xFF, 0xD8, 0xFF, 0xE0]), 1);
+        // Four-component JPEGs have no raw-sample path through the approved codec, so DCTDecode
+        // stays genuinely unavailable for this input and the check skips instead of failing.
+        byte[] jpeg = CmykJpeg();
+        byte[] bytes = Assemble(SinglePage("<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg), 1);
         InMemoryQpdfHost host = HostWith("inputs/dct.pdf", bytes);
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/dct.pdf"), CancellationToken.None);
         QpdfCheckOutcome streams = SingleOutcome(result, "streams");

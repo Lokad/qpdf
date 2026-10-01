@@ -9,7 +9,7 @@ internal sealed record FilterStage(string Name, PdfDictionary? Parms, IIndirectR
 
 /// <summary>
 /// Resolves `/Filter` and `/DecodeParms` into an ordered stage list and
-/// decodes governed Flate, LZW, ASCIIHex, ASCII85, and RunLength chains.
+/// decodes governed Flate, LZW, ASCIIHex, ASCII85, RunLength, and DCT chains.
 /// Abbreviated names (`Fl`, `LZW`, `A85`,
 /// `AHx`, `RL`, `CCF`, `DCT`) resolve canonically; anything else fails explicitly as unsupported.
 /// </summary>
@@ -53,11 +53,17 @@ internal static class FilterChain
                 allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
                     || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName;
             }
-            else if (decode == "specialized" || decode == "all")
+            else if (decode == "specialized")
             {
                 allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
                     || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName
                     || stage.Name == RunLengthFilter.FilterName;
+            }
+            else if (decode == "all")
+            {
+                allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
+                    || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName
+                    || stage.Name == RunLengthFilter.FilterName || stage.Name == DctFilter.FilterName;
             }
             else
             {
@@ -136,6 +142,11 @@ internal static class FilterChain
             }
 
             return DecodeChecked(inflated, limits, governor);
+        }
+
+        if (stage.Name == DctFilter.FilterName)
+        {
+            return DecodeChecked(DctFilter.Decode(input, limits, governor), limits, governor);
         }
 
         if (stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName || stage.Name == RunLengthFilter.FilterName)
