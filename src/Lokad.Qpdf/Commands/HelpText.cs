@@ -21,6 +21,12 @@ internal static class HelpText
           --replace-input             overwrite the single input in place
           --collate[=n[,m]]         interleave multi-file page groups
           --set-page-labels specs  number output pages explicitly
+          --min-version=version     raise output version when lower
+          --force-version=version   set output version exactly
+          --deterministic-id        stable content-hashed document ID
+          --static-id               fixed test document ID
+          --newline-before-endstream  extra newline before endstream
+          --object-streams=mode     disable, preserve (default), or generate
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

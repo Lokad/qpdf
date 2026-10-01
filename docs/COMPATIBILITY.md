@@ -387,6 +387,27 @@ always writes `data` + `\\nendstream`, doubling a trailing newline when present.
 `newlineBeforeEndstream`) share one negotiation, identifier, and serializer
 implementation with counting-pass replay checks and output budgets.
 
+## Writer object-stream modes (work item 22b)
+
+`--object-streams` accepts `disable`, `preserve` (the default, matching
+upstream), and `generate` through argv (`--object-streams=mode` or
+`--object-streams mode`) and job JSON (`objectStreams`), with invalid modes,
+bare flags, and duplicates rejected as invalid arguments. `disable` always
+writes classic xref tables; `preserve` re-compresses exactly the objects that
+arrived compressed (inputs without object streams stay classic) without
+reproducing exact original stream groupings; `generate` packs every eligible
+non-stream object (catalog, page tree nodes, streams, and signed byte-range
+dictionaries stay uncompressed) into new object streams of at most 100
+members, distributed evenly. Any object streams imply a cross-reference
+stream (`/Type /XRef`, `/Size`, `/Root`, `/ID`, `/W`, dense coverage, no
+`/Index`) instead of a classic table, with `startxref` pointing at the xref
+stream object. Generation raises the header to at least 1.5; a forced version
+below 1.5 disables object streams first, per upstream. Payloads and xref
+entries are emitted uncompressed with no `/Filter` or predictor: valid PDF
+that our reader and the independent reader accept, but larger than upstream
+Flate-packed output. Flate packing arrives with the compression controls
+(work item 23). Typed callers default to `preserve` like the CLI.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

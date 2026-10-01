@@ -78,6 +78,8 @@ internal static class JobJsonParser
             bool seenStatic = false;
             bool newlineBeforeEndstream = false;
             bool seenNewline = false;
+            string? objectStreams = null;
+            bool seenObjectStreams = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -187,6 +189,15 @@ internal static class JobJsonParser
                         seenNewline = true;
                         newlineBeforeEndstream = RequireBareFlag(property.Value, "newlineBeforeEndstream");
                         break;
+                    case "objectStreams":
+                        if (seenObjectStreams)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027objectStreams\u0027.", 0L, null);
+                        }
+
+                        seenObjectStreams = true;
+                        objectStreams = RequireObjectStreams(property.Value);
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -239,6 +250,7 @@ internal static class JobJsonParser
                     DeterministicId = deterministicId,
                     StaticId = staticId,
                     NewlineBeforeEndstream = newlineBeforeEndstream,
+                    ObjectStreams = objectStreams,
                 };
             }
 
@@ -258,6 +270,7 @@ internal static class JobJsonParser
                 DeterministicId = deterministicId,
                 StaticId = staticId,
                 NewlineBeforeEndstream = newlineBeforeEndstream,
+                    ObjectStreams = objectStreams,
             };
         }
     }
@@ -395,6 +408,22 @@ internal static class JobJsonParser
         if (value is null)
         {
             throw new QpdfParseException($"Job \"{role}\" must be a string.", 0L, null);
+        }
+
+        return value;
+    }
+
+    private static string RequireObjectStreams(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            throw new QpdfParseException("Job \"objectStreams\" must be disable, preserve, or generate.", 0L, null);
+        }
+
+        string? value = element.GetString();
+        if (value != "disable" && value != "preserve" && value != "generate")
+        {
+            throw new QpdfParseException("Job \"objectStreams\" must be disable, preserve, or generate.", 0L, null);
         }
 
         return value;

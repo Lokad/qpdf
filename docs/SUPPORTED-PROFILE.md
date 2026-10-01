@@ -112,9 +112,16 @@ echoing values.
   By default streams close as `data` + `endstream` with no extra newline;
   `--newline-before-endstream` always inserts `\n` before `endstream`
   (doubling a trailing newline when present), preserving PDF/A compliance.
-- Selection output always normalizes to classic xref, even from
-  stream-based inputs; object-stream modes (`disable`/`preserve`/`generate`)
-  and unreferenced-object preservation arrive next in M6.
+- Object streams follow `--object-streams` (`disable`, `preserve` (the
+  default), `generate`): `disable` writes only classic xref tables;
+  `preserve` keeps compressed-ness from the input (no streams in, no streams
+  out) without reproducing exact original groupings; `generate` packs every
+  eligible non-stream object into new object streams. Any object streams imply
+  a cross-reference stream instead of a classic table and raise the header to
+  at least 1.5; a forced version below 1.5 disables object streams.
+  Payloads and xref entries are emitted uncompressed (no `/Filter`);
+  Flate packing arrives with the compression controls. Unreferenced-object
+  preservation arrives next in M6.
 
 ## Governance
 

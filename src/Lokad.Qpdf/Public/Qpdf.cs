@@ -63,7 +63,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -80,6 +80,7 @@ public static class Qpdf
         bool deterministicId,
         bool staticId,
         bool newlineBeforeEndstream,
+        string? objectStreams,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -116,7 +117,24 @@ public static class Qpdf
         }
 
         ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
-        (PdfVersion effective, int extensionLevel) = NegotiateVersion(document.Version, minVersion, forceVersion);
+        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
+        string streamMode = ResolveObjectStreamMode(objectStreams);
+        if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
+        {
+            streamMode = "disable";
+        }
+
+        HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine);
+        Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
+        HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, new List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> { (copier.SourceToDestination, compressedOrig) }, governor);
+        PdfVersion effective = negotiated;
+        int extensionLevel = negotiatedExtension;
+        if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
+        {
+            effective = new PdfVersion(1, 5);
+            extensionLevel = 0;
+        }
+
         byte[]? originalId = TryGetOriginalId(document.Engine);
         string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
         PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel);
@@ -138,7 +156,9 @@ public static class Qpdf
             model.Add(new NumberedObject(id, copier.CopiedObjects[id]));
         }
 
-        await PublishModelAsync(host, effective, extensionLevel, model, originalId, staticId, newlineBeforeEndstream, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+        List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
+        IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
+        await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, originalId, staticId, newlineBeforeEndstream, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
         return new PdfPageSelectionResult(total, [.. requested], kids.Count, [.. diagnostics.Entries], governor.Snapshot());
     }
 
@@ -203,7 +223,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -269,7 +289,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -348,7 +368,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
@@ -367,6 +387,7 @@ public static class Qpdf
         bool deterministicId,
         bool staticId,
         bool newlineBeforeEndstream,
+        string? objectStreams,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -377,6 +398,7 @@ public static class Qpdf
         List<GraphCopier> copiers = new(sources.Count);
         PdfVersion? version = null;
         byte[]? originalId1 = null;
+        List<HashSet<int>> sourceCompressed = new(sources.Count);
         long selected = 0L;
         for (int s = 0; s < sources.Count; s++)
         {
@@ -392,6 +414,8 @@ public static class Qpdf
             {
                 originalId1 = TryGetOriginalId(document.Engine);
             }
+
+            sourceCompressed.Add(CollectCompressedOriginals(document.Engine));
 
             IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count);
             foreach (int pageNumber in requested)
@@ -490,7 +514,30 @@ public static class Qpdf
 
         List<(int Index, PdfDictionary Label)> labelItems = ResolveLabelItems(labels, kids.Count, governor);
         PdfVersion inputMax = version ?? new PdfVersion(1, 4);
-        (PdfVersion effective, int extensionLevel) = NegotiateVersion(inputMax, minVersion, forceVersion);
+        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, minVersion, forceVersion);
+        string multiStreamMode = ResolveObjectStreamMode(objectStreams);
+        if (forceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
+        {
+            multiStreamMode = "disable";
+        }
+
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> multiSources = new(copiers.Count);
+        for (int s = 0; s < copiers.Count; s++)
+        {
+            multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
+        }
+
+        HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, governor);
+        PdfVersion effective = negotiatedMulti;
+        int extensionLevel = negotiatedMultiExtension;
+        if (multiCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
+        {
+            effective = new PdfVersion(1, 5);
+            extensionLevel = 0;
+        }
+
+        List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, governor);
+        IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
         List<QpdfPath> outputPaths = new();
         if (!splitPages.HasValue)
         {
@@ -504,7 +551,7 @@ public static class Qpdf
                 model.Add(new NumberedObject(entry.Key, entry.Value));
             }
 
-            await PublishModelAsync(host, effective, extensionLevel, model, originalId1, staticId, newlineBeforeEndstream, target, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, originalId1, staticId, newlineBeforeEndstream, target, limits, governor, cancellationToken).ConfigureAwait(false);
             outputPaths.Add(target);
             return new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot());
         }
@@ -581,7 +628,10 @@ public static class Qpdf
             }
 
             QpdfPath path = QpdfPath.From(names[g]);
-            await PublishModelAsync(host, effective, extensionLevel, sub, originalId1, staticId, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber);
+            List<List<int>> groupGroups = PlanObjectStreamGroups(groupCompressed, governor);
+            IReadOnlyList<IReadOnlyList<int>>? groupStreams = groupGroups.Count == 0 ? null : groupGroups;
+            await PublishModelAsync(host, effective, extensionLevel, sub, groupStreams, originalId1, staticId, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
             outputPaths.Add(path);
         }
 
@@ -1094,6 +1144,7 @@ public static class Qpdf
         PdfVersion version,
         int extensionLevel,
         List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
         byte[]? originalId1,
         bool staticId,
         bool newlineBeforeEndstream,
@@ -1118,7 +1169,7 @@ public static class Qpdf
         {
             id2 = (byte[])StaticIdBytes.Clone();
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-            await PublishWithIdsAsync(host, version, model, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishWithIdsAsync(host, version, model, objectStreamGroups, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -1126,18 +1177,26 @@ public static class Qpdf
         byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
         PdfSerializer probe = new(limits, governor);
         MemorySink memory = new(limits, governor);
-        await probe.SerializeAsync(version, model, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+        if (objectStreamGroups is null || objectStreamGroups.Count == 0)
+        {
+            await probe.SerializeAsync(version, model, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await probe.SerializeStreamedAsync(version, model, objectStreamGroups, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+        }
         byte[] placeholderBytes = memory.ToArray();
         byte[] digest = MD5.HashData(placeholderBytes);
         id2 = digest;
         id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-        await PublishWithIdsAsync(host, version, model, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
+        await PublishWithIdsAsync(host, version, model, objectStreamGroups, id1, id2, newlineBeforeEndstream, path, limits, governor, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask PublishWithIdsAsync(
         IQpdfHost host,
         PdfVersion version,
         List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
         byte[] id1,
         byte[] id2,
         bool newlineBeforeEndstream,
@@ -1148,7 +1207,15 @@ public static class Qpdf
     {
         PdfSerializer serializer = new(limits, governor);
         CountingSink counter = new();
-        long counted = await serializer.SerializeAsync(version, model, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
+        long counted;
+        if (objectStreamGroups is null || objectStreamGroups.Count == 0)
+        {
+            counted = await serializer.SerializeAsync(version, model, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            counted = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false);
+        }
         if (counted > limits.MaxOutputBytes)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), counted, limits.MaxOutputBytes);
@@ -1158,7 +1225,15 @@ public static class Qpdf
         governor.NoteHostOperation();
         await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
-        long written = await serializer.SerializeAsync(version, model, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+        long written;
+        if (objectStreamGroups is null || objectStreamGroups.Count == 0)
+        {
+            written = await serializer.SerializeAsync(version, model, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            written = await serializer.SerializeStreamedAsync(version, model, objectStreamGroups, id1, id2, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+        }
         if (written != counted)
         {
             throw new QpdfException($"Writer replay mismatch: counted {counted} bytes but wrote {written}.");
@@ -1301,6 +1376,193 @@ public static class Qpdf
         }
 
         return first.Value;
+    }
+
+    private static string ResolveObjectStreamMode(string? raw)
+    {
+        if (raw is null)
+        {
+            return "preserve";
+        }
+
+        if (raw == "disable" || raw == "preserve" || raw == "generate")
+        {
+            return raw;
+        }
+
+        throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", 0L, null);
+    }
+
+    private static HashSet<int> CollectCompressedOriginals(DocumentEngine engine)
+    {
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        HashSet<int> compressed = new();
+        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
+        {
+            if (entry.Value.Kind == XrefEntryKind.Compressed)
+            {
+                compressed.Add(entry.Key);
+            }
+        }
+
+        return compressed;
+    }
+
+    private static bool IsCompressibleValue(int number, QpdfObject value)
+    {
+        if (number == 1 || number == 2)
+        {
+            return false;
+        }
+
+        if (value is PdfStream)
+        {
+            return false;
+        }
+
+        if (value is PdfDictionary dictionary)
+        {
+            PdfName typeKey = PdfName.FromAscii("Type");
+            PdfName byteRangeKey = PdfName.FromAscii("ByteRange");
+            PdfName contentsKey = PdfName.FromAscii("Contents");
+            if (dictionary.TryGet(typeKey, out QpdfObject typeRaw) && typeRaw is PdfName typeName && typeName.DisplayText == "Sig"
+                && dictionary.TryGet(byteRangeKey, out QpdfObject byteRange) && byteRange is not PdfNull
+                && dictionary.TryGet(contentsKey, out QpdfObject contents) && contents is not PdfNull)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static HashSet<int> ResolveCompressedSet(
+        string mode,
+        IReadOnlyDictionary<int, QpdfObject> pool,
+        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources,
+        ResourceGovernor governor)
+    {
+        if (mode is null)
+        {
+            throw new ArgumentNullException(nameof(mode));
+        }
+
+        if (pool is null)
+        {
+            throw new ArgumentNullException(nameof(pool));
+        }
+
+        if (sources is null)
+        {
+            throw new ArgumentNullException(nameof(sources));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        HashSet<int> compressed = new();
+        if (mode == "disable")
+        {
+            return compressed;
+        }
+
+        if (mode == "generate")
+        {
+            foreach (KeyValuePair<int, QpdfObject> entry in pool)
+            {
+                governor.ChargeWork(1L);
+                if (IsCompressibleValue(entry.Key, entry.Value))
+                {
+                    compressed.Add(entry.Key);
+                }
+            }
+
+            return compressed;
+        }
+
+        if (mode != "preserve")
+        {
+            throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", 0L, null);
+        }
+
+        foreach ((IReadOnlyDictionary<int, int> map, HashSet<int> origs) in sources)
+        {
+            foreach (int orig in origs)
+            {
+                governor.ChargeWork(1L);
+                if (map.TryGetValue(orig, out int dest)
+                    && pool.TryGetValue(dest, out QpdfObject? value)
+                    && value is not null
+                    && IsCompressibleValue(dest, value))
+                {
+                    compressed.Add(dest);
+                }
+            }
+        }
+
+        return compressed;
+    }
+
+    private static List<List<int>> PlanObjectStreamGroups(HashSet<int> compressed, ResourceGovernor governor)
+    {
+        if (compressed is null)
+        {
+            throw new ArgumentNullException(nameof(compressed));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        List<int> ordered = new(compressed);
+        ordered.Sort();
+        List<List<int>> groups = new();
+        if (ordered.Count == 0)
+        {
+            return groups;
+        }
+
+        int streamCount = (ordered.Count + 99) / 100;
+        int perStream = (ordered.Count + streamCount - 1) / streamCount;
+        for (int i = 0; i < ordered.Count; i += perStream)
+        {
+            governor.ChargeWork(1L);
+            int take = Math.Min(perStream, ordered.Count - i);
+            groups.Add(ordered.GetRange(i, take));
+        }
+
+        return groups;
+    }
+
+    private static HashSet<int> RemapCompressedSet(HashSet<int> compressed, Dictionary<int, int> renumber)
+    {
+        if (compressed is null)
+        {
+            throw new ArgumentNullException(nameof(compressed));
+        }
+
+        if (renumber is null)
+        {
+            throw new ArgumentNullException(nameof(renumber));
+        }
+
+        HashSet<int> remapped = new();
+        foreach (int id in compressed)
+        {
+            if (renumber.TryGetValue(id, out int mapped))
+            {
+                remapped.Add(mapped);
+            }
+        }
+
+        return remapped;
     }
 
     private static List<PageLabelSpec> ConvertLabels(IReadOnlyList<PdfPageLabel>? labels)
@@ -1808,6 +2070,7 @@ public static class Qpdf
                         merge.DeterministicId,
                         merge.StaticId,
                         merge.NewlineBeforeEndstream,
+                        merge.ObjectStreams,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -1855,6 +2118,7 @@ public static class Qpdf
                         selection.DeterministicId,
                         selection.StaticId,
                         selection.NewlineBeforeEndstream,
+                        selection.ObjectStreams,
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -1890,6 +2154,7 @@ public static class Qpdf
                 selection.DeterministicId,
                 selection.StaticId,
                 selection.NewlineBeforeEndstream,
+                selection.ObjectStreams,
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);

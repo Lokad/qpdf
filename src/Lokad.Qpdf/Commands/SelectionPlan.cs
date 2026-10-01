@@ -24,6 +24,8 @@ internal abstract record JobPlan(QpdfPath Input)
     public bool StaticId { get; init; }
 
     public bool NewlineBeforeEndstream { get; init; }
+
+    public string? ObjectStreams { get; init; }
 }
 
 /// <summary>Validated single-page selection.</summary>

@@ -3359,15 +3359,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Object-stream payloads and xref entries are emitted uncompressed (no Flate/predictor); Flate packing arrives with compression controls (item 23). Preserve keeps compressed-ness, not exact original groupings."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "ObjectStreamTests.GenerateWritesObjectAndXrefStreams",
+          "ObjectStreamTests.PreserveKeepsCompressedObjects",
+          "ObjectStreamTests.DisableExpandsCompressedObjects",
+          "ObjectStreamTests.ManyObjectsChunkIntoMultipleStreams"
+        ],
+        "negative": [
+          "ObjectStreamTests.InvalidModesFail",
+          "ObjectStreamTests.JobJsonInvalidModeFails"
+        ],
+        "interaction": [
+          "ObjectStreamTests.GenerateBumpsVersionTo1_5",
+          "ObjectStreamTests.ForceBelow15DisablesStreams",
+          "ObjectStreamTests.JobJsonParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }

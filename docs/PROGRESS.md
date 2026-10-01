@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 22b: writer object-stream modes. `--object-streams` (`disable`/`preserve` default/`generate`) packs eligible non-stream objects into uncompressed object streams with a cross-reference stream, raising the header to at least 1.5 unless a forced version below 1.5 disables them; `preserve` keeps input compressed-ness without exact grouping. One shared implementation across typed/argv/job paths with replay-checked serialization.
+
+Prior gate
+
 Work item 22a: writer versions, IDs and stream endings. `--min-version`/`--force-version` negotiate the header (`major.minor[.extension]`, 1.0-1.7 and 2.0) with catalog `/Extensions` for positive levels; trailer `/ID` always emits (original first word preserved, default second word is a deterministic content hash, `--static-id` selects the upstream test constant, `--deterministic-id` matches the default); stream `endstream` defaults to no extra newline with `--newline-before-endstream` forcing `\\n`. All entry paths share one implementation with replay-checked serialization.
 
 Prior gate
@@ -16,11 +20,10 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 414 tests (383
-  prior plus 31 writer-control cases: version raising/forcing/extension,
-  static/deterministic IDs with preservation and determinism, stream
-  newline defaults and flags, argv/job parity, and malformed/duplicate
-  rejections).
+- Locked restore, Release build with zero warnings, and all 431 tests (414
+  prior plus 17 object-stream cases: disable/preserve/generate, version
+  bumping, forced-version interaction, determinism, multi-stream chunking,
+  argv/job parity, and invalid/duplicate rejections).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -32,7 +35,7 @@ binary.
 
 ## Next work
 
-1. Work item 22b: writer object/xref-stream modes (`disable`/`preserve`/`generate`) and unreferenced-object controls (M6).
+1. Work item 22c: preserve-unreferenced objects (remainder of item 22), then non-JPEG compression controls (item 23, M6).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

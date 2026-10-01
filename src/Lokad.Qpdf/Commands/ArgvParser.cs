@@ -61,6 +61,7 @@ internal static class ArgvParser
                 DeterministicId = globals.DeterministicId,
                 StaticId = globals.StaticId,
                 NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+            ObjectStreams = globals.ObjectStreams,
             };
         }
 
@@ -116,6 +117,7 @@ internal static class ArgvParser
             DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+            ObjectStreams = globals.ObjectStreams,
         };
     }
 
@@ -155,7 +157,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -177,6 +179,8 @@ internal static class ArgvParser
         bool seenNewline = false;
         string? minVersion = null;
         string? forceVersion = null;
+        bool seenObjectStreams = false;
+        string? objectStreams = null;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -317,11 +321,23 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
+            {
+                if (seenObjectStreams)
+                {
+                    throw new QpdfParseException("Duplicate --object-streams is outside the narrow profile.", i, null);
+                }
+
+                seenObjectStreams = true;
+                objectStreams = ParseObjectStreamsMode(argv, ref i);
+                continue;
+            }
+
             kept.Add(argv[i]);
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams);
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -370,6 +386,39 @@ internal static class ArgvParser
         }
 
         return (int)size;
+    }
+
+    private static string ParseObjectStreamsMode(IReadOnlyList<string> argv, ref int i)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        string? value = null;
+        if (equals >= 0)
+        {
+            value = token.Substring(equals + 1);
+        }
+        else if (i + 1 < argv.Count)
+        {
+            string next = argv[i + 1];
+            if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            {
+                throw new QpdfParseException("--object-streams requires a mode: disable, preserve, or generate.", i, null);
+            }
+
+            value = next;
+            i += 1;
+        }
+        else
+        {
+            throw new QpdfParseException("--object-streams requires a mode: disable, preserve, or generate.", i, null);
+        }
+
+        if (value != "disable" && value != "preserve" && value != "generate")
+        {
+            throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", i, null);
+        }
+
+        return value;
     }
 
     private static string ParseRequiredVersion(IReadOnlyList<string> argv, ref int i, string option)
@@ -668,6 +717,7 @@ internal static class ArgvParser
             DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+            ObjectStreams = globals.ObjectStreams,
         };
     }
 
@@ -701,6 +751,7 @@ internal static class ArgvParser
             DeterministicId = globals.DeterministicId,
             StaticId = globals.StaticId,
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+            ObjectStreams = globals.ObjectStreams,
         };
     }
 
