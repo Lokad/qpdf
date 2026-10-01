@@ -61,7 +61,7 @@ internal static class ArgvParser
 
         int terminatorAt = FindTerminator(argv, pagesAt);
         string input = ParseInputArea(argv, pagesAt, "--pages");
-        (string file, string range, List<OutputRotation> rotations) = ParsePagesArea(argv, pagesAt, terminatorAt);
+        (string file, string range, List<OutputRotation> rotations, List<PageLabelSpec> labels) = ParsePagesArea(argv, pagesAt, terminatorAt);
         string output = ParseOutputArea(argv, terminatorAt);
         string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(range);
@@ -70,6 +70,7 @@ internal static class ArgvParser
             WarningExitZero = globals.WarningExitZero,
             NoWarn = globals.NoWarn,
             Rotations = rotations,
+            Labels = labels,
         };
     }
 
@@ -250,13 +251,15 @@ internal static class ArgvParser
         return input;
     }
 
-    private static (string File, string Range, List<OutputRotation> Rotations) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    private static (string File, string Range, List<OutputRotation> Rotations, List<PageLabelSpec> Labels) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
     {
         string? file = null;
         string? range = null;
         bool fileTaken = false;
         bool rangeTaken = false;
         List<OutputRotation> rotations = new();
+        List<PageLabelSpec> labels = new();
+        bool removeLabels = false;
         int i = pagesAt + 1;
         while (i < terminatorAt)
         {
@@ -310,6 +313,58 @@ internal static class ArgvParser
                     continue;
                 }
 
+                if (token == "--set-page-labels")
+                {
+                    if (removeLabels)
+                    {
+                        throw new QpdfParseException("--set-page-labels cannot be combined with --remove-page-labels.", i, null);
+                    }
+
+                    i += 1;
+                    bool specified = false;
+                    while (i < terminatorAt)
+                    {
+                        string specification = argv[i];
+                        if (specification is null)
+                        {
+                            throw new QpdfParseException("Null argument.", i, null);
+                        }
+
+                        if (specification.StartsWith("--", StringComparison.Ordinal) && specification.Length > 2)
+                        {
+                            break;
+                        }
+
+                        labels.Add(PageLabelSpec.Parse(specification, i));
+                        specified = true;
+                        i += 1;
+                    }
+
+                    if (!specified)
+                    {
+                        throw new QpdfParseException("--set-page-labels requires at least one label specification.", i, null);
+                    }
+
+                    continue;
+                }
+
+                if (token == "--remove-page-labels")
+                {
+                    if (removeLabels)
+                    {
+                        throw new QpdfParseException("Duplicate --remove-page-labels is outside the narrow profile.", i, null);
+                    }
+
+                    if (labels.Count > 0)
+                    {
+                        throw new QpdfParseException("--set-page-labels cannot be combined with --remove-page-labels.", i, null);
+                    }
+
+                    removeLabels = true;
+                    i += 1;
+                    continue;
+                }
+
                 throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", i, null);
             }
 
@@ -341,7 +396,7 @@ internal static class ArgvParser
             throw new QpdfParseException("The --pages selection requires one range in this profile.", pagesAt, null);
         }
 
-        return (file, range, rotations);
+        return (file, range, rotations, labels);
     }
 
     private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)

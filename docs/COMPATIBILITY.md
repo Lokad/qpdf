@@ -252,6 +252,18 @@ same-named resources and fields stay inert without content rewriting; the output
 catalog stays fresh with no merged `/AcroForm`. Output takes the highest source
 version and carries per-page source mapping plus per-source page counts.
 
+## Collation and page labels (work item 20, part 2)
+
+`PdfPageMergeOptions` carries collation (absent concatenates; one group size
+applies uniformly, otherwise one per source with round-robin exhaustion),
+rotations, and explicit labels. Source page-label trees are dropped, never
+merged; `--set-page-labels` (`first-page:[type][/start[/prefix]]` with `n`,
+`rN`, `z`) and job-JSON `setPageLabels` emit a fresh `/PageLabels` number tree
+(first entry at page 1, strictly increasing), while `--remove-page-labels` and
+job-JSON `removePageLabels: true` are accepted no-ops contradicted only by
+combining them with set. Prefixes store as UTF-8 bytes. Multi-file `--pages`
+forms and `--collate` stay open.
+
 ## Ordinary rotation (work item 20, part 1)
 
 `PdfPageRotation` (`Set`/`Add`/`Subtract` over output positions, any multiple of

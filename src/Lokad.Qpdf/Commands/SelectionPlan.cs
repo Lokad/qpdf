@@ -8,6 +8,8 @@ internal abstract record JobPlan(QpdfPath Input)
     public bool NoWarn { get; init; }
 
     public IReadOnlyList<OutputRotation> Rotations { get; init; } = [];
+
+    public IReadOnlyList<PageLabelSpec> Labels { get; init; } = [];
 }
 
 /// <summary>Validated single-page selection.</summary>

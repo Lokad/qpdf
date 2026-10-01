@@ -55,6 +55,8 @@ echoing values.
 - Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
   folds over the inherited base; untouched pages keep their bytes. Flattening
   stays unsupported.
+- Merge options interleave per-source groups (collation), rotate, and emit
+  explicit page labels; source label trees are dropped and never merged.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
   are copied once; `/Parent` links are dropped. Results carry the source page

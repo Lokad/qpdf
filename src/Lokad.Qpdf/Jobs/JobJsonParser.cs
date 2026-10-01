@@ -64,6 +64,10 @@ internal static class JobJsonParser
             bool hasPages = false;
             List<OutputRotation> rotations = new();
             bool seenRotate = false;
+            List<PageLabelSpec> labels = new();
+            bool seenLabels = false;
+            bool seenRemoveLabels = false;
+            bool removeLabels = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -105,6 +109,29 @@ internal static class JobJsonParser
                         seenRotate = true;
                         rotations.AddRange(ParseRotateArray(property.Value));
                         break;
+                    case "setPageLabels":
+                        if (seenLabels)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'setPageLabels'.", 0L, null);
+                        }
+
+                        seenLabels = true;
+                        labels.AddRange(ParseLabelArray(property.Value));
+                        break;
+                    case "removePageLabels":
+                        if (seenRemoveLabels)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'removePageLabels'.", 0L, null);
+                        }
+
+                        seenRemoveLabels = true;
+                        if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
+                        {
+                            throw new QpdfParseException("Job \"removePageLabels\" must be a boolean.", 0L, null);
+                        }
+
+                        removeLabels = property.Value.ValueKind == JsonValueKind.True;
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -138,12 +165,18 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
             }
 
+            if (removeLabels && labels.Count > 0)
+            {
+                throw new QpdfParseException("Job \"setPageLabels\" cannot be combined with \"removePageLabels\".", 0L, null);
+            }
+
             (string file, string range) = ParsePagesEntry(pages);
             string resolved = ResolveFile(file, input);
             int page = SelectionPlan.ParsePageNumber(range);
             return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair) with
             {
                 Rotations = rotations,
+                Labels = labels,
             };
         }
     }
@@ -173,6 +206,33 @@ internal static class JobJsonParser
         }
 
         return rotations;
+    }
+
+    private static List<PageLabelSpec> ParseLabelArray(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job \"setPageLabels\" must be an array of label specifications.", 0L, null);
+        }
+
+        List<PageLabelSpec> labels = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.String)
+            {
+                throw new QpdfParseException("Job \"setPageLabels\" entries must be strings.", 0L, null);
+            }
+
+            string? specification = entry.GetString();
+            if (specification is null)
+            {
+                throw new QpdfParseException("Job \"setPageLabels\" entries must be strings.", 0L, null);
+            }
+
+            labels.Add(PageLabelSpec.Parse(specification, 0L));
+        }
+
+        return labels;
     }
 
     private static (string File, string Range) ParsePagesEntry(JsonElement pages)

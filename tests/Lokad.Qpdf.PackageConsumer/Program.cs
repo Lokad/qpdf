@@ -130,6 +130,13 @@ internal static class Program
             CancellationToken.None);
         Check(rotated.Status == QpdfExecutionStatus.Completed && rotated.ExitCode == QpdfExitCode.Success, "rotated execution");
         Console.WriteLine("PASS rotated selection (--rotate)");
+        InMemoryQpdfHost labelHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult labeled = await Qpdf.ExecuteAsync(
+            labelHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--set-page-labels", "1:D", "--", "outputs/labeled.pdf"]),
+            CancellationToken.None);
+        Check(labeled.Status == QpdfExecutionStatus.Completed && labeled.ExitCode == QpdfExitCode.Success, "labeled execution");
+        Console.WriteLine("PASS labeled selection (--set-page-labels)");
 
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(

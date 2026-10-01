@@ -3989,14 +3989,18 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Accepted no-op: outputs never carry source labels unless set."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "LabelTests.RemovePageLabelsIsAcceptedNoOp"
+        ],
+        "negative": [
+          "LabelTests.ArgvLabelFormsFailExplicitly"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -4256,15 +4260,25 @@
         }
       ],
       "milestone": "M5",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Source page-label trees are dropped, never merged (number-tree reading is later work).",
+        "Prefix text is stored as UTF-8 bytes."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "LabelTests.TypedLabelsEmitNumberTree",
+          "LabelTests.ArgvSetPageLabelsMatchesTyped",
+          "LabelTests.JobSetPageLabelsMatchesArgv"
+        ],
+        "negative": [
+          "LabelTests.LabelOrderRulesFailCleanly",
+          "LabelTests.ArgvLabelFormsFailExplicitly"
+        ],
+        "interaction": [
+          "LabelTests.PrefixAndStartRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }
