@@ -27,6 +27,15 @@
       "description": "Two pages sharing one font, classic xref, unencrypted. Oracle and independent page counts must agree on 2."
     },
     {
+      "file": "forms-1page.pdf",
+      "sha256": "49efd5043b16147158647f24c1408cdf06ec390734c45e4df3184fa0873da324",
+      "bytes": 1012,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a self-contained text widget (stale appearance, NeedAppearances). Oracle and independent page counts must agree on 1; appearance generation and annotation flattening differentials consume it."
+    },
+    {
       "file": "truncated-1page.pdf",
       "sha256": "6aafbe19f99a8eb28e0d87a061dbaa3973e148214a6d3dfbc4b67723ad5cdd2a",
       "bytes": 120,
