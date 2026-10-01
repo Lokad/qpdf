@@ -6,7 +6,7 @@ public sealed record PdfPageCollation
     /// <summary>Creates a collation with per-source group sizes.</summary>
     /// <exception cref="ArgumentNullException">The group sizes are null.</exception>
     /// <exception cref="ArgumentException">No group size was supplied.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">A group size is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A group size is negative.</exception>
     public PdfPageCollation(IReadOnlyList<int> groupSizes)
     {
         if (groupSizes is null)
@@ -22,9 +22,9 @@ public sealed record PdfPageCollation
 
         foreach (int size in sizes)
         {
-            if (size <= 0)
+            if (size < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(groupSizes), "Collation group sizes must be positive.");
+                throw new ArgumentOutOfRangeException(nameof(groupSizes), "Collation group sizes must not be negative.");
             }
         }
 
@@ -32,9 +32,14 @@ public sealed record PdfPageCollation
     }
 
     /// <summary>Creates a uniform interleaving policy taking the same count from every source.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">The group size is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The group size is negative.</exception>
     public static PdfPageCollation Interleave(int groupSize)
     {
+        if (groupSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(groupSize), "Collation group sizes must not be negative.");
+        }
+
         return new PdfPageCollation([groupSize]);
     }
 

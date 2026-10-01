@@ -61,8 +61,15 @@ internal static class ArgvParser
 
         int terminatorAt = FindTerminator(argv, pagesAt);
         string input = ParseInputArea(argv, pagesAt, "--pages");
-        (string file, string range, List<OutputRotation> rotations, List<PageLabelSpec> labels) = ParsePagesArea(argv, pagesAt, terminatorAt);
+        (List<PageGroup> groups, List<OutputRotation> rotations, List<PageLabelSpec> labels, List<int> collate) = ParsePagesArea(argv, pagesAt, terminatorAt);
         string output = ParseOutputArea(argv, terminatorAt);
+        if (groups.Count > 1 || collate.Count > 0)
+        {
+            return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals);
+        }
+
+        string file = groups[0].File;
+        string range = groups[0].Range;
         string resolvedFile = ResolveFile(file, input);
         int page = SelectionPlan.ParsePageNumber(range);
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
@@ -251,15 +258,14 @@ internal static class ArgvParser
         return input;
     }
 
-    private static (string File, string Range, List<OutputRotation> Rotations, List<PageLabelSpec> Labels) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    private static (List<PageGroup> Groups, List<OutputRotation> Rotations, List<PageLabelSpec> Labels, List<int> Collate) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
     {
+        List<PageGroup> groups = new();
         string? file = null;
-        string? range = null;
-        bool fileTaken = false;
-        bool rangeTaken = false;
         List<OutputRotation> rotations = new();
         List<PageLabelSpec> labels = new();
         bool removeLabels = false;
+        List<int> collate = new();
         int i = pagesAt + 1;
         while (i < terminatorAt)
         {
@@ -279,30 +285,32 @@ internal static class ArgvParser
 
                 if (name == "file")
                 {
-                    if (fileTaken)
+                    if (file is not null)
                     {
-                        throw new QpdfParseException("Duplicate file specification in --pages.", i, null);
+                        throw new QpdfParseException("Each --pages file needs one range before the next file.", i, null);
                     }
 
                     file = TakeParameter(argv, terminatorAt, ref i, "--file");
-                    fileTaken = true;
                     continue;
                 }
 
                 if (name == "range")
                 {
-                    if (!fileTaken)
+                    if (file is null)
                     {
                         throw new QpdfParseException("--range must follow the file specification.", i, null);
                     }
 
-                    if (rangeTaken)
-                    {
-                        throw new QpdfParseException("Duplicate range specification in --pages.", i, null);
-                    }
+                    string range = TakeParameter(argv, terminatorAt, ref i, "--range");
+                    groups.Add(new PageGroup(file, range));
+                    file = null;
+                    continue;
+                }
 
-                    range = TakeParameter(argv, terminatorAt, ref i, "--range");
-                    rangeTaken = true;
+                if (name == "collate")
+                {
+                    string? value = TakeOptionalParameter(argv, terminatorAt, ref i, "--collate");
+                    collate.AddRange(ParseCollateValue(value, i));
                     continue;
                 }
 
@@ -368,35 +376,121 @@ internal static class ArgvParser
                 throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", i, null);
             }
 
-            if (!fileTaken)
+            if (file is null)
             {
                 file = token;
-                fileTaken = true;
-            }
-            else if (!rangeTaken)
-            {
-                range = token;
-                rangeTaken = true;
             }
             else
             {
-                throw new QpdfParseException($"Unexpected argument '{token}' in --pages.", i, null);
+                groups.Add(new PageGroup(file, token));
+                file = null;
             }
 
             i += 1;
         }
 
-        if (!fileTaken || file is null)
-        {
-            throw new QpdfParseException("The --pages selection requires one file.", pagesAt, null);
-        }
-
-        if (!rangeTaken || range is null)
+        if (file is not null)
         {
             throw new QpdfParseException("The --pages selection requires one range in this profile.", pagesAt, null);
         }
 
-        return (file, range, rotations, labels);
+        if (groups.Count == 0)
+        {
+            throw new QpdfParseException("The --pages selection requires one file.", pagesAt, null);
+        }
+
+        return (groups, rotations, labels, collate);
+    }
+
+    private static JobPlan ParseMerge(
+        string input,
+        string output,
+        List<PageGroup> groups,
+        List<OutputRotation> rotations,
+        List<PageLabelSpec> labels,
+        List<int> collate,
+        QpdfRecoveryMode recovery,
+        GlobalOptions globals)
+    {
+        List<PdfPageSource> sources = new(groups.Count);
+        foreach (PageGroup group in groups)
+        {
+            int page = SelectionPlan.ParsePageNumber(group.Range);
+            sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(group.File), new PdfPageSelectionOptions(page)));
+        }
+
+        PdfPageCollation? collation = collate.Count == 0 ? null : new PdfPageCollation(collate);
+        return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
+        {
+            WarningExitZero = globals.WarningExitZero,
+            NoWarn = globals.NoWarn,
+            Rotations = rotations,
+            Labels = labels,
+        };
+    }
+
+    private static string? TakeOptionalParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf('=');
+        if (equals >= 0)
+        {
+            i += 1;
+            return token.Substring(equals + 1);
+        }
+
+        if (i + 1 >= terminatorAt)
+        {
+            i += 1;
+            return null;
+        }
+
+        string next = argv[i + 1];
+        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+        {
+            i += 1;
+            return null;
+        }
+
+        i += 2;
+        return next;
+    }
+
+    private static List<int> ParseCollateValue(string? value, long offset)
+    {
+        if (value is null || value.Length == 0)
+        {
+            return new List<int> { 1 };
+        }
+
+        List<int> sizes = new();
+        foreach (string item in value.Split(','))
+        {
+            if (item.Length == 0 || item.Length > 10)
+            {
+                throw new QpdfParseException($"Invalid --collate value '{value}': expected n[,m,...].", offset, null);
+            }
+
+            long size = 0L;
+            foreach (char digit in item)
+            {
+                if (digit < '0' || digit > '9')
+                {
+                    throw new QpdfParseException($"Invalid --collate value '{value}': expected n[,m,...].", offset, null);
+                }
+
+                size = checked(size * 10L + (digit - '0'));
+            }
+
+            if (size > int.MaxValue)
+            {
+                throw new QpdfParseException($"Invalid --collate value '{value}': group size is too large.", offset, null);
+            }
+
+            sizes.Add((int)size);
+        }
+
+        return sizes;
     }
 
     private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)

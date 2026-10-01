@@ -13,7 +13,7 @@ internal static class JobJsonParser
 {
     private const int MaxDepth = 32;
 
-    internal static SelectionPlan Parse(string jobJson, QpdfLimits limits)
+    internal static JobPlan Parse(string jobJson, QpdfLimits limits)
     {
         if (jobJson is null)
         {
@@ -170,10 +170,26 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"setPageLabels\" cannot be combined with \"removePageLabels\".", 0L, null);
             }
 
-            (string file, string range) = ParsePagesEntry(pages);
-            string resolved = ResolveFile(file, input);
-            int page = SelectionPlan.ParsePageNumber(range);
-            return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair) with
+            List<(string File, string Range)> entries = ParsePagesEntries(pages);
+            if (entries.Count == 1)
+            {
+                string resolved = ResolveFile(entries[0].File, input);
+                int page = SelectionPlan.ParsePageNumber(entries[0].Range);
+                return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair) with
+                {
+                    Rotations = rotations,
+                    Labels = labels,
+                };
+            }
+
+            List<PdfPageSource> sources = new(entries.Count);
+            foreach ((string file, string range) in entries)
+            {
+                int page = SelectionPlan.ParsePageNumber(range);
+                sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), new PdfPageSelectionOptions(page)));
+            }
+
+            return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, null, QpdfRecoveryMode.BoundedRepair) with
             {
                 Rotations = rotations,
                 Labels = labels,
@@ -235,25 +251,34 @@ internal static class JobJsonParser
         return labels;
     }
 
-    private static (string File, string Range) ParsePagesEntry(JsonElement pages)
+    private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)
     {
         if (pages.ValueKind != JsonValueKind.Array)
         {
-            throw new QpdfParseException("Job \"pages\" must be an array with one entry.", 0L, null);
+            throw new QpdfParseException("Job \"pages\" must be a non-empty array.", 0L, null);
         }
 
-        int count = pages.GetArrayLength();
-        if (count != 1)
+        if (pages.GetArrayLength() == 0)
         {
-            throw new QpdfParseException($"Job \"pages\" must hold exactly one entry in this profile, not {count}.", 0L, null);
+            throw new QpdfParseException("Job \"pages\" must hold at least one entry.", 0L, null);
         }
 
-        JsonElement entry = pages[0];
-        if (entry.ValueKind != JsonValueKind.Object)
+        List<(string File, string Range)> entries = new();
+        foreach (JsonElement entry in pages.EnumerateArray())
         {
-            throw new QpdfParseException("Job \"pages\" entries must be objects.", 0L, null);
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new QpdfParseException("Job \"pages\" entries must be objects.", 0L, null);
+            }
+
+            entries.Add(ParsePagesEntry(entry));
         }
 
+        return entries;
+    }
+
+    private static (string File, string Range) ParsePagesEntry(JsonElement entry)
+    {
         string? file = null;
         string? range = null;
         foreach (JsonProperty property in entry.EnumerateObject())

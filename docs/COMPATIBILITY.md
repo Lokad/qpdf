@@ -264,6 +264,15 @@ job-JSON `removePageLabels: true` are accepted no-ops contradicted only by
 combining them with set. Prefixes store as UTF-8 bytes. Multi-file `--pages`
 forms and `--collate` stay open.
 
+## Multi-file merge (work item 20, part 3)
+
+`qpdf --pages` takes repeated file/range groups (positional or `--file=`/`--range=`
+forms, `.` for the primary input) with repeatable `--collate[=n[,m,...]]`
+(uniform, per-source, or bare single-group); single groups without collation keep
+the exact legacy single-file behavior. Job JSON accepts multi-entry `pages`
+arrays concatenating in order; the `collate` key stays explicitly unsupported.
+Out-of-range pages map to explicit failures without publication.
+
 ## Ordinary rotation (work item 20, part 1)
 
 `PdfPageRotation` (`Set`/`Add`/`Subtract` over output positions, any multiple of

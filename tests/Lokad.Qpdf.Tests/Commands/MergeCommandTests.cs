@@ -1,0 +1,161 @@
+using System.Text;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+
+namespace Lokad.Qpdf.Tests.Commands;
+
+public sealed class MergeCommandTests
+{
+    private static string FixtureDir()
+    {
+        return Path.Combine(AppContext.BaseDirectory, "Fixtures");
+    }
+
+    private static async Task<InMemoryQpdfHost> HostWithFixture(string logical, string fixture)
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), fixture));
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From(logical), bytes, QpdfInputOwnership.Copy);
+        return host;
+    }
+
+    private static async Task<List<string>> OutputMarkers(InMemoryQpdfHost host, string output)
+    {
+        if (!host.TryGetOutput(QpdfPath.From(output), out byte[] published))
+        {
+            throw new Xunit.Sdk.XunitException("Output was not published: " + output + ".");
+        }
+
+        QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
+        host.AddInput(reread, published, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
+        List<string> markers = new();
+        for (int i = 0; i < document.PageCount; i++)
+        {
+            PdfDictionary page = document.PageReferences[i].Page;
+            Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject raw));
+            PdfReference reference = Assert.IsType<PdfReference>(raw);
+            PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(reference.ObjectNumber));
+            markers.Add(Encoding.ASCII.GetString(stream.Data));
+        }
+
+        return markers;
+    }
+
+    private static QpdfDiagnostic SingleError(QpdfExecutionResult result)
+    {
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        return Assert.Single(result.Diagnostics);
+    }
+
+    [Fact]
+    public async Task ArgvMultiFileMergesInOrder()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/a.pdf", "2", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+        Assert.Contains("Second", markers[0], StringComparison.Ordinal);
+        Assert.Contains("Hello", markers[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ArgvCollateInterleavesSources()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+        Assert.Contains("First", markers[0], StringComparison.Ordinal);
+        Assert.Contains("Second", markers[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ArgvCollateGroupsApply()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--file=inputs/a.pdf", "--range=2", "--collate=2,1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+    }
+
+    [Fact]
+    public async Task ArgvMergeErrorsAreExplicit()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult dangling = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "inputs/a.pdf", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(dangling).Code);
+
+        QpdfExecutionResult badCollate = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate=x", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(badCollate).Code);
+
+        QpdfExecutionResult outOfRange = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "9", ".", "1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(outOfRange).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task JobMultiEntryMergesInOrder()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(
+            host,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": ".", "range": "2"}, {"file": "inputs/b.pdf", "range": "1"}]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+        Assert.Contains("Second", markers[0], StringComparison.Ordinal);
+        Assert.Contains("Hello", markers[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task JobSingleEntryKeepsSingleBehavior()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(
+            host,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/j.pdf", "pages": [{"file": ".", "range": "1"}]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await Reopen(host, "outputs/j.pdf");
+        Assert.Equal(1, output.PageCount);
+    }
+
+    private static async Task<QpdfDocument> Reopen(InMemoryQpdfHost host, string output)
+    {
+        if (!host.TryGetOutput(QpdfPath.From(output), out byte[] published))
+        {
+            throw new Xunit.Sdk.XunitException("Output was not published: " + output + ".");
+        }
+
+        QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
+        host.AddInput(reread, published, QpdfInputOwnership.Copy);
+        return await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
+    }
+}

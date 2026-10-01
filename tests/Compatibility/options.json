@@ -1971,14 +1971,20 @@
         }
       ],
       "milestone": "M5",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Job-JSON collate key stays unsupported.",
+        "Single-integer page ranges only; full range syntax stays open."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "MergeCommandTests.ArgvCollateInterleavesSources",
+          "MergeCommandTests.ArgvCollateGroupsApply"
+        ],
+        "negative": [
+          "MergeCommandTests.ArgvMergeErrorsAreExplicit"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []

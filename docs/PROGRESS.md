@@ -2,21 +2,20 @@
 
 ## Current checkpoint
 
-Work item 20 (part 2: collation and labels). `PdfPageMergeOptions` carries
-collation (uniform or per-source groups, upstream round-robin), rotations, and
-explicit labels over the multi-source engine; source label trees are dropped,
-never merged. `qpdf --set-page-labels` and job-JSON `setPageLabels` share the
-`first-page:[type][/start[/prefix]]` specification; `--remove-page-labels` is an
-accepted no-op. Multi-file `--pages` forms and `--collate` stay open.
+Work item 20 (part 3: multi-file merge). `qpdf --pages` takes repeated
+file/range groups with repeatable `--collate[=n[,m,...]]` (bare, uniform, or
+per-source sizes); single groups without collation keep exact legacy behavior.
+Job JSON accepts multi-entry `pages` arrays concatenating in order. Group size 0
+matches upstream (spec contributes nothing); job `collate` stays unsupported.
 
 ## Verification
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 370 tests (355
-  prior plus 15 label/collation cases: number-tree emission, prefix/start styles,
-  order rules, argv/job parity, remove no-op, collation orders, and option
-  validation).
+- Locked restore, Release build with zero warnings, and all 375 tests (370
+  prior plus 6 merge cases net of 1 retired single-form case: multi-file order,
+  collate interleaving and groups, dangling/out-of-range/collate errors, job
+  multi-entry parity, and 2 legacy tests updated for the new grammar).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -28,7 +27,7 @@ binary.
 
 ## Next work
 
-1. Work item 20 (part 3): multi-file `--pages` forms with `--collate` (M5).
+1. Work item 21: split/replacement publication, backup rules, output collisions (M5).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

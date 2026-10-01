@@ -137,6 +137,13 @@ internal static class Program
             CancellationToken.None);
         Check(labeled.Status == QpdfExecutionStatus.Completed && labeled.ExitCode == QpdfExitCode.Success, "labeled execution");
         Console.WriteLine("PASS labeled selection (--set-page-labels)");
+        InMemoryQpdfHost mergeArgvHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult mergeArgv = await Qpdf.ExecuteAsync(
+            mergeArgvHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "2", ".", "1", "--collate", "--", "outputs/argv-merge.pdf"]),
+            CancellationToken.None);
+        Check(mergeArgv.Status == QpdfExecutionStatus.Completed && mergeArgv.ExitCode == QpdfExitCode.Success, "argv merge execution");
+        Console.WriteLine("PASS argv multi-file merge (--pages/--collate)");
 
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(

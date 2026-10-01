@@ -1025,7 +1025,7 @@ public static class Qpdf
                 return QpdfExecutionResult.Canceled([], ZeroCounters());
             }
 
-            SelectionPlan jobPlan;
+            JobPlan jobPlan;
             try
             {
                 jobPlan = JobJsonParser.Parse(jobJson, options.Limits);
@@ -1127,7 +1127,7 @@ public static class Qpdf
         options.Limits.Validate();
         ResourceGovernor governor = new(options.Limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        SelectionPlan plan;
+        JobPlan plan;
         try
         {
             plan = JobJsonParser.Parse(jobJson, options.Limits);
@@ -1174,6 +1174,47 @@ public static class Qpdf
 
         try
         {
+            if (plan is MergePlan merge)
+            {
+                try
+                {
+                    List<PdfPageSource> resolved = new(merge.Sources.Count);
+                    foreach (PdfPageSource source in merge.Sources)
+                    {
+                        QpdfPath path = source.Input.Value == "." ? merge.Input : source.Input;
+                        resolved.Add(new PdfPageSource(path, source.Selection));
+                    }
+
+                    PdfMultiPageSelectionResult merged = await SelectPagesCoreAsync(
+                        host,
+                        resolved,
+                        merge.Output,
+                        limits,
+                        merge.Recovery,
+                        merge.Collation,
+                        merge.Rotations,
+                        merge.Labels,
+                        governor,
+                        diagnostics,
+                        cancellationToken).ConfigureAwait(false);
+                    return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
+                }
+                catch (QpdfException ex)
+                {
+                    return ToFailedResult(ex);
+                }
+                catch (ArgumentOutOfRangeException ex)
+                {
+                    return QpdfExecutionResult.Failed(
+                        [new QpdfDiagnostic(QpdfDiagnosticCode.InvalidArguments, QpdfDiagnosticSeverity.Error, ex.Message)],
+                        ZeroCounters());
+                }
+                catch (OperationCanceledException)
+                {
+                    return QpdfExecutionResult.Canceled([], ZeroCounters());
+                }
+            }
+
             SelectionPlan selection = (SelectionPlan)plan;
             PdfPageSelectionResult selected = await SelectPageCoreAsync(
                 host,

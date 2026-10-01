@@ -233,8 +233,8 @@ public sealed class CollationTests
         Assert.Throws<ArgumentNullException>(() => new PdfPageCollation(null!));
 #pragma warning restore CS8625
         Assert.Throws<ArgumentException>(() => new PdfPageCollation([]));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PdfPageCollation([1, 0]));
-        Assert.Throws<ArgumentOutOfRangeException>(() => PdfPageCollation.Interleave(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PdfPageCollation([1, -1]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PdfPageCollation.Interleave(-1));
     }
 
     [Fact]

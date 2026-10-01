@@ -6,7 +6,7 @@
         "type": "Direct",
         "requested": "[0.1.0-alpha.1, )",
         "resolved": "0.1.0-alpha.1",
-        "contentHash": "yeNMORRJs7W+/6iZHPv3RJWXDagcjd5YqD4ZoISCJ3U7m4QI0TIDloEjl/odoo60FuNuZcj+VbTpyzWT7vMYpA==",
+        "contentHash": "37napv3pgQvoMx2JUQTkapDNUP2bBrD4NXS9HXQwTtAAEVowGSo4KSQm/ffpZ+QWlPXDFXLX2KryV8Jp7FMtsg==",
         "dependencies": {
           "SixLabors.ImageSharp": "[3.1.12]"
         }

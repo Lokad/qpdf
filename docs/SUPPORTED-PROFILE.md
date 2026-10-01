@@ -11,16 +11,17 @@ Three routes converge on one selection plan executed by the shared engine:
   `Qpdf.SelectPagesAsync` merges ordered `PdfPageSource` inputs with per-page source
   mapping; `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
-  -- output` (single positive-integer range), `input --check`, `--job-json-file
+  -- output` (repeated file/range groups with single-integer ranges), `input --check`, `--job-json-file`
   file`, `@file` response files (one argument per line), `--help`/`--version`,
   `--rotate=[+|-]angle[:range]`, and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,
-  pages:[{file, range}]}` with exactly one entry, plus an optional `rotate`
-  array of rotation specifications; inspection has no job key yet.
+  pages:[{file, range}, ...]}` concatenating entries in order, plus optional
+  `rotate` and `setPageLabels` arrays; inspection and `collate` have no job
+  key yet.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the subset —
-ranges, collation, multiple sources, `--empty`, `--replace-input`, stdout,
+ranges, `--empty`, `--replace-input`, stdout,
 response files, unknown options — fails explicitly. Password and encryption
 flags fail with `UnsupportedCryptoOperation` and exit 2 without retaining or
 echoing values.
