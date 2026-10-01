@@ -552,6 +552,19 @@ requires a declared output file (no stdout contract); version 1 ignores
 stream payloads; `--json-output` with version 1 fails; `--json-help` and JSON
 input stay explicitly unsupported.
 
+## PDF JSON import (work item 27a)
+
+`--json-input` (plus job `jsonInput` and typed `CreatePdfFromJsonAsync`)
+converts qpdf JSON version 2 back to PDF: the header version sets the output
+version (with min/force overrides), stream dictionaries keep their semantics
+with recomputed lengths, and objects are renumbered densely with dangling
+references nulled. Import validates structure strictly (required qpdf pair,
+versions, object keys, value/stream exclusivity, payload presence, base64 and
+hex grammars, name escapes) while ignoring unknown keys for forward
+compatibility. Intentional differences: JSON input requires a declared output
+file; object generations must be 0; stream and metadata writer options cannot
+combine; PDF update from JSON stays explicitly unsupported.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

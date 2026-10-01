@@ -59,8 +59,8 @@ internal static class PdfJsonWriter
             if (b < 33 || b > 126 || delimiter)
             {
                 builder.Append((char)35);
-                builder.Append("0123456789ABCDEF"[b >> 4]);
-                builder.Append("0123456789ABCDEF"[b & 15]);
+                builder.Append("0123456789abcdef"[b >> 4]);
+                builder.Append("0123456789abcdef"[b & 15]);
             }
             else
             {

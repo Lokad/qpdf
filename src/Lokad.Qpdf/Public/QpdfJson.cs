@@ -122,3 +122,27 @@ public sealed record QpdfJsonResult
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
 }
+/// <summary>Outcome of a JSON import.</summary>
+public sealed record QpdfJsonImportResult
+{
+    /// <summary>Creates an import outcome.</summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public QpdfJsonImportResult(
+        int pageCount,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters)
+    {
+        PageCount = pageCount;
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
+    }
+
+    /// <summary>Gets the page count of the written document.</summary>
+    public int PageCount { get; }
+
+    /// <summary>Gets the warnings recorded by the job.</summary>
+    public IReadOnlyList<QpdfDiagnostic> Warnings { get; }
+
+    /// <summary>Gets the final job counters.</summary>
+    public QpdfExecutionCounters Counters { get; }
+}

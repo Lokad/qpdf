@@ -2853,15 +2853,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "PDF update from JSON stays unsupported."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonImportTests.CreateFromMinimalJson",
+          "JsonImportTests.CreateRoundTrip",
+          "JsonImportTests.CreateReadsDatafiles",
+          "JsonImportTests.CreateAppliesNameAndStringForms"
+        ],
+        "negative": [
+          "JsonImportTests.MalformedJsonFails",
+          "JsonImportTests.ImportCombinationsFail",
+          "JsonImportTests.MissingOutputFails"
+        ],
+        "interaction": [
+          "JsonImportTests.JobCreateRoundTrip",
+          "JsonImportTests.TypedCreateRoundTrip"
+        ],
         "resource": [],
         "oracle": []
       }

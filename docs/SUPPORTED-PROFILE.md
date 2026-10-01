@@ -107,6 +107,13 @@ echoing values.
   implies JSON with inline payloads, no decode, only the qpdf key by default,
   and no version or parameters keys. The typed `GetDocumentJsonAsync` shares
   the engine.
+- `input.json --json-input -- output.pdf` builds a PDF from qpdf JSON version
+  2 (only the top-level qpdf array is read): strict object keys, canonical
+  value encodings with resolved names, inline base64 or host sidecar stream
+  payloads, and renumbered classic output with the catalog first. Generations
+  other than 0, encrypted trailers, and stream/metadata writer options stay
+  explicitly unsupported. The typed `CreatePdfFromJsonAsync` shares the
+  engine. PDF update from JSON follows next.
 
 ## Writer profile
 

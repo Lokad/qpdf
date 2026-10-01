@@ -106,6 +106,8 @@ internal static class JobJsonParser
             bool seenJson = false;
             List<string> jsonKeys = new();
             bool seenJsonKey = false;
+            bool jsonInput = false;
+            bool seenJsonInput = false;
             List<string> jsonObjects = new();
             bool seenJsonObject = false;
             string? jsonStreamData = null;
@@ -423,6 +425,14 @@ internal static class JobJsonParser
                         jsonOutput = ParseJsonOutput(property.Value);
                         break;
                     case "jsonInput":
+                        if (seenJsonInput)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'jsonInput'.", 0L, null);
+                        }
+
+                        seenJsonInput = true;
+                        jsonInput = RequireBareFlag(property.Value, "jsonInput");
+                        break;
                     case "updateFromJson":
                         throw new QpdfParseException("Job key '" + property.Name + "' is outside the narrow profile.", 0L, null);
                     case "encrypt":
@@ -487,6 +497,45 @@ internal static class JobJsonParser
             if ((seenJson || seenJsonOutput) && (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0))
             {
                 throw new QpdfParseException("Job \"json\" cannot be combined with attachment keys.", 0L, null);
+            }
+
+            if (jsonInput)
+            {
+                if (hasPages)
+                {
+                    throw new QpdfParseException("Job \"jsonInput\" cannot be combined with \"pages\".", 0L, null);
+                }
+
+                if (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)
+                {
+                    throw new QpdfParseException("Job \"jsonInput\" cannot be combined with attachment keys.", 0L, null);
+                }
+
+                if (seenJson || seenJsonOutput || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix)
+                {
+                    throw new QpdfParseException("Job \"jsonInput\" cannot be combined with JSON inspection.", 0L, null);
+                }
+
+                if (output is null)
+                {
+                    throw new QpdfParseException("Job JSON requires \"outputFile\" with \"jsonInput\".", 0L, null);
+                }
+
+                if (objectStreams is not null || streamData is not null || compressStreams is not null
+                    || decodeLevel is not null || recompressFlate || compressionLevel is not null
+                    || removeInfo || removeMetadata || preserveUnreferenced)
+                {
+                    throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
+                }
+
+                return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), QpdfRecoveryMode.BoundedRepair) with
+                {
+                    MinVersion = minVersion,
+                    ForceVersion = forceVersion,
+                    DeterministicId = deterministicId,
+                    StaticId = staticId,
+                    NewlineBeforeEndstream = newlineBeforeEndstream,
+                };
             }
 
             bool wantJsonOutput = seenJsonOutput || seenJson;

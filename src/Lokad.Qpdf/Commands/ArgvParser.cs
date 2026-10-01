@@ -46,6 +46,9 @@ internal static class ArgvParser
         int jsonAt = FindJson(argv);
         int jsonOutputAt = FindJsonOutput(argv);
         int jsonEntryAt = jsonAt >= 0 && jsonOutputAt >= 0 ? (jsonAt < jsonOutputAt ? jsonAt : jsonOutputAt) : (jsonAt >= 0 ? jsonAt : jsonOutputAt);
+        int jsonInputAt = FindFlag(argv, "--json-input");
+        int updateFromJsonAt = FindUpdateFromJson(argv);
+        int jsonImportAt = jsonInputAt >= 0 && updateFromJsonAt >= 0 ? (jsonInputAt < updateFromJsonAt ? jsonInputAt : updateFromJsonAt) : (jsonInputAt >= 0 ? jsonInputAt : updateFromJsonAt);
         if (jsonEntryAt >= 0)
         {
             if (checkAt >= 0 || pagesAt >= 0)
@@ -63,12 +66,47 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --json cannot be combined with attachment editing.", jsonEntryAt, null);
             }
 
+            if (jsonImportAt >= 0)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with JSON import.", jsonEntryAt, null);
+            }
+
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", jsonEntryAt, null);
             }
 
             return ParseJson(argv, jsonEntryAt, recovery, globals);
+        }
+
+        if (jsonImportAt >= 0)
+        {
+            if (checkAt >= 0 || pagesAt >= 0)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --check or --pages.", jsonImportAt, null);
+            }
+
+            if (listAt >= 0 || showAt >= 0)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with attachment inspection.", jsonImportAt, null);
+            }
+
+            if (HasAttachmentEdit(argv, 0, argv.Count))
+            {
+                throw new QpdfParseException("JSON import cannot be combined with attachment editing.", jsonImportAt, null);
+            }
+
+            if (jsonEntryAt >= 0)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with JSON inspection.", jsonImportAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", jsonImportAt, null);
+            }
+
+            return ParseJsonImport(argv, jsonImportAt, jsonInputAt, updateFromJsonAt, recovery, globals);
         }
 
         int strayJson = FindStrayJsonOption(argv);
@@ -1179,6 +1217,75 @@ internal static class ArgvParser
             StreamPrefix = streamPrefix,
             Objects = objects,
             MinimalOutput = minimalOutput,
+        };
+    }
+
+    private static int FindUpdateFromJson(IReadOnlyList<string> argv)
+    {
+        int found = -1;
+        for (int i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] is not null && (argv[i] == "--update-from-json" || argv[i].StartsWith("--update-from-json=", StringComparison.Ordinal)))
+            {
+                if (found >= 0)
+                {
+                    throw new QpdfParseException("Duplicate --update-from-json is outside the narrow profile.", i, null);
+                }
+
+                found = i;
+            }
+        }
+
+        return found;
+    }
+
+    private static JobPlan ParseJsonImport(
+        IReadOnlyList<string> argv,
+        int entryAt,
+        int inputAt,
+        int updateAt,
+        QpdfRecoveryMode recovery,
+        GlobalOptions globals)
+    {
+        if (inputAt >= 0 && updateAt >= 0)
+        {
+            throw new QpdfParseException("Options --json-input and --update-from-json cannot be combined.", entryAt, null);
+        }
+
+        if (globals.ObjectStreams is not null || globals.StreamData is not null || globals.CompressStreams is not null
+            || globals.DecodeLevel is not null || globals.RecompressFlate || globals.CompressionLevel is not null
+            || globals.RemoveInfo || globals.RemoveMetadata || globals.PreserveUnreferenced)
+        {
+            throw new QpdfParseException("Stream and metadata options cannot be combined with JSON import.", entryAt, null);
+        }
+
+        if (updateAt >= 0)
+        {
+            throw new QpdfParseException("Option --update-from-json is outside the narrow profile.", updateAt, null);
+        }
+
+        string input = ParseInputArea(argv, entryAt, "--json-input");
+        int cursor = entryAt + 1;
+        if (cursor >= argv.Count || argv[cursor] != "--")
+        {
+            if (cursor < argv.Count && argv[cursor] is not null && argv[cursor] != "--")
+            {
+                throw new QpdfParseException("Unexpected argument '" + argv[cursor] + "' after --json-input.", cursor, null);
+            }
+
+            throw new QpdfParseException("An output file is required after --.", cursor, null);
+        }
+
+        string output = ParseOutputArea(argv, cursor);
+        return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
+        {
+            WarningExitZero = globals.WarningExitZero,
+            NoWarn = globals.NoWarn,
+            MinVersion = globals.MinVersion,
+            ForceVersion = globals.ForceVersion,
+            DeterministicId = globals.DeterministicId,
+            StaticId = globals.StaticId,
+            NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
         };
     }
 

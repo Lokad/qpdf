@@ -296,7 +296,7 @@ public sealed class JsonInspectionTests
         InMemoryQpdfHost host1 = HostWith("inputs/a.pdf", fixture);
         using JsonDocument v1 = await InspectAsync(host1, "--json=1", "--json-key=objects");
         JsonElement one = v1.RootElement.GetProperty("objects").GetProperty("1 0");
-        Assert.Equal("/text#2Fplain", one.GetProperty("/Slash").GetString());
+        Assert.Equal("/text#2fplain", one.GetProperty("/Slash").GetString());
         Assert.Equal("Hi", one.GetProperty("/Title").GetString());
     }
     [Fact]
