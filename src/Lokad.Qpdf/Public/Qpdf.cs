@@ -63,7 +63,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfPageSelectionResult> SelectPageCoreAsync(
@@ -82,6 +82,7 @@ public static class Qpdf
         bool newlineBeforeEndstream,
         string? objectStreams,
         bool preserveUnreferenced,
+        CompressionRequest compression,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -121,6 +122,12 @@ public static class Qpdf
         if (preserveUnreferenced)
         {
             copier.PreserveUnreferencedObjects(document.Engine, diagnostics, cancellationToken);
+        }
+
+        (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(compression);
+        if (singleCompress || singleDecode != "none")
+        {
+            TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken);
         }
 
         (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
@@ -229,7 +236,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -295,7 +302,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -374,7 +381,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await SelectPagesCoreAsync(host, frozen, outputPath, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<PdfMultiPageSelectionResult> SelectPagesCoreAsync(
@@ -395,6 +402,7 @@ public static class Qpdf
         bool newlineBeforeEndstream,
         string? objectStreams,
         bool preserveUnreferenced,
+        CompressionRequest compression,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
@@ -408,6 +416,7 @@ public static class Qpdf
         List<HashSet<int>> sourceCompressed = new(sources.Count);
         HashSet<int> allPreserved = new();
         long selected = 0L;
+        (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(compression);
         for (int s = 0; s < sources.Count; s++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -459,6 +468,11 @@ public static class Qpdf
                 {
                     allPreserved.Add(preserved);
                 }
+            }
+
+            if (multiCompress || multiDecode != "none")
+            {
+                TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken);
             }
 
             nextId = copier.NextId;
@@ -1583,6 +1597,237 @@ public static class Qpdf
         return remapped;
     }
 
+    private static (bool Compress, string Decode, int? Level) ResolveCompression(CompressionRequest request)
+    {
+        if (request is null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        if (request.StreamData is not null && request.StreamData != "compress" && request.StreamData != "preserve" && request.StreamData != "uncompress")
+        {
+            throw new QpdfParseException("--stream-data must be compress, preserve, or uncompress.", 0L, null);
+        }
+
+        if (request.CompressStreams is not null && request.CompressStreams != "y" && request.CompressStreams != "n")
+        {
+            throw new QpdfParseException("--compress-streams must be y or n.", 0L, null);
+        }
+
+        if (request.DecodeLevel is not null && request.DecodeLevel != "none" && request.DecodeLevel != "generalized" && request.DecodeLevel != "specialized" && request.DecodeLevel != "all")
+        {
+            throw new QpdfParseException("--decode-level must be none, generalized, specialized, or all.", 0L, null);
+        }
+
+        int? level = request.CompressionLevel is null ? null : ParseCompressionLevel(request.CompressionLevel, "--compression-level");
+        bool compress = request.CompressStreams is not null
+            ? request.CompressStreams == "y"
+            : request.StreamData == "compress";
+        string decode = request.DecodeLevel
+            ?? ((request.StreamData == "compress" || request.StreamData == "uncompress") ? "generalized" : "none");
+        return (compress, decode, level);
+    }
+
+    private static int ParseCompressionLevel(string text, string option)
+    {
+        if (text is null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+
+        if (text.Length == 0 || text.Length > 10)
+        {
+            throw new QpdfParseException(option + " must be an integer 1..9.", 0L, null);
+        }
+
+        long value = 0L;
+        foreach (char c in text)
+        {
+            if (c < (char)48 || c > (char)57)
+            {
+                throw new QpdfParseException(option + " must be an integer 1..9.", 0L, null);
+            }
+
+            value = checked(value * 10L + (c - (char)48));
+        }
+
+        if (value < 1L || value > 9L)
+        {
+            throw new QpdfParseException(option + " must be an integer 1..9.", 0L, null);
+        }
+
+        return (int)value;
+    }
+
+    private static bool StreamFilterInLevel(string name, string decode)
+    {
+        if (decode == "generalized")
+        {
+            return name == FlateFilter.FilterName || name == LzwFilter.FilterName
+                || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName;
+        }
+
+        if (decode == "specialized" || decode == "all")
+        {
+            return name == FlateFilter.FilterName || name == LzwFilter.FilterName
+                || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName
+                || name == RunLengthFilter.FilterName;
+        }
+
+        return false;
+    }
+
+    private static void TransformCopierStreams(
+        GraphCopier copier,
+        DocumentEngine engine,
+        bool compress,
+        string decode,
+        bool recompressFlate,
+        int? level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (copier is null)
+        {
+            throw new ArgumentNullException(nameof(copier));
+        }
+
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        List<int> ids = new(copier.CopiedObjects.Keys);
+        foreach (int id in ids)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!copier.CopiedObjects.TryGetValue(id, out QpdfObject? value) || value is not PdfStream stream)
+            {
+                continue;
+            }
+
+            QpdfObject? replacement = TransformStream(stream, id, engine, compress, decode, recompressFlate, level, limits, governor, diagnostics);
+            if (replacement is not null)
+            {
+                copier.ReplaceCopiedObject(id, replacement);
+            }
+        }
+    }
+
+    private static QpdfObject? TransformStream(
+        PdfStream stream,
+        int number,
+        DocumentEngine engine,
+        bool compress,
+        string decode,
+        bool recompressFlate,
+        int? level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics)
+    {
+        IReadOnlyList<FilterStage> stages;
+        try
+        {
+            stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine);
+        }
+        catch (QpdfParseException)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: unsupported filter.");
+            return null;
+        }
+
+        if (stages.Count == 0)
+        {
+            if (!compress)
+            {
+                return null;
+            }
+
+            byte[] recompressed = FlateFilter.Encode(stream.Data, level, limits, governor);
+            return new PdfStream(FlateDictionary(stream.Dictionary, governor), recompressed);
+        }
+
+        bool alreadyFlate = stages[0].Name == FlateFilter.FilterName;
+        if (alreadyFlate && !recompressFlate)
+        {
+            return null;
+        }
+
+        foreach (FilterStage stage in stages)
+        {
+            if (StreamFilterInLevel(stage.Name, decode))
+            {
+                continue;
+            }
+
+            if (decode == "all")
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: unsupported filter.");
+            }
+
+            return null;
+        }
+
+        byte[] decoded;
+        try
+        {
+            decoded = FilterChain.Decode(stream.Data, stages, limits, governor);
+        }
+        catch (QpdfFilterException)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: decode failed.");
+            return null;
+        }
+
+        if (!compress || decoded.Length == 0)
+        {
+            return new PdfStream(StrippedDictionary(stream.Dictionary, governor), decoded);
+        }
+
+        byte[] encoded = FlateFilter.Encode(decoded, level, limits, governor);
+        return new PdfStream(FlateDictionary(stream.Dictionary, governor), encoded);
+    }
+
+    private static PdfDictionary StrippedDictionary(PdfDictionary dictionary, ResourceGovernor governor)
+    {
+        Dictionary<PdfName, QpdfObject> entries = new();
+        foreach (PdfName key in dictionary.Keys)
+        {
+            if (key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
+            {
+                continue;
+            }
+
+            if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
+            {
+                governor.ReserveMemory(32L);
+                entries[key] = entry;
+            }
+        }
+
+        return new PdfDictionary(entries);
+    }
+
+    private static PdfDictionary FlateDictionary(PdfDictionary dictionary, ResourceGovernor governor)
+    {
+        PdfDictionary stripped = StrippedDictionary(dictionary, governor);
+        Dictionary<PdfName, QpdfObject> entries = new();
+        foreach (PdfName key in stripped.Keys)
+        {
+            if (stripped.TryGet(key, out QpdfObject? entry) && entry is not null)
+            {
+                entries[key] = entry;
+            }
+        }
+
+        governor.ReserveMemory(64L);
+        entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode");
+        return new PdfDictionary(entries);
+    }
+
     private static List<PageLabelSpec> ConvertLabels(IReadOnlyList<PdfPageLabel>? labels)
     {
         if (labels is null)
@@ -1886,6 +2131,13 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
+        if (HelpText.TryMatchZopfli(expanded, out string zopfli))
+        {
+            return QpdfExecutionResult.Failed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Error, zopfli)],
+                governor.Snapshot());
+        }
+
         if (TryTakeJobJsonFile(expanded, out string? jobPath, out QpdfException? jobError))
         {
             if (jobError is not null)
@@ -2090,6 +2342,7 @@ public static class Qpdf
                         merge.NewlineBeforeEndstream,
                         merge.ObjectStreams,
                         merge.PreserveUnreferenced,
+                        merge.Compression(),
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2139,6 +2392,7 @@ public static class Qpdf
                         selection.NewlineBeforeEndstream,
                         selection.ObjectStreams,
                         selection.PreserveUnreferenced,
+                        selection.Compression(),
                         governor,
                         diagnostics,
                         cancellationToken).ConfigureAwait(false);
@@ -2176,6 +2430,7 @@ public static class Qpdf
                 selection.NewlineBeforeEndstream,
                 selection.ObjectStreams,
                 selection.PreserveUnreferenced,
+                selection.Compression(),
                 governor,
                 diagnostics,
                 cancellationToken).ConfigureAwait(false);

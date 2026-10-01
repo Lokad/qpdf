@@ -105,6 +105,65 @@ internal static class FlateFilter
         return result;
     }
 
+    /// <summary>
+    /// Flate-encodes raw bytes with a zlib wrapper for PDF FlateDecode
+    /// streams. Levels follow the documented buckets: 1 is fastest, 9 is
+    /// smallest size, anything else (including the default) is optimal.
+    /// </summary>
+    internal static byte[] Encode(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor)
+    {
+        if (input is null)
+        {
+            throw new ArgumentNullException(nameof(input));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        limits.Validate();
+        System.IO.Compression.CompressionLevel mapped = level switch
+        {
+            1 => System.IO.Compression.CompressionLevel.Fastest,
+            9 => System.IO.Compression.CompressionLevel.SmallestSize,
+            null => System.IO.Compression.CompressionLevel.Optimal,
+            >= 2 and <= 8 => System.IO.Compression.CompressionLevel.Optimal,
+            _ => throw new ArgumentOutOfRangeException(nameof(level), "Flate level must be 1..9."),
+        };
+        governor.ChargeWork(input.Length + 1L);
+        try
+        {
+            using System.IO.MemoryStream output = new();
+            using (System.IO.Compression.ZLibStream compressor = new(output, mapped, leaveOpen: true))
+            {
+                compressor.Write(input, 0, input.Length);
+            }
+
+            byte[] result = output.ToArray();
+            if (result.Length > limits.MaxOutputBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), result.Length, limits.MaxOutputBytes);
+            }
+
+            governor.ReserveMemory(result.Length);
+            return result;
+        }
+        catch (QpdfException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is System.IO.IOException || ex is ObjectDisposedException || ex is NotSupportedException || ex is ArgumentException)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Flate encoding failed.", ex);
+        }
+    }
+
     private static uint Adler32(byte[] data)
     {
         const uint Mod = 65521U;

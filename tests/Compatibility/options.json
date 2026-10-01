@@ -1785,14 +1785,16 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "No Zopfli in this build profile; QPDF_ZOPFLI has no host environment capability and is treated as unset."
       ],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CompressionTests.ZopfliReportsUnavailable"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -2014,15 +2016,21 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Generated object/xref streams stay uncompressed until 23b; default preserves opaquely instead of upstream compress defaults (intentional)."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "CompressionTests.CompressStreamsBareDefaultsToYes",
+          "CompressionTests.CompressYesKeepsFlateWithoutRecompress",
+          "CompressionTests.CompressStreamsNoLeavesRaw"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "CompressionTests.DecodeNoneWithCompressKeepsHex"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2045,15 +2053,23 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Numeric levels bucket to BCL effort (1 fastest, 2..8 optimal, 9 smallest) per the recorded build profile, not 1:1 zlib levels."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "CompressionTests.CompressionLevelsSucceed"
+        ],
+        "negative": [
+          "CompressionTests.InvalidValuesFail",
+          "CompressionTests.JobJsonInvalidValuesFail"
+        ],
+        "interaction": [
+          "CompressionTests.JobJsonParityHolds",
+          "CompressionTests.RecompressFlateRewritesFlate"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2148,15 +2164,20 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "all behaves as specialized until JPEG support (M8); default none instead of upstream generalized (intentional)."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "CompressionTests.DecodeGeneralizedUncompressesHex"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "CompressionTests.DctBeyondLevelStaysOpaque",
+          "CompressionTests.DctAtAllWarnsAndStaysOpaque"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3889,15 +3910,19 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Takes effect only with a covering decode level; generated containers stay uncompressed until 23b."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "CompressionTests.RecompressFlateRewritesFlate"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "CompressionTests.JobJsonParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -4725,15 +4750,21 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Generated object/xref streams stay uncompressed until 23b; upstream order-sensitive flag precedence replaced by explicit-override rule."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "CompressionTests.StreamDataCompressFlatesRawStream",
+          "CompressionTests.StreamDataUncompressDecodesHex",
+          "CompressionTests.StreamDataPreserveKeepsEncoding"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "CompressionTests.JobJsonParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }

@@ -82,6 +82,16 @@ internal static class JobJsonParser
             bool seenObjectStreams = false;
             bool preserveUnreferenced = false;
             bool seenPreserveUnreferenced = false;
+            string? streamData = null;
+            bool seenStreamData = false;
+            string? compressStreams = null;
+            bool seenCompressStreams = false;
+            string? decodeLevel = null;
+            bool seenDecodeLevel = false;
+            bool recompressFlate = false;
+            bool seenRecompressFlate = false;
+            string? compressionLevel = null;
+            bool seenCompressionLevel = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -209,6 +219,51 @@ internal static class JobJsonParser
                         seenPreserveUnreferenced = true;
                         preserveUnreferenced = RequireBareFlag(property.Value, "preserveUnreferenced");
                         break;
+                    case "streamData":
+                        if (seenStreamData)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027streamData\u0027.", 0L, null);
+                        }
+
+                        seenStreamData = true;
+                        streamData = RequireString(property.Value, "streamData");
+                        break;
+                    case "compressStreams":
+                        if (seenCompressStreams)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027compressStreams\u0027.", 0L, null);
+                        }
+
+                        seenCompressStreams = true;
+                        compressStreams = RequireString(property.Value, "compressStreams");
+                        break;
+                    case "decodeLevel":
+                        if (seenDecodeLevel)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027decodeLevel\u0027.", 0L, null);
+                        }
+
+                        seenDecodeLevel = true;
+                        decodeLevel = RequireString(property.Value, "decodeLevel");
+                        break;
+                    case "recompressFlate":
+                        if (seenRecompressFlate)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027recompressFlate\u0027.", 0L, null);
+                        }
+
+                        seenRecompressFlate = true;
+                        recompressFlate = RequireBareFlag(property.Value, "recompressFlate");
+                        break;
+                    case "compressionLevel":
+                        if (seenCompressionLevel)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027compressionLevel\u0027.", 0L, null);
+                        }
+
+                        seenCompressionLevel = true;
+                        compressionLevel = RequireString(property.Value, "compressionLevel");
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -263,6 +318,11 @@ internal static class JobJsonParser
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     PreserveUnreferenced = preserveUnreferenced,
+                    StreamData = streamData,
+                    CompressStreams = compressStreams,
+                    DecodeLevel = decodeLevel,
+                    RecompressFlate = recompressFlate,
+                    CompressionLevel = compressionLevel,
                 };
             }
 
@@ -284,6 +344,11 @@ internal static class JobJsonParser
                 NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     PreserveUnreferenced = preserveUnreferenced,
+                    StreamData = streamData,
+                    CompressStreams = compressStreams,
+                    DecodeLevel = decodeLevel,
+                    RecompressFlate = recompressFlate,
+                    CompressionLevel = compressionLevel,
             };
         }
     }

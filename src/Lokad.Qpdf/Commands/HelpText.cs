@@ -28,6 +28,11 @@ internal static class HelpText
           --newline-before-endstream  extra newline before endstream
           --object-streams=mode     disable, preserve (default), or generate
           --preserve-unreferenced       keep unreferenced input objects
+          --stream-data=mode            compress, preserve, or uncompress streams
+          --compress-streams=[y|n]      compress uncompressed streams
+          --decode-level=level          none, generalized, specialized, or all
+          --recompress-flate            recompress already-flate streams
+          --compression-level=1..9      flate effort for compressed streams
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target
@@ -62,6 +67,21 @@ internal static class HelpText
             if (token == "--version")
             {
                 text = Version();
+                return true;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
+    internal static bool TryMatchZopfli(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in argv)
+        {
+            if (token == "--zopfli")
+            {
+                text = "Zopfli support is not enabled in this build.";
                 return true;
             }
         }

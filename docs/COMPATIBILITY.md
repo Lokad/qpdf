@@ -426,6 +426,35 @@ members); preserved metadata stays unlinked (catalog relinking is structural
 editing, a later milestone); objects that fail to load or copy are skipped
 under one aggregated `UnsupportedFeature` warning instead of failing the job.
 
+## Stream compression controls (work item 23a)
+
+`--stream-data` (`compress`/`preserve`/`uncompress`), `--compress-streams`
+(`y`/`n`, bare means `y`), `--decode-level` (`none`/`generalized`/
+`specialized`/`all`), `--recompress-flate`, and `--compression-level`
+(`1..9`) are accepted through argv (both `=` and space forms) and job JSON
+(`streamData`, `compressStreams`, `decodeLevel`, `recompressFlate`,
+`compressionLevel`), with invalid, bare-required, and duplicate forms
+rejected. Resolution matches upstream mappings: `compress` implies Flate
+output plus generalized decoding, `uncompress` implies generalized decoding
+without output compression, `preserve` implies neither; explicit
+`--compress-streams`/`--decode-level` override the `--stream-data` mapping
+(upstream applies these in argument order instead). Already-Flate streams are
+left untouched unless `--recompress-flate` is combined with a covering decode
+level; empty results stay uncompressed; indirect filter specs resolve through
+the document engine. Decode coverage mirrors inspection; `all` behaves as
+`specialized` until JPEG support (M8) and warns per undecodable stream, while
+filters above the requested level stay opaque silently. Corrupt streams and
+bad specs fall back to opaque bytes under a warning; `/Crypt` is never
+decoded or stripped. Levels bucket to BCL Flate effort (`1` fastest, `2..8`
+optimal, `9` smallest size; default optimal) with governed bounded encoding
+whose zlib output round-trips through the strict decoder. Intentional
+difference: the default profile preserves stream encodings opaquely instead
+of upstream compress defaults, so existing previews stay byte-stable without
+flags. `--zopfli` reports that Zopfli is not enabled in this build and exits
+with an error; `QPDF_ZOPFLI` has no host environment capability yet and is
+treated as unset (matching upstream unset behavior). Generated object/xref
+streams stay uncompressed until work item 23b.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

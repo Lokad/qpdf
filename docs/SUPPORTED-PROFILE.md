@@ -120,7 +120,22 @@ echoing values.
   a cross-reference stream instead of a classic table and raise the header to
   at least 1.5; a forced version below 1.5 disables object streams.
   Payloads and xref entries are emitted uncompressed (no `/Filter`);
-  Flate packing arrives with the compression controls.
+  Flate packing for generated containers arrives next with the remaining
+  compression work.
+- Stream data defaults to opaque preservation: page and resource streams
+  keep their exact encoded bytes (upstream defaults to compress). Opt in
+  with `--stream-data=compress|preserve|uncompress`, `--compress-streams=[y|n]`
+  (bare means `y`), `--decode-level=none|generalized|specialized|all`, and
+  `--recompress-flate`; `--compression-level=1..9` buckets Flate effort
+  (`1` fastest, `2..8` optimal, `9` smallest size; default optimal). Explicit
+  `--compress-streams`/`--decode-level` override the `--stream-data` mapping;
+  `--recompress-flate` only takes effect with a decode level covering Flate.
+  Decode coverage mirrors inspection (`generalized` adds ASCII/LZW/Flate,
+  `specialized` adds RunLength); `all` behaves as `specialized` until JPEG
+  support (M8), warning per undecodable stream. Corrupt streams and unknown
+  specs are kept opaque under a warning; `/Crypt` is never decoded. The
+  default profile differs intentionally from upstream compress defaults so
+  typed previews stay byte-stable without flags.
 - `--preserve-unreferenced` keeps every input object the selection did not
   reach, appended in ascending original object-number order per source after
   the reachable graph (fresh catalog/pages stay 1/2). The input catalog,

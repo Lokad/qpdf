@@ -28,6 +28,21 @@ internal abstract record JobPlan(QpdfPath Input)
     public string? ObjectStreams { get; init; }
 
     public bool PreserveUnreferenced { get; init; }
+
+    public string? StreamData { get; init; }
+
+    public string? CompressStreams { get; init; }
+
+    public string? DecodeLevel { get; init; }
+
+    public bool RecompressFlate { get; init; }
+
+    public string? CompressionLevel { get; init; }
+
+    internal CompressionRequest Compression()
+    {
+        return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);
+    }
 }
 
 /// <summary>Validated single-page selection.</summary>

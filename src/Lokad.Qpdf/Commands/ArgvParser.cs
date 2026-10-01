@@ -63,6 +63,11 @@ internal static class ArgvParser
                 NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
             PreserveUnreferenced = globals.PreserveUnreferenced,
+            StreamData = globals.StreamData,
+            CompressStreams = globals.CompressStreams,
+            DecodeLevel = globals.DecodeLevel,
+            RecompressFlate = globals.RecompressFlate,
+            CompressionLevel = globals.CompressionLevel,
             };
         }
 
@@ -120,6 +125,11 @@ internal static class ArgvParser
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
             PreserveUnreferenced = globals.PreserveUnreferenced,
+            StreamData = globals.StreamData,
+            CompressStreams = globals.CompressStreams,
+            DecodeLevel = globals.DecodeLevel,
+            RecompressFlate = globals.RecompressFlate,
+            CompressionLevel = globals.CompressionLevel,
         };
     }
 
@@ -159,7 +169,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -185,6 +195,16 @@ internal static class ArgvParser
         string? objectStreams = null;
         bool seenPreserveUnreferenced = false;
         bool preserveUnreferenced = false;
+        bool seenStreamData = false;
+        string? streamData = null;
+        bool seenCompressStreams = false;
+        string? compressStreams = null;
+        bool seenDecodeLevel = false;
+        string? decodeLevel = null;
+        bool seenRecompressFlate = false;
+        bool recompressFlate = false;
+        bool seenCompressionLevel = false;
+        string? compressionLevel = null;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -342,6 +362,71 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --preserve-unreferenced takes no value.", i, null);
             }
 
+            if (argv[i] == "--stream-data" || argv[i].StartsWith("--stream-data=", StringComparison.Ordinal))
+            {
+                if (seenStreamData)
+                {
+                    throw new QpdfParseException("Duplicate --stream-data is outside the narrow profile.", i, null);
+                }
+
+                seenStreamData = true;
+                streamData = ParseStreamChoice(argv, ref i, "--stream-data", new string[] { "compress", "preserve", "uncompress" });
+                continue;
+            }
+
+            if (argv[i] == "--compress-streams" || argv[i].StartsWith("--compress-streams=", StringComparison.Ordinal))
+            {
+                if (seenCompressStreams)
+                {
+                    throw new QpdfParseException("Duplicate --compress-streams is outside the narrow profile.", i, null);
+                }
+
+                seenCompressStreams = true;
+                compressStreams = ParseOptionalChoice(argv, ref i, "--compress-streams", new string[] { "y", "n" }, "y");
+                continue;
+            }
+
+            if (argv[i] == "--decode-level" || argv[i].StartsWith("--decode-level=", StringComparison.Ordinal))
+            {
+                if (seenDecodeLevel)
+                {
+                    throw new QpdfParseException("Duplicate --decode-level is outside the narrow profile.", i, null);
+                }
+
+                seenDecodeLevel = true;
+                decodeLevel = ParseStreamChoice(argv, ref i, "--decode-level", new string[] { "none", "generalized", "specialized", "all" });
+                continue;
+            }
+
+            if (argv[i] == "--recompress-flate")
+            {
+                if (seenRecompressFlate)
+                {
+                    throw new QpdfParseException("Duplicate --recompress-flate is outside the narrow profile.", i, null);
+                }
+
+                seenRecompressFlate = true;
+                recompressFlate = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--recompress-flate=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --recompress-flate takes no value.", i, null);
+            }
+
+            if (argv[i] == "--compression-level" || argv[i].StartsWith("--compression-level=", StringComparison.Ordinal))
+            {
+                if (seenCompressionLevel)
+                {
+                    throw new QpdfParseException("Duplicate --compression-level is outside the narrow profile.", i, null);
+                }
+
+                seenCompressionLevel = true;
+                compressionLevel = ParseRequiredChoiceValue(argv, ref i, "--compression-level");
+                continue;
+            }
+
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -358,7 +443,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel);
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -440,6 +525,85 @@ internal static class ArgvParser
         }
 
         return value;
+    }
+
+    private static string ParseStreamChoice(IReadOnlyList<string> argv, ref int i, string option, string[] choices)
+    {
+        if (choices is null)
+        {
+            throw new ArgumentNullException(nameof(choices));
+        }
+
+        string? value = TakeChoiceValue(argv, ref i, option);
+        foreach (string choice in choices)
+        {
+            if (value == choice)
+            {
+                return value;
+            }
+        }
+
+        throw new QpdfParseException(option + " must be one of: " + string.Join(", ", choices) + ".", i, null);
+    }
+
+    private static string ParseOptionalChoice(IReadOnlyList<string> argv, ref int i, string option, string[] choices, string bareDefault)
+    {
+        if (choices is null)
+        {
+            throw new ArgumentNullException(nameof(choices));
+        }
+
+        if (bareDefault is null)
+        {
+            throw new ArgumentNullException(nameof(bareDefault));
+        }
+
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        if (equals < 0 && (i + 1 >= argv.Count || argv[i + 1] is null || argv[i + 1] == "--" || (argv[i + 1].StartsWith("--", StringComparison.Ordinal) && argv[i + 1].Length > 2)))
+        {
+            return bareDefault;
+        }
+
+        string? value = TakeChoiceValue(argv, ref i, option);
+        foreach (string choice in choices)
+        {
+            if (value == choice)
+            {
+                return value;
+            }
+        }
+
+        throw new QpdfParseException(option + " must be one of: " + string.Join(", ", choices) + ".", i, null);
+    }
+
+    private static string ParseRequiredChoiceValue(IReadOnlyList<string> argv, ref int i, string option)
+    {
+        return TakeChoiceValue(argv, ref i, option) ?? throw new QpdfParseException(option + " requires a value.", i, null);
+    }
+
+    private static string? TakeChoiceValue(IReadOnlyList<string> argv, ref int i, string option)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        if (equals >= 0)
+        {
+            return token.Substring(equals + 1);
+        }
+
+        if (i + 1 >= argv.Count)
+        {
+            throw new QpdfParseException(option + " requires a value.", i, null);
+        }
+
+        string next = argv[i + 1];
+        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+        {
+            throw new QpdfParseException(option + " requires a value.", i, null);
+        }
+
+        i += 1;
+        return next;
     }
 
     private static string ParseRequiredVersion(IReadOnlyList<string> argv, ref int i, string option)
@@ -740,6 +904,11 @@ internal static class ArgvParser
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
             PreserveUnreferenced = globals.PreserveUnreferenced,
+            StreamData = globals.StreamData,
+            CompressStreams = globals.CompressStreams,
+            DecodeLevel = globals.DecodeLevel,
+            RecompressFlate = globals.RecompressFlate,
+            CompressionLevel = globals.CompressionLevel,
         };
     }
 
@@ -775,6 +944,11 @@ internal static class ArgvParser
             NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             ObjectStreams = globals.ObjectStreams,
             PreserveUnreferenced = globals.PreserveUnreferenced,
+            StreamData = globals.StreamData,
+            CompressStreams = globals.CompressStreams,
+            DecodeLevel = globals.DecodeLevel,
+            RecompressFlate = globals.RecompressFlate,
+            CompressionLevel = globals.CompressionLevel,
         };
     }
 
