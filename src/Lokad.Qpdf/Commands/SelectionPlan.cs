@@ -14,6 +14,16 @@ internal abstract record JobPlan(QpdfPath Input)
     public int? SplitPages { get; init; }
 
     public bool ReplaceInput { get; init; }
+
+    public string? MinVersion { get; init; }
+
+    public string? ForceVersion { get; init; }
+
+    public bool DeterministicId { get; init; }
+
+    public bool StaticId { get; init; }
+
+    public bool NewlineBeforeEndstream { get; init; }
 }
 
 /// <summary>Validated single-page selection.</summary>

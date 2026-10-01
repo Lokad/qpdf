@@ -2210,15 +2210,20 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Default IDs are deterministic content hashes (no ambient clock), unlike upstream time-based random IDs; documented intentional difference. Oracle ID comparison needs normalization."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "WriterControlsTests.DeterministicFlagMatchesDefaultForSameContent",
+          "WriterControlsTests.DefaultIdsAreDeterministicAcrossRuns"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "WriterControlsTests.JobJsonWriterControlsParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2466,15 +2471,22 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Object-stream disabling for forced versions below 1.5 is vacuous until 22b generates streams; no other feature downgrading is claimed."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "WriterControlsTests.ForceVersionOverridesBothDirections",
+          "WriterControlsTests.ForceVersionWithExtensionAddsCatalogExtensions"
+        ],
+        "negative": [
+          "WriterControlsTests.InvalidVersionsFail"
+        ],
+        "interaction": [
+          "WriterControlsTests.ForceVersionWinsOverMinVersion"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3165,15 +3177,23 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Object-stream interaction for forced versions below 1.5 awaits work item 22b; extension levels beyond catalog ADBE emission need oracle comparison."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "WriterControlsTests.MinVersionRaisesLowerInput",
+          "WriterControlsTests.MinVersionKeepsHigherInput"
+        ],
+        "negative": [
+          "WriterControlsTests.InvalidVersionsFail"
+        ],
+        "interaction": [
+          "WriterControlsTests.ForceVersionWinsOverMinVersion",
+          "WriterControlsTests.JobJsonWriterControlsParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -3196,15 +3216,20 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Classic-xref streams only; object/xref-stream interactions await 22b."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "WriterControlsTests.NewlineFlagAddsExtraNewline",
+          "WriterControlsTests.NewlineFlagDoublesTrailingNewline"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "WriterControlsTests.DefaultStreamHasNoExtraNewline"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -4632,15 +4657,20 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Matches upstream test constant and original-ID preservation; static wins when both ID flags are given."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "WriterControlsTests.StaticIdEmitsTestConstant",
+          "WriterControlsTests.StaticIdPreservesOriginalFirstWord"
+        ],
         "negative": [],
-        "interaction": [],
+        "interaction": [
+          "WriterControlsTests.JobJsonWriterControlsParityHolds"
+        ],
         "resource": [],
         "oracle": []
       }

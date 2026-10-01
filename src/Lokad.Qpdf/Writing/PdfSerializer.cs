@@ -47,11 +47,15 @@ internal readonly struct NumberedObject
 }
 
 /// <summary>
-/// Deterministic classic-xref serializer. The same model through the same code
-/// path yields identical bytes on every pass, which the counting pass verifies
-/// by length. Stream `/Length` entries are always recomputed from the emitted
-/// bytes; indirect length references do not survive. No `/ID` is emitted in
-/// this profile (identifier policy arrives in M6).
+/// Deterministic classic-xref serializer. The same model and identifiers through
+/// the same code path yield identical bytes on every pass, which the counting
+/// pass verifies by length. Stream `/Length` entries are always recomputed
+/// from the emitted bytes; indirect length references do not survive.
+/// Trailer `/ID` is always emitted: the first word preserves the source
+/// document identifier when present, otherwise it repeats the generated
+/// second word. The default second word is a content hash (deterministic
+/// within the contained profile, unlike upstream time-based random IDs);
+/// `--static-id` selects the upstream test constant.
 /// </summary>
 internal sealed class PdfSerializer
 {
@@ -75,6 +79,9 @@ internal sealed class PdfSerializer
     internal async ValueTask<long> SerializeAsync(
         PdfVersion version,
         IReadOnlyList<NumberedObject> objects,
+        byte[] id1,
+        byte[] id2,
+        bool newlineBeforeEndstream,
         IByteSink sink,
         CancellationToken cancellationToken)
     {
@@ -93,6 +100,26 @@ internal sealed class PdfSerializer
             throw new ArgumentNullException(nameof(sink));
         }
 
+        if (id1 is null)
+        {
+            throw new ArgumentNullException(nameof(id1));
+        }
+
+        if (id2 is null)
+        {
+            throw new ArgumentNullException(nameof(id2));
+        }
+
+        if (id1.Length == 0 || id1.Length > 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(id1), "Document identifiers must hold 1..256 bytes.");
+        }
+
+        if (id2.Length == 0 || id2.Length > 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
+        }
+
         await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
         List<long> offsets = new(objects.Count);
         for (int i = 0; i < objects.Count; i++)
@@ -101,7 +128,7 @@ internal sealed class PdfSerializer
             _governor.ChargeWork(1L);
             offsets.Add(sink.Length);
             await AppendAsciiAsync($"{objects[i].Number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
-            await AppendValueAsync(objects[i].Value, sink, 0, cancellationToken).ConfigureAwait(false);
+            await AppendValueAsync(objects[i].Value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
@@ -119,12 +146,15 @@ internal sealed class PdfSerializer
             await AppendAsciiAsync($"{offsets[i]:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
         }
 
-        await AppendAsciiAsync($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\n", sink, cancellationToken).ConfigureAwait(false);
+        string idHex1 = ToHex(id1);
+        string idHex2 = ToHex(id2);
+        _governor.ChargeWork(idHex1.Length + idHex2.Length);
+        await AppendAsciiAsync($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R /ID [<" + idHex1 + "><" + idHex2 + ">] >>\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
     }
 
-    private async ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, CancellationToken cancellationToken)
+    private async ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
         if (depth > _limits.MaxNestingDepth)
         {
@@ -178,7 +208,7 @@ internal sealed class PdfSerializer
                     await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
                 }
 
-                await AppendValueAsync(array[i], sink, depth + 1, cancellationToken).ConfigureAwait(false);
+                await AppendValueAsync(array[i], sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             }
 
             await AppendAsciiAsync("]", sink, cancellationToken).ConfigureAwait(false);
@@ -197,7 +227,7 @@ internal sealed class PdfSerializer
 
                 await AppendBytesAsync(EncodeName(key), sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
-                await AppendValueAsync(entry, sink, depth + 1, cancellationToken).ConfigureAwait(false);
+                await AppendValueAsync(entry, sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
             }
 
@@ -213,14 +243,14 @@ internal sealed class PdfSerializer
 
         if (value is PdfStream stream)
         {
-            await AppendStreamAsync(stream, sink, depth, cancellationToken).ConfigureAwait(false);
+            await AppendStreamAsync(stream, sink, depth, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         throw new QpdfException($"Unsupported value of type {value.GetType().Name} during serialization.");
     }
 
-    private async ValueTask AppendStreamAsync(PdfStream stream, IByteSink sink, int depth, CancellationToken cancellationToken)
+    private async ValueTask AppendStreamAsync(PdfStream stream, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
         byte[] data = stream.Data;
         await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
@@ -238,14 +268,21 @@ internal sealed class PdfSerializer
 
             await AppendBytesAsync(EncodeName(key), sink, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
-            await AppendValueAsync(entry, sink, depth + 1, cancellationToken).ConfigureAwait(false);
+            await AppendValueAsync(entry, sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
         }
 
         await AppendAsciiAsync($"/Length {data.Length} ", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync(">>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
+        if (newlineBeforeEndstream)
+        {
+            await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await AppendAsciiAsync("endstream", sink, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
@@ -364,6 +401,19 @@ internal sealed class PdfSerializer
 
         output.Add((byte)')');
         return [.. output];
+    }
+
+    private static string ToHex(byte[] data)
+    {
+        char[] chars = new char[checked(data.Length * 2)];
+        const string digits = "0123456789ABCDEF";
+        for (int i = 0; i < data.Length; i++)
+        {
+            chars[i * 2] = digits[data[i] >> 4];
+            chars[(i * 2) + 1] = digits[data[i] & 0x0F];
+        }
+
+        return new string(chars);
     }
 
     private static byte HexDigit(int value)

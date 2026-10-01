@@ -94,16 +94,27 @@ echoing values.
 ## Writer profile
 
 - Classic xref tables with 20-byte entries, generation 0 throughout, and a
-  trailer with `/Size`, `/Root`, `startxref`, and `%%EOF`.
-- Version label echoes the effective version (header with catalog `/Version` override). Numbers keep their original token
-  text; names re-emit raw bytes with non-regular bytes `#`-escaped; literal
-  and hexadecimal string kinds are preserved with value-faithful escapes.
+  trailer with `/Size`, `/Root`, `/ID`, `startxref`, and `%%EOF`.
+- Version label negotiates the effective version: the greatest input version
+  (header with catalog `/Version` override), raised by `--min-version` and
+  overridden by `--force-version` (`major.minor[.extension]`; supported
+  headers are 1.0-1.7 and 2.0). A positive extension level adds a direct
+  catalog `/Extensions << /ADBE << /BaseVersion /M.m /ExtensionLevel N >> >>`.
+- Identifiers always emit `/ID [<id1><id2>]`: the first word preserves the
+  source trailer identifier when present, otherwise it repeats the second.
+  The default second word is a deterministic content hash (stable across runs
+  within the contained profile, unlike upstream time-based random IDs);
+  `--static-id` selects the upstream test constant
+  `<31415926535897932384626433832795>`. `--deterministic-id` is accepted
+  and matches the default deterministic behavior.
 - Stream `/Length` is always recomputed from the emitted bytes and written
   directly, which can orphan an indirect length object as an unused entry.
-- No `/ID` is emitted; identifier policy arrives with writer controls (M6).
+  By default streams close as `data` + `endstream` with no extra newline;
+  `--newline-before-endstream` always inserts `\n` before `endstream`
+  (doubling a trailing newline when present), preserving PDF/A compliance.
 - Selection output always normalizes to classic xref, even from
-  stream-based inputs; object-stream preservation arrives with writer
-  controls (M6).
+  stream-based inputs; object-stream modes (`disable`/`preserve`/`generate`)
+  and unreferenced-object preservation arrive next in M6.
 
 ## Governance
 

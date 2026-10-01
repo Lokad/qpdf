@@ -68,6 +68,16 @@ internal static class JobJsonParser
             bool seenLabels = false;
             bool seenRemoveLabels = false;
             bool removeLabels = false;
+            string? minVersion = null;
+            bool seenMin = false;
+            string? forceVersion = null;
+            bool seenForce = false;
+            bool deterministicId = false;
+            bool seenDeterministic = false;
+            bool staticId = false;
+            bool seenStatic = false;
+            bool newlineBeforeEndstream = false;
+            bool seenNewline = false;
             foreach (JsonProperty property in document.RootElement.EnumerateObject())
             {
                 switch (property.Name)
@@ -132,6 +142,51 @@ internal static class JobJsonParser
 
                         removeLabels = property.Value.ValueKind == JsonValueKind.True;
                         break;
+                    case "minVersion":
+                        if (seenMin)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027minVersion\u0027.", 0L, null);
+                        }
+
+                        seenMin = true;
+                        minVersion = RequireString(property.Value, "minVersion");
+                        break;
+                    case "forceVersion":
+                        if (seenForce)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027forceVersion\u0027.", 0L, null);
+                        }
+
+                        seenForce = true;
+                        forceVersion = RequireString(property.Value, "forceVersion");
+                        break;
+                    case "deterministicId":
+                        if (seenDeterministic)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027deterministicId\u0027.", 0L, null);
+                        }
+
+                        seenDeterministic = true;
+                        deterministicId = RequireBareFlag(property.Value, "deterministicId");
+                        break;
+                    case "staticId":
+                        if (seenStatic)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027staticId\u0027.", 0L, null);
+                        }
+
+                        seenStatic = true;
+                        staticId = RequireBareFlag(property.Value, "staticId");
+                        break;
+                    case "newlineBeforeEndstream":
+                        if (seenNewline)
+                        {
+                            throw new QpdfParseException("Duplicate job key \u0027newlineBeforeEndstream\u0027.", 0L, null);
+                        }
+
+                        seenNewline = true;
+                        newlineBeforeEndstream = RequireBareFlag(property.Value, "newlineBeforeEndstream");
+                        break;
                     case "encrypt":
                     case "decrypt":
                         throw new QpdfCryptoException(property.Name);
@@ -179,6 +234,11 @@ internal static class JobJsonParser
                 {
                     Rotations = rotations,
                     Labels = labels,
+                    MinVersion = minVersion,
+                    ForceVersion = forceVersion,
+                    DeterministicId = deterministicId,
+                    StaticId = staticId,
+                    NewlineBeforeEndstream = newlineBeforeEndstream,
                 };
             }
 
@@ -193,6 +253,11 @@ internal static class JobJsonParser
             {
                 Rotations = rotations,
                 Labels = labels,
+                MinVersion = minVersion,
+                ForceVersion = forceVersion,
+                DeterministicId = deterministicId,
+                StaticId = staticId,
+                NewlineBeforeEndstream = newlineBeforeEndstream,
             };
         }
     }
@@ -333,6 +398,26 @@ internal static class JobJsonParser
         }
 
         return value;
+    }
+
+    private static bool RequireBareFlag(JsonElement element, string role)
+    {
+        if (element.ValueKind == JsonValueKind.True)
+        {
+            return true;
+        }
+
+        if (element.ValueKind == JsonValueKind.False)
+        {
+            return false;
+        }
+
+        if (element.ValueKind == JsonValueKind.String && element.GetString() == string.Empty)
+        {
+            return true;
+        }
+
+        throw new QpdfParseException("Job \"" + role + "\" must be an empty string or a boolean.", 0L, null);
     }
 
     private static string ResolveFile(string file, string input)

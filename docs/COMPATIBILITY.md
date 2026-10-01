@@ -358,6 +358,35 @@ or echoing values; encrypted inputs map to the same code. Adapter outcomes
 reuse the execution-result mapping, including the warning exit. No inventory
 entry changes: parsing a name never completes its behavior contract.
 
+## Writer versions, IDs and stream endings (work item 22a)
+
+`--min-version` raises the output header when the greatest input version is
+lower; `--force-version` sets it exactly even when lower. Both accept
+`major.minor[.extension-level]` for the supported headers 1.0-1.7 and 2.0;
+other values fail as invalid arguments. A positive extension level emits a
+direct catalog `/Extensions << /ADBE << /BaseVersion /M.m /ExtensionLevel N >> >>`.
+Forced versions below 1.5 already yield classic xref (object streams stay
+disabled until work item 22b); no other feature downgrading is claimed.
+
+Trailer `/ID` is always emitted. The first word preserves the source trailer
+identifier when present, otherwise it repeats the generated second word. The
+default second word is a deterministic MD5 content hash (placeholder zeros
+hashed, then replaced by the digest, preserving the counting-pass length),
+so repeated runs over the same inputs and options are byte-identical. This
+differs intentionally from upstream time-based random IDs: the library has no
+ambient clock, and the contained profile favors reproducibility. `--static-id`
+selects the upstream test constant `<31415926535897932384626433832795>`
+(static wins when both ID flags are given). `--deterministic-id` is accepted
+and matches the default deterministic behavior.
+
+Stream `endstream` handling follows upstream: by default the serializer
+writes `data` + `endstream` with no extra newline; `--newline-before-endstream`
+always writes `data` + `\\nendstream`, doubling a trailing newline when present.
+`/Length` stays recomputed and direct. All paths (typed, argv, job JSON with
+`minVersion`, `forceVersion`, `deterministicId`, `staticId`,
+`newlineBeforeEndstream`) share one negotiation, identifier, and serializer
+implementation with counting-pass replay checks and output budgets.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

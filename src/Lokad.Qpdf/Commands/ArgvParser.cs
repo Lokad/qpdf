@@ -7,8 +7,8 @@ namespace Lokad.Qpdf.Commands;
 /// `--suppress-recovery` selects strict opening, otherwise damaged inputs
 /// repair within bounds; everything else fails explicitly.
 /// Unknown `--*` tokens map to the documented crypto set (rejected as crypto)
-/// or to unsupported-option errors. Response files, `--empty`,
-/// `--replace-input`, stdin/stdout `-`, and flexible operand order arrive later.
+/// or to unsupported-option errors. Writer controls cover versions, IDs,
+/// and stream newlines; object-stream modes arrive later.
 /// </summary>
 internal static class ArgvParser
 {
@@ -56,6 +56,11 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 NoWarn = globals.NoWarn,
+                MinVersion = globals.MinVersion,
+                ForceVersion = globals.ForceVersion,
+                DeterministicId = globals.DeterministicId,
+                StaticId = globals.StaticId,
+                NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
             };
         }
 
@@ -106,6 +111,11 @@ internal static class ArgvParser
             Rotations = rotations,
             Labels = labels,
             SplitPages = globals.SplitPages,
+            MinVersion = globals.MinVersion,
+            ForceVersion = globals.ForceVersion,
+            DeterministicId = globals.DeterministicId,
+            StaticId = globals.StaticId,
+            NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
         };
     }
 
@@ -145,7 +155,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -160,6 +170,16 @@ internal static class ArgvParser
         bool seenReplace = false;
         int? splitPages = null;
         bool replaceInput = false;
+        bool seenMin = false;
+        bool seenForce = false;
+        bool seenDeterministic = false;
+        bool seenStatic = false;
+        bool seenNewline = false;
+        string? minVersion = null;
+        string? forceVersion = null;
+        bool deterministicId = false;
+        bool staticId = false;
+        bool newlineBeforeEndstream = false;
         for (int i = 0; i < argv.Count; i++)
         {
             if (argv[i] == "--suppress-recovery")
@@ -222,11 +242,86 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--deterministic-id")
+            {
+                if (seenDeterministic)
+                {
+                    throw new QpdfParseException("Duplicate --deterministic-id is outside the narrow profile.", i, null);
+                }
+
+                seenDeterministic = true;
+                deterministicId = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--deterministic-id=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --deterministic-id takes no value.", i, null);
+            }
+
+            if (argv[i] == "--static-id")
+            {
+                if (seenStatic)
+                {
+                    throw new QpdfParseException("Duplicate --static-id is outside the narrow profile.", i, null);
+                }
+
+                seenStatic = true;
+                staticId = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--static-id=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --static-id takes no value.", i, null);
+            }
+
+            if (argv[i] == "--newline-before-endstream")
+            {
+                if (seenNewline)
+                {
+                    throw new QpdfParseException("Duplicate --newline-before-endstream is outside the narrow profile.", i, null);
+                }
+
+                seenNewline = true;
+                newlineBeforeEndstream = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--newline-before-endstream=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --newline-before-endstream takes no value.", i, null);
+            }
+
+            if (argv[i] == "--min-version" || argv[i].StartsWith("--min-version=", StringComparison.Ordinal))
+            {
+                if (seenMin)
+                {
+                    throw new QpdfParseException("Duplicate --min-version is outside the narrow profile.", i, null);
+                }
+
+                seenMin = true;
+                minVersion = ParseRequiredVersion(argv, ref i, "--min-version");
+                continue;
+            }
+
+            if (argv[i] == "--force-version" || argv[i].StartsWith("--force-version=", StringComparison.Ordinal))
+            {
+                if (seenForce)
+                {
+                    throw new QpdfParseException("Duplicate --force-version is outside the narrow profile.", i, null);
+                }
+
+                seenForce = true;
+                forceVersion = ParseRequiredVersion(argv, ref i, "--force-version");
+                continue;
+            }
+
             kept.Add(argv[i]);
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream);
     }
 
     private static int ParseSplitPages(IReadOnlyList<string> argv, ref int i)
@@ -275,6 +370,39 @@ internal static class ArgvParser
         }
 
         return (int)size;
+    }
+
+    private static string ParseRequiredVersion(IReadOnlyList<string> argv, ref int i, string option)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        string? value = null;
+        if (equals >= 0)
+        {
+            value = token.Substring(equals + 1);
+        }
+        else if (i + 1 < argv.Count)
+        {
+            string next = argv[i + 1];
+            if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            {
+                throw new QpdfParseException(option + " requires a version such as 1.5.", i, null);
+            }
+
+            value = next;
+            i += 1;
+        }
+        else
+        {
+            throw new QpdfParseException(option + " requires a version such as 1.5.", i, null);
+        }
+
+        if (value is null || value.Length == 0 || value.Length > 32)
+        {
+            throw new QpdfParseException(option + " requires a version such as 1.5.", i, null);
+        }
+
+        return value;
     }
 
     private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)
@@ -535,6 +663,11 @@ internal static class ArgvParser
             Labels = labels,
             SplitPages = globals.SplitPages,
             ReplaceInput = true,
+            MinVersion = globals.MinVersion,
+            ForceVersion = globals.ForceVersion,
+            DeterministicId = globals.DeterministicId,
+            StaticId = globals.StaticId,
+            NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
         };
     }
 
@@ -563,6 +696,11 @@ internal static class ArgvParser
             Rotations = rotations,
             Labels = labels,
             SplitPages = globals.SplitPages,
+            MinVersion = globals.MinVersion,
+            ForceVersion = globals.ForceVersion,
+            DeterministicId = globals.DeterministicId,
+            StaticId = globals.StaticId,
+            NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
         };
     }
 
