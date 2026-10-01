@@ -47,6 +47,10 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     internal DiagnosticBag Diagnostics => _diagnostics;
 
+    internal IReadOnlyDictionary<int, XrefEntry> XRefEntries => _table.Entries;
+
+    internal ReadOnlyMemory<byte> Data => _data;
+
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
     {
         if (reference is null)

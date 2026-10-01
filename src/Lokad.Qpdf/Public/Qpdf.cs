@@ -137,6 +137,52 @@ public static class Qpdf
         return new PdfPageSelectionResult(total, [.. requested], kids.Count, [.. diagnostics.Entries], governor.Snapshot());
     }
 
+    /// <summary>
+    /// Inspects a document with default budgets. Skipped stages stay visible;
+    /// this partial check never claims conformance, safe content, or rendering.
+    /// </summary>
+    public static ValueTask<QpdfCheckResult> CheckAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        CancellationToken cancellationToken)
+    {
+        return CheckAsync(host, inputPath, new QpdfCheckOptions(), QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Inspects a document with explicit options and budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static async ValueTask<QpdfCheckResult> CheckAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfCheckOptions options,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        List<QpdfCheckOutcome> checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, cancellationToken);
+        return new QpdfCheckResult(document.PageCount, document.Version, checks, [.. diagnostics.Entries], governor.Snapshot());
+    }
+
     private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine,
         PageLocation location,
@@ -319,7 +365,7 @@ public static class Qpdf
             throw new ArgumentNullException(nameof(options));
         }
 
-        SelectionPlan plan;
+        JobPlan plan;
         try
         {
             plan = ArgvParser.Parse(invocation.Arguments);
@@ -378,17 +424,40 @@ public static class Qpdf
 
     private static async ValueTask<QpdfExecutionResult> RunPlanAsync(
         IQpdfHost host,
-        SelectionPlan plan,
+        JobPlan plan,
         QpdfLimits limits,
         CancellationToken cancellationToken)
     {
+        if (plan is CheckPlan check)
+        {
+            try
+            {
+                QpdfCheckResult inspected = await CheckAsync(
+                    host,
+                    check.Input,
+                    new QpdfCheckOptions(),
+                    limits,
+                    cancellationToken).ConfigureAwait(false);
+                return QpdfExecutionResult.Completed(inspected.Diagnostics, inspected.Counters);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
         try
         {
+            SelectionPlan selection = (SelectionPlan)plan;
             PdfPageSelectionResult selected = await SelectPageAsync(
                 host,
-                plan.Input,
-                plan.Output,
-                new PdfPageSelectionOptions(plan.Page),
+                selection.Input,
+                selection.Output,
+                new PdfPageSelectionOptions(selection.Page),
                 limits,
                 cancellationToken).ConfigureAwait(false);
             return QpdfExecutionResult.Completed(selected.Warnings, selected.Counters);

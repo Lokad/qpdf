@@ -1,7 +1,10 @@
 namespace Lokad.Qpdf.Commands;
 
-/// <summary>Validated single-page selection shared by every entry path.</summary>
-internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page)
+/// <summary>Validated job plan shared by every entry path.</summary>
+internal abstract record JobPlan(QpdfPath Input);
+
+/// <summary>Validated single-page selection.</summary>
+internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page) : JobPlan(Input)
 {
     internal static int ParsePageNumber(string range)
     {
@@ -47,3 +50,6 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page)
         return QpdfPath.From(value);
     }
 }
+
+/// <summary>Validated structural inspection.</summary>
+internal sealed record CheckPlan(QpdfPath Input) : JobPlan(Input);

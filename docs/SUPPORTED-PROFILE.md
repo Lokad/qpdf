@@ -1,4 +1,4 @@
-# Supported profile (M1)
+# Supported profile (M4)
 
 This describes exactly what the library does today. Everything else in
 `docs/COMPATIBILITY.md` is a roadmap, not a claim.
@@ -7,12 +7,12 @@ This describes exactly what the library does today. Everything else in
 
 Three routes converge on one selection plan executed by the shared engine:
 
-- Typed: `Qpdf.SelectPageAsync` with `PdfPageSelectionOptions` (1-based page).
+- Typed: `Qpdf.SelectPageAsync` with explicit, `FirstAndLast`, or `Normalized` page sets;
+  `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
-  -- output`, including the positional file/range forms and `.` for the
-  primary input. The range is required and holds one positive integer.
+  -- output` (single positive-integer range) and `input --check` for inspection.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,
-  pages:[{file, range}]}` with exactly one entry.
+  pages:[{file, range}]}` with exactly one entry; inspection has no job key yet.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the subset —
@@ -62,6 +62,18 @@ echoing values.
 - Publication is staged: validation, budgets, and serialization complete
   before commit, so failures leave existing targets untouched. Every lease
   closes on success, failure, and cancellation.
+
+## Inspection profile
+
+- `Qpdf.CheckAsync` reports eight declared checks: header, cross-reference,
+  trailer, page tree, object-graph traversal, decode-level-gated stream
+  decoding, page content, and linearization.
+- Skipped stages stay visible with reasons and never pass silently; failures
+  carry capped per-object detail. Content (M7) always skips; linearization
+  passes when absent and skips with a warning when present; unavailable
+  filters skip streams with a warning at level `all`.
+- `input --check` publishes no files and maps diagnostics to exit 0/2/3.
+  Inspection never claims conformance, safe content, or rendering correctness.
 
 ## Writer profile
 

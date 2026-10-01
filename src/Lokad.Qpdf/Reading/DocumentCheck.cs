@@ -1,0 +1,343 @@
+using Lokad.Qpdf.Filters;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
+
+namespace Lokad.Qpdf.Reading;
+
+/// <summary>
+/// Partial structural inspection over an opened document. Stages that ran report
+/// passed or failed; stages whose prerequisites are unimplemented report skipped
+/// with an explicit reason, never silently passed.
+/// </summary>
+internal static class DocumentCheck
+{
+    private const int MaxObjectFailures = 16;
+    private const int MaxStreamFailures = 8;
+    private const int LinearizationScanBytes = 1024;
+    private const int LinearizationScanTokens = 200;
+
+    internal static List<QpdfCheckOutcome> Run(
+        QpdfDocument document,
+        QpdfCheckOptions options,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (document is null)
+        {
+            throw new ArgumentNullException(nameof(document));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        if (diagnostics is null)
+        {
+            throw new ArgumentNullException(nameof(diagnostics));
+        }
+
+        DocumentEngine engine = document.Engine;
+        List<QpdfCheckOutcome> outcomes = new()
+        {
+            new QpdfCheckOutcome("header", QpdfCheckStatus.Passed, $"Version {document.Version}."),
+            new QpdfCheckOutcome("cross-reference", QpdfCheckStatus.Passed, $"{engine.XRefEntries.Count} entries cover the effective size."),
+            new QpdfCheckOutcome("trailer", QpdfCheckStatus.Passed, "Catalog root is reachable and input is unencrypted."),
+            new QpdfCheckOutcome("page-tree", QpdfCheckStatus.Passed, $"{document.PageCount} pages traversed."),
+        };
+
+        List<(int Number, PdfStream Stream)> streams = new();
+        outcomes.Add(CheckObjectGraph(engine, governor, streams, cancellationToken));
+        outcomes.Add(CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken));
+        outcomes.Add(CheckPageContent(diagnostics));
+        outcomes.Add(CheckLinearization(engine, limits, governor, diagnostics, cancellationToken));
+        foreach (QpdfCheckOutcome outcome in outcomes)
+        {
+            if (outcome.Status == QpdfCheckStatus.Failed)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"Check '{outcome.Name}' failed: {outcome.Detail}");
+            }
+        }
+
+        return outcomes;
+    }
+
+    private static QpdfCheckOutcome CheckObjectGraph(
+        DocumentEngine engine,
+        ResourceGovernor governor,
+        List<(int Number, PdfStream Stream)> streams,
+        CancellationToken cancellationToken)
+    {
+        List<int> numbers = new(engine.XRefEntries.Keys);
+        numbers.Sort();
+        int resolved = 0;
+        List<string> failures = new();
+        foreach (int number in numbers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            try
+            {
+                QpdfObject value = engine.Load(number);
+                resolved += 1;
+                if (value is PdfStream stream)
+                {
+                    streams.Add((number, stream));
+                }
+            }
+            catch (QpdfLimitException ex)
+            {
+                failures.Add($"object {number}: {ex.Message}");
+                break;
+            }
+            catch (QpdfException ex)
+            {
+                failures.Add($"object {number}: {ex.Message}");
+                if (failures.Count >= MaxObjectFailures)
+                {
+                    failures.Add("Further object failures are not recorded.");
+                    break;
+                }
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            return new QpdfCheckOutcome("object-graph", QpdfCheckStatus.Failed, string.Join(" ", failures));
+        }
+
+        return new QpdfCheckOutcome("object-graph", QpdfCheckStatus.Passed, $"{resolved} objects resolved with {streams.Count} streams.");
+    }
+
+    private static bool InLevel(string filter, QpdfStreamDecodeLevel level)
+    {
+        return level switch
+        {
+            QpdfStreamDecodeLevel.None => false,
+            QpdfStreamDecodeLevel.Generalized => filter == FlateFilter.FilterName || filter == LzwFilter.FilterName
+                || filter == AsciiHexFilter.FilterName || filter == Ascii85Filter.FilterName,
+            QpdfStreamDecodeLevel.Specialized => IsDecodable(filter),
+            QpdfStreamDecodeLevel.All => true,
+            _ => false,
+        };
+    }
+
+    private static bool IsDecodable(string filter)
+    {
+        return filter == FlateFilter.FilterName || filter == LzwFilter.FilterName
+            || filter == AsciiHexFilter.FilterName || filter == Ascii85Filter.FilterName
+            || filter == RunLengthFilter.FilterName;
+    }
+
+    private static QpdfCheckOutcome CheckStreams(
+        DocumentEngine engine,
+        QpdfStreamDecodeLevel level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        List<(int Number, PdfStream Stream)> streams,
+        CancellationToken cancellationToken)
+    {
+        if (level == QpdfStreamDecodeLevel.None)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check 'streams': decode level none disables stream decoding.");
+            return new QpdfCheckOutcome("streams", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
+        }
+
+        IIndirectResolver resolver = (IIndirectResolver)engine;
+        int decoded = 0;
+        int unfiltered = 0;
+        int aboveLevel = 0;
+        int skippedUnavailable = 0;
+        List<string> unavailable = new();
+        List<string> failures = new();
+        foreach ((int number, PdfStream stream) in streams)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<FilterStage> stages;
+            try
+            {
+                stages = FilterChain.Resolve(stream.Dictionary, resolver);
+            }
+            catch (QpdfParseException ex)
+            {
+                failures.Add($"stream {number}: {ex.Message}");
+                if (failures.Count >= MaxStreamFailures)
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            if (stages.Count == 0)
+            {
+                unfiltered += 1;
+                continue;
+            }
+
+            bool attempt = true;
+            foreach (FilterStage stage in stages)
+            {
+                if (!InLevel(stage.Name, level))
+                {
+                    attempt = false;
+                    break;
+                }
+            }
+
+            if (!attempt)
+            {
+                aboveLevel += 1;
+                continue;
+            }
+
+            try
+            {
+                FilterChain.Decode(stream.Data, stages, limits, governor);
+                decoded += 1;
+            }
+            catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
+            {
+                skippedUnavailable += 1;
+                foreach (FilterStage stage in stages)
+                {
+                    if (!IsDecodable(stage.Name) && !unavailable.Contains(stage.Name, StringComparer.Ordinal))
+                    {
+                        unavailable.Add(stage.Name);
+                    }
+                }
+            }
+            catch (QpdfLimitException ex)
+            {
+                failures.Add($"stream {number}: {ex.Message}");
+                break;
+            }
+            catch (QpdfException ex)
+            {
+                failures.Add($"stream {number}: {ex.Message}");
+                if (failures.Count >= MaxStreamFailures)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            return new QpdfCheckOutcome("streams", QpdfCheckStatus.Failed, string.Join(" ", failures));
+        }
+
+        string detail = $"{decoded} decoded, {unfiltered} unfiltered, {aboveLevel} above level {level}.";
+        if (skippedUnavailable > 0)
+        {
+            detail += $" {skippedUnavailable} skipped ({string.Join(", ", unavailable)} unavailable).";
+            diagnostics.Add(
+                QpdfDiagnosticCode.CheckSkipped,
+                QpdfDiagnosticSeverity.Warning,
+                $"Skipped check 'streams': {detail} Decoding unavailable filters arrives in a later milestone.");
+            return new QpdfCheckOutcome("streams", QpdfCheckStatus.Skipped, detail);
+        }
+
+        if (aboveLevel > 0)
+        {
+            diagnostics.Add(
+                QpdfDiagnosticCode.CheckSkipped,
+                QpdfDiagnosticSeverity.Info,
+                $"Left {aboveLevel} stream(s) above decode level {level} for a higher level.");
+        }
+
+        return new QpdfCheckOutcome("streams", QpdfCheckStatus.Passed, detail);
+    }
+
+    private static QpdfCheckOutcome CheckPageContent(DiagnosticBag diagnostics)
+    {
+        diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check 'page-content': content tokenizing arrives in M7.");
+        return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Skipped, "Content tokenizing arrives in M7; content streams were not parsed.");
+    }
+
+    private static QpdfCheckOutcome CheckLinearization(
+        DocumentEngine engine,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (!IsLinearized(engine.Data, limits, governor, cancellationToken))
+        {
+            return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Passed, "File is not linearized.");
+        }
+
+        diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, "Skipped check 'linearization': hint validation arrives in M10.");
+        return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Skipped, "File is linearized; hint validation arrives in M10.");
+    }
+
+    private static bool IsLinearized(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        int length = Math.Min(LinearizationScanBytes, data.Length);
+        PdfTokenizer tokenizer = new(data.Slice(0, length));
+        limits.Validate();
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        for (int i = 0; i < LinearizationScanTokens; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            long position = 0;
+            try
+            {
+                if (!tokenizer.TryReadToken(out PdfToken token))
+                {
+                    return false;
+                }
+
+                if (token.Kind != PdfTokenKind.Integer)
+                {
+                    continue;
+                }
+
+                position = token.Offset;
+                tokenizer.SetPosition(position);
+                (int _, int _, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
+                if (value is PdfDictionary dictionary
+                    && dictionary.TryGet(PdfName.FromAscii("Linearized"), out QpdfObject raw)
+                    && IsOne(raw))
+                {
+                    return true;
+                }
+            }
+            catch (QpdfException)
+            {
+                try
+                {
+                    tokenizer.SetPosition(position + 1);
+                }
+                catch (QpdfParseException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsOne(QpdfObject raw)
+    {
+        return raw is PdfInteger integer && integer.Value == 1L
+            || raw is PdfReal real && real.Value == 1.0;
+    }
+}

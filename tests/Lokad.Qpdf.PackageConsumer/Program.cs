@@ -71,6 +71,14 @@ internal static class Program
         Check(typedBytes.AsSpan().SequenceEqual(jobBytes), "typed/job parity");
         Console.WriteLine("PASS job selection with typed/job parity");
 
+        InMemoryQpdfHost checkHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult check = await Qpdf.ExecuteAsync(
+            checkHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--check"]),
+            CancellationToken.None);
+        Check(check.Status == QpdfExecutionStatus.Completed && check.ExitCode == QpdfExitCode.Success, "check execution");
+        Console.WriteLine("PASS argv inspection (--check)");
+
         InMemoryQpdfHost cryptoHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult crypto = await Qpdf.ExecuteAsync(
             cryptoHost,

@@ -1,9 +1,10 @@
 namespace Lokad.Qpdf.Commands;
 
 /// <summary>
-/// Narrow argv parser for the initial single-page profile. Accepts the upstream
+/// Narrow argv parser for selection and inspection. Accepts the upstream
 /// spelling subset `qpdf input --pages [--file=]file [--range=]n -- output`
-/// (positional file/range forms included); everything else fails explicitly.
+/// (positional file/range forms included) and `qpdf input --check`;
+/// everything else fails explicitly.
 /// Unknown `--*` tokens map to the documented crypto set (rejected as crypto)
 /// or to unsupported-option errors. Response files, `--empty`,
 /// `--replace-input`, stdin/stdout `-`, and flexible operand order arrive later.
@@ -22,7 +23,7 @@ internal static class ArgvParser
         "decrypt", "copy-encryption",
     };
 
-    internal static SelectionPlan Parse(IReadOnlyList<string> argv)
+    internal static JobPlan Parse(IReadOnlyList<string> argv)
     {
         if (argv is null)
         {
@@ -35,9 +36,25 @@ internal static class ArgvParser
         }
 
         RejectResponseFiles(argv);
-        int pagesAt = FindPages(argv);
+        int checkAt = FindFlag(argv, "--check");
+        int pagesAt = FindFlag(argv, "--pages");
+        if (checkAt >= 0 && pagesAt >= 0)
+        {
+            throw new QpdfParseException("Options --check and --pages cannot be combined.", checkAt, null);
+        }
+
+        if (checkAt >= 0)
+        {
+            return ParseCheck(argv, checkAt);
+        }
+
+        if (pagesAt < 0)
+        {
+            throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, or --check.", 0L, null);
+        }
+
         int terminatorAt = FindTerminator(argv, pagesAt);
-        string input = ParseInputArea(argv, pagesAt);
+        string input = ParseInputArea(argv, pagesAt, "--pages");
         (string file, string range) = ParsePagesArea(argv, pagesAt, terminatorAt);
         string output = ParseOutputArea(argv, terminatorAt);
         string resolvedFile = ResolveFile(file, input);
@@ -73,28 +90,40 @@ internal static class ArgvParser
         }
     }
 
-    private static int FindPages(IReadOnlyList<string> argv)
+    private static int FindFlag(IReadOnlyList<string> argv, string flag)
     {
         int found = -1;
         for (int i = 0; i < argv.Count; i++)
         {
-            if (argv[i] == "--pages")
+            if (argv[i] == flag)
             {
                 if (found >= 0)
                 {
-                    throw new QpdfParseException("Duplicate --pages is outside the narrow selection profile.", i, null);
+                    throw new QpdfParseException($"Duplicate {flag} is outside the narrow profile.", i, null);
                 }
 
                 found = i;
             }
         }
 
-        if (found < 0)
+        return found;
+    }
+
+    private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt)
+    {
+        string input = ParseInputArea(argv, checkAt, "--check");
+        if (checkAt + 1 >= argv.Count)
         {
-            throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range.", 0L, null);
+            return new CheckPlan(SelectionPlan.CheckedPath(input));
         }
 
-        return found;
+        string? token = argv[checkAt + 1];
+        if (token is null)
+        {
+            throw new QpdfParseException("Null argument.", checkAt + 1, null);
+        }
+
+        throw new QpdfParseException($"Unexpected argument '{token}' after --check; inspection takes no output file.", checkAt + 1, null);
     }
 
     private static int FindTerminator(IReadOnlyList<string> argv, int pagesAt)
@@ -118,10 +147,10 @@ internal static class ArgvParser
         throw new QpdfParseException("Missing -- terminator after the --pages selection.", pagesAt, null);
     }
 
-    private static string ParseInputArea(IReadOnlyList<string> argv, int pagesAt)
+    private static string ParseInputArea(IReadOnlyList<string> argv, int boundaryAt, string operation)
     {
         string? input = null;
-        for (int i = 0; i < pagesAt; i++)
+        for (int i = 0; i < boundaryAt; i++)
         {
             string token = argv[i];
             if (token is null)
@@ -151,7 +180,7 @@ internal static class ArgvParser
 
             if (input is not null)
             {
-                throw new QpdfParseException("A single positional input must precede --pages.", i, null);
+                throw new QpdfParseException($"A single positional input must precede {operation}.", i, null);
             }
 
             input = token;
@@ -159,7 +188,7 @@ internal static class ArgvParser
 
         if (input is null)
         {
-            throw new QpdfParseException("A positional input file is required before --pages.", pagesAt, null);
+            throw new QpdfParseException($"A positional input file is required before {operation}.", boundaryAt, null);
         }
 
         return input;

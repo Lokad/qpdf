@@ -229,6 +229,19 @@ hierarchy is not reconstructed. Only the four inheritable attributes materialize
 with explicit null treated as absent (ancestor fallback, else `/MediaBox` failure);
 page-only boxes such as `/BleedBox` and `/UserUnit` never inherit.
 
+## Inspection breadth (work item 16)
+
+`Qpdf.CheckAsync` runs a declared partial check: header, cross-reference,
+trailer, page tree, full object-graph traversal, decode-level-gated stream
+decoding (`none`, `generalized`, `specialized`, `all`), page content, and
+linearization. Skipped stages stay visible with explicit reasons and never
+pass silently; failures carry sanitized per-object detail with caps. Streams
+above the selected level are caller-scoped; streams with milestone-unavailable
+filters skip with a warning. Content tokenizing (M7) and hint validation (M10)
+report skipped; non-linearized files pass linearization trivially. `qpdf input
+--check` maps to the same engine with exit 0/2/3 from the diagnostics; job-JSON
+check has no upstream schema basis yet and fails explicitly.
+
 ## Selector audit (work item 15)
 
 Indirect `/Filter` and `/DecodeParms` resolve through the document engine,
