@@ -1,4 +1,5 @@
 using System.Text;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -157,8 +158,8 @@ internal sealed class PdfSerializer
 
     /// <summary>
     /// Serializes with object streams and a cross-reference stream. Object
-    /// payloads and xref entries are emitted uncompressed (no
-    /// <c>/Filter</c>); Flate packing arrives with the compression controls.
+    /// payloads and xref entries are Flate-packed when compression is active
+    /// (plain <c>/FlateDecode</c>, no predictor) and raw otherwise.
     /// Grouping, numbering, and byte layout are deterministic for a given
     /// model, so the counting pass still verifies the emitting pass.
     /// </summary>
@@ -166,6 +167,8 @@ internal sealed class PdfSerializer
         PdfVersion version,
         IReadOnlyList<NumberedObject> objects,
         IReadOnlyList<IReadOnlyList<int>> groups,
+        bool compressStreams,
+        int? compressionLevel,
         byte[] id1,
         byte[] id2,
         bool newlineBeforeEndstream,
@@ -342,9 +345,17 @@ internal sealed class PdfSerializer
             }
 
             byte[] payloadBytes = [.. payload];
+            byte[] storedPayload = payloadBytes;
+            string containerFilter = string.Empty;
+            if (compressStreams)
+            {
+                storedPayload = FlateFilter.Encode(payloadBytes, compressionLevel, _limits, _governor);
+                containerFilter = " /Filter /FlateDecode";
+            }
+
             offsets[containerId] = sink.Length;
-            await AppendAsciiAsync($"{containerId} 0 obj\n<< /Type /ObjStm /Length {payloadBytes.Length} /N {group.Count} /First {first} >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-            await AppendBytesAsync(payloadBytes, sink, cancellationToken).ConfigureAwait(false);
+            await AppendAsciiAsync($"{containerId} 0 obj\n<< /Type /ObjStm /Length {storedPayload.Length}" + containerFilter + $" /N {group.Count} /First {first} >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendBytesAsync(storedPayload, sink, cancellationToken).ConfigureAwait(false);
             if (newlineBeforeEndstream)
             {
                 await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -409,13 +420,21 @@ internal sealed class PdfSerializer
         }
 
         byte[] xrefBytes = [.. xrefData];
-        _governor.ReserveMemory(xrefBytes.Length);
+        byte[] storedXref = xrefBytes;
+        string xrefFilter = string.Empty;
+        if (compressStreams)
+        {
+            storedXref = FlateFilter.Encode(xrefBytes, compressionLevel, _limits, _governor);
+            xrefFilter = " /Filter /FlateDecode";
+        }
+
+        _governor.ReserveMemory(storedXref.Length);
         long xrefOffset = offsets[xrefId];
         string idHex1 = ToHex(id1);
         string idHex2 = ToHex(id2);
         _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        await AppendAsciiAsync($"{xrefId} 0 obj\n<< /Type /XRef /Length {xrefBytes.Length} /Size {size} /Root 1 0 R /ID [<" + idHex1 + "><" + idHex2 + ">] /W [1 " + f1.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + f2.ToString(System.Globalization.CultureInfo.InvariantCulture) + "] >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendBytesAsync(xrefBytes, sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync($"{xrefId} 0 obj\n<< /Type /XRef /Length {storedXref.Length}" + xrefFilter + $" /Size {size} /Root 1 0 R /ID [<" + idHex1 + "><" + idHex2 + ">] /W [1 " + f1.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + f2.ToString(System.Globalization.CultureInfo.InvariantCulture) + "] >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendBytesAsync(storedXref, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nendstream\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;

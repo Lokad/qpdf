@@ -119,9 +119,9 @@ echoing values.
   eligible non-stream object into new object streams. Any object streams imply
   a cross-reference stream instead of a classic table and raise the header to
   at least 1.5; a forced version below 1.5 disables object streams.
-  Payloads and xref entries are emitted uncompressed (no `/Filter`);
-  Flate packing for generated containers arrives next with the remaining
-  compression work.
+  Object-stream payloads and xref entries are Flate-packed with plain
+  `/FlateDecode` (no predictor) whenever stream compression is active, and
+  raw otherwise.
 - Stream data defaults to opaque preservation: page and resource streams
   keep their exact encoded bytes (upstream defaults to compress). Opt in
   with `--stream-data=compress|preserve|uncompress`, `--compress-streams=[y|n]`

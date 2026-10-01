@@ -2019,7 +2019,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Generated object/xref streams stay uncompressed until 23b; default preserves opaquely instead of upstream compress defaults (intentional)."
+        "Default preserves opaquely instead of upstream compress defaults (intentional)."
       ],
       "evidence": {
         "positive": [
@@ -2029,7 +2029,8 @@
         ],
         "negative": [],
         "interaction": [
-          "CompressionTests.DecodeNoneWithCompressKeepsHex"
+          "CompressionTests.DecodeNoneWithCompressKeepsHex",
+          "ObjectStreamTests.GenerateWithCompressFlatesContainers"
         ],
         "resource": [],
         "oracle": []
@@ -2068,7 +2069,8 @@
         ],
         "interaction": [
           "CompressionTests.JobJsonParityHolds",
-          "CompressionTests.RecompressFlateRewritesFlate"
+          "CompressionTests.RecompressFlateRewritesFlate",
+          "ObjectStreamTests.CompressLevelsApplyToContainers"
         ],
         "resource": [],
         "oracle": []
@@ -3383,14 +3385,16 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Object-stream payloads and xref entries are emitted uncompressed (no Flate/predictor); Flate packing arrives with compression controls (item 23). Preserve keeps compressed-ness, not exact original groupings."
+        "Containers use plain Flate without the upstream PNG predictor (size-only difference); preserve keeps compressed-ness, not exact original groupings."
       ],
       "evidence": {
         "positive": [
           "ObjectStreamTests.GenerateWritesObjectAndXrefStreams",
           "ObjectStreamTests.PreserveKeepsCompressedObjects",
           "ObjectStreamTests.DisableExpandsCompressedObjects",
-          "ObjectStreamTests.ManyObjectsChunkIntoMultipleStreams"
+          "ObjectStreamTests.ManyObjectsChunkIntoMultipleStreams",
+          "ObjectStreamTests.GenerateWithCompressFlatesContainers",
+          "ObjectStreamTests.PreserveWithCompressFlatesContainers"
         ],
         "negative": [
           "ObjectStreamTests.InvalidModesFail",
@@ -3399,7 +3403,8 @@
         "interaction": [
           "ObjectStreamTests.GenerateBumpsVersionTo1_5",
           "ObjectStreamTests.ForceBelow15DisablesStreams",
-          "ObjectStreamTests.JobJsonParityHolds"
+          "ObjectStreamTests.JobJsonParityHolds",
+          "ObjectStreamTests.CompressJobParityHolds"
         ],
         "resource": [],
         "oracle": []
@@ -4753,7 +4758,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Generated object/xref streams stay uncompressed until 23b; upstream order-sensitive flag precedence replaced by explicit-override rule."
+        "Upstream order-sensitive flag precedence replaced by explicit-override rule."
       ],
       "evidence": {
         "positive": [

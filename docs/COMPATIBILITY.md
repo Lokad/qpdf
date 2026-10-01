@@ -455,6 +455,17 @@ with an error; `QPDF_ZOPFLI` has no host environment capability yet and is
 treated as unset (matching upstream unset behavior). Generated object/xref
 streams stay uncompressed until work item 23b.
 
+## Container Flate packing (work item 23b)
+
+Generated object-stream payloads and cross-reference entries are
+Flate-encoded with plain `/FlateDecode` (no PNG predictor) whenever the
+resolved stream-compression request enables compression, honoring
+`--compression-level` buckets through the same governed BCL pipeline as
+regular streams (deterministic bytes, so counting and emitting passes still
+agree). Otherwise containers stay raw. No predictor is emitted, unlike
+upstream xref streams: readers must not require decode parameters, and the
+strict decoder accepts plain Flate.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

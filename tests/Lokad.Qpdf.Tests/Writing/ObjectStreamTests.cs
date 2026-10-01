@@ -383,6 +383,79 @@ public sealed class ObjectStreamTests
         Assert.Equal(a, b);
     }
 
+    [Fact]
+    public async Task GenerateWithCompressFlatesContainers()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate", "--compress-streams=y");
+        string text = Encoding.ASCII.GetString(pdf);
+        Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
+        Assert.Contains("/Type /XRef", text, StringComparison.Ordinal);
+        Assert.Contains("/Filter /FlateDecode", text, StringComparison.Ordinal);
+        Assert.Equal(1, await RereadPageCountAsync(host, pdf));
+        using MemoryStream buffer = new(pdf);
+        using PdfDocument reread = PdfDocument.Open(buffer);
+        Assert.Equal(1, reread.NumberOfPages);
+    }
+
+    [Fact]
+    public async Task GenerateWithoutCompressLeavesContainersRaw()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate");
+        Assert.DoesNotContain("/Filter /FlateDecode", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GenerateWithCompressIsDeterministic()
+    {
+        InMemoryQpdfHost firstHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        byte[] a = await SelectAsync(firstHost, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate", "--compress-streams=y");
+        InMemoryQpdfHost secondHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        byte[] b = await SelectAsync(secondHost, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate", "--compress-streams=y");
+        Assert.Equal(a, b);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("9")]
+    public async Task CompressLevelsApplyToContainers(string level)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate", "--compress-streams=y", "--compression-level=" + level);
+        Assert.Contains("/Filter /FlateDecode", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+        Assert.Equal(1, await RereadPageCountAsync(host, pdf));
+    }
+
+    [Fact]
+    public async Task PreserveWithCompressFlatesContainers()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "objstm-1page.pdf");
+        await using (QpdfDocument source = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
+        {
+            byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=preserve", "--compress-streams=y");
+            string text = Encoding.ASCII.GetString(pdf);
+            Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
+            Assert.Contains("/Filter /FlateDecode", text, StringComparison.Ordinal);
+            Assert.Equal(source.PageCount, await RereadPageCountAsync(host, pdf));
+        }
+    }
+
+    [Fact]
+    public async Task CompressJobParityHolds()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        byte[] a = await SelectAsync(argvHost, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate", "--compress-streams=y", "--compression-level=5");
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"objectStreams\": \"generate\", \"compressStreams\": \"y\", \"compressionLevel\": \"5\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
     [Theory]
     [InlineData("--object-streams=bogus")]
     [InlineData("--object-streams=")]

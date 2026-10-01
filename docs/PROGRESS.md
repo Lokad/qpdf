@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 23b: container Flate packing. Generated object/xref streams Flate-encode (plain `/FlateDecode`, no predictor) when compression is active, honoring `--compression-level` through the governed pipeline with replay-checked serialization; otherwise they stay raw.
+
+Prior gate
+
 Work item 23a: stream compression controls. `--stream-data`, `--compress-streams`, `--decode-level`, `--recompress-flate`, and `--compression-level` decode (generalized/specialized sets) and Flate-encode regular streams through one governed pipeline with opaque fallback warnings; `--zopfli` reports the no-Zopfli build profile. Defaults stay opaque-preserving (intentional difference from upstream compress defaults). One implementation across typed/argv/job paths with replay-checked serialization.
 
 Prior gate
@@ -28,10 +32,10 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 477 tests (443
-  prior plus 34 compression cases: raw/flate/hex round trips, skip and
-  recompress rules, decode gating, DCT beyond-level/at-all behavior, levels,
-  zopfli report, argv/job parity, and invalid/duplicate rejections).
+- Locked restore, Release build with zero warnings, and all 484 tests (477
+  prior plus 7 container-packing cases: Flate containers with reread,
+  raw-by-default, determinism, levels, preserve interaction, and CLI/job
+  parity).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -43,7 +47,7 @@ binary.
 
 ## Next work
 
-1. Work item 23b: Flate packing for generated object/xref streams (remainder of item 23, M6).
+1. Work item 24: names/number-tree operations, metadata editing, and attachment list/extract (M6).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
