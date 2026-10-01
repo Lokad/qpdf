@@ -98,6 +98,40 @@ internal sealed class GraphCopier
         _copied[id] = CopyValue(value, 0);
         return new PdfReference(id, 0);
     }
+    /// <summary>
+    /// Inserts an already pool-local value under an explicit identity,
+    /// advancing the allocator past it. Used when several pools share one
+    /// central numbering budget.
+    /// </summary>
+    internal PdfReference AddIndirectObjectWithId(QpdfObject value, int id)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        if (id <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(id), id, null);
+        }
+
+        if (_copied.ContainsKey(id))
+        {
+            throw new InvalidOperationException("Destination identity is already allocated.");
+        }
+
+        _governor.ReserveMemory(64L);
+        _copied[id] = value;
+        if (id >= _nextId)
+        {
+            checked
+            {
+                _nextId = id + 1;
+            }
+        }
+
+        return new PdfReference(id, 0);
+    }
 
 
     /// <summary>

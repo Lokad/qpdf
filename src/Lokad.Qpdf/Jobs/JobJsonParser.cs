@@ -112,6 +112,10 @@ internal static class JobJsonParser
             bool seenCopyAttachments = false;
             List<string> attachmentsToRemove = new();
             bool seenRemoveAttachment = false;
+            List<OverlaySpec> overlays = new();
+            bool seenOverlay = false;
+            List<OverlaySpec> underlays = new();
+            bool seenUnderlay = false;
             string? jsonVersion = null;
             bool seenJson = false;
             List<string> jsonKeys = new();
@@ -371,6 +375,24 @@ internal static class JobJsonParser
                             throw new QpdfParseException("Job \u0027removeUnreferencedResources\u0027 must be one of: auto, yes, no.", 0L, null);
                         }
 
+                        break;
+                    case "overlay":
+                        if (seenOverlay)
+                        {
+                            throw new QpdfParseException("Duplicate job key overlay.", 0L, null);
+                        }
+
+                        seenOverlay = true;
+                        overlays.AddRange(ParseOverlayArray(property.Value, "overlay"));
+                        break;
+                    case "underlay":
+                        if (seenUnderlay)
+                        {
+                            throw new QpdfParseException("Duplicate job key underlay.", 0L, null);
+                        }
+
+                        seenUnderlay = true;
+                        underlays.AddRange(ParseOverlayArray(property.Value, "underlay"));
                         break;
                     case "listAttachments":
                         if (seenListAttachments)
@@ -712,9 +734,10 @@ internal static class JobJsonParser
 
             bool wantEdits = attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0;
             bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null || externalizeInlineImages || seenIiMinBytes;
+            bool wantOverlays = overlays.Count > 0 || underlays.Count > 0;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent)
+                if (!wantEdits && !wantContent && !wantOverlays)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -753,6 +776,8 @@ internal static class JobJsonParser
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
+                    Overlays = overlays,
+                    Underlays = underlays,
                 };
             }
 
@@ -792,6 +817,8 @@ internal static class JobJsonParser
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
+                    Overlays = overlays,
+                    Underlays = underlays,
                 };
             }
 
@@ -828,6 +855,8 @@ internal static class JobJsonParser
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
+                    Overlays = overlays,
+                    Underlays = underlays,
             };
         }
     }
@@ -1250,6 +1279,87 @@ internal static class JobJsonParser
         }
 
         throw new QpdfParseException("Job \"normalizeContent\" must be one of: y, n.", 0L, null);
+    }
+
+    private static List<OverlaySpec> ParseOverlayArray(JsonElement value, string role)
+    {
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            throw new QpdfParseException("Job overlay value must be an array.", 0L, null);
+        }
+
+        List<OverlaySpec> specs = new();
+        foreach (JsonElement entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new QpdfParseException("Job overlay entries must be objects.", 0L, null);
+            }
+
+            specs.Add(ParseOverlayEntry(entry, role));
+        }
+
+        return specs;
+    }
+
+    private static OverlaySpec ParseOverlayEntry(JsonElement entry, string role)
+    {
+        string? file = null;
+        string? to = null;
+        string? from = null;
+        string? repeat = null;
+        foreach (JsonProperty property in entry.EnumerateObject())
+        {
+            switch (property.Name)
+            {
+                case "file":
+                    if (file is not null)
+                    {
+                        throw new QpdfParseException("Duplicate overlay key file.", 0L, null);
+                    }
+
+                    file = RequireString(property.Value, role + ".file");
+                    break;
+                case "to":
+                    if (to is not null)
+                    {
+                        throw new QpdfParseException("Duplicate overlay key to.", 0L, null);
+                    }
+
+                    to = RequireString(property.Value, role + ".to");
+                    OverlayRanges.ValidateSyntax(to, "--to", 0L);
+                    break;
+                case "from":
+                    if (from is not null)
+                    {
+                        throw new QpdfParseException("Duplicate overlay key from.", 0L, null);
+                    }
+
+                    from = RequireString(property.Value, role + ".from");
+                    OverlayRanges.ValidateSyntax(from, "--from", 0L);
+                    break;
+                case "repeat":
+                    if (repeat is not null)
+                    {
+                        throw new QpdfParseException("Duplicate overlay key repeat.", 0L, null);
+                    }
+
+                    repeat = RequireString(property.Value, role + ".repeat");
+                    OverlayRanges.ValidateSyntax(repeat, "--repeat", 0L);
+                    break;
+                case "password":
+                    throw new QpdfCryptoException("password");
+                default:
+                    throw new QpdfParseException("Unsupported overlay key.", 0L, null);
+            }
+        }
+
+        if (file is null)
+        {
+            throw new QpdfParseException("Job overlay entries require file.", 0L, null);
+        }
+
+        return new OverlaySpec(file, to, from, repeat);
     }
 
     private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)

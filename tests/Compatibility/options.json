@@ -3692,15 +3692,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["OverlayTests.OverlayStacksStampOnTop", "OverlayTests.MultipleOverlaysStackInOrder", "OverlayTests.PagesSelectionThenOverlay", "OverlayTests.MergeThenOverlayAppliesToFinalPages"],
+        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
+        "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }
@@ -5078,15 +5078,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["OverlayTests.UnderlayGoesBelowOriginal", "OverlayTests.UnderlayAndOverlayCombineAroundOriginal", "OverlayTests.EmptyFromWithRepeatCoversAllPages"],
+        "negative": ["OverlayTests.OverlayPasswordIsCrypto"],
+        "interaction": ["OverlayTests.WholeFileJobOverlay"],
         "resource": [],
         "oracle": []
       }
@@ -5429,15 +5429,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["OverlayTests.SelfOverlayUsesPrimaryInput", "OverlayTests.MultipleOverlaysStackInOrder"],
+        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
+        "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }
@@ -5461,15 +5461,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["OverlayTests.FromExhaustionLeavesRemainingPagesAlone", "OverlayTests.EmptyFromWithRepeatCoversAllPages"],
+        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
+        "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
         "resource": [],
         "oracle": []
       }
@@ -5525,14 +5525,14 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": ["OverlayTests.RepeatCyclesAfterFromPages", "OverlayTests.EmptyFromWithRepeatCoversAllPages"],
+        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5557,14 +5557,14 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
-      "defaultReview": "pending",
+      "status": "partial",
+      "defaultReview": "reviewed",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": ["OverlayTests.ToRestrictsDestinationPages", "OverlayTests.DefaultMappingPairsPagesInOrder"],
+        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
         "interaction": [],
         "resource": [],
         "oracle": []

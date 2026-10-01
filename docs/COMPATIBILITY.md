@@ -603,6 +603,10 @@ content keeps original bytes where upstream writes partial output.
 
 --externalize-inline-images with --ii-min-bytes (default 1024, plus job keys) mirrors the upstream tracker: threshold on image bytes, abbreviation expansion, device color mapping with resource lookup and warn-and-keep on miss, unique /IIm naming, byte-identical kept images, and Flate-aware page and indirect-form rewriting before other content ops. Intentional differences: direct form XObjects stay untouched, content flags combine only with page operations and whole-file output, and damaged content keeps original bytes with a warning.
 
+## Overlay and underlay (work item 30b)
+
+Repeatable --overlay and --underlay blocks (--file or positional file, --to, --from with empty allowed, --repeat, plus job keys) mirror upstream stacking: underlays in order, then the original page as /Fx0, then overlays in order, each placed from TrimBox fallbacks with centered shrink-to-fit matrices that invert destination rotation and scale. Page ranges accept plain numbers, dash ranges in either direction, and comma lists. Intentional differences: relative numbers, exclusions, and odd/even positions stay unsupported; overlay annotations are not copied; inherited /UserUnit on output pages is not inverted; damaged overlay content warns and skips instead of emitting partial forms.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

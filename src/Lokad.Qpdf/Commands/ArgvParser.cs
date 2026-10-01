@@ -43,6 +43,7 @@ internal static class ArgvParser
         int listAt = FindFlag(argv, "--list-attachments");
         (int firstShowAt, int showAt, string? showKey) = FindShowAttachment(argv);
         int firstAttachmentAt = listAt >= 0 ? (firstShowAt >= 0 ? Math.Min(listAt, firstShowAt) : listAt) : firstShowAt;
+        int firstOverlayAt = FirstOverlayBlock(argv, 0, argv.Count);
         int jsonAt = FindJson(argv);
         int jsonOutputAt = FindJsonOutput(argv);
         int jsonEntryAt = jsonAt >= 0 && jsonOutputAt >= 0 ? (jsonAt < jsonOutputAt ? jsonAt : jsonOutputAt) : (jsonAt >= 0 ? jsonAt : jsonOutputAt);
@@ -64,6 +65,11 @@ internal static class ArgvParser
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
                 throw new QpdfParseException("Option --json cannot be combined with attachment editing.", jsonEntryAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --overlay or --underlay.", jsonEntryAt, null);
             }
 
             if (jsonImportAt >= 0)
@@ -94,6 +100,11 @@ internal static class ArgvParser
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
                 throw new QpdfParseException("JSON import cannot be combined with attachment editing.", jsonImportAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --overlay or --underlay.", jsonImportAt, null);
             }
 
             if (jsonEntryAt >= 0)
@@ -127,6 +138,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("Attachment inspection cannot be combined with attachment editing.", showAt >= 0 ? showAt : listAt, null);
             }
 
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --overlay or --underlay.", showAt >= 0 ? showAt : listAt, null);
+            }
+
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
@@ -137,6 +153,10 @@ internal static class ArgvParser
         if (checkAt >= 0 && pagesAt >= 0)
         {
             throw new QpdfParseException("Options --check and --pages cannot be combined.", checkAt, null);
+        }
+        if (checkAt >= 0 && firstOverlayAt >= 0)
+        {
+            throw new QpdfParseException("Options --check and --overlay or --underlay cannot be combined.", checkAt, null);
         }
 
         if (checkAt >= 0)
@@ -172,7 +192,7 @@ internal static class ArgvParser
             };
         }
 
-        if (pagesAt < 0 && !HasAttachmentEdit(argv, 0, argv.Count))
+        if (pagesAt < 0 && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
         {
             throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, --check, --json, or attachment editing.", 0L, null);
         }
@@ -186,9 +206,18 @@ internal static class ArgvParser
         if (pagesAt >= 0)
         {
             int blockAt = FirstAttachmentEdit(argv, pagesAt + 1, argv.Count);
+            int overlayAt = FirstOverlayBlock(argv, pagesAt + 1, argv.Count);
             if (globals.ReplaceInput)
             {
-                int areaEnd = blockAt >= 0 ? blockAt : argv.Count;
+                int areaEnd = argv.Count;
+                if (blockAt >= 0 && blockAt < areaEnd)
+                {
+                    areaEnd = blockAt;
+                }
+                if (overlayAt >= 0 && overlayAt < areaEnd)
+                {
+                    areaEnd = overlayAt;
+                }
                 for (int i = pagesAt + 1; i < areaEnd; i++)
                 {
                     if (argv[i] == "--")
@@ -205,7 +234,15 @@ internal static class ArgvParser
             {
                 int termAt = FindTerminator(argv, pagesAt);
                 input = ParseInputArea(argv, pagesAt, "--pages");
-                int areaEnd = blockAt >= 0 && blockAt < termAt ? blockAt : termAt;
+                int areaEnd = termAt;
+                if (blockAt >= 0 && blockAt < areaEnd)
+                {
+                    areaEnd = blockAt;
+                }
+                if (overlayAt >= 0 && overlayAt < areaEnd)
+                {
+                    areaEnd = overlayAt;
+                }
                 (groups, rotations, labels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
                 cursor = areaEnd;
             }
@@ -218,11 +255,20 @@ internal static class ArgvParser
             }
 
             int blockAt = FirstAttachmentEdit(argv, 0, argv.Count);
-            input = ParseInputArea(argv, blockAt, "attachment editing");
-            cursor = blockAt;
+            int overlayAt = FirstOverlayBlock(argv, 0, argv.Count);
+            int blockOrOverlay = blockAt;
+            if (overlayAt >= 0 && (blockOrOverlay < 0 || overlayAt < blockOrOverlay))
+            {
+                blockOrOverlay = overlayAt;
+            }
+            input = ParseInputArea(argv, blockOrOverlay, "attachment editing");
+            cursor = blockOrOverlay;
         }
 
-        AttachmentEdits edits = ParseAttachmentEdits(argv, ref cursor);
+        TrailingBlocks trailing = ParseTrailingBlocks(argv, ref cursor);
+        AttachmentEdits edits = trailing.Edits;
+        List<OverlaySpec> overlays = trailing.Overlays;
+        List<OverlaySpec> underlays = trailing.Underlays;
         if (globals.ReplaceInput)
         {
             if (cursor != argv.Count)
@@ -235,6 +281,8 @@ internal static class ArgvParser
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
+                Overlays = overlays,
+                Underlays = underlays,
             };
         }
 
@@ -251,6 +299,8 @@ internal static class ArgvParser
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
+                Overlays = overlays,
+                Underlays = underlays,
             };
         }
 
@@ -285,6 +335,8 @@ internal static class ArgvParser
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
+                Overlays = overlays,
+                Underlays = underlays,
             };
         }
 
@@ -321,6 +373,8 @@ internal static class ArgvParser
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
+                Overlays = overlays,
+                Underlays = underlays,
         };
     }
 
@@ -1468,17 +1522,70 @@ internal static class ArgvParser
         return -1;
     }
 
-    private static AttachmentEdits ParseAttachmentEdits(IReadOnlyList<string> argv, ref int cursor)
+    private static bool IsTrailingBlockStart(string? token)
+    {
+        return token == "--overlay"
+            || token == "--underlay"
+            || token == "--add-attachment"
+            || token == "--copy-attachments-from"
+            || (token is not null && (token.StartsWith("--remove-attachment=", StringComparison.Ordinal) || token.StartsWith("--copy-attachments-from=", StringComparison.Ordinal)));
+    }
+
+    private static int FirstOverlayBlock(IReadOnlyList<string> argv, int start, int end)
+    {
+        for (int i = start; i < end; i++)
+        {
+            if (argv[i] == "--overlay" || argv[i] == "--underlay")
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private sealed record TrailingBlocks(AttachmentEdits Edits, List<OverlaySpec> Overlays, List<OverlaySpec> Underlays);
+
+    private static TrailingBlocks ParseTrailingBlocks(IReadOnlyList<string> argv, ref int cursor)
     {
         List<AttachmentAdd> adds = new();
         List<string> removes = new();
         List<AttachmentCopy> copies = new();
-        while (cursor < argv.Count && argv[cursor] != "--")
+        List<OverlaySpec> overlays = new();
+        List<OverlaySpec> underlays = new();
+        while (cursor < argv.Count)
         {
             string token = argv[cursor];
             if (token is null)
             {
                 throw new QpdfParseException("Null argument.", cursor, null);
+            }
+
+            if (token == "--")
+            {
+                if (cursor + 1 < argv.Count && IsTrailingBlockStart(argv[cursor + 1]))
+                {
+                    cursor += 1;
+                    continue;
+                }
+
+                break;
+            }
+
+            if (token == "--overlay" || token == "--underlay")
+            {
+                bool underlay = token == "--underlay";
+                OverlaySpec spec = ParseOverlayBlock(argv, ref cursor, underlay);
+                if (underlay)
+                {
+                    underlays.Add(spec);
+                }
+                else
+                {
+                    overlays.Add(spec);
+                }
+
+                continue;
             }
 
             if (token == "--add-attachment")
@@ -1516,16 +1623,153 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --copy-attachments-from takes no value.", cursor, null);
             }
 
+            if ((token.StartsWith("--overlay=", StringComparison.Ordinal) || token.StartsWith("--underlay=", StringComparison.Ordinal))
+                && token.Length > 2)
+            {
+                throw new QpdfParseException("Option " + OptionName(token) + " takes no value.", cursor, null);
+            }
+
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
                 CheckOptionToken(token, cursor);
                 continue;
             }
 
-            throw new QpdfParseException($"Unexpected argument '{token}' after the page selection.", cursor, null);
+            throw new QpdfParseException("Unexpected argument after the page selection.", cursor, null);
         }
 
-        return new AttachmentEdits(adds, removes, copies);
+        return new TrailingBlocks(new AttachmentEdits(adds, removes, copies), overlays, underlays);
+    }
+
+    private static OverlaySpec ParseOverlayBlock(IReadOnlyList<string> argv, ref int cursor, bool underlay)
+    {
+        string role = underlay ? "--underlay" : "--overlay";
+        cursor += 1;
+        string? file = null;
+        string? to = null;
+        string? from = null;
+        string? repeat = null;
+        bool seenFile = false;
+        bool seenTo = false;
+        bool seenFrom = false;
+        bool seenRepeat = false;
+        while (cursor < argv.Count && argv[cursor] != "--")
+        {
+            string token = argv[cursor];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", cursor, null);
+            }
+
+            if (token == "--file" || token.StartsWith("--file=", StringComparison.Ordinal))
+            {
+                if (seenFile)
+                {
+                    throw new QpdfParseException("Duplicate --file is outside the narrow profile.", cursor, null);
+                }
+
+                seenFile = true;
+                file = TakeParameter(argv, argv.Count, ref cursor, "--file");
+                continue;
+            }
+
+            if (token == "--to" || token.StartsWith("--to=", StringComparison.Ordinal))
+            {
+                if (seenTo)
+                {
+                    throw new QpdfParseException("Duplicate --to is outside the narrow profile.", cursor, null);
+                }
+
+                seenTo = true;
+                to = TakeParameter(argv, argv.Count, ref cursor, "--to");
+                OverlayRanges.ValidateSyntax(to, "--to", cursor);
+                continue;
+            }
+
+            if (token == "--from" || token.StartsWith("--from=", StringComparison.Ordinal))
+            {
+                if (seenFrom)
+                {
+                    throw new QpdfParseException("Duplicate --from is outside the narrow profile.", cursor, null);
+                }
+
+                seenFrom = true;
+                from = TakeOverlayFrom(argv, ref cursor);
+                OverlayRanges.ValidateSyntax(from, "--from", cursor);
+                continue;
+            }
+
+            if (token == "--repeat" || token.StartsWith("--repeat=", StringComparison.Ordinal))
+            {
+                if (seenRepeat)
+                {
+                    throw new QpdfParseException("Duplicate --repeat is outside the narrow profile.", cursor, null);
+                }
+
+                seenRepeat = true;
+                repeat = TakeParameter(argv, argv.Count, ref cursor, "--repeat");
+                OverlayRanges.ValidateSyntax(repeat, "--repeat", cursor);
+                continue;
+            }
+
+            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
+            {
+                string name = OptionName(token);
+                if (CryptoOptions.Contains(name))
+                {
+                    throw new QpdfCryptoException("--" + name);
+                }
+
+                throw new QpdfParseException("Unsupported option in " + role + " block.", cursor, null);
+            }
+
+            if (seenFile)
+            {
+                throw new QpdfParseException("Unexpected argument in " + role + " block.", cursor, null);
+            }
+
+            seenFile = true;
+            file = token;
+            cursor += 1;
+        }
+
+        if (cursor >= argv.Count)
+        {
+            throw new QpdfParseException("Missing -- terminator after " + role + " block.", cursor, null);
+        }
+
+        if (file is null)
+        {
+            throw new QpdfParseException("Option " + role + " requires a file.", cursor, null);
+        }
+
+        cursor += 1;
+        return new OverlaySpec(file, to, from, repeat);
+    }
+
+    private static string TakeOverlayFrom(IReadOnlyList<string> argv, ref int cursor)
+    {
+        string token = argv[cursor];
+        int equals = token.IndexOf("=", StringComparison.Ordinal);
+        if (equals >= 0)
+        {
+            cursor += 1;
+            return token.Substring(equals + 1);
+        }
+
+        if (cursor + 1 >= argv.Count)
+        {
+            throw new QpdfParseException("Missing -- terminator after --from block option.", cursor, null);
+        }
+
+        string next = argv[cursor + 1];
+        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+        {
+            cursor += 1;
+            return string.Empty;
+        }
+
+        return TakeParameter(argv, argv.Count, ref cursor, "--from");
     }
 
     private static AttachmentCopy ParseCopyBlock(IReadOnlyList<string> argv, ref int cursor)

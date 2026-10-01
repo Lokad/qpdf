@@ -40,6 +40,8 @@ internal static class HelpText
           --remove-unreferenced-resources=parameter  drop unused page resources
           --externalize-inline-images       lift large inline images to XObjects
           --ii-min-bytes=size-in-bytes      inline-image threshold (default 1024)
+          --overlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
+          --underlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages below
           --list-attachments          list embedded files
           --show-attachment=key         write one attachment to the output file
           --add-attachment file [options] --  embed host files

@@ -59,6 +59,10 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public IReadOnlyList<AttachmentCopy> AttachmentsToCopy { get; init; } = [];
 
+    public IReadOnlyList<OverlaySpec> Overlays { get; init; } = [];
+
+    public IReadOnlyList<OverlaySpec> Underlays { get; init; } = [];
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);
