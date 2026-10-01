@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Json;
@@ -161,6 +162,168 @@ internal static class JsonImport
         }
 
         return new ImportedModel(header, objects, trailer ?? new PdfDictionary(new Dictionary<PdfName, QpdfObject>()));
+    }
+
+    internal static async ValueTask<ImportedModel> BuildUpdateModelAsync(
+        IQpdfHost host,
+        JsonDocument document,
+        QpdfDocument pdf,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (document is null)
+        {
+            throw new ArgumentNullException(nameof(document));
+        }
+
+        if (pdf is null)
+        {
+            throw new ArgumentNullException(nameof(pdf));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        limits.Validate();
+        JsonElement root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new QpdfParseException("qpdf JSON must be a dictionary.", 0L, null);
+        }
+
+        if (!root.TryGetProperty("qpdf", out JsonElement qpdf))
+        {
+            throw new QpdfParseException("qpdf JSON object was not seen.", 0L, null);
+        }
+
+        if (qpdf.ValueKind != JsonValueKind.Array || qpdf.GetArrayLength() != 2)
+        {
+            throw new QpdfParseException("qpdf JSON qpdf must have two elements.", 0L, null);
+        }
+
+        if (qpdf[0].ValueKind != JsonValueKind.Object)
+        {
+            throw new QpdfParseException("qpdf JSON qpdf[0] must be a dictionary.", 0L, null);
+        }
+
+        if (qpdf[1].ValueKind != JsonValueKind.Object)
+        {
+            throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
+        }
+
+        PdfVersion? updateVersion = ReadUpdateMeta(qpdf[0]);
+        DocumentEngine engine = pdf.Engine;
+        Dictionary<int, QpdfObject> merged = new();
+        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (entry.Value.Kind == XrefEntryKind.Free)
+            {
+                continue;
+            }
+
+            governor.ChargeWork(1L);
+            merged[entry.Key] = engine.Load(entry.Key);
+        }
+
+        PdfDictionary trailer = engine.Trailer;
+        foreach (JsonProperty property in qpdf[1].EnumerateObject())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (property.Name == "trailer")
+            {
+                trailer = ReadTrailer(property.Value);
+                continue;
+            }
+
+            int number = ParseObjectKey(property.Name);
+            if (property.Value.ValueKind != JsonValueKind.Object)
+            {
+                throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
+            }
+
+            bool existingIsStream = merged.TryGetValue(number, out QpdfObject? existing) && existing is PdfStream;
+            byte[]? existingData = (existing as PdfStream)?.Data;
+            merged[number] = await ReadObjectAsync(host, property.Value, false, existingIsStream, existingData, limits, governor, cancellationToken).ConfigureAwait(false);
+        }
+
+        return new ImportedModel(updateVersion ?? pdf.HeaderVersion, merged, trailer);
+    }
+
+    private static PdfVersion? ReadUpdateMeta(JsonElement meta)
+    {
+        PdfVersion? version = null;
+        bool sawJsonVersion = false;
+        foreach (JsonProperty property in meta.EnumerateObject())
+        {
+            if (property.Name == "jsonversion")
+            {
+                sawJsonVersion = true;
+                if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int number) || number != 2)
+                {
+                    throw new QpdfParseException("qpdf JSON version must be numeric value 2.", 0L, null);
+                }
+
+                continue;
+            }
+
+            if (property.Name == "pdfversion")
+            {
+                if (property.Value.ValueKind != JsonValueKind.String || property.Value.GetString() is not string text)
+                {
+                    throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
+                }
+
+                version = ParsePdfVersion(text);
+                continue;
+            }
+
+            if (property.Name == "pushedinheritedpageresources")
+            {
+                if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
+                {
+                    throw new QpdfParseException("qpdf JSON pushedinheritedpageresources must be a boolean.", 0L, null);
+                }
+
+                if (property.Value.ValueKind == JsonValueKind.True)
+                {
+                    throw new QpdfParseException("qpdf JSON pushedinheritedpageresources is outside the narrow profile.", 0L, null);
+                }
+
+                continue;
+            }
+
+            if (property.Name == "calledgetallpages")
+            {
+                if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
+                {
+                    throw new QpdfParseException("qpdf JSON calledgetallpages must be a boolean.", 0L, null);
+                }
+
+                continue;
+            }
+        }
+
+        if (!sawJsonVersion)
+        {
+            throw new QpdfParseException("qpdf JSON jsonversion was not seen.", 0L, null);
+        }
+
+        return version;
     }
 
     internal static PdfVersion ReadHeaderVersion(JsonElement meta, bool required)

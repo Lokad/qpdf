@@ -2672,6 +2672,48 @@ public static class Qpdf
     }
 
     /// <summary>
+    /// Updates a PDF document from qpdf JSON with default budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static ValueTask<QpdfJsonImportResult> UpdatePdfFromJsonAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath jsonPath,
+        QpdfPath outputPath,
+        CancellationToken cancellationToken)
+    {
+        return UpdatePdfFromJsonAsync(host, inputPath, jsonPath, outputPath, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Updates a PDF document from qpdf JSON with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static async ValueTask<QpdfJsonImportResult> UpdatePdfFromJsonAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath jsonPath,
+        QpdfPath outputPath,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await ImportUpdateCoreAsync(host, inputPath, jsonPath, outputPath, null, null, false, false, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Embeds host files into a document with default budgets.
     /// </summary>
     public static ValueTask<QpdfAttachmentEditResult> AddAttachmentsAsync(
@@ -3136,6 +3178,44 @@ public static class Qpdf
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+            return new QpdfJsonImportResult(renumbered.PageCount, [.. diagnostics.Entries], governor.Snapshot());
+        }
+    }
+
+    private static async ValueTask<QpdfJsonImportResult> ImportUpdateCoreAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath jsonPath,
+        QpdfPath outputPath,
+        string? minVersion,
+        string? forceVersion,
+        bool staticId,
+        bool newlineBeforeEndstream,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(inputPath.Value, outputPath.Value, StringComparison.Ordinal))
+        {
+            throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
+        }
+
+        if (string.Equals(jsonPath.Value, outputPath.Value, StringComparison.Ordinal))
+        {
+            throw new QpdfParseException("The output file must differ from the JSON file.", 0L, null);
+        }
+
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, cancellationToken).ConfigureAwait(false);
+        using (parsed)
+        {
+            Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, cancellationToken).ConfigureAwait(false);
+            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
+            byte[]? originalId1 = TryGetOriginalId(document.Engine);
+            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion);
+            await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new QpdfJsonImportResult(renumbered.PageCount, [.. diagnostics.Entries], governor.Snapshot());
         }
     }
@@ -3692,6 +3772,36 @@ public static class Qpdf
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
                 return CompleteWithPresentation(imported.Warnings, imported.Counters, plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
+        if (plan is JsonUpdatePlan jsonUpdate)
+        {
+            try
+            {
+                QpdfJsonImportResult updated = await ImportUpdateCoreAsync(
+                    host,
+                    jsonUpdate.Input,
+                    jsonUpdate.JsonPath,
+                    jsonUpdate.Output,
+                    jsonUpdate.MinVersion,
+                    jsonUpdate.ForceVersion,
+                    jsonUpdate.StaticId,
+                    jsonUpdate.NewlineBeforeEndstream,
+                    limits,
+                    jsonUpdate.Recovery,
+                    governor,
+                    diagnostics,
+                    cancellationToken).ConfigureAwait(false);
+                return CompleteWithPresentation(updated.Warnings, updated.Counters, plan);
             }
             catch (QpdfException ex)
             {

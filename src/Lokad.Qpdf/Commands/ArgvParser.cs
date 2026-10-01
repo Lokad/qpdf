@@ -1261,7 +1261,30 @@ internal static class ArgvParser
 
         if (updateAt >= 0)
         {
-            throw new QpdfParseException("Option --update-from-json is outside the narrow profile.", updateAt, null);
+            string pdfInput = ParseInputArea(argv, entryAt, "--update-from-json");
+            int updateCursor = updateAt;
+            string updateFile = TakeParameter(argv, argv.Count, ref updateCursor, "--update-from-json");
+            if (updateCursor >= argv.Count || argv[updateCursor] != "--")
+            {
+                if (updateCursor < argv.Count && argv[updateCursor] is not null && argv[updateCursor] != "--")
+                {
+                    throw new QpdfParseException("Unexpected argument '" + argv[updateCursor] + "' after --update-from-json.", updateCursor, null);
+                }
+
+                throw new QpdfParseException("An output file is required after --.", updateCursor, null);
+            }
+
+            string updateOutput = ParseOutputArea(argv, updateCursor);
+            return new JsonUpdatePlan(SelectionPlan.CheckedPath(pdfInput), SelectionPlan.CheckedPath(updateFile), SelectionPlan.CheckedPath(updateOutput), recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+                MinVersion = globals.MinVersion,
+                ForceVersion = globals.ForceVersion,
+                DeterministicId = globals.DeterministicId,
+                StaticId = globals.StaticId,
+                NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+            };
         }
 
         string input = ParseInputArea(argv, entryAt, "--json-input");

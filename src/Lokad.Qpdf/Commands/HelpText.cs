@@ -46,6 +46,7 @@ internal static class HelpText
           --json-stream-prefix=file-prefix  prefix for JSON stream files
           --json-output[=2|latest]  minimal JSON for serialization
           --json-input  build a PDF from qpdf JSON
+          --update-from-json=file  update a PDF from qpdf JSON
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target

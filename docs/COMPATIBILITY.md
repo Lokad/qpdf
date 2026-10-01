@@ -565,6 +565,20 @@ compatibility. Intentional differences: JSON input requires a declared output
 file; object generations must be 0; stream and metadata writer options cannot
 combine; PDF update from JSON stays explicitly unsupported.
 
+## PDF JSON update (work item 27b)
+
+`--update-from-json` (plus job `updateFromJson` and typed
+`UpdatePdfFromJsonAsync`) merges qpdf JSON into an existing PDF: every
+existing object stays addressable while JSON entries replace or add objects
+by number with the same value grammar as creation. Existing streams keep
+their bytes when neither data nor datafile is given; new streams still
+require exactly one. The trailer is replaced only when the JSON carries one,
+the JSON pdfversion overrides the output version when present, and the input
+document identifier is preserved. A `pushedinheritedpageresources` value of
+true is rejected. Intentional differences mirror creation: generations must
+be 0, stream and metadata writer options cannot combine, and outputs are
+renumbered classic files.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

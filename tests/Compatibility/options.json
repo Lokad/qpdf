@@ -2855,15 +2855,14 @@
       "milestone": "M6",
       "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "PDF update from JSON stays unsupported."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "JsonImportTests.CreateFromMinimalJson",
           "JsonImportTests.CreateRoundTrip",
           "JsonImportTests.CreateReadsDatafiles",
-          "JsonImportTests.CreateAppliesNameAndStringForms"
+          "JsonImportTests.CreateAppliesNameAndStringForms",
+          "JsonImportTests.UpdateChangesValues"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -2872,7 +2871,9 @@
         ],
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
-          "JsonImportTests.TypedCreateRoundTrip"
+          "JsonImportTests.TypedCreateRoundTrip",
+          "JsonImportTests.JobUpdateRoundTrip",
+          "JsonImportTests.TypedUpdateRoundTrip"
         ],
         "resource": [],
         "oracle": []
@@ -5079,15 +5080,30 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
-      "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "status": "partial",
+      "defaultReview": "reviewed",
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "JsonImportTests.UpdateChangesValues",
+          "JsonImportTests.UpdateKeepsStreamData",
+          "JsonImportTests.UpdateReplacesStreamData",
+          "JsonImportTests.UpdateAddsObjects",
+          "JsonImportTests.UpdateWithoutTrailerKeeps",
+          "JsonImportTests.UpdateNoOpIsStable",
+          "JsonImportTests.UpdateHonorsPdfVersion"
+        ],
+        "negative": [
+          "JsonImportTests.UpdateCombinationsFail",
+          "JsonImportTests.UpdateMissingOutputFails",
+          "JsonImportTests.UpdatePushedAttributesFail"
+        ],
+        "interaction": [
+          "JsonImportTests.JobUpdateRoundTrip",
+          "JsonImportTests.JobUpdateMalformedFails",
+          "JsonImportTests.TypedUpdateRoundTrip",
+          "JsonImportTests.TypedUpdateValidation"
+        ],
         "resource": [],
         "oracle": []
       }

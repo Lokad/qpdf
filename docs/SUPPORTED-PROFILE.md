@@ -113,7 +113,13 @@ echoing values.
   payloads, and renumbered classic output with the catalog first. Generations
   other than 0, encrypted trailers, and stream/metadata writer options stay
   explicitly unsupported. The typed `CreatePdfFromJsonAsync` shares the
-  engine. PDF update from JSON follows next.
+  engine. `input.pdf --update-from-json=update.json -- output.pdf` merges a
+  qpdf JSON document into the PDF: objects are replaced or added by number
+  (new streams still require payloads while existing streams keep their data
+  when payloads are omitted), the trailer is replaced when present, and the
+  JSON pdfversion overrides the output version when present. Pushed inherited
+  attributes stay explicitly unsupported. The typed
+  `UpdatePdfFromJsonAsync` shares the engine.
 
 ## Writer profile
 

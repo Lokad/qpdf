@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -119,6 +120,23 @@ public sealed class JsonImportTests
         argv.AddRange(flags);
         argv.AddRange(["--", "outputs/a.pdf"]);
         return await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+    }
+
+    private static async Task<QpdfExecutionResult> UpdateAsync(InMemoryQpdfHost host, params string[] flags)
+    {
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        return await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+    }
+
+    private static string MutateObjects(string json, Action<JsonObject> mutate)
+    {
+        JsonNode? root = JsonNode.Parse(json);
+        Assert.NotNull(root);
+        JsonObject objects = root["qpdf"]![1]!.AsObject();
+        mutate(objects);
+        return root.ToJsonString();
     }
 
     private static QpdfDiagnostic SingleError(QpdfExecutionResult result)
@@ -452,5 +470,287 @@ public sealed class JsonImportTests
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.StartsWith("%PDF-1.7", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpdateChangesValues()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        string changed = MutateObjects(json, objects =>
+        {
+            objects["obj:1 0 R"]!["value"]!.AsObject()["/Custom"] = "u:New";
+        });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--update-from-json=inputs/u.json", "--", "outputs/a.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost reopenHost = new();
+        reopenHost.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
+        string again = await ExportAsync(reopenHost, "--json", "--json-key=qpdf");
+        using JsonDocument document = JsonDocument.Parse(again);
+        JsonElement objects = document.RootElement.GetProperty("qpdf")[1];
+        Assert.True(objects.TryGetProperty("obj:1 0 R", out JsonElement catalog));
+        Assert.Equal("u:New", catalog.GetProperty("value").GetProperty("/Custom").GetString());
+        Assert.True(objects.TryGetProperty("obj:4 0 R", out _));
+    }
+
+    [Fact]
+    public async Task UpdateKeepsStreamData()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json");
+        string changed = MutateObjects(json, objects =>
+        {
+            objects["obj:4 0 R"]!["stream"]!.AsObject()["dict"]!.AsObject()["/Custom"] = "u:X";
+        });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost reopenHost = new();
+        reopenHost.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
+        string again = await ExportAsync(reopenHost, "--json", "--json-stream-data=inline");
+        using JsonDocument document = JsonDocument.Parse(again);
+        JsonElement stream = document.RootElement.GetProperty("qpdf")[1].GetProperty("obj:4 0 R").GetProperty("stream");
+        Assert.Equal(Convert.ToBase64String(PageData), stream.GetProperty("data").GetString());
+        Assert.Equal("u:X", stream.GetProperty("dict").GetProperty("/Custom").GetString());
+    }
+
+    [Fact]
+    public async Task UpdateReplacesStreamData()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json");
+        byte[] replacement = Encoding.ASCII.GetBytes("Replacement bytes.");
+        string changed = MutateObjects(json, objects =>
+        {
+            objects["obj:4 0 R"]!["stream"]!.AsObject()["data"] = Convert.ToBase64String(replacement);
+        });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.Contains("Replacement bytes.", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpdateAddsObjects()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-key=qpdf");
+        string changed = MutateObjects(json, objects =>
+        {
+            JsonObject added = new();
+            JsonObject inner = new();
+            inner["/Marker"] = "u:added";
+            added["value"] = inner;
+            objects["obj:9 0 R"] = added;
+        });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost reopenHost = new();
+        reopenHost.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
+        string again = await ExportAsync(reopenHost, "--json", "--json-key=qpdf");
+        using JsonDocument document = JsonDocument.Parse(again);
+        bool found = false;
+        foreach (JsonProperty property in document.RootElement.GetProperty("qpdf")[1].EnumerateObject())
+        {
+            if (property.Value.ValueKind == JsonValueKind.Object
+                && property.Value.TryGetProperty("value", out JsonElement value)
+                && value.ValueKind == JsonValueKind.Object
+                && value.TryGetProperty("/Marker", out JsonElement marker)
+                && marker.GetString() == "u:added")
+            {
+                found = true;
+            }
+        }
+
+        Assert.True(found);
+    }
+
+    [Fact]
+    public async Task UpdateWithoutTrailerKeeps()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-key=qpdf");
+        string changed = MutateObjects(json, objects =>
+        {
+            objects.Remove("trailer");
+        });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost reopenHost = new();
+        reopenHost.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
+        string again = await ExportAsync(reopenHost, "--json", "--json-key=qpdf");
+        using JsonDocument document = JsonDocument.Parse(again);
+        Assert.True(document.RootElement.GetProperty("qpdf")[1].TryGetProperty("trailer", out _));
+    }
+    [Fact]
+    public async Task UpdateNoOpIsStable()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost reopenHost = new();
+        reopenHost.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
+        string again = await ExportAsync(reopenHost, "--json", "--json-stream-data=inline");
+        AssertJsonEqualIgnoringIds(json, again);
+    }
+
+    [Fact]
+    public async Task UpdateHonorsPdfVersion()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-key=qpdf");
+        string changed = MutateObjects(json, objects =>
+        {
+        });
+        JsonNode? root = JsonNode.Parse(changed);
+        Assert.NotNull(root);
+        root["qpdf"]![0]!.AsObject()["pdfversion"] = "1.7";
+        changed = root.ToJsonString();
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.StartsWith("%PDF-1.7", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--pages", "1")]
+    [InlineData("--check")]
+    [InlineData("--json")]
+    [InlineData("--json-input")]
+    [InlineData("--list-attachments")]
+    [InlineData("--replace-input")]
+    public async Task UpdateCombinationsFail(params string[] flags)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes("{}"), QpdfInputOwnership.Copy);
+        List<string> argv = new() { "inputs/a.pdf", "--update-from-json=inputs/u.json" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Fact]
+    public async Task UpdateMissingOutputFails()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes("{}"), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--update-from-json=inputs/u.json"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Fact]
+    public async Task UpdatePushedAttributesFail()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-key=qpdf");
+        string changed = MutateObjects(json, objects =>
+        {
+        });
+        JsonNode? root = JsonNode.Parse(changed);
+        Assert.NotNull(root);
+        JsonObject metaObject = root["qpdf"]![0]!.AsObject();
+        metaObject["pushedinheritedpageresources"] = true;
+        changed = root.ToJsonString();
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+    [Fact]
+    public async Task JobUpdateRoundTrip()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        string changed = MutateObjects(json, objects =>
+        {
+            objects["obj:1 0 R"]!["value"]!.AsObject()["/Custom"] = "u:New";
+        });
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", PlainFixture());
+        argvHost.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult argv = await UpdateAsync(argvHost, "--update-from-json=inputs/u.json");
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", PlainFixture());
+        jobHost.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Theory]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": 5}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"json\": \"2\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"jsonInput\": true}")]
+    [InlineData("{\"inputFile\": \"inputs/a.json\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"updateFromJson\": \"inputs/u.json\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"addAttachment\": [{\"file\": \"f\"}]}")]
+    public async Task JobUpdateMalformedFails(string jobJson)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes("{}"), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Fact]
+    public async Task TypedUpdateRoundTrip()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        InMemoryQpdfHost typedHost = HostWith("inputs/a.pdf", PlainFixture());
+        typedHost.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Copy);
+        QpdfJsonImportResult result = await Qpdf.UpdatePdfFromJsonAsync(
+            typedHost,
+            QpdfPath.From("inputs/a.pdf"),
+            QpdfPath.From("inputs/u.json"),
+            QpdfPath.From("outputs/a.pdf"),
+            CancellationToken.None);
+        Assert.Equal(1, result.PageCount);
+        Assert.True(typedHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost reopenHost = new();
+        reopenHost.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
+        string again = await ExportAsync(reopenHost, "--json", "--json-stream-data=inline");
+        AssertJsonEqualIgnoringIds(json, again);
+    }
+
+    [Fact]
+    public async Task TypedUpdateValidation()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.UpdatePdfFromJsonAsync(
+            null!, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("inputs/u.json"), QpdfPath.From("outputs/a.pdf"), CancellationToken.None).AsTask());
+        await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.UpdatePdfFromJsonAsync(
+            host, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("inputs/u.json"), QpdfPath.From("outputs/a.pdf"), null!, CancellationToken.None).AsTask());
     }
 }

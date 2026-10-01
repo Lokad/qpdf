@@ -2,6 +2,10 @@
 
 ## Current checkpoint
 
+Work item 27b: PDF update from JSON. Merged object identity with kept stream bytes, optional trailer replacement, and pdfversion override across argv, job, and typed paths.
+
+Prior gate
+
 Work item 27a: JSON import from qpdf JSON. Strict structural validation with canonical value decoding, inline and sidecar payloads, and renumbered classic publication across argv, job, and typed paths.
 
 Prior gate
@@ -60,10 +64,10 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 695 tests (649
-  prior plus 46 JSON import cases: minimal documents, export/import round
-  trips, sidecar payloads, name and string forms, version overrides, a
-  validation battery, combination rejections, job and typed paths).
+- Locked restore, Release build with zero warnings, and all 720 tests (695
+  prior plus 25 JSON update cases: value/stream/object/trailer merges, kept
+  payloads, version override, no-op stability, pushed-attribute rejection,
+  combination rejections, job and typed round trips).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -75,7 +79,7 @@ binary.
 
 ## Next work
 
-1. Work item 27b: PDF update from JSON with merged object identity (M6).
+1. Work item 28: content tokenizer and inline-image boundary tests (M7).
 2. Bootstrap a real qpdf 12.4.2 executable and record its checksum/features;
    run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

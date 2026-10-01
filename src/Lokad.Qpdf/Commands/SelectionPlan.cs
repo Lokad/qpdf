@@ -142,6 +142,9 @@ internal sealed record JsonInspection(
 /// <summary>Validated JSON import: a qpdf JSON file converted to PDF.</summary>
 internal sealed record JsonInputPlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
+/// <summary>Validated PDF update from qpdf JSON.</summary>
+internal sealed record JsonUpdatePlan(QpdfPath Input, QpdfPath JsonPath, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
+
 /// <summary>One multi-source group: a raw file token plus its range text.</summary>
 internal sealed record PageGroup(string File, string Range);
 
