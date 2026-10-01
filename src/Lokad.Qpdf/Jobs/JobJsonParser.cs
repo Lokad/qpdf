@@ -120,6 +120,8 @@ internal static class JobJsonParser
             bool seenFlattenRotation = false;
             string? flattenAnnotations = null;
             bool seenFlattenAnnotations = false;
+            bool generateAppearances = false;
+            bool seenGenerateAppearances = false;
             string? jsonVersion = null;
             bool seenJson = false;
             List<string> jsonKeys = new();
@@ -420,6 +422,15 @@ internal static class JobJsonParser
                             throw new QpdfParseException("Job flattenAnnotations must be one of: all, print, screen.", 0L, null);
                         }
 
+                        break;
+                    case "generateAppearances":
+                        if (seenGenerateAppearances)
+                        {
+                            throw new QpdfParseException("Duplicate job key generateAppearances.", 0L, null);
+                        }
+
+                        seenGenerateAppearances = true;
+                        generateAppearances = RequireBareFlag(property.Value, "generateAppearances");
                         break;
                     case "listAttachments":
                         if (seenListAttachments)
@@ -763,9 +774,10 @@ internal static class JobJsonParser
             bool wantContent = coalesceContents || normalizeContent || removeUnreferencedResources is not null || externalizeInlineImages || seenIiMinBytes;
             bool wantOverlays = overlays.Count > 0 || underlays.Count > 0;
             bool wantFlatten = flattenRotation || flattenAnnotations is not null;
+            bool wantGenerate = generateAppearances;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten)
+                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -808,6 +820,7 @@ internal static class JobJsonParser
                     Underlays = underlays,
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
+                    GenerateAppearances = generateAppearances,
                 };
             }
 
@@ -851,6 +864,7 @@ internal static class JobJsonParser
                     Underlays = underlays,
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
+                    GenerateAppearances = generateAppearances,
                 };
             }
 
@@ -891,6 +905,7 @@ internal static class JobJsonParser
                     Underlays = underlays,
                     FlattenRotation = flattenRotation,
                     FlattenAnnotations = flattenAnnotations,
+                    GenerateAppearances = generateAppearances,
             };
         }
     }

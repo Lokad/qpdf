@@ -615,6 +615,10 @@ Repeatable --overlay and --underlay blocks (--file or positional file, --to, --f
 
 --flatten-annotations with ll, print, or screen (plus job key) mirrors upstream stamping: appearance streams become /Fxo form XObjects placed by annotation-derived matrices with flag filtering and page-rotation counter-rotation, and flattened annotations leave /Annots. Widgets defer to generated appearances when the document needs them, and appearance-less annotations drop only when they carry an appearance dictionary. Intentional differences: field default resources are not merged into appearances, and indirect damage keeps originals with a warning instead of failing.
 
+## Appearance generation (work item 31c)
+
+--generate-appearances (plus job key generateAppearances) mirrors upstream generation order (generate, then flatten-annotations, then flatten-rotation): when the catalog needs appearances it regenerates text/list appearance streams from field values and default appearance (ASCII fallback, WinAnsi/MacRoman encodings, BMC/EMC value rewrite, list highlight) and synchronizes checkbox/radio /V and /AS state, then clears the condition so a later --flatten-annotations stamps fresh appearances. Appearances are rewritten raw (no /Filter). Intentional differences: parent-held field nodes never reach output pools so field context resolves by subtree search and parent-held radios degrade to skip; field default resources are not merged; signature fields are skipped and pushbuttons warn; damaged appearance streams warn and keep the field.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

@@ -2591,15 +2591,32 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Parent-held field nodes stay out of reach (subtree search only); parent-held radios degrade to skip.",
+        "Field default resources are not merged into appearances.",
+        "Quadding is ignored in text layout."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
+          "GenerateAppearancesTests.MissingAppearanceIsCreated",
+          "GenerateAppearancesTests.CheckboxSynchronizesState",
+          "GenerateAppearancesTests.WinAnsiEncodingKeepsAccents",
+          "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
+          "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance"
+        ],
+        "negative": [
+          "GenerateAppearancesTests.SignatureFieldIsSkipped",
+          "GenerateAppearancesTests.PushbuttonWarnsAndKeeps",
+          "GenerateAppearancesTests.MalformedGenerateFlagsFail"
+        ],
+        "interaction": [
+          "GenerateAppearancesTests.JobRoundTripMatchesArgv",
+          "GenerateAppearancesTests.WholeFileJobGenerates",
+          "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages"
+        ],
         "resource": [],
         "oracle": []
       }

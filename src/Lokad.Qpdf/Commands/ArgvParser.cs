@@ -82,6 +82,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --json cannot be combined with --flatten-annotations.", jsonEntryAt, null);
             }
 
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --generate-appearances.", jsonEntryAt, null);
+            }
+
             if (jsonImportAt >= 0)
             {
                 throw new QpdfParseException("Option --json cannot be combined with JSON import.", jsonEntryAt, null);
@@ -127,6 +132,11 @@ internal static class ArgvParser
                 throw new QpdfParseException("JSON import cannot be combined with --flatten-annotations.", jsonImportAt, null);
             }
 
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --generate-appearances.", jsonImportAt, null);
+            }
             if (jsonEntryAt >= 0)
             {
                 throw new QpdfParseException("JSON import cannot be combined with JSON inspection.", jsonImportAt, null);
@@ -174,6 +184,12 @@ internal static class ArgvParser
                 throw new QpdfParseException("Attachment inspection cannot be combined with --flatten-annotations.", showAt >= 0 ? showAt : listAt, null);
             }
 
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --generate-appearances.", showAt >= 0 ? showAt : listAt, null);
+            }
+
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", firstAttachmentAt, null);
@@ -197,6 +213,10 @@ internal static class ArgvParser
         if (checkAt >= 0 && globals.FlattenAnnotations is not null)
         {
             throw new QpdfParseException("Options --check and --flatten-annotations cannot be combined.", checkAt, null);
+        }
+        if (checkAt >= 0 && globals.GenerateAppearances)
+        {
+            throw new QpdfParseException("Options --check and --generate-appearances cannot be combined.", checkAt, null);
         }
 
         if (checkAt >= 0)
@@ -374,6 +394,7 @@ internal static class ArgvParser
                 IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
             FlattenAnnotations = globals.FlattenAnnotations,
+            GenerateAppearances = globals.GenerateAppearances,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
                 AttachmentsToCopy = edits.Copies,
@@ -414,6 +435,7 @@ internal static class ArgvParser
             IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
             FlattenAnnotations = globals.FlattenAnnotations,
+            GenerateAppearances = globals.GenerateAppearances,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
             AttachmentsToCopy = edits.Copies,
@@ -587,7 +609,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -641,6 +663,8 @@ internal static class ArgvParser
         bool flattenRotation = false;
         bool seenFlattenAnnotations = false;
         string? flattenAnnotations = null;
+        bool seenGenerateAppearances = false;
+        bool generateAppearances = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -995,6 +1019,23 @@ internal static class ArgvParser
                 flattenAnnotations = ParseStreamChoice(argv, ref i, "--flatten-annotations", new string[] { "all", "print", "screen" });
                 continue;
             }
+
+            if (argv[i] == "--generate-appearances")
+            {
+                if (seenGenerateAppearances)
+                {
+                    throw new QpdfParseException("Duplicate --generate-appearances is outside the narrow profile.", i, null);
+                }
+
+                seenGenerateAppearances = true;
+                generateAppearances = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--generate-appearances=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --generate-appearances takes no value.", i, null);
+            }
             if (argv[i] == "--object-streams" || argv[i].StartsWith("--object-streams=", StringComparison.Ordinal))
             {
                 if (seenObjectStreams)
@@ -1011,7 +1052,7 @@ internal static class ArgvParser
         }
 
         argv = kept;
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, normalizeContent, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2285,6 +2326,7 @@ internal static class ArgvParser
             IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
             FlattenAnnotations = globals.FlattenAnnotations,
+            GenerateAppearances = globals.GenerateAppearances,
         };
     }
 
@@ -2334,6 +2376,7 @@ internal static class ArgvParser
             IiMinBytes = globals.IiMinBytes,
             FlattenRotation = globals.FlattenRotation,
             FlattenAnnotations = globals.FlattenAnnotations,
+            GenerateAppearances = globals.GenerateAppearances,
         };
     }
 

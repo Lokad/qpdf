@@ -67,6 +67,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public string? FlattenAnnotations { get; init; }
 
+    public bool GenerateAppearances { get; init; }
+
     internal CompressionRequest Compression()
     {
         return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);
