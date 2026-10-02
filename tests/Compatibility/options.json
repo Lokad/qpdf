@@ -3330,7 +3330,8 @@
         ],
         "resource": [],
         "oracle": [
-          "diff:linearize"
+          "diff:linearize",
+          "diff:linearize-streams"
         ]
       }
     },
@@ -3658,7 +3659,8 @@
         ],
         "resource": [],
         "oracle": [
-          "diff:qdf-markers"
+          "diff:qdf-markers",
+          "diff:linearize-streams"
         ]
       }
     },

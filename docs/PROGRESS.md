@@ -120,7 +120,7 @@ Verified locally on Windows with SDK 10.0.401:
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
 - Pinned oracle bootstrapped: official qpdf-12.4.2-msvc64.zip (zip SHA-256 db87077e…, exe SHA-256 1bdaf878…), `qpdf version 12.4.2`, libjpeg linked, Zopfli absent. Reference lane passes; differential lane (select with first-page coverage, merge, uncompress, normalize, coalesce, flatten-rotation,
-  prune with an unreferenced-font fixture, structural JSON page descriptors, error exit-class parity, forms, overlay, qdf with fix-qdf round trip, fixqdf byte-identity, zlibflate round trips, linearized check parity, linearize writer parity, check-linearization inspection parity, show-linearization dump parity, linearize-pass1 shape parity, linearize-outlines parity, linearize-thumbs parity) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
+  prune with an unreferenced-font fixture, structural JSON page descriptors, error exit-class parity, forms, overlay, qdf with fix-qdf round trip, fixqdf byte-identity, zlibflate round trips, linearized check parity, linearize writer parity, linearize-streams parity (generated object streams on one-, two-page, and outlined selections), check-linearization inspection parity, show-linearization dump parity, linearize-pass1 shape parity, linearize-outlines parity, linearize-thumbs parity) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
 
 Ordinary `dotnet test` stays offline and never needs `external/` or a qpdf
 binary.
@@ -131,7 +131,9 @@ binary.
    thumbnails committed (argv/job inspection plus full hint-table dump matching the oracle line for line, with
    a shared file-numbering classifier); streamed fixtures plus check/show coverage plus container-aware part
    classification, streamed emission (raw xref streams, object-stream containers, replay-checked two-pass),
-   and object-stream mode plumbing committed; remaining: differential evidence (M10). (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
+   and object-stream mode plumbing committed, with the linearize-streams differential green on
+   one-, two-page, and outlined selections (both outputs validating under both checkers);
+   work item 40 is complete pending the M11 audit (M10). (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
 2. Extend differential coverage (rotation flattening with /Rotate fixtures, error-path parity,
    coalesce/prune content operations, structural JSON, first-page selection) � done and green;
    remaining validation work rides the M11 completion audit.

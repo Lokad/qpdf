@@ -683,5 +683,34 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   if ((Get-PigNpages "$case/lib-$name.pdf") -ne $sub[3] -or (Get-PigNpages "$case/ora-$name.pdf") -ne $sub[3]) { Write-Output "[linearize/$name] FAIL: independent page counts"; $script:failures++ }
   else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
 }
+
+# --- case: linearize-streams (managed vs oracle writer with object streams) ---
+$case = New-Case 'linearize-streams'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
+foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", "inputs/b.pdf", @(".", "1"), 1), @("outlines", "inputs/o.pdf", @(".", "1", ".", "2"), 2))) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', $sub[1], '--pages') + $sub[2] + @('--linearize', '--object-streams=generate', '--', "outputs/$name.pdf"))
+  if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: managed emit exit $code"; $script:failures++; continue }
+  $code = Invoke-Oracle $case @('--linearize', '--static-id', '--object-streams=generate', $sub[1], '--', "$case/ora-$name.pdf")
+  if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: oracle linearize exit $code"; $script:failures++; continue }
+  $rawText = [IO.File]::ReadAllText("$case/lib-$name.pdf")
+  if (-not $rawText.Contains('/Type /ObjStm') -or -not $rawText.Contains('/Type /XRef')) { Write-Output "[linearize-streams/$name] FAIL: managed output lacks object/xref streams"; $script:failures++; continue }
+  Copy-Item "$case/lib-$name.pdf" "$case/inputs/check-$name.pdf"
+  $code = Invoke-ManagedCheck $case "inputs/check-$name.pdf" "linstreams-$name"
+  $ora = Invoke-OracleCheck "$case/lib-$name.pdf"
+  if ($code -ne 0 -or $ora -ne 0) { Write-Output "[linearize-streams/$name] FAIL: managed output check exits managed=$code oracle=$ora, expected 0/0"; $script:failures++; continue }
+  $ora = Invoke-OracleCheck "$case/ora-$name.pdf"
+  if ($ora -ne 0) { Write-Output "[linearize-streams/$name] FAIL: oracle output check exit $ora"; $script:failures++; continue }
+  Copy-Item "$case/ora-$name.pdf" "$case/inputs/oracheck-$name.pdf"
+  $code = Invoke-ManagedCheck $case "inputs/oracheck-$name.pdf" "linstreams-ora-$name"
+  if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: oracle output managed-check exit $code"; $script:failures++; continue }
+  $mcode = Invoke-ManagedShow $case "inputs/check-$name.pdf" "linstreams-show-$name"
+  $ocode = Invoke-OracleShow "$case/lib-$name.pdf"
+  if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-streams/$name] FAIL: show exits managed=$mcode oracle=$ocode"; $script:failures++; continue }
+  if ((Get-PigNpages "$case/lib-$name.pdf") -ne $sub[3] -or (Get-PigNpages "$case/ora-$name.pdf") -ne $sub[3]) { Write-Output "[linearize-streams/$name] FAIL: independent page counts"; $script:failures++ }
+  else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
+}
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
