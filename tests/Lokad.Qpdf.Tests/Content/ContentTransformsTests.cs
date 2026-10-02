@@ -251,6 +251,16 @@ public sealed class ContentTransformsTests
     }
 
     [Fact]
+    public async Task CheckedInUnreferencedFixturePrunes()
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--remove-unreferenced-resources=yes");
+        HashSet<string> keys = await ResourceKeysAsync(pdf);
+        Assert.Contains("Font:/F1", keys);
+        Assert.DoesNotContain("Font:/F2", keys);
+    }
+
+    [Fact]
     public async Task PruneNoKeepsEverything()
     {
         byte[] fixture = ResourceFixture("/F1 12 Tf (x) Tj");

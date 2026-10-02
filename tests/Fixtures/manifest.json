@@ -36,6 +36,15 @@
       "description": "One page with /Rotate 90, classic xref, unencrypted. Rotation flattening must drop /Rotate, swap the media box, and wrap content with the 90-degree counter-transform; the rotation differential consumes it."
     },
     {
+      "file": "unref-1page.pdf",
+      "sha256": "4a1846ccb27cd55d7b5443feecce830e5a0d958cc8f804f55fbb8562b2210e53",
+      "bytes": 686,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with an unreferenced /F2 Helvetica-Bold font alongside the used /F1, classic xref, unencrypted. Resource pruning under page operations must drop /F2 while whole-file output keeps it; the prune differential consumes it."
+    },
+    {
       "file": "forms-1page.pdf",
       "sha256": "49efd5043b16147158647f24c1408cdf06ec390734c45e4df3184fa0873da324",
       "bytes": 1012,
