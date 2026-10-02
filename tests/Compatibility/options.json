@@ -2014,7 +2014,9 @@
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:coalesce-payloads"
+        ]
       }
     },
     {
@@ -2561,7 +2563,9 @@
         "negative": ["FlattenRotationTests.MalformedFlattenFlagsFail"],
         "interaction": ["FlattenRotationTests.JobRoundTripMatchesArgv"],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:flatten-rotation"
+        ]
       }
     },
     {
@@ -2896,7 +2900,8 @@
         ],
         "resource": [],
         "oracle": [
-          "diff:json-pages"
+          "diff:json-pages",
+          "diff:json-structure"
         ]
       }
     },
@@ -3001,7 +3006,8 @@
         ],
         "resource": [],
         "oracle": [
-          "diff:json-pages"
+          "diff:json-pages",
+          "diff:json-structure"
         ]
       }
     },
@@ -3880,7 +3886,9 @@
         "resource": [],
         "oracle": [
           "diff:select",
-          "diff:merge"
+          "diff:merge",
+          "diff:select-first",
+          "diff:errors"
         ]
       }
     },
@@ -4536,7 +4544,9 @@
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:prune-resources"
+        ]
       }
     },
     {

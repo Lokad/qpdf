@@ -83,13 +83,27 @@ function Get-StreamPayloads {
   while (($pos = $text.IndexOf("endstream", $pos)) -ge 0) {
     $spos = $text.LastIndexOf("stream", $pos - 1)
     $ds = $spos + 6
-    while ($ds -lt $bytes.Length -and ($bytes[$ds] -eq 13 -or $bytes[$ds] -eq 10)) { $ds++ }
+    if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 13) { $ds++; if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ } }
+    elseif ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ }
     $de = $pos
     while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
     if ($de -le $ds) { $pos += 9; continue }
     $dpos = $text.LastIndexOf("<<", $spos)
     $dict = $text.Substring($dpos, $spos - $dpos)
-    $raw = $bytes[$ds..($de - 1)]
+    $raw = $null
+    $lm = [regex]::Match($dict, '/Length\s+(\d+)')
+    $indirect = [regex]::IsMatch($dict, '/Length\s+\d+\s+\d+\s+R')
+    if ($lm.Success -and (-not $indirect)) {
+      $len = [int]$lm.Groups[1].Value
+      if ($len -gt 0 -and ($ds + $len) -le $bytes.Length) { $raw = $bytes[$ds..($ds + $len - 1)] }
+      elseif ($len -eq 0) { $raw = @() }
+    }
+    if ($null -eq $raw) {
+      $de = $pos
+      while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
+      if ($de -le $ds) { $pos += 9; continue }
+      $raw = $bytes[$ds..($de - 1)]
+    }
     if ($dict.Contains("/FlateDecode")) {
       $ms = [IO.MemoryStream]::new($raw)
       $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
@@ -112,7 +126,8 @@ function Get-DecodedText {
   while (($pos = $text.IndexOf("endstream", $pos)) -ge 0) {
     $spos = $text.LastIndexOf("stream", $pos - 1)
     $ds = $spos + 6
-    while ($ds -lt $bytes.Length -and ($bytes[$ds] -eq 13 -or $bytes[$ds] -eq 10)) { $ds++ }
+    if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 13) { $ds++; if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ } }
+    elseif ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ }
     $de = $pos
     while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
     if ($de -le $ds) { $pos += 9; continue }
@@ -139,7 +154,7 @@ function New-Case {
   return $d
 }
 
-# --- case: select ---
+# --- case: select (last and first pages) ---
 $case = New-Case 'select'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '2', '--', 'outputs/a.pdf')
@@ -147,6 +162,11 @@ if ($code -ne 0) { throw "select: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "select: oracle failed ($code)" }
 Assert-Trio 'select' "$case/lib.pdf" "$case/ora.pdf" 1
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/first.pdf=$case/lib-first.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--', 'outputs/first.pdf')
+if ($code -ne 0) { throw "select-first: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-first.pdf")
+if ($code -ne 0) { throw "select-first: oracle failed ($code)" }
+Assert-Trio 'select-first' "$case/lib-first.pdf" "$case/ora-first.pdf" 1
 
 # --- case: merge ---
 $case = New-Case 'merge'
@@ -180,7 +200,51 @@ if ($code -ne 0) { throw "normalize: oracle failed ($code)" }
 Assert-Trio 'normalize' "$case/lib.pdf" "$case/ora.pdf" 2
 if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[normalize] FAIL: normalized content payloads differ"; $script:failures++ } else { Write-Output "[normalize] payloads match" }
 
-# --- case: json (page-count agreement) ---
+# --- case: coalesce (decoded-content comparison) ---
+$case = New-Case 'coalesce'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--coalesce-contents', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "coalesce: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--coalesce-contents', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "coalesce: oracle failed ($code)" }
+Assert-Trio 'coalesce' "$case/lib.pdf" "$case/ora.pdf" 2
+if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[coalesce] FAIL: coalesced content payloads differ"; $script:failures++ } else { Write-Output "[coalesce] payloads match" }
+
+# --- case: flatten-rotation (baked boxes and counter-transform) ---
+$case = New-Case 'flatten-rotation'
+Copy-Item "$fixtureDir/rotated-1page.pdf" "$case/inputs/r.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/r.pdf', '--pages', '.', '1', '--flatten-rotation', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "flatten-rotation: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--flatten-rotation', 'inputs/r.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "flatten-rotation: oracle failed ($code)" }
+Assert-Trio 'flatten-rotation' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/Rotate')) { Write-Output "[flatten-rotation] FAIL: /Rotate remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('792 612')) { Write-Output "[flatten-rotation] FAIL: swapped MediaBox missing from $($pair[0]) output"; $script:failures++ }
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains('0 -1 1 0 0 612 cm')) { Write-Output "[flatten-rotation] FAIL: counter-transform missing from decoded $($pair[0]) output"; $script:failures++ }
+}
+if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[flatten-rotation] FAIL: flattened content payloads differ"; $script:failures++ } else { Write-Output "[flatten-rotation] payloads match" }
+Write-Output "[flatten-rotation] box and matrix assertions done"
+
+# --- case: prune (page-operation resource pruning) ---
+$case = New-Case 'prune'
+Copy-Item "$fixtureDir/unref-1page.pdf" "$case/inputs/u.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/u.pdf', '--pages', '.', '1', '--remove-unreferenced-resources=yes', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "prune: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--remove-unreferenced-resources=yes', 'inputs/u.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "prune: oracle failed ($code)" }
+Assert-Trio 'prune' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/F2')) { Write-Output "[prune] FAIL: unreferenced /F2 remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/F1')) { Write-Output "[prune] FAIL: referenced /F1 missing from $($pair[0]) output"; $script:failures++ }
+}
+if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[prune] FAIL: pruned content payloads differ"; $script:failures++ } else { Write-Output "[prune] payloads match" }
+Write-Output "[prune] resource assertions done"
+
+# --- case: json (structural page-descriptor agreement) ---
 $case = New-Case 'json'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.json=$case/lib.json", '--', 'inputs/a.pdf', '--json', '--json-key=pages', '--', 'outputs/a.json')
@@ -188,9 +252,20 @@ if ($code -ne 0) { throw "json: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--json', '--json-key=pages', 'inputs/a.pdf')
 if ($code -ne 0) { throw "json: oracle failed ($code)" }
 Copy-Item "$case/ora-stdout.txt" "$case/ora.json" -Force
-$libPages = (Get-Content "$case/lib.json" -Raw | ConvertFrom-Json).pages.Count
-$oraPages = (Get-Content "$case/ora.json" -Raw | ConvertFrom-Json).pages.Count
-if ($libPages -ne 2 -or $oraPages -ne 2) { Write-Output "[json] FAIL: pages lib=$libPages ora=$oraPages"; $script:failures++ } else { Write-Output "[json] pages agree (2)" }
+$libJson = Get-Content "$case/lib.json" -Raw | ConvertFrom-Json
+$oraJson = Get-Content "$case/ora.json" -Raw | ConvertFrom-Json
+if ($libJson.pages.Count -ne 2 -or $oraJson.pages.Count -ne 2) { Write-Output "[json] FAIL: page count lib=$($libJson.pages.Count) ora=$($oraJson.pages.Count)"; $script:failures++ }
+elseif ($libJson.version -ne $oraJson.version) { Write-Output "[json] FAIL: version lib=$($libJson.version) ora=$($oraJson.version)"; $script:failures++ }
+else {
+  $mismatch = $false
+  for ($i = 0; $i -lt 2; $i++) {
+    if ($libJson.pages[$i].object -ne $oraJson.pages[$i].object) { $mismatch = $true }
+    if (($libJson.pages[$i].contents -join ',') -ne ($oraJson.pages[$i].contents -join ',')) { $mismatch = $true }
+    if ($libJson.pages[$i].pageposfrom1 -ne $oraJson.pages[$i].pageposfrom1) { $mismatch = $true }
+    if ("$($libJson.pages[$i].label)" -ne "$($oraJson.pages[$i].label)") { $mismatch = $true }
+  }
+  if ($mismatch) { Write-Output "[json] FAIL: page descriptors differ structurally"; $script:failures++ } else { Write-Output "[json] page descriptors agree structurally (2 pages)" }
+}
 
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
@@ -349,6 +424,22 @@ else { Write-Output "[zlibflate] oracle truncated warns (exit 3) as documented" 
 $code = Invoke-ManagedFlate "inputs/trunc.bin" "outputs/trunc.bin" "m-trunc.bin" 'uncompress' ""
 if ($code -ne 2) { Write-Output "[zlibflate] FAIL: managed truncated exit $code, expected 2"; $script:failures++ }
 else { Write-Output "[zlibflate] truncated input fails strictly as documented" }
+
+# --- case: errors (managed vs oracle exit-class parity) ---
+$case = New-Case 'errors'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+foreach ($sub in @(
+  @('page-range', @('emit', '--workdir', $case, '--out', "outputs/x.pdf=$case/lib-x.pdf", '--', 'inputs/a.pdf', '--pages', '.', '9', '--', 'outputs/x.pdf'), @('inputs/a.pdf', '--pages', '.', '9', '--', "$case/ora-x.pdf")),
+  @('missing-input', @('emit', '--workdir', $case, '--out', "outputs/y.pdf=$case/lib-y.pdf", '--', 'inputs/missing.pdf', '--pages', '.', '1', '--', 'outputs/y.pdf'), @('inputs/missing.pdf', '--pages', '.', '1', '--', "$case/ora-y.pdf")),
+  @('unknown-flag', @('emit', '--workdir', $case, '--out', "outputs/z.pdf=$case/lib-z.pdf", '--', 'inputs/b.pdf', '--pages', '.', '1', '--bogus-flag', '--', 'outputs/z.pdf'), @('--bogus-flag', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-z.pdf"))
+)) {
+  $m = Invoke-Emit $case $sub[1]
+  $o = Invoke-Oracle $case $sub[2]
+  if ($m -ne $o) { Write-Output "[errors/$($sub[0])] FAIL: exit mismatch managed=$m oracle=$o"; $script:failures++ }
+  elseif ($m -eq 0) { Write-Output "[errors/$($sub[0])] FAIL: expected nonzero exits, got 0/0"; $script:failures++ }
+  else { Write-Output "[errors/$($sub[0])] exit parity ($m/$o)" }
+}
 
 # --- case: linearized (managed --check vs oracle --check) ---
 $case = New-Case 'linearized'
@@ -593,4 +684,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-pass1, linearize-outlines and linearize-thumbs."

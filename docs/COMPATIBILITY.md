@@ -61,9 +61,14 @@ to run the reference and differential lanes.
 compares managed and oracle outputs operation by operation under ignored
 `external/diff/`: oracle `--check` must pass on both outputs, oracle and
 independent page counts must agree, plus per-case assertions. Current
-coverage, all passing with no engine discrepancies: select, merge,
+coverage, all passing with no engine discrepancies: select (first- and last-page trios), merge,
 uncompress (decoded stream payloads identical), normalize (normalized
-content payloads identical), JSON page-count agreement, forms (generated
+content payloads identical), coalesce (decoded payloads identical), flatten-rotation
+(swapped MediaBox, dropped /Rotate, byte-identical wrap streams), prune (unreferenced
+/F2 dropped under page operations with decoded payloads identical), JSON structural
+page-descriptor agreement (version, object and contents references, positions),
+error exit-class parity (out-of-range page, missing input, and unknown flag all exit 2
+on both sides), forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
 placement), overlay, qdf (editable view with generated object streams: trio plus QDF/ObjStm/XRef/member markers on both outputs and an upstream fix-qdf round trip), fixqdf (managed repair versus oracle fix-qdf byte-identical on edited classic and streamed files, trios green), linearized (oracle-linearized files plus page-count and hint-length mutations on both sides), linearize (managed writer versus oracle writer on one- and two-page outputs, both validating under oracle and managed checks with independent page-count agreement), check-linearization (managed versus oracle inspection exits and messages on valid, plain, and hint-damaged files), show-linearization (managed versus oracle dumps compared line for line), linearize-pass1 (zeroed-entry shape and shorter-than-final on both sides), linearize-outlines (managed and oracle outputs validate with matching show dumps on both files), and linearize-thumbs (thumbnail part-9 placement with matching show dumps). Confirmed intentional differences: our default
 output stays uncompressed where upstream compresses, and our `--overlay`
@@ -322,7 +327,7 @@ nested `@` tokens never re-expand. `--job-json-file` reads the identical job
 schema through the host with plan parity. `--warning-exit-0` maps warnings to
 exit 0, `--no-warn` drops warning diagnostics, and both ride the shared plan.
 `--help` and `--version` return identity text as info diagnostics with exit 0;
-`--copyright`, completion, and all other operations stay explicitly unsupported.
+`--copyright`, completion, and all other operations stay explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
 
 ## Bounded repair (work item 17)
 
@@ -552,7 +557,7 @@ constant unencrypted report for the encrypt key. Intentional differences:
 JSON requires a declared output file (no stdout contract); pages report no
 images yet; named outline destinations do not resolve; `acroform`,
 `--json-object`, `--json-stream-data`, `--json-stream-prefix`,
-`--json-output`, `--json-help`, and JSON input stay explicitly unsupported.
+`--json-output`, `--json-help`, and JSON input stay explicitly unsupported. The differential lane compares the pages key structurally against the oracle (version, object and contents references, page positions).
 
 ## PDF JSON stream modes and serialization output (work item 26b)
 
@@ -614,7 +619,10 @@ rewrites newlines and recodes strings/names with warnings on damage, and
 pruning drops unused font and XObject entries with form recursion and
 unresolved-name guards. Intentional differences: content flags combine only
 with page operations and whole-file output, never with inspection; damaged
-content keeps original bytes where upstream writes partial output.
+content keeps original bytes where upstream writes partial output. The differential lane compares
+coalesced bytes exactly and prunes an unreferenced /F2 under page operations with byte-identical
+decoded payloads; pruning engages under page operations (including --split-pages) while whole-file
+output without page selection keeps resources, matching the upstream page-spec gating.
 
 ## Inline image externalization (work item 30a)
 
@@ -626,7 +634,7 @@ Repeatable --overlay and --underlay blocks (--file or positional file, --to, --f
 
 ## Rotation flattening and page-content checks (work item 31a)
 
---flatten-rotation (plus job key) mirrors upstream page baking: boxes rotate about the media box per 90/180/270 degrees, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Pages without actionable rotation stay byte-identical. The page-content check now tokenizes page content streams (honoring the check decode level) instead of reporting skipped. Intentional differences: annotation appearance streams are untouched, damaged pages warn and stay as is, and form-field restructuring is left to later appearance work.
+--flatten-rotation (plus job key) mirrors upstream page baking: boxes rotate about the media box per 90/180/270 degrees, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page. Pages without actionable rotation stay byte-identical. The page-content check now tokenizes page content streams (honoring the check decode level) instead of reporting skipped. Intentional differences: annotation appearance streams are untouched, damaged pages warn and stay as is, and form-field restructuring is left to later appearance work. The differential lane flattens a checked-in /Rotate 90 page on both sides with trio validation, a swapped MediaBox, a dropped /Rotate, and byte-identical decoded wrap streams.
 
 ## Annotation flattening (work item 31b)
 

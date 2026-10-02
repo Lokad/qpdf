@@ -115,7 +115,8 @@ Verified locally on Windows with SDK 10.0.401:
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
-- Pinned oracle bootstrapped: official qpdf-12.4.2-msvc64.zip (zip SHA-256 db87077e…, exe SHA-256 1bdaf878…), `qpdf version 12.4.2`, libjpeg linked, Zopfli absent. Reference lane passes; differential lane (select, merge, uncompress, normalize, json, forms, overlay, qdf with fix-qdf round trip, fixqdf byte-identity, zlibflate round trips, linearized check parity, linearize writer parity, check-linearization inspection parity, show-linearization dump parity, linearize-pass1 shape parity, linearize-outlines parity, linearize-thumbs parity) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
+- Pinned oracle bootstrapped: official qpdf-12.4.2-msvc64.zip (zip SHA-256 db87077e…, exe SHA-256 1bdaf878…), `qpdf version 12.4.2`, libjpeg linked, Zopfli absent. Reference lane passes; differential lane (select with first-page coverage, merge, uncompress, normalize, coalesce, flatten-rotation,
+  prune with an unreferenced-font fixture, structural JSON page descriptors, error exit-class parity, forms, overlay, qdf with fix-qdf round trip, fixqdf byte-identity, zlibflate round trips, linearized check parity, linearize writer parity, check-linearization inspection parity, show-linearization dump parity, linearize-pass1 shape parity, linearize-outlines parity, linearize-thumbs parity) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
 
 Ordinary `dotnet test` stays offline and never needs `external/` or a qpdf
 binary.
@@ -123,8 +124,10 @@ binary.
 ## Next work
 
 1. Work item 40 (in progress): `--check-linearization`, `--show-linearization`, `--linearize-pass1` and outlines committed (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
-2. Extend differential coverage (rotation flattening with /Rotate fixtures, error-path parity).
-   run `tools/run-reference-checks.ps1` and reconcile the result, including
+2. Extend differential coverage (rotation flattening with /Rotate fixtures, error-path parity,
+   coalesce/prune content operations, structural JSON, first-page selection) � done and green;
+   remaining validation work rides the M11 completion audit.
+   Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
 
 Continue in small tested local commits. Update the compatibility entries and
