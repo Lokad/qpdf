@@ -169,6 +169,116 @@ public sealed class InvocationTests
     }
 
     [Fact]
+    public async Task JobWarningExitZeroMatchesArgv()
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
+        byte[] marker = Encoding.ASCII.GetBytes("/Count 1");
+        int at = FindMarker(bytes, marker);
+        Assert.True(at >= 0);
+        bytes[at + 7] = (byte)'9';
+        InMemoryQpdfHost host = HostWith("inputs/mismatch.pdf", bytes);
+        string job = """{"inputFile": "inputs/mismatch.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "warningExit0": true}""";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCountMismatch);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task JobNoWarnMatchesArgv()
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
+        byte[] marker = Encoding.ASCII.GetBytes("/Count 1");
+        int at = FindMarker(bytes, marker);
+        Assert.True(at >= 0);
+        bytes[at + 7] = (byte)'9';
+        InMemoryQpdfHost host = HostWith("inputs/mismatch.pdf", bytes);
+        string job = """{"inputFile": "inputs/mismatch.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "noWarn": true}""";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "warningExit0": "yes"}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "noWarn": "yes"}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "suppressRecovery": "yes"}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "warningExit0": true, "warningExit0": true}""")]
+    public async Task JobWarningFlagsRejectMalformed(string jobJson)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task JobSuppressRecoveryFailsLikeStrict()
+    {
+        byte[] intact = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
+        byte[] marker = Encoding.ASCII.GetBytes("startxref\n");
+        int at = FindMarker(intact, marker);
+        Assert.True(at >= 0);
+        byte[] broken = (byte[])intact.Clone();
+        int digits = at + marker.Length;
+        int end = digits;
+        while (end < broken.Length && broken[end] >= (byte)'0' && broken[end] <= (byte)'9')
+        {
+            end += 1;
+        }
+
+        Assert.True(end > digits);
+        for (int i = digits; i < end; i++)
+        {
+            broken[i] = (byte)'9';
+        }
+        InMemoryQpdfHost host = HostWith("inputs/broken.pdf", broken);
+        string job = """{"inputFile": "inputs/broken.pdf", "outputFile": "outputs/x.pdf", "pages": [{"file": ".", "range": "1"}], "suppressRecovery": true}""";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--warning-exit-0")]
+    [InlineData("--no-warn")]
+    public async Task WarningFlagsYieldToExhaustedBudget(string flag)
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
+        byte[] marker = Encoding.ASCII.GetBytes("/Count 1");
+        int at = FindMarker(bytes, marker);
+        Assert.True(at >= 0);
+        bytes[at + 7] = (byte)'9';
+        InMemoryQpdfHost host = HostWith("inputs/mismatch.pdf", bytes);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/mismatch.pdf", flag, "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("inputs/a.pdf", "--warning-exit-0", "--warning-exit-0")]
+    [InlineData("inputs/a.pdf", "--no-warn", "--no-warn")]
+    [InlineData("inputs/a.pdf", "--suppress-recovery", "--suppress-recovery")]
+    public async Task WarningFlagsRejectDuplicates(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags.Skip(1));
+        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
     public async Task NoWarnSuppressesWarnings()
     {
         byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
@@ -181,7 +291,7 @@ public sealed class InvocationTests
             host,
             new QpdfCommandInvocation(["inputs/mismatch.pdf", "--no-warn", "--pages", ".", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
         await using QpdfDocument output = await ReopenOutput(host, "outputs/a.pdf");
         Assert.Equal(1, output.PageCount);

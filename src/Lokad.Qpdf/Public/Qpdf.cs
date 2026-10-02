@@ -4470,7 +4470,17 @@ public static class Qpdf
             return new QpdfExecutionResult(QpdfExecutionStatus.Completed, QpdfExitCode.Success, effective, counters);
         }
 
-        return QpdfExecutionResult.Completed(effective, counters);
+        bool warning = false;
+        foreach (QpdfDiagnostic diagnostic in diagnostics)
+        {
+            if (diagnostic.Severity == QpdfDiagnosticSeverity.Warning)
+            {
+                warning = true;
+                break;
+            }
+        }
+
+        return new QpdfExecutionResult(QpdfExecutionStatus.Completed, warning ? QpdfExitCode.Warning : QpdfExitCode.Success, effective, counters);
     }
 
     private static QpdfExecutionResult CryptoFailed(string option)

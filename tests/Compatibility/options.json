@@ -1951,17 +1951,15 @@
         }
       ],
       "milestone": "M10",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["CheckTests.ValidDocumentReportsExpectedOutcomes", "CheckTests.ArgvCheckSucceedsWithoutOutput"],
+        "negative": ["CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"],
+        "interaction": ["CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"],
+        "resource": ["CheckTests.CheckFailsOnExhaustedInputBudget"],
+        "oracle": ["diff:linearized"]
       }
     },
     {
@@ -2871,15 +2869,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Resource-budget and oracle evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["InvocationTests.JobJsonFileMatchesInlineJob"],
+        "negative": ["InvocationTests.JobJsonFileErrorsAreExplicit"],
+        "interaction": ["InvocationTests.JobJsonFileErrorsAreExplicit"],
         "resource": [],
         "oracle": []
       }
@@ -3620,17 +3618,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["InvocationTests.NoWarnSuppressesWarnings", "InvocationTests.JobNoWarnMatchesArgv"],
+        "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
+        "interaction": ["InvocationTests.NoWarnSuppressesWarnings"],
+        "resource": ["InvocationTests.WarningFlagsYieldToExhaustedBudget"],
+        "oracle": ["diff:warnings"]
       }
     },
     {
@@ -5302,15 +5298,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Resource-budget and oracle exit-parity evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": ["RecoveryTests.SuppressRecoveryFailsLikeStrict", "InvocationTests.JobSuppressRecoveryFailsLikeStrict"],
+        "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
+        "interaction": ["RecoveryTests.SuppressRecoveryFailsLikeStrict"],
         "resource": [],
         "oracle": []
       }
@@ -5480,17 +5476,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["InvocationTests.WarningExitZeroMapsWarningsToSuccess", "InvocationTests.JobWarningExitZeroMatchesArgv"],
+        "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
+        "interaction": ["InvocationTests.WarningExitZeroMapsWarningsToSuccess"],
+        "resource": ["InvocationTests.WarningFlagsYieldToExhaustedBudget"],
+        "oracle": ["diff:warnings"]
       }
     },
     {
@@ -5542,17 +5536,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["AdapterTests.ArgvNamedForms", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
+        "negative": ["MergeCommandTests.ArgvMergeErrorsAreExplicit"],
+        "interaction": ["MergeCommandTests.ArgvMultiFileMergesInOrder"],
+        "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
+        "oracle": ["diff:merge"]
       }
     },
     {
@@ -5605,17 +5597,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["AdapterTests.ArgvNamedForms"],
+        "negative": ["AdapterTests.ArgvRangeErrorsFail"],
+        "interaction": ["AdapterTests.ArgvNamedForms"],
+        "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
+        "oracle": ["diff:merge"]
       }
     },
     {

@@ -496,6 +496,29 @@ if ($code -ne 2 -or $ora -ne 3) { Write-Output "[linearized] FAIL: badH exits ma
 else { Write-Output "[linearized] hint-length mismatch fails on both sides (2/3)" }
 
 
+# --- case: warnings (warning exit-code parity) ---
+$case = New-Case 'warnings'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Edit-FirstBytes "$case/inputs/a.pdf" "startxref`n398" "startxref`n999"
+function Invoke-ManagedExit {
+  param([string]$Workdir, [string[]]$EmitArgs, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "warnings: managed emit produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+foreach ($sub in @(
+  @('plain', @(), 3),
+  @('exit-0', @('--warning-exit-0'), 0),
+  @('no-warn', @('--no-warn'), 3)
+)) {
+  $name = $sub[0]
+  $m = Invoke-ManagedExit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1') + $sub[1] + @('--', "outputs/$name.pdf")) "warn-$name"
+  $o = Invoke-Oracle $case ((@() + $sub[1]) + @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-$name.pdf"))
+  if ($m -ne $sub[2] -or $o -ne $sub[2]) { Write-Output "[warnings/$name] FAIL: exits managed=$m oracle=$o, expected $($sub[2])"; $script:failures++ }
+  else { Write-Output "[warnings/$name] exit parity ($m/$o)" }
+}
+
 # --- case: check-linearization (managed vs oracle inspection) ---
 $case = New-Case 'check-linearization'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -713,4 +736,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

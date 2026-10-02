@@ -274,6 +274,21 @@ public sealed class CheckTests
     }
 
     [Fact]
+    public async Task CheckFailsOnExhaustedInputBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxInputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--check"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, diagnostic.Code);
+    }
+
+    [Fact]
     public async Task ArgvCheckSucceedsWithoutOutput()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

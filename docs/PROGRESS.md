@@ -1,6 +1,14 @@
 # Progress
 
 ## Current checkpoint
+Work item 42: warning/exit-code contract with job parity (M11). `warningExit0`, `noWarn`,
+and `suppressRecovery` job keys ride the shared plan; `--no-warn` keeps exit 3 while dropping
+warning messages (matching the reference manual); the differential lane checks warning exit
+parity (3/3, 0/0, 3/3); invocation, check, and page-selection entries gain complete
+evidence (5 flips) with suppress-recovery and job-json-file moving to partial.
+
+Prior gate
+
 Work item 41: crypto-exclusion evidence (M11). All 49 password/permission/inspection/restriction
 entries now carry negative evidence: every argv flag, top-level and nested job JSON crypto key,
 and encrypted file input fails explicitly with `UnsupportedCryptoOperation` (exit 2) publishing
@@ -116,7 +124,7 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1136 tests (844
+- Locked restore, Release build with zero warnings, and all 1150 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
@@ -135,9 +143,11 @@ binary.
 
 ## Next work
 
-1. M11 audit (in progress): crypto exclusions complete with evidence (work item 41).
-   Next slices: stale required `partial`/`not-started` entries (verify-and-complete with evidence),
-   no-external build/test audit, package/docs checks.
+1. M11 audit (in progress): crypto exclusions and warning/exit-code entries complete with evidence
+   (work items 41-42).
+   Next slices: remaining stale required entries (help/version identity, inspection gaps like
+   show-npages/show-object, unimplemented global/progress/keep-open flags), no-external build/test
+   audit, package/docs checks.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
 

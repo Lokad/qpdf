@@ -92,6 +92,13 @@ internal static class JobJsonParser
             bool seenRecompressFlate = false;
             string? compressionLevel = null;
             bool seenCompressionLevel = false;
+            bool warningExit0 = false;
+            bool seenWarningExit0 = false;
+            bool noWarn = false;
+            bool seenNoWarn = false;
+            bool suppressRecovery = false;
+            bool seenSuppressRecovery = false;
+            QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
             bool removeInfo = false;
             bool seenRemoveInfo = false;
             bool removeMetadata = false;
@@ -706,6 +713,35 @@ internal static class JobJsonParser
                         }
 
                         break;
+                    case "warningExit0":
+                        if (seenWarningExit0)
+                        {
+                                throw new QpdfParseException("Duplicate job key warningExit0.", 0L, null);
+                        }
+
+                        seenWarningExit0 = true;
+                        warningExit0 = RequireBareFlag(property.Value, "warningExit0");
+                        break;
+                    case "noWarn":
+                        if (seenNoWarn)
+                        {
+                                throw new QpdfParseException("Duplicate job key noWarn.", 0L, null);
+                        }
+
+                        seenNoWarn = true;
+                        noWarn = RequireBareFlag(property.Value, "noWarn");
+                        break;
+                    case "suppressRecovery":
+                        if (seenSuppressRecovery)
+                        {
+                                throw new QpdfParseException("Duplicate job key suppressRecovery.", 0L, null);
+                        }
+
+                        seenSuppressRecovery = true;
+                    suppressRecovery = RequireBareFlag(property.Value, "suppressRecovery");
+                    recovery = QpdfRecoveryMode.Strict;
+                        suppressRecovery = RequireBareFlag(property.Value, "suppressRecovery");
+                        break;
                     case "encrypt":
                     case "decrypt":
                     case "password":
@@ -758,7 +794,7 @@ internal static class JobJsonParser
                         throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
                     }
 
-                    return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, QpdfRecoveryMode.BoundedRepair);
+                    return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery);
                 }
 
                 if (output is not null)
@@ -766,7 +802,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
                 }
 
-                return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, QpdfRecoveryMode.BoundedRepair);
+                return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery);
             }
 
             if (checkLinearization || showLinearization)
@@ -788,7 +824,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job linearization inspection cannot be combined with transformation or other inspection keys.", 0L, null);
                 }
 
-                return new LinearizationPlan(SelectionPlan.CheckedPath(input), QpdfRecoveryMode.BoundedRepair)
+                return new LinearizationPlan(SelectionPlan.CheckedPath(input), recovery)
                 {
                     Check = checkLinearization,
                     Show = showLinearization,
@@ -844,8 +880,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
                 }
 
-                return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), QpdfRecoveryMode.BoundedRepair) with
+                return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
                     DeterministicId = deterministicId,
@@ -883,8 +921,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"updateFromJson\".", 0L, null);
                 }
 
-                return new JsonUpdatePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), QpdfRecoveryMode.BoundedRepair) with
+                return new JsonUpdatePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
                     DeterministicId = deterministicId,
@@ -932,7 +972,7 @@ internal static class JobJsonParser
                 }
 
                 string jsonStreams = seenJsonStreamData ? jsonStreamData! : (seenJsonOutput ? "inline" : "none");
-                return new JsonPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, QpdfRecoveryMode.BoundedRepair) with
+                return new JsonPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
                     DecodeLevel = jsonDecode,
                     StreamDataMode = jsonStreams,
@@ -971,8 +1011,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
                 }
 
-                return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), QpdfRecoveryMode.BoundedRepair) with
+                return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
                     DeterministicId = deterministicId,
@@ -1023,10 +1065,12 @@ internal static class JobJsonParser
             {
                 string resolved = ResolveFile(entries[0].File, input);
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
-                return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, QpdfRecoveryMode.BoundedRepair) with
+                return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
                 {
                     Rotations = rotations,
                     Labels = labels,
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
                     DeterministicId = deterministicId,
@@ -1074,7 +1118,7 @@ internal static class JobJsonParser
                 sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), new PdfPageSelectionOptions(page)));
             }
 
-            return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, null, QpdfRecoveryMode.BoundedRepair) with
+            return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, null, recovery) with
             {
                 Rotations = rotations,
                 Labels = labels,
@@ -1115,6 +1159,8 @@ internal static class JobJsonParser
                     OiMinArea = oiMinArea,
                     KeepInlineImages = keepInlineImages,
                     JpegQuality = jpegQuality,
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
             };
         }
     }

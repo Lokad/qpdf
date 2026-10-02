@@ -325,7 +325,10 @@ checked, budgeted per line, and leases closed; `@-` has no stdin descriptor and
 fails explicitly, missing files stay literal like the reference parser, and
 nested `@` tokens never re-expand. `--job-json-file` reads the identical job
 schema through the host with plan parity. `--warning-exit-0` maps warnings to
-exit 0, `--no-warn` drops warning diagnostics, and both ride the shared plan.
+exit 0, `--no-warn` drops warning messages while keeping exit 3 (both mirror the
+reference manual), and both ride the shared plan across argv and job JSON (`warningExit0`,
+`noWarn`, plus `suppressRecovery` mapping to strict recovery). The differential lane checks
+warning exit parity with the oracle (plain 3/3, flagged 0/0, suppressed-message 3/3).
 `--help` and `--version` return identity text as info diagnostics with exit 0;
 `--copyright`, completion, and all other operations stay explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
 
