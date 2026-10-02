@@ -511,4 +511,33 @@ public sealed class AttachmentTests
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
+
+    [Fact]
+    public async Task ShowYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", AttachmentFixture());
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--show-attachment=notes.txt", "--", "outputs/note.bin"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/note.bin"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task ListYieldsToExhaustedInputBudget()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", AttachmentFixture());
+        QpdfLimits limits = QpdfLimits.Default with { MaxInputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--list-attachments"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+    }
+
 }

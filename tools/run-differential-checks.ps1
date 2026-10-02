@@ -377,6 +377,93 @@ foreach ($pair in @(('s-5', "$case/lib-s5.bin", "$case/s-5"), ('s-6', "$case/lib
 }
 if (-not $preMismatch) { Write-Output "[json-prefix] sidecar references and bytes match" }
 
+# --- case: attachments (managed vs oracle embedded-file operations) ---
+$case = New-Case 'attachments'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+[IO.File]::WriteAllBytes("$case/inputs/note.bin", [Text.Encoding]::ASCII.GetBytes('attachment payload one'))
+function Get-AttachmentKeys {
+  param([string]$File)
+  $keys = @()
+  foreach ($line in (Get-Content $File)) {
+    $m = [regex]::Match($line, '(\S+) -> \d+,\d+')
+    if ($m.Success) { $keys += $m.Groups[1].Value }
+  }
+  return ($keys | Sort-Object) -join ','
+}
+function Invoke-ManagedList {
+  param([string]$Workdir, [string]$InFile, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--list-attachments') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  return $p.ExitCode
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib-add.pdf", '--', 'inputs/a.pdf', '--add-attachment', 'inputs/note.bin', '--key=note.txt', '--description=Hi', '--', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "attachments/add: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--add-attachment', 'inputs/note.bin', '--key=note.txt', '--description=Hi', '--', "$case/ora-add.pdf")
+if ($code -ne 0) { throw "attachments/add: oracle failed ($code)" }
+Assert-Trio 'attachments/add' "$case/lib-add.pdf" "$case/ora-add.pdf" 1
+Copy-Item "$case/ora-add.pdf" "$case/inputs/ora-add.pdf" -Force
+Copy-Item "$case/lib-add.pdf" "$case/inputs/lib-add.pdf" -Force
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/n.bin=$case/lib-note.bin", '--', 'inputs/ora-add.pdf', '--show-attachment=note.txt', '--', 'outputs/n.bin')
+if ($code -ne 0) { throw "attachments/show: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--show-attachment=note.txt', 'inputs/lib-add.pdf')
+if ($code -ne 0) { throw "attachments/show: oracle failed ($code)" }
+Copy-Item "$case/ora-stdout.txt" "$case/ora-note.bin" -Force
+$lh = (Get-FileHash "$case/lib-note.bin" -Algorithm SHA256).Hash
+$oh = (Get-FileHash "$case/ora-note.bin" -Algorithm SHA256).Hash
+$ph = (Get-FileHash "$case/inputs/note.bin" -Algorithm SHA256).Hash
+if ($lh -ne $ph -or $oh -ne $ph) { Write-Output "[attachments-show] FAIL: extracted bytes differ from source"; $script:failures++ }
+else { Write-Output "[attachments-show] cross-extracted bytes match the source payload" }
+$code = Invoke-ManagedList $case 'inputs/ora-add.pdf' 'list-ora'
+if ($code -ne 0) { throw "attachments/list: managed failed ($code)" }
+$code = Invoke-Oracle $case @('--list-attachments', 'inputs/ora-add.pdf')
+if ($code -ne 0) { throw "attachments/list: oracle failed ($code)" }
+$libKeys = Get-AttachmentKeys "$case/managed-list-ora.txt"
+$oraKeys = Get-AttachmentKeys "$case/ora-stdout.txt"
+if ($libKeys -ne $oraKeys -or $libKeys -ne 'note.txt') { Write-Output "[attachments-list] FAIL: key sets lib=[$libKeys] ora=[$oraKeys]"; $script:failures++ }
+else { Write-Output "[attachments-list] key sets agree (note.txt)" }
+Copy-Item "$case/ora-add.pdf" "$case/inputs/seed.pdf" -Force
+foreach ($sub in @(@('', 'copy', ''), @('--prefix=cp-', 'copyp', 'cp-'))) {
+  $flag = $sub[0]
+  $tag = $sub[1]
+  $prefix = $sub[2]
+  $emitArgs = @('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', 'inputs/a.pdf', '--copy-attachments-from', 'inputs/seed.pdf')
+  if ($flag -ne '') { $emitArgs += $flag }
+  $emitArgs += @('--', '--', "outputs/$tag.pdf")
+  $code = Invoke-Emit $case $emitArgs
+  if ($code -ne 0) { throw "attachments/${tag}: emit failed ($code)" }
+  $oraArgs = @('inputs/a.pdf', '--copy-attachments-from', 'inputs/seed.pdf')
+  if ($flag -ne '') { $oraArgs += $flag }
+  $oraArgs += @('--', "$case/ora-$tag.pdf")
+  $code = Invoke-Oracle $case $oraArgs
+  if ($code -ne 0) { throw "attachments/${tag}: oracle failed ($code)" }
+  Assert-Trio "attachments/$tag" "$case/lib-$tag.pdf" "$case/ora-$tag.pdf" 1
+  Copy-Item "$case/lib-$tag.pdf" "$case/inputs/lib-$tag.pdf" -Force
+  Copy-Item "$case/ora-$tag.pdf" "$case/inputs/ora-$tag.pdf" -Force
+  $code = Invoke-ManagedList $case "inputs/lib-$tag.pdf" "list-lib-$tag"
+  if ($code -ne 0) { throw "attachments/${tag}: managed list failed ($code)" }
+  $code = Invoke-Oracle $case @('--list-attachments', "inputs/ora-$tag.pdf")
+  if ($code -ne 0) { throw "attachments/${tag}: oracle list failed ($code)" }
+  $libKeys = Get-AttachmentKeys "$case/managed-list-lib-$tag.txt"
+  $oraKeys = Get-AttachmentKeys "$case/ora-stdout.txt"
+  $expected = "${prefix}note.txt"
+  if ($libKeys -ne $oraKeys -or $libKeys -ne $expected) { Write-Output "[attachments-copy] FAIL: $tag key sets lib=[$libKeys] ora=[$oraKeys], expected [$expected]"; $script:failures++ }
+  else { Write-Output "[attachments-copy] $tag key sets agree ($expected)" }
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/rm.pdf=$case/lib-rm.pdf", '--', 'inputs/ora-add.pdf', '--remove-attachment=note.txt', '--', 'outputs/rm.pdf')
+if ($code -ne 0) { throw "attachments/remove: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/ora-add.pdf', '--remove-attachment=note.txt', '--', "$case/ora-rm.pdf")
+if ($code -ne 0) { throw "attachments/remove: oracle failed ($code)" }
+Assert-Trio 'attachments/remove' "$case/lib-rm.pdf" "$case/ora-rm.pdf" 1
+Copy-Item "$case/lib-rm.pdf" "$case/inputs/lib-rm.pdf" -Force
+Copy-Item "$case/ora-rm.pdf" "$case/inputs/ora-rm.pdf" -Force
+$code = Invoke-ManagedList $case 'inputs/lib-rm.pdf' 'list-lib-rm'
+if ($code -ne 0) { throw "attachments/remove: managed list failed ($code)" }
+$code = Invoke-Oracle $case @('--list-attachments', 'inputs/ora-rm.pdf')
+if ($code -ne 0) { throw "attachments/remove: oracle list failed ($code)" }
+$libKeys = Get-AttachmentKeys "$case/managed-list-lib-rm.txt"
+$oraKeys = Get-AttachmentKeys "$case/ora-stdout.txt"
+if ($libKeys -ne '' -or $oraKeys -ne '') { Write-Output "[attachments-remove] FAIL: keys remain lib=[$libKeys] ora=[$oraKeys]"; $script:failures++ }
+else { Write-Output "[attachments-remove] key sets empty on both sides" }
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -1130,4 +1217,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, attachments, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

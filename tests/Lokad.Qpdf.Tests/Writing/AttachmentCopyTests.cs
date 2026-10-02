@@ -447,4 +447,32 @@ public sealed class AttachmentCopyTests
         await Assert.ThrowsAsync<ArgumentException>(
             () => Qpdf.CopyAttachmentsAsync(host, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("outputs/a.pdf"), [], CancellationToken.None).AsTask());
     }
+
+    [Fact]
+    public async Task CopyYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/s.pdf"), SourceFixture(), QpdfInputOwnership.Copy);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--copy-attachments-from", "inputs/s.pdf", "--", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task CopyEmptyPrefixFails()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/s.pdf"), SourceFixture(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--copy-attachments-from", "inputs/s.pdf", "--prefix=", "--", "--", "outputs/a.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

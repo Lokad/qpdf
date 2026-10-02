@@ -437,4 +437,63 @@ public sealed class AttachmentEditTests
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
+
+    [Fact]
+    public async Task NestedMetadataJobParityHolds()
+    {
+        byte[] input = BuildPdf(string.Empty, string.Empty, new List<(string Dict, byte[]? StreamData)>());
+        List<string> block = new() { "--add-attachment", "files/blob.bin", "--key=k1", "--filename=display.bin", "--description=Some desc", "--mimetype=text/plain", "--creationdate=D:20240101000000Z", "--moddate=D:20240202000000Z", "--", "--" };
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", input);
+        argvHost.AddInput(QpdfPath.From("files/blob.bin"), PayloadB, QpdfInputOwnership.Copy);
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(block);
+        argv.Add("outputs/a.pdf");
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", input);
+        jobHost.AddInput(QpdfPath.From("files/blob.bin"), PayloadB, QpdfInputOwnership.Copy);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "addAttachment": [{"file": "files/blob.bin", "key": "k1", "filename": "display.bin", "description": "Some desc", "mimetype": "text/plain", "creationdate": "D:20240101000000Z", "moddate": "D:20240202000000Z"}]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+        IReadOnlyList<QpdfAttachmentInfo> infos = await ListAsync(jobHost, b);
+        QpdfAttachmentInfo info = Assert.Single(infos);
+        Assert.Equal("k1", info.Key);
+        Assert.Equal("display.bin", info.FileName);
+        Assert.Equal("Some desc", info.Description);
+        Assert.Equal("text/plain", info.MimeType);
+        Assert.Equal("D:20240101000000Z", info.CreationDate);
+        Assert.Equal("D:20240202000000Z", info.ModDate);
+    }
+
+    [Theory]
+    [InlineData("--add-attachment", "files/note.bin", "--key=n.bin", "--", "--")]
+    [InlineData("--remove-attachment=seed.txt")]
+    public async Task AttachmentsYieldToExhaustedBudget(params string[] tail)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", SeededFixture());
+        host.AddInput(QpdfPath.From("files/note.bin"), PayloadA, QpdfInputOwnership.Copy);
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(tail);
+        if (tail.Contains("--"))
+        {
+            argv.Add("outputs/a.pdf");
+        }
+        else
+        {
+            argv.AddRange(["--", "outputs/a.pdf"]);
+        }
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(argv),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

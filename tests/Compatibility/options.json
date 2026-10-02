@@ -1096,19 +1096,25 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddExplicitMetadata"
         ],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "negative": [
+          "AttachmentEditTests.NestedUnknownFlagFails"
+        ],
+        "interaction": [
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
+        ],
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1129,19 +1135,25 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddExplicitMetadata"
         ],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "negative": [
+          "AttachmentEditTests.NestedUnknownFlagFails"
+        ],
+        "interaction": [
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
+        ],
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1162,21 +1174,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddExplicitMetadata"
         ],
         "negative": [
-          "AttachmentEditTests.MalformedEditsFail"
+          "AttachmentEditTests.MalformedEditsFail",
+          "AttachmentEditTests.NestedUnknownFlagFails"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
+        ],
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1197,23 +1214,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddExplicitMetadata"
         ],
         "negative": [
-          "AttachmentEditTests.MalformedEditsFail"
+          "AttachmentEditTests.MalformedEditsFail",
+          "AttachmentEditTests.NestedUnknownFlagFails"
         ],
         "interaction": [
-          "AttachmentEditTests.JobAddRemoveRoundTrip"
+          "AttachmentEditTests.JobAddRemoveRoundTrip",
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1234,21 +1255,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddExplicitMetadata"
         ],
-        "negative": [],
-        "interaction": [
-          "AttachmentEditTests.AddWithoutDatesOmitsParams"
+        "negative": [
+          "AttachmentEditTests.NestedUnknownFlagFails"
         ],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "AttachmentEditTests.AddWithoutDatesOmitsParams",
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
+        ],
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1269,19 +1295,25 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddExplicitMetadata"
         ],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "negative": [
+          "AttachmentEditTests.NestedUnknownFlagFails"
+        ],
+        "interaction": [
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
+        ],
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1302,21 +1334,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --add-attachment; see --add-attachment gaps."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddReplaceOverwrites"
         ],
         "negative": [
-          "AttachmentEditTests.AddDuplicateKeyFails"
+          "AttachmentEditTests.AddDuplicateKeyFails",
+          "AttachmentEditTests.NestedUnknownFlagFails"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "AttachmentEditTests.AddReplaceOverwrites"
+        ],
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -1370,11 +1407,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Nested option of --copy-attachments-from; empty prefixes are ignored."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentCopyTests.CopyPrefix",
@@ -1383,9 +1418,15 @@
         "negative": [
           "AttachmentCopyTests.CopyStrayPrefixFails"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "AttachmentCopyTests.JobCopyRoundTrip"
+        ],
+        "resource": [
+          "AttachmentCopyTests.CopyYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-copy"
+        ]
       }
     },
     {
@@ -1877,11 +1918,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); copies apply after removals and additions (see --copy-attachments-from)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.AddSingleAttachment",
@@ -1891,14 +1930,21 @@
         "negative": [
           "AttachmentEditTests.AddMissingFileFails",
           "AttachmentEditTests.MalformedEditsFail",
-          "AttachmentEditTests.JobMalformedEditsFail"
+          "AttachmentEditTests.JobMalformedEditsFail",
+          "AttachmentEditTests.NestedUnknownFlagFails",
+          "AttachmentEditTests.AddBlockMissingTerminatorFails"
         ],
         "interaction": [
           "AttachmentEditTests.AddPreservesExisting",
-          "AttachmentEditTests.JobAddRemoveRoundTrip"
+          "AttachmentEditTests.JobAddRemoveRoundTrip",
+          "AttachmentEditTests.NestedMetadataJobParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-add"
+        ]
       }
     },
     {
@@ -2193,11 +2239,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Copies apply after removals and additions with per-file grouped collision errors; nested password keys reject as crypto."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentCopyTests.CopyBasic",
@@ -2213,8 +2257,12 @@
           "AttachmentCopyTests.JobCopyRoundTrip",
           "AttachmentCopyTests.CopyAddCollisionFails"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "AttachmentCopyTests.CopyYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-copy"
+        ]
       }
     },
     {
@@ -3492,11 +3540,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Listing detail lines use this profile's stable diagnostic format instead of --verbose gating (verbose is not in the narrow profile)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentTests.ListShowsKeysAndStreams",
@@ -3513,8 +3559,12 @@
           "AttachmentTests.JobListSucceedsWithoutOutput",
           "AttachmentTests.MalformedAttachmentsFail"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "AttachmentTests.ListYieldsToExhaustedInputBudget"
+        ],
+        "oracle": [
+          "diff:attachments-list"
+        ]
       }
     },
     {
@@ -4405,24 +4455,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "--add-attachment blocks follow the page selection in fixed order; unspecified dates omitted (no ambient clock); copies apply after removals and additions (see --copy-attachments-from)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentEditTests.RemoveExisting"
         ],
         "negative": [
-          "AttachmentEditTests.RemoveUnknownKeyFails"
+          "AttachmentEditTests.RemoveUnknownKeyFails",
+          "AttachmentEditTests.MalformedEditsFail"
         ],
         "interaction": [
           "AttachmentEditTests.RemoveThenReaddWins",
           "AttachmentEditTests.JobAddRemoveRoundTrip"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "AttachmentEditTests.AttachmentsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-remove"
+        ]
       }
     },
     {
@@ -4858,11 +4911,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Extraction publishes to the declared output file instead of stdout (no stdout binary contract); genuinely undecodable streams (JPX, four-component DCT) fall back to raw bytes with a warning; DCT now decodes."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "AttachmentTests.ShowExtractsToOutputFile",
@@ -4880,8 +4931,12 @@
           "AttachmentTests.JobShowExtracts",
           "AttachmentTests.ShowOutputAliasingInputFails"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "AttachmentTests.ShowYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:attachments-show"
+        ]
       }
     },
     {
