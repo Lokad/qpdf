@@ -39,6 +39,7 @@ internal static class ArgvParser
         GlobalOptions globals = ExtractGlobalOptions(ref argv);
         QpdfRecoveryMode recovery = globals.Recovery;
         int checkAt = FindFlag(argv, "--check");
+        int checkLinearizationAt = FindFlag(argv, "--check-linearization");
         int pagesAt = FindFlag(argv, "--pages");
         int listAt = FindFlag(argv, "--list-attachments");
         (int firstShowAt, int showAt, string? showKey) = FindShowAttachment(argv);
@@ -55,6 +56,10 @@ internal static class ArgvParser
             if (checkAt >= 0 || pagesAt >= 0)
             {
                 throw new QpdfParseException("Option --json cannot be combined with --check or --pages.", jsonEntryAt, null);
+            }
+            if (checkLinearizationAt >= 0)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --check-linearization.", jsonEntryAt, null);
             }
 
             if (listAt >= 0 || showAt >= 0)
@@ -113,6 +118,10 @@ internal static class ArgvParser
             if (checkAt >= 0 || pagesAt >= 0)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --check or --pages.", jsonImportAt, null);
+            }
+            if (checkLinearizationAt >= 0)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --check-linearization.", jsonImportAt, null);
             }
 
             if (listAt >= 0 || showAt >= 0)
@@ -178,6 +187,10 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Options --list-attachments and --show-attachment cannot be combined with --check or --pages.", showAt >= 0 ? showAt : listAt, null);
             }
+            if (checkLinearizationAt >= 0)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --check-linearization.", showAt >= 0 ? showAt : listAt, null);
+            }
 
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
@@ -221,6 +234,70 @@ internal static class ArgvParser
 
             return ParseAttachments(argv, listAt, firstAttachmentAt, showKey, recovery, globals);
         }
+        if (checkLinearizationAt >= 0)
+        {
+            if (pagesAt >= 0)
+            {
+                throw new QpdfParseException("Options --check-linearization and --pages cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Options --check-linearization and --overlay or --underlay cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Options --check-linearization and --flatten-rotation cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Options --check-linearization and --flatten-annotations cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Options --check-linearization and --generate-appearances cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Options --check-linearization and --qdf cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Options --check-linearization and --linearize cannot be combined.", checkLinearizationAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", checkLinearizationAt, null);
+            }
+
+            if (checkAt >= 0)
+            {
+                if (argv.Count != 3 || checkAt == 0 || checkLinearizationAt == 0)
+                {
+                    throw new QpdfParseException("Options --check and --check-linearization take a single input and no output file.", checkAt, null);
+                }
+
+                string checkInput = ParseInputArea(argv, 1, "--check");
+                return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(checkInput), recovery), globals) with
+                {
+                    CheckLinearization = true,
+                };
+            }
+
+            return ParseLinearization(argv, checkLinearizationAt, recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
+
+        }
+
         if (checkAt >= 0 && pagesAt >= 0)
         {
             throw new QpdfParseException("Options --check and --pages cannot be combined.", checkAt, null);
@@ -258,30 +335,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", checkAt, null);
             }
 
-            return ParseCheck(argv, checkAt, recovery) with
-            {
-                WarningExitZero = globals.WarningExitZero,
-                NoWarn = globals.NoWarn,
-                MinVersion = globals.MinVersion,
-                ForceVersion = globals.ForceVersion,
-                DeterministicId = globals.DeterministicId,
-                StaticId = globals.StaticId,
-                NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
-            ObjectStreams = globals.ObjectStreams,
-            PreserveUnreferenced = globals.PreserveUnreferenced,
-            StreamData = globals.StreamData,
-            CompressStreams = globals.CompressStreams,
-            DecodeLevel = globals.DecodeLevel,
-            RecompressFlate = globals.RecompressFlate,
-            CompressionLevel = globals.CompressionLevel,
-            RemoveInfo = globals.RemoveInfo,
-            RemoveMetadata = globals.RemoveMetadata,
-            CoalesceContents = globals.CoalesceContents,
-            NormalizeContent = globals.NormalizeContent,
-            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
-            ExternalizeInlineImages = globals.ExternalizeInlineImages,
-            IiMinBytes = globals.IiMinBytes,
-            };
+            return WithCheckGlobals(ParseCheck(argv, checkAt, recovery), globals);
         }
 
         if (pagesAt < 0 && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
@@ -1559,6 +1613,51 @@ internal static class ArgvParser
         }
 
         return value;
+    }
+
+    private static LinearizationPlan ParseLinearization(IReadOnlyList<string> argv, int linearizationAt, QpdfRecoveryMode recovery)
+    {
+        string input = ParseInputArea(argv, linearizationAt, "--check-linearization");
+        if (linearizationAt + 1 >= argv.Count)
+        {
+            return new LinearizationPlan(SelectionPlan.CheckedPath(input), recovery);
+        }
+
+        string? token = argv[linearizationAt + 1];
+        if (token is null)
+        {
+            throw new QpdfParseException("Null argument.", linearizationAt + 1, null);
+        }
+
+        throw new QpdfParseException($"Unexpected argument '{token}' after --check-linearization; inspection takes no output file.", linearizationAt + 1, null);
+    }
+
+    private static CheckPlan WithCheckGlobals(CheckPlan plan, GlobalOptions globals)
+    {
+        return plan with
+        {
+            WarningExitZero = globals.WarningExitZero,
+            NoWarn = globals.NoWarn,
+            MinVersion = globals.MinVersion,
+            ForceVersion = globals.ForceVersion,
+            DeterministicId = globals.DeterministicId,
+            StaticId = globals.StaticId,
+            NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+            ObjectStreams = globals.ObjectStreams,
+            PreserveUnreferenced = globals.PreserveUnreferenced,
+            StreamData = globals.StreamData,
+            CompressStreams = globals.CompressStreams,
+            DecodeLevel = globals.DecodeLevel,
+            RecompressFlate = globals.RecompressFlate,
+            CompressionLevel = globals.CompressionLevel,
+            RemoveInfo = globals.RemoveInfo,
+            RemoveMetadata = globals.RemoveMetadata,
+            CoalesceContents = globals.CoalesceContents,
+            NormalizeContent = globals.NormalizeContent,
+            RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+            ExternalizeInlineImages = globals.ExternalizeInlineImages,
+            IiMinBytes = globals.IiMinBytes,
+        };
     }
 
     private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)

@@ -218,6 +218,15 @@ internal static class Program
         QpdfCheckResult linCheck = await Qpdf.CheckAsync(linCheckHost, QpdfPath.From("inputs/lin.pdf"), CancellationToken.None);
         Check(linCheck.Passed, "linearized check");
         Console.WriteLine("PASS linearized output with valid hints (--linearize)");
+
+        InMemoryQpdfHost linReportHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult linReport = await Qpdf.ExecuteAsync(
+            linReportHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--check-linearization"]),
+            CancellationToken.None);
+        Check(linReport.Status == QpdfExecutionStatus.Completed && linReport.ExitCode == QpdfExitCode.Success, "check-linearization execution");
+        Check(linReport.Diagnostics.Count == 1 && linReport.Diagnostics[0].Code == QpdfDiagnosticCode.LinearizationReport, "check-linearization report code");
+        Console.WriteLine("PASS linearization inspection (--check-linearization)");
     }
 
     private static InMemoryQpdfHost NewHost(string logical, byte[] bytes)

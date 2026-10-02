@@ -57,6 +57,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Attachment listing line.</summary>
     AttachmentListing = 12,
+
+    /// <summary>Linearization inspection line.</summary>
+    LinearizationReport = 13,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

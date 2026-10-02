@@ -1951,17 +1951,31 @@
         }
       ],
       "milestone": "M10",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Inspects one input with the shared linearization engine; hint defects fail explicitly (exit 2) where upstream warns (exit 3). --show-linearization stays unsupported (work item 40)."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "LinearizationInspectionTests.CheckLinearizationReportsNoErrors",
+          "LinearizationInspectionTests.CheckLinearizationOnPlainFile",
+          "LinearizationInspectionTests.CheckPlusCheckLinearization"
+        ],
+        "negative": [
+          "LinearizationInspectionTests.CheckLinearizationFailsOnBadHints",
+          "LinearizationInspectionTests.CheckLinearizationRejectsOutputFile",
+          "LinearizationInspectionTests.CheckLinearizationRejectsCombinations",
+          "LinearizationInspectionTests.CheckPlusCheckLinearizationSurfacesHintDefects"
+        ],
+        "interaction": [
+          "LinearizationInspectionTests.JobCheckLinearizationMatchesArgv",
+          "LinearizationInspectionTests.JobCheckLinearizationRejectsCombinations"
+        ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:check-linearization"
+        ]
       }
     },
     {

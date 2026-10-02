@@ -5,6 +5,17 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Reading;
 
+/// <summary>Whether a file carries usable linearization hint tables.</summary>
+internal enum LinearizationStatus
+{
+    NotLinearized = 0,
+    Valid = 1,
+    Invalid = 2,
+}
+
+/// <summary>Tri-state outcome of linearization inspection.</summary>
+internal sealed record LinearizationInspection(LinearizationStatus Status, int SharedGroups, string Detail);
+
 /// <summary>
 /// Structural validation of linearized files: detection, linearization
 /// dictionary checks, hint-stream resolution and decoding, and governed
@@ -18,6 +29,22 @@ internal static class LinearizationCheck
     private const int ScanTokens = 200;
 
     internal static QpdfCheckOutcome Check(
+        DocumentEngine engine,
+        int pageCount,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        LinearizationInspection inspection = Inspect(engine, pageCount, limits, governor, cancellationToken);
+        if (inspection.Status == LinearizationStatus.Invalid)
+        {
+            return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Failed, inspection.Detail);
+        }
+
+        return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Passed, inspection.Detail);
+    }
+
+    internal static LinearizationInspection Inspect(
         DocumentEngine engine,
         int pageCount,
         QpdfLimits limits,
@@ -42,21 +69,21 @@ internal static class LinearizationCheck
         PdfDictionary? lindict = FindDictionary(engine.Data, limits, governor, cancellationToken);
         if (lindict is null)
         {
-            return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Passed, "File is not linearized.");
+            return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, "File is not linearized.");
         }
 
         try
         {
             long[] spans = CheckDictionary(lindict, engine.Data.Length, pageCount, engine);
             int shared = CheckHints(engine, lindict, spans, pageCount, limits, governor, cancellationToken);
-            return new QpdfCheckOutcome(
-                "linearization",
-                QpdfCheckStatus.Passed,
+            return new LinearizationInspection(
+                LinearizationStatus.Valid,
+                shared,
                 $"Linearized file with {pageCount} pages; {shared} shared groups; hint tables valid.");
         }
         catch (QpdfException ex)
         {
-            return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Failed, ex.Message);
+            return new LinearizationInspection(LinearizationStatus.Invalid, 0, ex.Message);
         }
     }
 

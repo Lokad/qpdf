@@ -147,7 +147,13 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
 }
 
 /// <summary>Validated structural inspection.</summary>
-internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
+internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
+{
+    public bool CheckLinearization { get; init; }
+}
+
+/// <summary>Validated linearization-only inspection.</summary>
+internal sealed record LinearizationPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated whole-file transformation.</summary>
 internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);

@@ -3451,6 +3451,32 @@ public static class Qpdf
         return new QpdfCheckResult(document.PageCount, document.Version, checks, [.. diagnostics.Entries], governor.Snapshot());
     }
 
+    private static async ValueTask InspectLinearizationAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        LinearizationInspection inspection = LinearizationCheck.Inspect(document.Engine, document.PageCount, limits, governor, cancellationToken);
+        if (inspection.Status == LinearizationStatus.NotLinearized)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} is not linearized");
+            return;
+        }
+
+        if (inspection.Status == LinearizationStatus.Valid)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value}: no linearization errors");
+            return;
+        }
+
+        diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"Check 'linearization' failed: {inspection.Detail}");
+    }
+
     private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine,
         PageLocation location,
@@ -3905,7 +3931,29 @@ public static class Qpdf
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(inspected.Diagnostics, inspected.Counters, plan);
+                if (check.CheckLinearization)
+                {
+                    await InspectLinearizationAsync(host, check.Input, limits, check.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                }
+
+                return CompleteWithPresentation(diagnostics.Entries, inspected.Counters, plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
+        if (plan is LinearizationPlan linearization)
+        {
+            try
+            {
+                await InspectLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
             catch (QpdfException ex)
             {
