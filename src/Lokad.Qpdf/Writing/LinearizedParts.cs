@@ -4,6 +4,23 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>
+/// Graph classification for linearized files, mirroring upstream categories.
+/// Parts use original object numbers: the catalog opens part 4; the first
+/// page leads part 6 followed by its private then shared objects; other pages
+/// form consecutive page-plus-private runs in part 7; remaining shared
+/// objects fill part 8; the pages tree leads part 9 followed by everything
+/// else. Thumbnails and outlines fail explicitly.
+/// </summary>
+internal sealed record ClassifiedGraph(
+    IReadOnlyList<int> Part4,
+    IReadOnlyList<int> Part6,
+    IReadOnlyList<IReadOnlyList<int>> Part7,
+    IReadOnlyList<int> Part8,
+    IReadOnlyList<int> Part9,
+    IReadOnlyList<int> Pages,
+    IReadOnlyList<HashSet<int>> PageUsers);
+
+/// <summary>
 /// Part assignment for linearized publication, mirroring upstream categories.
 /// The catalog opens part 4; the first page leads part 6 followed by its
 /// private then shared objects; other pages form consecutive page-plus-private
@@ -85,20 +102,46 @@ internal sealed class LinearizedParts
             }
         }
 
-        if (!lookup.TryGetValue(1, out QpdfObject? catalogRaw) || catalogRaw is not PdfDictionary catalog)
+        ClassifiedGraph graph = ClassifyGraph(lookup, 1, governor, cancellationToken);
+        Dictionary<int, int> renumber = AssignNumbers(graph.Part7, graph.Part8, graph.Part9, graph.Part4, graph.Part6, out int lindictNumber, out int hintNumber);
+        if (renumber.Count != lookup.Count)
         {
-            throw new QpdfParseException("Linearized output needs object 1 to hold the catalog.", null, 1);
+            throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
+        }
+
+        return new LinearizedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.PageUsers, renumber, lindictNumber, hintNumber, lookup);
+    }
+
+    internal static ClassifiedGraph ClassifyGraph(
+        Dictionary<int, QpdfObject> lookup,
+        int catalogNumber,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        if (lookup is null)
+        {
+            throw new ArgumentNullException(nameof(lookup));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        if (!lookup.TryGetValue(catalogNumber, out QpdfObject? catalogRaw) || catalogRaw is not PdfDictionary catalog)
+        {
+            throw new QpdfParseException($"Linearized output needs object {catalogNumber} to hold the catalog.", null, catalogNumber);
         }
 
         if (catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject outlines) && outlines is not PdfNull)
         {
-            throw new QpdfParseException("Linearized output with outlines is not implemented.", null, 1);
+            throw new QpdfParseException("Linearized output with outlines is not implemented.", null, catalogNumber);
         }
 
         List<int> pages = CollectPages(catalog, lookup, governor, cancellationToken);
         if (pages.Count == 0)
         {
-            throw new QpdfParseException("Linearized output needs at least one page.", null, 1);
+            throw new QpdfParseException("Linearized output needs at least one page.", null, catalogNumber);
         }
 
         List<HashSet<int>> closures = new(pages.Count);
@@ -122,10 +165,20 @@ internal sealed class LinearizedParts
             }
         }
 
+        HashSet<int> openDocuments = CollectOpenDocuments(lookup, catalog, governor, cancellationToken);
         HashSet<int> pageSet = new(pages);
         List<int> tree = CollectTree(catalog, lookup, pageSet, governor, cancellationToken);
+        tree.Sort();
         HashSet<int> treeSet = new(tree);
-        List<int> part4 = new() { 1 };
+        List<int> part4 = new() { catalogNumber };
+        foreach (int number in SortedKeys(lookup))
+        {
+            if (number != catalogNumber && openDocuments.Contains(number))
+            {
+                part4.Add(number);
+            }
+        }
+
         List<int> part6 = new() { pages[0] };
         List<int> part6Private = new();
         List<int> part6Shared = new();
@@ -141,7 +194,7 @@ internal sealed class LinearizedParts
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            if (number == 1 || pageSet.Contains(number) || treeSet.Contains(number))
+            if (number == catalogNumber || pageSet.Contains(number) || treeSet.Contains(number) || openDocuments.Contains(number))
             {
                 continue;
             }
@@ -178,15 +231,123 @@ internal sealed class LinearizedParts
         List<int> part9 = new(tree);
         part9.AddRange(part9Rest);
 
-        Dictionary<int, int> renumber = AssignNumbers(part7, part8, part9, part4, part6, out int lindictNumber, out int hintNumber);
-        if (renumber.Count != lookup.Count)
+        int placed = part4.Count + part6.Count + part8.Count + part9.Count;
+        foreach (IReadOnlyList<int> run in part7)
+        {
+            placed = checked(placed + run.Count);
+        }
+
+        if (placed != lookup.Count)
         {
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
 
-        return new LinearizedParts(part4, part6, part7, part8, part9, pages, closures, renumber, lindictNumber, hintNumber, lookup);
+        return new ClassifiedGraph(part4, part6, part7, part8, part9, pages, closures);
     }
 
+    private static HashSet<int> CollectOpenDocuments(
+        Dictionary<int, QpdfObject> lookup,
+        PdfDictionary catalog,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        HashSet<int> open = new();
+        string[] keys = ["ViewerPreferences", "PageMode", "Threads", "OpenAction", "AcroForm"];
+        foreach (string key in keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!catalog.TryGet(PdfName.FromAscii(key), out QpdfObject? value) || value is null || value is PdfNull)
+            {
+                continue;
+            }
+
+            if (value is PdfReference reference)
+            {
+                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target) || target is null)
+                {
+                    continue;
+                }
+
+                WalkSubtree(lookup, target, false, open, governor, cancellationToken);
+            }
+        }
+
+        return open;
+    }
+
+    private static void WalkSubtree(
+        Dictionary<int, QpdfObject> lookup,
+        QpdfObject seed,
+        bool top,
+        HashSet<int> seen,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        List<(QpdfObject Value, bool Top)> stack = new() { (seed, top) };
+        while (stack.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            (QpdfObject current, bool currentTop) = stack[stack.Count - 1];
+            stack.RemoveAt(stack.Count - 1);
+            if (current is PdfReference reference)
+            {
+                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target) || target is null)
+                {
+                    continue;
+                }
+
+                if (!seen.Add(reference.ObjectNumber))
+                {
+                    continue;
+                }
+
+                if (!currentTop && target is PdfDictionary dict
+                    && dict.TryGet(PdfName.FromAscii("Type"), out QpdfObject kind)
+                    && kind is PdfName name
+                    && name.DisplayText == "Page")
+                {
+                    continue;
+                }
+
+                stack.Add((target, false));
+                continue;
+            }
+
+            if (current is PdfArray array)
+            {
+                for (int i = 0; i < array.Count; i++)
+                {
+                    stack.Add((array[i], false));
+                }
+
+                continue;
+            }
+
+            PdfDictionary? dictionary = current as PdfDictionary;
+            if (current is PdfStream stream)
+            {
+                dictionary = stream.Dictionary;
+            }
+
+            if (dictionary is not null)
+            {
+                foreach (PdfName key in dictionary.Keys)
+                {
+                    if (current is PdfStream
+                        && (key.DisplayText == "Length" || key.DisplayText == "Filter" || key.DisplayText == "DecodeParms"))
+                    {
+                        continue;
+                    }
+
+                    if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null && entry is not PdfNull)
+                    {
+                        stack.Add((entry, false));
+                    }
+                }
+            }
+        }
+    }
     private static List<int> CollectPages(
         PdfDictionary catalog,
         Dictionary<int, QpdfObject> lookup,
@@ -304,6 +465,24 @@ internal sealed class LinearizedParts
                 for (int i = 0; i < array.Count; i++)
                 {
                     stack.Add((array[i], false));
+                }
+
+                continue;
+            }
+
+            if (current is PdfStream contentStream)
+            {
+                foreach (PdfName key in contentStream.Dictionary.Keys)
+                {
+                    if (key.DisplayText == "Length" || key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
+                    {
+                        continue;
+                    }
+
+                    if (contentStream.Dictionary.TryGet(key, out QpdfObject? entry) && entry is not null && entry is not PdfNull)
+                    {
+                        stack.Add((entry, false));
+                    }
                 }
 
                 continue;

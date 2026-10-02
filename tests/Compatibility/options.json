@@ -4828,17 +4828,30 @@
         }
       ],
       "milestone": "M10",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Dumps parameter data, page-offset/shared-object hint tables, the outline table when present, and recomputed part assignments; unreadable hint tables fail explicitly (exit 2) where upstream prints a partial dump."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "LinearizationInspectionTests.ShowLinearizationReportsHintTables",
+          "LinearizationInspectionTests.ShowLinearizationOnPlainFile",
+          "LinearizationInspectionTests.CheckAndShowLinearizationCombine",
+          "LinearizationInspectionTests.CheckPlusShowLinearization"
+        ],
+        "negative": [
+          "LinearizationInspectionTests.ShowLinearizationFailsOnBadHints",
+          "LinearizationInspectionTests.ShowLinearizationRejectsCombinations"
+        ],
+        "interaction": [
+          "LinearizationInspectionTests.JobShowLinearizationMatchesArgv",
+          "LinearizationInspectionTests.JobShowLinearizationRejectsCombinations"
+        ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:show-linearization"
+        ]
       }
     },
     {

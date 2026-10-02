@@ -40,6 +40,7 @@ internal static class ArgvParser
         QpdfRecoveryMode recovery = globals.Recovery;
         int checkAt = FindFlag(argv, "--check");
         int checkLinearizationAt = FindFlag(argv, "--check-linearization");
+        int showLinearizationAt = FindFlag(argv, "--show-linearization");
         int pagesAt = FindFlag(argv, "--pages");
         int listAt = FindFlag(argv, "--list-attachments");
         (int firstShowAt, int showAt, string? showKey) = FindShowAttachment(argv);
@@ -60,6 +61,10 @@ internal static class ArgvParser
             if (checkLinearizationAt >= 0)
             {
                 throw new QpdfParseException("Option --json cannot be combined with --check-linearization.", jsonEntryAt, null);
+            }
+            if (showLinearizationAt >= 0)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --show-linearization.", jsonEntryAt, null);
             }
 
             if (listAt >= 0 || showAt >= 0)
@@ -122,6 +127,10 @@ internal static class ArgvParser
             if (checkLinearizationAt >= 0)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --check-linearization.", jsonImportAt, null);
+            }
+            if (showLinearizationAt >= 0)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --show-linearization.", jsonImportAt, null);
             }
 
             if (listAt >= 0 || showAt >= 0)
@@ -191,6 +200,10 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Attachment inspection cannot be combined with --check-linearization.", showAt >= 0 ? showAt : listAt, null);
             }
+            if (showLinearizationAt >= 0)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --show-linearization.", showAt >= 0 ? showAt : listAt, null);
+            }
 
             if (HasAttachmentEdit(argv, 0, argv.Count))
             {
@@ -234,70 +247,69 @@ internal static class ArgvParser
 
             return ParseAttachments(argv, listAt, firstAttachmentAt, showKey, recovery, globals);
         }
-        if (checkLinearizationAt >= 0)
+        if (checkLinearizationAt >= 0 || showLinearizationAt >= 0)
         {
+            string linFlag = checkLinearizationAt >= 0 ? "--check-linearization" : "--show-linearization";
+            int linAt = checkLinearizationAt >= 0 ? checkLinearizationAt : showLinearizationAt;
             if (pagesAt >= 0)
             {
-                throw new QpdfParseException("Options --check-linearization and --pages cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --pages cannot be combined.", linAt, null);
             }
 
             if (firstOverlayAt >= 0)
             {
-                throw new QpdfParseException("Options --check-linearization and --overlay or --underlay cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --overlay or --underlay cannot be combined.", linAt, null);
             }
 
             if (globals.FlattenRotation)
             {
-                throw new QpdfParseException("Options --check-linearization and --flatten-rotation cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --flatten-rotation cannot be combined.", linAt, null);
             }
 
             if (globals.FlattenAnnotations is not null)
             {
-                throw new QpdfParseException("Options --check-linearization and --flatten-annotations cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --flatten-annotations cannot be combined.", linAt, null);
             }
 
             if (globals.GenerateAppearances)
             {
-                throw new QpdfParseException("Options --check-linearization and --generate-appearances cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --generate-appearances cannot be combined.", linAt, null);
             }
 
             if (globals.Qdf)
             {
-                throw new QpdfParseException("Options --check-linearization and --qdf cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --qdf cannot be combined.", linAt, null);
             }
 
             if (globals.Linearize)
             {
-                throw new QpdfParseException("Options --check-linearization and --linearize cannot be combined.", checkLinearizationAt, null);
+                throw new QpdfParseException($"Options {linFlag} and --linearize cannot be combined.", linAt, null);
             }
 
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
-                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", checkLinearizationAt, null);
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", linAt, null);
             }
 
             if (checkAt >= 0)
             {
-                if (argv.Count != 3 || checkAt == 0 || checkLinearizationAt == 0)
-                {
-                    throw new QpdfParseException("Options --check and --check-linearization take a single input and no output file.", checkAt, null);
-                }
-
-                string checkInput = ParseInputArea(argv, 1, "--check");
+                string checkInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, "--check");
                 return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(checkInput), recovery), globals) with
                 {
-                    CheckLinearization = true,
+                    CheckLinearization = checkLinearizationAt >= 0,
+                    ShowLinearization = showLinearizationAt >= 0,
                 };
             }
 
-            return ParseLinearization(argv, checkLinearizationAt, recovery) with
+            string soloInput = ParseInspectionInput(argv, -1, checkLinearizationAt, showLinearizationAt, linFlag);
+            return new LinearizationPlan(SelectionPlan.CheckedPath(soloInput), recovery) with
             {
+                Check = checkLinearizationAt >= 0,
+                Show = showLinearizationAt >= 0,
                 WarningExitZero = globals.WarningExitZero,
                 NoWarn = globals.NoWarn,
             };
-
         }
-
         if (checkAt >= 0 && pagesAt >= 0)
         {
             throw new QpdfParseException("Options --check and --pages cannot be combined.", checkAt, null);
@@ -1615,21 +1627,31 @@ internal static class ArgvParser
         return value;
     }
 
-    private static LinearizationPlan ParseLinearization(IReadOnlyList<string> argv, int linearizationAt, QpdfRecoveryMode recovery)
+    private static string ParseInspectionInput(
+        IReadOnlyList<string> argv, int checkAt, int checkLinearizationAt, int showLinearizationAt, string operation)
     {
-        string input = ParseInputArea(argv, linearizationAt, "--check-linearization");
-        if (linearizationAt + 1 >= argv.Count)
+        if (argv.Count < 2 || checkAt == 0 || checkLinearizationAt == 0 || showLinearizationAt == 0)
         {
-            return new LinearizationPlan(SelectionPlan.CheckedPath(input), recovery);
+            throw new QpdfParseException($"A positional input file is required before {operation}.", 0L, null);
         }
 
-        string? token = argv[linearizationAt + 1];
-        if (token is null)
+        for (int i = 1; i < argv.Count; i++)
         {
-            throw new QpdfParseException("Null argument.", linearizationAt + 1, null);
+            if (i == checkAt || i == checkLinearizationAt || i == showLinearizationAt)
+            {
+                continue;
+            }
+
+            string? token = argv[i];
+            if (token is null)
+            {
+                throw new QpdfParseException("Null argument.", i, null);
+            }
+
+            throw new QpdfParseException($"Unexpected argument '{token}' after {operation}; inspection takes no output file.", i, null);
         }
 
-        throw new QpdfParseException($"Unexpected argument '{token}' after --check-linearization; inspection takes no output file.", linearizationAt + 1, null);
+        return ParseInputArea(argv, 1, operation);
     }
 
     private static CheckPlan WithCheckGlobals(CheckPlan plan, GlobalOptions globals)

@@ -437,6 +437,47 @@ $ora = Invoke-OracleLinCheck "$case/inputs/badH.pdf"
 if ($code -ne 2 -or $ora -ne 3) { Write-Output "[check-linearization/badH] FAIL: exits managed=$code oracle=$ora, expected 2/3"; $script:failures++ }
 else { Write-Output "[check-linearization/badH] hint defects fail on both sides (2/3)" }
 
+# --- case: show-linearization (managed vs oracle dump) ---
+$case = New-Case 'show-linearization'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--', "$case/inputs/lin.pdf")
+if ($code -ne 0) { throw "show-linearization setup: oracle linearize failed ($code)" }
+function Invoke-ManagedShow {
+  param([string]$Workdir, [string]$InFile, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-linearization') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  return $p.ExitCode
+}
+function Invoke-OracleShow {
+  param([string]$File)
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-linearization', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  return $p.ExitCode
+}
+function Get-NormalizedDump {
+  param([string]$ManagedFile, [string]$OracleFile)
+  $managed = Get-Content $ManagedFile | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 } | Select-Object -Skip 1
+  $oracle = Get-Content $OracleFile | Where-Object { $_.Trim().Length -gt 0 } | Select-Object -Skip 1
+  return @((($managed -join "`n")), (($oracle -join "`n")))
+}
+$code = Invoke-ManagedShow $case "inputs/lin.pdf" "show-valid"
+$ora = Invoke-OracleShow "$case/inputs/lin.pdf"
+if ($code -ne 0 -or $ora -ne 0) { Write-Output "[show-linearization/valid] FAIL: exits managed=$code oracle=$ora, expected 0/0"; $script:failures++ }
+else {
+  $dumps = Get-NormalizedDump "$case/managed-show-valid.txt" "$env:TEMP/qs.txt"
+  if ($dumps[0] -ne $dumps[1]) { Write-Output "[show-linearization/valid] FAIL: dump mismatch"; $script:failures++ }
+  else { Write-Output "[show-linearization/valid] dumps match line for line" }
+}
+$code = Invoke-ManagedShow $case "inputs/a.pdf" "show-plain"
+$ora = Invoke-OracleShow "$case/inputs/a.pdf"
+if ($code -ne 0 -or $ora -ne 0) { Write-Output "[show-linearization/plain] FAIL: exits managed=$code oracle=$ora, expected 0/0"; $script:failures++ }
+elseif (-not (Select-String -Path "$case/managed-show-plain.txt" -Pattern 'is not linearized' -Quiet) -or -not (Select-String -Path "$env:TEMP/qs.txt" -Pattern 'is not linearized' -Quiet)) { Write-Output "[show-linearization/plain] FAIL: message mismatch"; $script:failures++ }
+else { Write-Output "[show-linearization/plain] both report not linearized" }
+Copy-Item "$case/inputs/lin.pdf" "$case/inputs/badH.pdf"
+Edit-FirstBytes "$case/inputs/badH.pdf" "[ 550 127 ]" "[ 550 999 ]"
+$code = Invoke-ManagedShow $case "inputs/badH.pdf" "show-badh"
+$ora = Invoke-OracleShow "$case/inputs/badH.pdf"
+if ($code -ne 2 -or $ora -ne 2) { Write-Output "[show-linearization/badH] FAIL: exits managed=$code oracle=$ora, expected 2/2"; $script:failures++ }
+else { Write-Output "[show-linearization/badH] unreadable hints fail on both sides (2/2)" }
+
 # --- case: linearize (managed writer vs oracle writer) ---
 $case = New-Case 'linearize'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -457,4 +498,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization and linearize."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization and linearize."

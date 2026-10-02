@@ -16,6 +16,67 @@ internal enum LinearizationStatus
 /// <summary>Tri-state outcome of linearization inspection.</summary>
 internal sealed record LinearizationInspection(LinearizationStatus Status, int SharedGroups, string Detail);
 
+/// <summary>Retained linearization parameter and hint-table values.</summary>
+internal sealed record LinearizationData(
+    long FileSize,
+    long FirstPageObject,
+    long FirstPageEnd,
+    int PageCount,
+    long XrefZeroOffset,
+    int LindictObject,
+    int HintObject,
+    long FirstPage,
+    long HintOffset,
+    long HintLength,
+    PageOffsetTable PageTable,
+    SharedObjectTable SharedTable,
+    OutlineTable? Outlines);
+
+internal sealed record PageOffsetTable(
+    long MinObjects,
+    long FirstPageOffset,
+    int DeltaObjectsBits,
+    long MinPageLength,
+    int DeltaLengthBits,
+    long MinContentOffset,
+    int DeltaContentOffsetBits,
+    long MinContentLength,
+    int DeltaContentLengthBits,
+    int SharedCountBits,
+    int IdentifierBits,
+    int NumeratorBits,
+    int SharedDenominator,
+    IReadOnlyList<PageOffsetEntry> Entries);
+
+internal sealed record PageOffsetEntry(
+    long ObjectCount,
+    long PageLength,
+    long ContentOffset,
+    long ContentLength,
+    IReadOnlyList<int> SharedIdentifiers,
+    IReadOnlyList<int> SharedNumerators);
+
+internal sealed record SharedObjectTable(
+    int FirstSharedObject,
+    long FirstSharedOffset,
+    int FirstPageCount,
+    int TotalCount,
+    int ObjectCountBits,
+    long MinGroupLength,
+    int DeltaGroupBits,
+    IReadOnlyList<SharedObjectEntry> Entries);
+
+internal sealed record SharedObjectEntry(
+    long GroupLength,
+    bool SignaturePresent,
+    long MemberCount);
+
+internal sealed record OutlineTable(
+    int FirstObject,
+    long FirstOffset,
+    int ObjectCount,
+    long GroupLength);
+
 /// <summary>
 /// Structural validation of linearized files: detection, linearization
 /// dictionary checks, hint-stream resolution and decoding, and governed
@@ -66,16 +127,15 @@ internal static class LinearizationCheck
             throw new ArgumentNullException(nameof(governor));
         }
 
-        PdfDictionary? lindict = FindDictionary(engine.Data, limits, governor, cancellationToken);
-        if (lindict is null)
-        {
-            return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, "File is not linearized.");
-        }
-
         try
         {
-            long[] spans = CheckDictionary(lindict, engine.Data.Length, pageCount, engine);
-            int shared = CheckHints(engine, lindict, spans, pageCount, limits, governor, cancellationToken);
+            LinearizationData? data = TryReadData(engine, pageCount, limits, governor, cancellationToken);
+            if (data is null)
+            {
+                return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, "File is not linearized.");
+            }
+
+            int shared = data.SharedTable.TotalCount;
             return new LinearizationInspection(
                 LinearizationStatus.Valid,
                 shared,
@@ -87,7 +147,7 @@ internal static class LinearizationCheck
         }
     }
 
-    private static PdfDictionary? FindDictionary(
+    private static (PdfDictionary? Dictionary, int Number) FindDictionary(
         ReadOnlyMemory<byte> data,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -105,7 +165,7 @@ internal static class LinearizationCheck
             {
                 if (!tokenizer.TryReadToken(out PdfToken token))
                 {
-                    return null;
+                    return (null, 0);
                 }
 
                 if (token.Kind != PdfTokenKind.Integer)
@@ -115,7 +175,7 @@ internal static class LinearizationCheck
 
                 position = token.Offset;
                 tokenizer.SetPosition(position);
-                (int _, int _, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
+                (int number, int _, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
                 if (value is PdfDictionary dictionary
                     && dictionary.TryGet(PdfName.FromAscii("Linearized"), out QpdfObject raw)
                     && IsOne(raw))
@@ -124,10 +184,10 @@ internal static class LinearizationCheck
                         && size is PdfInteger total
                         && total.Value == data.Length)
                     {
-                        return dictionary;
+                        return (dictionary, number);
                     }
 
-                    return null;
+                    return (null, 0);
                 }
             }
             catch (QpdfException)
@@ -138,12 +198,12 @@ internal static class LinearizationCheck
                 }
                 catch (QpdfParseException)
                 {
-                    return null;
+                    return (null, 0);
                 }
             }
         }
 
-        return null;
+        return (null, 0);
     }
 
     private static bool IsOne(QpdfObject raw)
@@ -162,7 +222,15 @@ internal static class LinearizationCheck
         return integer.Value;
     }
 
-    private static long[] CheckDictionary(PdfDictionary lindict, int fileLength, int pageCount, DocumentEngine engine)
+    private sealed record LindictData(
+        long[] Spans,
+        long FirstPageObject,
+        long FirstPageEnd,
+        long DeclaredPages,
+        long XrefZero,
+        long FirstPage);
+
+    private static LindictData CheckDictionary(PdfDictionary lindict, int fileLength, int pageCount, DocumentEngine engine)
     {
         if (!lindict.TryGet(PdfName.FromAscii("H"), out QpdfObject hints)
             || hints is not PdfArray table
@@ -216,24 +284,63 @@ internal static class LinearizationCheck
             throw new QpdfParseException("Linearization dictionary key /T is out of range.", null, null);
         }
 
-        if (lindict.TryGet(PdfName.FromAscii("P"), out QpdfObject first) && first is not PdfInteger)
+        long firstPage = 0L;
+        if (lindict.TryGet(PdfName.FromAscii("P"), out QpdfObject first))
         {
-            throw new QpdfParseException("Linearization dictionary key /P must be an integer.", null, null);
+            if (first is not PdfInteger firstNumber)
+            {
+                throw new QpdfParseException("Linearization dictionary key /P must be an integer.", null, null);
+            }
+
+            firstPage = firstNumber.Value;
         }
 
-        return spans;
+        return new LindictData(spans, firstPageObject, firstPageEnd, declaredPages, xrefZero, firstPage);
     }
 
-        private static int CheckHints(
+    internal static LinearizationData? TryReadData(
         DocumentEngine engine,
-        PdfDictionary lindict,
-        long[] spans,
         int pageCount,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        PdfStream primary = ResolveHintObject(engine, spans[0], governor);
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        (PdfDictionary? lindict, int lindictNumber) = FindDictionary(engine.Data, limits, governor, cancellationToken);
+        if (lindict is null)
+        {
+            return null;
+        }
+
+        LindictData fields = CheckDictionary(lindict, engine.Data.Length, pageCount, engine);
+        LinearizationData data = ReadData(engine, fields, pageCount, limits, governor, cancellationToken);
+        return data with { LindictObject = lindictNumber };
+    }
+
+    private static LinearizationData ReadData(
+        DocumentEngine engine,
+        LindictData fields,
+        int pageCount,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        long[] spans = fields.Spans;
+        PdfStream primary = ResolveHintObject(engine, spans[0], governor, out int hintNumber);
         byte[] first = DecodeHintStream(primary, limits, governor);
         byte[] combined;
         if (spans.Length == 2)
@@ -242,7 +349,7 @@ internal static class LinearizationCheck
         }
         else
         {
-            PdfStream overflow = ResolveHintObject(engine, spans[2], governor);
+            PdfStream overflow = ResolveHintObject(engine, spans[2], governor, out int _);
             byte[] rest = DecodeHintStream(overflow, limits, governor);
             governor.ReserveMemory(checked((long)first.Length + rest.Length));
             combined = new byte[checked(first.Length + rest.Length)];
@@ -269,12 +376,12 @@ internal static class LinearizationCheck
         }
 
         HintBitReader shared = new(combined, checked(sharedAt * 8L));
-        shared.ReadBits(32);
-        shared.ReadBits(32);
+        int firstSharedObject = (int)shared.ReadBits(32);
+        long firstSharedOffset = shared.ReadBits(32);
         long firstPageShared = shared.ReadBits(32);
         long totalShared = shared.ReadBits(32);
         int objectWidth = (int)shared.ReadBits(16);
-        shared.ReadBits(32);
+        long minGroupLength = shared.ReadBits(32);
         int groupWidth = (int)shared.ReadBits(16);
         if (totalShared < 0L || totalShared > engine.XRefEntries.Count)
         {
@@ -286,27 +393,28 @@ internal static class LinearizationCheck
             throw new QpdfParseException("Shared-object hint table first-page count exceeds its total.", null, null);
         }
 
-                int groups = (int)totalShared;
+        int groups = (int)totalShared;
+        List<long> groupDeltas = new(groups);
         for (int group = 0; group < groups; group++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            shared.ReadBits(groupWidth);
+            groupDeltas.Add(shared.ReadBits(groupWidth));
         }
         shared.AlignToByte();
 
-        List<long> signatures = new(groups);
+        List<bool> signatures = new(groups);
         for (int group = 0; group < groups; group++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            signatures.Add(shared.ReadBits(1));
+            signatures.Add(shared.ReadBits(1) == 1L);
         }
         shared.AlignToByte();
 
-        foreach (long signature in signatures)
+        foreach (bool signature in signatures)
         {
-            if (signature == 1L)
+            if (signature)
             {
                 for (int k = 0; k < 4; k++)
                 {
@@ -315,71 +423,97 @@ internal static class LinearizationCheck
             }
         }
 
+        List<long> memberDeltas = new(groups);
         for (int group = 0; group < groups; group++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            shared.ReadBits(objectWidth);
+            memberDeltas.Add(shared.ReadBits(objectWidth));
         }
         shared.AlignToByte();
-HintBitReader pages = new(combined);
-        long[] header = new long[13];
-        int[] widths = [32, 32, 16, 32, 16, 32, 16, 32, 16, 16, 16, 16, 16];
-        for (int i = 0; i < header.Length; i++)
+
+        List<SharedObjectEntry> sharedEntries = new(groups);
+        for (int group = 0; group < groups; group++)
         {
-            header[i] = pages.ReadBits(widths[i]);
+            sharedEntries.Add(new SharedObjectEntry(
+                minGroupLength + groupDeltas[group],
+                signatures[group],
+                memberDeltas[group] + 1L));
         }
 
-                for (int page = 0; page < pageCount; page++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            pages.ReadBits((int)header[2]);
-        }
-        pages.AlignToByte();
+        SharedObjectTable sharedTable = new(
+            firstSharedObject, firstSharedOffset, (int)firstPageShared, groups,
+            objectWidth, minGroupLength, groupWidth, sharedEntries);
 
+        HintBitReader pages = new(combined);
+        long minObjects = pages.ReadBits(32);
+        long firstPageOffset = pages.ReadBits(32);
+        int deltaObjectsBits = (int)pages.ReadBits(16);
+        long minPageLength = pages.ReadBits(32);
+        int deltaLengthBits = (int)pages.ReadBits(16);
+        long minContentOffset = pages.ReadBits(32);
+        int deltaContentOffsetBits = (int)pages.ReadBits(16);
+        long minContentLength = pages.ReadBits(32);
+        int deltaContentLengthBits = (int)pages.ReadBits(16);
+        int sharedCountBits = (int)pages.ReadBits(16);
+        int identifierBits = (int)pages.ReadBits(16);
+        int numeratorBits = (int)pages.ReadBits(16);
+        int sharedDenominator = (int)pages.ReadBits(16);
+
+        List<long> deltaObjects = new(pageCount);
         for (int page = 0; page < pageCount; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            pages.ReadBits((int)header[4]);
+            deltaObjects.Add(pages.ReadBits(deltaObjectsBits));
         }
         pages.AlignToByte();
 
-        List<long> pageShared = new(pageCount);
+        List<long> deltaLengths = new(pageCount);
         for (int page = 0; page < pageCount; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            long sharedCount = pages.ReadBits((int)header[9]);
+            deltaLengths.Add(pages.ReadBits(deltaLengthBits));
+        }
+        pages.AlignToByte();
+
+        List<long> sharedCounts = new(pageCount);
+        for (int page = 0; page < pageCount; page++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            long sharedCount = pages.ReadBits(sharedCountBits);
             if (sharedCount < 0L || sharedCount > totalShared)
             {
                 throw new QpdfParseException("Page hint table names more shared objects than exist.", null, null);
             }
 
-            pageShared.Add(sharedCount);
+            sharedCounts.Add(sharedCount);
         }
         pages.AlignToByte();
 
-        List<long[]> identifiers = new(pageCount);
+        List<int[]> identifiers = new(pageCount);
+        List<int[]> numerators = new(pageCount);
         for (int page = 0; page < pageCount; page++)
         {
-            int count = (int)pageShared[page];
-            long[] ids = new long[count];
+            int count = (int)sharedCounts[page];
+            int[] ids = new int[count];
             for (int k = 0; k < count; k++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.ChargeWork(1L);
-                long id = pages.ReadBits((int)header[10]);
+                long id = pages.ReadBits(identifierBits);
                 if (id < 0L || id >= totalShared)
                 {
                     throw new QpdfParseException("Page hint table names an unknown shared object.", null, null);
                 }
 
-                ids[k] = id;
+                ids[k] = (int)id;
             }
 
             identifiers.Add(ids);
+            numerators.Add(new int[count]);
         }
         pages.AlignToByte();
 
@@ -390,46 +524,83 @@ HintBitReader pages = new(combined);
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.ChargeWork(1L);
-                pages.ReadBits((int)header[11]);
+                numerators[page][k] = (int)pages.ReadBits(numeratorBits);
             }
         }
         pages.AlignToByte();
 
+        List<long> contentOffsets = new(pageCount);
         for (int page = 0; page < pageCount; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            pages.ReadBits((int)header[6]);
+            contentOffsets.Add(pages.ReadBits(deltaContentOffsetBits));
         }
         pages.AlignToByte();
 
+        List<long> contentLengths = new(pageCount);
         for (int page = 0; page < pageCount; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            pages.ReadBits((int)header[8]);
+            contentLengths.Add(pages.ReadBits(deltaContentLengthBits));
         }
         pages.AlignToByte();
 
-if (outlineAt >= 0L)
+        List<PageOffsetEntry> pageEntries = new(pageCount);
+        for (int page = 0; page < pageCount; page++)
         {
-            HintBitReader outlines = new(combined, checked(outlineAt * 8L));
-            outlines.ReadBits(32);
-            outlines.ReadBits(32);
-            outlines.ReadBits(32);
-            outlines.ReadBits(32);
+            pageEntries.Add(new PageOffsetEntry(
+                minObjects + deltaObjects[page],
+                minPageLength + deltaLengths[page],
+                minContentOffset + contentOffsets[page],
+                minContentLength + contentLengths[page],
+                identifiers[page],
+                numerators[page]));
         }
 
-        return groups;
+        PageOffsetTable pageTable = new(
+            minObjects, firstPageOffset, deltaObjectsBits, minPageLength, deltaLengthBits,
+            minContentOffset, deltaContentOffsetBits, minContentLength, deltaContentLengthBits,
+            sharedCountBits, identifierBits, numeratorBits, sharedDenominator, pageEntries);
+
+        OutlineTable? outlines = null;
+        if (outlineAt >= 0L)
+        {
+            HintBitReader outlineReader = new(combined, checked(outlineAt * 8L));
+            int outlineFirst = (int)outlineReader.ReadBits(32);
+            long outlineOffset = outlineReader.ReadBits(32);
+            int outlineCount = (int)outlineReader.ReadBits(32);
+            long outlineLength = outlineReader.ReadBits(32);
+            outlines = new OutlineTable(outlineFirst, outlineOffset, outlineCount, outlineLength);
+        }
+
+        return new LinearizationData(
+            engine.Data.Length, fields.FirstPageObject, fields.FirstPageEnd, pageCount,
+            fields.XrefZero, 0, hintNumber, fields.FirstPage, spans[0], spans[1],
+            pageTable, sharedTable, outlines);
     }
 
-private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, ResourceGovernor governor)
+    private static int CheckHints(
+        DocumentEngine engine,
+        PdfDictionary lindict,
+        long[] spans,
+        int pageCount,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        LindictData fields = CheckDictionary(lindict, engine.Data.Length, pageCount, engine);
+        return ReadData(engine, fields, pageCount, limits, governor, cancellationToken).SharedTable.TotalCount;
+    }
+private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, ResourceGovernor governor, out int number)
     {
         governor.ChargeWork(engine.XRefEntries.Count);
         foreach (System.Collections.Generic.KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             if (entry.Value.Kind == XrefEntryKind.Uncompressed && entry.Value.First == offset)
             {
+                number = entry.Key;
                 QpdfObject value = engine.Load(entry.Key);
                 if (value is PdfStream stream)
                 {

@@ -227,6 +227,12 @@ internal static class Program
         Check(linReport.Status == QpdfExecutionStatus.Completed && linReport.ExitCode == QpdfExitCode.Success, "check-linearization execution");
         Check(linReport.Diagnostics.Count == 1 && linReport.Diagnostics[0].Code == QpdfDiagnosticCode.LinearizationReport, "check-linearization report code");
         Console.WriteLine("PASS linearization inspection (--check-linearization)");
+        QpdfExecutionResult linShow = await Qpdf.ExecuteAsync(
+            linReportHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--show-linearization"]),
+            CancellationToken.None);
+        Check(linShow.Status == QpdfExecutionStatus.Completed && linShow.ExitCode == QpdfExitCode.Success, "show-linearization execution");
+        Console.WriteLine("PASS linearization display (--show-linearization)");
     }
 
     private static InMemoryQpdfHost NewHost(string logical, byte[] bytes)

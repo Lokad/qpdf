@@ -128,6 +128,8 @@ internal static class JobJsonParser
             bool seenLinearize = false;
             bool checkLinearization = false;
             bool seenCheckLinearization = false;
+            bool showLinearization = false;
+            bool seenShowLinearization = false;
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
@@ -479,6 +481,15 @@ internal static class JobJsonParser
                         seenCheckLinearization = true;
                         checkLinearization = RequireBareFlag(property.Value, "checkLinearization");
                         break;
+                    case "showLinearization":
+                        if (seenShowLinearization)
+                        {
+                            throw new QpdfParseException("Duplicate job key showLinearization.", 0L, null);
+                        }
+
+                        seenShowLinearization = true;
+                        showLinearization = RequireBareFlag(property.Value, "showLinearization");
+                        break;
                     case "noOriginalObjectIds":
                         if (seenNoOriginalObjectIds)
                         {
@@ -728,7 +739,7 @@ internal static class JobJsonParser
                 return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, QpdfRecoveryMode.BoundedRepair);
             }
 
-            if (checkLinearization)
+            if (checkLinearization || showLinearization)
             {
                 if (hasPages || output is not null
                     || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
@@ -744,10 +755,14 @@ internal static class JobJsonParser
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson)
                 {
-                    throw new QpdfParseException("Job \"checkLinearization\" cannot be combined with transformation or other inspection keys.", 0L, null);
+                    throw new QpdfParseException("Job linearization inspection cannot be combined with transformation or other inspection keys.", 0L, null);
                 }
 
-                return new LinearizationPlan(SelectionPlan.CheckedPath(input), QpdfRecoveryMode.BoundedRepair);
+                return new LinearizationPlan(SelectionPlan.CheckedPath(input), QpdfRecoveryMode.BoundedRepair)
+                {
+                    Check = checkLinearization,
+                    Show = showLinearization,
+                };
             }
 
             if (output is null)

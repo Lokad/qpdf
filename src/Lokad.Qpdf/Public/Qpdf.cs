@@ -3477,6 +3477,53 @@ public static class Qpdf
         diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"Check 'linearization' failed: {inspection.Detail}");
     }
 
+    private static async ValueTask ShowLinearizationAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfLimits limits,
+        QpdfRecoveryMode recovery,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        LinearizationData? data;
+        try
+        {
+            data = LinearizationCheck.TryReadData(document.Engine, document.PageCount, limits, governor, cancellationToken);
+        }
+        catch (QpdfException ex)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"{inputPath.Value}: error encountered while checking linearization data: {ex.Message}");
+            return;
+        }
+
+        if (data is null)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} is not linearized");
+            return;
+        }
+
+        ClassifiedGraph graph;
+        try
+        {
+            System.Collections.Generic.HashSet<int> excluded = new() { data.LindictObject, data.HintObject };
+            graph = LinearizationReport.ClassifyDocument(document.Engine, excluded, governor, cancellationToken);
+        }
+        catch (QpdfException ex)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ex.Message);
+            return;
+        }
+
+        foreach (string line in LinearizationReport.Build(inputPath.Value, data, graph))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, line);
+        }
+    }
+
+
     private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine,
         PageLocation location,
@@ -3936,6 +3983,11 @@ public static class Qpdf
                     await InspectLinearizationAsync(host, check.Input, limits, check.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
+                if (check.ShowLinearization)
+                {
+                    await ShowLinearizationAsync(host, check.Input, limits, check.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                }
+
                 return CompleteWithPresentation(diagnostics.Entries, inspected.Counters, plan);
             }
             catch (QpdfException ex)
@@ -3952,7 +4004,16 @@ public static class Qpdf
         {
             try
             {
-                await InspectLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                if (linearization.Check)
+                {
+                    await InspectLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                }
+
+                if (linearization.Show)
+                {
+                    await ShowLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                }
+
                 return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
             catch (QpdfException ex)
