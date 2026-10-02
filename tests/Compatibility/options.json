@@ -2661,17 +2661,22 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Box rotation, content wrapping, and annotation rectangles are covered; appearance streams are untouched and inherited user units are out of scope until later items."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent",
           "FlattenRotationTests.Flatten180KeepsMediaBox",
           "FlattenRotationTests.AnnotationRectanglesMoveWithPage",
-          "FlattenRotationTests.MergeThenFlattenAppliesToFinalPages"
+          "FlattenRotationTests.MergeThenFlattenAppliesToFinalPages",
+          "FlattenRotationTests.AppearanceStreamGainsRotationMatrix",
+          "FlattenRotationTests.AppearanceMatrixComposesWithExisting",
+          "FlattenRotationTests.AppearanceStatesAllRotate",
+          "FlattenRotationTests.AppearanceMatricesMatchAngle",
+          "FlattenRotationTests.DirectStreamAppearanceStaysUntouched",
+          "FlattenRotationTests.DirectUserUnitSurvivesRotation",
+          "FlattenRotationTests.MarkupAppearanceRotates"
         ],
         "negative": [
           "FlattenRotationTests.MalformedFlattenFlagsFail"

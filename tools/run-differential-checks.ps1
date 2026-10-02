@@ -250,6 +250,19 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[flatten-rotation] FAIL: flattened content payloads differ"; $script:failures++ } else { Write-Output "[flatten-rotation] payloads match" }
 Write-Output "[flatten-rotation] box and matrix assertions done"
 
+Copy-Item "$fixtureDir/rotated-ap-1page.pdf" "$case/inputs/ap.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ap.pdf=$case/lib-ap.pdf", '--', 'inputs/ap.pdf', '--pages', '.', '1', '--flatten-rotation', '--', 'outputs/ap.pdf')
+if ($code -ne 0) { throw "flatten-rotation-ap: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--flatten-rotation', 'inputs/ap.pdf', '--pages', '.', '1', '--', "$case/ora-ap.pdf")
+if ($code -ne 0) { throw "flatten-rotation-ap: oracle failed ($code)" }
+Assert-Trio 'flatten-rotation-ap' "$case/lib-ap.pdf" "$case/ora-ap.pdf" 1
+foreach ($pair in @(('lib-ap', "$case/lib-ap.pdf"), ('ora-ap', "$case/ora-ap.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText -notmatch '/Matrix\s*\[\s*0\s+-1\s+1\s+0\s+0\s+612\s*\]') { Write-Output "[flatten-rotation-ap] FAIL: rotated appearance matrix missing from $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/UserUnit')) { Write-Output "[flatten-rotation-ap] FAIL: direct user unit missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[flatten-rotation-ap] appearance assertions done"
+
 # --- case: prune (page-operation resource pruning) ---
 $case = New-Case 'prune'
 Copy-Item "$fixtureDir/unref-1page.pdf" "$case/inputs/u.pdf"

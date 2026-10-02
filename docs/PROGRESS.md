@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 83: rotation-flattening completion (M11). `--flatten-rotation` moves to complete: appearance form XObjects referenced from annotation /AP dictionaries (including /N, /R, /D state dictionaries) now gain the same rotation matrix the content wrap uses, composed over any existing matrix exactly as the reference does (probed across 90/180/270 degrees, nonzero origins, composed priors, markup annotations and direct-stream appearances, which upstream leaves untouched). Direct /UserUnit entries survive and inherited units stay uninherited on both sides with no code change. New appearance-matrix unit theory plus a `rotated-ap-1page.pdf` fixture (manifest/csproj/manifest-tests wired) and an extended flatten-rotation differential sub-case prove oracle agreement. Parent-held field lookup, default-resource merging, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 82: inline-image externalization completion (M11). `--externalize-inline-images` and `--ii-min-bytes` move to complete with a shared exhausted-budget theory, a new checked-in `inline-1page.pdf` fixture (manifest/csproj/manifest-tests wired), and a new `inline` differential case proving oracle agreement (externalized /IIm1 content with no inline image left on both sides at the default threshold, verbatim kept-inline content above a high threshold). Fixing the comparison exposed real residue: page rewrites orphaned the replaced content streams in the pool, so single-reference contents/resources now rewrite in place, array leftovers drop through a shared unreferenced-sweep, and both xref writers emit free entries for the resulting holes. Merge collision renaming, first-wins default resources, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
 
 Prior gate
