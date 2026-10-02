@@ -136,4 +136,16 @@ public sealed class ResourceEnforcementTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
         await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--generate-appearances", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
+
+    [Theory]
+    [InlineData("--externalize-inline-images")]
+    [InlineData("--externalize-inline-images", "--ii-min-bytes=5")]
+    public async Task ExternalizeInlineImagesYieldsToExhaustedBudget(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "inline-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        await AssertBudgetExceeded(host, argv, "outputs/a.pdf");
+    }
 }

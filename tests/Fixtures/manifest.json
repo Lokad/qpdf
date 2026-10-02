@@ -169,6 +169,15 @@
       "headerVersion": "1.4",
       "valid": false,
       "description": "Negative fixture: truncated input. Both oracle --check and the independent reader must fail explicitly; a passing validation is a test failure."
+    },
+    {
+      "file": "inline-1page.pdf",
+      "sha256": "f7d8d4eeeb311f4dbe6063c87f74ab12a93aec3be85f659bab893d0f55ca48cf",
+      "bytes": 2138,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a 1500-byte inline image above the default externalization threshold, classic xref, unencrypted. Inline-image externalization and threshold selection must convert it to an /IIm1 XObject on both sides; the inline differential consumes it."
     }
   ]
 }

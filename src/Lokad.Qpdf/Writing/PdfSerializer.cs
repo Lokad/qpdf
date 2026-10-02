@@ -130,36 +130,53 @@ internal sealed partial class PdfSerializer
         }
 
         await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
-        List<long> offsets = new(objects.Count);
+        Dictionary<int, long> offsets = new(objects.Count);
+        int maxNumber = 0;
         for (int i = 0; i < objects.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
-            offsets.Add(sink.Length);
+            if (objects[i].Number <= 0)
+            {
+                throw new QpdfException($"Publication reached invalid object number {objects[i].Number}.");
+            }
+
+            offsets[objects[i].Number] = sink.Length;
+            if (objects[i].Number > maxNumber)
+            {
+                maxNumber = objects[i].Number;
+            }
+
             await AppendAsciiAsync($"{objects[i].Number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
             await AppendValueAsync(objects[i].Value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
         long xrefOffset = sink.Length;
-        await AppendAsciiAsync($"xref\n0 {objects.Count + 1}\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync($"xref\n0 {maxNumber + 1}\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
-        for (int i = 0; i < offsets.Count; i++)
+        for (int number = 1; number <= maxNumber; number++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (offsets[i] > 9_999_999_999L)
+            if (!offsets.TryGetValue(number, out long offset))
             {
-                throw new QpdfException($"Object offset {offsets[i]} exceeds the classic xref field width.");
+                await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
+                continue;
             }
 
-            await AppendAsciiAsync($"{offsets[i]:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
+            if (offset > 9_999_999_999L)
+            {
+                throw new QpdfException($"Object offset {offset} exceeds the classic xref field width.");
+            }
+
+            await AppendAsciiAsync($"{offset:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
         }
 
         string idHex1 = ToHex(id1);
         string idHex2 = ToHex(id2);
         _governor.ChargeWork(idHex1.Length + idHex2.Length);
         string infoText = infoRef.HasValue ? $" /Info {infoRef.Value} 0 R" : string.Empty;
-        await AppendAsciiAsync($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R" + infoText + " /ID [<" + idHex1 + "><" + idHex2 + ">] >>\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync($"trailer\n<< /Size {maxNumber + 1} /Root 1 0 R" + infoText + " /ID [<" + idHex1 + "><" + idHex2 + ">] >>\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
     }
@@ -451,7 +468,9 @@ internal sealed partial class PdfSerializer
             }
             else
             {
-                throw new QpdfException($"Object {number} is missing from the streamed model.");
+                AppendUInt(xrefData, 0L, 1);
+                AppendUInt(xrefData, 0L, f1);
+                AppendUInt(xrefData, 0L, f2);
             }
         }
 

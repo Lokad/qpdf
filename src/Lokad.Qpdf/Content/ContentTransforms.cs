@@ -306,6 +306,27 @@ internal static class ContentTransforms
         return new PdfDictionary(entries);
     }
 
+    private static List<int> ReplacedContentIds(QpdfObject? value)
+    {
+        List<int> ids = new();
+        if (value is PdfReference reference)
+        {
+            ids.Add(reference.ObjectNumber);
+        }
+        else if (value is PdfArray array)
+        {
+            for (int i = 0; i < array.Count; i++)
+            {
+                if (array[i] is PdfReference item)
+                {
+                    ids.Add(item.ObjectNumber);
+                }
+            }
+        }
+
+        return ids;
+    }
+
     private static PdfDictionary CoalescePage(
         GraphCopier copier,
         int pageId,
@@ -374,13 +395,30 @@ internal static class ContentTransforms
             coalesced = new PdfStream(fresh, joined);
         }
 
-        PdfReference? link = copier.AddIndirectObject(coalesced);
-        if (link is null)
+        PdfName contentsKey = PdfName.FromAscii("Contents");
+        page.TryGet(contentsKey, out QpdfObject? contentsRaw);
+        PdfDictionary replaced;
+        if (contentsRaw is PdfReference contentsRef)
         {
-            return page;
+            copier.ReplaceCopiedObject(contentsRef.ObjectNumber, coalesced);
+            replaced = page;
+        }
+        else
+        {
+            PdfReference? link = copier.AddIndirectObject(coalesced);
+            if (link is null)
+            {
+                return page;
+            }
+
+            replaced = ReplaceEntry(page, contentsKey, link, governor);
+            List<int> orphaned = ReplacedContentIds(contentsRaw);
+            if (orphaned.Count > 0)
+            {
+                copier.DropPoolObjectsIfUnreferenced(orphaned);
+            }
         }
 
-        PdfDictionary replaced = ReplaceEntry(page, PdfName.FromAscii("Contents"), link, governor);
         copier.ReplaceCopiedObject(pageId, replaced);
         return replaced;
     }

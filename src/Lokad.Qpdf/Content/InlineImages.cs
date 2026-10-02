@@ -15,6 +15,27 @@ namespace Lokad.Qpdf.Content;
 /// </summary>
 internal static class InlineImages
 {
+    private static List<int> ReplacedEntryIds(QpdfObject? value)
+    {
+        List<int> ids = new();
+        if (value is PdfReference reference)
+        {
+            ids.Add(reference.ObjectNumber);
+        }
+        else if (value is PdfArray array)
+        {
+            for (int i = 0; i < array.Count; i++)
+            {
+                if (array[i] is PdfReference item)
+                {
+                    ids.Add(item.ObjectNumber);
+                }
+            }
+        }
+
+        return ids;
+    }
+
     internal static PdfDictionary ExternalizePage(
         GraphCopier copier,
         int pageId,
@@ -42,15 +63,43 @@ internal static class InlineImages
             return page;
         }
 
-        PdfReference? link = copier.AddIndirectObject(rewritten.Stream);
-        if (link is null)
+        PdfName contentsKey = PdfName.FromAscii("Contents");
+        PdfName resourcesKey = PdfName.FromAscii("Resources");
+        page.TryGet(contentsKey, out QpdfObject? contentsRaw);
+        page.TryGet(resourcesKey, out QpdfObject? resourcesRaw);
+        PdfDictionary replaced = page;
+        List<int> orphaned = new();
+        if (contentsRaw is PdfReference contentsRef)
         {
-            return page;
+            copier.ReplaceCopiedObject(contentsRef.ObjectNumber, rewritten.Stream);
+        }
+        else
+        {
+            PdfReference? link = copier.AddIndirectObject(rewritten.Stream);
+            if (link is null)
+            {
+                return page;
+            }
+
+            orphaned.AddRange(ReplacedEntryIds(contentsRaw));
+            replaced = ReplaceEntry(replaced, contentsKey, link, governor);
         }
 
-        PdfDictionary replaced = ReplaceEntry(page, PdfName.FromAscii("Contents"), link, governor);
-        replaced = ReplaceEntry(replaced, PdfName.FromAscii("Resources"), rewritten.Resources, governor);
+        if (resourcesRaw is PdfReference resourcesRef)
+        {
+            copier.ReplaceCopiedObject(resourcesRef.ObjectNumber, rewritten.Resources);
+        }
+        else
+        {
+            replaced = ReplaceEntry(replaced, resourcesKey, rewritten.Resources, governor);
+        }
+
         copier.ReplaceCopiedObject(pageId, replaced);
+        if (orphaned.Count > 0)
+        {
+            copier.DropPoolObjectsIfUnreferenced(orphaned);
+        }
+
         return replaced;
     }
 

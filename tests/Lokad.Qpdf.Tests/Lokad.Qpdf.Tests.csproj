@@ -20,6 +20,7 @@
     <None Include="../Fixtures/struct-1page.pdf" Link="Fixtures/struct-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/forms-1page.pdf" Link="Fixtures/forms-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/forms-2page.pdf" Link="Fixtures/forms-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/inline-1page.pdf" Link="Fixtures/inline-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-2page.pdf" Link="Fixtures/outlined-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-use-2page.pdf" Link="Fixtures/outlined-use-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/thumb-1page.pdf" Link="Fixtures/thumb-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
