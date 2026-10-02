@@ -1,6 +1,10 @@
 # Progress
 
 ## Current checkpoint
+Work item 75: metadata-removal completion (M11). `--remove-info` and `--remove-metadata` move to complete: a new budget theory covers both publishing paths, and a new `metadata` differential case on a new checked-in `meta-1page.pdf` fixture (trailer /Info plus catalog /Metadata, manifest/csproj/manifest-tests wired) proves oracle agreement (trios green with /Metadata dropped on both sides, ModDate-only info vs full info preserved per flag).
+
+Prior gate
+
 Work item 74: job-file and recovery completion (M11). `--job-json-file` and `--suppress-recovery` move to complete: the job file executes the identical plan through the host (plus an exhausted-budget case), recovery paths fail cleanly without output or leases under budgets, and two new differential cases prove oracle agreement (job file: shared subset file run by both sides with trio green; recovery: warning/failure exit parity 3/3 and 2/2 with nothing published on strict failure and page-count agreement after repair).
 
 Prior gate
@@ -275,7 +279,7 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1508 tests (844
+- Locked restore, Release build with zero warnings, and all 1511 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 27 content transform cases (checked-in unreferenced-font fixture pruning, newline rewriting): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 2 JSON budget cases (import/update exhausted budgets), plus 12 linearization cases plus 2 manifest page-count rows, plus 15 linearized-writing cases (with pass1 budget evidence), plus 18 linearization-inspection cases (with input-budget evidence), plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
@@ -295,7 +299,7 @@ binary.
 ## Next work
 
 1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
-   (work items 41-42, 53-74).
+   (work items 41-42, 53-75).
    Next slices: remaining oracle-parity gaps across the 87 partials,
    then final package/docs/release gates.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including

@@ -464,6 +464,32 @@ $oraKeys = Get-AttachmentKeys "$case/ora-stdout.txt"
 if ($libKeys -ne '' -or $oraKeys -ne '') { Write-Output "[attachments-remove] FAIL: keys remain lib=[$libKeys] ora=[$oraKeys]"; $script:failures++ }
 else { Write-Output "[attachments-remove] key sets empty on both sides" }
 
+# --- case: metadata (managed vs oracle info/metadata removal) ---
+$case = New-Case 'metadata'
+Copy-Item "$fixtureDir/meta-1page.pdf" "$case/inputs/a.pdf"
+foreach ($sub in @(('remove-info', '--remove-info'), ('remove-metadata', '--remove-metadata'))) {
+  $tag = $sub[0]
+  $flag = $sub[1]
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', $flag, '--', "outputs/$tag.pdf")
+  if ($code -ne 0) { throw "metadata/${tag}: emit failed ($code)" }
+  $code = Invoke-Oracle $case @($flag, 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-$tag.pdf")
+  if ($code -ne 0) { throw "metadata/${tag}: oracle failed ($code)" }
+  Assert-Trio "metadata/$tag" "$case/lib-$tag.pdf" "$case/ora-$tag.pdf" 1
+}
+foreach ($pair in @(('lib', "$case/lib-remove-info.pdf"), ('ora', "$case/ora-remove-info.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/Metadata')) { Write-Output "[remove-info] FAIL: /Metadata remains in $($pair[0]) output"; $script:failures++ }
+  if ($rawText.Contains('/Title')) { Write-Output "[remove-info] FAIL: /Title remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/ModDate')) { Write-Output "[remove-info] FAIL: /ModDate missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[remove-info] info/metadata assertions done"
+foreach ($pair in @(('lib', "$case/lib-remove-metadata.pdf"), ('ora', "$case/ora-remove-metadata.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/Metadata')) { Write-Output "[remove-metadata] FAIL: /Metadata remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/Title')) { Write-Output "[remove-metadata] FAIL: /Title missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[remove-metadata] info/metadata assertions done"
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -1272,4 +1298,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, attachments, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

@@ -354,4 +354,23 @@ public sealed class MetadataTests
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(metadata).Code);
     }
+
+    [Theory]
+    [InlineData("--remove-info")]
+    [InlineData("--remove-metadata")]
+    public async Task MetadataEditsYieldToExhaustedBudget(params string[] flags)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", InfoMetadataFixture());
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(argv),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

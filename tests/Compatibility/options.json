@@ -4498,11 +4498,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Unpreservable extras warn-and-skip instead of byte-preserving; preserved metadata stays linked only in catalog, trailer relinking beyond /Info is later structural work."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "MetadataTests.RemoveInfoKeepsOnlyModDate",
@@ -4516,8 +4514,12 @@
           "MetadataTests.BothRemovalsDropBoth",
           "MetadataTests.JobJsonParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "MetadataTests.MetadataEditsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:remove-info"
+        ]
       }
     },
     {
@@ -4538,11 +4540,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Same preservation warnings as --remove-info."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "MetadataTests.RemoveMetadataDropsMetadataKeepsInfo",
@@ -4558,8 +4558,12 @@
           "MetadataTests.SplitGroupsCarryInfo",
           "MetadataTests.InfoSurvivesObjectStreams"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "MetadataTests.MetadataEditsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:remove-metadata"
+        ]
       }
     },
     {

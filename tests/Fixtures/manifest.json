@@ -144,6 +144,15 @@
       "description": "One page with a dimension-less image XObject. --show-pages --with-images must list 0 x 0 dimensions with per-key warnings (exit 3 on both sides)."
     },
     {
+      "file": "meta-1page.pdf",
+      "sha256": "30f139afa69dfc6ea82b85af3eae1517f785b0e15a4aa4120a1a4f16175a2780",
+      "bytes": 802,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with trailer /Info (Title, ModDate) and catalog /Metadata XMP stream, classic xref, unencrypted. --remove-info must drop metadata and non-ModDate info keys while --remove-metadata drops only the stream; the metadata differential consumes it."
+    },
+    {
       "file": "truncated-1page.pdf",
       "sha256": "6aafbe19f99a8eb28e0d87a061dbaa3973e148214a6d3dfbc4b67723ad5cdd2a",
       "bytes": 120,
