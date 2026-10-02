@@ -1,6 +1,13 @@
 # Progress
 
 ## Current checkpoint
+Work item 46: object inspection (M11). `--show-object` (plus job key `showObject`) renders
+canonical single-line object definitions with line-for-line oracle parity (including streams,
+trailer, missing-as-null, and compressed members); non-zero generations and binary stream-data
+modes stay explicitly out of scope.
+
+Prior gate
+
 Work item 45: page-dictionary inspection (M11). `--show-pages` (plus job key `showPages`)
 lists page dictionaries with indirect content references in oracle-identical line layout,
 backed by a line-for-line differential case.
@@ -144,13 +151,13 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1192 tests (844
+- Locked restore, Release build with zero warnings, and all 1219 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
   plus 2 streamed-manifest rows (oracle object-stream fixtures), plus 5 streamed-inspection cases
   (check/show over object-stream files), plus 3 streamed-parts cases (container placement and numbering),
-  plus 3 streamed-emission cases (managed check, determinism, classic fallback), plus 17 page-count cases (counts, combinations, job parity, budgets), plus 18 page-dictionary cases (exact layouts, combinations, job parity, budgets) plus 5 streamed-mode cases
+  plus 3 streamed-emission cases (managed check, determinism, classic fallback), plus 17 page-count cases (counts, combinations, job parity, budgets), plus 18 page-dictionary cases (exact layouts, combinations, job parity, budgets), plus 27 object cases (canonical definitions, streams, trailer, missing-as-null, compressed members, combinations, job parity, budgets) plus 5 streamed-mode cases
   (generate/preserve/disable, outlines, job parity)).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
@@ -163,7 +170,7 @@ binary.
 
 ## Next work
 
-1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, and page-dictionary entries evidenced
+1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, and object entries evidenced
    (work items 41-42).
    Next slices: remaining stale required entries (help/version identity, inspection gaps like
    show-npages/show-object, unimplemented global/progress/keep-open flags), no-external build/test

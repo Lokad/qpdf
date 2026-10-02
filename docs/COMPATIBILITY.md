@@ -264,6 +264,13 @@ The differential lane compares managed and oracle counts on one- and two-page fi
 indirect content references in oracle-identical line layout across argv and job paths, with
 the same explicit combination failures; the differential lane compares dumps line for line.
 
+`qpdf input --show-object={trailer|obj[,gen]}` (plus job key `showObject`) renders one object
+definition in canonical single-line layout (sorted keys, oracle-identical spacing) across argv
+and job paths, resolving compressed members and reporting `null` for missing objects like the
+reference; streams show their dictionary only, and non-zero generations fail explicitly. Raw
+and filtered stream-data output stays unimplemented. The differential lane compares dumps line
+for line on plain, stream, trailer, missing, and compressed objects.
+
 `Qpdf.CheckAsync` runs a declared partial check: header, cross-reference,
 trailer, page tree, full object-graph traversal, decode-level-gated stream
 decoding (`none`, `generalized`, `specialized`, `all`), page content, and

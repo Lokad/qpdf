@@ -4110,6 +4110,56 @@ public static class Qpdf
             }
         }
 
+        if (plan is ShowObjectPlan showObject)
+        {
+            try
+            {
+                (bool trailer, int number, int generation) = SelectionPlan.ParseObjectSelector(showObject.Selector);
+                await using QpdfDocument document = await QpdfDocument.OpenCore(host, showObject.Input, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
+                QpdfObject? target = null;
+                if (trailer)
+                {
+                    target = document.Engine.Trailer;
+                }
+                else
+                {
+                    if (generation != 0)
+                    {
+                        throw new QpdfParseException($"Object {number} generation {generation} is outside the generation-0 display profile.", null, number);
+                    }
+
+                    if (document.Engine.XRefEntries.ContainsKey(number))
+                    {
+                        target = document.Engine.Load(number);
+                    }
+                }
+
+                if (target is null || target is PdfNull)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "null");
+                }
+                else if (target is PdfStream stream)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "Object is stream.  Dictionary:");
+                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, CanonicalDisplay.Render(stream.Dictionary, limits, governor));
+                }
+                else
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, CanonicalDisplay.Render(target, limits, governor));
+                }
+
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
         if (plan is ShowPagesPlan showPages)
         {
             try

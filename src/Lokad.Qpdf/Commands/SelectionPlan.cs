@@ -132,6 +132,61 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
         return (int)value;
     }
 
+    internal static (bool Trailer, int Number, int Generation) ParseObjectSelector(string value)
+    {
+        if (value is null || value.Length == 0 || value.Length > 32)
+        {
+            throw new QpdfParseException("Object selector must be trailer or an object number with optional generation.", 0L, null);
+        }
+
+        if (string.Equals(value, "trailer", StringComparison.Ordinal))
+        {
+            return (true, 0, 0);
+        }
+
+        int comma = value.IndexOf(',');
+        string head = comma < 0 ? value : value.Substring(0, comma);
+        string tail = comma < 0 ? "0" : value.Substring(comma + 1);
+        if (!TryParseObjectNumber(head, out int number) || !TryParseObjectNumber(tail, out int generation))
+        {
+            throw new QpdfParseException($"Invalid object selector '{value}'. Enumerate trailer or an object number with optional generation.", 0L, null);
+        }
+
+        if (number < 1)
+        {
+            throw new QpdfParseException($"Invalid object selector '{value}'. Object numbers start at 1.", 0L, null);
+        }
+
+        return (false, number, generation);
+    }
+
+    private static bool TryParseObjectNumber(string text, out int number)
+    {
+        number = 0;
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            return false;
+        }
+
+        long value = 0L;
+        foreach (char c in text)
+        {
+            if (c < '0' || c > '9')
+            {
+                return false;
+            }
+
+            value = checked((value * 10L) + (c - '0'));
+            if (value > int.MaxValue)
+            {
+                return false;
+            }
+        }
+
+        number = (int)value;
+        return true;
+    }
+
     internal static QpdfPath CheckedPath(string value)
     {
         if (string.IsNullOrEmpty(value))
@@ -153,6 +208,9 @@ internal sealed record ShowNpagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery)
 
 /// <summary>Validated page-dictionary inspection.</summary>
 internal sealed record ShowPagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
+
+/// <summary>Validated object inspection.</summary>
+internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input);
 
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)

@@ -5015,17 +5015,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowObjectTests.ReportsDictionaryDefinition", "ShowObjectTests.ReportsStreamDictionary", "ShowObjectTests.ReportsTrailer", "ShowObjectTests.ReportsNullForMissingObject", "ShowObjectTests.ReportsCompressedMember", "ShowObjectTests.JobShowObjectMatchesArgv"],
+        "negative": ["ShowObjectTests.RejectsMalformedAndCombinedForms", "ShowObjectTests.RejectsNonZeroGeneration", "ShowObjectTests.JobShowObjectRejectsCombinations"],
+        "interaction": ["ShowObjectTests.JobShowObjectMatchesArgv"],
+        "resource": ["ShowObjectTests.FailsOnExhaustedInputBudget"],
+        "oracle": ["diff:show-object"]
       }
     },
     {

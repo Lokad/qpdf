@@ -53,7 +53,102 @@ internal static class ArgvParser
         int updateFromJsonAt = FindUpdateFromJson(argv);
         int jsonImportAt = jsonInputAt >= 0 && updateFromJsonAt >= 0 ? (jsonInputAt < updateFromJsonAt ? jsonInputAt : updateFromJsonAt) : (jsonInputAt >= 0 ? jsonInputAt : updateFromJsonAt);
         int showPagesAt = FindFlag(argv, "--show-pages");
+        int showObjectAt = -1;
+        string? showObjectSelector = null;
+        for (int showObjectScan = 0; showObjectScan < argv.Count; showObjectScan++)
+        {
+            string? showObjectToken = argv[showObjectScan];
+            if (showObjectToken == "--show-object")
+            {
+                throw new QpdfParseException("Missing parameter for --show-object.", showObjectScan, null);
+            }
+
+            if (showObjectToken is not null && showObjectToken.StartsWith("--show-object=", StringComparison.Ordinal))
+            {
+                if (showObjectAt >= 0)
+                {
+                    throw new QpdfParseException("Duplicate --show-object is outside the narrow profile.", showObjectScan, null);
+                }
+
+                showObjectAt = showObjectScan;
+                showObjectSelector = showObjectToken.Substring("--show-object=".Length);
+                if (showObjectSelector.Length == 0)
+                {
+                    throw new QpdfParseException("Empty parameter for --show-object.", showObjectScan, null);
+                }
+            }
+        }
+
+        if (showObjectSelector is not null)
+        {
+            SelectionPlan.ParseObjectSelector(showObjectSelector);
+        }
         int showNpagesAt = FindFlag(argv, "--show-npages");
+        if (showObjectAt >= 0 && showObjectSelector is not null)
+        {
+            if (pagesAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-object and --pages cannot be combined.", showObjectAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-object and --overlay or --underlay cannot be combined.", showObjectAt, null);
+            }
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Options --show-object and --flatten-rotation cannot be combined.", showObjectAt, null);
+            }
+
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Options --show-object and --flatten-annotations cannot be combined.", showObjectAt, null);
+            }
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Options --show-object and --generate-appearances cannot be combined.", showObjectAt, null);
+            }
+
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Options --show-object and --qdf cannot be combined.", showObjectAt, null);
+            }
+
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Options --show-object and --linearize cannot be combined.", showObjectAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showObjectAt, null);
+            }
+
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showPagesAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-object cannot be combined with other inspection.", showObjectAt, null);
+            }
+
+            if (HasAttachmentEdit(argv, 0, argv.Count))
+            {
+                throw new QpdfParseException("Option --show-object cannot be combined with attachment editing.", showObjectAt, null);
+            }
+
+            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-object cannot be combined with JSON work.", showObjectAt, null);
+            }
+
+            string objectInput = ParseInspectionInput(argv, showObjectAt, -1, -1, "--show-object");
+            return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
+        }
+
         if (showNpagesAt >= 0)
         {
             if (pagesAt >= 0)
@@ -96,7 +191,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showNpagesAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showPagesAt >= 0)
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0)
             {
                 throw new QpdfParseException("Option --show-npages cannot be combined with other inspection.", showNpagesAt, null);
             }
@@ -161,7 +256,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showPagesAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0)
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showObjectAt >= 0)
             {
                 throw new QpdfParseException("Option --show-pages cannot be combined with other inspection.", showPagesAt, null);
             }

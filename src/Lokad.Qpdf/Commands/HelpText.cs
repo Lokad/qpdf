@@ -70,6 +70,7 @@ internal static class HelpText
           --check-linearization       check linearization tables only
           --show-npages                 show number of pages
           --show-pages                  show page dictionaries and contents
+          --show-object={trailer|obj[,gen]}  show one object definition
           --show-linearization          display linearization hint tables
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help

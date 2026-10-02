@@ -66,6 +66,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Page-dictionary inspection line.</summary>
     PageListing = 15,
+
+    /// <summary>Object inspection line.</summary>
+    ObjectListing = 16,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>
