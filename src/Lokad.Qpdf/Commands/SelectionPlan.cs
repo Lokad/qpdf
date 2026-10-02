@@ -311,4 +311,7 @@ internal sealed record MergePlan(
     QpdfPath Output,
     IReadOnlyList<PdfPageSource> Sources,
     PdfPageCollation? Collation,
-    QpdfRecoveryMode Recovery) : JobPlan(Input);
+    QpdfRecoveryMode Recovery) : JobPlan(Input)
+{
+    public bool EmptyInput { get; init; }
+}

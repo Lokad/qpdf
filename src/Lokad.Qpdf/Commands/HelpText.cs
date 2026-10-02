@@ -9,6 +9,7 @@ internal static class HelpText
         Lokad.qpdf: managed non-cryptographic PDF structural processor.
         Usage:
           qpdf input --pages [--file=]file [--range=]n -- output
+          qpdf --empty --pages file n -- output (merge from an empty base)
           qpdf input --check
           qpdf --job-json-file file
         Options:
@@ -166,7 +167,7 @@ internal static class HelpText
           showXref, removeAcroform, removeStructure, noOriginalObjectIds, optimizeImages,
           oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality,
           listAttachments, showAttachment, addAttachment, removeAttachment,
-          copyAttachmentsFrom, json, jsonKey, jsonObject, jsonStreamData,
+          copyAttachmentsFrom, empty, json, jsonKey, jsonObject, jsonStreamData,
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
           suppressRecovery, ignoreXrefStreams
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
@@ -221,7 +222,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --ignore-xref-streams --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
 
     internal static string BashCompletion()
     {

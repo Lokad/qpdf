@@ -349,7 +349,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -415,7 +415,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -494,7 +494,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> SelectPagesCoreAsync(
@@ -536,6 +536,7 @@ public static class Qpdf
         DiagnosticBag diagnostics,
         bool linearize,
         QpdfPath? linearizePass1,
+        bool emptyPrimary,
         CancellationToken cancellationToken)
     {
         List<int> sourceCounts = new(sources.Count);
@@ -618,7 +619,7 @@ public static class Qpdf
                 }
             }
 
-            if (s == primaryIdx)
+            if (s == primaryIdx && !emptyPrimary)
             {
                 (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
                 primaryOutlines = CopyOutlinesForLinearize(copier, document.Engine, linearize);
@@ -2908,6 +2909,7 @@ public static class Qpdf
             diagnostics,
             plan.Linearize,
             plan.LinearizePass1,
+            false,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -4704,6 +4706,7 @@ public static class Qpdf
                         diagnostics,
                         merge.Linearize,
                         merge.LinearizePass1,
+                        merge.EmptyInput,
                         cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
                 }
@@ -4772,6 +4775,7 @@ public static class Qpdf
                         diagnostics,
                         selection.Linearize,
                         selection.LinearizePass1,
+                        false,
                         cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
                 }

@@ -665,6 +665,29 @@ internal static class ArgvParser
         List<PageLabelSpec> labels = new();
         List<int> collate = new();
         int cursor;
+        bool emptyInput = pagesAt > 0 && argv[0] == "--empty";
+        if (emptyInput)
+        {
+            for (int i = 1; i < pagesAt; i++)
+            {
+                string token = argv[i];
+                if (token == "--empty")
+                {
+                    throw new QpdfParseException("Duplicate --empty is outside the narrow profile.", i, null);
+                }
+
+                if (token is not null && !token.StartsWith("--", StringComparison.Ordinal))
+                {
+                    throw new QpdfParseException("A single positional input must precede --pages.", i, null);
+                }
+            }
+
+            if (globals.ReplaceInput)
+            {
+                throw new QpdfParseException("No input file to replace.", 0, null);
+            }
+        }
+
         if (pagesAt >= 0)
         {
             int blockAt = FirstAttachmentEdit(argv, pagesAt + 1, argv.Count);
@@ -695,7 +718,6 @@ internal static class ArgvParser
             else
             {
                 int termAt = FindTerminator(argv, pagesAt);
-                input = ParseInputArea(argv, pagesAt, "--pages");
                 int areaEnd = termAt;
                 if (blockAt >= 0 && blockAt < areaEnd)
                 {
@@ -706,6 +728,23 @@ internal static class ArgvParser
                     areaEnd = overlayAt;
                 }
                 (groups, rotations, labels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                if (emptyInput)
+                {
+                    foreach (PageGroup group in groups)
+                    {
+                        if (group.File == ".")
+                        {
+                            throw new QpdfParseException("Cannot select from \u0027.\u0027 with --empty: the empty input has no pages.", pagesAt, null);
+                        }
+                    }
+
+                    input = groups[0].File;
+                }
+                else
+                {
+                    input = ParseInputArea(argv, pagesAt, "--pages");
+                }
+
                 cursor = areaEnd;
             }
         }
@@ -754,9 +793,14 @@ internal static class ArgvParser
         }
 
         string output = ParseOutputArea(argv, cursor);
-        if (groups.Count > 1 || collate.Count > 0)
+        if (emptyInput && (overlays.Count > 0 || underlays.Count > 0))
         {
-            return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals) with
+            throw new QpdfParseException("Options --overlay and --underlay cannot be combined with --empty.", pagesAt, null);
+        }
+
+        if (emptyInput || groups.Count > 1 || collate.Count > 0)
+        {
+            return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals, emptyInput) with
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
@@ -3323,7 +3367,7 @@ internal static class ArgvParser
     {
         if (groups.Count > 1 || collate.Count > 0)
         {
-            return ParseMerge(input, input, groups, rotations, labels, collate, recovery, globals) with
+            return ParseMerge(input, input, groups, rotations, labels, collate, recovery, globals, false) with
             {
                 ReplaceInput = true,
             };
@@ -3389,7 +3433,8 @@ internal static class ArgvParser
         List<PageLabelSpec> labels,
         List<int> collate,
         QpdfRecoveryMode recovery,
-        GlobalOptions globals)
+        GlobalOptions globals,
+        bool emptyInput)
     {
         List<PdfPageSource> sources = new(groups.Count);
         foreach (PageGroup group in groups)
@@ -3401,6 +3446,7 @@ internal static class ArgvParser
         PdfPageCollation? collation = collate.Count == 0 ? null : new PdfPageCollation(collate);
         return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
         {
+            EmptyInput = emptyInput,
             WarningExitZero = globals.WarningExitZero,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,

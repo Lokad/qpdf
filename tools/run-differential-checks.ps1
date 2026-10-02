@@ -168,6 +168,16 @@ $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/
 if ($code -ne 0) { throw "select-first: oracle failed ($code)" }
 Assert-Trio 'select-first' "$case/lib-first.pdf" "$case/ora-first.pdf" 1
 
+# --- case: empty (merge from an empty base) ---
+$case = New-Case 'empty'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', '--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "empty: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "empty: oracle failed ($code)" }
+Assert-Trio 'empty' "$case/lib.pdf" "$case/ora.pdf" 3
+
 # --- case: merge ---
 $case = New-Case 'merge'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -901,4 +911,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

@@ -2388,17 +2388,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": ["Bare --empty without --pages stays unsupported.", "Inspection of the empty input stays unsupported.", "Dot selections fail explicitly where the reference crashes."],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["EmptyInputTests.MergesFromEmptyBase", "EmptyInputTests.SingleGroupMergesFromEmptyBase", "EmptyInputTests.JobEmptyMatchesArgv"],
+        "negative": ["EmptyInputTests.MalformedEmptySelectionsFail", "EmptyInputTests.BareEmptyHasNoOperation", "EmptyInputTests.EmptyWithReplaceInputFails", "EmptyInputTests.EmptyWithOverlayFails", "EmptyInputTests.BadEmptyJobsFail"],
+        "interaction": ["EmptyInputTests.JobEmptyMatchesArgv", "EmptyInputTests.BadEmptyJobsFail"],
+        "resource": ["EmptyInputTests.EmptyMergeYieldsToExhaustedBudget"],
+        "oracle": ["diff:empty"]
       }
     },
     {

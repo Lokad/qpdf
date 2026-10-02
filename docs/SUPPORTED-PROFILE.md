@@ -58,6 +58,7 @@ echoing values.
 - Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
   folds over the inherited base; untouched pages keep their bytes. Flattening
   stays unsupported.
+- `--empty` stands in for the input file so merges start from a zero-page base (catalog extras never carry over); `.` groups, overlays, replacement, and bare use fail explicitly.
 - Merge options interleave per-source groups (collation), rotate, and emit
   explicit page labels; source label trees are dropped and never merged.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
