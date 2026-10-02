@@ -1732,17 +1732,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Oracle copyright-parity not applicable; oracle evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.CopyrightIdentifiesImplementation"],
         "negative": ["InvocationTests.ValuedIdentityFormsFail"],
         "interaction": ["InvocationTests.CopyrightIdentifiesImplementation"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:copyright"
+        ]
       }
     },
     {
@@ -1761,17 +1761,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Oracle output-parity evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.JobJsonHelpIsIdentityRequest"],
         "negative": ["InvocationTests.ValuedIdentityFormsFail"],
         "interaction": ["InvocationTests.JobJsonHelpIsIdentityRequest"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:job-json-help"
+        ]
       }
     },
     {
@@ -1798,17 +1798,17 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Versioned help text with identity semantics; oracle output-parity evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["JsonInspectionTests.JsonHelpDescribesRequestedVersion"],
         "negative": ["JsonInspectionTests.JsonHelpRejectsUnknownVersions", "JsonInspectionTests.DeferredOptionsFail"],
         "interaction": ["JsonInspectionTests.JsonHelpWinsOverJsonOperation"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:json-help"
+        ]
       }
     },
     {
@@ -1856,17 +1856,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Oracle version-parity evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
         "negative": ["InvocationTests.ValuedIdentityFormsFail"],
         "interaction": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:version"
+        ]
       }
     },
     {
@@ -3348,17 +3348,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Performance hint only; host lease policy stays authoritative with identical outputs."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput", "OperationFlagsTests.JobKeepOpenMatchesArgv"],
         "negative": ["OperationFlagsTests.BadKeepOpenFlagsFail", "OperationFlagsTests.BadKeepOpenJobKeysFail"],
         "interaction": ["OperationFlagsTests.JobKeepOpenMatchesArgv", "OperationFlagsTests.BadKeepOpenJobKeysFail"],
         "resource": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
-        "oracle": []
+        "oracle": [
+          "diff:keep-files-open"
+        ]
       }
     },
     {
@@ -3379,17 +3379,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Performance hint only; host lease policy stays authoritative with identical outputs."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
         "negative": ["OperationFlagsTests.BadKeepOpenFlagsFail"],
         "interaction": ["OperationFlagsTests.JobKeepOpenMatchesArgv"],
         "resource": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
-        "oracle": []
+        "oracle": [
+          "diff:keep-files-open"
+        ]
       }
     },
     {
@@ -5735,17 +5735,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Subset completion scripts with identity semantics; oracle script parity pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
         "negative": ["InvocationTests.ValuedIdentityFormsFail"],
         "interaction": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:completion-bash"
+        ]
       }
     },
     {
@@ -5764,17 +5764,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Subset completion scripts with identity semantics; oracle script parity pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
         "negative": ["InvocationTests.ValuedIdentityFormsFail"],
         "interaction": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:completion-zsh"
+        ]
       }
     },
     {
@@ -5793,17 +5793,17 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Oracle help-text parity not applicable; oracle evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
         "negative": ["InvocationTests.ValuedIdentityFormsFail"],
         "interaction": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
         "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
-        "oracle": []
+        "oracle": [
+          "diff:help"
+        ]
       }
     },
     {

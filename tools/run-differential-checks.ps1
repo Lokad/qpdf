@@ -902,6 +902,47 @@ if ($code -ne 2 -or $ora -ne 3) { Write-Output "[linearized] FAIL: badH exits ma
 else { Write-Output "[linearized] hint-length mismatch fails on both sides (2/3)" }
 
 
+# --- case: identity (managed vs oracle identity requests) ---
+$case = New-Case 'identity'
+New-Item -ItemType Directory -Path "$case/inputs" -Force | Out-Null
+function Invoke-ManagedIdentity {
+  param([string]$Workdir, [string]$Flag, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "identity: managed emit produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+function Invoke-OracleIdentity {
+  param([string]$Workdir, [string]$Flag, [string]$Tag)
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @($Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/oracle-$Tag.txt" -RedirectStandardError "$Workdir/oracle-$Tag-err.txt"
+  return $p.ExitCode
+}
+foreach ($sub in @(@('--version', '12.4.2', 'version'), @('--copyright', 'Copyright', 'copyright'), @('--help', 'qpdf', 'help'), @('--job-json-help', 'inputFile', 'job-json-help'), @('--json-help', 'acroform', 'json-help'), @('--completion-bash', 'completion', 'completion-bash'), @('--completion-zsh', 'compdef', 'completion-zsh'))) {
+  $m = Invoke-ManagedIdentity $case $sub[0] "id-$($sub[2])"
+  $o = Invoke-OracleIdentity $case $sub[0] "id-$($sub[2])"
+  if ($m -ne 0 -or $o -ne 0) { Write-Output "[identity/$($sub[2])] FAIL: exits managed=$m oracle=$o, expected 0/0"; $script:failures++; continue }
+  $mText = Get-Content "$case/managed-id-$($sub[2]).txt" -Raw
+  $oText = Get-Content "$case/oracle-id-$($sub[2]).txt" -Raw
+  if (-not $mText.Contains($sub[1]) -or -not $oText.Contains($sub[1])) { Write-Output "[identity/$($sub[2])] FAIL: marker [$($sub[1])] missing on a side"; $script:failures++ }
+  else { Write-Output "[identity/$($sub[2])] exits 0/0 with shared marker" }
+}
+
+# --- case: hints (managed vs oracle file-handle hints) ---
+$case = New-Case 'hints'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', 'outputs/plain.pdf')
+if ($code -ne 0) { throw "hints: baseline emit failed ($code)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/hinted.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--keep-files-open=y', '--keep-files-open-threshold=200', '--', 'outputs/hinted.pdf')
+if ($code -ne 0) { throw "hints: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--keep-files-open=y', '--keep-files-open-threshold=200', '--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "hints: oracle failed ($code)" }
+Assert-Trio 'hints' "$case/lib.pdf" "$case/ora.pdf" 3
+$lh = (Get-FileHash "$case/lib.pdf" -Algorithm SHA256).Hash
+$ph = (Get-FileHash "$case/lib-plain.pdf" -Algorithm SHA256).Hash
+if ($lh -ne $ph) { Write-Output "[hints] FAIL: hinted bytes differ from unhinted bytes"; $script:failures++ }
+else { Write-Output "[hints] hinted output matches unhinted bytes" }
+
 # --- case: warnings (warning exit-code parity) ---
 $case = New-Case 'warnings'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -1357,4 +1398,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

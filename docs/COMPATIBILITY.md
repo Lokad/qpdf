@@ -367,7 +367,7 @@ reference manual), and both ride the shared plan across argv and job JSON (`warn
 warning exit parity with the oracle (plain 3/3, flagged 0/0, suppressed-message 3/3).
 `--help` and `--version` return identity text as info diagnostics with exit 0, as does the
 new `--copyright` notice (Lokad/MIT/12.4.2-target); valued identity forms fail explicitly, and
-identity requests bypass exhausted output budgets. Completion and all other operations stay
+identity requests bypass exhausted output budgets. `--completion-bash` and `--completion-zsh` emit static subset completion scripts (no shell execution or environment lookup), `--job-json-help` prints the supported job-key subset, and `--json-help[=1|2|latest]` describes the matching inspection version; the differential lane checks exit-0 identity parity with shared markers on both sides. `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with identical outputs (host lease policy stays authoritative); the differential lane runs hinted merges with trios green on both sides. All other operations stay
 explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
 
 ## Bounded repair (work item 17)
@@ -596,9 +596,7 @@ with contents/labels/per-page outlines, number-tree page labels, recursive
 outlines with page positions, attachment details with ISO-8601 dates, and a
 constant unencrypted report for the encrypt key. Intentional differences:
 JSON requires a declared output file (no stdout contract); pages report no
-images yet; named outline destinations do not resolve; `acroform`,
-`--json-object`, `--json-stream-data`, `--json-stream-prefix`,
-`--json-output`, `--json-help`, and JSON input stay explicitly unsupported. The differential lane compares the pages key structurally against the oracle (version, object and contents references, page positions).
+images yet; named outline destinations do not resolve. The differential lane compares the pages key structurally against the oracle (version, object and contents references, page positions).
 
 ## PDF JSON stream modes and serialization output (work item 26b)
 
@@ -612,8 +610,7 @@ payloads, decode level none, the qpdf key by default, and no version or
 parameters keys. The `acroform` key reports field type inheritance, qualified
 names, values, choices, and widget annotations. Intentional differences: JSON
 requires a declared output file (no stdout contract); version 1 ignores
-stream payloads; `--json-output` with version 1 fails; `--json-help` and JSON
-input stay explicitly unsupported.
+stream payloads; `--json-output` with version 1 fails.
 
 ## PDF JSON import (work item 27a)
 
@@ -626,7 +623,7 @@ versions, object keys, value/stream exclusivity, payload presence, base64 and
 hex grammars, name escapes) while ignoring unknown keys for forward
 compatibility. Intentional differences: JSON input requires a declared output
 file; object generations must be 0; stream and metadata writer options cannot
-combine; PDF update from JSON stays explicitly unsupported.
+combine; PDF update from JSON is a supported companion path (work item 27b).
 
 ## PDF JSON update (work item 27b)
 

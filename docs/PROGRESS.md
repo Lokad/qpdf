@@ -1,6 +1,10 @@
 # Progress
 
 ## Current checkpoint
+Work item 79: identity and hints completion (M11). Seven identity entries (`--version`, `--copyright`, `--help`, `--job-json-help`, `--json-help`, `--completion-bash`, `--completion-zsh`) plus both file-handle hints move to complete with a new `identity` differential case (exit-0 parity with shared markers on both sides) and a `hints` case (hinted merge trios green plus hinted/unhinted byte identity), refreshing four stale "explicitly unsupported" passages in COMPATIBILITY along the way.
+
+Prior gate
+
 Work item 78: page-label completion (M11). `--remove-page-labels` moves to complete with existing job-parity evidence, a new shared labels budget theory, and a new `labels` differential case proving oracle agreement on setting (identical labeled catalogs) and removal (identical unlabeled catalogs); `--set-page-labels` keeps its genuine tree-merging/encoding gaps but gains the same budget and differential evidence.
 
 Prior gate
@@ -311,7 +315,7 @@ binary.
 ## Next work
 
 1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
-   (work items 41-42, 53-78).
+   (work items 41-42, 53-79).
    Next slices: remaining oracle-parity gaps across the 87 partials,
    then final package/docs/release gates.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
