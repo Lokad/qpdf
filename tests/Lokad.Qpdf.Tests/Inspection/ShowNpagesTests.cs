@@ -80,6 +80,7 @@ public sealed class ShowNpagesTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showNpages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": \"yes\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"showNpages\": true}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"showPages\": true}")]
     public async Task JobShowNpagesRejectsCombinations(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

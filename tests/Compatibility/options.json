@@ -5046,17 +5046,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowPagesTests.ReportsTwoPageDictionaries", "ShowPagesTests.ReportsSinglePageDictionary", "ShowPagesTests.JobShowPagesMatchesArgv"],
+        "negative": ["ShowPagesTests.RejectsCombinationsAndValuedForm"],
+        "interaction": ["ShowPagesTests.JobShowPagesMatchesArgv"],
+        "resource": ["ShowPagesTests.FailsOnExhaustedInputBudget"],
+        "oracle": ["diff:show-pages"]
       }
     },
     {

@@ -69,6 +69,7 @@ internal static class HelpText
           --update-from-json=file  update a PDF from qpdf JSON
           --check-linearization       check linearization tables only
           --show-npages                 show number of pages
+          --show-pages                  show page dictionaries and contents
           --show-linearization          display linearization hint tables
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help

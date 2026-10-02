@@ -1409,6 +1409,30 @@ public static class Qpdf
         return inverted;
     }
 
+    private static List<int> PageContentRefs(Objects.PdfDictionary page)
+    {
+        List<int> refs = new();
+        if (page.TryGet(Objects.PdfName.FromAscii("Contents"), out QpdfObject? contents) && contents is not null)
+        {
+            if (contents is Objects.PdfReference single)
+            {
+                refs.Add(single.ObjectNumber);
+            }
+            else if (contents is Objects.PdfArray array)
+            {
+                foreach (QpdfObject item in array.Items)
+                {
+                    if (item is Objects.PdfReference reference)
+                    {
+                        refs.Add(reference.ObjectNumber);
+                    }
+                }
+            }
+        }
+
+        return refs;
+    }
+
     private static async ValueTask PublishModelAsync(
         IQpdfHost host,
         PdfVersion version,
@@ -4075,6 +4099,43 @@ public static class Qpdf
                 }
 
                 return CompleteWithPresentation(diagnostics.Entries, inspected.Counters, plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
+        if (plan is ShowPagesPlan showPages)
+        {
+            try
+            {
+                await using QpdfDocument document = await QpdfDocument.OpenCore(host, showPages.Input, limits, governor, diagnostics, showPages.Recovery, cancellationToken).ConfigureAwait(false);
+                int index = 1;
+                foreach (Reading.PageLocation location in document.PageReferences)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    if (location.Source is null)
+                    {
+                        throw new QpdfException("Page dictionary is not an indirect object.");
+                    }
+
+                    diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"page {index}: {location.Source.ObjectNumber} 0 R");
+                    diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
+                    foreach (int content in PageContentRefs(location.Page))
+                    {
+                        diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    {content} 0 R");
+                    }
+
+                    index = checked(index + 1);
+                }
+
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
             catch (QpdfException ex)
             {

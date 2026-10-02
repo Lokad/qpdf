@@ -52,6 +52,7 @@ internal static class ArgvParser
         int jsonInputAt = FindFlag(argv, "--json-input");
         int updateFromJsonAt = FindUpdateFromJson(argv);
         int jsonImportAt = jsonInputAt >= 0 && updateFromJsonAt >= 0 ? (jsonInputAt < updateFromJsonAt ? jsonInputAt : updateFromJsonAt) : (jsonInputAt >= 0 ? jsonInputAt : updateFromJsonAt);
+        int showPagesAt = FindFlag(argv, "--show-pages");
         int showNpagesAt = FindFlag(argv, "--show-npages");
         if (showNpagesAt >= 0)
         {
@@ -95,7 +96,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showNpagesAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0)
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showPagesAt >= 0)
             {
                 throw new QpdfParseException("Option --show-npages cannot be combined with other inspection.", showNpagesAt, null);
             }
@@ -112,6 +113,71 @@ internal static class ArgvParser
 
             string npagesInput = ParseInspectionInput(argv, showNpagesAt, -1, -1, "--show-npages");
             return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
+        }
+
+        if (showPagesAt >= 0)
+        {
+            if (pagesAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-pages and --pages cannot be combined.", showPagesAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-pages and --overlay or --underlay cannot be combined.", showPagesAt, null);
+            }
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Options --show-pages and --flatten-rotation cannot be combined.", showPagesAt, null);
+            }
+
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Options --show-pages and --flatten-annotations cannot be combined.", showPagesAt, null);
+            }
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Options --show-pages and --generate-appearances cannot be combined.", showPagesAt, null);
+            }
+
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Options --show-pages and --qdf cannot be combined.", showPagesAt, null);
+            }
+
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Options --show-pages and --linearize cannot be combined.", showPagesAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showPagesAt, null);
+            }
+
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-pages cannot be combined with other inspection.", showPagesAt, null);
+            }
+
+            if (HasAttachmentEdit(argv, 0, argv.Count))
+            {
+                throw new QpdfParseException("Option --show-pages cannot be combined with attachment editing.", showPagesAt, null);
+            }
+
+            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-pages cannot be combined with JSON work.", showPagesAt, null);
+            }
+
+            string pagesInput = ParseInspectionInput(argv, showPagesAt, -1, -1, "--show-pages");
+            return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
                 NoWarn = globals.NoWarn,

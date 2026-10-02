@@ -151,6 +151,9 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
 /// <summary>Validated page-count inspection.</summary>
 internal sealed record ShowNpagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
+/// <summary>Validated page-dictionary inspection.</summary>
+internal sealed record ShowPagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
+
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {

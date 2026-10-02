@@ -63,6 +63,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Page-count inspection line.</summary>
     PageCount = 14,
+
+    /// <summary>Page-dictionary inspection line.</summary>
+    PageListing = 15,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

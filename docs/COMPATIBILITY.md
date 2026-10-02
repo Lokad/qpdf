@@ -260,6 +260,10 @@ as an info diagnostic with exit 0; valued forms, output files, page selections, 
 operations fail explicitly, and encrypted or exhausted-budget inputs fail without output.
 The differential lane compares managed and oracle counts on one- and two-page fixtures.
 
+`qpdf input --show-pages` (plus job key `showPages`) lists each page dictionary with its
+indirect content references in oracle-identical line layout across argv and job paths, with
+the same explicit combination failures; the differential lane compares dumps line for line.
+
 `Qpdf.CheckAsync` runs a declared partial check: header, cross-reference,
 trailer, page tree, full object-graph traversal, decode-level-gated stream
 decoding (`none`, `generalized`, `specialized`, `all`), page content, and

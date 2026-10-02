@@ -613,6 +613,27 @@ foreach ($sub in @(@("two", "inputs/a.pdf", 2), @("one", "inputs/b.pdf", 1))) {
   else { Write-Output "[show-npages/$name] page counts agree ($($sub[2]))" }
 }
 
+# --- case: show-pages (managed vs oracle page dictionaries) ---
+$case = New-Case 'show-pages'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+function Invoke-ManagedPages {
+  param([string]$Workdir, [string]$InFile, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-pages') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  return $p.ExitCode
+}
+foreach ($sub in @(@("two", "inputs/a.pdf"), @("one", "inputs/b.pdf"))) {
+  $name = $sub[0]
+  $mcode = Invoke-ManagedPages $case $sub[1] "pages-$name"
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  $ocode = $p.ExitCode
+  if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[show-pages/$name] FAIL: show exits managed=$mcode oracle=$ocode"; $script:failures++; continue }
+  $mLines = Get-Content "$case/managed-pages-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-pages/$name] FAIL: page dump mismatch"; $script:failures++ }
+  else { Write-Output "[show-pages/$name] page dumps match line for line" }
+}
+
 # --- case: linearize-pass1 (managed vs oracle first pass) ---
 $case = New-Case 'linearize-pass1'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -757,4 +778,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
