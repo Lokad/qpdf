@@ -4917,6 +4917,11 @@ public static class Qpdf
             effective.Add(diagnostic);
         }
 
+        if (plan.Verbose)
+        {
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.VerboseSummary, QpdfDiagnosticSeverity.Info, $"Verbose summary: {counters.TotalOutputBytes} output bytes, {counters.TotalDecodedBytes} decoded bytes, peak {counters.PeakMemoryBytes} bytes."));
+        }
+
         if (plan.ReportMemoryUsage)
         {
             effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.MemoryUsage, QpdfDiagnosticSeverity.Info, $"Peak memory usage: {counters.PeakMemoryBytes} bytes."));

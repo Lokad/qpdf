@@ -95,6 +95,12 @@ internal static class JobJsonParser
             bool seenIgnoreXrefStreams = false;
             bool reportMemoryUsage = false;
             bool seenReportMemoryUsage = false;
+            bool verbose = false;
+            bool seenVerbose = false;
+            string? keepFilesOpen = null;
+            bool seenKeepFilesOpen = false;
+            long keepFilesOpenThreshold = 200L;
+            bool seenKeepFilesOpenThreshold = false;
             bool testJsonSchema = false;
             bool seenTestJsonSchema = false;
             long? parserMaxNesting = null;
@@ -775,6 +781,33 @@ internal static class JobJsonParser
                         seenReportMemoryUsage = true;
                         reportMemoryUsage = RequireBareFlag(property.Value, "reportMemoryUsage");
                         break;
+                    case "verbose":
+                        if (seenVerbose)
+                        {
+                                throw new QpdfParseException("Duplicate job key verbose.", 0L, null);
+                        }
+
+                        seenVerbose = true;
+                        verbose = RequireBareFlag(property.Value, "verbose");
+                        break;
+                    case "keepFilesOpen":
+                        if (seenKeepFilesOpen)
+                        {
+                                throw new QpdfParseException("Duplicate job key keepFilesOpen.", 0L, null);
+                        }
+
+                        seenKeepFilesOpen = true;
+                        keepFilesOpen = RequireKeepFilesOpen(property.Value);
+                        break;
+                    case "keepFilesOpenThreshold":
+                        if (seenKeepFilesOpenThreshold)
+                        {
+                                throw new QpdfParseException("Duplicate job key keepFilesOpenThreshold.", 0L, null);
+                        }
+
+                        seenKeepFilesOpenThreshold = true;
+                        keepFilesOpenThreshold = RequireKeepFilesOpenThreshold(property.Value);
+                        break;
                     case "testJsonSchema":
                         if (seenTestJsonSchema)
                         {
@@ -1008,7 +1041,7 @@ internal static class JobJsonParser
                         throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
                     }
 
-                    return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { IgnoreXrefStreams = ignoreXrefStreams };
+                    return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose };
                 }
 
                 if (output is not null)
@@ -1016,7 +1049,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
                 }
 
-                return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), null, null, true, recovery) with { IgnoreXrefStreams = ignoreXrefStreams };
+                return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), null, null, true, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose };
             }
 
             if (checkLinearization || showLinearization)
@@ -1043,6 +1076,7 @@ internal static class JobJsonParser
                     Check = checkLinearization,
                     Show = showLinearization,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                 };
             }
@@ -1072,6 +1106,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1102,6 +1137,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     WithImages = withImages,
                     NoWarn = noWarn,
@@ -1133,6 +1169,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1163,6 +1200,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1221,6 +1259,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1264,6 +1303,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1317,6 +1357,7 @@ internal static class JobJsonParser
                 {
                     DecodeLevel = jsonDecode,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     TestJsonSchema = testJsonSchema,
                     MaxStreamFilters = maxStreamFilters,
                     ParserMaxNesting = parserMaxNesting,
@@ -1363,6 +1404,7 @@ internal static class JobJsonParser
                 {
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1441,6 +1483,7 @@ internal static class JobJsonParser
                     Labels = labels,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1543,6 +1586,7 @@ internal static class JobJsonParser
                     JpegQuality = jpegQuality,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
+                    Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
             };
@@ -2091,6 +2135,52 @@ internal static class JobJsonParser
         }
 
         return depth;
+    }
+    private static string RequireKeepFilesOpen(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String && element.GetString() is string text && (text == "y" || text == "n"))
+        {
+            return text;
+        }
+
+        throw new QpdfParseException("Job " + (char)34 + "keepFilesOpen" + (char)34 + " must be \"y\" or \"n\".", 0L, null);
+    }
+
+    private static long RequireKeepFilesOpenThreshold(JsonElement element)
+    {
+        string? text = null;
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
+        {
+            if (number < 0L)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "keepFilesOpenThreshold" + (char)34 + " must be a non-negative file count.", 0L, null);
+            }
+
+            return number;
+        }
+
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            text = element.GetString();
+        }
+
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            throw new QpdfParseException("Job " + (char)34 + "keepFilesOpenThreshold" + (char)34 + " must be a non-negative file count.", 0L, null);
+        }
+
+        long count = 0L;
+        foreach (char digit in text)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "keepFilesOpenThreshold" + (char)34 + " must be a non-negative file count.", 0L, null);
+            }
+
+            count = checked(count * 10L + (digit - (char)48));
+        }
+
+        return count;
     }
     private static long RequireMaxStreamFilters(JsonElement element)
     {

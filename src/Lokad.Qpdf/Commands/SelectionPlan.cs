@@ -51,6 +51,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool TestJsonSchema { get; init; }
 
+    public bool Verbose { get; init; }
+
     public bool RecompressFlate { get; init; }
 
     public string? CompressionLevel { get; init; }

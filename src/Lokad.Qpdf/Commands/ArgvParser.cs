@@ -156,6 +156,7 @@ internal static class ArgvParser
             return new ShowXrefPlan(SelectionPlan.CheckedPath(xrefInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -223,6 +224,7 @@ internal static class ArgvParser
             return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -290,6 +292,7 @@ internal static class ArgvParser
             return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -357,6 +360,7 @@ internal static class ArgvParser
             return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 WithImages = globals.WithImages,
@@ -619,6 +623,7 @@ internal static class ArgvParser
                 Check = checkLinearizationAt >= 0,
                 Show = showLinearizationAt >= 0,
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -825,6 +830,7 @@ internal static class ArgvParser
             return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -882,6 +888,7 @@ internal static class ArgvParser
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            Verbose = globals.Verbose,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -1032,6 +1039,7 @@ internal static class ArgvParser
             return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showKey, listAt >= 0, recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -1050,6 +1058,7 @@ internal static class ArgvParser
         return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            Verbose = globals.Verbose,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -1101,7 +1110,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -1192,6 +1201,12 @@ internal static class ArgvParser
         bool seenReportMemoryUsage = false;
         bool reportMemoryUsage = false;
         bool seenTestJsonSchema = false;
+        bool seenVerbose = false;
+        bool verbose = false;
+        bool seenKeepFilesOpen = false;
+        string? keepFilesOpen = null;
+        bool seenKeepFilesOpenThreshold = false;
+        long keepFilesOpenThreshold = 200L;
         bool testJsonSchema = false;
         bool ignoreXrefStreams = false;
         bool withImages = false;
@@ -1750,7 +1765,7 @@ internal static class ArgvParser
                 }
 
                 seenMaxContainerSize = true;
-                maxContainerSize = ParseContainerSize(argv, ref i, "--parser-max-container-size");
+                maxContainerSize = ParseContainerSize(argv, ref i, "--parser-max-container-size", "object count");
                 continue;
             }
 
@@ -1762,7 +1777,7 @@ internal static class ArgvParser
                 }
 
                 seenMaxContainerSizeDamaged = true;
-                maxContainerSizeDamaged = ParseContainerSize(argv, ref i, "--parser-max-container-size-damaged");
+                maxContainerSizeDamaged = ParseContainerSize(argv, ref i, "--parser-max-container-size-damaged", "object count");
                 continue;
             }
 
@@ -1846,6 +1861,47 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--verbose")
+            {
+                if (seenVerbose)
+                {
+                    throw new QpdfParseException("Duplicate --verbose is outside the narrow profile.", i, null);
+                }
+
+                seenVerbose = true;
+                verbose = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--verbose=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --verbose takes no value.", i, null);
+            }
+
+            if (argv[i] == "--keep-files-open" || argv[i].StartsWith("--keep-files-open=", StringComparison.Ordinal))
+            {
+                if (seenKeepFilesOpen)
+                {
+                    throw new QpdfParseException("Duplicate --keep-files-open is outside the narrow profile.", i, null);
+                }
+
+                seenKeepFilesOpen = true;
+                keepFilesOpen = ParseKeepFilesOpen(argv, ref i);
+                continue;
+            }
+
+            if (argv[i] == "--keep-files-open-threshold" || argv[i].StartsWith("--keep-files-open-threshold=", StringComparison.Ordinal))
+            {
+                if (seenKeepFilesOpenThreshold)
+                {
+                    throw new QpdfParseException("Duplicate --keep-files-open-threshold is outside the narrow profile.", i, null);
+                }
+
+                seenKeepFilesOpenThreshold = true;
+                keepFilesOpenThreshold = ParseContainerSize(argv, ref i, "--keep-files-open-threshold", "file count");
+                continue;
+            }
+
             if (argv[i].StartsWith("--test-json-schema=", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("Option --test-json-schema takes no value.", i, null);
@@ -1878,7 +1934,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2000,7 +2056,20 @@ internal static class ArgvParser
         return depth;
     }
 
-    private static long ParseContainerSize(IReadOnlyList<string> argv, ref int i, string option)
+    private static string ParseKeepFilesOpen(IReadOnlyList<string> argv, ref int i)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        string? value = equals >= 0 ? token.Substring(equals + 1) : null;
+        if (value != "y" && value != "n")
+        {
+            throw new QpdfParseException("Option --keep-files-open must be --keep-files-open=y or --keep-files-open=n.", i, null);
+        }
+
+        return value;
+    }
+
+    private static long ParseContainerSize(IReadOnlyList<string> argv, ref int i, string option, string unit)
     {
         string token = argv[i];
         int equals = token.IndexOf((char)61);
@@ -2021,7 +2090,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid {option} value \u0027{value}\u0027: expected a non-negative object count.", i, null);
+            throw new QpdfParseException($"Invalid {option} value \u0027{value}\u0027: expected a non-negative {unit}.", i, null);
         }
 
         long count = 0L;
@@ -2029,7 +2098,7 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid {option} value \u0027{value}\u0027: expected a non-negative object count.", i, null);
+                throw new QpdfParseException($"Invalid {option} value \u0027{value}\u0027: expected a non-negative {unit}.", i, null);
             }
 
             count = checked(count * 10L + (digit - (char)48));
@@ -2383,6 +2452,7 @@ internal static class ArgvParser
         return plan with
         {
             WarningExitZero = globals.WarningExitZero,
+            Verbose = globals.Verbose,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -2653,6 +2723,7 @@ internal static class ArgvParser
             StreamPrefix = streamPrefix,
             Objects = objects,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
+            Verbose = globals.Verbose,
             MinimalOutput = minimalOutput,
         };
     }
@@ -2715,6 +2786,7 @@ internal static class ArgvParser
             return new JsonUpdatePlan(SelectionPlan.CheckedPath(pdfInput), SelectionPlan.CheckedPath(updateFile), SelectionPlan.CheckedPath(updateOutput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -2742,6 +2814,7 @@ internal static class ArgvParser
         return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            Verbose = globals.Verbose,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -3437,6 +3510,7 @@ internal static class ArgvParser
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(input), page, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            Verbose = globals.Verbose,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -3506,6 +3580,7 @@ internal static class ArgvParser
         {
             EmptyInput = emptyInput,
             WarningExitZero = globals.WarningExitZero,
+            Verbose = globals.Verbose,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,

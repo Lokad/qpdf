@@ -3267,16 +3267,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Performance hint only; host lease policy stays authoritative with identical outputs."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput", "OperationFlagsTests.JobKeepOpenMatchesArgv"],
+        "negative": ["OperationFlagsTests.BadKeepOpenFlagsFail", "OperationFlagsTests.BadKeepOpenJobKeysFail"],
+        "interaction": ["OperationFlagsTests.JobKeepOpenMatchesArgv", "OperationFlagsTests.BadKeepOpenJobKeysFail"],
+        "resource": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
         "oracle": []
       }
     },
@@ -3298,16 +3298,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Performance hint only; host lease policy stays authoritative with identical outputs."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
+        "negative": ["OperationFlagsTests.BadKeepOpenFlagsFail"],
+        "interaction": ["OperationFlagsTests.JobKeepOpenMatchesArgv"],
+        "resource": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
         "oracle": []
       }
     },
@@ -5420,16 +5420,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Summary diagnostic only; no oracle counterpart with a stable contract."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["OperationFlagsTests.VerboseSummarizesCheck", "OperationFlagsTests.VerboseSummarizesMerge", "OperationFlagsTests.VerboseSummarizesShowNpages", "OperationFlagsTests.JobVerboseMatchesArgv"],
+        "negative": ["OperationFlagsTests.BadVerboseFlagsFail", "OperationFlagsTests.BadVerboseJobKeysFail"],
+        "interaction": ["OperationFlagsTests.JobVerboseMatchesArgv", "OperationFlagsTests.BadVerboseJobKeysFail"],
+        "resource": ["OperationFlagsTests.VerboseYieldsToExhaustedBudget"],
         "oracle": []
       }
     },

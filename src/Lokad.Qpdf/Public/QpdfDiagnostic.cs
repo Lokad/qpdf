@@ -78,6 +78,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>JSON schema consistency note.</summary>
     JsonSchemaCheck = 19,
+
+    /// <summary>Operation summary note.</summary>
+    VerboseSummary = 20,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>
