@@ -3457,13 +3457,16 @@
         }
       ],
       "milestone": "M9",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Oracle lane covers default object-ID comments; suppression is unit-tested only."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "QdfTests.NoOriginalObjectIdsSuppressesComments",
+          "QdfTests.ObjectStreamsQdfNoOriginalIdsSuppressesComments"
+        ],
         "negative": [],
         "interaction": [],
         "resource": [],
@@ -3595,10 +3598,13 @@
           "ObjectStreamTests.GenerateBumpsVersionTo1_5",
           "ObjectStreamTests.ForceBelow15DisablesStreams",
           "ObjectStreamTests.JobJsonParityHolds",
-          "ObjectStreamTests.CompressJobParityHolds"
+          "ObjectStreamTests.CompressJobParityHolds",
+          "QdfTests.ObjectStreamsQdfJobParityMatchesArgvBytes"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:qdf-markers"
+        ]
       }
     },
     {
@@ -4086,17 +4092,35 @@
         }
       ],
       "milestone": "M9",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Generated object streams follow writer packing rules (catalog/pages stay direct) rather than upstream packing; page /Parent links stay dropped per catalog policy; fix-qdf and zlib-flate companions remain separate work items."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "QdfTests.MarkerAndReadableLayout",
+          "QdfTests.StreamsUncompressedByDefault",
+          "QdfTests.ContentNormalizedByDefault",
+          "QdfTests.LengthsAreIndirectObjects",
+          "QdfTests.ObjectStreamsGenerateProducesStreamedQdf",
+          "QdfTests.ObjectStreamsQdfOffsetsLandOnValues",
+          "QdfTests.RoundTripsThroughOwnReaderAndPig"
+        ],
+        "negative": [
+          "QdfTests.MalformedQdfFlagsFail"
+        ],
+        "interaction": [
+          "QdfTests.JobParityMatchesArgvBytes",
+          "QdfTests.ObjectStreamsQdfJobParityMatchesArgvBytes",
+          "QdfTests.ExplicitOverridesRestoreFlate",
+          "QdfTests.NormalizeWinsOverDecodeNone",
+          "QdfTests.NormalizeExplicitNoKeepsNewlines"
+        ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:qdf-markers"
+        ]
       }
     },
     {

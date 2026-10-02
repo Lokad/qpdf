@@ -302,12 +302,88 @@ public sealed class QdfTests
     }
 
     [Fact]
-    public async Task ObjectStreamsInQdfFailExplicitly()
+    public async Task ObjectStreamsGenerateProducesStreamedQdf()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--qdf", "--object-streams=generate", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string text = Encoding.Latin1.GetString(pdf);
+        Assert.Contains("%QDF-1.0", text, StringComparison.Ordinal);
+        Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
+        Assert.Contains("/Type /XRef", text, StringComparison.Ordinal);
+        Assert.Contains("/W [ 1 ", text, StringComparison.Ordinal);
+        Assert.Contains("%% Object stream: object", text, StringComparison.Ordinal);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(HostWith("inputs/r.pdf", pdf), QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        Assert.Equal(1, document.PageCount);
+        using MemoryStream buffer = new(pdf);
+        using PdfDocument reread = PdfDocument.Open(buffer);
+        Assert.Equal(1, reread.NumberOfPages);
+    }
+
+    [Fact]
+    public async Task ObjectStreamsQdfOffsetsLandOnValues()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string text = Encoding.Latin1.GetString(pdf);
+        int headerAt = text.IndexOf("/Type /ObjStm", StringComparison.Ordinal);
+        Assert.NotEqual(-1, headerAt);
+        int firstMarker = text.IndexOf("/First ", headerAt, StringComparison.Ordinal);
+        Assert.NotEqual(-1, firstMarker);
+        int firstLineEnd = text.IndexOf("\n", firstMarker, StringComparison.Ordinal);
+        int first = int.Parse(text.Substring(firstMarker + 7, firstLineEnd - firstMarker - 7), System.Globalization.CultureInfo.InvariantCulture);
+        int streamMarker = text.IndexOf("stream\n", headerAt, StringComparison.Ordinal);
+        Assert.NotEqual(-1, streamMarker);
+        int payloadStart = streamMarker + 7;
+        int cursor = payloadStart;
+        List<long> offsets = new();
+        while (pdf[cursor] != 37)
+        {
+            int lineEnd = Array.IndexOf(pdf, (byte)10, cursor);
+            Assert.NotEqual(-1, lineEnd);
+            string line = Encoding.ASCII.GetString(pdf, cursor, lineEnd - cursor);
+            string[] parts = line.Split((char)32, StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(2, parts.Length);
+            offsets.Add(long.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
+            cursor = lineEnd + 1;
+        }
+
+        Assert.NotEmpty(offsets);
+        foreach (long offset in offsets)
+        {
+            int at = payloadStart + first + (int)offset;
+            Assert.Equal(60, pdf[at]);
+            Assert.Equal(60, pdf[at + 1]);
+        }
+    }
+
+    [Fact]
+    public async Task ObjectStreamsQdfNoOriginalIdsSuppressesComments()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--no-original-object-ids", "--object-streams=generate");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string text = Encoding.Latin1.GetString(pdf);
+        Assert.DoesNotContain("Original object ID", text, StringComparison.Ordinal);
+        Assert.Contains("%QDF-1.0", text, StringComparison.Ordinal);
+        Assert.Contains("%% Object stream: object", text, StringComparison.Ordinal);
+        Assert.Contains("/Type /XRef", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ObjectStreamsQdfJobParityMatchesArgvBytes()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"qdf\": \"\", \"objectStreams\": \"generate\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
     }
 }

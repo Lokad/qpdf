@@ -1,3 +1,4 @@
+using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -18,6 +19,26 @@ internal sealed partial class PdfSerializer
         PdfVersion version,
         List<NumberedObject> model,
         IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
+        IReadOnlyDictionary<int, int>? originalIds,
+        int? infoRef,
+        byte[] id1,
+        byte[] id2,
+        QdfOptions qdf,
+        bool newlineBeforeEndstream,
+        IByteSink sink,
+        CancellationToken cancellationToken)
+    {
+        if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
+        {
+            return await SerializeQdfStreamedAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+        }
+
+        return await SerializeQdfClassicAsync(version, model, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<long> SerializeQdfClassicAsync(
+        PdfVersion version,
+        List<NumberedObject> model,
         IReadOnlyDictionary<int, int>? originalIds,
         int? infoRef,
         byte[] id1,
@@ -65,11 +86,6 @@ internal sealed partial class PdfSerializer
         if (id2.Length == 0 || id2.Length > 256)
         {
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
-        }
-
-        if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
-        {
-            throw new QpdfException("QDF with object streams is not implemented in this milestone; use --object-streams=disable.");
         }
 
         List<NumberedObject> sorted = new(model.Count);
@@ -122,38 +138,8 @@ internal sealed partial class PdfSerializer
             if (emission.Value is PdfStream rawStream)
             {
                 int lengthId = FindLengthId(emissions, emission.Number);
-                Dictionary<PdfName, QpdfObject> stripped = new();
-                foreach (PdfName key in rawStream.Dictionary.Keys)
-                {
-                    if (key.DisplayText == "Length")
-                    {
-                        continue;
-                    }
-
-                    if (rawStream.Dictionary.TryGet(key, out QpdfObject? kept) && kept is not null)
-                    {
-                        stripped[key] = kept;
-                    }
-                }
-
-                QpdfObject remappedHeader = ObjectRemap.RemapIds(new PdfDictionary(stripped), renumber, _governor);
-                if (remappedHeader is not PdfDictionary header)
-                {
-                    throw new QpdfException($"QDF publication reached a non-dictionary stream header for object {emission.Number}.");
-                }
-
-                Dictionary<PdfName, QpdfObject> entries = new();
-                foreach (PdfName key in header.Keys)
-                {
-                    if (header.TryGet(key, out QpdfObject? kept) && kept is not null)
-                    {
-                        entries[key] = kept;
-                    }
-                }
-
-                _governor.ReserveMemory(64L);
-                entries[PdfName.FromAscii("Length")] = new PdfReference(lengthId, 0);
-                remapped.Add(emission with { Value = new PdfStream(new PdfDictionary(entries), rawStream.Data) });
+                PdfDictionary header = AssertDictionary(StreamHeaderWithLength(rawStream, lengthId, renumber));
+                remapped.Add(emission with { Value = new PdfStream(header, rawStream.Data) });
                 continue;
             }
 
@@ -161,7 +147,13 @@ internal sealed partial class PdfSerializer
             remapped.Add(emission with { Value = value });
         }
 
-        Dictionary<int, string> marks = QdfPageMarks(sorted, renumber);
+        Dictionary<int, QpdfObject> classicLookup = new(sorted.Count);
+        foreach (NumberedObject numbered in sorted)
+        {
+            classicLookup[numbered.Number] = numbered.Value;
+        }
+
+        Dictionary<int, string> marks = QdfPageMarksSorted(classicLookup, renumber);
         int? mappedInfo = null;
         if (infoRef.HasValue)
         {
@@ -252,7 +244,447 @@ internal sealed partial class PdfSerializer
         return sink.Length;
     }
 
-    private sealed record QdfEmission(int Number, QpdfObject? Value, int? OriginalSource, int? LengthFor);
+    private async ValueTask<long> SerializeQdfStreamedAsync(
+        PdfVersion version,
+        List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>> objectStreamGroups,
+        IReadOnlyDictionary<int, int>? originalIds,
+        int? infoRef,
+        byte[] id1,
+        byte[] id2,
+        QdfOptions qdf,
+        bool newlineBeforeEndstream,
+        IByteSink sink,
+        CancellationToken cancellationToken)
+    {
+        Dictionary<int, QpdfObject> lookup = new(model.Count);
+        foreach (NumberedObject numbered in model)
+        {
+            if (!IsDiscardedXRefStream(numbered.Value) && !lookup.ContainsKey(numbered.Number))
+            {
+                lookup[numbered.Number] = numbered.Value;
+            }
+        }
+
+        foreach (IReadOnlyList<int> group in objectStreamGroups)
+        {
+            if (group is null || group.Count == 0 || group.Count > 100)
+            {
+                throw new QpdfException("Object-stream groups must hold 1..100 members.");
+            }
+        }
+
+        HashSet<int> members = new();
+        foreach (IReadOnlyList<int> group in objectStreamGroups)
+        {
+            foreach (int member in group)
+            {
+                members.Add(member);
+            }
+        }
+
+        List<int> ordered = new(lookup.Keys);
+        ordered.Sort();
+        Dictionary<int, int> combined = new(ordered.Count * 2);
+        Dictionary<int, int> memberContainer = new();
+        Dictionary<int, int> memberIndex = new();
+        List<(int Old, int New, QpdfObject Value, int? Original)> regulars = new();
+        int next = 1;
+        foreach (int old in ordered)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (members.Contains(old))
+            {
+                continue;
+            }
+
+            combined[old] = next;
+            int? source = null;
+            if (originalIds is not null && originalIds.TryGetValue(old, out int found))
+            {
+                source = found;
+            }
+
+            regulars.Add((old, next, lookup[old], source));
+            next = checked(next + 1);
+            if (lookup[old] is PdfStream)
+            {
+                next = checked(next + 1);
+            }
+        }
+
+        List<(int Container, IReadOnlyList<int> Group)> containers = new(objectStreamGroups.Count);
+        foreach (IReadOnlyList<int> group in objectStreamGroups)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int container = next;
+            next = checked(next + 1);
+            for (int m = 0; m < group.Count; m++)
+            {
+                if (!lookup.ContainsKey(group[m]))
+                {
+                    throw new QpdfException($"Object-stream member {group[m]} is missing from the model.");
+                }
+
+                if (group[m] == 1 || group[m] == 2)
+                {
+                    throw new QpdfException($"Object {group[m]} cannot be compressed into an object stream.");
+                }
+
+                if (lookup[group[m]] is PdfStream)
+                {
+                    throw new QpdfException($"Object {group[m]} cannot be compressed into an object stream.");
+                }
+
+                combined[group[m]] = next;
+                memberContainer[group[m]] = container;
+                memberIndex[group[m]] = m;
+                next = checked(next + 1);
+            }
+
+            containers.Add((container, group));
+        }
+
+        int xrefNumber = next;
+        next = checked(next + 1);
+        int size = xrefNumber + 1;
+        Dictionary<int, string> marks = QdfPageMarksSorted(lookup, combined);
+
+        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendBytesAsync(QdfBinaryLine, sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync("%QDF-1.0\n\n", sink, cancellationToken).ConfigureAwait(false);
+        Dictionary<int, long> offsets = new();
+        foreach ((int old, int number, QpdfObject value, int? source) in regulars)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _governor.ChargeWork(1L);
+            QpdfObject remapped = ObjectRemap.RemapIds(value, combined, _governor);
+            if (marks.TryGetValue(number, out string? mark) && mark is not null)
+            {
+                await AppendAsciiAsync(mark + "\n", sink, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (source.HasValue && !qdf.NoOriginalIds)
+            {
+                await AppendAsciiAsync($"%% Original object ID: {source.Value} 0\n", sink, cancellationToken).ConfigureAwait(false);
+            }
+
+            offsets.Add(number, sink.Length);
+            await AppendAsciiAsync($"{number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+            if (remapped is PdfStream stream)
+            {
+                int lengthNumber = number + 1;
+                QpdfObject header = StreamHeaderWithLength(stream, lengthNumber, combined);
+                await AppendQdfDictionaryAsync(AssertDictionary(header), sink, 0, cancellationToken).ConfigureAwait(false);
+                await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
+                await AppendBytesAsync(stream.Data, sink, cancellationToken).ConfigureAwait(false);
+                bool addedNewline = newlineBeforeEndstream || stream.Data.Length == 0 || stream.Data[stream.Data.Length - 1] != 0x0A;
+                if (addedNewline)
+                {
+                    await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await AppendAsciiAsync("endstream", sink, cancellationToken).ConfigureAwait(false);
+                }
+
+                await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
+                if (addedNewline && !newlineBeforeEndstream)
+                {
+                    await AppendAsciiAsync("%QDF: ignore_newline\n", sink, cancellationToken).ConfigureAwait(false);
+                }
+
+                offsets.Add(lengthNumber, sink.Length);
+                await AppendAsciiAsync($"{lengthNumber} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+                await AppendAsciiAsync(stream.Data.Length.ToString(System.Globalization.CultureInfo.InvariantCulture), sink, cancellationToken).ConfigureAwait(false);
+                await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            await AppendQdfValueAsync(remapped, sink, 0, cancellationToken).ConfigureAwait(false);
+            await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach ((int container, IReadOnlyList<int> group) in containers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _governor.ChargeWork(1L);
+            List<byte[]> headers = new(group.Count);
+            List<byte[]> bodies = new(group.Count);
+            List<int> blockNumbers = new(group.Count);
+            foreach (int member in group)
+            {
+                QpdfObject memberValue = ObjectRemap.RemapIds(lookup[member], combined, _governor);
+                BufferSink head = new(_limits, _governor);
+                await AppendAsciiAsync($"%% Object stream: object {combined[member]}, index {memberIndex[member]}", head, cancellationToken).ConfigureAwait(false);
+                if (originalIds is not null && originalIds.TryGetValue(member, out int memberSource) && !qdf.NoOriginalIds)
+                {
+                    await AppendAsciiAsync($"; original object ID: {memberSource}", head, cancellationToken).ConfigureAwait(false);
+                }
+
+                await AppendAsciiAsync("\n", head, cancellationToken).ConfigureAwait(false);
+                if (marks.TryGetValue(combined[member], out string? memberMark) && memberMark is not null)
+                {
+                    await AppendAsciiAsync(memberMark + "\n", head, cancellationToken).ConfigureAwait(false);
+                }
+
+                BufferSink body = new(_limits, _governor);
+                await AppendQdfValueAsync(memberValue, body, 0, cancellationToken).ConfigureAwait(false);
+                await AppendAsciiAsync("\n", body, cancellationToken).ConfigureAwait(false);
+                headers.Add(head.ToArray());
+                bodies.Add(body.ToArray());
+                blockNumbers.Add(combined[member]);
+            }
+
+            // Upstream QDF keeps each member comment ahead of its value in the payload,
+            // counts the first comment in /First, and records member offsets at value
+            // starts so readers land on objects rather than comments.
+            StringBuilder table = new();
+            long prefix = 0L;
+            for (int m = 0; m < headers.Count; m++)
+            {
+                long atValue = checked(prefix + headers[m].Length - headers[0].Length);
+                table.Append(blockNumbers[m].ToString(System.Globalization.CultureInfo.InvariantCulture));
+                table.Append((char)32);
+                table.Append(atValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                table.Append((char)10);
+                checked
+                {
+                    prefix += headers[m].Length + bodies[m].Length;
+                }
+            }
+
+            byte[] tableBytes = System.Text.Encoding.ASCII.GetBytes(table.ToString());
+            long first = checked(tableBytes.Length + headers[0].Length);
+            _governor.ReserveMemory(checked(tableBytes.Length + prefix));
+            List<byte> payload = new(checked((int)System.Math.Min(checked(tableBytes.Length + prefix), int.MaxValue)));
+            payload.AddRange(tableBytes);
+            for (int m = 0; m < headers.Count; m++)
+            {
+                payload.AddRange(headers[m]);
+                payload.AddRange(bodies[m]);
+            }
+
+            byte[] payloadBytes = [.. payload];
+            offsets.Add(container, sink.Length);
+            await AppendAsciiAsync($"{container} 0 obj\n<<\n  /Type /ObjStm\n  /Length {payloadBytes.Length}\n  /N {group.Count}\n  /First {first}\n>>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendBytesAsync(payloadBytes, sink, cancellationToken).ConfigureAwait(false);
+            if (newlineBeforeEndstream)
+            {
+                await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await AppendAsciiAsync("endstream", sink, cancellationToken).ConfigureAwait(false);
+            }
+
+            await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
+        }
+
+        offsets[xrefNumber] = sink.Length;
+        long maxOffset = 0L;
+        foreach (long offset in offsets.Values)
+        {
+            if (offset > maxOffset)
+            {
+                maxOffset = offset;
+            }
+        }
+
+        int maxIndex = 0;
+        foreach (int index in memberIndex.Values)
+        {
+            if (index > maxIndex)
+            {
+                maxIndex = index;
+            }
+        }
+
+        int f1 = System.Math.Max(BytesNeeded(maxOffset), BytesNeeded(size));
+        int f2 = BytesNeeded(maxIndex);
+        List<byte> xrefData = new(checked(size * (1 + f1 + f2)));
+        for (int number = 0; number < size; number++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (number == 0)
+            {
+                AppendUInt(xrefData, 0L, 1);
+                AppendUInt(xrefData, 0L, f1);
+                AppendUInt(xrefData, 0L, f2);
+            }
+            else if (offsets.TryGetValue(number, out long offset))
+            {
+                AppendUInt(xrefData, 1L, 1);
+                AppendUInt(xrefData, offset, f1);
+                AppendUInt(xrefData, 0L, f2);
+            }
+            else
+            {
+                int foundContainer = -1;
+                int foundIndex = -1;
+                foreach (KeyValuePair<int, int> entry in memberContainer)
+                {
+                    if (combined.TryGetValue(entry.Key, out int memberNumber) && memberNumber == number)
+                    {
+                        foundContainer = entry.Value;
+                        foundIndex = memberIndex[entry.Key];
+                        break;
+                    }
+                }
+
+                if (foundContainer < 0)
+                {
+                    throw new QpdfException($"Object {number} is missing from the QDF streamed model.");
+                }
+
+                AppendUInt(xrefData, 2L, 1);
+                AppendUInt(xrefData, foundContainer, f1);
+                AppendUInt(xrefData, foundIndex, f2);
+            }
+        }
+
+        byte[] xrefBytes = [.. xrefData];
+        _governor.ReserveMemory(xrefBytes.Length);
+        int qdfRoot = 1;
+        if (combined.TryGetValue(1, out int catalogNumber))
+        {
+            qdfRoot = catalogNumber;
+        }
+        string idHex1 = ToHex(id1);
+        string idHex2 = ToHex(id2);
+        _governor.ChargeWork(idHex1.Length + idHex2.Length);
+        await AppendAsciiAsync($"{xrefNumber} 0 obj\n<<\n  /Type /XRef\n  /Length {xrefBytes.Length}\n  /W [ 1 {f1.ToString(System.Globalization.CultureInfo.InvariantCulture)} {f2.ToString(System.Globalization.CultureInfo.InvariantCulture)} ]\n  /Root {qdfRoot} 0 R\n  /Size {size}\n", sink, cancellationToken).ConfigureAwait(false);
+        if (infoRef.HasValue)
+        {
+            if (!combined.TryGetValue(infoRef.Value, out int mappedInfo))
+            {
+                throw new QpdfException($"QDF publication reached unmapped info object {infoRef.Value}.");
+            }
+
+            await AppendAsciiAsync($"  /Info {mappedInfo} 0 R\n", sink, cancellationToken).ConfigureAwait(false);
+        }
+
+        await AppendAsciiAsync("  /ID [<" + idHex1 + "><" + idHex2 + ">]\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync(">>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendBytesAsync(xrefBytes, sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync("\nendstream\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
+        long xrefOffset = offsets[xrefNumber];
+        await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
+        return sink.Length;
+    }
+
+    private static PdfDictionary AssertDictionary(QpdfObject value)
+    {
+        if (value is PdfDictionary dictionary)
+        {
+            return dictionary;
+        }
+
+        throw new QpdfException("QDF publication reached a non-dictionary stream header.");
+    }
+
+    private QpdfObject StreamHeaderWithLength(PdfStream stream, int lengthNumber, Dictionary<int, int> renumber)
+    {
+        Dictionary<PdfName, QpdfObject> stripped = new();
+        foreach (PdfName key in stream.Dictionary.Keys)
+        {
+            if (key.DisplayText == "Length")
+            {
+                continue;
+            }
+
+            if (stream.Dictionary.TryGet(key, out QpdfObject? kept) && kept is not null)
+            {
+                stripped[key] = kept;
+            }
+        }
+
+        QpdfObject remapped = ObjectRemap.RemapIds(new PdfDictionary(stripped), renumber, _governor);
+        if (remapped is not PdfDictionary header)
+        {
+            throw new QpdfException("QDF publication reached a non-dictionary stream header.");
+        }
+
+        Dictionary<PdfName, QpdfObject> entries = new();
+        foreach (PdfName key in header.Keys)
+        {
+            if (header.TryGet(key, out QpdfObject? kept) && kept is not null)
+            {
+                entries[key] = kept;
+            }
+        }
+
+        _governor.ReserveMemory(64L);
+        entries[PdfName.FromAscii("Length")] = new PdfReference(lengthNumber, 0);
+        return new PdfDictionary(entries);
+    }
+
+    private static Dictionary<int, string> QdfPageMarksSorted(
+        Dictionary<int, QpdfObject> lookup,
+        Dictionary<int, int> combined)
+    {
+        Dictionary<int, string> marks = new();
+        if (!lookup.TryGetValue(2, out QpdfObject? pagesRaw) || pagesRaw is not PdfDictionary pages)
+        {
+            return marks;
+        }
+
+        if (!pages.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is not PdfArray kids)
+        {
+            return marks;
+        }
+
+        int seq = 0;
+        foreach (QpdfObject kid in kids.Items)
+        {
+            if (kid is not PdfReference kidReference)
+            {
+                continue;
+            }
+
+            if (!combined.TryGetValue(kidReference.ObjectNumber, out int pageNumber))
+            {
+                continue;
+            }
+
+            seq += 1;
+            marks[pageNumber] = $"%% Page {seq}";
+            if (!lookup.TryGetValue(kidReference.ObjectNumber, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary pageDict)
+            {
+                continue;
+            }
+
+            if (!pageDict.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null)
+            {
+                continue;
+            }
+
+            if (contents is PdfReference contentReference)
+            {
+                if (combined.TryGetValue(contentReference.ObjectNumber, out int contentNumber) && !marks.ContainsKey(contentNumber))
+                {
+                    marks[contentNumber] = $"%% Contents for page {seq}";
+                }
+
+                continue;
+            }
+
+            if (contents is PdfArray contentArray)
+            {
+                foreach (QpdfObject item in contentArray.Items)
+                {
+                    if (item is PdfReference itemReference
+                        && combined.TryGetValue(itemReference.ObjectNumber, out int itemNumber)
+                        && !marks.ContainsKey(itemNumber))
+                    {
+                        marks[itemNumber] = $"%% Contents for page {seq}";
+                    }
+                }
+            }
+        }
+
+        return marks;
+    }    private sealed record QdfEmission(int Number, QpdfObject? Value, int? OriginalSource, int? LengthFor);
 
     private static bool IsDiscardedXRefStream(QpdfObject value)
     {
@@ -288,90 +720,6 @@ internal sealed partial class PdfSerializer
         throw new QpdfException("QDF publication lost a length object stream.");
     }
 
-    private static Dictionary<int, string> QdfPageMarks(List<NumberedObject> sorted, Dictionary<int, int> renumber)
-    {
-        Dictionary<int, string> marks = new();
-        PdfDictionary? pages = null;
-        foreach (NumberedObject numbered in sorted)
-        {
-            if (numbered.Number == 2 && numbered.Value is PdfDictionary candidate)
-            {
-                pages = candidate;
-                break;
-            }
-        }
-
-        if (pages is null)
-        {
-            return marks;
-        }
-
-        if (!pages.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is not PdfArray kids)
-        {
-            return marks;
-        }
-
-        int seq = 0;
-        foreach (QpdfObject kid in kids.Items)
-        {
-            if (kid is not PdfReference kidReference)
-            {
-                continue;
-            }
-
-            if (!renumber.TryGetValue(kidReference.ObjectNumber, out int pageNumber))
-            {
-                continue;
-            }
-
-            seq += 1;
-            marks[pageNumber] = $"%% Page {seq}";
-            QpdfObject? page = null;
-            foreach (NumberedObject numbered in sorted)
-            {
-                if (numbered.Number == kidReference.ObjectNumber && numbered.Value is PdfDictionary)
-                {
-                    page = numbered.Value;
-                    break;
-                }
-            }
-
-            if (page is not PdfDictionary pageDict)
-            {
-                continue;
-            }
-
-            if (!pageDict.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null)
-            {
-                continue;
-            }
-
-            if (contents is PdfReference contentReference)
-            {
-                if (renumber.TryGetValue(contentReference.ObjectNumber, out int contentNumber) && !marks.ContainsKey(contentNumber))
-                {
-                    marks[contentNumber] = $"%% Contents for page {seq}";
-                }
-
-                continue;
-            }
-
-            if (contents is PdfArray contentArray)
-            {
-                foreach (QpdfObject item in contentArray.Items)
-                {
-                    if (item is PdfReference itemReference
-                        && renumber.TryGetValue(itemReference.ObjectNumber, out int itemNumber)
-                        && !marks.ContainsKey(itemNumber))
-                    {
-                        marks[itemNumber] = $"%% Contents for page {seq}";
-                    }
-                }
-            }
-        }
-
-        return marks;
-    }
 
     private async ValueTask<bool> AppendQdfStreamAsync(PdfStream stream, IByteSink sink, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {

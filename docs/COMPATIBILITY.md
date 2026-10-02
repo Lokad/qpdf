@@ -65,7 +65,7 @@ coverage, all passing with no engine discrepancies: select, merge,
 uncompress (decoded stream payloads identical), normalize (normalized
 content payloads identical), JSON page-count agreement, forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
-placement), and overlay. Confirmed intentional differences: our default
+placement), overlay, and qdf (editable view with generated object streams: trio plus QDF/ObjStm/XRef/member markers on both outputs and an upstream fix-qdf round trip). Confirmed intentional differences: our default
 output stays uncompressed where upstream compresses, and our `--overlay`
 block requires a second `--` terminator before the output file while
 upstream takes the output directly after the block terminator.
@@ -647,6 +647,26 @@ DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 ad
 ## Inline optimization and codec hardening (work item 34)
 
 Image optimization covers externalized inline images under the same shrink-only rules, and the filter layer gained adversarial cases: truncated JPEGs and two-component frames stay opaque with a warning, chained Flate+DCT decodes with --recompress-flate, dimension mismatches skip silently, and encode budgets fail explicitly. Attachment extraction now decodes DCT streams, and the streams check passes valid JPEGs at decode level all. Progressive JPEG has no encoder in the pinned codec so no round-trip fixture exists; four-component CMYK remains the visible decoder and encoder gap.
+
+## QDF editable view (work item 35)
+
+--qdf (plus job key qdf) with --no-original-object-ids (plus job key
+noOriginalObjectIds) emits the editable QDF view: a binary marker plus
+%QDF-1.0, per-object original-ID and page/contents comments, sorted keys with
+indented values, uncompressed streams framed with indirect lengths in the
+following object and ignore_newline tolerance, and a classic cross-reference
+table. QDF implies generalized decoding with content normalization unless
+explicitly overridden (--normalize-content=n keeps newlines,
+--compress-streams=y restores Flate, --decode-level=none still normalizes).
+--object-streams=generate packs eligible objects into unfiltered object
+streams with per-member comments, upstream-style /First and offsets landing
+on values, and an unfiltered cross-reference stream (/W [ 1 f1 f2 ]).
+Intentional differences: generated grouping follows writer packing rules
+(catalog/pages stay direct) rather than upstream packing; page /Parent links
+stay dropped per catalog policy; objects without a source carry no original-ID
+comment. The differential lane covers a two-page QDF object-stream case
+(oracle trio, marker agreement, upstream fix-qdf round trip green). The
+fix-qdf and zlib-flate companions remain later work items.
 
 ## Exclusions and differences
 
