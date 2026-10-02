@@ -668,4 +668,83 @@ public sealed class ContentTransformsTests
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
+
+    [Fact]
+    public async Task PreserveResourcesKeepsUnreferenced()
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--preserve-unreferenced-resources");
+        HashSet<string> keys = await ResourceKeysAsync(pdf);
+        Assert.Contains("Font:/F1", keys);
+        Assert.Contains("Font:/F2", keys);
+    }
+
+    [Fact]
+    public async Task PreserveResourcesMatchesRemoveNo()
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        byte[] preserved = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--preserve-unreferenced-resources");
+        byte[] kept = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--remove-unreferenced-resources=no");
+        Assert.Equal(kept, preserved);
+    }
+
+    [Theory]
+    [InlineData("--remove-unreferenced-resources=yes", "--preserve-unreferenced-resources", true)]
+    [InlineData("--preserve-unreferenced-resources", "--remove-unreferenced-resources=yes", false)]
+    public async Task PreserveResourcesLastWins(string first, string second, bool keepF2)
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", first, second);
+        HashSet<string> keys = await ResourceKeysAsync(pdf);
+        Assert.Contains("Font:/F1", keys);
+        Assert.Equal(keepF2, keys.Contains("Font:/F2"));
+    }
+
+    [Fact]
+    public async Task PreserveResourcesJobParityHolds()
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", fixture);
+        byte[] a = await TransformAsync(argvHost, "--pages", ".", "1", "--preserve-unreferenced-resources");
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "preserveUnreferencedResources": true}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Theory]
+    [InlineData("--preserve-unreferenced-resources=x")]
+    [InlineData("--preserve-unreferenced-resources=")]
+    [InlineData("--preserve-unreferenced-resources", "--preserve-unreferenced-resources")]
+    public async Task MalformedPreserveResourcesFlagsFail(params string[] flags)
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
+        InMemoryQpdfHost host = host0;
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task PreserveResourcesYieldsToExhaustedBudget()
+    {
+        byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--preserve-unreferenced-resources", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

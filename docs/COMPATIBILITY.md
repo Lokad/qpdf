@@ -663,7 +663,7 @@ with page operations and whole-file output, never with inspection; damaged
 content keeps original bytes where upstream writes partial output. The differential lane compares
 coalesced bytes exactly and prunes an unreferenced /F2 under page operations with byte-identical
 decoded payloads; pruning engages under page operations (including --split-pages) while whole-file
-output without page selection keeps resources, matching the upstream page-spec gating.
+output without page selection keeps resources, matching the upstream page-spec gating. Bare `--preserve-unreferenced-resources` (plus job key) is a synonym for `--remove-unreferenced-resources=no` with last-wins precedence on conflict and no valued form.
 
 ## Inline image externalization (work item 30a)
 

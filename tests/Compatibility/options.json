@@ -3121,11 +3121,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Deferred JSON help and input stay unsupported."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "JsonInspectionTests.KeySelectionLimitsOutput",
@@ -3785,11 +3783,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Containers use plain Flate without the upstream PNG predictor (size-only difference); preserve keeps compressed-ness, not exact original groupings."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ObjectStreamTests.GenerateWritesObjectAndXrefStreams",
@@ -3810,7 +3806,9 @@
           "ObjectStreamTests.CompressJobParityHolds",
           "QdfTests.ObjectStreamsQdfJobParityMatchesArgvBytes"
         ],
-        "resource": [],
+        "resource": [
+          "ObjectStreamTests.GenerateYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:qdf-markers",
           "diff:linearize-streams"
@@ -4248,17 +4246,27 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Oracle preservation-parity evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": ["PreserveUnreferencedTests.DefaultDropsUnreferencedObjects", "PreserveUnreferencedTests.PreserveKeepsUnreferencedObjects", "PreserveUnreferencedTests.PreserveAcrossMergeKeepsBothOrphans", "PreserveUnreferencedTests.JobJsonParityHolds"],
-        "negative": ["PreserveUnreferencedTests.DuplicateFlagFails", "PreserveUnreferencedTests.ValuedFlagFails", "PreserveUnreferencedTests.JobJsonInvalidValueFails"],
-        "interaction": ["PreserveUnreferencedTests.PreserveAcrossMergeKeepsBothOrphans", "PreserveUnreferencedTests.PreserveAcrossSplitKeepsOrphansPerGroup"],
-        "resource": ["PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget"],
-        "oracle": []
+        "positive": [
+          "ContentTransformsTests.PreserveResourcesKeepsUnreferenced",
+          "ContentTransformsTests.PreserveResourcesMatchesRemoveNo"
+        ],
+        "negative": [
+          "ContentTransformsTests.MalformedPreserveResourcesFlagsFail"
+        ],
+        "interaction": [
+          "ContentTransformsTests.PreserveResourcesLastWins",
+          "ContentTransformsTests.PreserveResourcesJobParityHolds"
+        ],
+        "resource": [
+          "ContentTransformsTests.PreserveResourcesYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:preserve-resources"
+        ]
       }
     },
     {

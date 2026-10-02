@@ -1293,6 +1293,7 @@ internal static class ArgvParser
         bool normalizeContent = false;
         bool seenRemoveUnreferencedResources = false;
         string? removeUnreferencedResources = null;
+        bool seenPreserveUnreferencedResources = false;
         bool seenExternalizeInlineImages = false;
         bool externalizeInlineImages = false;
         bool seenIiMinBytes = false;
@@ -1672,6 +1673,23 @@ internal static class ArgvParser
                 seenRemoveUnreferencedResources = true;
                 removeUnreferencedResources = ParseStreamChoice(argv, ref i, "--remove-unreferenced-resources", new string[] { "auto", "yes", "no" });
                 continue;
+            }
+
+            if (argv[i] == "--preserve-unreferenced-resources")
+            {
+                if (seenPreserveUnreferencedResources)
+                {
+                    throw new QpdfParseException("Duplicate --preserve-unreferenced-resources is outside the narrow profile.", i, null);
+                }
+
+                seenPreserveUnreferencedResources = true;
+                removeUnreferencedResources = "no";
+                continue;
+            }
+
+            if (argv[i].StartsWith("--preserve-unreferenced-resources=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --preserve-unreferenced-resources takes no value.", i, null);
             }
 
             if (argv[i] == "--externalize-inline-images")

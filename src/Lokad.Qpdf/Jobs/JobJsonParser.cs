@@ -141,6 +141,7 @@ internal static class JobJsonParser
             bool seenNormalizeContent = false;
             string? removeUnreferencedResources = null;
             bool seenRemoveUnreferencedResources = false;
+            bool seenPreserveUnreferencedResources = false;
             List<AttachmentAdd> attachmentsToAdd = new();
             bool seenAddAttachment = false;
             List<AttachmentCopy> attachmentsToCopy = new();
@@ -521,6 +522,20 @@ internal static class JobJsonParser
                         if (removeUnreferencedResources != "auto" && removeUnreferencedResources != "yes" && removeUnreferencedResources != "no")
                         {
                             throw new QpdfParseException("Job \u0027removeUnreferencedResources\u0027 must be one of: auto, yes, no.", 0L, null);
+                        }
+
+                        break;
+
+                    case "preserveUnreferencedResources":
+                        if (seenPreserveUnreferencedResources)
+                        {
+                                throw new QpdfParseException("Duplicate job key preserveUnreferencedResources.", 0L, null);
+                        }
+
+                        seenPreserveUnreferencedResources = true;
+                        if (RequireBareFlag(property.Value, "preserveUnreferencedResources"))
+                        {
+                            removeUnreferencedResources = "no";
                         }
 
                         break;

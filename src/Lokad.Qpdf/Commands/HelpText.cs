@@ -46,6 +46,7 @@ internal static class HelpText
           --coalesce-contents         combine page content streams
           --normalize-content=[y|n]     normalize newlines in content streams
           --remove-unreferenced-resources=parameter  drop unused page resources
+          --preserve-unreferenced-resources   keep page resources (same as --remove-unreferenced-resources=no)
           --externalize-inline-images       lift large inline images to XObjects
           --ii-min-bytes=size-in-bytes      inline-image threshold (default 1024)
           --overlay file [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
@@ -170,7 +171,7 @@ internal static class HelpText
           newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
           compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
           removeMetadata, coalesceContents, normalizeContent, externalizeInlineImages,
-          iiMinBytes, removeUnreferencedResources, overlay, underlay, flattenRotation,
+          iiMinBytes, removeUnreferencedResources, preserveUnreferencedResources, overlay, underlay, flattenRotation,
           flattenAnnotations, generateAppearances, qdf, linearize, linearizePass1,
           checkLinearization, showLinearization, showNpages, showPages, withImages, showObject,
           showXref, removeAcroform, removeStructure, noOriginalObjectIds, optimizeImages,
@@ -231,7 +232,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --global --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --raw-stream-data --filtered-stream-data --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key --test-json-schema --report-memory-usage --verbose --progress --keep-files-open --keep-files-open-threshold";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --preserve-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --global --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --raw-stream-data --filtered-stream-data --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key --test-json-schema --report-memory-usage --verbose --progress --keep-files-open --keep-files-open-threshold";
 
     internal static string BashCompletion()
     {

@@ -266,6 +266,21 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[prune] FAIL: pruned content payloads differ"; $script:failures++ } else { Write-Output "[prune] payloads match" }
 Write-Output "[prune] resource assertions done"
 
+# --- case: preserve (managed vs oracle resource preservation) ---
+$case = New-Case 'preserve'
+Copy-Item "$fixtureDir/unref-1page.pdf" "$case/inputs/u.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/u.pdf', '--pages', '.', '1', '--preserve-unreferenced-resources', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "preserve: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--preserve-unreferenced-resources', 'inputs/u.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "preserve: oracle failed ($code)" }
+Assert-Trio 'preserve' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if (-not $rawText.Contains('/F2')) { Write-Output "[preserve-resources] FAIL: unreferenced /F2 missing from $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/F1')) { Write-Output "[preserve-resources] FAIL: referenced /F1 missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[preserve-resources] resource assertions done"
+
 # --- case: json (structural page-descriptor agreement) ---
 $case = New-Case 'json'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1298,4 +1313,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
