@@ -505,6 +505,35 @@ foreach ($pair in @(('lib', "$case/lib-remove-metadata.pdf"), ('ora', "$case/ora
 }
 Write-Output "[remove-metadata] info/metadata assertions done"
 
+# --- case: labels (managed vs oracle page-label setting and removal) ---
+$case = New-Case 'labels'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/labeled.pdf=$case/lib-labeled.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--set-page-labels', '1:r', '--', 'outputs/labeled.pdf')
+if ($code -ne 0) { throw "labels/set: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--set-page-labels', '1:r', '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-labeled.pdf")
+if ($code -ne 0) { throw "labels/set: oracle failed ($code)" }
+Assert-Trio 'labels/set' "$case/lib-labeled.pdf" "$case/ora-labeled.pdf" 2
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-labeled.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
+$libCat = (Get-Content "$case/show-lib.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-labeled.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
+$oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
+if ($libCat -ne $oraCat) { Write-Output "[set-page-labels] FAIL: labeled catalogs differ"; $script:failures++ }
+elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[set-page-labels] FAIL: labels missing"; $script:failures++ }
+else { Write-Output "[set-page-labels] labeled catalogs agree" }
+Copy-Item "$case/ora-labeled.pdf" "$case/inputs/labeled.pdf" -Force
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/labeled.pdf', '--pages', '.', '1', '.', '2', '--remove-page-labels', '--', 'outputs/plain.pdf')
+if ($code -ne 0) { throw "labels/remove: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/labeled.pdf', '--remove-page-labels', '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-plain.pdf")
+if ($code -ne 0) { throw "labels/remove: oracle failed ($code)" }
+Assert-Trio 'labels/remove' "$case/lib-plain.pdf" "$case/ora-plain.pdf" 2
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-plain.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-p.txt" -RedirectStandardError "$case/show-lib-p-err.txt"
+$libPlain = (Get-Content "$case/show-lib-p.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-plain.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-p.txt" -RedirectStandardError "$case/show-ora-p-err.txt"
+$oraPlain = (Get-Content "$case/show-ora-p.txt" -Raw).Trim()
+if ($libPlain -ne $oraPlain) { Write-Output "[remove-page-labels] FAIL: unlabeled catalogs differ"; $script:failures++ }
+elseif ($libPlain.Contains('/PageLabels')) { Write-Output "[remove-page-labels] FAIL: labels remain"; $script:failures++ }
+else { Write-Output "[remove-page-labels] unlabeled catalogs agree" }
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -1328,4 +1357,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

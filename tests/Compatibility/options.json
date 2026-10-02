@@ -4596,11 +4596,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Accepted no-op: outputs never carry source labels unless set."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LabelTests.RemovePageLabelsIsAcceptedNoOp"
@@ -4608,9 +4606,15 @@
         "negative": [
           "LabelTests.ArgvLabelFormsFailExplicitly"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "LabelTests.JobRemovePageLabelsBehavesLikeArgv"
+        ],
+        "resource": [
+          "LabelTests.LabelsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:remove-page-labels"
+        ]
       }
     },
     {
@@ -4907,8 +4911,12 @@
         "interaction": [
           "LabelTests.PrefixAndStartRoundTrip"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "LabelTests.LabelsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:set-page-labels"
+        ]
       }
     },
     {

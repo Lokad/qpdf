@@ -333,4 +333,25 @@ public sealed class LabelTests
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, badType.Status);
     }
+
+    [Theory]
+    [InlineData("--set-page-labels", "1:r")]
+    [InlineData("--remove-page-labels")]
+    public async Task LabelsYieldToExhaustedBudget(params string[] flags)
+    {
+        byte[] bytes = BuildDoc(2);
+        InMemoryQpdfHost host = HostWith("inputs/labels.pdf", bytes);
+        List<string> argv = new() { "inputs/labels.pdf", "--pages", ".", "1" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(argv),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }
