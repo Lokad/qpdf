@@ -374,6 +374,18 @@ new `--copyright` notice (Lokad/MIT/12.4.2-target); valued identity forms fail e
 identity requests bypass exhausted output budgets. `--completion-bash` and `--completion-zsh` emit static subset completion scripts (no shell execution or environment lookup), `--job-json-help` prints the supported job-key subset, and `--json-help[=1|2|latest]` describes the matching inspection version; the differential lane checks exit-0 identity parity with shared markers on both sides. `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with identical outputs (host lease policy stays authoritative); the differential lane runs hinted merges with trios green on both sides. All other operations stay
 explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
 
+Output-neutral diagnostics (work item 81): `--progress` reports counted-byte
+milestones (25/50/75/100%) while the reference streams object-based
+percentages during the write; `--verbose` appends an operation summary;
+`--report-memory-usage` reports the exact governor peak while the reference
+reports a best-effort figure; `--test-json-schema` validates generated
+top-level keys against the matching `--json-help` description and fails
+explicitly on drift. Report text stays implementation-defined on both sides
+with no stable cross-implementation contract. All four flags are exit-neutral
+and output-neutral, and the differential lane checks exit-0 parity, green
+trios, and byte-identical outputs with and without each flag (plus matching
+top-level JSON keys for the schema check).
+
 ## Bounded repair (work item 17)
 
 Strict parsing runs first; only its failure engages bounded repair, which scans

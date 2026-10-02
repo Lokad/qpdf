@@ -4297,17 +4297,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Diagnostics-only milestones on successful writes; upstream streams object-based percentages during the write. Oracle output parity pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["ProgressTests.ProgressReportsWriteMilestonesWithIdenticalBytes", "ProgressTests.JobProgressMatchesArgv"],
         "negative": ["ProgressTests.BadProgressFlagsFail", "ProgressTests.BadProgressJobKeysFail", "ProgressTests.ProgressStaysSilentWithoutAnOutputFile"],
         "interaction": ["ProgressTests.ProgressCombinesWithVerboseWithoutChangingBytes"],
         "resource": ["ProgressTests.ProgressYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:diagnostics"]
       }
     },
     {
@@ -4791,17 +4789,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Exact governor peak with no oracle counterpart; memory report never affects the exit code."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["TestingOptionsTests.ReportsPeakOnCheck", "TestingOptionsTests.ReportsPeakOnMerge", "TestingOptionsTests.ReportsPeakOnShowNpages", "TestingOptionsTests.JobMemoryKeyMatchesArgv"],
         "negative": ["TestingOptionsTests.MalformedTestingFlagsFail"],
         "interaction": ["TestingOptionsTests.JobMemoryKeyMatchesArgv"],
         "resource": ["TestingOptionsTests.MemoryReportYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:diagnostics"]
       }
     },
     {
@@ -5442,17 +5438,15 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Internal consistency check only; oracle output parity pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["TestingOptionsTests.SchemaCheckValidatesVersions", "TestingOptionsTests.JobSchemaKeyMatchesArgv"],
         "negative": ["TestingOptionsTests.MalformedTestingFlagsFail", "TestingOptionsTests.SchemaCheckWithoutJsonFails", "TestingOptionsTests.BadTestingJobKeysFail"],
         "interaction": ["TestingOptionsTests.JobSchemaKeyMatchesArgv", "TestingOptionsTests.BadTestingJobKeysFail"],
         "resource": ["TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:diagnostics"]
       }
     },
     {
@@ -5562,17 +5556,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Summary diagnostic only; no oracle counterpart with a stable contract."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["OperationFlagsTests.VerboseSummarizesCheck", "OperationFlagsTests.VerboseSummarizesMerge", "OperationFlagsTests.VerboseSummarizesShowNpages", "OperationFlagsTests.JobVerboseMatchesArgv"],
         "negative": ["OperationFlagsTests.BadVerboseFlagsFail", "OperationFlagsTests.BadVerboseJobKeysFail"],
         "interaction": ["OperationFlagsTests.JobVerboseMatchesArgv", "OperationFlagsTests.BadVerboseJobKeysFail"],
         "resource": ["OperationFlagsTests.VerboseYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:diagnostics"]
       }
     },
     {

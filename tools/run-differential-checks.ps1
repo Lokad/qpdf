@@ -966,6 +966,34 @@ foreach ($sub in @(
   else { Write-Output "[warnings/$name] exit parity ($m/$o)" }
 }
 
+# --- case: diagnostics (managed vs oracle output-neutral diagnostics) ---
+$case = New-Case 'diagnostics'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', 'outputs/plain.pdf')
+if ($code -ne 0) { throw "diagnostics: baseline emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-plain.pdf")
+if ($code -ne 0) { throw "diagnostics: baseline oracle failed ($code)" }
+Assert-Trio 'diagnostics-plain' "$case/lib-plain.pdf" "$case/ora-plain.pdf" 2
+foreach ($sub in @('progress', 'verbose', 'report-memory-usage')) {
+  $m = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/$sub.pdf=$case/lib-$sub.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', "--$sub", '--', "outputs/$sub.pdf") "diag-$sub"
+  $o = Invoke-Oracle $case @("--$sub", 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-$sub.pdf")
+  if ($m -ne 0 -or $o -ne 0) { Write-Output "[diagnostics/$sub] FAIL: exits managed=$m oracle=$o, expected 0/0"; $script:failures++; continue }
+  Assert-Trio "diagnostics-$sub" "$case/lib-$sub.pdf" "$case/ora-$sub.pdf" 2
+  $lh = (Get-FileHash "$case/lib-$sub.pdf" -Algorithm SHA256).Hash
+  $ph = (Get-FileHash "$case/lib-plain.pdf" -Algorithm SHA256).Hash
+  if ($lh -ne $ph) { Write-Output "[diagnostics/$sub] FAIL: flagged bytes differ from unflagged bytes"; $script:failures++ }
+  else { Write-Output "[diagnostics/$sub] exits 0/0 with output-neutral diagnostics" }
+}
+$m = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/schema.json=$case/lib-schema.json", '--', 'inputs/a.pdf', '--json', '--json-key=pages', '--test-json-schema', '--', 'outputs/schema.json') "diag-schema"
+$o = Invoke-Oracle $case @('--test-json-schema', '--json', '--json-key=pages', 'inputs/a.pdf', '--', "$case/ora-schema.json")
+if ($m -ne 0 -or $o -ne 0) { Write-Output "[diagnostics/schema] FAIL: exits managed=$m oracle=$o, expected 0/0"; $script:failures++ }
+else {
+  $libKeys = ((Get-Content "$case/lib-schema.json" -Raw | ConvertFrom-Json).PSObject.Properties.Name | Sort-Object) -join ','
+  $oraKeys = ((Get-Content "$case/ora-schema.json" -Raw | ConvertFrom-Json).PSObject.Properties.Name | Sort-Object) -join ','
+  if ($libKeys -ne $oraKeys) { Write-Output "[diagnostics/schema] FAIL: top-level keys lib=[$libKeys] ora=[$oraKeys]"; $script:failures++ }
+  else { Write-Output "[diagnostics/schema] exits 0/0 with matching top-level keys [$libKeys]" }
+}
+
 # --- case: check-linearization (managed vs oracle inspection) ---
 $case = New-Case 'check-linearization'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1442,4 +1470,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
