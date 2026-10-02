@@ -1,6 +1,10 @@
 # Progress
 
 ## Current checkpoint
+Work item 67: no-external audit and evidence reconciliation (M11). Proved the ordinary suite passes 1482/1482 with `external/oracle`, `external/qpdf`, `external/diff`, and `external/probestruct` renamed away (plus static proof: no `external/` or `QPDF_EXE` references in `src/` or ordinary tests, checked-in fixtures only) and that the reference lane fails explicitly without `QPDF_EXE`. Reconciled five stale evidence references to real tests (`AdapterTests.ArgvNamedFormsSucceed`, dropped two never-existing normalize names and one obsolete linearize name, dropped one never-existing coalesce name) plus a new `NormalizeRewritesNewlines` case, so all 531 non-oracle evidence references resolve. Package/docs checks clean: `verify-package` pins ImageSharp 3.1.12 with expected contents only, README/CHANGELOG/COMPATIBILITY carry no stale counts.
+
+Prior gate
+
 Work item 66: write-progress reporting (M11). `--progress` (plus job key `progress`) appends four exit-neutral `ProgressReport` diagnostics (25/50/75/100% of counted output bytes) to every successful write through the shared presentation point, with byte-identical outputs, silence on inspection paths without an output file, valued/duplicate/job-key failures, job parity, verbose combination, and budget evidence. Upstream streams object-based percentages during the write; diagnostics-only milestones stay the explicit intentional difference with oracle output parity pending.
 
 Prior gate
@@ -243,8 +247,8 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1482 tests (844
-  prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
+- Locked restore, Release build with zero warnings, and all 1483 tests (844
+  prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 27 content transform cases (checked-in unreferenced-font fixture pruning, newline rewriting): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
   plus 2 streamed-manifest rows (oracle object-stream fixtures), plus 5 streamed-inspection cases
@@ -263,12 +267,13 @@ binary.
 ## Next work
 
 1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
-   (work items 41-42, 53-66).
-   Next slices: no-external build/test
-   audit, package/docs checks.
+   (work items 41-42, 53-67).
+   Next slices: remaining oracle-parity gaps across the 87 partials,
+   then final package/docs/release gates.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.
 
 Continue in small tested local commits. Update the compatibility entries and
 this record with concrete evidence. Do not report full completion until all
 required operations and dependency gates have been satisfied.
+

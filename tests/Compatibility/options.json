@@ -2032,7 +2032,6 @@
         "positive": [
           "ContentTransformsTests.CoalesceJoinsStreams",
           "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
-          "ContentTransformsTests.CoalesceWholeFile",
           "ContentTransformsTests.CoalesceKeepsOpaqueStreams"
         ],
         "negative": [
@@ -3380,7 +3379,6 @@
           "LinearizedWriterTests.ThumbnailsLinearizeJobSucceeds"
         ],
         "negative": [
-          "LinearizedWriterTests.ObjectStreamsGenerateFails",
           "LinearizedWriterTests.JsonCannotCombine",
           "LinearizedWriterTests.CheckCannotCombine",
           "LinearizedWriterTests.DirectOutlinesFailExplicitly",
@@ -3651,7 +3649,6 @@
       "evidence": {
         "positive": [
           "ContentTransformsTests.NormalizeRewritesNewlines",
-          "ContentTransformsTests.NormalizeRecodesStringsAndNames",
           "ContentTransformsTests.NormalizeDecodesFlate"
         ],
         "negative": [
@@ -3950,7 +3947,7 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["PageSelectionTests.OrderedSelectionPreservesOrderAndDuplicates", "AdapterTests.ArgvNamedForms", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
+        "positive": ["PageSelectionTests.OrderedSelectionPreservesOrderAndDuplicates", "AdapterTests.ArgvNamedFormsSucceed", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
         "negative": ["AdapterTests.ArgvRangeErrorsFail", "MergeCommandTests.ArgvMergeErrorsAreExplicit"],
         "interaction": ["MergeCommandTests.ArgvMultiFileMergesInOrder", "MergeCommandTests.JobMultiEntryMergesInOrder"],
         "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
@@ -5509,7 +5506,7 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["AdapterTests.ArgvNamedForms", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
+        "positive": ["AdapterTests.ArgvNamedFormsSucceed", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
         "negative": ["MergeCommandTests.ArgvMergeErrorsAreExplicit"],
         "interaction": ["MergeCommandTests.ArgvMultiFileMergesInOrder"],
         "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
@@ -5570,9 +5567,9 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["AdapterTests.ArgvNamedForms"],
+        "positive": ["AdapterTests.ArgvNamedFormsSucceed"],
         "negative": ["AdapterTests.ArgvRangeErrorsFail"],
-        "interaction": ["AdapterTests.ArgvNamedForms"],
+        "interaction": ["AdapterTests.ArgvNamedFormsSucceed"],
         "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
         "oracle": ["diff:merge"]
       }

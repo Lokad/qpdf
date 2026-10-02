@@ -494,6 +494,24 @@ public sealed class ContentTransformsTests
     }
 
     [Fact]
+    public async Task NormalizeRewritesNewlines()
+    {
+        byte[] raw = Encoding.ASCII.GetBytes("BT\r/F1 12 Tf\r\nET");
+        byte[] fixture = BuildPdf(
+            string.Empty,
+            " /Contents 4 0 R",
+            new List<(string Dict, byte[]? StreamData)>
+            {
+                ("<< /Length " + raw.Length + " >>", raw),
+            });
+        InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
+        InMemoryQpdfHost host = host0;
+        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--normalize-content=y");
+        byte[] content = await PageContentAsync(pdf);
+        Assert.Equal("BT\n/F1 12 Tf\nET", Encoding.ASCII.GetString(content));
+    }
+
+    [Fact]
     public async Task CoalesceKeepsOpaqueStreams()
     {
         byte[] fixture = BuildPdf(
