@@ -708,6 +708,20 @@ internal static class JobJsonParser
                         break;
                     case "encrypt":
                     case "decrypt":
+                    case "password":
+                    case "passwordFile":
+                    case "passwordMode":
+                    case "passwordIsHexKey":
+                    case "suppressPasswordRecovery":
+                    case "encryptionFilePassword":
+                    case "allowWeakCrypto":
+                    case "copyEncryption":
+                    case "isEncrypted":
+                    case "requiresPassword":
+                    case "showEncryption":
+                    case "showEncryptionKey":
+                    case "staticAesIv":
+                    case "removeRestrictions":
                         throw new QpdfCryptoException(property.Name);
                     default:
                         throw new QpdfParseException($"Unsupported job key '{property.Name}' in the narrow selection profile.", 0L, null);

@@ -697,7 +697,11 @@ The linearization check detects the parameter dictionary in the first bytes, val
 Passwords, encryption/decryption, encryption inspection, cryptographic options,
 permission enforcement, signing and signature validation are out of scope.
 Reject encrypted input structurally; do not prompt for or read passwords.
-`--remove-restrictions` is excluded. Ordinary document IDs, deterministic IDs
+`--remove-restrictions` is excluded. Every password, permission, inspection, and
+restriction flag fails explicitly with `UnsupportedCryptoOperation` (exit 2) across argv,
+job JSON (top-level, pages, overlay/underlay, attachment-copy, and encrypt-block keys),
+and encrypted file inputs, publishing no output; all 49 exclusion entries carry negative
+evidence. Ordinary document IDs, deterministic IDs
 and non-secret file checksums remain part of structural processing.
 
 Rendering, OCR, text extraction/layout and general document authoring are not

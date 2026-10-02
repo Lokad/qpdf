@@ -128,14 +128,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -165,14 +166,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -202,14 +204,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -233,14 +236,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -270,14 +274,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -301,14 +306,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -338,14 +344,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -381,14 +388,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -418,14 +426,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -457,14 +466,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -494,14 +504,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -531,14 +542,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -562,14 +574,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -599,14 +612,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -636,14 +650,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -667,14 +682,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -704,14 +720,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -735,14 +752,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -772,14 +790,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -815,14 +834,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -852,14 +872,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -891,14 +912,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -928,14 +950,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -965,14 +988,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1002,14 +1026,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1039,14 +1064,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1311,14 +1337,16 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCopyAttachmentsPasswordFails",
+          "CryptoExclusionTests.ArgvCopyAttachmentsPasswordFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1384,14 +1412,14 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1415,14 +1443,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1446,14 +1475,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1756,14 +1786,14 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1889,14 +1919,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -2200,14 +2231,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -2290,14 +2322,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -2388,14 +2421,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobEncryptBlockFails"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -2419,14 +2453,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -2456,9 +2491,19 @@
         "Inline image threshold and naming review complete for the narrow profile."
       ],
       "evidence": {
-        "positive": ["InlineImagesTests.ExternalizeAboveThreshold", "InlineImagesTests.CustomThresholdExternalizesSmall", "InlineImagesTests.AbbreviationsExpandInXObject", "InlineImagesTests.FilterAbbreviationExpands", "InlineImagesTests.FormXObjectExternalizes"],
-        "negative": ["InlineImagesTests.MalformedExternalizeFlagsFail"],
-        "interaction": ["InlineImagesTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "InlineImagesTests.ExternalizeAboveThreshold",
+          "InlineImagesTests.CustomThresholdExternalizesSmall",
+          "InlineImagesTests.AbbreviationsExpandInXObject",
+          "InlineImagesTests.FilterAbbreviationExpands",
+          "InlineImagesTests.FormXObjectExternalizes"
+        ],
+        "negative": [
+          "InlineImagesTests.MalformedExternalizeFlagsFail"
+        ],
+        "interaction": [
+          "InlineImagesTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2526,9 +2571,18 @@
         "Appearance stamping with flag filtering is covered; field default-resource merging and appearance regeneration arrive with later appearance work."
       ],
       "evidence": {
-        "positive": ["FlattenAnnotationsTests.StampTextAnnotationOnTop", "FlattenAnnotationsTests.PrintModeFiltersOnFlag", "FlattenAnnotationsTests.UncheckedCheckboxIsDropped", "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages"],
-        "negative": ["FlattenAnnotationsTests.MalformedFlattenFlagsFail"],
-        "interaction": ["FlattenAnnotationsTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "FlattenAnnotationsTests.StampTextAnnotationOnTop",
+          "FlattenAnnotationsTests.PrintModeFiltersOnFlag",
+          "FlattenAnnotationsTests.UncheckedCheckboxIsDropped",
+          "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages"
+        ],
+        "negative": [
+          "FlattenAnnotationsTests.MalformedFlattenFlagsFail"
+        ],
+        "interaction": [
+          "FlattenAnnotationsTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": [
           "diff:forms-appearances"
@@ -2559,9 +2613,18 @@
         "Box rotation, content wrapping, and annotation rectangles are covered; appearance streams are untouched and inherited user units are out of scope until later items."
       ],
       "evidence": {
-        "positive": ["FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent", "FlattenRotationTests.Flatten180KeepsMediaBox", "FlattenRotationTests.AnnotationRectanglesMoveWithPage", "FlattenRotationTests.MergeThenFlattenAppliesToFinalPages"],
-        "negative": ["FlattenRotationTests.MalformedFlattenFlagsFail"],
-        "interaction": ["FlattenRotationTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent",
+          "FlattenRotationTests.Flatten180KeepsMediaBox",
+          "FlattenRotationTests.AnnotationRectanglesMoveWithPage",
+          "FlattenRotationTests.MergeThenFlattenAppliesToFinalPages"
+        ],
+        "negative": [
+          "FlattenRotationTests.MalformedFlattenFlagsFail"
+        ],
+        "interaction": [
+          "FlattenRotationTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": [
           "diff:flatten-rotation"
@@ -2742,9 +2805,18 @@
         "Inline image threshold and naming review complete for the narrow profile."
       ],
       "evidence": {
-        "positive": ["InlineImagesTests.CustomThresholdKeepsLarge", "InlineImagesTests.ZeroThresholdExternalizesSingleByte", "InlineImagesTests.UniqueNamingSkipsTaken", "InlineImagesTests.WholeFileJobExternalizes"],
-        "negative": ["InlineImagesTests.JobMalformedFails"],
-        "interaction": ["InlineImagesTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "InlineImagesTests.CustomThresholdKeepsLarge",
+          "InlineImagesTests.ZeroThresholdExternalizesSingleByte",
+          "InlineImagesTests.UniqueNamingSkipsTaken",
+          "InlineImagesTests.WholeFileJobExternalizes"
+        ],
+        "negative": [
+          "InlineImagesTests.JobMalformedFails"
+        ],
+        "interaction": [
+          "InlineImagesTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -2767,14 +2839,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -3849,9 +3922,18 @@
         "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": ["OverlayTests.OverlayStacksStampOnTop", "OverlayTests.MultipleOverlaysStackInOrder", "OverlayTests.PagesSelectionThenOverlay", "OverlayTests.MergeThenOverlayAppliesToFinalPages"],
-        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
-        "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "OverlayTests.OverlayStacksStampOnTop",
+          "OverlayTests.MultipleOverlaysStackInOrder",
+          "OverlayTests.PagesSelectionThenOverlay",
+          "OverlayTests.MergeThenOverlayAppliesToFinalPages"
+        ],
+        "negative": [
+          "OverlayTests.MalformedOverlayFlagsFail"
+        ],
+        "interaction": [
+          "OverlayTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": [
           "diff:overlay"
@@ -3912,14 +3994,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -3943,14 +4026,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -3974,14 +4058,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -4015,14 +4100,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -4452,14 +4538,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -4636,14 +4723,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -4794,14 +4882,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -4825,14 +4914,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5065,14 +5155,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5179,14 +5270,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobCryptoKeysFailWithoutOutput"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5278,9 +5370,17 @@
         "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": ["OverlayTests.UnderlayGoesBelowOriginal", "OverlayTests.UnderlayAndOverlayCombineAroundOriginal", "OverlayTests.EmptyFromWithRepeatCoversAllPages"],
-        "negative": ["OverlayTests.OverlayPasswordIsCrypto"],
-        "interaction": ["OverlayTests.WholeFileJobOverlay"],
+        "positive": [
+          "OverlayTests.UnderlayGoesBelowOriginal",
+          "OverlayTests.UnderlayAndOverlayCombineAroundOriginal",
+          "OverlayTests.EmptyFromWithRepeatCoversAllPages"
+        ],
+        "negative": [
+          "OverlayTests.OverlayPasswordIsCrypto"
+        ],
+        "interaction": [
+          "OverlayTests.WholeFileJobOverlay"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -5473,14 +5573,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobNestedPasswordsFail"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5629,9 +5730,16 @@
         "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": ["OverlayTests.SelfOverlayUsesPrimaryInput", "OverlayTests.MultipleOverlaysStackInOrder"],
-        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
-        "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "OverlayTests.SelfOverlayUsesPrimaryInput",
+          "OverlayTests.MultipleOverlaysStackInOrder"
+        ],
+        "negative": [
+          "OverlayTests.MalformedOverlayFlagsFail"
+        ],
+        "interaction": [
+          "OverlayTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -5661,9 +5769,16 @@
         "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": ["OverlayTests.FromExhaustionLeavesRemainingPagesAlone", "OverlayTests.EmptyFromWithRepeatCoversAllPages"],
-        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
-        "interaction": ["OverlayTests.JobRoundTripMatchesArgv"],
+        "positive": [
+          "OverlayTests.FromExhaustionLeavesRemainingPagesAlone",
+          "OverlayTests.EmptyFromWithRepeatCoversAllPages"
+        ],
+        "negative": [
+          "OverlayTests.MalformedOverlayFlagsFail"
+        ],
+        "interaction": [
+          "OverlayTests.JobRoundTripMatchesArgv"
+        ],
         "resource": [],
         "oracle": []
       }
@@ -5687,14 +5802,15 @@
         }
       ],
       "milestone": "excluded",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Runtime rejection not implemented."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": [
+          "CryptoExclusionTests.ArgvCryptoFlagsFailWithoutOutput",
+          "CryptoExclusionTests.JobNestedPasswordsFail"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5725,8 +5841,13 @@
         "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": ["OverlayTests.RepeatCyclesAfterFromPages", "OverlayTests.EmptyFromWithRepeatCoversAllPages"],
-        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
+        "positive": [
+          "OverlayTests.RepeatCyclesAfterFromPages",
+          "OverlayTests.EmptyFromWithRepeatCoversAllPages"
+        ],
+        "negative": [
+          "OverlayTests.MalformedOverlayFlagsFail"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -5757,8 +5878,13 @@
         "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
       ],
       "evidence": {
-        "positive": ["OverlayTests.ToRestrictsDestinationPages", "OverlayTests.DefaultMappingPairsPagesInOrder"],
-        "negative": ["OverlayTests.MalformedOverlayFlagsFail"],
+        "positive": [
+          "OverlayTests.ToRestrictsDestinationPages",
+          "OverlayTests.DefaultMappingPairsPagesInOrder"
+        ],
+        "negative": [
+          "OverlayTests.MalformedOverlayFlagsFail"
+        ],
         "interaction": [],
         "resource": [],
         "oracle": []
