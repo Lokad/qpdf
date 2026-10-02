@@ -5,11 +5,12 @@ non-cryptographic PDF structural operations in managed, memory-safe C#.
 The intended embedding boundary is explicit inputs, host-mediated effects,
 resource limits, and structured outputs and diagnostics.
 
-**Current status: M1 first operation.** The `0.1.0-alpha.1` package reads
-strict single-section classic-xref PDFs and copies one page by index through
-typed, argv, and job JSON routes with staged publication. See
-`docs/SUPPORTED-PROFILE.md` for the exact profile; everything else in
-`docs/COMPATIBILITY.md` is roadmap, not behavior.
+**Current status: M11 compatibility audit in progress.** The `0.1.0-alpha.1` package
+implements qpdf's non-cryptographic structural operations (strict reading with recovery,
+page selection and merge, writer controls, content transforms, overlays, appearances, JPEG
+processing, QDF, and linearization) through typed, argv, and job JSON routes with staged
+publication. See `docs/SUPPORTED-PROFILE.md` for the exact profile and
+`docs/COMPATIBILITY.md` for per-option scope, evidence, and remaining gaps.
 
 The compatibility target is qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`. The initial inventory accounts for

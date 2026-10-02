@@ -1,6 +1,14 @@
 # Progress
 
 ## Current checkpoint
+Work item 52: release-gate honesty audit (M11). Verified the section 13 structural gates
+with evidence (no unsafe/interop/process/network code in src, ImageSharp pinned centrally
+and in locks and the package group, deterministic locked builds), refreshed stale
+public metadata (package description/release notes, README status) and class docs (document
+leases, job-parser scope, per-call governor with threading/cancellation/commit contract).
+
+Prior gate
+
 Work item 51: structure-tree removal (M11). `--remove-structure` (plus job key
 `removeStructure`) is accepted as a no-op backed by the fresh-catalog invariant, with a
 checked-in structure fixture and a dedicated differential case.
@@ -200,7 +208,7 @@ binary.
 
 ## Next work
 
-1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, and budget entries evidenced
+1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
    (work items 41-42).
    Next slices: remaining stale required entries (help/version identity, inspection gaps like
    show-npages/show-object, unimplemented global/progress/keep-open flags), no-external build/test

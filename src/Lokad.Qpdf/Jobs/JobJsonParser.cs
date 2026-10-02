@@ -4,10 +4,9 @@ using Lokad.Qpdf.Commands;
 namespace Lokad.Qpdf.Jobs;
 
 /// <summary>
-/// Narrow job-JSON parser for the initial single-page profile. Accepts exactly
-/// `{inputFile, outputFile, pages:[{file, range}]}` with upstream field names;
-/// `encrypt` and entry `password` keys reject as crypto, everything else
-/// outside the subset fails explicitly. Full job semantics arrive in M4.
+/// Job-JSON parser covering selection, writer, content, overlay, attachment, inspection,
+/// and linearization keys with upstream field names. Cryptographic keys reject as crypto;
+/// everything outside the supported subset fails explicitly.
 /// </summary>
 internal static class JobJsonParser
 {

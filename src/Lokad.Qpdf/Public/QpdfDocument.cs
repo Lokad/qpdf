@@ -6,9 +6,10 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf;
 
 /// <summary>
-/// Strict inspection handle over a single-section classic-xref PDF. Holds its
-/// input lease until disposed. Xref streams, hybrid and incremental structures
-/// arrive in M2; recovery arrives in M4.
+/// Strict inspection handle over one input PDF, covering classic tables, cross-reference
+/// streams, and hybrid/incremental chains with bounded recovery. Holds its input lease until
+/// disposed; always dispose (leases close and budgets release even on failure paths).
+/// Handles are single-owner and not thread-safe; concurrent calls need separate handles.
 /// </summary>
 public sealed class QpdfDocument : IAsyncDisposable
 {

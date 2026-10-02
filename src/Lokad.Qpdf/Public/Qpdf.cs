@@ -15,6 +15,12 @@ namespace Lokad.Qpdf;
 /// Typed PDF operations over the shared engine. Each operation opens its
 /// input, copies the selected graph once, serializes deterministically with a
 /// counting pass, and publishes through a staged host transaction.
+/// Every call builds a fresh per-job governor from the supplied or default
+/// <see cref="QpdfLimits"/>; exhausted budgets fail explicitly without publication.
+/// Calls hold no shared mutable state and are safe to run concurrently against
+/// distinct hosts. Cancellation is cooperative: cancelled calls report
+/// <see cref="QpdfExecutionStatus.Canceled"/> and never publish partial output,
+/// and failed calls leave existing targets untouched.
 /// </summary>
 public static class Qpdf
     // Command adapters: argv and job JSON converge on the typed selection plan.
