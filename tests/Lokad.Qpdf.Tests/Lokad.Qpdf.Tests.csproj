@@ -22,6 +22,8 @@
     <None Include="../Fixtures/thumb-1page.pdf" Link="Fixtures/thumb-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/linearized-1page.pdf" Link="Fixtures/linearized-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/linearized-2page.pdf" Link="Fixtures/linearized-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/lin-objstm-1page.pdf" Link="Fixtures/lin-objstm-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/lin-objstm-2page.pdf" Link="Fixtures/lin-objstm-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/truncated-1page.pdf" Link="Fixtures/truncated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/encrypted-decl.pdf" Link="Fixtures/encrypted-decl.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/cyclic-pages.pdf" Link="Fixtures/cyclic-pages.pdf" CopyToOutputDirectory="PreserveNewest" />

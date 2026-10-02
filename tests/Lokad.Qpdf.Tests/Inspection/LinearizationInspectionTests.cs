@@ -250,6 +250,67 @@ public sealed class LinearizationInspectionTests
         }
     }
 
+    [Theory]
+    [InlineData("lin-objstm-1page.pdf")]
+    [InlineData("lin-objstm-2page.pdf")]
+    public async Task CheckLinearizationReportsNoErrorsOnObjectStreams(string fixture)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes(fixture));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--check-linearization"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        QpdfDiagnostic line = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.LinearizationReport, line.Code);
+        Assert.Contains("no linearization errors", line.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShowLinearizationReportsStreamedHintTables()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("lin-objstm-2page.pdf"));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-linearization"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> lines = new();
+        foreach (QpdfDiagnostic diagnostic in result.Diagnostics)
+        {
+            Assert.Equal(QpdfDiagnosticCode.LinearizationReport, diagnostic.Code);
+            lines.Add(diagnostic.Message);
+        }
+
+        string[] expected =
+        [
+            "inputs/a.pdf: linearization data:",
+            "file_size: 1730",
+            "npages: 2",
+            "Page Offsets Hint Table",
+            "Shared Objects Hint Table",
+            "  group length: 130",
+            "Computed Linearization Part Assignments",
+            "part 6 (first page):",
+        ];
+        int at = 0;
+        foreach (string want in expected)
+        {
+            bool found = false;
+            while (at < lines.Count)
+            {
+                if (lines[at] == want)
+                {
+                    found = true;
+                    at += 1;
+                    break;
+                }
+
+                at += 1;
+            }
+
+            Assert.True(found, $"Missing show line: {want}");
+        }
+    }
+
     [Fact]
     public async Task ShowLinearizationOnPlainFile()
     {

@@ -99,6 +99,24 @@
       "description": "Two pages linearized by the pinned oracle with static IDs. Oracle and managed linearization checks must agree."
     },
     {
+      "file": "lin-objstm-1page.pdf",
+      "sha256": "16abaa403da9a3da6ccbb83e4c28a98b4d07b415cd9f42713e9d11ccc7380edc",
+      "bytes": 1462,
+      "expectedNpages": 1,
+      "headerVersion": "1.5",
+      "valid": true,
+      "description": "One page linearized by the pinned oracle with static IDs and generated object streams (xref streams plus an object stream). Managed linearization inspection must pass without dedicated container handling."
+    },
+    {
+      "file": "lin-objstm-2page.pdf",
+      "sha256": "e37fb7b7b1a3c9ebff226892de3dd47e79a88b77f88ff1dba49b0ac66b47e9fa",
+      "bytes": 1730,
+      "expectedNpages": 2,
+      "headerVersion": "1.5",
+      "valid": true,
+      "description": "Two pages linearized by the pinned oracle with static IDs and generated object streams (xref streams plus an object stream). Managed linearization inspection must pass without dedicated container handling."
+    },
+    {
       "file": "truncated-1page.pdf",
       "sha256": "6aafbe19f99a8eb28e0d87a061dbaa3973e148214a6d3dfbc4b67723ad5cdd2a",
       "bytes": 120,

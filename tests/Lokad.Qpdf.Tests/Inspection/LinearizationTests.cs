@@ -82,6 +82,20 @@ public sealed class LinearizationTests
         Assert.True(result.Passed);
     }
 
+    [Theory]
+    [InlineData("lin-objstm-1page.pdf", 1)]
+    [InlineData("lin-objstm-2page.pdf", 2)]
+    public async Task StreamedLinearizedFilesPass(string fixture, int pages)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes(fixture));
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
+        Assert.Equal(pages, result.PageCount);
+        QpdfCheckOutcome linearization = LinearizationOutcome(result);
+        Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
+        Assert.Contains("hint tables valid", linearization.Detail, StringComparison.Ordinal);
+        Assert.True(result.Passed);
+    }
+
     [Fact]
     public async Task OrdinaryFilePassesAsNotLinearized()
     {
