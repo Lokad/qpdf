@@ -63,6 +63,15 @@
       "description": "One page with a self-contained text widget (stale appearance, NeedAppearances). Oracle and independent page counts must agree on 1; appearance generation and annotation flattening differentials consume it."
     },
     {
+      "file": "forms-2page.pdf",
+      "sha256": "4c6effe48cedba8ecbbb752f17cbb8289eaae056cdb7a0d8263d6037fe7a9e13",
+      "bytes": 1504,
+      "expectedNpages": 2,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two pages each carrying a self-contained text widget (NeedAppearances, document default resources). Subset selection must prune the unselected field while full selection and merge keep both registrations; the forms-preserve differential consumes it."
+    },
+    {
       "file": "outlined-2page.pdf",
       "sha256": "5dbba245ae665b17969fee50c7c3212dcd9b1c101ee43ecdc02d1861e8bf1be9",
       "bytes": 1151,

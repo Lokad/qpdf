@@ -382,37 +382,21 @@ internal static class GenerateAppearances
             return false;
         }
 
-        if (!radio)
+        if (radio)
         {
-            string on = FirstOnState(annot, resolver) ?? "Yes";
-            string selected = valueName == "Off" ? "Off" : on;
-            if (!WriteFieldName(copier, field, annot, item, annotId, entries, "V", selected, governor, diagnostics))
-            {
-                return false;
-            }
-
-            WriteAnnotName(copier, annot, item, annotId, entries, "AS", selected, governor);
-            return true;
+            // The reference leaves radio buttons untouched while checkboxes
+            // synchronize, so radios degrade to skip on every path.
+            return false;
         }
 
-        if (!WriteFieldName(copier, field, annot, item, annotId, entries, "V", valueName, governor, diagnostics))
+        string on = FirstOnState(annot, resolver) ?? "Yes";
+        string selected = valueName == "Off" ? "Off" : on;
+        if (!WriteFieldName(copier, field, annot, item, annotId, entries, "V", selected, governor, diagnostics))
         {
             return false;
         }
 
-        WriteAnnotState(copier, annot, item, annotId, entries, valueName, resolver, governor, diagnostics);
-        foreach ((PdfDictionary kid, int? kidId) in FieldKids(field, resolver))
-        {
-            if (kidId.HasValue)
-            {
-                WriteKidState(copier, kid, kidId.Value, valueName, resolver, governor);
-            }
-            else
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot synchronize an embedded radio button; keeping it as is.");
-            }
-        }
-
+        WriteAnnotName(copier, annot, item, annotId, entries, "AS", selected, governor);
         return true;
     }
 
@@ -517,111 +501,6 @@ internal static class GenerateAppearances
         entries.Add(SetName(annot, key, name, governor));
     }
 
-    private static void WriteAnnotState(
-        GraphCopier copier,
-        PdfDictionary annot,
-        QpdfObject item,
-        int? annotId,
-        List<QpdfObject> entries,
-        string value,
-        PoolResolver resolver,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics)
-    {
-        string selected = value;
-        if (annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) && ap is not null && ap is not PdfNull)
-        {
-            QpdfObject apTarget = ap is PdfReference apReference
-                ? ResolveOrNull(resolver, apReference) ?? ap
-                : ap;
-            if (apTarget is PdfDictionary apDict
-                && apDict.TryGet(PdfName.FromAscii("N"), out QpdfObject? normal)
-                && AsDictionary(normal, resolver) is PdfDictionary states)
-            {
-                bool has = false;
-                foreach (PdfName key in states.Keys)
-                {
-                    if (key.DisplayText == value)
-                    {
-                        has = true;
-                        break;
-                    }
-                }
-
-                selected = has ? value : "Off";
-            }
-        }
-
-        WriteAnnotName(copier, annot, item, annotId, entries, "AS", selected, governor);
-    }
-
-    private static List<(PdfDictionary Kid, int? Id)> FieldKids(FieldContext field, PoolResolver resolver)
-    {
-        List<(PdfDictionary Kid, int? Id)> kids = new();
-        if (field.Node is null)
-        {
-            return kids;
-        }
-
-        if (!field.Node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return kids;
-        }
-
-        QpdfObject target = raw is PdfReference reference
-            ? ResolveOrNull(resolver, reference) ?? raw
-            : raw;
-        if (target is not PdfArray array)
-        {
-            return kids;
-        }
-
-        foreach (QpdfObject entry in array.Items)
-        {
-            QpdfObject kidTarget = entry is PdfReference entryReference
-                ? ResolveOrNull(resolver, entryReference) ?? entry
-                : entry;
-            if (kidTarget is PdfDictionary kid)
-            {
-                int? kidId = (entry as PdfReference)?.ObjectNumber;
-                kids.Add((kid, kidId));
-            }
-            }
-
-        return kids;
-    }
-
-    private static void WriteKidState(
-        GraphCopier copier,
-        PdfDictionary kid,
-        int kidId,
-        string value,
-        PoolResolver resolver,
-        ResourceGovernor governor)
-    {
-        string selected = "Off";
-        if (kid.TryGet(PdfName.FromAscii("AP"), out QpdfObject? ap) && ap is not null && ap is not PdfNull)
-        {
-            QpdfObject apTarget = ap is PdfReference apReference
-                ? ResolveOrNull(resolver, apReference) ?? ap
-                : ap;
-            if (apTarget is PdfDictionary apDict
-                && apDict.TryGet(PdfName.FromAscii("N"), out QpdfObject? normal)
-                && AsDictionary(normal, resolver) is PdfDictionary states)
-            {
-                foreach (PdfName key in states.Keys)
-                {
-                    if (key.DisplayText == value)
-                    {
-                        selected = value;
-                        break;
-                    }
-                }
-            }
-        }
-
-        copier.ReplaceCopiedObject(kidId, SetName(kid, "AS", selected, governor));
-    }
     private static bool GenerateText(
         GraphCopier copier,
         PdfDictionary annot,
@@ -1545,17 +1424,5 @@ internal static class GenerateAppearances
         return null;
     }
 
-    private static PdfDictionary? AsDictionary(QpdfObject? value, PoolResolver resolver)
-    {
-        if (value is null || value is PdfNull)
-        {
-            return null;
-        }
-
-        QpdfObject target = value is PdfReference reference
-            ? ResolveOrNull(resolver, reference) ?? value
-            : value;
-        return target as PdfDictionary;
-    }
 }
 

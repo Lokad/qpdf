@@ -36,14 +36,17 @@ public sealed class RemoveAcroformTests
     }
 
     [Fact]
-    public async Task OutputsOmitFormDictionaryByDefault()
+    public async Task OutputsPreserveFormDictionaryByDefault()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
         List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        AssertFormDictionaryGone(pdf);
+        string text = System.Text.Encoding.Latin1.GetString(pdf);
+        Assert.Contains("/AcroForm", text, StringComparison.Ordinal);
+        Assert.Contains("/Annots", text, StringComparison.Ordinal);
+        Assert.Contains("(Hello)", text, StringComparison.Ordinal);
     }
 
     [Fact]

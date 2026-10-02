@@ -65,6 +65,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool RemoveInfo { get; init; }
 
+    public bool RemoveAcroform { get; init; }
+
     public bool RemoveMetadata { get; init; }
 
     public bool CoalesceContents { get; init; }

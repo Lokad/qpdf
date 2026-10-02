@@ -907,6 +907,7 @@ internal static class ArgvParser
                 RecompressFlate = globals.RecompressFlate,
                 CompressionLevel = globals.CompressionLevel,
                 RemoveInfo = globals.RemoveInfo,
+                RemoveAcroform = globals.RemoveAcroform,
                 RemoveMetadata = globals.RemoveMetadata,
                 CoalesceContents = globals.CoalesceContents,
                 NormalizeContent = globals.NormalizeContent,
@@ -966,6 +967,7 @@ internal static class ArgvParser
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
+            RemoveAcroform = globals.RemoveAcroform,
             RemoveMetadata = globals.RemoveMetadata,
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
@@ -1166,7 +1168,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform);
 
     private static bool IsGlobalOptionToken(string token)
     {
@@ -1283,6 +1285,7 @@ internal static class ArgvParser
         bool recompressFlate = false;
         bool seenCompressionLevel = false;
         string? compressionLevel = null;
+        bool removeAcroform = false;
         bool seenRemoveInfo = false;
         bool removeInfo = false;
         bool seenRemoveMetadata = false;
@@ -1377,8 +1380,7 @@ internal static class ArgvParser
                 }
 
                 seenRemoveAcroform = true;
-                // Accepted as a no-op: every publication path rebuilds a fresh catalog
-                // without /AcroForm, so outputs never carry the form dictionary.
+                removeAcroform = true;
                 continue;
             }
 
@@ -2144,7 +2146,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2684,6 +2686,7 @@ internal static class ArgvParser
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
+            RemoveAcroform = globals.RemoveAcroform,
             RemoveMetadata = globals.RemoveMetadata,
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
@@ -3750,6 +3753,7 @@ internal static class ArgvParser
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
+            RemoveAcroform = globals.RemoveAcroform,
             RemoveMetadata = globals.RemoveMetadata,
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,
@@ -3820,6 +3824,7 @@ internal static class ArgvParser
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
+            RemoveAcroform = globals.RemoveAcroform,
             RemoveMetadata = globals.RemoveMetadata,
             CoalesceContents = globals.CoalesceContents,
             NormalizeContent = globals.NormalizeContent,

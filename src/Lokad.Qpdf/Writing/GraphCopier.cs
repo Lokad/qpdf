@@ -8,8 +8,9 @@ namespace Lokad.Qpdf.Writing;
 /// <summary>
 /// The single memoized graph copier: destination identities are registered
 /// before descending, so cyclic and shared subgraphs are copied once. Page
-/// ancestry (`/Parent`) is never followed here; the selector materializes
-/// inherited attributes explicitly. References to already-copied objects remap to
+/// ancestry (`/Parent` on page dictionaries) is never followed here; the selector
+/// materializes inherited attributes explicitly, while field and annotation
+/// `/Parent` links remap through the shared memo table. References to already-copied objects remap to
 /// their copies; references to other pages prune to null under the contained-preview
 /// policy so omitted pages can never resurrect. Page-tree (`/Pages`) and catalog
 /// references stay structural errors and fail loudly.
@@ -413,21 +414,71 @@ internal sealed class GraphCopier
         Dictionary<PdfName, QpdfObject> entries = new();
         foreach (PdfName key in dictionary.Keys)
         {
-            if (key.DisplayText == "Parent")
-            {
-                continue;
-            }
-
             if (!dictionary.TryGet(key, out QpdfObject value))
             {
                 continue;
             }
 
             _governor.ReserveMemory(32L);
+            if (key.DisplayText == "Parent")
+            {
+                QpdfObject? preserved = TryCopyParent(value, depth);
+                if (preserved is null)
+                {
+                    continue;
+                }
+
+                entries[key] = preserved;
+                continue;
+            }
+
             entries[key] = CopyValue(value, depth + 1);
         }
 
         return new PdfDictionary(entries);
+    }
+
+    /// <summary>
+    /// Copies a `/Parent` link, preserving field and annotation hierarchies through
+    /// the shared memo table. Page-tree ancestry (`/Page`, `/Pages`, `/Catalog`
+    /// targets), unresolvable links and references pruned to null stay dropped so
+    /// omitted pages can never resurrect through auxiliary links.
+    /// </summary>
+    private QpdfObject? TryCopyParent(QpdfObject value, int depth)
+    {
+        if (value is null || value is PdfNull)
+        {
+            return null;
+        }
+
+        if (value is PdfReference reference)
+        {
+            if (!_resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            {
+                return null;
+            }
+
+            if (resolved is PdfDictionary parent && IsPageTreeNode(parent))
+            {
+                return null;
+            }
+
+            QpdfObject copied = CopyValue(value, depth + 1);
+            return copied is PdfNull ? null : copied;
+        }
+
+        if (value is PdfDictionary direct && IsPageTreeNode(direct))
+        {
+            return null;
+        }
+
+        return CopyValue(value, depth + 1);
+    }
+
+    private static bool IsPageTreeNode(PdfDictionary dictionary)
+    {
+        string type = ReadType(dictionary);
+        return type == "Page" || type == "Pages" || type == "Catalog";
     }
 
     private static string ReadType(PdfDictionary dictionary)

@@ -258,6 +258,29 @@ states.Add(annot.GetProperty("/AS").GetString() ?? string.Empty);
 Assert.Equal(new List<string> { "/Off", "/Off" }, states);
 }
 [Fact]
+public async Task RadioButtonIsSkipped()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] appearance = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re S");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Btn /Ff 32768 /T (R) /V /Choice1 /AS /Off /AP << /N << /Off 6 0 R /Choice1 6 0 R >> >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
+using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+JsonElement annots = objects.GetProperty(PageObjectKey(pages.RootElement.GetProperty("pages")[0])).GetProperty("value").GetProperty("/Annots");
+JsonElement entry = annots.EnumerateArray().First();
+JsonElement annot = entry.ValueKind == JsonValueKind.String
+? objects.GetProperty(StreamKey(entry.GetString() ?? string.Empty)).GetProperty("value")
+: entry;
+Assert.Equal("/Off", annot.GetProperty("/AS").GetString());
+Assert.Equal("/Choice1", annot.GetProperty("/V").GetString());
+}
+[Fact]
 public async Task NonAsciiFallsBackToQuestionMark()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");

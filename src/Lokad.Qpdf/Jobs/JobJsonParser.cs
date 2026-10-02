@@ -129,6 +129,7 @@ internal static class JobJsonParser
             QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
             bool removeInfo = false;
             bool seenRemoveInfo = false;
+            bool removeAcroform = false;
             bool removeMetadata = false;
             bool seenRemoveMetadata = false;
             bool coalesceContents = false;
@@ -697,9 +698,7 @@ internal static class JobJsonParser
                         }
 
                         seenRemoveAcroform = true;
-                        // Accepted as a no-op: every publication path rebuilds a fresh catalog
-                        // without /AcroForm, so outputs never carry the form dictionary.
-                        _ = RequireBareFlag(property.Value, "removeAcroform");
+                        removeAcroform = RequireBareFlag(property.Value, "removeAcroform");
                         break;
                     case "removeStructure":
                         if (seenRemoveStructure)
@@ -1489,6 +1488,7 @@ internal static class JobJsonParser
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
+                    RemoveAcroform = removeAcroform,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
@@ -1569,6 +1569,7 @@ internal static class JobJsonParser
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
+                    RemoveAcroform = removeAcroform,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
@@ -1626,6 +1627,7 @@ internal static class JobJsonParser
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
+                    RemoveAcroform = removeAcroform,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
