@@ -707,6 +707,61 @@ foreach ($sub in @(
   else { Write-Output "[errors/$($sub[0])] exit parity ($m/$o)" }
 }
 
+# --- case: job-file (managed vs oracle job JSON file execution) ---
+$case = New-Case 'job-file'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf" -Force
+Set-Content "$case/inputs/job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}]}'
+Copy-Item "$case/inputs/job.json" "$case/job.json" -Force
+New-Item -ItemType Directory -Path "$case/outputs" -Force | Out-Null
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', '--job-json-file', 'inputs/job.json')
+if ($code -ne 0) { throw "job-file: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--job-json-file=job.json')
+if ($code -ne 0) { throw "job-file: oracle failed ($code)" }
+Copy-Item "$case/outputs/a.pdf" "$case/ora.pdf" -Force
+Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
+
+# --- case: recovery (managed vs oracle damaged-input behavior) ---
+$case = New-Case 'recovery'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf" -Force
+$rawBytes = [IO.File]::ReadAllBytes("$case/inputs/b.pdf")
+$needleBytes = [Text.Encoding]::ASCII.GetBytes("startxref`n398")
+$at = -1
+for ($i = 0; $i + $needleBytes.Length -le $rawBytes.Length; $i++) {
+  $found = $true
+  for ($k = 0; $k -lt $needleBytes.Length; $k++) { if ($rawBytes[$i + $k] -ne $needleBytes[$k]) { $found = $false; break } }
+  if ($found) { $at = $i; break }
+}
+if ($at -lt 0) { throw "recovery setup: startxref needle missing" }
+[Text.Encoding]::ASCII.GetBytes("999").CopyTo($rawBytes, $at + 10)
+[IO.File]::WriteAllBytes("$case/inputs/b.pdf", $rawBytes)
+function Invoke-RecoveryExit {
+  param([string]$Workdir, [string[]]$EmitArgs, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/recovery-$Tag.txt"
+  $line = Select-String -Path "$Workdir/recovery-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "recovery: managed emit produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+$m = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/r.pdf=$case/lib-r.pdf", '--', 'inputs/b.pdf', '--pages', '.', '1', '--', 'outputs/r.pdf') 'plain'
+$o = Invoke-Oracle $case @('inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-r.pdf")
+if ($m -ne 3 -or $o -ne 3) { Write-Output "[recovery/plain] FAIL: exits managed=$m oracle=$o, expected 3/3"; $script:failures++ }
+else {
+  Write-Output "[recovery/plain] exit parity (3/3)"
+  $libN = Get-OracleNpages "$case/lib-r.pdf"
+  $oraN = Get-OracleNpages "$case/ora-r.pdf"
+  $libP = Get-PigNpages "$case/lib-r.pdf"
+  $oraP = Get-PigNpages "$case/ora-r.pdf"
+  if ($libN -ne 1 -or $oraN -ne 1 -or $libP -ne 1 -or $oraP -ne 1) { Write-Output "[recovery/plain] FAIL: page counts lib=$libN/$libP ora=$oraN/$oraP, expected 1"; $script:failures++ }
+  else { Write-Output "[recovery/plain] recovered page counts agree (1)" }
+}
+$m = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-s.pdf", '--', 'inputs/b.pdf', '--suppress-recovery', '--pages', '.', '1', '--', 'outputs/s.pdf') 'suppress'
+$o = Invoke-Oracle $case @('--suppress-recovery', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-s.pdf")
+if ($m -ne 2 -or $o -ne 2) { Write-Output "[recovery/suppress] FAIL: exits managed=$m oracle=$o, expected 2/2"; $script:failures++ }
+else {
+  Write-Output "[recovery/suppress] exit parity (2/2)"
+  if ((Test-Path "$case/lib-s.pdf") -or (Test-Path "$case/ora-s.pdf")) { Write-Output "[recovery/suppress] FAIL: output published despite strict failure"; $script:failures++ }
+  else { Write-Output "[recovery/suppress] nothing published on either side" }
+}
+
 # --- case: linearized (managed --check vs oracle --check) ---
 $case = New-Case 'linearized'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1217,4 +1272,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, attachments, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, attachments, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

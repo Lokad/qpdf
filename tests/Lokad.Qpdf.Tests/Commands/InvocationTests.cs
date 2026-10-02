@@ -474,4 +474,20 @@ public sealed class InvocationTests
 
         return -1;
     }
+
+    [Fact]
+    public async Task JobFileYieldsToExhaustedBudget()
+    {
+        const string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/j.pdf", "pages": [{"file": ".", "range": "2"}]}""";
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        host.AddInput(QpdfPath.From("job.json"), Encoding.UTF8.GetBytes(job), QpdfInputOwnership.Copy);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--job-json-file", "job.json"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/j.pdf"), out byte[] _));
+    }
 }

@@ -2926,17 +2926,19 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Resource-budget and oracle evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["InvocationTests.JobJsonFileMatchesInlineJob"],
         "negative": ["InvocationTests.JobJsonFileErrorsAreExplicit"],
         "interaction": ["InvocationTests.JobJsonFileErrorsAreExplicit"],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "InvocationTests.JobFileYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:job-file"
+        ]
       }
     },
     {
@@ -5378,17 +5380,20 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Resource-budget and oracle exit-parity evidence pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["RecoveryTests.SuppressRecoveryFailsLikeStrict", "InvocationTests.JobSuppressRecoveryFailsLikeStrict"],
         "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
         "interaction": ["RecoveryTests.SuppressRecoveryFailsLikeStrict"],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "RecoveryTests.SuppressRecoveryFailsWithoutOutputUnderBudget",
+          "RecoveryTests.RecoveredOutputYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:recovery"
+        ]
       }
     },
     {

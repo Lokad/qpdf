@@ -266,4 +266,36 @@ public sealed class RecoveryTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
         Assert.Equal(0L, host.OpenLeaseCount);
     }
+
+    [Fact]
+    public async Task SuppressRecoveryFailsWithoutOutputUnderBudget()
+    {
+        byte[] broken = WithBrokenStartXref(await FixtureBytes("minimal-1page.pdf"));
+        InMemoryQpdfHost host = HostWith("inputs/broken.pdf", broken);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/broken.pdf", "--suppress-recovery", "--pages", ".", "1", "--", "outputs/x.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task RecoveredOutputYieldsToExhaustedBudget()
+    {
+        byte[] broken = WithBrokenStartXref(await FixtureBytes("minimal-1page.pdf"));
+        InMemoryQpdfHost host = HostWith("inputs/broken.pdf", broken);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/broken.pdf", "--pages", ".", "1", "--", "outputs/x.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
+    }
 }
