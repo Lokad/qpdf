@@ -93,6 +93,10 @@ internal static class JobJsonParser
             bool seenMaxStreamFilters = false;
             bool ignoreXrefStreams = false;
             bool seenIgnoreXrefStreams = false;
+            bool reportMemoryUsage = false;
+            bool seenReportMemoryUsage = false;
+            bool testJsonSchema = false;
+            bool seenTestJsonSchema = false;
             long? parserMaxNesting = null;
             bool seenParserMaxNesting = false;
             long? maxContainerSize = null;
@@ -762,6 +766,24 @@ internal static class JobJsonParser
                         seenIgnoreXrefStreams = true;
                         ignoreXrefStreams = RequireBareFlag(property.Value, "ignoreXrefStreams");
                         break;
+                    case "reportMemoryUsage":
+                        if (seenReportMemoryUsage)
+                        {
+                                throw new QpdfParseException("Duplicate job key reportMemoryUsage.", 0L, null);
+                        }
+
+                        seenReportMemoryUsage = true;
+                        reportMemoryUsage = RequireBareFlag(property.Value, "reportMemoryUsage");
+                        break;
+                    case "testJsonSchema":
+                        if (seenTestJsonSchema)
+                        {
+                                throw new QpdfParseException("Duplicate job key testJsonSchema.", 0L, null);
+                        }
+
+                        seenTestJsonSchema = true;
+                        testJsonSchema = RequireBareFlag(property.Value, "testJsonSchema");
+                        break;
                     case "showAttachment":
                         if (seenShowAttachment)
                         {
@@ -1004,7 +1026,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1020,6 +1042,7 @@ internal static class JobJsonParser
                 {
                     Check = checkLinearization,
                     Show = showLinearization,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                 };
             }
@@ -1031,7 +1054,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1048,6 +1071,7 @@ internal static class JobJsonParser
                 return new ShowNpagesPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1060,7 +1084,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1077,6 +1101,7 @@ internal static class JobJsonParser
                 return new ShowPagesPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     WithImages = withImages,
                     NoWarn = noWarn,
@@ -1090,7 +1115,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1107,6 +1132,7 @@ internal static class JobJsonParser
                 return new ShowObjectPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery, showObject)
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1119,7 +1145,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1136,6 +1162,7 @@ internal static class JobJsonParser
                 return new ShowXrefPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1184,7 +1211,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
@@ -1193,6 +1220,7 @@ internal static class JobJsonParser
                 return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1226,7 +1254,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"updateFromJson\".", 0L, null);
@@ -1235,6 +1263,7 @@ internal static class JobJsonParser
                 return new JsonUpdatePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1287,6 +1316,8 @@ internal static class JobJsonParser
                 return new JsonPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
                     DecodeLevel = jsonDecode,
+                    ReportMemoryUsage = reportMemoryUsage,
+                    TestJsonSchema = testJsonSchema,
                     MaxStreamFilters = maxStreamFilters,
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
@@ -1331,6 +1362,7 @@ internal static class JobJsonParser
                 return new WholeFilePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1408,6 +1440,7 @@ internal static class JobJsonParser
                     Rotations = rotations,
                     Labels = labels,
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1509,6 +1542,7 @@ internal static class JobJsonParser
                     KeepInlineImages = keepInlineImages,
                     JpegQuality = jpegQuality,
                     WarningExitZero = warningExit0,
+                    ReportMemoryUsage = reportMemoryUsage,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
             };

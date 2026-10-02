@@ -71,6 +71,8 @@ internal static class HelpText
           --copy-attachments-from file [--prefix=] --  copy embedded files
           --json[=1|2|latest] [--json-key=key] --  write document JSON
           --json-help[=1|2|latest]  show JSON format
+          --test-json-schema            validate JSON output against its format description
+          --report-memory-usage         report peak memory usage
           --json-object={trailer|obj[,gen]}  limit JSON objects
           --json-stream-data={none|inline|file}  stream payloads in JSON
           --json-stream-prefix=file-prefix  prefix for JSON stream files
@@ -169,7 +171,7 @@ internal static class HelpText
           listAttachments, showAttachment, addAttachment, removeAttachment,
           copyAttachmentsFrom, empty, json, jsonKey, jsonObject, jsonStreamData,
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
-          suppressRecovery, ignoreXrefStreams
+          suppressRecovery, ignoreXrefStreams, reportMemoryUsage, testJsonSchema
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
         parserMaxNesting (within 499), parserMaxContainerSize and parserMaxContainerSizeDamaged
         (non-negative object counts, defaults 4294967295 and 5000). Other global keys fail;
@@ -222,7 +224,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key --test-json-schema --report-memory-usage";
 
     internal static string BashCompletion()
     {

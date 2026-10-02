@@ -4671,16 +4671,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Exact governor peak with no oracle counterpart; memory report never affects the exit code."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["TestingOptionsTests.ReportsPeakOnCheck", "TestingOptionsTests.ReportsPeakOnMerge", "TestingOptionsTests.ReportsPeakOnShowNpages", "TestingOptionsTests.JobMemoryKeyMatchesArgv"],
+        "negative": ["TestingOptionsTests.MalformedTestingFlagsFail"],
+        "interaction": ["TestingOptionsTests.JobMemoryKeyMatchesArgv"],
+        "resource": ["TestingOptionsTests.MemoryReportYieldsToExhaustedBudget"],
         "oracle": []
       }
     },
@@ -5304,16 +5304,16 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Internal consistency check only; oracle output parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["TestingOptionsTests.SchemaCheckValidatesVersions", "TestingOptionsTests.JobSchemaKeyMatchesArgv"],
+        "negative": ["TestingOptionsTests.MalformedTestingFlagsFail", "TestingOptionsTests.SchemaCheckWithoutJsonFails", "TestingOptionsTests.BadTestingJobKeysFail"],
+        "interaction": ["TestingOptionsTests.JobSchemaKeyMatchesArgv", "TestingOptionsTests.BadTestingJobKeysFail"],
+        "resource": ["TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget"],
         "oracle": []
       }
     },

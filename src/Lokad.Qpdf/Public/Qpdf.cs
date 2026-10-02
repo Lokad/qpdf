@@ -1584,6 +1584,46 @@ public static class Qpdf
         return 0L;
     }
 
+    private static QpdfDiagnostic CheckJsonSchema(
+        string json,
+        int version,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        string help = version == 1 ? HelpText.JsonHelpV1 : HelpText.JsonHelpV2;
+        HashSet<string> described = new(StringComparer.Ordinal);
+        using (System.Text.Json.JsonDocument helpDocument = System.Text.Json.JsonDocument.Parse(help))
+        {
+            foreach (System.Text.Json.JsonProperty property in helpDocument.RootElement.EnumerateObject())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                described.Add(property.Name);
+            }
+        }
+
+        List<string> missing = new();
+        using (System.Text.Json.JsonDocument generated = System.Text.Json.JsonDocument.Parse(json))
+        {
+            foreach (System.Text.Json.JsonProperty property in generated.RootElement.EnumerateObject())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (!described.Contains(property.Name))
+                {
+                    missing.Add(property.Name);
+                }
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            return new QpdfDiagnostic(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"JSON output has keys missing from --json-help version {version}: {string.Join(", ", missing)}.");
+        }
+
+        return new QpdfDiagnostic(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, $"JSON schema check passed for version {version}.");
+    }
+
     private static List<int> PageContentRefs(Objects.PdfDictionary page)
     {
         List<int> refs = new();
@@ -4561,6 +4601,17 @@ public static class Qpdf
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
+                if (json.TestJsonSchema)
+                {
+                    QpdfDiagnostic schema = CheckJsonSchema(inspected.Json, json.Version, governor, cancellationToken);
+                    List<QpdfDiagnostic> warnings = new(inspected.Warnings)
+                    {
+                        schema,
+                    };
+
+                    return CompleteWithPresentation(warnings, inspected.Counters, plan);
+                }
+
                 return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan);
             }
             catch (QpdfException ex)
@@ -4864,6 +4915,11 @@ public static class Qpdf
             }
 
             effective.Add(diagnostic);
+        }
+
+        if (plan.ReportMemoryUsage)
+        {
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.MemoryUsage, QpdfDiagnosticSeverity.Info, $"Peak memory usage: {counters.PeakMemoryBytes} bytes."));
         }
 
         bool error = false;
