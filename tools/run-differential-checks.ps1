@@ -308,6 +308,63 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 Write-Output "[json-update] mutation assertions done"
 
+# --- case: json-modes (managed vs oracle JSON inspection modifiers) ---
+$case = New-Case 'json-modes'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/o.json=$case/lib-o.json", '--', 'inputs/a.pdf', '--json', '--json-object=trailer', '--', 'outputs/o.json')
+if ($code -ne 0) { throw "json-modes/object: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--json', '--json-object=trailer', 'inputs/a.pdf', '--', "$case/ora-o.json")
+if ($code -ne 0) { throw "json-modes/object: oracle failed ($code)" }
+$libObj = Get-Content "$case/lib-o.json" -Raw | ConvertFrom-Json
+$oraObj = Get-Content "$case/ora-o.json" -Raw | ConvertFrom-Json
+$libKeys = ($libObj.PSObject.Properties.Name | Sort-Object) -join ','
+$oraKeys = ($oraObj.PSObject.Properties.Name | Sort-Object) -join ','
+if ($libKeys -ne $oraKeys) { Write-Output "[json-object] FAIL: top-level keys lib=[$libKeys] ora=[$oraKeys]"; $script:failures++ }
+elseif ((($libObj.qpdf[1].trailer | ConvertTo-Json -Compress -Depth 100)) -ne (($oraObj.qpdf[1].trailer | ConvertTo-Json -Compress -Depth 100))) { Write-Output "[json-object] FAIL: trailer values differ"; $script:failures++ }
+elseif ($libObj.pages.Count -ne 2 -or $oraObj.pages.Count -ne 2) { Write-Output "[json-object] FAIL: page counts differ"; $script:failures++ }
+else { Write-Output "[json-object] trailer filter agrees (same keys, trailer, 2 pages)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/i.json=$case/lib-i.json", '--', 'inputs/a.pdf', '--json', '--json-stream-data=inline', '--', 'outputs/i.json')
+if ($code -ne 0) { throw "json-modes/inline: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--json', '--json-stream-data=inline', 'inputs/a.pdf', '--', "$case/ora-i.json")
+if ($code -ne 0) { throw "json-modes/inline: oracle failed ($code)" }
+$libInline = Get-Content "$case/lib-i.json" -Raw | ConvertFrom-Json
+$oraInline = Get-Content "$case/ora-i.json" -Raw | ConvertFrom-Json
+$inlineMismatch = $false
+foreach ($k in @($libInline.qpdf[1].PSObject.Properties.Name)) {
+  if ((($libInline.qpdf[1].$k.stream | ConvertTo-Json -Compress -Depth 100)) -ne (($oraInline.qpdf[1].$k.stream | ConvertTo-Json -Compress -Depth 100))) { Write-Output "[json-stream-data] FAIL: stream payload differs for $k"; $script:failures++; $inlineMismatch = $true }
+}
+if (-not $inlineMismatch) { Write-Output "[json-stream-data] inline payloads match" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.json=$case/lib-m.json", '--', 'inputs/a.pdf', '--json-output', '--', 'outputs/m.json')
+if ($code -ne 0) { throw "json-modes/output: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--json-output', 'inputs/a.pdf', '--', "$case/ora-m.json")
+if ($code -ne 0) { throw "json-modes/output: oracle failed ($code)" }
+$libMin = Get-Content "$case/lib-m.json" -Raw | ConvertFrom-Json
+$oraMin = Get-Content "$case/ora-m.json" -Raw | ConvertFrom-Json
+if ((($libMin.qpdf[0] | ConvertTo-Json -Compress -Depth 100)) -ne (($oraMin.qpdf[0] | ConvertTo-Json -Compress -Depth 100))) { Write-Output "[json-output] FAIL: minimal headers differ"; $script:failures++ }
+else {
+  $minMismatch = $false
+  foreach ($k in @($libMin.qpdf[1].PSObject.Properties.Name)) {
+    if ((($libMin.qpdf[1].$k | ConvertTo-Json -Compress -Depth 100)) -ne (($oraMin.qpdf[1].$k | ConvertTo-Json -Compress -Depth 100))) { Write-Output "[json-output] FAIL: object differs for $k"; $script:failures++; $minMismatch = $true }
+  }
+  if (-not $minMismatch) { Write-Output "[json-output] minimal outputs match" }
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/p.json=$case/lib-p.json", '--out', "s-5=$case/lib-s5.bin", '--out', "s-6=$case/lib-s6.bin", '--', 'inputs/a.pdf', '--json', '--json-stream-data=file', '--json-stream-prefix=s', '--', 'outputs/p.json')
+if ($code -ne 0) { throw "json-modes/prefix: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--json', '--json-stream-data=file', '--json-stream-prefix=s', 'inputs/a.pdf', '--', "$case/ora-p.json")
+if ($code -ne 0) { throw "json-modes/prefix: oracle failed ($code)" }
+$libPre = Get-Content "$case/lib-p.json" -Raw | ConvertFrom-Json
+$oraPre = Get-Content "$case/ora-p.json" -Raw | ConvertFrom-Json
+$preMismatch = $false
+foreach ($k in @('obj:5 0 R', 'obj:6 0 R')) {
+  if ((($libPre.qpdf[1].$k.stream | ConvertTo-Json -Compress -Depth 100)) -ne (($oraPre.qpdf[1].$k.stream | ConvertTo-Json -Compress -Depth 100))) { Write-Output "[json-prefix] FAIL: datafile reference differs for $k"; $script:failures++; $preMismatch = $true }
+}
+foreach ($pair in @(('s-5', "$case/lib-s5.bin", "$case/s-5"), ('s-6', "$case/lib-s6.bin", "$case/s-6"))) {
+  $lh = (Get-FileHash $pair[1] -Algorithm SHA256).Hash
+  $oh = (Get-FileHash $pair[2] -Algorithm SHA256).Hash
+  if ($lh -ne $oh) { Write-Output "[json-prefix] FAIL: sidecar bytes differ for $($pair[0])"; $script:failures++; $preMismatch = $true }
+}
+if (-not $preMismatch) { Write-Output "[json-prefix] sidecar references and bytes match" }
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -992,4 +1049,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

@@ -3097,7 +3097,7 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -3113,8 +3113,12 @@
           "JsonModesTests.JobStreamModesRoundTrip",
           "JsonModesTests.TypedModesRoundTrip"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:json-object"
+        ]
       }
     },
     {
@@ -3141,7 +3145,7 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -3156,8 +3160,12 @@
           "JsonModesTests.JobModesRoundTrip",
           "JsonModesTests.TypedMinimalOmitsVersion"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:json-output"
+        ]
       }
     },
     {
@@ -3186,7 +3194,7 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -3203,8 +3211,12 @@
           "JsonModesTests.JobStreamModesRoundTrip",
           "JsonModesTests.TypedModesRoundTrip"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:json-stream-data"
+        ]
       }
     },
     {
@@ -3225,7 +3237,7 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -3240,8 +3252,12 @@
         "interaction": [
           "JsonModesTests.JobStreamModesRoundTrip"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:json-prefix"
+        ]
       }
     },
     {

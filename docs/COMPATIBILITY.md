@@ -66,7 +66,7 @@ uncompress (decoded stream payloads identical), normalize (normalized
 content payloads identical), coalesce (decoded payloads identical), flatten-rotation
 (swapped MediaBox, dropped /Rotate, byte-identical wrap streams), prune (unreferenced
 /F2 dropped under page operations with decoded payloads identical), JSON structural
-page-descriptor agreement (version, object and contents references, positions), json-import (shared oracle JSON built by both writers with trios green and sorted decoded-payload identity), json-update (shared mutated JSON applied by both writers with trios green and `/Custom` in both outputs),
+page-descriptor agreement (version, object and contents references, positions), json-modes (trailer filter, inline payloads, minimal-output, and prefix sidecars each agreeing with the oracle), json-import (shared oracle JSON built by both writers with trios green and sorted decoded-payload identity), json-update (shared mutated JSON applied by both writers with trios green and `/Custom` in both outputs),
 error exit-class parity (out-of-range page, missing input, and unknown flag all exit 2
 on both sides), warning exit parity (3/3, 0/0, 3/3), show-npages page-count agreement, show-pages/show-object/show-xref line-for-line dumps, show-pages-with-images listings (clean and dimension-less fixtures, warning exits 3/3), ignore-xref-streams reading (hybrid/classic/stream-only exit parity plus a hybrid selection trio), remove-acroform/remove-structure invariants, forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`

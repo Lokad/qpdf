@@ -1,6 +1,10 @@
 # Progress
 
 ## Current checkpoint
+Work item 69: JSON inspection-modifier completion (M11). `--json-object`, `--json-output`, `--json-stream-data`, and `--json-stream-prefix` move to complete: the shared inspection budget case covers the resource slot (same `JsonCoreAsync` pipeline, consistent with `--json`/`--json-key` precedent) plus a new `json-modes` differential case proving per-modifier oracle agreement on one fixture (trailer filter: same keys/trailer/pages; inline: byte-identical stream payloads; json-output: identical headers and objects; prefix: identical datafile references and byte-identical sidecars).
+
+Prior gate
+
 Work item 68: JSON import/update completion (M11). `--json-input` and `--update-from-json` move to complete: exhausted-budget resource evidence on both paths plus two-sided differential cases against the pinned oracle (shared oracle JSON imported by both writers with oracle trios green and sorted decoded-payload identity; shared mutated JSON updated by both writers with oracle trios green and `/Custom` present in both outputs). Cross-implementation object numbering and deterministic-vs-random IDs stay documented non-goals.
 
 Prior gate
@@ -271,7 +275,7 @@ binary.
 ## Next work
 
 1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
-   (work items 41-42, 53-68).
+   (work items 41-42, 53-69).
    Next slices: remaining oracle-parity gaps across the 87 partials,
    then final package/docs/release gates.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
