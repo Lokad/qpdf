@@ -36,6 +36,7 @@ internal static class ArgvParser
             throw new QpdfParseException("No command arguments were supplied.", 0L, null);
         }
 
+        argv = StripGlobalBlocks(argv);
         GlobalOptions globals = ExtractGlobalOptions(ref argv);
         QpdfRecoveryMode recovery = globals.Recovery;
         int checkAt = FindFlag(argv, "--check");
@@ -1157,6 +1158,85 @@ internal static class ArgvParser
     }
 
     private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData);
+
+    private static bool IsGlobalOptionToken(string token)
+    {
+        if (token == "--no-default-limits")
+        {
+            return true;
+        }
+
+        return token.StartsWith("--parser-max-container-size=", StringComparison.Ordinal)
+            || token == "--parser-max-container-size"
+            || token.StartsWith("--parser-max-container-size-damaged=", StringComparison.Ordinal)
+            || token == "--parser-max-container-size-damaged"
+            || token.StartsWith("--parser-max-errors=", StringComparison.Ordinal)
+            || token == "--parser-max-errors"
+            || token.StartsWith("--parser-max-nesting=", StringComparison.Ordinal)
+            || token == "--parser-max-nesting"
+            || token.StartsWith("--max-stream-filters=", StringComparison.Ordinal)
+            || token == "--max-stream-filters";
+    }
+
+    private static IReadOnlyList<string> StripGlobalBlocks(IReadOnlyList<string> argv)
+    {
+        List<int>? remove = null;
+        int i = 0;
+        while (i < argv.Count)
+        {
+            if (argv[i] != "--global")
+            {
+                i += 1;
+                continue;
+            }
+
+            int openAt = i;
+            i += 1;
+            bool closed = false;
+            while (i < argv.Count)
+            {
+                string token = argv[i];
+                if (token == "--")
+                {
+                    closed = true;
+                    break;
+                }
+
+                if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2 && !IsGlobalOptionToken(token))
+                {
+                    throw new QpdfParseException("Only global options may appear inside --global.", i, null);
+                }
+
+                i += 1;
+            }
+
+            if (!closed)
+            {
+                throw new QpdfParseException("Missing -- terminator after --global.", openAt, null);
+            }
+
+            remove ??= new List<int>();
+            remove.Add(openAt);
+            remove.Add(i);
+            i += 1;
+        }
+
+        if (remove is null)
+        {
+            return argv;
+        }
+
+        List<string> kept = new(argv.Count - remove.Count);
+        for (int j = 0; j < argv.Count; j++)
+        {
+            if (!remove.Contains(j))
+            {
+                kept.Add(argv[j]);
+            }
+        }
+
+        return kept;
+    }
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {

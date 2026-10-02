@@ -476,4 +476,59 @@ public sealed class GlobalLimitsTests
         QpdfLimits damaged = QpdfLimits.Default with { MaxContainerSizeDamaged = -1L };
         Assert.Throws<ArgumentOutOfRangeException>(() => damaged.Validate());
     }
+
+    [Fact]
+    public async Task GlobalBlockMatchesBareFlags()
+    {
+        InMemoryQpdfHost plain = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult bare = await Qpdf.ExecuteAsync(plain, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, bare.ExitCode);
+        Assert.True(plain.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
+        InMemoryQpdfHost blocked = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult wrapped = await Qpdf.ExecuteAsync(blocked, new QpdfCommandInvocation(["--global", "--max-stream-filters=25", "--", "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, wrapped.ExitCode);
+        Assert.True(blocked.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public async Task GlobalBlockAcceptsNestingLimit()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDeepPage(300));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["--global", "--parser-max-nesting", "499", "--", "inputs/a.pdf", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task GlobalBlockRefusesLimitsRemoval()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["--global", "--no-default-limits", "--", "inputs/a.pdf", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Theory]
+    [InlineData("--global", "--pages", "--", "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf")]
+    [InlineData("--global", "--compress-streams=y", "--", "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf")]
+    [InlineData("--global", "--global", "--max-stream-filters=25", "--", "--", "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf")]
+    [InlineData("--global", "--max-stream-filters=25")]
+    [InlineData("--global", "--max-stream-filters=25", "--", "--max-stream-filters=26", "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf")]
+    public async Task BadGlobalBlocksFail(params string[] argv)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task GlobalBlockYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["--global", "--max-stream-filters=25", "--", "inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

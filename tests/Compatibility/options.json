@@ -2731,16 +2731,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Bare limit flags are accepted outside --global for the narrow profile; upstream requires the block. Oracle block-parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["GlobalLimitsTests.GlobalBlockMatchesBareFlags", "GlobalLimitsTests.GlobalBlockAcceptsNestingLimit"],
+        "negative": ["GlobalLimitsTests.BadGlobalBlocksFail", "GlobalLimitsTests.GlobalBlockRefusesLimitsRemoval"],
+        "interaction": ["GlobalLimitsTests.BadGlobalBlocksFail"],
+        "resource": ["GlobalLimitsTests.GlobalBlockYieldsToExhaustedBudget"],
         "oracle": []
       }
     },
