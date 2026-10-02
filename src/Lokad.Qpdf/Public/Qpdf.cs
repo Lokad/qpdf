@@ -4110,6 +4110,41 @@ public static class Qpdf
             }
         }
 
+        if (plan is ShowXrefPlan showXref)
+        {
+            try
+            {
+                await using QpdfDocument document = await QpdfDocument.OpenCore(host, showXref.Input, limits, governor, diagnostics, showXref.Recovery, cancellationToken).ConfigureAwait(false);
+                List<int> numbers = new(document.Engine.XRefEntries.Keys);
+                numbers.Sort();
+                foreach (int number in numbers)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    Reading.XrefEntry entry = document.Engine.XRefEntries[number];
+                    if (entry.Kind == Reading.XrefEntryKind.Free)
+                    {
+                        continue;
+                    }
+
+                    string line = entry.Kind == Reading.XrefEntryKind.Compressed
+                        ? $"{number}/0: compressed; stream = {entry.First}, index = {entry.Second}"
+                        : $"{number}/{entry.Second}: uncompressed; offset = {entry.First}";
+                    diagnostics.Add(QpdfDiagnosticCode.XrefListing, QpdfDiagnosticSeverity.Info, line);
+                }
+
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
         if (plan is ShowObjectPlan showObject)
         {
             try

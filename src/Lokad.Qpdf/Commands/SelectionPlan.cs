@@ -212,6 +212,9 @@ internal sealed record ShowPagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) 
 /// <summary>Validated object inspection.</summary>
 internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input);
 
+/// <summary>Validated cross-reference inspection.</summary>
+internal sealed record ShowXrefPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
+
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {

@@ -5073,17 +5073,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowXrefTests.ReportsClassicEntries", "ShowXrefTests.ReportsCompressedEntries", "ShowXrefTests.JobShowXrefMatchesArgv"],
+        "negative": ["ShowXrefTests.RejectsCombinationsAndValuedForm"],
+        "interaction": ["ShowXrefTests.JobShowXrefMatchesArgv"],
+        "resource": ["ShowXrefTests.FailsOnExhaustedInputBudget"],
+        "oracle": ["diff:show-xref"]
       }
     },
     {

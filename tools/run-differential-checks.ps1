@@ -650,6 +650,22 @@ foreach ($sub in @(@("dict", "inputs/a.pdf", "3"), @("stream", "inputs/a.pdf", "
   else { Write-Output "[show-object/$name] object dumps match line for line" }
 }
 
+# --- case: show-xref (managed vs oracle cross-reference entries) ---
+$case = New-Case 'show-xref'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/objstm-1page.pdf" "$case/inputs/o.pdf"
+foreach ($sub in @(@("classic", "inputs/a.pdf"), @("streams", "inputs/o.pdf"))) {
+  $name = $sub[0]
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], '--show-xref') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-xref-$name.txt"
+  if ($p.ExitCode -ne 0) { Write-Output "[show-xref/$name] FAIL: managed exit $($p.ExitCode)"; $script:failures++; continue }
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-xref', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  if ($p.ExitCode -ne 0) { Write-Output "[show-xref/$name] FAIL: oracle exit $($p.ExitCode)"; $script:failures++; continue }
+  $mLines = Get-Content "$case/managed-xref-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-xref/$name] FAIL: xref dump mismatch"; $script:failures++ }
+  else { Write-Output "[show-xref/$name] xref dumps match line for line" }
+}
+
 # --- case: linearize-pass1 (managed vs oracle first pass) ---
 $case = New-Case 'linearize-pass1'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -794,4 +810,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, show-xref, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

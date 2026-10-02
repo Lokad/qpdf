@@ -84,6 +84,72 @@ internal static class ArgvParser
             SelectionPlan.ParseObjectSelector(showObjectSelector);
         }
         int showNpagesAt = FindFlag(argv, "--show-npages");
+        int showXrefAt = FindFlag(argv, "--show-xref");
+        if (showXrefAt >= 0)
+        {
+            if (pagesAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-xref and --pages cannot be combined.", showXrefAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-xref and --overlay or --underlay cannot be combined.", showXrefAt, null);
+            }
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Options --show-xref and --flatten-rotation cannot be combined.", showXrefAt, null);
+            }
+
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Options --show-xref and --flatten-annotations cannot be combined.", showXrefAt, null);
+            }
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Options --show-xref and --generate-appearances cannot be combined.", showXrefAt, null);
+            }
+
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Options --show-xref and --qdf cannot be combined.", showXrefAt, null);
+            }
+
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Options --show-xref and --linearize cannot be combined.", showXrefAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showXrefAt, null);
+            }
+
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-xref cannot be combined with other inspection.", showXrefAt, null);
+            }
+
+            if (HasAttachmentEdit(argv, 0, argv.Count))
+            {
+                throw new QpdfParseException("Option --show-xref cannot be combined with attachment editing.", showXrefAt, null);
+            }
+
+            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-xref cannot be combined with JSON work.", showXrefAt, null);
+            }
+
+            string xrefInput = ParseInspectionInput(argv, showXrefAt, -1, -1, "--show-xref");
+            return new ShowXrefPlan(SelectionPlan.CheckedPath(xrefInput), recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
+        }
+
         if (showObjectAt >= 0 && showObjectSelector is not null)
         {
             if (pagesAt >= 0)
@@ -126,7 +192,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showObjectAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showPagesAt >= 0)
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showPagesAt >= 0 || showXrefAt >= 0)
             {
                 throw new QpdfParseException("Option --show-object cannot be combined with other inspection.", showObjectAt, null);
             }
@@ -191,7 +257,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showNpagesAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0)
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0 || showXrefAt >= 0)
             {
                 throw new QpdfParseException("Option --show-npages cannot be combined with other inspection.", showNpagesAt, null);
             }
@@ -256,7 +322,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showPagesAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showObjectAt >= 0)
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showNpagesAt >= 0 || showObjectAt >= 0 || showXrefAt >= 0)
             {
                 throw new QpdfParseException("Option --show-pages cannot be combined with other inspection.", showPagesAt, null);
             }

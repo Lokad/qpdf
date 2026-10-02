@@ -271,6 +271,11 @@ reference; streams show their dictionary only, and non-zero generations fail exp
 and filtered stream-data output stays unimplemented. The differential lane compares dumps line
 for line on plain, stream, trailer, missing, and compressed objects.
 
+`qpdf input --show-xref` (plus job key `showXref`) lists every live cross-reference entry
+(`n/gen: uncompressed; offset`, `n/0: compressed; stream, index`, free entries skipped)
+in oracle-identical line layout across argv and job paths; the differential lane compares
+dumps line for line on classic and object-stream files.
+
 `Qpdf.CheckAsync` runs a declared partial check: header, cross-reference,
 trailer, page tree, full object-graph traversal, decode-level-gated stream
 decoding (`none`, `generalized`, `specialized`, `all`), page content, and

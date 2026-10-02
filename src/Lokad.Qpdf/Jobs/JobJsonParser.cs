@@ -145,6 +145,8 @@ internal static class JobJsonParser
             bool seenShowPages = false;
             string? showObject = null;
             bool seenShowObject = false;
+            bool showXref = false;
+            bool seenShowXref = false;
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
@@ -552,6 +554,15 @@ internal static class JobJsonParser
 
                         Commands.SelectionPlan.ParseObjectSelector(showObject);
                         break;
+                    case "showXref":
+                        if (seenShowXref)
+                        {
+                                throw new QpdfParseException("Duplicate job key showXref.", 0L, null);
+                        }
+
+                        seenShowXref = true;
+                        showXref = RequireBareFlag(property.Value, "showXref");
+                        break;
                     case "noOriginalObjectIds":
                         if (seenNoOriginalObjectIds)
                         {
@@ -885,7 +896,7 @@ internal static class JobJsonParser
                     || seenQdf || seenLinearize || seenNoOriginalObjectIds
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowPages || seenShowObject
+                    || seenCheckLinearization || seenShowLinearization || seenShowPages || seenShowObject || seenShowXref
                     || seenListAttachments || showAttachment is not null)
                 {
                     throw new QpdfParseException("Job showNpages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
@@ -913,7 +924,7 @@ internal static class JobJsonParser
                     || seenQdf || seenLinearize || seenNoOriginalObjectIds
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowObject
+                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowObject || seenShowXref
                     || seenListAttachments || showAttachment is not null)
                 {
                     throw new QpdfParseException("Job showPages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
@@ -941,13 +952,41 @@ internal static class JobJsonParser
                     || seenQdf || seenLinearize || seenNoOriginalObjectIds
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowPages
+                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowPages || seenShowXref
                     || seenListAttachments || showAttachment is not null)
                 {
                     throw new QpdfParseException("Job showObject cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
                 }
 
                 return new ShowObjectPlan(SelectionPlan.CheckedPath(input), recovery, showObject)
+                {
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
+                };
+            }
+
+            if (showXref)
+            {
+                if (hasPages || output is not null
+                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
+                    || seenRotate || seenLabels || seenRemoveLabels
+                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
+                    || seenObjectStreams || seenPreserveUnreferenced
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenRecompressFlate || seenCompressionLevel
+                    || seenRemoveInfo || seenRemoveMetadata
+                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
+                    || seenOverlay || seenUnderlay
+                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
+                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
+                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
+                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
+                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowPages || seenShowObject
+                    || seenListAttachments || showAttachment is not null)
+                {
+                    throw new QpdfParseException("Job showXref cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
+                }
+
+                return new ShowXrefPlan(SelectionPlan.CheckedPath(input), recovery)
                 {
                     WarningExitZero = warningExit0,
                     NoWarn = noWarn,

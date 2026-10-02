@@ -69,6 +69,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Object inspection line.</summary>
     ObjectListing = 16,
+
+    /// <summary>Cross-reference inspection line.</summary>
+    XrefListing = 17,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>
