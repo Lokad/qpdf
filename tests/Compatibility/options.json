@@ -1569,16 +1569,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Strict opens use the undamaged cap while repair trial-parses use the damaged cap; oracle parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
+        "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
+        "interaction": ["GlobalLimitsTests.ContainerCapsJobParityHolds", "GlobalLimitsTests.BadNestedContainerKeysFail"],
+        "resource": ["GlobalLimitsTests.HostContainerBudgetInterplay", "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"],
         "oracle": []
       }
     },
@@ -1600,16 +1600,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Strict opens use the undamaged cap while repair trial-parses use the damaged cap; oracle parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
+        "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
+        "interaction": ["GlobalLimitsTests.ContainerCapsJobParityHolds", "GlobalLimitsTests.BadNestedContainerKeysFail"],
+        "resource": ["GlobalLimitsTests.HostContainerBudgetInterplay", "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"],
         "oracle": []
       }
     },
@@ -1631,16 +1631,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Rejection-only; the strict parser tolerates no errors and unbounded tolerance contradicts containment."
       ],
       "evidence": {
         "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "negative": ["GlobalLimitsTests.BadContainerFlagsFail"],
+        "interaction": ["GlobalLimitsTests.BadNestedContainerKeysFail"],
+        "resource": ["GlobalLimitsTests.BadContainerFlagsFail"],
         "oracle": []
       }
     },

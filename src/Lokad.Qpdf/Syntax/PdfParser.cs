@@ -242,6 +242,11 @@ internal sealed class PdfParser
 
             tokenizer.SetPosition(token.Offset);
             _governor.ReserveMemory(16L);
+            if (items.Count >= _limits.MaxContainerSize)
+            {
+                throw new QpdfParseException($"Array holds more than {_limits.MaxContainerSize} top-level items.", token.Offset, null);
+            }
+
             items.Add(ParseValue(tokenizer, depth + 1));
         }
     }
@@ -268,6 +273,11 @@ internal sealed class PdfParser
             }
 
             PdfName key = (PdfName)ParseName(token);
+            if (entries.Count >= _limits.MaxContainerSize)
+            {
+                throw new QpdfParseException($"Dictionary holds more than {_limits.MaxContainerSize} top-level entries.", token.Offset, null);
+            }
+
             QpdfObject value = ParseValue(tokenizer, depth + 1);
             if (entries.ContainsKey(key))
             {

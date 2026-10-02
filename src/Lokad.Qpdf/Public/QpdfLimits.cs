@@ -49,6 +49,12 @@ public sealed record QpdfLimits
     /// <summary>Ignores cross-reference streams when set; only classic tables are used.</summary>
     public bool IgnoreXrefStreams { get; init; }
 
+    /// <summary>Maximum top-level elements per parsed array or dictionary.</summary>
+    public long MaxContainerSize { get; init; } = 4294967295L;
+
+    /// <summary>Maximum top-level elements per container parsed during repair.</summary>
+    public long MaxContainerSizeDamaged { get; init; } = 5000L;
+
     /// <summary>Maximum cross-reference sections followed per file.</summary>
     public long MaxRevisions { get; init; } = 64L;
 
@@ -117,6 +123,16 @@ public sealed record QpdfLimits
         if (MaxRevisions <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(MaxRevisions), "Budget must be positive.");
+        }
+
+        if (MaxContainerSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaxContainerSize), "Container budget must not be negative.");
+        }
+
+        if (MaxContainerSizeDamaged < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaxContainerSizeDamaged), "Container budget must not be negative.");
         }
 
         if (MaxStreamFilters < 0)

@@ -4287,6 +4287,16 @@ public static class Qpdf
             limits = limits with { MaxNestingDepth = parserMaxNesting };
         }
 
+        if (plan.MaxContainerSize is long maxContainerSize)
+        {
+            limits = limits with { MaxContainerSize = maxContainerSize };
+        }
+
+        if (plan.MaxContainerSizeDamaged is long maxContainerSizeDamaged)
+        {
+            limits = limits with { MaxContainerSizeDamaged = maxContainerSizeDamaged };
+        }
+
         if (plan.IgnoreXrefStreams)
         {
             limits = limits with { IgnoreXrefStreams = true };

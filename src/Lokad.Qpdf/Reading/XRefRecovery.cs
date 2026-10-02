@@ -44,7 +44,8 @@ internal static class XRefRecovery
         limits.Validate();
         long maxId = data.Length / 3L;
         Dictionary<int, XrefEntry> entries = new();
-        int? lastCatalog = ScanObjects(data, limits, governor, diagnostics, maxId, entries);
+        QpdfLimits damaged = limits with { MaxContainerSize = limits.MaxContainerSizeDamaged };
+        int? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries);
         if (entries.Count == 0)
         {
             throw new QpdfParseException($"Bounded repair found no objects after strict parsing failed: {strictReason}", null, null);
@@ -62,7 +63,7 @@ internal static class XRefRecovery
         int size = scannedMax + 1;
         string rootSource = "a scanned catalog";
         QpdfObject? root = null;
-        if (TryReadTailTrailer(data, limits, governor, diagnostics, out int tailSize, out QpdfObject? tailRoot) && tailSize >= 1)
+        if (TryReadTailTrailer(data, damaged, governor, diagnostics, out int tailSize, out QpdfObject? tailRoot) && tailSize >= 1)
         {
             if (tailSize <= scannedMax + 1)
             {

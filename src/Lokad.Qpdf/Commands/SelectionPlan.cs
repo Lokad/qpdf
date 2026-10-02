@@ -39,6 +39,10 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public long? ParserMaxNesting { get; init; }
 
+    public long? MaxContainerSize { get; init; }
+
+    public long? MaxContainerSizeDamaged { get; init; }
+
     public bool WithImages { get; init; }
 
     public bool IgnoreXrefStreams { get; init; }

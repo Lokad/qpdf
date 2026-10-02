@@ -33,6 +33,8 @@ internal static class HelpText
           --compress-streams=[y|n]      compress uncompressed streams
           --decode-level=level          none, generalized, specialized, or all
           --max-stream-filters=n          cap filters decoded per stream (default 25)
+          --parser-max-container-size=n   cap objects per container (default 4294967295)
+          --parser-max-container-size-damaged=n  cap objects per container during repair (default 5000)
           --parser-max-nesting=n          cap object nesting depth (default host budgets, max 499)
           --no-default-limits             refused: limits cannot be disabled in this build
           --recompress-flate            recompress already-flate streams
@@ -168,6 +170,8 @@ internal static class HelpText
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
           suppressRecovery, ignoreXrefStreams
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
+        parserMaxNesting (within 499), parserMaxContainerSize and parserMaxContainerSizeDamaged
+        (non-negative object counts, defaults 4294967295 and 5000). Other global keys fail;
         parserMaxNesting (non-negative nesting depth within 499).
         Crypto keys (encrypt, decrypt, password and related options) are rejected with (encrypt, decrypt, password and related options) are rejected with
         UnsupportedCryptoOperation. See --help for the argv surface.
@@ -217,7 +221,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --no-default-limits --ignore-xref-streams --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --ignore-xref-streams --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
 
     internal static string BashCompletion()
     {

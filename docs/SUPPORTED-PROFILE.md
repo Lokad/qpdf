@@ -232,4 +232,4 @@ Every path runs under one per-job governor: validated `QpdfLimits` budgets
 for inputs, outputs, memory, work, decoded bytes, stream-filter counts, host operations, handles,
 diagnostics, and nesting depth, plus cooperative cancellation. Diagnostics
 carry stable codes and never embed input content, paths beyond logical
-names, host exception text, or stack traces. `--parser-max-nesting=n` (within 499, the upstream default) and `--max-stream-filters=n` (default 25) tighten nesting and filter budgets per invocation through the nested job `global` object as well; `--no-default-limits` is refused because limits can never be disabled.
+names, host exception text, or stack traces. `--parser-max-nesting=n` (within 499, the upstream default), `--max-stream-filters=n` (default 25), `--parser-max-container-size=n` (default 4294967295), and `--parser-max-container-size-damaged=n` (default 5000, governing repair trial-parses) tighten parser budgets per invocation through the nested job `global` object as well; `--no-default-limits` is refused because limits can never be disabled.
