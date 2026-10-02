@@ -676,6 +676,10 @@ The typed `FixQdfAsync` companion repairs edited QDF through the shared governor
 
 The typed `RunZlibFlateAsync` companion compresses raw bytes or uncompresses zlib-wrapped bytes between explicit host paths through the governed Flate pipeline: strict header, framing, and Adler-32 checks on inflate with per-chunk memory budgets, and level buckets 1..9 (1 fastest, 9 smallest, default optimal) on deflate. Modes and out-of-range levels fail explicitly without publishing output. Intentional differences: truncated input fails instead of exiting 3 with partial output; empty input deflates to empty output (BCL emits no framing for empty input) instead of an 8-byte stream; compression level 0 and values above 9 fail instead of passing through to zlib; there is no Zopfli support and no host capability supplies `QPDF_ZOPFLI`, which stays treated as unset. The differential lane round-trips both directions against oracle zlib-flate, checks corrupt-input exit parity, and asserts level ordering. The companions stay outside the main flag inventory.
 
+## Linearization checking (work item 38)
+
+The linearization check detects the parameter dictionary in the first bytes, validates its keys (/H bounds, integer /O /E /N /T with /N matching the traversed pages, optional integer /P), resolves hint streams by cross-reference offset, decodes raw or Flate-encoded hint data, and parses the page-offset, shared-object, and outline tables with a governed bit reader under file-bounded counts. A file whose /L disagrees with its size reads as not linearized, matching upstream. Intentional differences: defects fail explicitly (exit 2) where upstream warns (exit 3); object-identity cross-checks against computed part assignments await the linearization writer. The differential lane checks oracle-linearized files plus page-count and hint-length mutations on both sides.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

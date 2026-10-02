@@ -350,5 +350,60 @@ $code = Invoke-ManagedFlate "inputs/trunc.bin" "outputs/trunc.bin" "m-trunc.bin"
 if ($code -ne 2) { Write-Output "[zlibflate] FAIL: managed truncated exit $code, expected 2"; $script:failures++ }
 else { Write-Output "[zlibflate] truncated input fails strictly as documented" }
 
+# --- case: linearized (managed --check vs oracle --check) ---
+$case = New-Case 'linearized'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--', "$case/inputs/lin.pdf")
+if ($code -ne 0) { throw "linearized setup: oracle linearize failed ($code)" }
+function Invoke-ManagedCheck {
+  param([string]$Workdir, [string]$InFile, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--check') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "linearized: managed check produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+function Invoke-OracleCheck {
+  param([string]$File)
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+  return $p.ExitCode
+}
+function Edit-FirstBytes {
+  param([string]$File, [string]$Needle, [string]$Replacement)
+  if ($Needle.Length -ne $Replacement.Length) { throw "linearized setup: edit must preserve length" }
+  $raw = [IO.File]::ReadAllBytes($File)
+  $nb = [Text.Encoding]::ASCII.GetBytes($Needle)
+  $rb = [Text.Encoding]::ASCII.GetBytes($Replacement)
+  $at = -1; $idx = 0
+  while ($idx + $nb.Length -le $raw.Length) {
+    $m = $true
+    for ($k = 0; $k -lt $nb.Length; $k++) { if ($raw[$idx + $k] -ne $nb[$k]) { $m = $false; break } }
+    if ($m) { $at = $idx; break }
+    $idx++
+  }
+  if ($at -lt 0) { throw "linearized setup: needle missing ($Needle)" }
+  [Buffer]::BlockCopy($rb, 0, $raw, $at, $rb.Length)
+  [IO.File]::WriteAllBytes($File, $raw)
+}
+$code = Invoke-ManagedCheck $case "inputs/lin.pdf" "valid"
+$ora = Invoke-OracleCheck "$case/inputs/lin.pdf"
+if ($code -ne 0 -or $ora -ne 0) { Write-Output "[linearized] FAIL: valid exits managed=$code oracle=$ora, expected 0/0"; $script:failures++ }
+else {
+  Write-Output "[linearized] valid file exits 0/0"
+  if ((Get-PigNpages "$case/inputs/lin.pdf") -ne 2) { Write-Output "[linearized] FAIL: independent page count"; $script:failures++ }
+}
+Copy-Item "$case/inputs/lin.pdf" "$case/inputs/badN.pdf"
+Edit-FirstBytes "$case/inputs/badN.pdf" "/N 2" "/N 3"
+$code = Invoke-ManagedCheck $case "inputs/badN.pdf" "badn"
+$ora = Invoke-OracleCheck "$case/inputs/badN.pdf"
+if ($code -ne 2 -or $ora -ne 3) { Write-Output "[linearized] FAIL: badN exits managed=$code oracle=$ora, expected 2/3"; $script:failures++ }
+else { Write-Output "[linearized] page-count mismatch fails on both sides (2/3)" }
+Copy-Item "$case/inputs/lin.pdf" "$case/inputs/badH.pdf"
+Edit-FirstBytes "$case/inputs/badH.pdf" "[ 550 127 ]" "[ 550 999 ]"
+$code = Invoke-ManagedCheck $case "inputs/badH.pdf" "badh"
+$ora = Invoke-OracleCheck "$case/inputs/badH.pdf"
+if ($code -ne 2 -or $ora -ne 3) { Write-Output "[linearized] FAIL: badH exits managed=$code oracle=$ora, expected 2/3"; $script:failures++ }
+else { Write-Output "[linearized] hint-length mismatch fails on both sides (2/3)" }
+
+
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf and zlibflate."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate and linearized."

@@ -94,7 +94,8 @@ echoing values.
   decoding, page content, and linearization.
 - Skipped stages stay visible with reasons and never pass silently; failures
   carry capped per-object detail. Content (M7) always skips; linearization
-  passes when absent and skips with a warning when present; unavailable
+  passes when absent and validates dictionaries, hint streams, and
+  bit-level hint tables when present; unavailable
   filters skip streams with a warning at level `all`.
 - `input --check` publishes no files and maps diagnostics to exit 0/2/3.
   Inspection never claims conformance, safe content, or rendering correctness.

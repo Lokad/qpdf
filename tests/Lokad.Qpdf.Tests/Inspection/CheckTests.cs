@@ -252,7 +252,7 @@ public sealed class CheckTests
     }
 
     [Fact]
-    public async Task LinearizedFileSkipsLinearization()
+    public async Task FileWithoutFileSizeReadsAsNotLinearized()
     {
         List<(int, string, byte[]?)> objects = new()
         {
@@ -268,8 +268,9 @@ public sealed class CheckTests
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/lin.pdf"), CancellationToken.None);
         Assert.Equal(1, result.PageCount);
         QpdfCheckOutcome linearization = SingleOutcome(result, "linearization");
-        Assert.Equal(QpdfCheckStatus.Skipped, linearization.Status);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped && diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+        Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
+        Assert.Contains("not linearized", linearization.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped);
     }
 
     [Fact]

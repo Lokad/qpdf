@@ -23,7 +23,7 @@ public sealed class FixtureManifestTests
     {
         using JsonDocument manifest = ReadManifest();
         JsonElement fixtures = manifest.RootElement.GetProperty("fixtures");
-        Assert.Equal(4, fixtures.GetArrayLength());
+        Assert.Equal(6, fixtures.GetArrayLength());
 
         foreach (JsonElement entry in fixtures.EnumerateArray())
         {
@@ -51,6 +51,8 @@ public sealed class FixtureManifestTests
     [InlineData("minimal-1page.pdf", 1)]
     [InlineData("minimal-2page.pdf", 2)]
     [InlineData("forms-1page.pdf", 1)]
+    [InlineData("linearized-1page.pdf", 1)]
+    [InlineData("linearized-2page.pdf", 2)]
     public void IndependentReaderReportsExpectedPageCounts(string file, int expectedNpages)
     {
         string path = Path.Combine(FixtureDir(), file);

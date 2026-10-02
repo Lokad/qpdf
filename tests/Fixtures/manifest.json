@@ -5,7 +5,7 @@
     "commit": "4eba95899886e851cc41d76886483b347612f2a8",
     "independentReader": "PdfPig 0.1.16"
   },
-  "provenance": "Synthetic fixtures authored for Lokad.qpdf. No upstream bytes. MIT with the repository.",
+  "provenance": "Synthetic fixtures authored for Lokad.qpdf. Linearized fixtures are deterministic oracle outputs recorded for offline checking. MIT with the repository.",
   "generation": "Deterministic classic-xref PDFs with LF endings, Helvetica text, ordered objects and computed xref offsets. Truncated fixture is the first 120 bytes of minimal-1page.pdf.",
   "fixtures": [
     {
@@ -34,6 +34,24 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a self-contained text widget (stale appearance, NeedAppearances). Oracle and independent page counts must agree on 1; appearance generation and annotation flattening differentials consume it."
+    },
+    {
+      "file": "linearized-1page.pdf",
+      "sha256": "d5486669a33228b5411d87b11a957aefb20eca47fe2e13cc2f4f65393d0c52ff",
+      "bytes": 1205,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page linearized by the pinned oracle with static IDs. Oracle check must succeed; managed linearization check must pass."
+    },
+    {
+      "file": "linearized-2page.pdf",
+      "sha256": "3ffbd450140a4eda7c355108761293d1ec4f2d3c38bfd43bf6da0b3a89f8d211",
+      "bytes": 1501,
+      "expectedNpages": 2,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two pages linearized by the pinned oracle with static IDs. Oracle and managed linearization checks must agree."
     },
     {
       "file": "truncated-1page.pdf",

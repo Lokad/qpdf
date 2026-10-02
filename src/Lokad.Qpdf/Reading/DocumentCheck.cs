@@ -15,8 +15,6 @@ internal static class DocumentCheck
 {
     private const int MaxObjectFailures = 16;
     private const int MaxStreamFailures = 8;
-    private const int LinearizationScanBytes = 1024;
-    private const int LinearizationScanTokens = 200;
 
     internal static List<QpdfCheckOutcome> Run(
         QpdfDocument document,
@@ -66,7 +64,7 @@ internal static class DocumentCheck
         outcomes.Add(CheckObjectGraph(engine, governor, streams, cancellationToken));
         outcomes.Add(CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken));
         outcomes.Add(CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken));
-        outcomes.Add(CheckLinearization(engine, limits, governor, diagnostics, cancellationToken));
+        outcomes.Add(LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken));
         foreach (QpdfCheckOutcome outcome in outcomes)
         {
             if (outcome.Status == QpdfCheckStatus.Failed)
@@ -444,76 +442,5 @@ internal static class DocumentCheck
                 tokenizer.TryReadInlineImageData(out ContentToken _);
             }
         }
-    }
-
-
-    private static QpdfCheckOutcome CheckLinearization(
-        DocumentEngine engine,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
-    {
-        if (!IsLinearized(engine.Data, limits, governor, cancellationToken))
-        {
-            return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Passed, "File is not linearized.");
-        }
-
-        diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, "Skipped check 'linearization': hint validation arrives in M10.");
-        return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Skipped, "File is linearized; hint validation arrives in M10.");
-    }
-
-    private static bool IsLinearized(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        int length = Math.Min(LinearizationScanBytes, data.Length);
-        PdfTokenizer tokenizer = new(data.Slice(0, length));
-        limits.Validate();
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
-        for (int i = 0; i < LinearizationScanTokens; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            long position = 0;
-            try
-            {
-                if (!tokenizer.TryReadToken(out PdfToken token))
-                {
-                    return false;
-                }
-
-                if (token.Kind != PdfTokenKind.Integer)
-                {
-                    continue;
-                }
-
-                position = token.Offset;
-                tokenizer.SetPosition(position);
-                (int _, int _, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
-                if (value is PdfDictionary dictionary
-                    && dictionary.TryGet(PdfName.FromAscii("Linearized"), out QpdfObject raw)
-                    && IsOne(raw))
-                {
-                    return true;
-                }
-            }
-            catch (QpdfException)
-            {
-                try
-                {
-                    tokenizer.SetPosition(position + 1);
-                }
-                catch (QpdfParseException)
-                {
-                    return false;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsOne(QpdfObject raw)
-    {
-        return raw is PdfInteger integer && integer.Value == 1L
-            || raw is PdfReal real && real.Value == 1.0;
     }
 }
