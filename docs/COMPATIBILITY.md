@@ -748,7 +748,9 @@ oracle only. It remains separate from production and ordinary tests.
 The target reference build has JPEG support and no optional Zopfli support.
 `--zopfli` will follow that build profile's explicit unavailable behavior;
 ordinary Flate compression remains required. Host limits remain enforceable
-even when a caller disables qpdf-compatible default parser limits.
+even when a caller disables qpdf-compatible default parser limits. A shared budget-enforcement suite proves every public entry path
+(selection, inspection, content transforms, overlays, linearization, QDF, split, rotation,
+appearances) fails explicitly with `BudgetExceeded` and publishes nothing under exhausted budgets.
 
 ## Progression and dependency gates
 

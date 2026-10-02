@@ -2025,7 +2025,7 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -2042,7 +2042,7 @@
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget"],
         "oracle": [
           "diff:coalesce-payloads"
         ]
@@ -2623,7 +2623,7 @@
         "interaction": [
           "FlattenRotationTests.JobRoundTripMatchesArgv"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget"],
         "oracle": [
           "diff:flatten-rotation"
         ]
@@ -2711,7 +2711,7 @@
           "GenerateAppearancesTests.WholeFileJobGenerates",
           "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"],
         "oracle": [
           "diff:forms-appearances"
         ]
@@ -2969,7 +2969,7 @@
           "JsonInspectionTests.TypedRoundTripMatchesArgv",
           "JsonModesTests.JobModesRoundTrip"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure"
@@ -3075,7 +3075,7 @@
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "JsonModesTests.JobModesRoundTrip"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure"
@@ -3368,11 +3368,9 @@
         }
       ],
       "milestone": "M10",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Object-stream combinations fail explicitly (work item 40)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LinearizedWriterTests.TwoPageLinearizePassesOwnCheck",
@@ -3399,7 +3397,7 @@
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
           "LinearizedWriterTests.QdfSilentlyDisabled"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget"],
         "oracle": [
           "diff:linearize",
           "diff:linearize-streams"
@@ -3653,7 +3651,7 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -3669,7 +3667,7 @@
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget"],
         "oracle": [
           "diff:normalize-payloads"
         ]
@@ -3930,7 +3928,7 @@
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.OverlayYieldsToExhaustedBudget"],
         "oracle": [
           "diff:overlay"
         ]
@@ -4251,7 +4249,7 @@
           "QdfTests.NormalizeWinsOverDecodeNone",
           "QdfTests.NormalizeExplicitNoKeepsNewlines"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.QdfYieldsToExhaustedBudget"],
         "oracle": [
           "diff:qdf-markers"
         ]
@@ -4596,7 +4594,7 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -4619,7 +4617,7 @@
           "ContentTransformsTests.JobContentFlagsMalformedFail",
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.PruneYieldsToExhaustedBudget"],
         "oracle": [
           "diff:prune-resources"
         ]
@@ -4762,7 +4760,7 @@
         "interaction": [
           "RotationTests.SetIgnoresBaseAndLaterSpecsWin"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.RotateYieldsToExhaustedBudget"],
         "oracle": []
       }
     },
@@ -5112,7 +5110,7 @@
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.SplitYieldsToExhaustedBudget"],
         "oracle": []
       }
     },
@@ -5360,7 +5358,7 @@
         "interaction": [
           "OverlayTests.WholeFileJobOverlay"
         ],
-        "resource": [],
+        "resource": ["ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget"],
         "oracle": []
       }
     },
