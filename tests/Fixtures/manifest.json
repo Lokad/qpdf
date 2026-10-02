@@ -178,6 +178,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a 1500-byte inline image above the default externalization threshold, classic xref, unencrypted. Inline-image externalization and threshold selection must convert it to an /IIm1 XObject on both sides; the inline differential consumes it."
+    },
+    {
+      "file": "rotated-ap-1page.pdf",
+      "sha256": "f4e2793761766ad72167da364dcb0071d3e544cdc9e52b61d285f82245d0634a",
+      "bytes": 893,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with /Rotate 90, direct /UserUnit and a widget carrying an appearance stream, classic xref, unencrypted. Rotation flattening must rotate the appearance matrix and keep the user unit on both sides; the flatten-rotation differential consumes it."
     }
   ]
 }

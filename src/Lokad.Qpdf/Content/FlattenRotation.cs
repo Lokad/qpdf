@@ -51,6 +51,7 @@ internal static class FlattenRotation
 
         limits.Validate();
         HashSet<int> transformedAnnots = new();
+        HashSet<int> matricizedAnnots = new();
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -151,7 +152,7 @@ internal static class FlattenRotation
             rebuilt[PdfName.FromAscii("Contents")] = new PdfArray(entries);
             if (page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) && annotsRaw is not null && annotsRaw is not PdfNull)
             {
-                PdfArray? rewritten = TransformAnnots(copier, annotsRaw, matrix, transformedAnnots, limits, governor, diagnostics, cancellationToken);
+                PdfArray? rewritten = TransformAnnots(copier, annotsRaw, matrix, transformedAnnots, matricizedAnnots, limits, governor, diagnostics, cancellationToken);
                 if (rewritten is not null)
                 {
                     rebuilt[PdfName.FromAscii("Annots")] = rewritten;
@@ -319,11 +320,159 @@ internal static class FlattenRotation
         return new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), content);
     }
 
+    private static void RotateAppearances(
+        GraphCopier copier,
+        PdfDictionary annot,
+        double[] matrix,
+        HashSet<int> matricized,
+        PoolResolver resolver,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? appearance) || appearance is null || appearance is PdfNull)
+        {
+            return;
+        }
+
+        QpdfObject appearanceTarget = appearance is PdfReference appearanceReference
+            ? ResolveOrNull(resolver, appearanceReference) ?? appearance
+            : appearance;
+        if (appearanceTarget is not PdfDictionary appearanceDict)
+        {
+            return;
+        }
+
+        foreach (PdfName key in appearanceDict.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!appearanceDict.TryGet(key, out QpdfObject? entry) || entry is null || entry is PdfNull)
+            {
+                continue;
+            }
+
+            if (entry is PdfReference entryReference)
+            {
+                RotateAppearanceTarget(copier, entryReference, resolver, matrix, matricized, governor);
+                continue;
+            }
+
+            if (entry is not PdfDictionary states)
+            {
+                continue;
+            }
+
+            foreach (PdfName state in states.Keys)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (!states.TryGet(state, out QpdfObject? stateRaw) || stateRaw is null || stateRaw is PdfNull)
+                {
+                    continue;
+                }
+
+                if (stateRaw is PdfReference stateReference)
+                {
+                    RotateAppearanceTarget(copier, stateReference, resolver, matrix, matricized, governor);
+                }
+            }
+        }
+    }
+
+    private static void RotateAppearanceTarget(
+        GraphCopier copier,
+        PdfReference reference,
+        PoolResolver resolver,
+        double[] matrix,
+        HashSet<int> matricized,
+        ResourceGovernor governor)
+    {
+        if (!matricized.Add(reference.ObjectNumber))
+        {
+            return;
+        }
+
+        governor.ChargeWork(1L);
+        if (ResolveOrNull(resolver, reference) is not PdfStream stream)
+        {
+            return;
+        }
+
+        double[] composed = matrix;
+        if (stream.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? existing) && existing is PdfArray existingArray)
+        {
+            double[]? old = ReadMatrix(existingArray);
+            if (old is not null)
+            {
+                composed = MultiplyMatrices(matrix, old);
+            }
+        }
+
+        governor.ReserveMemory(64L);
+        Dictionary<PdfName, QpdfObject> entries = new();
+        foreach (PdfName key in stream.Dictionary.Keys)
+        {
+            if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
+            {
+                entries[key] = found;
+            }
+        }
+
+        entries[PdfName.FromAscii("Matrix")] = BoxArray(composed, governor);
+        copier.ReplaceCopiedObject(reference.ObjectNumber, new PdfStream(new PdfDictionary(entries), stream.Data));
+    }
+
+    private static double[]? ReadMatrix(PdfArray array)
+    {
+        if (array.Count != 6)
+        {
+            return null;
+        }
+
+        double[] numbers = new double[6];
+        for (int i = 0; i < 6; i++)
+        {
+            if (array[i] is PdfInteger integer)
+            {
+                numbers[i] = (double)integer.Value;
+            }
+            else if (array[i] is PdfReal real)
+            {
+                numbers[i] = real.Value;
+            }
+            else
+            {
+                return null;
+            }
+
+            if (!double.IsFinite(numbers[i]))
+            {
+                return null;
+            }
+        }
+
+        return numbers;
+    }
+
+    private static double[] MultiplyMatrices(double[] first, double[] second)
+    {
+        return
+        [
+            (first[0] * second[0]) + (first[1] * second[2]),
+            (first[0] * second[1]) + (first[1] * second[3]),
+            (first[2] * second[0]) + (first[3] * second[2]),
+            (first[2] * second[1]) + (first[3] * second[3]),
+            (first[4] * second[0]) + (first[5] * second[2]) + second[4],
+            (first[4] * second[1]) + (first[5] * second[3]) + second[5],
+        ];
+    }
+
     private static PdfArray? TransformAnnots(
         GraphCopier copier,
         QpdfObject annotsRaw,
         double[] matrix,
         HashSet<int> transformed,
+        HashSet<int> matricized,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -381,6 +530,7 @@ internal static class FlattenRotation
 
             governor.ReserveMemory(64L);
             rebuilt[PdfName.FromAscii("Rect")] = BoxArray(moved, governor);
+            RotateAppearances(copier, annot, matrix, matricized, resolver, governor, cancellationToken);
             PdfDictionary updated = new(rebuilt);
             if (item is PdfReference)
             {

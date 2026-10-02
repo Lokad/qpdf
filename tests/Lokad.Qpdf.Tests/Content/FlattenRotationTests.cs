@@ -411,5 +411,123 @@ Assert.False(value.TryGetProperty("/Rotate", out JsonElement _));
 Assert.Equal("792", value.GetProperty("/MediaBox")[2].GetRawText());
 Assert.Equal("612", value.GetProperty("/MediaBox")[3].GetRawText());
 }
+[Fact]
+public async Task AppearanceStreamGainsRotationMatrix()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 w 0 0 20 10 re S");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R /Rotate 90 /Annots [5 0 R]"), new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 20 10] /FT /Tx /T (A) /V (x) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 20 10] /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+JsonElement annot = objects.GetProperty("obj:5 0 R").GetProperty("value");
+string normal = annot.GetProperty("/AP").GetProperty("/N").GetString() ?? string.Empty;
+string[] parts = normal.Split((char)32);
+string key = string.Concat("obj:", parts[0], SP(), parts[1], " R");
+Assert.Equal("[0,-1,1,0,0,612]", objects.GetProperty(key).GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
 }
-
+[Fact]
+public async Task AppearanceMatrixComposesWithExisting()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 w 0 0 20 10 re S");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R /Rotate 90 /Annots [5 0 R]"), new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 20 10] /FT /Tx /T (A) /V (x) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 20 10] /Matrix [2 0 0 2 5 5] /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+JsonElement annot = objects.GetProperty("obj:5 0 R").GetProperty("value");
+string normal = annot.GetProperty("/AP").GetProperty("/N").GetString() ?? string.Empty;
+string[] parts = normal.Split((char)32);
+string key = string.Concat("obj:", parts[0], SP(), parts[1], " R");
+Assert.Equal("[0,-2,2,0,5,1229]", objects.GetProperty(key).GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
+}
+[Fact]
+public async Task AppearanceStatesAllRotate()
+{
+byte[] off = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re S");
+byte[] on = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re f");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R /Rotate 90 /Annots [5 0 R]"), new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Btn /Ff 32768 /T (R) /V /Choice1 /AP << /N << /Off 6 0 R /Choice1 7 0 R >> /D 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", off.Length.ToString(), " >>"), off),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", on.Length.ToString(), " >>"), on),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+Assert.Equal("[0,-1,1,0,0,612]", objects.GetProperty("obj:6 0 R").GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
+Assert.Equal("[0,-1,1,0,0,612]", objects.GetProperty("obj:7 0 R").GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
+}
+[Theory]
+[InlineData(180, "[-1,0,0,-1,612,792]")]
+[InlineData(270, "[0,1,-1,0,792,0]")]
+public async Task AppearanceMatricesMatchAngle(int angle, string expected)
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 w 0 0 20 10 re S");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R /Rotate ", angle.ToString(), " /Annots [5 0 R]"), new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 20 10] /FT /Tx /T (A) /V (x) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 20 10] /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+Assert.Equal(expected, objects.GetProperty("obj:6 0 R").GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
+}
+[Fact]
+public async Task DirectStreamAppearanceStaysUntouched()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re S");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R /Rotate 90 /Annots [5 0 R]"), new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Stamp /Rect [0 0 10 10] /Name /Approved /AP 6 0 R >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+Assert.False(objects.GetProperty("obj:6 0 R").GetProperty("stream").GetProperty("dict").TryGetProperty("/Matrix", out JsonElement _));
+}
+[Fact]
+public async Task DirectUserUnitSurvivesRotation()
+{
+byte[] fixture = ContentFixture(" /Rotate 90 /UserUnit 2.0");
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+using JsonDocument pages = await PageJsonAsync(pdf);
+JsonElement value = full.RootElement.GetProperty("qpdf")[1].GetProperty(PageObjectKey(pages.RootElement.GetProperty("pages")[0])).GetProperty("value");
+Assert.Equal("2.0", value.GetProperty("/UserUnit").GetRawText());
+}
+[Fact]
+public async Task MarkupAppearanceRotates()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 0 5 5 re f");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R /Rotate 90 /Annots [5 0 R]"), new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Square /Rect [0 0 40 30] /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 40 30] /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+Assert.Equal("[0,-1,1,0,0,612]", objects.GetProperty("obj:6 0 R").GetProperty("stream").GetProperty("dict").GetProperty("/Matrix").GetRawText());
+}
+}
