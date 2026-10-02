@@ -45,6 +45,15 @@
       "description": "One page with an unreferenced /F2 Helvetica-Bold font alongside the used /F1, classic xref, unencrypted. Resource pruning under page operations must drop /F2 while whole-file output keeps it; the prune differential consumes it."
     },
     {
+      "file": "struct-1page.pdf",
+      "sha256": "6e0200c2ca91b691c291133c4e1d553932ba07b262d3016c300eb9c30e73c604",
+      "bytes": 768,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page whose catalog carries /StructTreeRoot and /MarkInfo, classic xref, unencrypted. Structure removal must drop both keys while keeping the pages tree; the removal differential consumes it."
+    },
+    {
       "file": "forms-1page.pdf",
       "sha256": "49efd5043b16147158647f24c1408cdf06ec390734c45e4df3184fa0873da324",
       "bytes": 1012,

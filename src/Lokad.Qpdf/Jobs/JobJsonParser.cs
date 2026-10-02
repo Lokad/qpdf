@@ -148,6 +148,7 @@ internal static class JobJsonParser
             bool showXref = false;
             bool seenShowXref = false;
             bool seenRemoveAcroform = false;
+            bool seenRemoveStructure = false;
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
@@ -574,6 +575,17 @@ internal static class JobJsonParser
                         // Accepted as a no-op: every publication path rebuilds a fresh catalog
                         // without /AcroForm, so outputs never carry the form dictionary.
                         _ = RequireBareFlag(property.Value, "removeAcroform");
+                        break;
+                    case "removeStructure":
+                        if (seenRemoveStructure)
+                        {
+                            throw new QpdfParseException("Duplicate job key removeStructure.", 0L, null);
+                        }
+
+                        seenRemoveStructure = true;
+                        // Accepted as a no-op: every publication path rebuilds a fresh catalog
+                        // without /StructTreeRoot or /MarkInfo.
+                        _ = RequireBareFlag(property.Value, "removeStructure");
                         break;
                     case "noOriginalObjectIds":
                         if (seenNoOriginalObjectIds)

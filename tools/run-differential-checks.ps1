@@ -681,6 +681,21 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 Write-Output "[remove-acroform] form-dictionary assertions done"
 
+# --- case: remove-structure (managed vs oracle structure-tree removal) ---
+$case = New-Case 'remove-structure'
+Copy-Item "$fixtureDir/struct-1page.pdf" "$case/inputs/s.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/s.pdf', '--pages', '.', '1', '--remove-structure', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "remove-structure: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--remove-structure', 'inputs/s.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "remove-structure: oracle failed ($code)" }
+Assert-Trio 'remove-structure' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/StructTreeRoot') -or $rawText.Contains('/MarkInfo')) { Write-Output "[remove-structure] FAIL: structure keys remain in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/Type /Pages')) { Write-Output "[remove-structure] FAIL: pages tree missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[remove-structure] structure-tree assertions done"
+
 # --- case: linearize-pass1 (managed vs oracle first pass) ---
 $case = New-Case 'linearize-pass1'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -825,4 +840,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, show-xref, remove-acroform, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

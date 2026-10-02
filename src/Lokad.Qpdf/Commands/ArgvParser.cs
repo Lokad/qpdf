@@ -1030,6 +1030,7 @@ internal static class ArgvParser
         bool noWarn = false;
         bool seenSuppress = false;
         bool seenRemoveAcroform = false;
+        bool seenRemoveStructure = false;
         bool seenWarningExitZero = false;
         bool seenNoWarn = false;
         bool seenSplit = false;
@@ -1124,6 +1125,19 @@ internal static class ArgvParser
                 seenRemoveAcroform = true;
                 // Accepted as a no-op: every publication path rebuilds a fresh catalog
                 // without /AcroForm, so outputs never carry the form dictionary.
+                continue;
+            }
+
+            if (argv[i] == "--remove-structure")
+            {
+                if (seenRemoveStructure)
+                {
+                    throw new QpdfParseException("Duplicate --remove-structure is outside the narrow profile.", i, null);
+                }
+
+                seenRemoveStructure = true;
+                // Accepted as a no-op: every publication path rebuilds a fresh catalog
+                // without /StructTreeRoot or /MarkInfo, so outputs never carry structure trees.
                 continue;
             }
 

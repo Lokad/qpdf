@@ -4555,17 +4555,15 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["RemoveStructureTests.FlagDropsStructureTree", "RemoveStructureTests.OutputsOmitStructureTreeByDefault", "RemoveStructureTests.MergeDropsStructureTree", "RemoveStructureTests.JobRemoveStructureMatchesArgv"],
+        "negative": ["RemoveStructureTests.MalformedFlagsFail", "RemoveStructureTests.JobRemoveStructureRejectsMalformed"],
+        "interaction": ["RemoveStructureTests.MergeDropsStructureTree", "RemoveStructureTests.IgnoredWithCheck"],
+        "resource": ["RemoveStructureTests.FlagYieldsToExhaustedBudget"],
+        "oracle": ["diff:remove-structure"]
       }
     },
     {
