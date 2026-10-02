@@ -40,6 +40,9 @@ public sealed record QpdfLimits
     /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion.</summary>
     public long MaxNestingDepth { get; init; } = 256L;
 
+    /// <summary>Maximum stream filters decoded per stream; over-limit streams stay opaque.</summary>
+    public long MaxStreamFilters { get; init; } = 25L;
+
     /// <summary>Maximum cross-reference sections followed per file.</summary>
     public long MaxRevisions { get; init; } = 64L;
 
@@ -108,6 +111,11 @@ public sealed record QpdfLimits
         if (MaxRevisions <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(MaxRevisions), "Budget must be positive.");
+        }
+
+        if (MaxStreamFilters < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(MaxStreamFilters), "Stream-filter budget must not be negative.");
         }
     }
 }

@@ -11,6 +11,9 @@ internal enum QpdfFilterFailureReason
 
     /// <summary>Present bytes or parameters are not valid for the filter.</summary>
     InvalidData = 2,
+
+    /// <summary>The filter chain exceeds the stream-filter budget.</summary>
+    TooManyFilters = 3,
 }
 
 /// <summary>Explicit filter-pipeline failure. Promoted to public API when a public surface decodes.</summary>

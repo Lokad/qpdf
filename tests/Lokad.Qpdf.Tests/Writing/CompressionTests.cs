@@ -403,6 +403,10 @@ public sealed class CompressionTests
     [InlineData("--compression-level=10")]
     [InlineData("--compression-level=abc")]
     [InlineData("--compression-level")]
+    [InlineData("--max-stream-filters")]
+    [InlineData("--max-stream-filters=")]
+    [InlineData("--max-stream-filters=x")]
+    [InlineData("--max-stream-filters=-1")]
     public async Task InvalidValuesFail(params string[] flags)
     {
         List<string> argv = new() { "inputs/a.pdf" };
@@ -418,6 +422,7 @@ public sealed class CompressionTests
     [InlineData("--stream-data=compress", "--stream-data=preserve")]
     [InlineData("--compress-streams=y", "--compress-streams=n")]
     [InlineData("--decode-level=none", "--decode-level=all")]
+    [InlineData("--max-stream-filters=2", "--max-stream-filters=3")]
     [InlineData("--recompress-flate", "--recompress-flate")]
     [InlineData("--compression-level=5", "--compression-level=6")]
     public async Task DuplicateFlagsFail(params string[] flags)
@@ -441,6 +446,96 @@ public sealed class CompressionTests
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
 
+    private static byte[] BuildChainedPage()
+    {
+        byte[] flate = FlateBytes(PageRaw);
+        StringBuilder hex = new();
+        foreach (byte b in flate)
+        {
+            hex.Append(b.ToString("X2"));
+        }
+
+        hex.Append((char)62);
+        byte[] encoded = Encoding.ASCII.GetBytes(hex.ToString());
+        return BuildFilteredPage("<< /Length " + encoded.Length.ToString() + " /Filter [/ASCIIHexDecode /FlateDecode] >>", encoded);
+    }
+
+    [Theory]
+    [InlineData("--max-stream-filters=0")]
+    [InlineData("--max-stream-filters=1")]
+    public async Task MaxStreamFiltersCapKeepsOverLimitOpaque(string flag)
+    {
+        byte[] input = BuildChainedPage();
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--stream-data=uncompress", flag, "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning && diagnostic.Message.Contains("kept opaque", StringComparison.Ordinal));
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject _));
+    }
+
+    [Fact]
+    public async Task MaxStreamFiltersBoundaryDecodes()
+    {
+        byte[] input = BuildChainedPage();
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--stream-data=uncompress", "--max-stream-filters=2");
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        AssertNoFilter(stream.Dictionary);
+        Assert.Equal(PageRaw, stream.Data);
+    }
+
+    [Fact]
+    public async Task MaxStreamFiltersJobParityHolds()
+    {
+        byte[] input = BuildChainedPage();
+        List<string> argv = new() { "inputs/a.pdf", "--stream-data=uncompress", "--max-stream-filters=1", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", input);
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", input);
+        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"streamData\": \"uncompress\", \"maxStreamFilters\": 1}", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, jobResult.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public async Task MaxStreamFiltersRejectsRestrictedCombinations()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildRawPage());
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--json-input", "--max-stream-filters=1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(argvResult).Code);
+        QpdfExecutionResult jobImportResult = await Qpdf.ExecuteJobAsync(host, "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"maxStreamFilters\": 1}", CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(jobImportResult).Code);
+        QpdfExecutionResult jobShowResult = await Qpdf.ExecuteJobAsync(host, "{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"maxStreamFilters\": 1}", CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(jobShowResult).Code);
+    }
+
+    [Fact]
+    public async Task HostStreamFilterBudgetKeepsOverLimitOpaque()
+    {
+        byte[] input = BuildChainedPage();
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        QpdfLimits limits = QpdfLimits.Default with { MaxStreamFilters = 1L };
+        List<string> argv = new() { "inputs/a.pdf", "--stream-data=uncompress", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject _));
+    }
+
+    [Fact]
+    public async Task NegativeStreamFilterBudgetFailsValidation()
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxStreamFilters = -1L };
+        Assert.Throws<ArgumentOutOfRangeException>(() => limits.Validate());
+    }
+
     [Fact]
     public async Task JobJsonInvalidValuesFail()
     {
@@ -455,5 +550,15 @@ public sealed class CompressionTests
             "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"decodeLevel\": \"bogus\"}",
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(decode).Code);
+        QpdfExecutionResult filtersNumber = await Qpdf.ExecuteJobAsync(
+            host,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"maxStreamFilters\": -1}",
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(filtersNumber).Code);
+        QpdfExecutionResult filtersText = await Qpdf.ExecuteJobAsync(
+            host,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"maxStreamFilters\": \"bogus\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(filtersText).Code);
     }
 }

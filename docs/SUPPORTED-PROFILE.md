@@ -182,7 +182,7 @@ echoing values.
   Decode coverage mirrors inspection (`generalized` adds ASCII/LZW/Flate,
   `specialized` adds RunLength); `all` behaves as `specialized` until JPEG
   support (M8), warning per undecodable stream. Corrupt streams and unknown
-  specs are kept opaque under a warning; `/Crypt` is never decoded. The
+  specs are kept opaque under a warning; streams with more than `--max-stream-filters=n` filters (default 25, 0 keeps every filtered stream opaque) stay opaque under a warning on every decode path; `/Crypt` is never decoded. The
   default profile differs intentionally from upstream compress defaults so
   typed previews stay byte-stable without flags.
 - `--preserve-unreferenced` keeps every input object the selection did not

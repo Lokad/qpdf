@@ -4109,6 +4109,11 @@ public static class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
+        if (plan.MaxStreamFilters is long maxStreamFilters)
+        {
+            limits = limits with { MaxStreamFilters = maxStreamFilters };
+        }
+
         if (plan is CheckPlan check)
         {
             try

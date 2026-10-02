@@ -31,6 +31,7 @@ internal static class HelpText
           --stream-data=mode            compress, preserve, or uncompress streams
           --compress-streams=[y|n]      compress uncompressed streams
           --decode-level=level          none, generalized, specialized, or all
+          --max-stream-filters=n          cap filters decoded per stream (default 25)
           --recompress-flate            recompress already-flate streams
           --compression-level=1..9      flate effort for compressed streams
           --remove-info               drop info except modification date
@@ -159,7 +160,7 @@ internal static class HelpText
           showXref, removeAcroform, removeStructure, noOriginalObjectIds, optimizeImages,
           oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality,
           listAttachments, showAttachment, addAttachment, removeAttachment,
-          copyAttachmentsFrom, json, jsonKey, jsonObject, jsonStreamData,
+          copyAttachmentsFrom, maxStreamFilters, json, jsonKey, jsonObject, jsonStreamData,
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
           suppressRecovery
         Crypto keys (encrypt, decrypt, password and related options) are rejected with
@@ -210,7 +211,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
 
     internal static string BashCompletion()
     {

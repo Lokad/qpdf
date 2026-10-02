@@ -106,6 +106,10 @@ internal static class FilterChain
         }
 
         limits.Validate();
+        if (stages.Count > limits.MaxStreamFilters)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.TooManyFilters, null, $"{stages.Count} filters exceed the maximum of {limits.MaxStreamFilters}");
+        }
         if (stages.Count == 0)
         {
             governor.ReserveMemory(input.Length);

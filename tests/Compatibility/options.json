@@ -1507,16 +1507,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Over-limit streams stay opaque with a warning on every decode path; oracle parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["CompressionTests.MaxStreamFiltersBoundaryDecodes", "CompressionTests.MaxStreamFiltersCapKeepsOverLimitOpaque"],
+        "negative": ["CompressionTests.InvalidValuesFail", "CompressionTests.DuplicateFlagsFail", "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations", "CompressionTests.JobJsonInvalidValuesFail"],
+        "interaction": ["CompressionTests.MaxStreamFiltersJobParityHolds", "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations"],
+        "resource": ["CompressionTests.HostStreamFilterBudgetKeepsOverLimitOpaque", "CompressionTests.NegativeStreamFilterBudgetFailsValidation"],
         "oracle": []
       }
     },
