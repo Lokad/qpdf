@@ -36,6 +36,24 @@
       "description": "One page with a self-contained text widget (stale appearance, NeedAppearances). Oracle and independent page counts must agree on 1; appearance generation and annotation flattening differentials consume it."
     },
     {
+      "file": "outlined-2page.pdf",
+      "sha256": "5dbba245ae665b17969fee50c7c3212dcd9b1c101ee43ecdc02d1861e8bf1be9",
+      "bytes": 1151,
+      "expectedNpages": 2,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two pages sharing one font with document outlines, classic xref, unencrypted. Linearized selection must carry the outline tree into the output hint tables."
+    },
+    {
+      "file": "outlined-use-2page.pdf",
+      "sha256": "72b7ed550367055e336c4d529ed2734aa20022008a96a10eb140cc0c4b4a6b67",
+      "bytes": 1174,
+      "expectedNpages": 2,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two outlined pages with PageMode UseOutlines, classic xref, unencrypted. Linearized selection must place outlines in the first-page part."
+    },
+    {
       "file": "linearized-1page.pdf",
       "sha256": "d5486669a33228b5411d87b11a957aefb20eca47fe2e13cc2f4f65393d0c52ff",
       "bytes": 1205,

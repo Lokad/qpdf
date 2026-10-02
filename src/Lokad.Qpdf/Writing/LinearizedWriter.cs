@@ -467,12 +467,29 @@ internal sealed class LinearizedWriter
             pageShared.Add(SortedShared(parts, i, groupIndex));
         }
 
+        List<int> outlineNew = new(parts.Outlines.Count);
+        foreach (int old in parts.Outlines)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            outlineNew.Add(parts.Renumber[old]);
+        }
+
         long firstPageOffset = counted.Starts[parts.Renumber[parts.Pages[0]]];
         long firstSharedOffset = groups.Count > parts.Part6.Count
             ? counted.Starts[groups[parts.Part6.Count]]
             : 0L;
         int firstSharedObj = groups.Count > parts.Part6.Count ? groups[parts.Part6.Count] : 0;
-        byte[] tables = EncodeHintTables(parts, pageCounts, pageLengths, pageShared, groupLengths, firstPageOffset, firstSharedObj, firstSharedOffset, groups.Count, out long sharedAt, cancellationToken);
+        int outlineFirst = 0;
+        long outlineOffset = 0L;
+        long outlineLength = 0L;
+        if (outlineNew.Count > 0)
+        {
+            outlineFirst = outlineNew[0];
+            outlineOffset = counted.Starts[outlineFirst];
+            outlineLength = RunLength(counted, outlineNew, parts);
+        }
+
+        byte[] tables = EncodeHintTables(parts, pageCounts, pageLengths, pageShared, groupLengths, firstPageOffset, firstSharedObj, firstSharedOffset, groups.Count, outlineFirst, outlineOffset, outlineNew.Count, outlineLength, out long sharedAt, out long outlineAt, cancellationToken);
         byte[] data = tables;
         bool flate = compressHints;
         if (flate)
@@ -490,6 +507,12 @@ internal sealed class LinearizedWriter
 
         head.Append(" /S ");
         head.Append(sharedAt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (outlineNew.Count > 0)
+        {
+            head.Append(" /O ");
+            head.Append(outlineAt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
         head.Append(" /Length ");
         head.Append(data.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
         head.Append(" >>\nstream\n");
@@ -553,7 +576,12 @@ internal sealed class LinearizedWriter
         int firstSharedObj,
         long firstSharedOffset,
         int totalShared,
+        int outlineFirst,
+        long outlineOffset,
+        int outlineCount,
+        long outlineLength,
         out long sharedAt,
+        out long outlineAt,
         CancellationToken cancellationToken)
     {
         _ = firstSharedObj;
@@ -672,11 +700,33 @@ internal sealed class LinearizedWriter
         shared.Flush();
         byte[] head = pages.ToArray();
         byte[] tail = shared.ToArray();
-        _governor.ReserveMemory(checked((long)head.Length + tail.Length));
-        byte[] tables = new byte[checked(head.Length + tail.Length)];
+        outlineAt = checked((long)head.Length + tail.Length);
+        byte[] outlines = EncodeOutlineTable(outlineFirst, outlineOffset, outlineCount, outlineLength);
+        _governor.ReserveMemory(checked((long)head.Length + tail.Length + outlines.Length));
+        byte[] tables = new byte[checked(head.Length + tail.Length + outlines.Length)];
         Buffer.BlockCopy(head, 0, tables, 0, head.Length);
         Buffer.BlockCopy(tail, 0, tables, head.Length, tail.Length);
+        Buffer.BlockCopy(outlines, 0, tables, head.Length + tail.Length, outlines.Length);
         return tables;
+    }
+
+    private byte[] EncodeOutlineTable(
+        int outlineFirst,
+        long outlineOffset,
+        int outlineCount,
+        long outlineLength)
+    {
+        if (outlineCount <= 0)
+        {
+            return [];
+        }
+
+        HintBitWriter outlines = new(_governor);
+        outlines.WriteBits(outlineFirst, 32);
+        outlines.WriteBits(outlineOffset, 32);
+        outlines.WriteBits(outlineCount, 32);
+        outlines.WriteBits(outlineLength, 32);
+        return outlines.ToArray();
     }
 
     private static int BitLength(long value)

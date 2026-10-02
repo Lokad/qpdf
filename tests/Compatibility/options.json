@@ -3294,7 +3294,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Outlines and thumbnails fail explicitly; object-stream combinations fail explicitly; --linearize-pass1, --check-linearization and --show-linearization stay unsupported (work item 40)."
+        "Thumbnails fail explicitly; object-stream combinations fail explicitly (work item 40)."
       ],
       "evidence": {
         "positive": [
@@ -3304,13 +3304,18 @@
           "LinearizedWriterTests.OutputsAreDeterministic",
           "LinearizedWriterTests.CompressedHintsPassOwnCheck",
           "LinearizedWriterTests.SplitPagesLinearizeEachGroup",
-          "LinearizedWriterTests.StaticIdLinearizes"
+          "LinearizedWriterTests.StaticIdLinearizes",
+          "LinearizedWriterTests.OutlinesLinearizePassesOwnCheck",
+          "LinearizedWriterTests.UseOutlinesRideFirstPage"
         ],
         "negative": [
           "LinearizedWriterTests.ObjectStreamsGenerateFails",
           "LinearizedWriterTests.ThumbnailsFailExplicitly",
           "LinearizedWriterTests.JsonCannotCombine",
-          "LinearizedWriterTests.CheckCannotCombine"
+          "LinearizedWriterTests.CheckCannotCombine",
+          "LinearizedWriterTests.DirectOutlinesFailExplicitly",
+          "LinearizedWriterTests.OutlineUnknownFirstObjectFailsCheck",
+          "LinearizedWriterTests.OutlineOffsetMismatchFailsCheck"
         ],
         "interaction": [
           "LinearizedWriterTests.JobParityMatchesArgvBytes",

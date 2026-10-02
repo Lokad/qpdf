@@ -226,6 +226,19 @@ internal static class Program
         Check(linPass1.Status == QpdfExecutionStatus.Completed && linPass1.ExitCode == QpdfExitCode.Success, "linearize-pass1 execution");
         Check(Published(linPass1Host, "outputs/p1.bin").Length < Published(linPass1Host, "outputs/lin2.pdf").Length, "pass1 shorter than final");
         Console.WriteLine("PASS first-pass capture (--linearize-pass1)");
+        byte[] outlined = OutlinedTwoPagePdf();
+        InMemoryQpdfHost linOlHost = NewHost("inputs/ol.pdf", outlined);
+        QpdfExecutionResult linOl = await Qpdf.ExecuteAsync(
+            linOlHost,
+            new QpdfCommandInvocation(["inputs/ol.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--", "outputs/ol.pdf"]),
+            CancellationToken.None);
+        Check(linOl.Status == QpdfExecutionStatus.Completed && linOl.ExitCode == QpdfExitCode.Success, "outlined linearize execution");
+        byte[] linOlBytes = Published(linOlHost, "outputs/ol.pdf");
+        Check(Encoding.ASCII.GetString(linOlBytes).Contains("/Outlines"), "outlines preserved");
+        InMemoryQpdfHost linOlCheckHost = NewHost("inputs/ol.pdf", linOlBytes);
+        QpdfCheckResult linOlCheck = await Qpdf.CheckAsync(linOlCheckHost, QpdfPath.From("inputs/ol.pdf"), CancellationToken.None);
+        Check(linOlCheck.Passed, "outlined linearized check");
+        Console.WriteLine("PASS outlined linearized output (--linearize with outlines)");
 
         InMemoryQpdfHost linReportHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult linReport = await Qpdf.ExecuteAsync(
@@ -424,6 +437,60 @@ internal static class Program
         }
 
         parts.Add(ascii.GetBytes("trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n"));
+        using MemoryStream output = new();
+        foreach (byte[] part in parts)
+        {
+            output.Write(part, 0, part.Length);
+        }
+
+        return output.ToArray();
+    }
+
+    private static byte[] OutlinedTwoPagePdf()
+    {
+        Encoding ascii = Encoding.ASCII;
+        byte[] first = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (First) Tj ET");
+        byte[] second = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (Second) Tj ET");
+        List<byte[]> parts = [ascii.GetBytes("%PDF-1.4\n")];
+        Dictionary<int, int> offsets = new();
+        void AddObject(int number, byte[] body)
+        {
+            int offset = 0;
+            foreach (byte[] part in parts)
+            {
+                offset += part.Length;
+            }
+
+            offsets[number] = offset;
+            parts.Add(ascii.GetBytes(number + " 0 obj\n"));
+            parts.Add(body);
+            parts.Add(ascii.GetBytes("\nendobj\n"));
+        }
+
+        AddObject(1, ascii.GetBytes("<< /Type /Catalog /Pages 2 0 R /Outlines 8 0 R >>"));
+        AddObject(2, ascii.GetBytes("<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>"));
+        AddObject(3, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
+        AddObject(4, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
+        AddObject(5, Concat(ascii.GetBytes("<< /Length " + first.Length + " >>\nstream\n"), first, ascii.GetBytes("\nendstream")));
+        AddObject(6, Concat(ascii.GetBytes("<< /Length " + second.Length + " >>\nstream\n"), second, ascii.GetBytes("\nendstream")));
+        AddObject(7, ascii.GetBytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
+        AddObject(8, ascii.GetBytes("<< /Type /Outlines /First 9 0 R /Last 10 0 R /Count 2 >>"));
+        AddObject(9, ascii.GetBytes("<< /Title (Ch1) /Parent 8 0 R /Next 10 0 R /Dest [3 0 R /Fit] >>"));
+        AddObject(10, ascii.GetBytes("<< /Title (Ch2) /Parent 8 0 R /Prev 9 0 R /Dest [4 0 R /Fit] >>"));
+        int xref = 0;
+        foreach (byte[] part in parts)
+        {
+            xref += part.Length;
+        }
+
+        parts.Add(ascii.GetBytes("xref\n0 11\n"));
+        parts.Add(ascii.GetBytes("0000000000 65535 f \n"));
+        for (int n = 1; n <= 10; n++)
+        {
+            parts.Add(ascii.GetBytes(offsets[n].ToString("D10") + " 00000 n \n"));
+        }
+
+        parts.Add(ascii.GetBytes("trailer\n<< /Size 11 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n"));
         using MemoryStream output = new();
         foreach (byte[] part in parts)
         {

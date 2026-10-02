@@ -9,7 +9,8 @@ namespace Lokad.Qpdf.Writing;
 /// page leads part 6 followed by its private then shared objects; other pages
 /// form consecutive page-plus-private runs in part 7; remaining shared
 /// objects fill part 8; the pages tree leads part 9 followed by everything
-/// else. Thumbnails and outlines fail explicitly.
+/// else. Thumbnails fail explicitly; outlines ride the first page when
+/// the catalog requests outline mode and close part 9 otherwise.
 /// </summary>
 internal sealed record ClassifiedGraph(
     IReadOnlyList<int> Part4,
@@ -18,14 +19,18 @@ internal sealed record ClassifiedGraph(
     IReadOnlyList<int> Part8,
     IReadOnlyList<int> Part9,
     IReadOnlyList<int> Pages,
-    IReadOnlyList<HashSet<int>> PageUsers);
+    IReadOnlyList<HashSet<int>> PageUsers,
+    IReadOnlyList<int> Outlines,
+    bool OutlinesInFirstPage);
 
 /// <summary>
 /// Part assignment for linearized publication, mirroring upstream categories.
 /// The catalog opens part 4; the first page leads part 6 followed by its
 /// private then shared objects; other pages form consecutive page-plus-private
 /// runs in part 7; remaining shared objects fill part 8; the pages tree leads
-/// part 9 followed by everything else. Thumbnails and outlines fail explicitly.
+/// part 9 followed by everything else. Thumbnails fail explicitly; outlines
+/// ride the first page when the catalog requests outline mode and close
+/// part 9 otherwise.
 /// </summary>
 internal sealed class LinearizedParts
 {
@@ -37,6 +42,8 @@ internal sealed class LinearizedParts
         IReadOnlyList<int> part9,
         IReadOnlyList<int> pages,
         IReadOnlyList<HashSet<int>> pageUsers,
+        IReadOnlyList<int> outlines,
+        bool outlinesInFirstPage,
         Dictionary<int, int> renumber,
         int lindictNumber,
         int hintNumber,
@@ -49,6 +56,8 @@ internal sealed class LinearizedParts
         Part9 = part9;
         Pages = pages;
         PageUsers = pageUsers;
+        Outlines = outlines;
+        OutlinesInFirstPage = outlinesInFirstPage;
         Renumber = renumber;
         LindictNumber = lindictNumber;
         HintNumber = hintNumber;
@@ -68,6 +77,10 @@ internal sealed class LinearizedParts
     internal IReadOnlyList<int> Pages { get; }
 
     internal IReadOnlyList<HashSet<int>> PageUsers { get; }
+
+    internal IReadOnlyList<int> Outlines { get; }
+
+    internal bool OutlinesInFirstPage { get; }
 
     internal Dictionary<int, int> Renumber { get; }
 
@@ -109,7 +122,7 @@ internal sealed class LinearizedParts
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
 
-        return new LinearizedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.PageUsers, renumber, lindictNumber, hintNumber, lookup);
+        return new LinearizedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, renumber, lindictNumber, hintNumber, lookup);
     }
 
     internal static ClassifiedGraph ClassifyGraph(
@@ -131,11 +144,6 @@ internal sealed class LinearizedParts
         if (!lookup.TryGetValue(catalogNumber, out QpdfObject? catalogRaw) || catalogRaw is not PdfDictionary catalog)
         {
             throw new QpdfParseException($"Linearized output needs object {catalogNumber} to hold the catalog.", null, catalogNumber);
-        }
-
-        if (catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject outlines) && outlines is not PdfNull)
-        {
-            throw new QpdfParseException("Linearized output with outlines is not implemented.", null, catalogNumber);
         }
 
         List<int> pages = CollectPages(catalog, lookup, governor, cancellationToken);
@@ -169,7 +177,11 @@ internal sealed class LinearizedParts
         HashSet<int> pageSet = new(pages);
         List<int> tree = CollectTree(catalog, lookup, pageSet, governor, cancellationToken);
         tree.Sort();
+        tree.RemoveAll(number => users.ContainsKey(number));
         HashSet<int> treeSet = new(tree);
+        List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, governor, cancellationToken);
+        HashSet<int> outlinePlaced = new(outlineOrder);
+        bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog);
         List<int> part4 = new() { catalogNumber };
         foreach (int number in SortedKeys(lookup))
         {
@@ -194,7 +206,7 @@ internal sealed class LinearizedParts
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            if (number == catalogNumber || pageSet.Contains(number) || treeSet.Contains(number) || openDocuments.Contains(number))
+            if (number == catalogNumber || pageSet.Contains(number) || treeSet.Contains(number) || openDocuments.Contains(number) || outlinePlaced.Contains(number))
             {
                 continue;
             }
@@ -228,7 +240,17 @@ internal sealed class LinearizedParts
 
         part6.AddRange(part6Private);
         part6.AddRange(part6Shared);
+        if (outlinesInFirstPage)
+        {
+            part6.AddRange(outlineOrder);
+        }
+
         List<int> part9 = new(tree);
+        if (!outlinesInFirstPage)
+        {
+            part9.AddRange(outlineOrder);
+        }
+
         part9.AddRange(part9Rest);
 
         int placed = part4.Count + part6.Count + part8.Count + part9.Count;
@@ -242,7 +264,67 @@ internal sealed class LinearizedParts
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
 
-        return new ClassifiedGraph(part4, part6, part7, part8, part9, pages, closures);
+        return new ClassifiedGraph(part4, part6, part7, part8, part9, pages, closures, outlineOrder, outlinesInFirstPage);
+    }
+
+    private static List<int> CollectOutlines(
+        Dictionary<int, QpdfObject> lookup,
+        PdfDictionary catalog,
+        int catalogNumber,
+        IReadOnlyList<HashSet<int>> closures,
+        HashSet<int> openDocuments,
+        HashSet<int> treeSet,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        List<int> ordered = new();
+        if (!catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject? outlinesRaw) || outlinesRaw is null || outlinesRaw is PdfNull)
+        {
+            return ordered;
+        }
+
+        if (outlinesRaw is not PdfReference outlinesReference)
+        {
+            throw new QpdfParseException("Linearized output with a direct outlines dictionary is not implemented.", null, catalogNumber);
+        }
+
+        if (!lookup.TryGetValue(outlinesReference.ObjectNumber, out QpdfObject? outlinesTarget) || outlinesTarget is null)
+        {
+            throw new QpdfParseException("Linearized output needs a resolvable outlines dictionary.", null, outlinesReference.ObjectNumber);
+        }
+
+        HashSet<int> outlineSet = new();
+        WalkSubtree(lookup, outlinesReference, true, outlineSet, governor, cancellationToken);
+        foreach (HashSet<int> closure in closures)
+        {
+            outlineSet.ExceptWith(closure);
+        }
+
+        outlineSet.ExceptWith(openDocuments);
+        outlineSet.ExceptWith(treeSet);
+        outlineSet.Remove(catalogNumber);
+        if (!outlineSet.Contains(outlinesReference.ObjectNumber))
+        {
+            throw new QpdfParseException("Linearized output with fragmented outlines is not implemented.", null, catalogNumber);
+        }
+
+        ordered.Add(outlinesReference.ObjectNumber);
+        foreach (int number in SortedKeys(lookup))
+        {
+            if (number != outlinesReference.ObjectNumber && outlineSet.Contains(number))
+            {
+                ordered.Add(number);
+            }
+        }
+
+        return ordered;
+    }
+
+    private static bool IsUseOutlines(PdfDictionary catalog)
+    {
+        return catalog.TryGet(PdfName.FromAscii("PageMode"), out QpdfObject? mode)
+            && mode is PdfName modeName
+            && modeName.DisplayText == "UseOutlines";
     }
 
     private static HashSet<int> CollectOpenDocuments(

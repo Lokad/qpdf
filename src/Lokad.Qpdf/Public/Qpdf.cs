@@ -171,6 +171,7 @@ public static class Qpdf
         }
 
         (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+        PdfReference? singleOutlines = CopyOutlinesForLinearize(copier, document.Engine, linearize);
         SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
         string? singlePageMode = ReadInputPageMode(document.Engine);
 
@@ -249,7 +250,7 @@ public static class Qpdf
 
         byte[]? originalId = TryGetOriginalId(document.Engine);
         string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode);
+        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines);
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
@@ -554,6 +555,7 @@ public static class Qpdf
 
         PdfReference? primaryInfo = null;
         PdfReference? primaryMetadata = null;
+        PdfReference? primaryOutlines = null;
         HashSet<int> catalogExtraIds = new();
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(compression, qdf.Enabled);
@@ -613,6 +615,7 @@ public static class Qpdf
             if (s == primaryIdx)
             {
                 (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+                primaryOutlines = CopyOutlinesForLinearize(copier, document.Engine, linearize);
                 if (primaryInfo is not null)
                 {
                     catalogExtraIds.Add(primaryInfo.ObjectNumber);
@@ -621,6 +624,10 @@ public static class Qpdf
                 if (primaryMetadata is not null)
                 {
                     catalogExtraIds.Add(primaryMetadata.ObjectNumber);
+                }
+                if (primaryOutlines is not null)
+                {
+                    catalogExtraIds.Add(primaryOutlines.ObjectNumber);
                 }
 
                 primaryExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
@@ -793,7 +800,7 @@ public static class Qpdf
         {
             List<NumberedObject> model = new()
             {
-                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode)),
+                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines)),
                 new NumberedObject(2, PagesNode(kids)),
             };
             List<int> orderedPoolIds = new(pool.Keys);
@@ -884,6 +891,11 @@ public static class Qpdf
             {
                 groupNames = new PdfReference(mappedNames, 0);
             }
+            PdfReference? groupOutlines = null;
+            if (primaryOutlines is not null && renumber.TryGetValue(primaryOutlines.ObjectNumber, out int mappedOutlines))
+            {
+                groupOutlines = new PdfReference(mappedOutlines, 0);
+            }
 
             int? groupInfo = null;
             if (primaryInfo is not null && renumber.TryGetValue(primaryInfo.ObjectNumber, out int mappedInfo))
@@ -893,7 +905,7 @@ public static class Qpdf
 
             List<NumberedObject> sub = new()
             {
-                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode)),
+                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines)),
                 new NumberedObject(2, PagesNode(renumberedKids)),
             };
             foreach (int id in kept)
@@ -1089,10 +1101,10 @@ public static class Qpdf
 
     private static PdfDictionary NewCatalog(PdfDictionary? pageLabels)
     {
-        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null);
+        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null, null);
     }
 
-    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode)
+    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef)
     {
         if (finalVersion is null)
         {
@@ -1122,6 +1134,11 @@ public static class Qpdf
         if (pageMode is not null)
         {
             entries[PdfName.FromAscii("PageMode")] = PdfName.FromAscii(pageMode);
+        }
+
+        if (outlinesRef is not null)
+        {
+            entries[PdfName.FromAscii("Outlines")] = outlinesRef;
         }
 
         if (extensionLevel > 0)
@@ -2149,6 +2166,32 @@ public static class Qpdf
         return root as PdfDictionary;
     }
 
+    private static PdfReference? CopyOutlinesForLinearize(GraphCopier copier, DocumentEngine engine, bool linearize)
+    {
+        if (!linearize)
+        {
+            return null;
+        }
+
+        PdfDictionary? catalog = TryGetInputCatalog(engine);
+        if (catalog is null)
+        {
+            return null;
+        }
+
+        if (!catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return null;
+        }
+
+        if (raw is not PdfReference)
+        {
+            throw new QpdfParseException("Linearized output with a direct outlines dictionary is not implemented.", null, null);
+        }
+
+        return copier.AddIndirectObject(raw);
+    }
+
     private static (PdfReference? InfoRef, PdfReference? MetadataRef) CopyCatalogExtras(
         GraphCopier copier,
         DocumentEngine engine,
@@ -2348,7 +2391,7 @@ public static class Qpdf
         HashSet<int> ids = new();
         if (!edits.HasEdits)
         {
-            return new AttachmentAssembly(null, null, ids, 0);
+            return new AttachmentAssembly(null, inputPageMode, ids, 0);
         }
 
         foreach (string key in edits.Removes)
@@ -2498,7 +2541,7 @@ public static class Qpdf
 
         if (existing.Count == 0)
         {
-            return new AttachmentAssembly(null, null, ids, 0);
+            return new AttachmentAssembly(null, inputPageMode, ids, 0);
         }
 
         List<KeyValuePair<string, PdfReference>> pairs = new(existing.Count);

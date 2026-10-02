@@ -573,6 +573,10 @@ internal static class LinearizationCheck
             int outlineCount = (int)outlineReader.ReadBits(32);
             long outlineLength = outlineReader.ReadBits(32);
             outlines = new OutlineTable(outlineFirst, outlineOffset, outlineCount, outlineLength);
+            if (outlineCount > 0)
+            {
+                ValidateOutlineOffset(engine, spans, outlineFirst, outlineOffset);
+            }
         }
 
         return new LinearizationData(
@@ -593,6 +597,25 @@ internal static class LinearizationCheck
         LindictData fields = CheckDictionary(lindict, engine.Data.Length, pageCount, engine);
         return ReadData(engine, fields, pageCount, limits, governor, cancellationToken).SharedTable.TotalCount;
     }
+    private static void ValidateOutlineOffset(DocumentEngine engine, long[] spans, int firstObject, long storedOffset)
+    {
+        if (!engine.XRefEntries.TryGetValue(firstObject, out XrefEntry entry))
+        {
+            throw new QpdfParseException("Outline hint table names an unknown object.", null, null);
+        }
+
+        if (entry.Kind != XrefEntryKind.Uncompressed)
+        {
+            return;
+        }
+
+        long expected = storedOffset >= spans[0] ? storedOffset + spans[1] : storedOffset;
+        if (entry.First != expected)
+        {
+            throw new QpdfParseException("Incorrect offset in outlines table.", null, null);
+        }
+    }
+
 private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, ResourceGovernor governor, out int number)
     {
         governor.ChargeWork(engine.XRefEntries.Count);

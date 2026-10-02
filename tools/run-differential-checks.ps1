@@ -513,6 +513,36 @@ $code = Invoke-ManagedCheck $case "inputs/check-final.pdf" "pass1-final"
 if ($code -ne 0) { Write-Output "[linearize-pass1] FAIL: managed final check exit $code"; $script:failures++ }
 else { Write-Output "[linearize-pass1] managed final validates under managed check" }
 
+# --- case: linearize-outlines (managed vs oracle with outlines) ---
+$case = New-Case 'linearize-outlines'
+Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/outlined-use-2page.pdf" "$case/inputs/u.pdf"
+foreach ($sub in @(@("plain", "inputs/a.pdf"), @("use", "inputs/u.pdf"))) {
+  $tag = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', $sub[1], '--pages', '.', '1', '.', '2', '--linearize', '--', "outputs/$tag.pdf"))
+  if ($code -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: managed emit exit $code"; $script:failures++; continue }
+  $code = Invoke-Oracle $case @('--linearize', '--static-id', $sub[1], '--', "$case/ora-$tag.pdf")
+  if ($code -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: oracle linearize exit $code"; $script:failures++; continue }
+  Copy-Item "$case/lib-$tag.pdf" "$case/inputs/check-$tag.pdf"
+  $mcode = Invoke-ManagedCheck $case "inputs/check-$tag.pdf" "ol-$tag"
+  $ocode = Invoke-OracleCheck "$case/lib-$tag.pdf"
+  if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: managed output checks managed=$mcode oracle=$ocode"; $script:failures++; continue }
+  $ocode = Invoke-OracleCheck "$case/ora-$tag.pdf"
+  if ($ocode -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: oracle output check exit $ocode"; $script:failures++; continue }
+  $mcode = Invoke-ManagedShow $case "inputs/check-$tag.pdf" "olshow-lib-$tag"
+  $ocode = Invoke-OracleShow "$case/lib-$tag.pdf"
+  if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: show exits on managed output managed=$mcode oracle=$ocode"; $script:failures++; continue }
+  $dumps = Get-NormalizedDump "$case/managed-olshow-lib-$tag.txt" "$env:TEMP/qs.txt"
+  if ($dumps[0] -ne $dumps[1]) { Write-Output "[linearize-outlines/$tag] FAIL: show dump mismatch on managed output"; $script:failures++; continue }
+  Copy-Item "$case/ora-$tag.pdf" "$case/inputs/ora-$tag.pdf"
+  $mcode = Invoke-ManagedShow $case "inputs/ora-$tag.pdf" "olshow-ora-$tag"
+  $ocode = Invoke-OracleShow "$case/ora-$tag.pdf"
+  if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: show exits on oracle output managed=$mcode oracle=$ocode"; $script:failures++; continue }
+  $dumps = Get-NormalizedDump "$case/managed-olshow-ora-$tag.txt" "$env:TEMP/qs.txt"
+  if ($dumps[0] -ne $dumps[1]) { Write-Output "[linearize-outlines/$tag] FAIL: show dump mismatch on oracle output"; $script:failures++ }
+  else { Write-Output "[linearize-outlines/$tag] outputs validate and show dumps match on both files" }
+}
+
 # --- case: linearize (managed writer vs oracle writer) ---
 $case = New-Case 'linearize'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -533,4 +563,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize and linearize-pass1."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-pass1 and linearize-outlines."
