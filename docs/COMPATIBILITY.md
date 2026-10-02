@@ -672,6 +672,10 @@ fix-qdf and zlib-flate companions remain later work items.
 
 The typed `FixQdfAsync` companion repairs edited QDF through the shared governor and staged host publication. Like upstream fix-qdf it recomputes object-stream `/N`, `/W` and `/First` with renumbered member tables, every stream length (honoring `ignore_newline`), classic cross-reference tables with trailer `/Size`, unfiltered cross-reference streams, and startxref offsets, while enforcing sequential object numbering. Classic QDF stream lengths now pair through renumbering so multi-stream files keep their length objects. Intentional differences: both paths are explicit host paths with no standard input or output default; carriage returns, empty inputs, truncated structures, and non-sequential objects fail explicitly instead of echoing degenerate output. The fix-qdf and zlib-flate companions stay outside the main flag inventory.
 
+## Managed zlib-flate facade (work item 37)
+
+The typed `RunZlibFlateAsync` companion compresses raw bytes or uncompresses zlib-wrapped bytes between explicit host paths through the governed Flate pipeline: strict header, framing, and Adler-32 checks on inflate with per-chunk memory budgets, and level buckets 1..9 (1 fastest, 9 smallest, default optimal) on deflate. Modes and out-of-range levels fail explicitly without publishing output. Intentional differences: truncated input fails instead of exiting 3 with partial output; empty input deflates to empty output (BCL emits no framing for empty input) instead of an 8-byte stream; compression level 0 and values above 9 fail instead of passing through to zlib; there is no Zopfli support and no host capability supplies `QPDF_ZOPFLI`, which stays treated as unset. The differential lane round-trips both directions against oracle zlib-flate, checks corrupt-input exit parity, and asserts level ordering. The companions stay outside the main flag inventory.
+
 ## Exclusions and differences
 
 Passwords, encryption/decryption, encryption inspection, cryptographic options,

@@ -186,6 +186,26 @@ internal static class Program
         Check(repaired.Status == QpdfExecutionStatus.Completed && repaired.ExitCode == QpdfExitCode.Success, "fix-qdf execution");
         Check(Published(fixHost, "outputs/fixed.pdf").AsSpan().SequenceEqual(qdfBytes), "fix-qdf identity on pristine QDF");
         Console.WriteLine("PASS fix-qdf repair of QDF output");
+
+        byte[] flateInput = Encoding.ASCII.GetBytes(new string('x', 1000));
+        InMemoryQpdfHost flateHost = NewHost("inputs/flate.bin", flateInput);
+        QpdfExecutionResult deflated = await Qpdf.RunZlibFlateAsync(
+            flateHost,
+            QpdfPath.From("inputs/flate.bin"),
+            QpdfPath.From("outputs/flate.z"),
+            new QpdfZlibFlateOptions(QpdfZlibFlateMode.Compress, 9),
+            CancellationToken.None);
+        Check(deflated.Status == QpdfExecutionStatus.Completed && deflated.ExitCode == QpdfExitCode.Success, "flate compress execution");
+        InMemoryQpdfHost inflateHost = NewHost("inputs/flate.z", Published(flateHost, "outputs/flate.z"));
+        QpdfExecutionResult inflated = await Qpdf.RunZlibFlateAsync(
+            inflateHost,
+            QpdfPath.From("inputs/flate.z"),
+            QpdfPath.From("outputs/flate.bin"),
+            new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null),
+            CancellationToken.None);
+        Check(inflated.Status == QpdfExecutionStatus.Completed && inflated.ExitCode == QpdfExitCode.Success, "flate uncompress execution");
+        Check(Published(inflateHost, "outputs/flate.bin").AsSpan().SequenceEqual(flateInput), "flate round trip");
+        Console.WriteLine("PASS zlib-flate companion round trip");
     }
 
     private static InMemoryQpdfHost NewHost(string logical, byte[] bytes)

@@ -4358,6 +4358,125 @@ public static class Qpdf
         }
     }
 
+    /// <summary>
+    /// Runs the zlib-flate companion with default budgets: compresses raw
+    /// bytes or uncompresses zlib-wrapped bytes between explicit host paths.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Host or options are null.</exception>
+    public static ValueTask<QpdfExecutionResult> RunZlibFlateAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        QpdfZlibFlateOptions options,
+        CancellationToken cancellationToken)
+    {
+        return RunZlibFlateAsync(host, inputPath, outputPath, options, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs the zlib-flate companion with explicit budgets. Compression
+    /// levels follow the governed buckets 1..9 and are only meaningful when
+    /// compressing; anything else fails explicitly without publishing output.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Host, options, or limits are null.</exception>
+    public static async ValueTask<QpdfExecutionResult> RunZlibFlateAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        QpdfZlibFlateOptions options,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
+        {
+            return ToFailedResult(new QpdfParseException("The zlib-flate mode is not supported.", null, null));
+        }
+
+        if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
+        {
+            return ToFailedResult(new QpdfParseException("The zlib-flate compression level must be 1..9 while compressing.", null, null));
+        }
+
+        try
+        {
+            await using IQpdfInput input = await host.OpenInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
+            governor.NoteHostOperation();
+            byte[] bytes;
+            try
+            {
+                if (input.Length > limits.MaxInputBytes)
+                {
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                }
+
+                if (input.Length > int.MaxValue)
+                {
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+                }
+
+                governor.ReserveMemory(input.Length);
+                bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                governor.NoteHostOperation();
+            }
+            finally
+            {
+                await input.DisposeAsync().ConfigureAwait(false);
+            }
+
+            byte[] output = options.Mode == QpdfZlibFlateMode.Compress
+                ? FlateFilter.Encode(bytes, options.CompressionLevel, limits, governor)
+                : DecodeZlibFlate(bytes, limits, governor);
+            if (output.Length > limits.MaxOutputBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output.Length, limits.MaxOutputBytes);
+            }
+
+            governor.NoteHostOperation();
+            await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+            TransactionSink sink = new(transaction, governor);
+            await sink.AppendAsync(output, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return QpdfExecutionResult.Completed([], governor.Snapshot());
+        }
+        catch (QpdfException ex)
+        {
+            return ToFailedResult(ex);
+        }
+        catch (OperationCanceledException)
+        {
+            return QpdfExecutionResult.Canceled([], ZeroCounters());
+        }
+    }
+
+    private static byte[] DecodeZlibFlate(byte[] bytes, QpdfLimits limits, ResourceGovernor governor)
+    {
+        try
+        {
+            return FlateFilter.Decode(bytes, null, limits, governor);
+        }
+        catch (QpdfFilterException ex)
+        {
+            throw new QpdfParseException("The zlib-flate input cannot be decoded.", null, null, ex);
+        }
+    }
+
     private static QpdfExecutionCounters ZeroCounters()
     {
         return new QpdfExecutionCounters(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);

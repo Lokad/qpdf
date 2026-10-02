@@ -24,6 +24,7 @@ internal static class Program
                 "emit" => EmitCommand.RunEmit(args[1..]),
                 "emit-job" => EmitCommand.RunEmitJob(args[1..]),
                 "fix-qdf" => FixQdfCommand.RunFixQdf(args[1..]),
+                "zlib-flate" => ZlibFlateCommand.RunZlibFlate(args[1..]),
                 "probe-jpeg" => ProbeJpeg(),
                 "probe-flate" => ProbeFlate(),
                 _ => Fail($"Unknown command '{args[0]}'. Use --help for usage."),
@@ -59,6 +60,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe emit --workdir <dir> --out <logical>=<physical> [--out ...] -- <argv...>");
         Console.WriteLine("  QpdfProbe emit-job --workdir <dir> --job <job.json> --out <logical>=<physical> [--out ...]");
         Console.WriteLine("  QpdfProbe fix-qdf --workdir <dir> --in <logical-input> --out <logical>=<physical>");
+        Console.WriteLine("  QpdfProbe zlib-flate --workdir <dir> --in <logical-input> --out <logical>=<physical> --mode <compress|uncompress> [--level 1..9]");
         Console.WriteLine("  QpdfProbe probe-jpeg");
         Console.WriteLine("  QpdfProbe probe-flate");
         Console.WriteLine();
