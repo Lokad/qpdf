@@ -54,6 +54,15 @@
       "description": "Two outlined pages with PageMode UseOutlines, classic xref, unencrypted. Linearized selection must place outlines in the first-page part."
     },
     {
+      "file": "thumb-1page.pdf",
+      "sha256": "c577f1ddfe79421a54bd5dc6faa2a6e202c6cf1329249acb362b92e2fdafcbbe",
+      "bytes": 736,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a thumbnail image XObject, classic xref, unencrypted. Linearized selection must place the thumbnail in part 9."
+    },
+    {
       "file": "linearized-1page.pdf",
       "sha256": "d5486669a33228b5411d87b11a957aefb20eca47fe2e13cc2f4f65393d0c52ff",
       "bytes": 1205,

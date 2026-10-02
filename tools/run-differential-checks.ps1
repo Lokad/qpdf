@@ -543,6 +543,36 @@ foreach ($sub in @(@("plain", "inputs/a.pdf"), @("use", "inputs/u.pdf"))) {
   else { Write-Output "[linearize-outlines/$tag] outputs validate and show dumps match on both files" }
 }
 
+# --- case: linearize-thumbs (managed vs oracle with thumbnails) ---
+$case = New-Case 'linearize-thumbs'
+Copy-Item "$fixtureDir/thumb-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/t.pdf=$case/lib-t.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--linearize', '--', 'outputs/t.pdf')
+if ($code -ne 0) { Write-Output '[linearize-thumbs] FAIL: managed emit exit $code'; $script:failures++ }
+else {
+  $code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--', "$case/ora-t.pdf")
+  if ($code -ne 0) { Write-Output '[linearize-thumbs] FAIL: oracle linearize exit $code'; $script:failures++ }
+  else {
+    Copy-Item "$case/lib-t.pdf" "$case/inputs/check-t.pdf"
+    $mcode = Invoke-ManagedCheck $case "inputs/check-t.pdf" "thumb-t"
+    $ocode = Invoke-OracleCheck "$case/lib-t.pdf"
+    if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-thumbs] FAIL: managed output checks managed=$mcode oracle=$ocode"; $script:failures++ }
+    else {
+      $ocode = Invoke-OracleCheck "$case/ora-t.pdf"
+      if ($ocode -ne 0) { Write-Output "[linearize-thumbs] FAIL: oracle output check exit $ocode"; $script:failures++ }
+      else {
+        $mcode = Invoke-ManagedShow $case "inputs/check-t.pdf" "thumbshow-lib"
+        $ocode = Invoke-OracleShow "$case/lib-t.pdf"
+        if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-thumbs] FAIL: show exits managed=$mcode oracle=$ocode"; $script:failures++ }
+        else {
+          $dumps = Get-NormalizedDump "$case/managed-thumbshow-lib.txt" "$env:TEMP/qs.txt"
+          if ($dumps[0] -ne $dumps[1]) { Write-Output '[linearize-thumbs] FAIL: show dump mismatch'; $script:failures++ }
+          else { Write-Output '[linearize-thumbs] outputs validate and show dumps match' }
+        }
+      }
+    }
+  }
+}
+
 # --- case: linearize (managed writer vs oracle writer) ---
 $case = New-Case 'linearize'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -563,4 +593,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-pass1 and linearize-outlines."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-pass1, linearize-outlines and linearize-thumbs."

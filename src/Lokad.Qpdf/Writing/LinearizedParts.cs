@@ -9,8 +9,9 @@ namespace Lokad.Qpdf.Writing;
 /// page leads part 6 followed by its private then shared objects; other pages
 /// form consecutive page-plus-private runs in part 7; remaining shared
 /// objects fill part 8; the pages tree leads part 9 followed by everything
-/// else. Thumbnails fail explicitly; outlines ride the first page when
-/// the catalog requests outline mode and close part 9 otherwise.
+/// else. Page thumbnails land in part 9 in page order; outlines ride the
+/// first page when the catalog requests outline mode and close part 9
+/// otherwise.
 /// </summary>
 internal sealed record ClassifiedGraph(
     IReadOnlyList<int> Part4,
@@ -28,9 +29,9 @@ internal sealed record ClassifiedGraph(
 /// The catalog opens part 4; the first page leads part 6 followed by its
 /// private then shared objects; other pages form consecutive page-plus-private
 /// runs in part 7; remaining shared objects fill part 8; the pages tree leads
-/// part 9 followed by everything else. Thumbnails fail explicitly; outlines
-/// ride the first page when the catalog requests outline mode and close
-/// part 9 otherwise.
+/// part 9 followed by everything else. Page thumbnails land in part 9 in
+/// page order; outlines ride the first page when the catalog requests
+/// outline mode and close part 9 otherwise.
 /// </summary>
 internal sealed class LinearizedParts
 {
@@ -153,9 +154,12 @@ internal sealed class LinearizedParts
         }
 
         List<HashSet<int>> closures = new(pages.Count);
+        List<int> thumbImages = new(pages.Count);
         for (int i = 0; i < pages.Count; i++)
         {
-            closures.Add(WalkPage(lookup, pages[i], governor, cancellationToken));
+            PageWalk walk = WalkPage(lookup, pages[i], governor, cancellationToken);
+            closures.Add(walk.Closure);
+            thumbImages.Add(walk.Thumb);
         }
 
         Dictionary<int, HashSet<int>> users = new();
@@ -182,6 +186,15 @@ internal sealed class LinearizedParts
         List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, governor, cancellationToken);
         HashSet<int> outlinePlaced = new(outlineOrder);
         bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog);
+        List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, closures, users, openDocuments, treeSet, outlinePlaced, governor, cancellationToken);
+        HashSet<int> thumbPlaced = new();
+        foreach (List<int> run in thumbRuns)
+        {
+            foreach (int number in run)
+            {
+                thumbPlaced.Add(number);
+            }
+        }
         List<int> part4 = new() { catalogNumber };
         foreach (int number in SortedKeys(lookup))
         {
@@ -206,7 +219,7 @@ internal sealed class LinearizedParts
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            if (number == catalogNumber || pageSet.Contains(number) || treeSet.Contains(number) || openDocuments.Contains(number) || outlinePlaced.Contains(number))
+            if (number == catalogNumber || pageSet.Contains(number) || treeSet.Contains(number) || openDocuments.Contains(number) || outlinePlaced.Contains(number) || thumbPlaced.Contains(number))
             {
                 continue;
             }
@@ -246,6 +259,11 @@ internal sealed class LinearizedParts
         }
 
         List<int> part9 = new(tree);
+        foreach (List<int> run in thumbRuns)
+        {
+            part9.AddRange(run);
+        }
+
         if (!outlinesInFirstPage)
         {
             part9.AddRange(outlineOrder);
@@ -265,6 +283,107 @@ internal sealed class LinearizedParts
         }
 
         return new ClassifiedGraph(part4, part6, part7, part8, part9, pages, closures, outlineOrder, outlinesInFirstPage);
+    }
+
+    private static List<List<int>> CollectThumbs(
+        Dictionary<int, QpdfObject> lookup,
+        IReadOnlyList<int> thumbImages,
+        IReadOnlyList<HashSet<int>> closures,
+        Dictionary<int, HashSet<int>> users,
+        HashSet<int> openDocuments,
+        HashSet<int> treeSet,
+        HashSet<int> outlinePlaced,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        List<HashSet<int>> thumbClosures = new(thumbImages.Count);
+        Dictionary<int, HashSet<int>> thumbUsers = new();
+        for (int i = 0; i < thumbImages.Count; i++)
+        {
+            HashSet<int> thumbClosure = new();
+            if (thumbImages[i] > 0 && lookup.TryGetValue(thumbImages[i], out QpdfObject? image) && image is not null)
+            {
+                thumbClosure.Add(thumbImages[i]);
+                WalkSubtree(lookup, image, false, thumbClosure, governor, cancellationToken);
+            }
+
+            foreach (HashSet<int> closure in closures)
+            {
+                thumbClosure.ExceptWith(closure);
+            }
+
+            thumbClosure.ExceptWith(openDocuments);
+            thumbClosure.ExceptWith(treeSet);
+            thumbClosure.ExceptWith(outlinePlaced);
+            thumbClosures.Add(thumbClosure);
+            foreach (int number in thumbClosure)
+            {
+                if (!thumbUsers.TryGetValue(number, out HashSet<int>? set))
+                {
+                    set = new HashSet<int>();
+                    thumbUsers[number] = set;
+                }
+
+                set.Add(i);
+            }
+        }
+
+        HashSet<int> thumbShared = new();
+        foreach (int number in SortedKeys(lookup))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (thumbUsers.TryGetValue(number, out HashSet<int>? use) && use.Count >= 2)
+            {
+                thumbShared.Add(number);
+            }
+        }
+
+        List<List<int>> runs = new(thumbImages.Count);
+        for (int i = 0; i < thumbImages.Count; i++)
+        {
+            List<int> run = new();
+            List<int> ordered = new(thumbClosures[i]);
+            ordered.Sort();
+            foreach (int number in ordered)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (thumbShared.Contains(number) || users.ContainsKey(number))
+                {
+                    continue;
+                }
+
+                if (number == thumbImages[i])
+                {
+                    run.Insert(0, number);
+                }
+                else
+                {
+                    run.Add(number);
+                }
+            }
+
+            runs.Add(run);
+        }
+
+        List<int> shared = new(thumbShared);
+        shared.Sort();
+        List<int> tail = new();
+        foreach (int number in shared)
+        {
+            if (!users.ContainsKey(number))
+            {
+                tail.Add(number);
+            }
+        }
+
+        if (tail.Count > 0)
+        {
+            runs.Add(tail);
+        }
+
+        return runs;
     }
 
     private static List<int> CollectOutlines(
@@ -484,13 +603,16 @@ internal sealed class LinearizedParts
         return pages;
     }
 
-    private static HashSet<int> WalkPage(
+    private sealed record PageWalk(HashSet<int> Closure, int Thumb);
+
+    private static PageWalk WalkPage(
         Dictionary<int, QpdfObject> lookup,
         int pageNumber,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
         HashSet<int> seen = new() { pageNumber };
+        int thumb = -1;
         List<(QpdfObject Value, bool Top)> stack = new();
         if (lookup.TryGetValue(pageNumber, out QpdfObject? page))
         {
@@ -530,11 +652,6 @@ internal sealed class LinearizedParts
                             seen.Remove(reference.ObjectNumber);
                             continue;
                         }
-                    }
-
-                    if (top && dict.TryGet(PdfName.FromAscii("Thumb"), out QpdfObject thumb) && thumb is not PdfNull)
-                    {
-                        throw new QpdfParseException("Linearized output with thumbnails is not implemented.", null, pageNumber);
                     }
                 }
 
@@ -576,17 +693,20 @@ internal sealed class LinearizedParts
                     && dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject pageKind)
                     && pageKind is PdfName pageName
                     && pageName.DisplayText == "Page";
-                if (topPage
-                    && dictionary.TryGet(PdfName.FromAscii("Thumb"), out QpdfObject thumb)
-                    && thumb is not PdfNull)
-                {
-                    throw new QpdfParseException("Linearized output with thumbnails is not implemented.", null, pageNumber);
-                }
-
                 foreach (PdfName key in dictionary.Keys)
                 {
                     if (topPage && key.DisplayText == "Parent")
                     {
+                        continue;
+                    }
+
+                    if (topPage && key.DisplayText == "Thumb")
+                    {
+                        if (dictionary.TryGet(key, out QpdfObject? thumbRef) && thumbRef is PdfReference thumbReference)
+                        {
+                            thumb = thumbReference.ObjectNumber;
+                        }
+
                         continue;
                     }
 
@@ -598,7 +718,7 @@ internal sealed class LinearizedParts
             }
         }
 
-        return seen;
+        return new PageWalk(seen, thumb);
     }
     private static List<int> CollectTree(
         PdfDictionary catalog,

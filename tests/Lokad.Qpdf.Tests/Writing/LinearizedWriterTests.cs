@@ -45,89 +45,6 @@ public sealed class LinearizedWriterTests
         Assert.Equal(pages, reread.NumberOfPages);
     }
 
-    private static byte[] ThumbFixture()
-    {
-        List<string> bodies = new()
-        {
-            "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> /Thumb 6 0 R >>",
-            "<< /Length 37 >>",
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-            "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /BitsPerComponent 8 /ColorSpace /DeviceGray /Length 1 >>",
-        };
-        List<byte[]> streams = new()
-        {
-            Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (Hello) Tj ET"),
-            new byte[] { 0 },
-        };
-        List<byte[]> parts = new() { Encoding.ASCII.GetBytes("%PDF-1.4\n") };
-        List<long> offsets = new();
-        long position = parts[0].Length;
-        int streamsSeen = 0;
-        for (int i = 0; i < bodies.Count; i++)
-        {
-            int number = i + 1;
-            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
-            if (number == 4 || number == 6)
-            {
-                byte[] data = streams[streamsSeen];
-                streamsSeen += 1;
-                byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
-                byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
-                offsets.Add(position);
-                position += open.Length + streamOpen.Length + data.Length + streamClose.Length;
-                byte[] payload = new byte[open.Length + streamOpen.Length + data.Length + streamClose.Length];
-                int at = 0;
-                Buffer.BlockCopy(open, 0, payload, at, open.Length);
-                at += open.Length;
-                Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
-                at += streamOpen.Length;
-                Buffer.BlockCopy(data, 0, payload, at, data.Length);
-                at += data.Length;
-                parts.Add(payload);
-                continue;
-            }
-
-            byte[] close = Encoding.ASCII.GetBytes("endobj\n");
-            offsets.Add(position);
-            position += open.Length + close.Length;
-            byte[] plain = new byte[open.Length + close.Length];
-            Buffer.BlockCopy(open, 0, plain, 0, open.Length);
-            Buffer.BlockCopy(close, 0, plain, open.Length, close.Length);
-            parts.Add(plain);
-        }
-
-        int size = bodies.Count + 1;
-        StringBuilder xref = new();
-        xref.Append("xref\n0 " + size.ToString() + "\n");
-        xref.Append("0000000000 65535 f \n");
-        foreach (long offset in offsets)
-        {
-            xref.Append(offset.ToString("D10") + " 00000 n \n");
-        }
-
-        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
-        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
-        byte[] tail = Encoding.ASCII.GetBytes(xref.ToString());
-        parts.Add(tail);
-        int total = 0;
-        foreach (byte[] part in parts)
-        {
-            total += part.Length;
-        }
-
-        byte[] output = new byte[total];
-        int cursor = 0;
-        foreach (byte[] part in parts)
-        {
-            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
-            cursor += part.Length;
-        }
-
-        return output;
-    }
-
     [Fact]
     public async Task TwoPageLinearizePassesOwnCheck()
     {
@@ -222,14 +139,28 @@ public sealed class LinearizedWriterTests
     }
 
     [Fact]
-    public async Task ThumbnailsFailExplicitly()
+    public async Task ThumbnailsLinearizePassesOwnCheck()
     {
-        InMemoryQpdfHost host = HostWith("inputs/a.pdf", ThumbFixture());
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.InvalidArguments);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "thumb-1page.pdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--linearize");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await CheckLinearizedAsync(pdf, 1);
+        InMemoryQpdfHost showHost = HostWith("inputs/r.pdf", pdf);
+        List<string> lines = await ShowAsync(showHost, "inputs/r.pdf");
+        Assert.Contains(" 1-2", lines);
+    }
+
+    [Fact]
+    public async Task ThumbnailsLinearizeJobSucceeds()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "thumb-1page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            host,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"linearize\": \"\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        await CheckLinearizedAsync(pdf, 1);
     }
 
     [Fact]

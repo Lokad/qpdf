@@ -3294,7 +3294,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Thumbnails fail explicitly; object-stream combinations fail explicitly (work item 40)."
+        "Object-stream combinations fail explicitly (work item 40)."
       ],
       "evidence": {
         "positive": [
@@ -3306,11 +3306,12 @@
           "LinearizedWriterTests.SplitPagesLinearizeEachGroup",
           "LinearizedWriterTests.StaticIdLinearizes",
           "LinearizedWriterTests.OutlinesLinearizePassesOwnCheck",
-          "LinearizedWriterTests.UseOutlinesRideFirstPage"
+          "LinearizedWriterTests.UseOutlinesRideFirstPage",
+          "LinearizedWriterTests.ThumbnailsLinearizePassesOwnCheck",
+          "LinearizedWriterTests.ThumbnailsLinearizeJobSucceeds"
         ],
         "negative": [
           "LinearizedWriterTests.ObjectStreamsGenerateFails",
-          "LinearizedWriterTests.ThumbnailsFailExplicitly",
           "LinearizedWriterTests.JsonCannotCombine",
           "LinearizedWriterTests.CheckCannotCombine",
           "LinearizedWriterTests.DirectOutlinesFailExplicitly",
