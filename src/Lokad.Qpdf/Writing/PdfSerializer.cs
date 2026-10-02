@@ -165,6 +165,33 @@ internal sealed partial class PdfSerializer
     }
 
     /// <summary>
+    /// Appends one numbered object in the standard frame shared by classic
+    /// publication paths. Stream lengths are recomputed; indirect lengths
+    /// do not survive.
+    /// </summary>
+    internal async ValueTask AppendNumberedObjectAsync(
+        int number,
+        QpdfObject value,
+        IByteSink sink,
+        bool newlineBeforeEndstream,
+        CancellationToken cancellationToken)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        if (sink is null)
+        {
+            throw new ArgumentNullException(nameof(sink));
+        }
+
+        await AppendAsciiAsync($"{number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendValueAsync(value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Serializes with object streams and a cross-reference stream. Object
     /// payloads and xref entries are Flate-packed when compression is active
     /// (plain <c>/FlateDecode</c>, no predictor) and raw otherwise.

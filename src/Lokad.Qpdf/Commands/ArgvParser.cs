@@ -90,6 +90,10 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Option --json cannot be combined with --qdf.", jsonEntryAt, null);
             }
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Option --json cannot be combined with --linearize.", jsonEntryAt, null);
+            }
 
             if (jsonImportAt >= 0)
             {
@@ -144,6 +148,10 @@ internal static class ArgvParser
             if (globals.Qdf)
             {
                 throw new QpdfParseException("JSON import cannot be combined with --qdf.", jsonImportAt, null);
+            }
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("JSON import cannot be combined with --linearize.", jsonImportAt, null);
             }
             if (jsonEntryAt >= 0)
             {
@@ -201,6 +209,10 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Attachment inspection cannot be combined with --qdf.", showAt >= 0 ? showAt : listAt, null);
             }
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Attachment inspection cannot be combined with --linearize.", showAt >= 0 ? showAt : listAt, null);
+            }
 
             if (globals.SplitPages.HasValue || globals.ReplaceInput)
             {
@@ -233,6 +245,10 @@ internal static class ArgvParser
         if (checkAt >= 0 && globals.Qdf)
         {
             throw new QpdfParseException("Options --check and --qdf cannot be combined.", checkAt, null);
+        }
+        if (checkAt >= 0 && globals.Linearize)
+        {
+            throw new QpdfParseException("Options --check and --linearize cannot be combined.", checkAt, null);
         }
 
         if (checkAt >= 0)
@@ -418,6 +434,7 @@ internal static class ArgvParser
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
             Qdf = globals.Qdf,
+            Linearize = globals.Linearize,
             NoOriginalObjectIds = globals.NoOriginalObjectIds,
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
@@ -467,6 +484,7 @@ internal static class ArgvParser
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
             Qdf = globals.Qdf,
+            Linearize = globals.Linearize,
             NoOriginalObjectIds = globals.NoOriginalObjectIds,
             AttachmentsToAdd = edits.Adds,
             AttachmentsToRemove = edits.Removes,
@@ -641,7 +659,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -713,6 +731,8 @@ internal static class ArgvParser
         bool qdf = false;
         bool seenNoOriginalObjectIds = false;
         bool noOriginalObjectIds = false;
+        bool seenLinearize = false;
+        bool linearize = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -1188,6 +1208,23 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--linearize")
+            {
+                if (seenLinearize)
+                {
+                    throw new QpdfParseException("Duplicate --linearize is outside the narrow profile.", i, null);
+                }
+
+                seenLinearize = true;
+                linearize = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--linearize=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --linearize takes no value.", i, null);
+            }
+
             if (argv[i].StartsWith("--no-original-object-ids=", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("Option --no-original-object-ids takes no value.", i, null);
@@ -1210,7 +1247,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2572,6 +2609,7 @@ internal static class ArgvParser
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
             Qdf = globals.Qdf,
+            Linearize = globals.Linearize,
             NoOriginalObjectIds = globals.NoOriginalObjectIds,
         };
     }
@@ -2630,6 +2668,7 @@ internal static class ArgvParser
             KeepInlineImages = globals.KeepInlineImages,
             JpegQuality = globals.JpegQuality,
             Qdf = globals.Qdf,
+            Linearize = globals.Linearize,
             NoOriginalObjectIds = globals.NoOriginalObjectIds,
         };
     }

@@ -405,5 +405,24 @@ if ($code -ne 2 -or $ora -ne 3) { Write-Output "[linearized] FAIL: badH exits ma
 else { Write-Output "[linearized] hint-length mismatch fails on both sides (2/3)" }
 
 
+# --- case: linearize (managed writer vs oracle writer) ---
+$case = New-Case 'linearize'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", "inputs/b.pdf", @(".", "1"), 1))) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', $sub[1], '--pages') + $sub[2] + @('--linearize', '--', "outputs/$name.pdf"))
+  if ($code -ne 0) { Write-Output "[linearize/$name] FAIL: managed emit exit $code"; $script:failures++; continue }
+  $code = Invoke-Oracle $case @('--linearize', '--static-id', $sub[1], '--', "$case/ora-$name.pdf")
+  if ($code -ne 0) { Write-Output "[linearize/$name] FAIL: oracle linearize exit $code"; $script:failures++; continue }
+  Copy-Item "$case/lib-$name.pdf" "$case/inputs/check-$name.pdf"
+  $code = Invoke-ManagedCheck $case "inputs/check-$name.pdf" "lin-$name"
+  $ora = Invoke-OracleCheck "$case/lib-$name.pdf"
+  if ($code -ne 0 -or $ora -ne 0) { Write-Output "[linearize/$name] FAIL: managed output check exits managed=$code oracle=$ora, expected 0/0"; $script:failures++; continue }
+  $ora = Invoke-OracleCheck "$case/ora-$name.pdf"
+  if ($ora -ne 0) { Write-Output "[linearize/$name] FAIL: oracle output check exit $ora"; $script:failures++; continue }
+  if ((Get-PigNpages "$case/lib-$name.pdf") -ne $sub[3] -or (Get-PigNpages "$case/ora-$name.pdf") -ne $sub[3]) { Write-Output "[linearize/$name] FAIL: independent page counts"; $script:failures++ }
+  else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
+}
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate and linearized."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized and linearize."

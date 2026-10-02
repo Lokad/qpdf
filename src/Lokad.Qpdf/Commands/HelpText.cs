@@ -47,6 +47,7 @@ internal static class HelpText
           --generate-appearances              regenerate widget appearances
           --qdf                             editable QDF view of the PDF
           --no-original-object-ids          omit original object IDs in QDF
+          --linearize                       generate linearized web-optimized output
           --optimize-images                   recompress images as JPEG when smaller
           --oi-min-width=n                  minimum width for image optimization
           --oi-min-height=n                 minimum height for image optimization

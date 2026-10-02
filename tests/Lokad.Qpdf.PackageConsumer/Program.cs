@@ -206,6 +206,18 @@ internal static class Program
         Check(inflated.Status == QpdfExecutionStatus.Completed && inflated.ExitCode == QpdfExitCode.Success, "flate uncompress execution");
         Check(Published(inflateHost, "outputs/flate.bin").AsSpan().SequenceEqual(flateInput), "flate round trip");
         Console.WriteLine("PASS zlib-flate companion round trip");
+
+        InMemoryQpdfHost linHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult lin = await Qpdf.ExecuteAsync(
+            linHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--", "outputs/lin.pdf"]),
+            CancellationToken.None);
+        Check(lin.Status == QpdfExecutionStatus.Completed && lin.ExitCode == QpdfExitCode.Success, "linearize execution");
+        byte[] linBytes = Published(linHost, "outputs/lin.pdf");
+        InMemoryQpdfHost linCheckHost = NewHost("inputs/lin.pdf", linBytes);
+        QpdfCheckResult linCheck = await Qpdf.CheckAsync(linCheckHost, QpdfPath.From("inputs/lin.pdf"), CancellationToken.None);
+        Check(linCheck.Passed, "linearized check");
+        Console.WriteLine("PASS linearized output with valid hints (--linearize)");
     }
 
     private static InMemoryQpdfHost NewHost(string logical, byte[] bytes)

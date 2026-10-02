@@ -75,6 +75,10 @@ public sealed class LinearizationTests
         QpdfCheckOutcome linearization = LinearizationOutcome(result);
         Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
         Assert.Contains("hint tables valid", linearization.Detail, StringComparison.Ordinal);
+        if (pages == 2)
+        {
+            Assert.Contains("3 shared groups", linearization.Detail, StringComparison.Ordinal);
+        }
         Assert.True(result.Passed);
     }
 

@@ -266,6 +266,7 @@ internal static class LinearizationCheck
             governor.ChargeWork(1L);
             shared.ReadBits(groupWidth);
         }
+        shared.AlignToByte();
 
         List<long> signatures = new(groups);
         for (int group = 0; group < groups; group++)
@@ -274,6 +275,7 @@ internal static class LinearizationCheck
             governor.ChargeWork(1L);
             signatures.Add(shared.ReadBits(1));
         }
+        shared.AlignToByte();
 
         foreach (long signature in signatures)
         {
@@ -292,6 +294,7 @@ internal static class LinearizationCheck
             governor.ChargeWork(1L);
             shared.ReadBits(objectWidth);
         }
+        shared.AlignToByte();
 HintBitReader pages = new(combined);
         long[] header = new long[13];
         int[] widths = [32, 32, 16, 32, 16, 32, 16, 32, 16, 16, 16, 16, 16];
@@ -306,6 +309,7 @@ HintBitReader pages = new(combined);
             governor.ChargeWork(1L);
             pages.ReadBits((int)header[2]);
         }
+        pages.AlignToByte();
 
         for (int page = 0; page < pageCount; page++)
         {
@@ -313,6 +317,7 @@ HintBitReader pages = new(combined);
             governor.ChargeWork(1L);
             pages.ReadBits((int)header[4]);
         }
+        pages.AlignToByte();
 
         List<long> pageShared = new(pageCount);
         for (int page = 0; page < pageCount; page++)
@@ -327,6 +332,7 @@ HintBitReader pages = new(combined);
 
             pageShared.Add(sharedCount);
         }
+        pages.AlignToByte();
 
         List<long[]> identifiers = new(pageCount);
         for (int page = 0; page < pageCount; page++)
@@ -348,6 +354,7 @@ HintBitReader pages = new(combined);
 
             identifiers.Add(ids);
         }
+        pages.AlignToByte();
 
         for (int page = 0; page < pageCount; page++)
         {
@@ -359,6 +366,7 @@ HintBitReader pages = new(combined);
                 pages.ReadBits((int)header[11]);
             }
         }
+        pages.AlignToByte();
 
         for (int page = 0; page < pageCount; page++)
         {
@@ -366,6 +374,7 @@ HintBitReader pages = new(combined);
             governor.ChargeWork(1L);
             pages.ReadBits((int)header[6]);
         }
+        pages.AlignToByte();
 
         for (int page = 0; page < pageCount; page++)
         {
@@ -373,6 +382,7 @@ HintBitReader pages = new(combined);
             governor.ChargeWork(1L);
             pages.ReadBits((int)header[8]);
         }
+        pages.AlignToByte();
 
 if (outlineAt >= 0L)
         {
@@ -471,6 +481,19 @@ private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, R
 
             _position = checked(_position + count);
             return value;
+        }
+
+        internal void AlignToByte()
+        {
+            long rest = _position & 7L;
+            if (rest != 0L)
+            {
+                _position = checked(_position + (8L - rest));
+                if (_position > checked((long)_data.Length * 8L))
+                {
+                    throw new QpdfParseException("Hint table overruns its stream.", _position >> 3, null);
+                }
+            }
         }
     }
 }

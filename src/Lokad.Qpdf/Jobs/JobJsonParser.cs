@@ -124,6 +124,8 @@ internal static class JobJsonParser
             bool seenGenerateAppearances = false;
             bool qdf = false;
             bool seenQdf = false;
+            bool linearize = false;
+            bool seenLinearize = false;
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
@@ -456,6 +458,15 @@ internal static class JobJsonParser
 
                         seenQdf = true;
                         qdf = RequireBareFlag(property.Value, "qdf");
+                        break;
+                    case "linearize":
+                        if (seenLinearize)
+                        {
+                            throw new QpdfParseException("Duplicate job key linearize.", 0L, null);
+                        }
+
+                        seenLinearize = true;
+                        linearize = RequireBareFlag(property.Value, "linearize");
                         break;
                     case "noOriginalObjectIds":
                         if (seenNoOriginalObjectIds)
@@ -912,6 +923,7 @@ internal static class JobJsonParser
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
                     Qdf = qdf,
+                    Linearize = linearize,
                     NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
@@ -964,6 +976,7 @@ internal static class JobJsonParser
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
                     Qdf = qdf,
+                    Linearize = linearize,
                     NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
@@ -1013,6 +1026,7 @@ internal static class JobJsonParser
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
                     Qdf = qdf,
+                    Linearize = linearize,
                     NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,

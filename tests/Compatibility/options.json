@@ -3277,17 +3277,36 @@
         }
       ],
       "milestone": "M10",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Outlines and thumbnails fail explicitly; object-stream combinations fail explicitly; --linearize-pass1, --check-linearization and --show-linearization stay unsupported (work item 40)."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
+        "positive": [
+          "LinearizedWriterTests.TwoPageLinearizePassesOwnCheck",
+          "LinearizedWriterTests.SinglePageLinearizePassesOwnCheck",
+          "LinearizedWriterTests.MergeLinearizePassesOwnCheck",
+          "LinearizedWriterTests.OutputsAreDeterministic",
+          "LinearizedWriterTests.CompressedHintsPassOwnCheck",
+          "LinearizedWriterTests.SplitPagesLinearizeEachGroup",
+          "LinearizedWriterTests.StaticIdLinearizes"
+        ],
+        "negative": [
+          "LinearizedWriterTests.ObjectStreamsGenerateFails",
+          "LinearizedWriterTests.ThumbnailsFailExplicitly",
+          "LinearizedWriterTests.JsonCannotCombine",
+          "LinearizedWriterTests.CheckCannotCombine",
+          "LinearizedWriterTests.LinearizePass1IsUnsupported"
+        ],
+        "interaction": [
+          "LinearizedWriterTests.JobParityMatchesArgvBytes",
+          "LinearizedWriterTests.QdfSilentlyDisabled"
+        ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:linearize"
+        ]
       }
     },
     {
