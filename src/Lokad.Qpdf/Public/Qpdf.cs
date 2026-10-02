@@ -4267,6 +4267,97 @@ public static class Qpdf
         return QpdfExecutionResult.Failed([diagnostic], ZeroCounters());
     }
 
+    /// <summary>
+    /// Repairs an edited QDF file with default budgets, recomputing stream
+    /// lengths, object-stream tables, cross-references, and startxref offsets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
+    public static ValueTask<QpdfExecutionResult> FixQdfAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        CancellationToken cancellationToken)
+    {
+        return FixQdfAsync(host, inputPath, outputPath, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Repairs an edited QDF file with explicit budgets. Both paths are
+    /// explicit host paths; there is no standard input or output default,
+    /// and the repaired bytes publish through a staged transaction.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Host or limits are null.</exception>
+    public static async ValueTask<QpdfExecutionResult> FixQdfAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        try
+        {
+            await using IQpdfInput input = await host.OpenInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
+            governor.NoteHostOperation();
+            byte[] bytes;
+            try
+            {
+                if (input.Length > limits.MaxInputBytes)
+                {
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                }
+
+                if (input.Length > int.MaxValue)
+                {
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+                }
+
+                governor.ReserveMemory(input.Length);
+                bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                governor.NoteHostOperation();
+            }
+            finally
+            {
+                await input.DisposeAsync().ConfigureAwait(false);
+            }
+
+            governor.NoteHostOperation();
+            await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+            TransactionSink sink = new(transaction, governor);
+            try
+            {
+                QdfRepair repair = new(governor, sink);
+                await repair.RepairAsync(bytes, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OverflowException ex)
+            {
+                throw new QpdfParseException("QDF repair met an unrepresentable offset.", null, null, ex);
+            }
+
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return QpdfExecutionResult.Completed([], governor.Snapshot());
+        }
+        catch (QpdfException ex)
+        {
+            return ToFailedResult(ex);
+        }
+        catch (OperationCanceledException)
+        {
+            return QpdfExecutionResult.Canceled([], ZeroCounters());
+        }
+    }
+
     private static QpdfExecutionCounters ZeroCounters()
     {
         return new QpdfExecutionCounters(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);

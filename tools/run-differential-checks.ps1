@@ -246,5 +246,43 @@ if (Test-Path $fixQdf) {
 } else { Write-Output "[qdf] FAIL: fix-qdf.exe missing beside oracle"; $script:failures++ }
 Write-Output "[qdf] marker assertions done"
 
+# --- case: fixqdf (managed repair must match oracle fix-qdf byte for byte) ---
+$case = New-Case 'fixqdf'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/classic.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--qdf', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "fixqdf setup: classic emit failed ($code)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/b.pdf=$case/streamed.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--qdf', '--object-streams=generate', '--', 'outputs/b.pdf')
+if ($code -ne 0) { throw "fixqdf setup: streamed emit failed ($code)" }
+$fixQdf = Join-Path (Split-Path $QpdfExe -Parent) 'fix-qdf.exe'
+if (-not (Test-Path $fixQdf)) { throw "fixqdf setup: fix-qdf.exe missing beside oracle" }
+foreach ($sub in @(('classic', '(First)', '(First-Longer-Edit)'), ('streamed', '/Helvetica', '/Helvetica-Bold'))) {
+  $name, $needleText, $repText = $sub
+  $raw = [IO.File]::ReadAllBytes("$case/$name.pdf")
+  $needle = [Text.Encoding]::ASCII.GetBytes($needleText)
+  $at = -1; $idx = 0
+  while ($idx + $needle.Length -le $raw.Length) {
+    $m = $true
+    for ($k = 0; $k -lt $needle.Length; $k++) { if ($raw[$idx + $k] -ne $needle[$k]) { $m = $false; break } }
+    if ($m) { $at = $idx; break }
+    $idx++
+  }
+  if ($at -lt 0) { Write-Output "[fixqdf/$name] FAIL: edit needle missing"; $script:failures++; continue }
+  $rep = [Text.Encoding]::ASCII.GetBytes($repText)
+  $edited = New-Object byte[] ($raw.Length - $needle.Length + $rep.Length)
+  [Buffer]::BlockCopy($raw, 0, $edited, 0, $at)
+  [Buffer]::BlockCopy($rep, 0, $edited, $at, $rep.Length)
+  [Buffer]::BlockCopy($raw, $at + $needle.Length, $edited, $at + $rep.Length, $raw.Length - $at - $needle.Length)
+  [IO.File]::WriteAllBytes("$case/inputs/e-$name.pdf", $edited)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'fix-qdf', '--workdir', $case, '--in', "inputs/e-$name.pdf", '--out', "outputs/f-$name.pdf=$case/lib-$name.pdf") -NoNewWindow -Wait -PassThru
+  if ($p.ExitCode -ne 0) { Write-Output "[fixqdf/$name] FAIL: managed fix exit $($p.ExitCode)"; $script:failures++; continue }
+  $p = Start-Process -FilePath $fixQdf -ArgumentList @("$case/inputs/e-$name.pdf", "$case/ora-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/fix-$name-out.txt" -RedirectStandardError "$case/fix-$name-err.txt"
+  if ($p.ExitCode -ne 0) { Write-Output "[fixqdf/$name] FAIL: oracle fix exit $($p.ExitCode)"; $script:failures++; continue }
+  $lh = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes("$case/lib-$name.pdf")))
+  $oh = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes("$case/ora-$name.pdf")))
+  if ($lh -ne $oh) { Write-Output "[fixqdf/$name] FAIL: managed and oracle repairs differ"; $script:failures++ }
+  else { Write-Output "[fixqdf/$name] repairs byte-identical" }
+  Assert-Trio "fixqdf/$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 2
+}
+
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay and qdf."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf and fixqdf."

@@ -65,7 +65,7 @@ coverage, all passing with no engine discrepancies: select, merge,
 uncompress (decoded stream payloads identical), normalize (normalized
 content payloads identical), JSON page-count agreement, forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
-placement), overlay, and qdf (editable view with generated object streams: trio plus QDF/ObjStm/XRef/member markers on both outputs and an upstream fix-qdf round trip). Confirmed intentional differences: our default
+placement), overlay, qdf (editable view with generated object streams: trio plus QDF/ObjStm/XRef/member markers on both outputs and an upstream fix-qdf round trip), and fixqdf (managed repair versus oracle fix-qdf byte-identical on edited classic and streamed files, trios green). Confirmed intentional differences: our default
 output stays uncompressed where upstream compresses, and our `--overlay`
 block requires a second `--` terminator before the output file while
 upstream takes the output directly after the block terminator.
@@ -667,6 +667,10 @@ stay dropped per catalog policy; objects without a source carry no original-ID
 comment. The differential lane covers a two-page QDF object-stream case
 (oracle trio, marker agreement, upstream fix-qdf round trip green). The
 fix-qdf and zlib-flate companions remain later work items.
+
+## Managed fix-qdf repair (work item 36)
+
+The typed `FixQdfAsync` companion repairs edited QDF through the shared governor and staged host publication. Like upstream fix-qdf it recomputes object-stream `/N`, `/W` and `/First` with renumbered member tables, every stream length (honoring `ignore_newline`), classic cross-reference tables with trailer `/Size`, unfiltered cross-reference streams, and startxref offsets, while enforcing sequential object numbering. Classic QDF stream lengths now pair through renumbering so multi-stream files keep their length objects. Intentional differences: both paths are explicit host paths with no standard input or output default; carriage returns, empty inputs, truncated structures, and non-sequential objects fail explicitly instead of echoing degenerate output. The fix-qdf and zlib-flate companions stay outside the main flag inventory.
 
 ## Exclusions and differences
 

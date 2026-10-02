@@ -169,6 +169,23 @@ internal static class Program
         Check(crypto.Diagnostics.Count == 1 && crypto.Diagnostics[0].Code == QpdfDiagnosticCode.UnsupportedCryptoOperation, "crypto diagnostic code");
         Check(!crypto.Diagnostics[0].Message.Contains("s3cret", StringComparison.Ordinal), "no secret echo");
         Console.WriteLine("PASS crypto rejection without secret echo");
+
+        InMemoryQpdfHost qdfHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult qdf = await Qpdf.ExecuteAsync(
+            qdfHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--qdf", "--", "outputs/qdf.pdf"]),
+            CancellationToken.None);
+        Check(qdf.Status == QpdfExecutionStatus.Completed && qdf.ExitCode == QpdfExitCode.Success, "qdf execution");
+        byte[] qdfBytes = Published(qdfHost, "outputs/qdf.pdf");
+        InMemoryQpdfHost fixHost = NewHost("inputs/qdf.pdf", qdfBytes);
+        QpdfExecutionResult repaired = await Qpdf.FixQdfAsync(
+            fixHost,
+            QpdfPath.From("inputs/qdf.pdf"),
+            QpdfPath.From("outputs/fixed.pdf"),
+            CancellationToken.None);
+        Check(repaired.Status == QpdfExecutionStatus.Completed && repaired.ExitCode == QpdfExitCode.Success, "fix-qdf execution");
+        Check(Published(fixHost, "outputs/fixed.pdf").AsSpan().SequenceEqual(qdfBytes), "fix-qdf identity on pristine QDF");
+        Console.WriteLine("PASS fix-qdf repair of QDF output");
     }
 
     private static InMemoryQpdfHost NewHost(string logical, byte[] bytes)
