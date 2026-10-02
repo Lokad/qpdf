@@ -40,6 +40,7 @@ internal sealed class StreamedParts
         IReadOnlyList<int> part8,
         IReadOnlyList<int> part9,
         IReadOnlyList<int> pages,
+        IReadOnlyList<HashSet<int>> pageUsers,
         IReadOnlyList<int> outlines,
         bool outlinesInFirstPage,
         bool outlinesDirect,
@@ -63,6 +64,7 @@ internal sealed class StreamedParts
         Part8 = part8;
         Part9 = part9;
         Pages = pages;
+        PageUsers = pageUsers;
         Outlines = outlines;
         OutlinesInFirstPage = outlinesInFirstPage;
         OutlinesDirect = outlinesDirect;
@@ -92,6 +94,8 @@ internal sealed class StreamedParts
     internal IReadOnlyList<int> Part9 { get; }
 
     internal IReadOnlyList<int> Pages { get; }
+
+    internal IReadOnlyList<HashSet<int>> PageUsers { get; }
 
     internal IReadOnlyList<int> Outlines { get; }
 
@@ -295,7 +299,7 @@ internal sealed class LinearizedParts
             readonlyMembers[entry.Key] = entry.Value;
         }
 
-        return new StreamedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.Outlines, graph.OutlinesInFirstPage, outlinesDirect, renumber, members, readonlyMembers, containerSet, lindictNumber, hintNumber, xrefFirstNumber, xrefMainNumber, firstSize, mainSize, maxNumber, maxMemberIndex, lookup);
+        return new StreamedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, outlinesDirect, renumber, members, readonlyMembers, containerSet, lindictNumber, hintNumber, xrefFirstNumber, xrefMainNumber, firstSize, mainSize, maxNumber, maxMemberIndex, lookup);
     }
 
     private static void PlanContainers(
@@ -710,30 +714,37 @@ internal sealed class LinearizedParts
 
         HashSet<int> outlineSet = new();
         WalkSubtree(lookup, outlinesReference, true, outlineSet, owners, governor, cancellationToken);
-        foreach (HashSet<int> closure in closures)
-        {
-            outlineSet.ExceptWith(closure);
-        }
-
-        outlineSet.ExceptWith(openDocuments);
-        outlineSet.ExceptWith(treeSet);
-        outlineSet.Remove(catalogNumber);
         int outlineRoot = OwnerOf(owners, outlinesReference.ObjectNumber);
         if (!outlineSet.Contains(outlineRoot))
         {
             throw new QpdfParseException("Linearized output with fragmented outlines is not implemented.", null, catalogNumber);
         }
 
+        HashSet<int> placedElsewhere = new();
+        foreach (HashSet<int> closure in closures)
+        {
+            placedElsewhere.UnionWith(closure);
+        }
+
+        placedElsewhere.UnionWith(openDocuments);
+        placedElsewhere.UnionWith(treeSet);
+        placedElsewhere.Add(catalogNumber);
         HashSet<int> orderedAdded = new();
-        ordered.Add(outlineRoot);
-        orderedAdded.Add(outlineRoot);
+        if (!placedElsewhere.Contains(outlineRoot))
+        {
+            ordered.Add(outlineRoot);
+            orderedAdded.Add(outlineRoot);
+        }
+
         foreach (int number in SortedKeys(lookup))
         {
             int resolved = OwnerOf(owners, number);
-            if (resolved != outlineRoot && outlineSet.Contains(resolved) && orderedAdded.Add(resolved))
+            if (!outlineSet.Contains(resolved) || placedElsewhere.Contains(resolved) || !orderedAdded.Add(resolved))
             {
-                ordered.Add(resolved);
+                continue;
             }
+
+            ordered.Add(resolved);
         }
 
         return ordered;

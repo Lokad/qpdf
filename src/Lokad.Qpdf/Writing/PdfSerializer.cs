@@ -522,7 +522,7 @@ internal sealed partial class PdfSerializer
         }
     }
 
-    private static int BytesNeeded(long value)
+    internal static int BytesNeeded(long value)
     {
         int bytes = 0;
         while (value != 0)
@@ -534,7 +534,7 @@ internal sealed partial class PdfSerializer
         return bytes;
     }
 
-    private static void AppendUInt(List<byte> output, long value, int width)
+    internal static void AppendUInt(List<byte> output, long value, int width)
     {
         for (int i = width - 1; i >= 0; i--)
         {
@@ -543,7 +543,7 @@ internal sealed partial class PdfSerializer
     }
 
 
-    private async ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
+    internal async ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
         if (depth > _limits.MaxNestingDepth)
         {

@@ -1442,12 +1442,7 @@ public static class Qpdf
 
         if (linearize)
         {
-            if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
-            {
-                throw new QpdfParseException("Option --linearize cannot be combined with object streams.", null, null);
-            }
-
-            await PublishLinearizedAsync(host, version, model, infoRef, originalId1, staticId, newlineBeforeEndstream, compressStreams, compressionLevel, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishLinearizedAsync(host, version, model, objectStreamGroups, infoRef, originalId1, staticId, newlineBeforeEndstream, compressStreams, compressionLevel, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -1488,6 +1483,7 @@ public static class Qpdf
         IQpdfHost host,
         PdfVersion version,
         List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
         int? infoRef,
         byte[]? originalId1,
         bool staticId,
@@ -1514,7 +1510,15 @@ public static class Qpdf
             byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
             Writing.LinearizedWriter probe = new(limits, governor);
             MemorySink memory = new(limits, governor);
-            await probe.WriteLinearizedAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
+            if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
+            {
+                await probe.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await probe.WriteLinearizedAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
+            }
+
             byte[] digest = MD5.HashData(memory.ToArray());
             id2 = digest;
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
@@ -1523,6 +1527,23 @@ public static class Qpdf
         governor.NoteHostOperation();
         await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
+        if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
+        {
+            if (linearizePass1 is null)
+            {
+                await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, null, cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            await using IQpdfOutputTransaction streamedPass1 = await host.CreateOutputAsync(linearizePass1.Value, cancellationToken).ConfigureAwait(false);
+            TransactionSink streamedPass1Sink = new(streamedPass1, governor);
+            await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, streamedPass1Sink, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            await streamedPass1.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (linearizePass1 is null)
         {
             await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, null, cancellationToken).ConfigureAwait(false);

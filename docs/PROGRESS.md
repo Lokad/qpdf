@@ -108,12 +108,14 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1071 tests (844
+- Locked restore, Release build with zero warnings, and all 1078 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
   plus 2 streamed-manifest rows (oracle object-stream fixtures), plus 5 streamed-inspection cases
-  (check/show over object-stream files), plus 3 streamed-parts cases (container placement and numbering)).
+  (check/show over object-stream files), plus 3 streamed-parts cases (container placement and numbering),
+  plus 3 streamed-emission cases (managed check, determinism, classic fallback), plus 5 streamed-mode cases
+  (generate/preserve/disable, outlines, job parity)).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -128,7 +130,8 @@ binary.
 1. Work item 40 (in progress): `--check-linearization`, `--show-linearization`, `--linearize-pass1`, outlines and
    thumbnails committed (argv/job inspection plus full hint-table dump matching the oracle line for line, with
    a shared file-numbering classifier); streamed fixtures plus check/show coverage plus container-aware part
-   classification committed; remaining: streamed emission, object-stream mode plumbing, differential evidence (M10). (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
+   classification, streamed emission (raw xref streams, object-stream containers, replay-checked two-pass),
+   and object-stream mode plumbing committed; remaining: differential evidence (M10). (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
 2. Extend differential coverage (rotation flattening with /Rotate fixtures, error-path parity,
    coalesce/prune content operations, structural JSON, first-page selection) — done and green;
    remaining validation work rides the M11 completion audit.

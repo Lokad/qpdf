@@ -1,5 +1,8 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Writing;
 using UglyToad.PdfPig;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -106,14 +109,57 @@ public sealed class LinearizedWriterTests
     }
 
     [Fact]
-    public async Task ObjectStreamsGenerateFails()
+    public async Task ObjectStreamsGenerateLinearizes()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", "--object-streams=generate", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--object-streams=generate", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.InvalidArguments);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        string text = Encoding.Latin1.GetString(pdf);
+        Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
+        Assert.Contains("/Type /XRef", text, StringComparison.Ordinal);
+        await CheckLinearizedAsync(pdf, 2);
+    }
+
+    [Theory]
+    [InlineData("--object-streams=preserve")]
+    [InlineData("--object-streams=disable")]
+    public async Task ObjectStreamsClassicModesStayClassic(string flag)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--linearize", flag, "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        string text = Encoding.Latin1.GetString(pdf);
+        Assert.Contains("\nxref\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("/Type /ObjStm", text, StringComparison.Ordinal);
+        await CheckLinearizedAsync(pdf, 2);
+    }
+
+    [Fact]
+    public async Task ObjectStreamsGenerateWithOutlines()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "outlined-2page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--object-streams=generate", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.Contains("/Type /ObjStm", Encoding.Latin1.GetString(pdf), StringComparison.Ordinal);
+        await CheckLinearizedAsync(pdf, 2);
+    }
+
+    [Fact]
+    public async Task ObjectStreamsGenerateJobSucceeds()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "linearize": "", "objectStreams": "generate"}""";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.Contains("/Type /ObjStm", Encoding.Latin1.GetString(pdf), StringComparison.Ordinal);
+        await CheckLinearizedAsync(pdf, 2);
     }
 
     [Fact]
@@ -516,5 +562,110 @@ public sealed class LinearizedWriterTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+    }
+    private static List<NumberedObject> StreamedModel()
+    {
+        byte[] content = System.Text.Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+        Dictionary<PdfName, QpdfObject> resources = new()
+        {
+            [PdfName.FromAscii("Font")] = new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("F1")] = new PdfReference(5, 0),
+            }),
+        };
+        return new List<NumberedObject>
+        {
+            new(1, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("Type")] = PdfName.FromAscii("Catalog"),
+                [PdfName.FromAscii("Pages")] = new PdfReference(2, 0),
+            })),
+            new(2, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
+                [PdfName.FromAscii("Kids")] = new PdfArray([new PdfReference(3, 0)]),
+                [PdfName.FromAscii("Count")] = new PdfInteger("1", 1),
+            })),
+            new(3, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("Type")] = PdfName.FromAscii("Page"),
+                [PdfName.FromAscii("Parent")] = new PdfReference(2, 0),
+                [PdfName.FromAscii("MediaBox")] = new PdfArray([new PdfInteger("0", 0), new PdfInteger("0", 0), new PdfInteger("612", 612), new PdfInteger("792", 792)]),
+                [PdfName.FromAscii("Contents")] = new PdfReference(4, 0),
+                [PdfName.FromAscii("Resources")] = new PdfDictionary(resources),
+            })),
+            new(4, new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), content)),
+            new(5, new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+            {
+                [PdfName.FromAscii("Type")] = PdfName.FromAscii("Font"),
+                [PdfName.FromAscii("BaseFont")] = PdfName.FromAscii("Helvetica"),
+            })),
+        };
+    }
+
+    private sealed class MemorySink : IByteSink
+    {
+        private readonly List<byte> _bytes = new();
+
+        public long Length => _bytes.Count;
+
+        public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
+        {
+            _bytes.AddRange(chunk.ToArray());
+            return ValueTask.CompletedTask;
+        }
+
+        public byte[] ToArray()
+        {
+            return [.. _bytes];
+        }
+    }
+
+    private static async Task<byte[]> WriteStreamedAsync(List<NumberedObject> model, List<IReadOnlyList<int>> groups)
+    {
+        LinearizedWriter writer = new(QpdfLimits.Default, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None));
+        MemorySink sink = new();
+        byte[] id = new byte[16];
+        long written = await writer.WriteLinearizedStreamedAsync(new PdfVersion(1, 5), model, groups, null, id, id, false, false, null, sink, null, CancellationToken.None);
+        Assert.Equal(sink.Length, written);
+        return sink.ToArray();
+    }
+
+    [Fact]
+    public async Task StreamedLinearizedOutputPassesOwnCheck()
+    {
+        byte[] pdf = await WriteStreamedAsync(StreamedModel(), new List<IReadOnlyList<int>> { new List<int> { 5 } });
+        string text = System.Text.Encoding.Latin1.GetString(pdf);
+        Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
+        Assert.Contains("/Type /XRef", text, StringComparison.Ordinal);
+        InMemoryQpdfHost host = HostWith("inputs/r.pdf", pdf);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        Assert.Equal(1, check.PageCount);
+        QpdfCheckOutcome linearization = Assert.Single(check.Checks, outcome => outcome.Name == "linearization");
+        Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
+        Assert.True(check.Passed);
+    }
+
+    [Fact]
+    public async Task StreamedLinearizedOutputIsDeterministic()
+    {
+        List<NumberedObject> model = StreamedModel();
+        List<IReadOnlyList<int>> groups = new() { new List<int> { 5 } };
+        byte[] first = await WriteStreamedAsync(model, groups);
+        byte[] second = await WriteStreamedAsync(model, groups);
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public async Task EmptyStreamedGroupsFallBackToClassic()
+    {
+        byte[] pdf = await WriteStreamedAsync(StreamedModel(), new List<IReadOnlyList<int>>());
+        string text = System.Text.Encoding.Latin1.GetString(pdf);
+        Assert.Contains("\nxref\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("/Type /ObjStm", text, StringComparison.Ordinal);
+        InMemoryQpdfHost host = HostWith("inputs/r.pdf", pdf);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        Assert.Equal(1, check.PageCount);
+        Assert.True(check.Passed);
     }
 }
