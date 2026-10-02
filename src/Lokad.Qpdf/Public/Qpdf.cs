@@ -4438,6 +4438,40 @@ public static class Qpdf
                     }
                 }
 
+                bool wantsStreamData = showObject.RawStreamData || showObject.FilteredStreamData;
+                if (target is PdfStream dataStream && wantsStreamData)
+                {
+                    QpdfPath output = showObject.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
+                    if (string.Equals(showObject.Input.Value, output.Value, StringComparison.Ordinal))
+                    {
+                        throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
+                    }
+
+                    byte[] payload = dataStream.Data;
+                    if (showObject.FilteredStreamData)
+                    {
+                        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine);
+                        payload = FilterChain.Decode(dataStream.Data, stages, limits, governor);
+                    }
+
+                    if (payload.Length > limits.MaxOutputBytes)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), payload.Length, limits.MaxOutputBytes);
+                    }
+
+                    governor.NoteHostOperation();
+                    await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(output, cancellationToken).ConfigureAwait(false);
+                    TransactionSink sink = new(transaction, governor);
+                    await sink.AppendAsync(payload, cancellationToken).ConfigureAwait(false);
+                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                }
+
+                if (showObject.Output is not null)
+                {
+                    throw new QpdfParseException("The output file is only used for stream data.", 0L, null);
+                }
+
                 if (target is null || target is PdfNull)
                 {
                     diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "null");

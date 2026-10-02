@@ -53,6 +53,10 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool Verbose { get; init; }
 
+    public bool RawStreamData { get; init; }
+
+    public bool FilteredStreamData { get; init; }
+
     public bool RecompressFlate { get; init; }
 
     public string? CompressionLevel { get; init; }
@@ -228,7 +232,10 @@ internal sealed record ShowNpagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery)
 internal sealed record ShowPagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated object inspection.</summary>
-internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input);
+internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input)
+{
+    public QpdfPath? Output { get; init; }
+}
 
 /// <summary>Validated cross-reference inspection.</summary>
 internal sealed record ShowXrefPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input);

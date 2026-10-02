@@ -692,6 +692,56 @@ foreach ($sub in @(@("dict", "inputs/a.pdf", "3"), @("stream", "inputs/a.pdf", "
   else { Write-Output "[show-object/$name] object dumps match line for line" }
 }
 
+# --- case: show-object-stream-data (managed vs oracle stream payloads) ---
+$case = New-Case 'show-object-stream-data'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Oracle $case @('--stream-data=compress', 'inputs/a.pdf', '--', "$case/inputs/c.pdf")
+if ($code -ne 0) { throw "show-object-stream-data setup: oracle compress failed ($code)" }
+function Invoke-ManagedStream {
+  param([string]$Workdir, [string[]]$EmitArgs, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "show-object-stream-data: managed emit produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+function Invoke-OracleBytes {
+  param([string[]]$OracleArgs, [string]$OutFile)
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList $OracleArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $OutFile -RedirectStandardError "$env:TEMP/qse.txt"
+  return $p.ExitCode
+}
+function Assert-StreamBytesEqual {
+  param([string]$Name, [string]$LibFile, [string]$OraFile)
+  $lh = (Get-FileHash $LibFile -Algorithm SHA256).Hash
+  $oh = (Get-FileHash $OraFile -Algorithm SHA256).Hash
+  if ($lh -ne $oh) { Write-Output "[show-object-stream-data/$Name] FAIL: payload bytes differ"; $script:failures++ }
+  else { Write-Output "[show-object-stream-data/$Name] payloads byte-identical" }
+}
+$code = Invoke-ManagedStream $case @('emit', '--workdir', $case, '--out', "outputs/r.bin=$case/lib-r.bin", '--', 'inputs/a.pdf', '--show-object=4', '--raw-stream-data', '--', 'outputs/r.bin') "stream-raw"
+if ($code -ne 0) { Write-Output "[show-object-stream-data/raw] FAIL: managed exit $code"; $script:failures++ }
+else {
+  $code = Invoke-OracleBytes @('--show-object=4', '--raw-stream-data', "$case/inputs/a.pdf") "$case/ora-r.bin"
+  if ($code -ne 0) { Write-Output "[show-object-stream-data/raw] FAIL: oracle exit $code"; $script:failures++ }
+  else { Assert-StreamBytesEqual 'raw' "$case/lib-r.bin" "$case/ora-r.bin" }
+}
+$code = Invoke-ManagedStream $case @('emit', '--workdir', $case, '--out', "outputs/f.bin=$case/lib-f.bin", '--', 'inputs/c.pdf', '--show-object=4', '--filtered-stream-data', '--', 'outputs/f.bin') "stream-filtered"
+if ($code -ne 0) { Write-Output "[show-object-stream-data/filtered] FAIL: managed exit $code"; $script:failures++ }
+else {
+  $code = Invoke-OracleBytes @('--show-object=4', '--filtered-stream-data', "$case/inputs/c.pdf") "$case/ora-f.bin"
+  if ($code -ne 0) { Write-Output "[show-object-stream-data/filtered] FAIL: oracle exit $code"; $script:failures++ }
+  else { Assert-StreamBytesEqual 'filtered' "$case/lib-f.bin" "$case/ora-f.bin" }
+}
+foreach ($sub in @(@("missing", "inputs/a.pdf", "99", "trailerless"), @("trailer", "inputs/a.pdf", "trailer", "dictionary"))) {
+  $name = $sub[0]
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], "--show-object=$($sub[2])", '--raw-stream-data') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-$name.txt"
+  if ($p.ExitCode -ne 0) { Write-Output "[show-object-stream-data/$name] FAIL: managed exit $($p.ExitCode)"; $script:failures++; continue }
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @("--show-object=$($sub[2])", '--raw-stream-data', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  if ($p.ExitCode -ne 0) { Write-Output "[show-object-stream-data/$name] FAIL: oracle exit $($p.ExitCode)"; $script:failures++; continue }
+  $mLines = Get-Content "$case/managed-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-object-stream-data/$name] FAIL: dump mismatch"; $script:failures++ }
+  else { Write-Output "[show-object-stream-data/$name] dumps match line for line" }
+}
+
 # --- case: show-xref (managed vs oracle cross-reference entries) ---
 $case = New-Case 'show-xref'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -911,4 +961,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

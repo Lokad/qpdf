@@ -97,6 +97,10 @@ internal static class JobJsonParser
             bool seenReportMemoryUsage = false;
             bool verbose = false;
             bool seenVerbose = false;
+            bool rawStreamData = false;
+            bool seenRawStreamData = false;
+            bool filteredStreamData = false;
+            bool seenFilteredStreamData = false;
             string? keepFilesOpen = null;
             bool seenKeepFilesOpen = false;
             long keepFilesOpenThreshold = 200L;
@@ -808,6 +812,24 @@ internal static class JobJsonParser
                         seenKeepFilesOpenThreshold = true;
                         keepFilesOpenThreshold = RequireKeepFilesOpenThreshold(property.Value);
                         break;
+                    case "rawStreamData":
+                        if (seenRawStreamData)
+                        {
+                                throw new QpdfParseException("Duplicate job key rawStreamData.", 0L, null);
+                        }
+
+                        seenRawStreamData = true;
+                        rawStreamData = RequireBareFlag(property.Value, "rawStreamData");
+                        break;
+                    case "filteredStreamData":
+                        if (seenFilteredStreamData)
+                        {
+                                throw new QpdfParseException("Duplicate job key filteredStreamData.", 0L, null);
+                        }
+
+                        seenFilteredStreamData = true;
+                        filteredStreamData = RequireBareFlag(property.Value, "filteredStreamData");
+                        break;
                     case "testJsonSchema":
                         if (seenTestJsonSchema)
                         {
@@ -1001,6 +1023,11 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job withImages requires showPages.", 0L, null);
             }
 
+            if ((seenRawStreamData || seenFilteredStreamData) && showObject is null)
+            {
+                throw new QpdfParseException("Job rawStreamData and filteredStreamData require showObject.", 0L, null);
+            }
+
             if (input == "-")
             {
                 throw new QpdfParseException("Standard input is not a seekable PDF input.", 0L, null);
@@ -1146,7 +1173,7 @@ internal static class JobJsonParser
 
             if (showObject is not null)
             {
-                if (hasPages || output is not null
+                if (hasPages || (output is not null && !seenRawStreamData && !seenFilteredStreamData)
                     || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
@@ -1172,6 +1199,9 @@ internal static class JobJsonParser
                     Verbose = verbose,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
+                    Output = output is null ? null : SelectionPlan.CheckedPath(output),
+                    RawStreamData = rawStreamData,
+                    FilteredStreamData = filteredStreamData,
                 };
             }
 

@@ -272,9 +272,17 @@ the same explicit combination failures; the differential lane compares dumps lin
 `qpdf input --show-object={trailer|obj[,gen]}` (plus job key `showObject`) renders one object
 definition in canonical single-line layout (sorted keys, oracle-identical spacing) across argv
 and job paths, resolving compressed members and reporting `null` for missing objects like the
-reference; streams show their dictionary only, and non-zero generations fail explicitly. Raw
-and filtered stream-data output stays unimplemented. The differential lane compares dumps line
-for line on plain, stream, trailer, missing, and compressed objects.
+reference; streams show their dictionary only, and non-zero generations fail explicitly.
+`--show-object={trailer|obj[,gen]}` with `--raw-stream-data` (plus job key `rawStreamData`)
+or `--filtered-stream-data` (plus job key `filteredStreamData`, decoded as `--decode-level=all`)
+publishes exact stream bytes to a required output file (byte-identical with the reference,
+filtered winning when both are given); non-stream resolutions keep the diagnostics view and
+an output file is then rejected, while valued, duplicate, misplaced, and `--normalize-content`
+combinations fail explicitly (where upstream silently ignores the modifier outside `--show-object`
+and allows the normalization combination). The differential lane compares payloads byte for
+byte on plain and compressed streams plus line-for-line trailer and missing dumps; the plain
+show-object lane still compares definitions line for line on plain, stream, trailer, missing,
+and compressed objects.
 
 `qpdf input --show-xref` (plus job key `showXref`) lists every live cross-reference entry
 (`n/gen: uncompressed; offset`, `n/0: compressed; stream, index`, free entries skipped)

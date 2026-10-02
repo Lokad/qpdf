@@ -2522,17 +2522,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowObjectTests.PublishesFilteredStreamBytes", "ShowObjectTests.FilteredBeatsRaw", "ShowObjectTests.JobStreamDataMatchesArgv"],
+        "negative": ["ShowObjectTests.StreamDataNeedsExactlyOneOutput", "ShowObjectTests.RejectsMalformedStreamForms", "ShowObjectTests.StreamDataRequiresShowObject", "ShowObjectTests.FailsOnUndecodableFiltered", "ShowObjectTests.JobStreamDataRejectsCombinations"],
+        "interaction": ["ShowObjectTests.JobStreamDataMatchesArgv", "ShowObjectTests.JobStreamDataRejectsCombinations"],
+        "resource": ["ShowObjectTests.StreamDataYieldsToExhaustedBudget"],
+        "oracle": ["diff:show-object-stream-data"]
       }
     },
     {
@@ -4269,17 +4267,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowObjectTests.PublishesRawStreamBytes", "ShowObjectTests.IgnoresStreamFlagsForTrailer", "ShowObjectTests.IgnoresStreamFlagsForMissingObject", "ShowObjectTests.JobStreamDataMatchesArgv"],
+        "negative": ["ShowObjectTests.StreamDataNeedsExactlyOneOutput", "ShowObjectTests.RejectsMalformedStreamForms", "ShowObjectTests.StreamDataRequiresShowObject", "ShowObjectTests.JobStreamDataRejectsCombinations"],
+        "interaction": ["ShowObjectTests.JobStreamDataMatchesArgv", "ShowObjectTests.JobStreamDataRejectsCombinations"],
+        "resource": ["ShowObjectTests.StreamDataYieldsToExhaustedBudget"],
+        "oracle": ["diff:show-object-stream-data"]
       }
     },
     {

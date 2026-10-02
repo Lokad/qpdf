@@ -1,3 +1,4 @@
+using System.Text;
 using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.Tests.Inspection;
@@ -14,6 +15,13 @@ public sealed class ShowObjectTests
         byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), fixture));
         InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From(logical), bytes, QpdfInputOwnership.Copy);
+        return host;
+    }
+
+    private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
 
@@ -175,5 +183,226 @@ public sealed class ShowObjectTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, diagnostic.Code);
+    }
+
+    private static byte[] BuildFlatePage()
+    {
+        byte[] raw = Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (Hello) Tj ET");
+        byte[] encoded;
+        using (MemoryStream encodedStream = new())
+        {
+            using (System.IO.Compression.ZLibStream compressor = new(encodedStream, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true))
+            {
+                compressor.Write(raw, 0, raw.Length);
+            }
+
+            encoded = encodedStream.ToArray();
+        }
+
+        List<string> bodies = new()
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>",
+            "<< /Length " + encoded.Length.ToString() + " /Filter /FlateDecode >>",
+        };
+        List<byte[]> parts = new();
+        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
+        parts.Add(header);
+        List<long> offsets = new();
+        long position = header.Length;
+        for (int i = 0; i < bodies.Count; i++)
+        {
+            int number = i + 1;
+            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
+            byte[] streamData = number == 4 ? encoded : Array.Empty<byte>();
+            byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
+            byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
+            if (number == 4)
+            {
+                offsets.Add(position);
+                position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
+                byte[] payload = new byte[open.Length + streamOpen.Length + streamData.Length + streamClose.Length];
+                int at = 0;
+                Buffer.BlockCopy(open, 0, payload, at, open.Length);
+                at += open.Length;
+                Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
+                at += streamOpen.Length;
+                Buffer.BlockCopy(streamData, 0, payload, at, streamData.Length);
+                at += streamData.Length;
+                Buffer.BlockCopy(streamClose, 0, payload, at, streamClose.Length);
+                parts.Add(payload);
+                continue;
+            }
+
+            byte[] close = Encoding.ASCII.GetBytes("endobj\n");
+            offsets.Add(position);
+            position += open.Length + close.Length;
+            parts.Add(open);
+            parts.Add(close);
+        }
+
+        int size = bodies.Count + 1;
+        StringBuilder xref = new();
+        xref.Append("xref\n0 " + size.ToString() + "\n");
+        xref.Append("0000000000 65535 f \n");
+        foreach (long offset in offsets)
+        {
+            xref.Append(offset.ToString("D10") + " 00000 n \n");
+        }
+
+        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
+        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
+        parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
+        int total = 0;
+        foreach (byte[] part in parts)
+        {
+            total += part.Length;
+        }
+
+        byte[] output = new byte[total];
+        int cursor = 0;
+        foreach (byte[] part in parts)
+        {
+            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+            cursor += part.Length;
+        }
+
+        return output;
+    }
+
+    [Fact]
+    public async Task PublishesRawStreamBytes()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] published));
+        Assert.Equal(Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (Hello) Tj ET"), published);
+    }
+
+    [Fact]
+    public async Task PublishesFilteredStreamBytes()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildFlatePage());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--", "outputs/f.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/f.bin"), out byte[] published));
+        Assert.Equal(Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (Hello) Tj ET"), published);
+    }
+
+    [Fact]
+    public async Task FilteredBeatsRaw()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildFlatePage());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--filtered-stream-data", "--", "outputs/f.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/f.bin"), out byte[] published));
+        Assert.Equal(Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (Hello) Tj ET"), published);
+    }
+
+    [Fact]
+    public async Task IgnoresStreamFlagsForTrailer()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=trailer", "--raw-stream-data", "--filtered-stream-data"]), CancellationToken.None);
+        List<string> lines = ObjectLines(result);
+        Assert.Contains("<< /Root 1 0 R /Size 6 >>", lines);
+    }
+
+    [Fact]
+    public async Task IgnoresStreamFlagsForMissingObject()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=99", "--filtered-stream-data"]), CancellationToken.None);
+        Assert.Equal(["null"], ObjectLines(result));
+    }
+
+    [Theory]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data")]
+    [InlineData("inputs/a.pdf", "--show-object=trailer", "--raw-stream-data", "--", "outputs/r.bin")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin", "--", "outputs/s.bin")]
+    public async Task StreamDataNeedsExactlyOneOutput(params string[] argv)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data=x")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data=x")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--raw-stream-data", "--", "outputs/r.bin")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--filtered-stream-data", "--", "outputs/r.bin")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--normalize-content=y", "--filtered-stream-data", "--", "outputs/f.bin")]
+    public async Task RejectsMalformedStreamForms(params string[] argv)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] _));
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/f.bin"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("inputs/a.pdf", "--raw-stream-data")]
+    [InlineData("inputs/a.pdf", "--filtered-stream-data")]
+    [InlineData("inputs/a.pdf", "--check", "--raw-stream-data")]
+    [InlineData("inputs/a.pdf", "--show-npages", "--filtered-stream-data")]
+    public async Task StreamDataRequiresShowObject(params string[] argv)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+    }
+
+    [Fact]
+    public async Task FailsOnUndecodableFiltered()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "bogus-filter.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--", "outputs/f.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/f.bin"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task JobStreamDataMatchesArgv()
+    {
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", BuildFlatePage());
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--", "outputs/f.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/f.bin"), out byte[] a));
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", BuildFlatePage());
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"4\", \"filteredStreamData\": true, \"outputFile\": \"outputs/f.bin\"}", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/f.bin"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Theory]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"4\", \"rawStreamData\": \"yes\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"4\", \"rawStreamData\": true, \"rawStreamData\": true}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"rawStreamData\": true}")]
+    public async Task JobStreamDataRejectsCombinations(string jobJson)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+    }
+
+    [Fact]
+    public async Task StreamDataYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin"]), new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] _));
     }
 }

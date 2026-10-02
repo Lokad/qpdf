@@ -95,6 +95,11 @@ internal static class ArgvParser
             throw new QpdfParseException("Option --test-json-schema requires --json.", 0, null);
         }
 
+        if ((globals.RawStreamData || globals.FilteredStreamData) && showObjectAt < 0)
+        {
+            throw new QpdfParseException("Options --raw-stream-data and --filtered-stream-data require --show-object.", 0, null);
+        }
+
         if (showXrefAt >= 0)
         {
             if (pagesAt >= 0)
@@ -220,9 +225,50 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --show-object cannot be combined with JSON work.", showObjectAt, null);
             }
 
-            string objectInput = ParseInspectionInput(argv, showObjectAt, -1, -1, "--show-object");
+            string objectInput;
+            QpdfPath? objectOutput = null;
+            if (globals.RawStreamData || globals.FilteredStreamData)
+            {
+                if (globals.NormalizeContent)
+                {
+                    throw new QpdfParseException("Options --normalize-content and stream-data inspection cannot be combined.", showObjectAt, null);
+                }
+
+                objectInput = ParseInputArea(argv, showObjectAt, "--show-object");
+                int streamTermAt = -1;
+                for (int i = showObjectAt + 1; i < argv.Count && streamTermAt < 0; i++)
+                {
+                    if (argv[i] == "--")
+                    {
+                        streamTermAt = i;
+                    }
+                    else
+                    {
+                        throw new QpdfParseException($"Unexpected argument \u0027{argv[i]}\u0027 after --show-object; stream-data inspection takes an output file.", i, null);
+                    }
+                }
+
+                if (streamTermAt >= 0)
+                {
+                    string streamOutput = ParseOutputArea(argv, streamTermAt);
+                if (string.Equals(objectInput, streamOutput, StringComparison.Ordinal))
+                {
+                    throw new QpdfParseException("The output file must differ from the input file.", streamTermAt, null);
+                }
+
+                objectOutput = SelectionPlan.CheckedPath(streamOutput);
+                }
+            }
+            else
+            {
+                objectInput = ParseInspectionInput(argv, showObjectAt, -1, -1, "--show-object");
+            }
+
             return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
             {
+                Output = objectOutput,
+                RawStreamData = globals.RawStreamData,
+                FilteredStreamData = globals.FilteredStreamData,
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
@@ -1110,7 +1156,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -1210,6 +1256,10 @@ internal static class ArgvParser
         bool testJsonSchema = false;
         bool ignoreXrefStreams = false;
         bool withImages = false;
+        bool seenRawStreamData = false;
+        bool rawStreamData = false;
+        bool seenFilteredStreamData = false;
+        bool filteredStreamData = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -1815,6 +1865,40 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--raw-stream-data")
+            {
+                if (seenRawStreamData)
+                {
+                    throw new QpdfParseException("Duplicate --raw-stream-data is outside the narrow profile.", i, null);
+                }
+
+                seenRawStreamData = true;
+                rawStreamData = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--raw-stream-data=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --raw-stream-data takes no value.", i, null);
+            }
+
+            if (argv[i] == "--filtered-stream-data")
+            {
+                if (seenFilteredStreamData)
+                {
+                    throw new QpdfParseException("Duplicate --filtered-stream-data is outside the narrow profile.", i, null);
+                }
+
+                seenFilteredStreamData = true;
+                filteredStreamData = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--filtered-stream-data=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --filtered-stream-data takes no value.", i, null);
+            }
+
             if (argv[i].StartsWith("--with-images=", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("Option --with-images takes no value.", i, null);
@@ -1934,7 +2018,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
