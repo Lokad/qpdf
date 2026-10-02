@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 80: catalog/form preservation through the shared copy engine (M7). Ordinary selection and rewrite paths now preserve the input catalog's interactive form dictionary instead of dropping it under the contained-preview policy: field registration, values, parent links and default resources round-trip through the shared graph copier, with top-level fields pruned when every widget in their subtree falls outside the kept pages (matching the pinned oracle on full, subset and merge trios). `--remove-acroform` (argv/job) is now the explicit prune switch actually threaded through every publication path; flatten-all drops the form with its annotations. Field/annotation `/Parent` links remap through the memo table while page-tree ancestry stays dropped. Radio buttons are never synchronized (new oracle probes: the reference syncs checkboxes but leaves radios untouched, parent-held or not), restoring the parent-held skip as genuine parity. New `forms-2page.pdf` fixture (manifest/csproj/manifest-tests wired), `AcroFormPreservationTests` (typed/argv/job parity, subset pruning, merge, flatten interplay, budgets), a `forms-preserve` differential case, and reconciled `--remove-acroform`/`--generate-appearances`/`--flatten-annotations` evidence. Merge collision renaming, first-wins default resources, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 79: identity and hints completion (M11). Seven identity entries (`--version`, `--copyright`, `--help`, `--job-json-help`, `--json-help`, `--completion-bash`, `--completion-zsh`) plus both file-handle hints move to complete with a new `identity` differential case (exit-0 parity with shared markers on both sides) and a `hints` case (hinted merge trios green plus hinted/unhinted byte identity), refreshing four stale "explicitly unsupported" passages in COMPATIBILITY along the way.
 
 Prior gate

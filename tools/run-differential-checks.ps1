@@ -1210,6 +1210,50 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 Write-Output "[remove-acroform] form-dictionary assertions done"
 
+# --- case: forms-preserve (managed vs oracle form-dictionary preservation) ---
+$case = New-Case 'forms-preserve'
+Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
+Copy-Item "$fixtureDir/forms-2page.pdf" "$case/inputs/g.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib-full.pdf", '--', 'inputs/f.pdf', '--pages', '.', '1', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "forms-preserve/full: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/f.pdf', '--pages', '.', '1', '--', "$case/ora-full.pdf")
+if ($code -ne 0) { throw "forms-preserve/full: oracle failed ($code)" }
+Assert-Trio 'forms-preserve-full' "$case/lib-full.pdf" "$case/ora-full.pdf" 1
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-sub.pdf", '--', 'inputs/g.pdf', '--pages', '.', '1', '--', 'outputs/s.pdf')
+if ($code -ne 0) { throw "forms-preserve/sub: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/g.pdf', '--pages', '.', '1', '--', "$case/ora-sub.pdf")
+if ($code -ne 0) { throw "forms-preserve/sub: oracle failed ($code)" }
+Assert-Trio 'forms-preserve-sub' "$case/lib-sub.pdf" "$case/ora-sub.pdf" 1
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-merge.pdf", '--', 'inputs/g.pdf', '--pages', 'inputs/g.pdf', '1', 'inputs/f.pdf', '1', '--', 'outputs/m.pdf')
+if ($code -ne 0) { throw "forms-preserve/merge: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/g.pdf', '1', 'inputs/f.pdf', '1', '--', "$case/ora-merge.pdf")
+if ($code -ne 0) { throw "forms-preserve/merge: oracle failed ($code)" }
+Assert-Trio 'forms-preserve-merge' "$case/lib-merge.pdf" "$case/ora-merge.pdf" 2
+foreach ($pair in @(('lib-full', "$case/lib-full.pdf"), ('ora-full', "$case/ora-full.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/AcroForm', '/Fields', '(Name)', '(Hello)', '/NeedAppearances')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[forms-preserve/full] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[forms-preserve/full] registration assertions done"
+foreach ($pair in @(('lib-sub', "$case/lib-sub.pdf"), ('ora-sub', "$case/ora-sub.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/AcroForm', '/Fields', '(First)', '(AAA)', '/NeedAppearances', '/DR')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[forms-preserve/sub] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+  foreach ($needle in @('(Second)', '(BBB)')) {
+    if ($rawText.Contains($needle)) { Write-Output "[forms-preserve/sub] FAIL: '$needle' remains in $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[forms-preserve/sub] pruning assertions done"
+foreach ($pair in @(('lib-merge', "$case/lib-merge.pdf"), ('ora-merge', "$case/ora-merge.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/AcroForm', '/Fields', '(First)', '(AAA)', '(Name)', '(Hello)')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[forms-preserve/merge] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[forms-preserve/merge] registration assertions done"
+
 # --- case: remove-structure (managed vs oracle structure-tree removal) ---
 $case = New-Case 'remove-structure'
 Copy-Item "$fixtureDir/struct-1page.pdf" "$case/inputs/s.pdf"
@@ -1398,4 +1442,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

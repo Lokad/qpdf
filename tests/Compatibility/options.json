@@ -2640,7 +2640,8 @@
         ],
         "resource": [],
         "oracle": [
-          "diff:forms-appearances"
+          "diff:forms",
+          "diff:forms-preserve"
         ]
       }
     },
@@ -2747,7 +2748,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Parent-held field nodes stay out of reach (subtree search only); parent-held radios degrade to skip.",
+        "Parents without back-linking /Kids stay out of reach (subtree search only; preserved /Parent links are not followed for field lookup). Radio buttons are never synchronized, matching the reference.",
         "Field default resources are not merged into appearances.",
         "Quadding is ignored in text layout."
       ],
@@ -2758,7 +2759,9 @@
           "GenerateAppearancesTests.CheckboxSynchronizesState",
           "GenerateAppearancesTests.WinAnsiEncodingKeepsAccents",
           "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
-          "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance"
+          "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance",
+          "GenerateAppearancesTests.ParentHeldFieldIsSkipped",
+          "GenerateAppearancesTests.RadioButtonIsSkipped"
         ],
         "negative": [
           "GenerateAppearancesTests.SignatureFieldIsSkipped",
@@ -2772,7 +2775,8 @@
         ],
         "resource": ["ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"],
         "oracle": [
-          "diff:forms-appearances"
+          "diff:forms",
+          "diff:forms-preserve"
         ]
       }
     },
@@ -4444,11 +4448,11 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["RemoveAcroformTests.FlagDropsFormDictionary", "RemoveAcroformTests.OutputsOmitFormDictionaryByDefault", "RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.JobRemoveAcroformMatchesArgv"],
+        "positive": ["RemoveAcroformTests.FlagDropsFormDictionary", "RemoveAcroformTests.OutputsPreserveFormDictionaryByDefault", "RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.JobRemoveAcroformMatchesArgv", "AcroFormPreservationTests.RemoveAcroformDropsPreservedFormButKeepsWidgets"],
         "negative": ["RemoveAcroformTests.MalformedFlagsFail", "RemoveAcroformTests.JobRemoveAcroformRejectsMalformed"],
         "interaction": ["RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.IgnoredWithCheck"],
         "resource": ["RemoveAcroformTests.FlagYieldsToExhaustedBudget"],
-        "oracle": ["diff:remove-acroform"]
+        "oracle": ["diff:remove-acroform", "diff:forms-preserve"]
       }
     },
     {
