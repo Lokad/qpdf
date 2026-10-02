@@ -2987,7 +2987,7 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -3009,8 +3009,12 @@
           "JsonImportTests.JobUpdateRoundTrip",
           "JsonImportTests.TypedUpdateRoundTrip"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "JsonImportTests.CreateYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:json-import"
+        ]
       }
     },
     {
@@ -5367,7 +5371,7 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
@@ -5391,8 +5395,12 @@
           "JsonImportTests.TypedUpdateRoundTrip",
           "JsonImportTests.TypedUpdateValidation"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "JsonImportTests.UpdateYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:json-update"
+        ]
       }
     },
     {

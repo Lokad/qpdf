@@ -161,6 +161,43 @@ public sealed class JsonImportTests
         AssertJsonEqualIgnoringIds(json, again);
     }
 
+    [Fact]
+    public async Task CreateYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.json"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Copy);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.json", "--json-input", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task UpdateYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        string changed = MutateObjects(json, objects =>
+        {
+            objects["obj:1 0 R"]!["value"]!.AsObject()["/Custom"] = "u:New";
+        });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--update-from-json=inputs/u.json", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
     private static void AssertJsonEqualIgnoringIds(string expected, string actual)
     {
         using JsonDocument left = JsonDocument.Parse(expected);

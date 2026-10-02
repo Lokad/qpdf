@@ -277,6 +277,37 @@ else {
   if ($mismatch) { Write-Output "[json] FAIL: page descriptors differ structurally"; $script:failures++ } else { Write-Output "[json] page descriptors agree structurally (2 pages)" }
 }
 
+# --- case: json-import (managed vs oracle PDF construction from qpdf JSON) ---
+$case = New-Case 'json-import'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Oracle $case @('--json', '--json-stream-data=inline', 'inputs/a.pdf', '--', "$case/inputs/base.json")
+if ($code -ne 0) { throw "json-import setup: oracle export failed ($code)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/base.json', '--json-input', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "json-import: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--json-input', 'inputs/base.json', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "json-import: oracle failed ($code)" }
+Assert-Trio 'json-import' "$case/lib.pdf" "$case/ora.pdf" 2
+if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[json-import] FAIL: decoded stream payloads differ"; $script:failures++ } else { Write-Output "[json-import] payloads match" }
+
+# --- case: json-update (managed vs oracle PDF update from mutated qpdf JSON) ---
+$case = New-Case 'json-update'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Oracle $case @('--json', '--json-stream-data=inline', 'inputs/a.pdf', '--', "$case/inputs/base.json")
+if ($code -ne 0) { throw "json-update setup: oracle export failed ($code)" }
+$mutJson = Get-Content "$case/inputs/base.json" -Raw | ConvertFrom-Json
+$mutJson.qpdf[1].'obj:1 0 R'.value | Add-Member -NotePropertyName '/Custom' -NotePropertyValue 'u:New' -Force
+$mutJson | ConvertTo-Json -Depth 100 | Set-Content "$case/inputs/mut.json"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--update-from-json=inputs/mut.json', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "json-update: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--update-from-json=inputs/mut.json', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "json-update: oracle failed ($code)" }
+Assert-Trio 'json-update' "$case/lib.pdf" "$case/ora.pdf" 2
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if (-not $rawText.Contains('/Custom')) { Write-Output "[json-update] FAIL: /Custom missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[json-update] mutation assertions done"
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -961,4 +992,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
