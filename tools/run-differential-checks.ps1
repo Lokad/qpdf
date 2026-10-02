@@ -966,6 +966,32 @@ foreach ($sub in @(
   else { Write-Output "[warnings/$name] exit parity ($m/$o)" }
 }
 
+# --- case: inline (managed vs oracle inline-image externalization) ---
+$case = New-Case 'inline'
+Copy-Item "$fixtureDir/inline-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--externalize-inline-images', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "inline: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--externalize-inline-images', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "inline: oracle failed ($code)" }
+Assert-Trio 'inline' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains('/IIm1 Do')) { Write-Output "[inline] FAIL: '/IIm1 Do' missing from decoded $($pair[0]) output"; $script:failures++ }
+  if ($decoded.Contains(' BI ')) { Write-Output "[inline] FAIL: inline image remains in decoded $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[inline] externalization assertions done"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--externalize-inline-images', '--ii-min-bytes=100000', '--', 'outputs/k.pdf')
+if ($code -ne 0) { throw "inline/keep: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--externalize-inline-images', '--ii-min-bytes=100000', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-keep.pdf")
+if ($code -ne 0) { throw "inline/keep: oracle failed ($code)" }
+Assert-Trio 'inline-keep' "$case/lib-keep.pdf" "$case/ora-keep.pdf" 1
+foreach ($pair in @(('lib-keep', "$case/lib-keep.pdf"), ('ora-keep', "$case/ora-keep.pdf"))) {
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains(' BI ')) { Write-Output "[inline/keep] FAIL: inline image missing from decoded $($pair[0]) output"; $script:failures++ }
+  if ($decoded.Contains('/IIm1 Do')) { Write-Output "[inline/keep] FAIL: unexpected '/IIm1 Do' in decoded $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[inline/keep] threshold assertions done"
+
 # --- case: diagnostics (managed vs oracle output-neutral diagnostics) ---
 $case = New-Case 'diagnostics'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1470,4 +1496,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

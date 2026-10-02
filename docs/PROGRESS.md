@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 82: inline-image externalization completion (M11). `--externalize-inline-images` and `--ii-min-bytes` move to complete with a shared exhausted-budget theory, a new checked-in `inline-1page.pdf` fixture (manifest/csproj/manifest-tests wired), and a new `inline` differential case proving oracle agreement (externalized /IIm1 content with no inline image left on both sides at the default threshold, verbatim kept-inline content above a high threshold). Fixing the comparison exposed real residue: page rewrites orphaned the replaced content streams in the pool, so single-reference contents/resources now rewrite in place, array leftovers drop through a shared unreferenced-sweep, and both xref writers emit free entries for the resulting holes. Merge collision renaming, first-wins default resources, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 81: diagnostics completion (M11). Four output-neutral diagnostics entries (`--progress`, `--verbose`, `--report-memory-usage`, `--test-json-schema`) move to complete with a new `diagnostics` differential case proving oracle agreement (exit-0 parity on both sides with green trios, byte-identical managed outputs with and without each write flag, matching top-level JSON keys for the schema check). Report text stays implementation-defined on both sides with no stable cross-implementation contract (counted-byte milestones vs object-based percentages, exact governor peak vs best-effort figure); the difference is now documented under Invocation breadth instead of lingering as open gaps.
 
 Prior gate

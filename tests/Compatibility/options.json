@@ -2542,11 +2542,9 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Inline image threshold and naming review complete for the narrow profile."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "InlineImagesTests.ExternalizeAboveThreshold",
@@ -2561,8 +2559,8 @@
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": ["ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"],
+        "oracle": ["diff:inline"]
       }
     },
     {
@@ -2858,11 +2856,9 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Inline image threshold and naming review complete for the narrow profile."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "InlineImagesTests.CustomThresholdKeepsLarge",
@@ -2876,8 +2872,8 @@
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": ["ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"],
+        "oracle": ["diff:inline"]
       }
     },
     {
