@@ -210,6 +210,18 @@ public sealed class QdfTests
         PdfInteger length = Assert.IsType<PdfInteger>(document.GetObject(reference.ObjectNumber));
         Assert.Equal(stream.Data.Length, length.Value);
     }
+    [Fact]
+    public async Task TwoPageClassicQdfKeepsStreamLengths()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", ".", "2", "--qdf");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(HostWith("inputs/r.pdf", pdf), QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
+        Assert.Equal(2, document.PageCount);
+        using MemoryStream buffer = new(pdf);
+        using PdfDocument reread = PdfDocument.Open(buffer);
+        Assert.Equal(2, reread.NumberOfPages);
+    }
 
     [Fact]
     public async Task NoOriginalObjectIdsSuppressesComments()

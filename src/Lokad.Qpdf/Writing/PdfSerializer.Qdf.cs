@@ -137,7 +137,7 @@ internal sealed partial class PdfSerializer
 
             if (emission.Value is PdfStream rawStream)
             {
-                int lengthId = FindLengthId(emissions, emission.Number);
+                int lengthId = FindLengthId(emissions, renumber, emission.Number);
                 PdfDictionary header = AssertDictionary(StreamHeaderWithLength(rawStream, lengthId, renumber));
                 remapped.Add(emission with { Value = new PdfStream(header, rawStream.Data) });
                 continue;
@@ -177,7 +177,7 @@ internal sealed partial class PdfSerializer
             {
                 offsets.Add(sink.Length);
                 await AppendAsciiAsync($"{emission.Number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
-                await AppendAsciiAsync(StreamLength(emission, remapped).ToString(System.Globalization.CultureInfo.InvariantCulture), sink, cancellationToken).ConfigureAwait(false);
+                await AppendAsciiAsync(StreamLength(emission, remapped, renumber).ToString(System.Globalization.CultureInfo.InvariantCulture), sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
                 continue;
             }
@@ -694,11 +694,11 @@ internal sealed partial class PdfSerializer
             && name.DisplayText == "XRef";
     }
 
-    private static int FindLengthId(List<QdfEmission> emissions, int streamNumber)
+    private static int FindLengthId(List<QdfEmission> emissions, Dictionary<int, int> renumber, int streamNumber)
     {
         foreach (QdfEmission emission in emissions)
         {
-            if (emission.LengthFor == streamNumber)
+            if (emission.LengthFor is not null && renumber.TryGetValue(emission.LengthFor.Value, out int mapped) && mapped == streamNumber)
             {
                 return emission.Number;
             }
@@ -707,11 +707,12 @@ internal sealed partial class PdfSerializer
         throw new QpdfException($"QDF publication lost the length object for stream {streamNumber}.");
     }
 
-    private static long StreamLength(QdfEmission lengthEmission, List<QdfEmission> emissions)
+    private static long StreamLength(QdfEmission lengthEmission, List<QdfEmission> emissions, Dictionary<int, int> renumber)
     {
+        int target = lengthEmission.LengthFor is null ? -1 : (renumber.TryGetValue(lengthEmission.LengthFor.Value, out int mapped) ? mapped : -1);
         foreach (QdfEmission emission in emissions)
         {
-            if (emission.Number == lengthEmission.LengthFor && emission.Value is PdfStream stream)
+            if (emission.Number == target && emission.Value is PdfStream stream)
             {
                 return stream.Data.Length;
             }
