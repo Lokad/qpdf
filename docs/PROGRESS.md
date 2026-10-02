@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-Work item 39: linearized writing (M10). `--linearize` (plus job key `linearize`) publishes two-pass linearized output over the shared engine: upstream-style part classification with low second-half renumbering, a counting pass with placeholder dictionaries and zeroed cross-references, generated page-offset/shared-object hint tables (Flate only under active stream compression), padded reservation fields, an emitting pass verified by a replay canary, deterministic content-hash IDs with `--static-id` support, classic-xref output only (object-stream groups fail), silently disabled QDF, and explicit failures for outlines, thumbnails, `--linearize-pass1`, `--json`/import, attachment inspection and `--check` combinations. Fourteen writer cases plus the `linearize` differential case (managed versus oracle writer outputs validating on both sides) pass with no engine discrepancies.
+Work item 40: linearized object-stream modes (M10). `--linearize` with `--object-streams=generate` (or `preserve` over compressed inputs) publishes streamed linearized output through the shared selection engine: members resolve to their container during part classification with page-shared containers winning placement, uncompressed units sort low per half with container members numbered after their half, and raw cross-reference streams replace both classic tables under the same two-pass replay check. Outline hint tables are omitted whenever outline objects compress (as observed upstream); xref streams stay unfiltered and member numbering follows container encounter order as documented intentional differences. `preserve`/`disable` over classic inputs still publish the classic layout; QDF stays silently disabled and `--json`, JSON import, attachment inspection and `--check` combinations still fail explicitly. Eleven new classification/emission/mode cases plus streamed oracle fixtures (check/show) plus the `linearize-streams` differential case (managed versus oracle writers on one-, two-page, and outlined selections, both outputs validating under both checkers) pass with no engine discrepancies.
 
 Prior gate
 
@@ -127,13 +127,10 @@ binary.
 
 ## Next work
 
-1. Work item 40 (in progress): `--check-linearization`, `--show-linearization`, `--linearize-pass1`, outlines and
-   thumbnails committed (argv/job inspection plus full hint-table dump matching the oracle line for line, with
-   a shared file-numbering classifier); streamed fixtures plus check/show coverage plus container-aware part
-   classification, streamed emission (raw xref streams, object-stream containers, replay-checked two-pass),
-   and object-stream mode plumbing committed, with the linearize-streams differential green on
-   one-, two-page, and outlined selections (both outputs validating under both checkers);
-   work item 40 is complete pending the M11 audit (M10). (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
+1. Work item 40 done: `--check-linearization`, `--show-linearization`, `--linearize-pass1`, outlines,
+   thumbnails, and object-stream modes (M10). Next: the M11 completion audit.
+   Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
+   upstream acceptance of M1 outputs. (argv/job inspection plus full hint-table dump matching the oracle line for line, with a shared file-numbering classifier); remaining: object-stream modes (M10).
 2. Extend differential coverage (rotation flattening with /Rotate fixtures, error-path parity,
    coalesce/prune content operations, structural JSON, first-page selection) — done and green;
    remaining validation work rides the M11 completion audit.
