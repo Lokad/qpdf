@@ -89,6 +89,9 @@ internal static class JobJsonParser
             bool seenDecodeLevel = false;
             long? maxStreamFilters = null;
             bool seenMaxStreamFilters = false;
+            long? parserMaxNesting = null;
+            bool seenParserMaxNesting = false;
+            bool seenGlobal = false;
             bool recompressFlate = false;
             bool seenRecompressFlate = false;
             string? compressionLevel = null;
@@ -338,14 +341,50 @@ internal static class JobJsonParser
                         seenDecodeLevel = true;
                         decodeLevel = RequireString(property.Value, "decodeLevel");
                         break;
-                    case "maxStreamFilters":
-                        if (seenMaxStreamFilters)
+                    case "global":
+                        if (seenGlobal)
                         {
-                            throw new QpdfParseException("Duplicate job key \u0027maxStreamFilters\u0027.", 0L, null);
+                            throw new QpdfParseException("Duplicate job key \u0027global\u0027.", 0L, null);
                         }
 
-                        seenMaxStreamFilters = true;
-                        maxStreamFilters = RequireMaxStreamFilters(property.Value);
+                        seenGlobal = true;
+                        if (property.Value.ValueKind != JsonValueKind.Object)
+                        {
+                            throw new QpdfParseException("Job \u0027global\u0027 must be an object.", 0L, null);
+                        }
+
+                        foreach (JsonProperty globalProperty in property.Value.EnumerateObject())
+                        {
+                            switch (globalProperty.Name)
+                            {
+                                case "maxStreamFilters":
+                                    if (seenMaxStreamFilters)
+                                    {
+                                        throw new QpdfParseException("Duplicate job key \u0027global.maxStreamFilters\u0027.", 0L, null);
+                                    }
+
+                                    seenMaxStreamFilters = true;
+                                    maxStreamFilters = RequireMaxStreamFilters(globalProperty.Value);
+                                    break;
+                                case "parserMaxNesting":
+                                    if (seenParserMaxNesting)
+                                    {
+                                        throw new QpdfParseException("Duplicate job key \u0027global.parserMaxNesting\u0027.", 0L, null);
+                                    }
+
+                                    seenParserMaxNesting = true;
+                                    parserMaxNesting = RequireParserMaxNesting(globalProperty.Value);
+                                    break;
+                                case "noDefaultLimits":
+                                    throw new QpdfParseException("Default limits cannot be disabled in this build.", 0L, null);
+                                case "parserMaxContainerSize":
+                                case "parserMaxContainerSizeDamaged":
+                                case "parserMaxErrors":
+                                default:
+                                    throw new QpdfParseException("Unsupported job key \u0027global." + globalProperty.Name + "\u0027 in the narrow selection profile.", 0L, null);
+                            }
+                        }
+
                         break;
                     case "recompressFlate":
                         if (seenRecompressFlate)
@@ -896,7 +935,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -922,7 +961,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -950,7 +989,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -978,7 +1017,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1006,7 +1045,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenParserMaxNesting || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1070,7 +1109,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || parserMaxNesting is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
@@ -1111,7 +1150,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || parserMaxNesting is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"updateFromJson\".", 0L, null);
@@ -1172,6 +1211,7 @@ internal static class JobJsonParser
                 {
                     DecodeLevel = jsonDecode,
                     MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
                     StreamDataMode = jsonStreams,
                     StreamPrefix = jsonStreamPrefix,
                     Objects = wantedObjects,
@@ -1223,6 +1263,7 @@ internal static class JobJsonParser
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
                     MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
@@ -1280,6 +1321,7 @@ internal static class JobJsonParser
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
                     MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
@@ -1332,6 +1374,7 @@ internal static class JobJsonParser
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
                     MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
@@ -1837,6 +1880,41 @@ internal static class JobJsonParser
         return size;
     }
 
+    private static long RequireParserMaxNesting(JsonElement element)
+    {
+        string? text = null;
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
+        {
+            text = number.ToString();
+        }
+        else if (element.ValueKind == JsonValueKind.String)
+        {
+            text = element.GetString();
+        }
+
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a non-negative nesting depth within 499.", 0L, null);
+        }
+
+        long depth = 0L;
+        foreach (char digit in text)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a non-negative nesting depth within 499.", 0L, null);
+            }
+
+            depth = checked(depth * 10L + (digit - (char)48));
+        }
+
+        if (depth > QpdfLimits.ParserNestingCeiling)
+        {
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxNesting" + (char)34 + " must be a non-negative nesting depth within 499.", 0L, null);
+        }
+
+        return depth;
+    }
     private static long RequireMaxStreamFilters(JsonElement element)
     {
         string? text = null;

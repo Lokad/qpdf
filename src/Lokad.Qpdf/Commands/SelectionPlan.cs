@@ -37,6 +37,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public long? MaxStreamFilters { get; init; }
 
+    public long? ParserMaxNesting { get; init; }
+
     public bool RecompressFlate { get; init; }
 
     public string? CompressionLevel { get; init; }

@@ -1538,16 +1538,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Rejection-only; default limits can never be disabled (containment). No accepting behavior exists."
       ],
       "evidence": {
         "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "negative": ["GlobalLimitsTests.NoDefaultLimitsRefused", "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"],
+        "interaction": ["GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"],
+        "resource": ["GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"],
         "oracle": []
       }
     },
@@ -1662,16 +1662,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Invocation cap 499 (upstream default) for stack safety; oracle parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["GlobalLimitsTests.RaisedCapParsesDeepCatalog", "GlobalLimitsTests.NestedGlobalParityHolds"],
+        "negative": ["GlobalLimitsTests.DefaultNestingRejectsDeepCatalog", "GlobalLimitsTests.BadNestingValuesFail", "GlobalLimitsTests.DuplicateNestingFlagFails", "GlobalLimitsTests.CeilingMessageNamesTheMaximum", "GlobalLimitsTests.BadNestedGlobalFails"],
+        "interaction": ["GlobalLimitsTests.NestedGlobalParityHolds", "GlobalLimitsTests.BadNestedGlobalFails"],
+        "resource": ["GlobalLimitsTests.FlagOverridesTighterHostBudget"],
         "oracle": []
       }
     },

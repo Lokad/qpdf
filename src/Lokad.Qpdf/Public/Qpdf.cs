@@ -4114,6 +4114,11 @@ public static class Qpdf
             limits = limits with { MaxStreamFilters = maxStreamFilters };
         }
 
+        if (plan.ParserMaxNesting is long parserMaxNesting)
+        {
+            limits = limits with { MaxNestingDepth = parserMaxNesting };
+        }
+
         if (plan is CheckPlan check)
         {
             try

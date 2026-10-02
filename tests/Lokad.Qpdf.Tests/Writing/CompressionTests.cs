@@ -497,7 +497,7 @@ public sealed class CompressionTests
         Assert.Equal(QpdfExitCode.Warning, argvResult.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
         InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", input);
-        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"streamData\": \"uncompress\", \"maxStreamFilters\": 1}", CancellationToken.None);
+        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"streamData\": \"uncompress\", \"global\": {\"maxStreamFilters\": 1}}", CancellationToken.None);
         Assert.Equal(QpdfExitCode.Warning, jobResult.ExitCode);
         Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
         Assert.Equal(a, b);
@@ -552,12 +552,12 @@ public sealed class CompressionTests
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(decode).Code);
         QpdfExecutionResult filtersNumber = await Qpdf.ExecuteJobAsync(
             host,
-            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"maxStreamFilters\": -1}",
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"maxStreamFilters\": -1}}",
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(filtersNumber).Code);
         QpdfExecutionResult filtersText = await Qpdf.ExecuteJobAsync(
             host,
-            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"maxStreamFilters\": \"bogus\"}",
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"maxStreamFilters\": \"bogus\"}}",
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(filtersText).Code);
     }

@@ -37,6 +37,9 @@ public sealed record QpdfLimits
     /// <summary>Operations between cancellation checks. Must be at least 1.</summary>
     public long CancellationCheckInterval { get; init; } = 1024L;
 
+    /// <summary>Upstream default parser nesting cap, the largest invocation-level override accepted.</summary>
+    internal const long ParserNestingCeiling = 499L;
+
     /// <summary>Maximum nesting depth for arrays, dictionaries, and page-tree recursion.</summary>
     public long MaxNestingDepth { get; init; } = 256L;
 

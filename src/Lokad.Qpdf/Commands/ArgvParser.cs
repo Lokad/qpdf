@@ -775,6 +775,7 @@ internal static class ArgvParser
                 CompressStreams = globals.CompressStreams,
                 DecodeLevel = globals.DecodeLevel,
                 MaxStreamFilters = globals.MaxStreamFilters,
+                ParserMaxNesting = globals.ParserMaxNesting,
                 RecompressFlate = globals.RecompressFlate,
                 CompressionLevel = globals.CompressionLevel,
                 RemoveInfo = globals.RemoveInfo,
@@ -827,6 +828,7 @@ internal static class ArgvParser
             CompressStreams = globals.CompressStreams,
             DecodeLevel = globals.DecodeLevel,
             MaxStreamFilters = globals.MaxStreamFilters,
+            ParserMaxNesting = globals.ParserMaxNesting,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -1022,7 +1024,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -1102,6 +1104,8 @@ internal static class ArgvParser
         string? linearizePass1 = null;
         bool seenMaxStreamFilters = false;
         long? maxStreamFilters = null;
+        bool seenParserMaxNesting = false;
+        long? parserMaxNesting = null;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -1627,6 +1631,28 @@ internal static class ArgvParser
                 continue;
             }
 
+            if (argv[i] == "--parser-max-nesting" || argv[i].StartsWith("--parser-max-nesting=", StringComparison.Ordinal))
+            {
+                if (seenParserMaxNesting)
+                {
+                    throw new QpdfParseException("Duplicate --parser-max-nesting is outside the narrow profile.", i, null);
+                }
+
+                seenParserMaxNesting = true;
+                parserMaxNesting = ParseParserMaxNesting(argv, ref i);
+                continue;
+            }
+
+            if (argv[i] == "--no-default-limits")
+            {
+                throw new QpdfParseException("Default limits cannot be disabled in this build.", i, null);
+            }
+
+            if (argv[i].StartsWith("--no-default-limits=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --no-default-limits takes no value.", i, null);
+            }
+
             if (argv[i] == "--linearize")
             {
                 if (seenLinearize)
@@ -1666,7 +1692,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -1743,6 +1769,49 @@ internal static class ArgvParser
         }
 
         return size;
+    }
+
+    private static long ParseParserMaxNesting(IReadOnlyList<string> argv, ref int i)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        string? value = null;
+        if (equals >= 0)
+        {
+            value = token.Substring(equals + 1);
+        }
+        else if (i + 1 < argv.Count)
+        {
+            string next = argv[i + 1];
+            if (next is not null && next != "--" && !(next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            {
+                value = next;
+                i += 1;
+            }
+        }
+
+        if (value is null || value.Length == 0 || value.Length > 10)
+        {
+            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a non-negative nesting depth.", i, null);
+        }
+
+        long depth = 0L;
+        foreach (char digit in value)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: expected a non-negative nesting depth.", i, null);
+            }
+
+            depth = checked(depth * 10L + (digit - (char)48));
+        }
+
+        if (depth > QpdfLimits.ParserNestingCeiling)
+        {
+            throw new QpdfParseException($"Invalid --parser-max-nesting value \u0027{value}\u0027: exceeds the supported maximum of {QpdfLimits.ParserNestingCeiling}.", i, null);
+        }
+
+        return depth;
     }
 
     private static long ParseMaxStreamFilters(IReadOnlyList<string> argv, ref int i)
@@ -2102,6 +2171,7 @@ internal static class ArgvParser
             CompressStreams = globals.CompressStreams,
             DecodeLevel = globals.DecodeLevel,
             MaxStreamFilters = globals.MaxStreamFilters,
+            ParserMaxNesting = globals.ParserMaxNesting,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -2346,6 +2416,7 @@ internal static class ArgvParser
         {
             DecodeLevel = globals.DecodeLevel ?? (minimalOutput ? "none" : "generalized"),
             MaxStreamFilters = globals.MaxStreamFilters,
+            ParserMaxNesting = globals.ParserMaxNesting,
             StreamDataMode = seenStreamData ? streamData! : (minimalOutput ? "inline" : "none"),
             StreamPrefix = streamPrefix,
             Objects = objects,
@@ -2386,7 +2457,7 @@ internal static class ArgvParser
         }
 
         if (globals.ObjectStreams is not null || globals.StreamData is not null || globals.CompressStreams is not null
-            || globals.DecodeLevel is not null || globals.MaxStreamFilters is not null || globals.RecompressFlate || globals.CompressionLevel is not null
+            || globals.DecodeLevel is not null || globals.MaxStreamFilters is not null || globals.ParserMaxNesting is not null || globals.RecompressFlate || globals.CompressionLevel is not null
             || globals.RemoveInfo || globals.RemoveMetadata || globals.PreserveUnreferenced)
         {
             throw new QpdfParseException("Stream and metadata options cannot be combined with JSON import.", entryAt, null);
@@ -3145,6 +3216,7 @@ internal static class ArgvParser
             CompressStreams = globals.CompressStreams,
             DecodeLevel = globals.DecodeLevel,
             MaxStreamFilters = globals.MaxStreamFilters,
+            ParserMaxNesting = globals.ParserMaxNesting,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -3206,6 +3278,7 @@ internal static class ArgvParser
             CompressStreams = globals.CompressStreams,
             DecodeLevel = globals.DecodeLevel,
             MaxStreamFilters = globals.MaxStreamFilters,
+            ParserMaxNesting = globals.ParserMaxNesting,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
