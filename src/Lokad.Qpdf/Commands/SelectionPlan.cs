@@ -41,6 +41,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool WithImages { get; init; }
 
+    public bool IgnoreXrefStreams { get; init; }
+
     public bool RecompressFlate { get; init; }
 
     public string? CompressionLevel { get; init; }

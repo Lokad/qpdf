@@ -46,6 +46,9 @@ public sealed record QpdfLimits
     /// <summary>Maximum stream filters decoded per stream; over-limit streams stay opaque.</summary>
     public long MaxStreamFilters { get; init; } = 25L;
 
+    /// <summary>Ignores cross-reference streams when set; only classic tables are used.</summary>
+    public bool IgnoreXrefStreams { get; init; }
+
     /// <summary>Maximum cross-reference sections followed per file.</summary>
     public long MaxRevisions { get; init; } = 64L;
 

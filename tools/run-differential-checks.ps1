@@ -728,6 +728,35 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 Write-Output "[remove-structure] structure-tree assertions done"
 
+# --- case: ignore-xref-streams (managed vs oracle classic-table reading) ---
+$case = New-Case 'ignore-xref-streams'
+Copy-Item "$fixtureDir/hybrid-xstm.pdf" "$case/inputs/h.pdf"
+Copy-Item "$fixtureDir/xstm-classic.pdf" "$case/inputs/x.pdf"
+Copy-Item "$fixtureDir/objstm-1page.pdf" "$case/inputs/o.pdf"
+function Invoke-ManagedNpagesFlag {
+  param([string]$Workdir, [string]$InFile, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-npages', '--ignore-xref-streams') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "ignore-xref-streams: managed emit produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+function Invoke-OracleNpagesFlag {
+  param([string]$File)
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--ignore-xref-streams', '--show-npages', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qnp.txt"
+  return $p.ExitCode
+}
+foreach ($sub in @(@("hybrid", "inputs/h.pdf", 3), @("classic", "inputs/x.pdf", 0), @("objstm", "inputs/o.pdf", 3))) {
+  $name = $sub[0]
+  $m = Invoke-ManagedNpagesFlag $case $sub[1] "xref-$name"
+  $o = Invoke-OracleNpagesFlag "$case/$($sub[1])"
+  if ($m -ne $sub[2] -or $o -ne $sub[2]) { Write-Output "[ignore-xref-streams/$name] FAIL: exits managed=$m oracle=$o, expected $($sub[2])"; $script:failures++; continue }
+  if ((Get-PigNpages "$case/$($sub[1])") -ne 1) { Write-Output "[ignore-xref-streams/$name] FAIL: independent page count"; $script:failures++ }
+  else { Write-Output "[ignore-xref-streams/$name] exit parity ($m/$o) with independent count 1" }
+}
+Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/h.pdf=$case/lib-h.pdf", '--', 'inputs/h.pdf', '--pages', '.', '1', '--ignore-xref-streams', '--', 'outputs/h.pdf') | Out-Null
+Invoke-Oracle $case @('--ignore-xref-streams', 'inputs/h.pdf', '--pages', '.', '1', '--', "$case/ora-h.pdf") | Out-Null
+Assert-Trio 'ignore-xref-streams/hybrid' "$case/lib-h.pdf" "$case/ora-h.pdf" 1
+
 # --- case: linearize-pass1 (managed vs oracle first pass) ---
 $case = New-Case 'linearize-pass1'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -872,4 +901,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

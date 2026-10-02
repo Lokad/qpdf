@@ -13,6 +13,7 @@ internal static class HelpText
           qpdf --job-json-file file
         Options:
           --suppress-recovery   fail on damaged cross-references instead of bounded repair
+          --ignore-xref-streams         use classic tables rather than streams
           --warning-exit-0      exit 0 despite warnings
           --no-warn             suppress warning diagnostics
           @file                 read arguments from a host file, one per line
@@ -165,7 +166,7 @@ internal static class HelpText
           listAttachments, showAttachment, addAttachment, removeAttachment,
           copyAttachmentsFrom, json, jsonKey, jsonObject, jsonStreamData,
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
-          suppressRecovery
+          suppressRecovery, ignoreXrefStreams
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
         parserMaxNesting (non-negative nesting depth within 499).
         Crypto keys (encrypt, decrypt, password and related options) are rejected with (encrypt, decrypt, password and related options) are rejected with
@@ -216,7 +217,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --no-default-limits --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --no-default-limits --ignore-xref-streams --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
 
     internal static string BashCompletion()
     {

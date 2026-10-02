@@ -2766,17 +2766,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["IgnoreXrefStreamsTests.HybridFallsBackToClassicTable", "IgnoreXrefStreamsTests.DamagedStreamLinkReadsClean", "IgnoreXrefStreamsTests.StreamOnlyFileRecoversWithoutStreams", "IgnoreXrefStreamsTests.ClassicFileIgnoresFlag", "IgnoreXrefStreamsTests.JobParityHolds", "IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"],
+        "negative": ["IgnoreXrefStreamsTests.MalformedFlagsFail", "IgnoreXrefStreamsTests.JobRejectsMalformed"],
+        "interaction": ["IgnoreXrefStreamsTests.JobParityHolds", "IgnoreXrefStreamsTests.JobRejectsMalformed"],
+        "resource": ["IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"],
+        "oracle": ["diff:ignore-xref-streams"]
       }
     },
     {

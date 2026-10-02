@@ -211,7 +211,7 @@ internal sealed class XRefTable
 
             MergeSection(merged, entries, effectiveSize.Value, data.Length, current);
             trailers.Add(trailer);
-            long? hybrid = ReadLinkOffset(trailer, "XRefStm", data, current);
+            long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm", data, current);
             if (hybrid.HasValue)
             {
                 (Dictionary<int, XrefEntry> extra, PdfDictionary _) = ParseStreamSection(data, limits, governor, diagnostics, hybrid.Value);
@@ -224,6 +224,11 @@ internal sealed class XRefTable
         if (head.Kind == PdfTokenKind.Integer)
         {
             tokenizer.SetPosition(head.Offset);
+        }
+
+        if (head.Kind == PdfTokenKind.Integer && limits.IgnoreXrefStreams)
+        {
+            return null;
         }
 
         if (head.Kind == PdfTokenKind.Integer)

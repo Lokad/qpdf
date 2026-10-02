@@ -151,6 +151,7 @@ internal static class ArgvParser
             return new ShowXrefPlan(SelectionPlan.CheckedPath(xrefInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
             };
         }
@@ -216,6 +217,7 @@ internal static class ArgvParser
             return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
             };
         }
@@ -281,6 +283,7 @@ internal static class ArgvParser
             return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
             };
         }
@@ -346,6 +349,7 @@ internal static class ArgvParser
             return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 WithImages = globals.WithImages,
                 NoWarn = globals.NoWarn,
             };
@@ -606,6 +610,7 @@ internal static class ArgvParser
                 Check = checkLinearizationAt >= 0,
                 Show = showLinearizationAt >= 0,
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
             };
         }
@@ -766,6 +771,7 @@ internal static class ArgvParser
             return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
                 Rotations = rotations,
                 Labels = labels,
@@ -819,6 +825,7 @@ internal static class ArgvParser
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
             Rotations = rotations,
             Labels = labels,
@@ -965,6 +972,7 @@ internal static class ArgvParser
             return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showKey, listAt >= 0, recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
             };
         }
@@ -981,6 +989,7 @@ internal static class ArgvParser
         return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
         };
     }
@@ -1030,7 +1039,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -1113,6 +1122,8 @@ internal static class ArgvParser
         bool seenParserMaxNesting = false;
         long? parserMaxNesting = null;
         bool seenWithImages = false;
+        bool seenIgnoreXrefStreams = false;
+        bool ignoreXrefStreams = false;
         bool withImages = false;
         bool deterministicId = false;
         bool staticId = false;
@@ -1695,6 +1706,23 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --with-images takes no value.", i, null);
             }
 
+            if (argv[i] == "--ignore-xref-streams")
+            {
+                if (seenIgnoreXrefStreams)
+                {
+                    throw new QpdfParseException("Duplicate --ignore-xref-streams is outside the narrow profile.", i, null);
+                }
+
+                seenIgnoreXrefStreams = true;
+                ignoreXrefStreams = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--ignore-xref-streams=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --ignore-xref-streams takes no value.", i, null);
+            }
+
             if (argv[i].StartsWith("--no-original-object-ids=", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("Option --no-original-object-ids takes no value.", i, null);
@@ -1717,7 +1745,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2184,6 +2212,7 @@ internal static class ArgvParser
         return plan with
         {
             WarningExitZero = globals.WarningExitZero,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
@@ -2445,6 +2474,7 @@ internal static class ArgvParser
             StreamDataMode = seenStreamData ? streamData! : (minimalOutput ? "inline" : "none"),
             StreamPrefix = streamPrefix,
             Objects = objects,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             MinimalOutput = minimalOutput,
         };
     }
@@ -2507,6 +2537,7 @@ internal static class ArgvParser
             return new JsonUpdatePlan(SelectionPlan.CheckedPath(pdfInput), SelectionPlan.CheckedPath(updateFile), SelectionPlan.CheckedPath(updateOutput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
                 MinVersion = globals.MinVersion,
                 ForceVersion = globals.ForceVersion,
@@ -2532,6 +2563,7 @@ internal static class ArgvParser
         return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
@@ -3225,6 +3257,7 @@ internal static class ArgvParser
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(input), page, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
             Rotations = rotations,
             Labels = labels,
@@ -3288,6 +3321,7 @@ internal static class ArgvParser
         return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
+            IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
             Rotations = rotations,
             Labels = labels,

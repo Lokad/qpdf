@@ -68,7 +68,7 @@ content payloads identical), coalesce (decoded payloads identical), flatten-rota
 /F2 dropped under page operations with decoded payloads identical), JSON structural
 page-descriptor agreement (version, object and contents references, positions),
 error exit-class parity (out-of-range page, missing input, and unknown flag all exit 2
-on both sides), warning exit parity (3/3, 0/0, 3/3), show-npages page-count agreement, show-pages/show-object/show-xref line-for-line dumps, show-pages-with-images listings (clean and dimension-less fixtures, warning exits 3/3), remove-acroform/remove-structure invariants, forms (generated
+on both sides), warning exit parity (3/3, 0/0, 3/3), show-npages page-count agreement, show-pages/show-object/show-xref line-for-line dumps, show-pages-with-images listings (clean and dimension-less fixtures, warning exits 3/3), ignore-xref-streams reading (hybrid/classic/stream-only exit parity plus a hybrid selection trio), remove-acroform/remove-structure invariants, forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
 placement), overlay, qdf (editable view with generated object streams: trio plus QDF/ObjStm/XRef/member markers on both outputs and an upstream fix-qdf round trip), fixqdf (managed repair versus oracle fix-qdf byte-identical on edited classic and streamed files, trios green), zlibflate (both directions with corrupt-input parity and level ordering), linearized (oracle-linearized files plus page-count and hint-length mutations on both sides), linearize (managed writer versus oracle writer on one- and two-page outputs, both validating under oracle and managed checks with independent page-count agreement), linearize-streams (managed versus oracle writers with generated object streams on one-, two-page, and outlined selections, both outputs validating under both checkers), check-linearization (managed versus oracle inspection exits and messages on valid, plain, and hint-damaged files), show-linearization (managed versus oracle dumps compared line for line), linearize-pass1 (zeroed-entry shape and shorter-than-final on both sides), linearize-outlines (managed and oracle outputs validate with matching show dumps on both files), and linearize-thumbs (thumbnail part-9 placement with matching show dumps). Confirmed intentional differences: our default
 output stays uncompressed where upstream compresses, and our `--overlay`
@@ -218,7 +218,12 @@ streams were superseded. Union coverage of the effective `/Size` is
 exact with absent-or-free object 0, and over-range entries fail rather
 than being ignored. Every chained trailer is checked for encryption
 declarations. Recovery of damaged structures stays M4 work and fails
-explicitly here.
+explicitly here. `--ignore-xref-streams` (plus job key `ignoreXrefStreams`)
+skips cross-reference streams and hybrid `/XRefStm` links, reading classic
+tables only: hybrid files fall back to their classic revision, bogus stream
+links never load, and stream-only files fail strictly into bounded recovery.
+The flag rides every plan that opens a document (plus the host budgets) with
+exit-for-exit oracle parity on hybrid, classic, and stream-only fixtures.
 
 ## Byte, version, and indirect-length semantics (work item 12)
 
@@ -366,8 +371,8 @@ skipped by the scanner. The tail trailer wins when its root resolves, otherwise
 the last scanned catalog wins; files without a catalog fail. Repaired output is
 rewritten, never the original bytes. The CLI repairs by default and emits a
 recovery warning (exit 3); `--suppress-recovery` keeps strict failure. Typed
-selection and inspection stay strict. `--ignore-xref-streams` arrives with the
-M4 parsing work.
+selection and inspection stay strict. `--ignore-xref-streams` classic-table
+reading is covered under incremental and hybrid chains above.
 
 ## Selector audit (work item 15)
 

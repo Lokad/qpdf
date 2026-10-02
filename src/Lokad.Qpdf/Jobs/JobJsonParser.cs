@@ -89,6 +89,8 @@ internal static class JobJsonParser
             bool seenDecodeLevel = false;
             long? maxStreamFilters = null;
             bool seenMaxStreamFilters = false;
+            bool ignoreXrefStreams = false;
+            bool seenIgnoreXrefStreams = false;
             long? parserMaxNesting = null;
             bool seenParserMaxNesting = false;
             bool seenGlobal = false;
@@ -719,6 +721,15 @@ internal static class JobJsonParser
                         seenListAttachments = true;
                         listAttachments = RequireBareFlag(property.Value, "listAttachments");
                         break;
+                    case "ignoreXrefStreams":
+                        if (seenIgnoreXrefStreams)
+                        {
+                                throw new QpdfParseException("Duplicate job key ignoreXrefStreams.", 0L, null);
+                        }
+
+                        seenIgnoreXrefStreams = true;
+                        ignoreXrefStreams = RequireBareFlag(property.Value, "ignoreXrefStreams");
+                        break;
                     case "showAttachment":
                         if (seenShowAttachment)
                         {
@@ -933,7 +944,7 @@ internal static class JobJsonParser
                         throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
                     }
 
-                    return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery);
+                    return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { IgnoreXrefStreams = ignoreXrefStreams };
                 }
 
                 if (output is not null)
@@ -941,7 +952,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
                 }
 
-                return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery);
+                return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery) with { IgnoreXrefStreams = ignoreXrefStreams };
             }
 
             if (checkLinearization || showLinearization)
@@ -967,6 +978,7 @@ internal static class JobJsonParser
                 {
                     Check = checkLinearization,
                     Show = showLinearization,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                 };
             }
 
@@ -994,6 +1006,7 @@ internal static class JobJsonParser
                 return new ShowNpagesPlan(SelectionPlan.CheckedPath(input), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
             }
@@ -1022,6 +1035,7 @@ internal static class JobJsonParser
                 return new ShowPagesPlan(SelectionPlan.CheckedPath(input), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     WithImages = withImages,
                     NoWarn = noWarn,
                 };
@@ -1051,6 +1065,7 @@ internal static class JobJsonParser
                 return new ShowObjectPlan(SelectionPlan.CheckedPath(input), recovery, showObject)
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
             }
@@ -1079,6 +1094,7 @@ internal static class JobJsonParser
                 return new ShowXrefPlan(SelectionPlan.CheckedPath(input), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
             }
@@ -1135,6 +1151,7 @@ internal static class JobJsonParser
                 return new JsonInputPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
@@ -1176,6 +1193,7 @@ internal static class JobJsonParser
                 return new JsonUpdatePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
@@ -1229,6 +1247,7 @@ internal static class JobJsonParser
                     DecodeLevel = jsonDecode,
                     MaxStreamFilters = maxStreamFilters,
                     ParserMaxNesting = parserMaxNesting,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     StreamDataMode = jsonStreams,
                     StreamPrefix = jsonStreamPrefix,
                     Objects = wantedObjects,
@@ -1268,6 +1287,7 @@ internal static class JobJsonParser
                 return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
@@ -1326,6 +1346,7 @@ internal static class JobJsonParser
                     Rotations = rotations,
                     Labels = labels,
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
                     ForceVersion = forceVersion,
@@ -1420,6 +1441,7 @@ internal static class JobJsonParser
                     KeepInlineImages = keepInlineImages,
                     JpegQuality = jpegQuality,
                     WarningExitZero = warningExit0,
+                    IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
             };
         }

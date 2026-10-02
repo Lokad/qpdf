@@ -1,6 +1,10 @@
 # Progress
 
 ## Current checkpoint
+Work item 59: classic-table reading mode (M11). `--ignore-xref-streams` (plus job key `ignoreXrefStreams`) skips cross-reference streams and hybrid `/XRefStm` links through the governed reader on every plan that opens a document (plus host budgets): hybrid files fall back to classic revisions, bogus stream links never load, stream-only files fail strictly into bounded recovery, with exit-for-exit oracle parity and a hybrid selection trio in a dedicated differential case.
+
+Prior gate
+
 Work item 58: page-image listing (M11). `--show-pages --with-images` (plus job key `withImages`) lists direct image XObjects from effective inherited resources with oracle-identical lines, backed by image fixtures, unit evidence (sorting, form skipping, dimension warnings, combinations, job parity, budgets) and a dedicated differential case (clean and dimension-less listings, warning exits 3/3). `--with-images` without `--show-pages` fails explicitly where upstream ignores the modifier.
 
 Prior gate
@@ -211,14 +215,14 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1343 tests (844
+- Locked restore, Release build with zero warnings, and all 1354 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
   plus 2 streamed-manifest rows (oracle object-stream fixtures), plus 5 streamed-inspection cases
   (check/show over object-stream files), plus 3 streamed-parts cases (container placement and numbering),
   plus 3 streamed-emission cases (managed check, determinism, classic fallback), plus 17 page-count cases (counts, combinations, job parity, budgets), plus 18 page-dictionary cases (exact layouts, combinations, job parity, budgets), plus 27 object cases (canonical definitions, streams, trailer, missing-as-null, compressed members, combinations, job parity, budgets), plus 21 xref cases (classic/compressed entries, combinations, job parity, budgets), plus 10 form-dictionary cases (invariant, merge, check-combination, job parity, budgets), plus 10 structure-tree cases (invariant, merge, check-combination, job parity, budgets) plus 1 structure manifest row, plus 12 budget-enforcement cases (entry-path BudgetExceeded with no output) plus 5 streamed-mode cases
-  (generate/preserve/disable, outlines, job parity) plus 3 job-JSON-help identity cases (bare/with-input/combination wins, valued-form failure, exhausted output budget) plus 8 JSON-help identity cases (version selection, unknown versions, wins-over---json, exhausted output budget) plus 5 shell-completion identity cases (bash/zsh scripts, valued-form failure, exhausted output budget) plus 12 stream-filter budget cases (cap/boundary, argv/job parity, combination guards, host budget, validation, malformed values) plus 24 global-limits cases (deep-nesting default/raise/boundary/ceiling, nested global parity/guards, limits refusal, host-budget interplay) plus 17 page-image cases (sorted direct listing, form skipping, dimension warnings, combinations, job parity, budgets)).
+  (generate/preserve/disable, outlines, job parity) plus 3 job-JSON-help identity cases (bare/with-input/combination wins, valued-form failure, exhausted output budget) plus 8 JSON-help identity cases (version selection, unknown versions, wins-over---json, exhausted output budget) plus 5 shell-completion identity cases (bash/zsh scripts, valued-form failure, exhausted output budget) plus 12 stream-filter budget cases (cap/boundary, argv/job parity, combination guards, host budget, validation, malformed values) plus 24 global-limits cases (deep-nesting default/raise/boundary/ceiling, nested global parity/guards, limits refusal, host-budget interplay) plus 17 page-image cases (sorted direct listing, form skipping, dimension warnings, combinations, job parity, budgets) plus 11 classic-table reading cases (hybrid fallback, damaged-link recovery skip, stream-only recovery, inert classic, malformed forms, job parity, host budgets)).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
@@ -231,9 +235,9 @@ binary.
 ## Next work
 
 1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
-   (work items 41-42, 53-58).
-   Next slices: remaining stale required entries (14 not-started: parser container/error caps, --empty, stream-data inspection modes,
-   progress/keep-open/verbose, test-json-schema, report-memory-usage, --global, --ignore-xref-streams), no-external build/test
+   (work items 41-42, 53-59).
+   Next slices: remaining stale required entries (13 not-started: parser container/error caps, --empty, stream-data inspection modes,
+   progress/keep-open/verbose, test-json-schema, report-memory-usage, --global), no-external build/test
    audit, package/docs checks.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
    upstream acceptance of M1 outputs.

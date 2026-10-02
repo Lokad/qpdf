@@ -4287,6 +4287,11 @@ public static class Qpdf
             limits = limits with { MaxNestingDepth = parserMaxNesting };
         }
 
+        if (plan.IgnoreXrefStreams)
+        {
+            limits = limits with { IgnoreXrefStreams = true };
+        }
+
         if (plan is CheckPlan check)
         {
             try
