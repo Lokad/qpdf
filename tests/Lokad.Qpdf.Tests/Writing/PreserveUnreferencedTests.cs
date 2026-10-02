@@ -252,6 +252,21 @@ public sealed class PreserveUnreferencedTests
     }
 
     [Fact]
+    public async Task PreserveFailsOnExhaustedWorkBudget()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", OrphanFixture());
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--preserve-unreferenced", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
     public async Task JobJsonParityHolds()
     {
         InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", OrphanFixture());

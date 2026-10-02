@@ -3954,22 +3954,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": [
-          "diff:select",
-          "diff:merge",
-          "diff:select-first",
-          "diff:errors"
-        ]
+        "positive": ["PageSelectionTests.OrderedSelectionPreservesOrderAndDuplicates", "AdapterTests.ArgvNamedForms", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
+        "negative": ["AdapterTests.ArgvRangeErrorsFail", "MergeCommandTests.ArgvMergeErrorsAreExplicit"],
+        "interaction": ["MergeCommandTests.ArgvMultiFileMergesInOrder", "MergeCommandTests.JobMultiEntryMergesInOrder"],
+        "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
+        "oracle": ["diff:select", "diff:merge", "diff:select-first", "diff:errors"]
       }
     },
     {
@@ -4171,16 +4164,16 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Oracle preservation-parity evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["PreserveUnreferencedTests.DefaultDropsUnreferencedObjects", "PreserveUnreferencedTests.PreserveKeepsUnreferencedObjects", "PreserveUnreferencedTests.PreserveAcrossMergeKeepsBothOrphans", "PreserveUnreferencedTests.JobJsonParityHolds"],
+        "negative": ["PreserveUnreferencedTests.DuplicateFlagFails", "PreserveUnreferencedTests.ValuedFlagFails", "PreserveUnreferencedTests.JobJsonInvalidValueFails"],
+        "interaction": ["PreserveUnreferencedTests.PreserveAcrossMergeKeepsBothOrphans", "PreserveUnreferencedTests.PreserveAcrossSplitKeepsOrphansPerGroup"],
+        "resource": ["PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget"],
         "oracle": []
       }
     },

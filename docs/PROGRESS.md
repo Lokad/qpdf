@@ -1,6 +1,12 @@
 # Progress
 
 ## Current checkpoint
+Work item 48: selection evidence (M11). Top-level `--pages` is complete with ordered,
+range-failure, budget, and differential evidence; `--preserve-unreferenced-resources` moves
+to partial with a budget case, oracle preservation parity still open.
+
+Prior gate
+
 Work item 47: cross-reference inspection (M11). `--show-xref` (plus job key `showXref`)
 lists live entries with oracle-identical lines (compressed entries included, free entries
 skipped), backed by a line-for-line differential case on classic and streamed files.
@@ -157,7 +163,7 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1240 tests (844
+- Locked restore, Release build with zero warnings, and all 1241 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
@@ -176,7 +182,7 @@ binary.
 
 ## Next work
 
-1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, and xref entries evidenced
+1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, and selection entries evidenced
    (work items 41-42).
    Next slices: remaining stale required entries (help/version identity, inspection gaps like
    show-npages/show-object, unimplemented global/progress/keep-open flags), no-external build/test

@@ -327,6 +327,8 @@ forms, `.` for the primary input) with repeatable `--collate[=n[,m,...]]`
 the exact legacy single-file behavior. Job JSON accepts multi-entry `pages`
 arrays concatenating in order; the `collate` key stays explicitly unsupported.
 Out-of-range pages map to explicit failures without publication.
+Page selection carries complete option evidence (ordered/duplicate/first-last coverage,
+explicit range failures, work-budget enforcement, select/merge differentials).
 
 ## Ordinary rotation (work item 20, part 1)
 
