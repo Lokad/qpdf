@@ -398,4 +398,35 @@ public sealed class QdfTests
         Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
         Assert.Equal(a, b);
     }
+
+    [Theory]
+    [InlineData("--no-original-object-ids=x")]
+    [InlineData("--no-original-object-ids=")]
+    [InlineData("--no-original-object-ids", "--no-original-object-ids")]
+    public async Task MalformedNoOriginalObjectIdsFlagsFail(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task NoOriginalIdsJobParityHolds()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--pages", ".", "1", "--qdf", "--no-original-object-ids");
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "qdf": "", "noOriginalObjectIds": ""}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
 }

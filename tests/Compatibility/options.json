@@ -3667,20 +3667,26 @@
         }
       ],
       "milestone": "M9",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Oracle lane covers default object-ID comments; suppression is unit-tested only."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "QdfTests.NoOriginalObjectIdsSuppressesComments",
           "QdfTests.ObjectStreamsQdfNoOriginalIdsSuppressesComments"
         ],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "negative": [
+          "QdfTests.MalformedNoOriginalObjectIdsFlagsFail"
+        ],
+        "interaction": [
+          "QdfTests.NoOriginalIdsJobParityHolds"
+        ],
+        "resource": [
+          "ResourceEnforcementTests.QdfYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:qdf-noids"
+        ]
       }
     },
     {
@@ -4318,11 +4324,9 @@
         }
       ],
       "milestone": "M9",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Generated object streams follow writer packing rules (catalog/pages stay direct) rather than upstream packing; page /Parent links stay dropped per catalog policy; fix-qdf and zlib-flate companions remain separate work items."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "QdfTests.MarkerAndReadableLayout",

@@ -628,6 +628,21 @@ if (Test-Path $fixQdf) {
 } else { Write-Output "[qdf] FAIL: fix-qdf.exe missing beside oracle"; $script:failures++ }
 Write-Output "[qdf] marker assertions done"
 
+# --- case: qdf-noids (managed vs oracle QDF without original object IDs) ---
+$case = New-Case 'qdf-noids'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--qdf', '--no-original-object-ids', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "qdf-noids: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--qdf', '--no-original-object-ids', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "qdf-noids: oracle failed ($code)" }
+Assert-Trio 'qdf-noids' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('Original object ID')) { Write-Output "[qdf-noids] FAIL: original-ID comment remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('%QDF-1.0')) { Write-Output "[qdf-noids] FAIL: QDF marker missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[qdf-noids] suppression assertions done"
+
 # --- case: fixqdf (managed repair must match oracle fix-qdf byte for byte) ---
 $case = New-Case 'fixqdf'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1313,4 +1328,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, forms, overlay, errors, job-file, recovery, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
