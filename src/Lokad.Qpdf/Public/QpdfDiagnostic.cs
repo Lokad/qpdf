@@ -81,6 +81,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Operation summary note.</summary>
     VerboseSummary = 20,
+
+    /// <summary>Write progress note.</summary>
+    ProgressReport = 21,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

@@ -163,6 +163,7 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -272,6 +273,7 @@ internal static class ArgvParser
                 FilteredStreamData = globals.FilteredStreamData,
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -340,6 +342,7 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -408,6 +411,7 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 WithImages = globals.WithImages,
@@ -671,6 +675,7 @@ internal static class ArgvParser
                 Show = showLinearizationAt >= 0,
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -878,6 +883,7 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -936,6 +942,7 @@ internal static class ArgvParser
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -1087,6 +1094,7 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -1106,6 +1114,7 @@ internal static class ArgvParser
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -1157,7 +1166,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress);
 
     private static bool IsGlobalOptionToken(string token)
     {
@@ -1329,6 +1338,8 @@ internal static class ArgvParser
         bool seenTestJsonSchema = false;
         bool seenVerbose = false;
         bool verbose = false;
+        bool seenProgress = false;
+        bool progress = false;
         bool seenKeepFilesOpen = false;
         string? keepFilesOpen = null;
         bool seenKeepFilesOpenThreshold = false;
@@ -2042,6 +2053,23 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --verbose takes no value.", i, null);
             }
 
+            if (argv[i] == "--progress")
+            {
+                if (seenProgress)
+                {
+                    throw new QpdfParseException("Duplicate --progress is outside the narrow profile.", i, null);
+                }
+
+                seenProgress = true;
+                progress = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--progress=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --progress takes no value.", i, null);
+            }
+
             if (argv[i] == "--keep-files-open" || argv[i].StartsWith("--keep-files-open=", StringComparison.Ordinal))
             {
                 if (seenKeepFilesOpen)
@@ -2098,7 +2126,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2617,6 +2645,7 @@ internal static class ArgvParser
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -2888,6 +2917,7 @@ internal static class ArgvParser
             Objects = objects,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             MinimalOutput = minimalOutput,
         };
     }
@@ -2951,6 +2981,7 @@ internal static class ArgvParser
             {
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
+            Progress = globals.Progress,
                 ReportMemoryUsage = globals.ReportMemoryUsage,
                 IgnoreXrefStreams = globals.IgnoreXrefStreams,
                 NoWarn = globals.NoWarn,
@@ -2979,6 +3010,7 @@ internal static class ArgvParser
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -3675,6 +3707,7 @@ internal static class ArgvParser
         {
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
@@ -3745,6 +3778,7 @@ internal static class ArgvParser
             EmptyInput = emptyInput,
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
+            Progress = globals.Progress,
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,

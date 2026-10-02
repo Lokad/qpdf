@@ -4187,16 +4187,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Diagnostics-only milestones on successful writes; upstream streams object-based percentages during the write. Oracle output parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["ProgressTests.ProgressReportsWriteMilestonesWithIdenticalBytes", "ProgressTests.JobProgressMatchesArgv"],
+        "negative": ["ProgressTests.BadProgressFlagsFail", "ProgressTests.BadProgressJobKeysFail", "ProgressTests.ProgressStaysSilentWithoutAnOutputFile"],
+        "interaction": ["ProgressTests.ProgressCombinesWithVerboseWithoutChangingBytes"],
+        "resource": ["ProgressTests.ProgressYieldsToExhaustedBudget"],
         "oracle": []
       }
     },

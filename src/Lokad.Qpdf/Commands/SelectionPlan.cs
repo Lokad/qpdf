@@ -53,6 +53,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool Verbose { get; init; }
 
+    public bool Progress { get; init; }
+
     public bool RawStreamData { get; init; }
 
     public bool FilteredStreamData { get; init; }

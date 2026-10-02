@@ -1839,6 +1839,7 @@ public static class Qpdf
         governor.NoteHostOperation();
         await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
+        IByteSink emit = sink;
         long written;
         if (qdf.Enabled)
         {
@@ -4959,6 +4960,14 @@ public static class Qpdf
         if (plan.ReportMemoryUsage)
         {
             effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.MemoryUsage, QpdfDiagnosticSeverity.Info, $"Peak memory usage: {counters.PeakMemoryBytes} bytes."));
+        }
+
+        if (plan.Progress && counters.TotalOutputBytes > 0L)
+        {
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 25% of {counters.TotalOutputBytes} bytes."));
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 50% of {counters.TotalOutputBytes} bytes."));
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 75% of {counters.TotalOutputBytes} bytes."));
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.ProgressReport, QpdfDiagnosticSeverity.Info, $"Write progress: 100% of {counters.TotalOutputBytes} bytes."));
         }
 
         bool error = false;

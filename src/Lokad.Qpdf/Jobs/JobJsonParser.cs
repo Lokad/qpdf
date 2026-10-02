@@ -97,6 +97,8 @@ internal static class JobJsonParser
             bool seenReportMemoryUsage = false;
             bool verbose = false;
             bool seenVerbose = false;
+            bool progress = false;
+            bool seenProgress = false;
             bool rawStreamData = false;
             bool seenRawStreamData = false;
             bool filteredStreamData = false;
@@ -794,6 +796,15 @@ internal static class JobJsonParser
                         seenVerbose = true;
                         verbose = RequireBareFlag(property.Value, "verbose");
                         break;
+                    case "progress":
+                        if (seenProgress)
+                        {
+                                throw new QpdfParseException("Duplicate job key progress.", 0L, null);
+                        }
+
+                        seenProgress = true;
+                        progress = RequireBareFlag(property.Value, "progress");
+                        break;
                     case "keepFilesOpen":
                         if (seenKeepFilesOpen)
                         {
@@ -1068,7 +1079,7 @@ internal static class JobJsonParser
                         throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
                     }
 
-                    return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose };
+                    return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
                 }
 
                 if (output is not null)
@@ -1076,7 +1087,7 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
                 }
 
-                return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), null, null, true, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose };
+                return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), null, null, true, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
             }
 
             if (checkLinearization || showLinearization)
@@ -1104,6 +1115,7 @@ internal static class JobJsonParser
                     Show = showLinearization,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                 };
             }
@@ -1134,6 +1146,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1165,6 +1178,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     WithImages = withImages,
                     NoWarn = noWarn,
@@ -1197,6 +1211,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     Output = output is null ? null : SelectionPlan.CheckedPath(output),
@@ -1231,6 +1246,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                 };
@@ -1290,6 +1306,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1334,6 +1351,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1388,6 +1406,7 @@ internal static class JobJsonParser
                     DecodeLevel = jsonDecode,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     TestJsonSchema = testJsonSchema,
                     MaxStreamFilters = maxStreamFilters,
                     ParserMaxNesting = parserMaxNesting,
@@ -1435,6 +1454,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1514,6 +1534,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
                     MinVersion = minVersion,
@@ -1617,6 +1638,7 @@ internal static class JobJsonParser
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
+                    Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
             };
