@@ -2026,11 +2026,9 @@
         }
       ],
       "milestone": "M10",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Inspects one input with the shared linearization engine; hint defects fail explicitly (exit 2) where upstream warns (exit 3). --show-linearization stays unsupported (work item 40)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LinearizationInspectionTests.CheckLinearizationReportsNoErrors",
@@ -2047,7 +2045,9 @@
           "LinearizationInspectionTests.JobCheckLinearizationMatchesArgv",
           "LinearizationInspectionTests.JobCheckLinearizationRejectsCombinations"
         ],
-        "resource": [],
+        "resource": [
+          "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget"
+        ],
         "oracle": [
           "diff:check-linearization"
         ]
@@ -3498,11 +3498,9 @@
         }
       ],
       "milestone": "M10",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Captures the counting pass (padded dictionary, zeroed cross-references, no hint stream) to a named file; ignored without --linearize."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LinearizedWriterTests.Pass1CapturedAlongsideFinalOutput",
@@ -3516,7 +3514,9 @@
           "LinearizedWriterTests.Pass1MalformedJobKeysFail"
         ],
         "interaction": [],
-        "resource": [],
+        "resource": [
+          "LinearizedWriterTests.Pass1YieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:linearize-pass1"
         ]
@@ -5021,11 +5021,9 @@
         }
       ],
       "milestone": "M10",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Dumps parameter data, page-offset/shared-object hint tables, the outline table when present, and recomputed part assignments; unreadable hint tables fail explicitly (exit 2) where upstream prints a partial dump."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LinearizationInspectionTests.ShowLinearizationReportsHintTables",
@@ -5041,7 +5039,9 @@
           "LinearizationInspectionTests.JobShowLinearizationMatchesArgv",
           "LinearizationInspectionTests.JobShowLinearizationRejectsCombinations"
         ],
-        "resource": [],
+        "resource": [
+          "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget"
+        ],
         "oracle": [
           "diff:show-linearization"
         ]

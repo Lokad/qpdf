@@ -410,4 +410,22 @@ public sealed class LinearizationInspectionTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed);
     }
+
+    [Theory]
+    [InlineData("--check-linearization")]
+    [InlineData("--show-linearization")]
+    public async Task LinearizationInspectionYieldsToExhaustedInputBudget(params string[] flags)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("linearized-2page.pdf"));
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        QpdfLimits limits = QpdfLimits.Default with { MaxInputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(argv),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+    }
 }

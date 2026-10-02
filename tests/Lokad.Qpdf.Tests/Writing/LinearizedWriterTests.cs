@@ -668,4 +668,21 @@ public sealed class LinearizedWriterTests
         Assert.Equal(1, check.PageCount);
         Assert.True(check.Passed);
     }
+
+    [Fact]
+    public async Task Pass1YieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--linearize-pass1=outputs/p1.bin", "--", "outputs/a.pdf" };
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(argv),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] _));
+    }
 }
