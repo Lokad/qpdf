@@ -405,6 +405,75 @@ $code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--',
 if ($code -ne 0) { throw "overlay: oracle failed ($code)" }
 Assert-Trio 'overlay' "$case/lib.pdf" "$case/ora.pdf" 2
 
+# --- case: writer-controls (managed vs oracle header, identifier, and stream endings) ---
+$case = New-Case 'writer-controls'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+foreach ($sub in @(('min', '--min-version=1.7', '%PDF-1.7'), ('force', '--force-version=1.1', '%PDF-1.1'))) {
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$($sub[0]).pdf=$case/lib-$($sub[0]).pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', $sub[1], '--', "outputs/$($sub[0]).pdf")
+  if ($code -ne 0) { throw "writer-controls/$($sub[0]): emit failed ($code)" }
+  $code = Invoke-Oracle $case @($sub[1], 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-$($sub[0]).pdf")
+  if ($code -ne 0) { throw "writer-controls/$($sub[0]): oracle failed ($code)" }
+  Assert-Trio "writer-controls/$($sub[0])" "$case/lib-$($sub[0]).pdf" "$case/ora-$($sub[0]).pdf" 1
+  $libHead = Get-Content "$case/lib-$($sub[0]).pdf" -TotalCount 1
+  $oraHead = Get-Content "$case/ora-$($sub[0]).pdf" -TotalCount 1
+  if ($libHead -ne $sub[2] -or $oraHead -ne $sub[2]) { Write-Output "[writer-versions] FAIL: headers lib=[$libHead] ora=[$oraHead], expected [$($sub[2])]"; $script:failures++ }
+  else { Write-Output "[writer-versions] headers agree ($($sub[2]))" }
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ext.pdf=$case/lib-ext.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--force-version=1.7.8', '--', 'outputs/ext.pdf')
+if ($code -ne 0) { throw "writer-controls/ext: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--force-version=1.7.8', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-ext.pdf")
+if ($code -ne 0) { throw "writer-controls/ext: oracle failed ($code)" }
+Assert-Trio 'writer-controls/ext' "$case/lib-ext.pdf" "$case/ora-ext.pdf" 1
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-ext.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
+$libCat = (Get-Content "$case/show-lib.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-ext.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
+$oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
+if ($libCat -ne $oraCat) { Write-Output "[writer-versions] FAIL: extension catalogs differ"; $script:failures++ }
+elseif (-not $libCat.Contains('/ExtensionLevel 8')) { Write-Output "[writer-versions] FAIL: extension level missing"; $script:failures++ }
+else { Write-Output "[writer-versions] extension catalogs agree (/ExtensionLevel 8)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/static.pdf=$case/lib-static.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--static-id', '--', 'outputs/static.pdf')
+if ($code -ne 0) { throw "writer-controls/static: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--static-id', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-static.pdf")
+if ($code -ne 0) { throw "writer-controls/static: oracle failed ($code)" }
+Assert-Trio 'writer-controls/static' "$case/lib-static.pdf" "$case/ora-static.pdf" 1
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=trailer', "$case/lib-static.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/trailer-lib.txt" -RedirectStandardError "$case/trailer-lib-err.txt"
+$libTrailer = (Get-Content "$case/trailer-lib.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=trailer', "$case/ora-static.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/trailer-ora.txt" -RedirectStandardError "$case/trailer-ora-err.txt"
+$oraTrailer = (Get-Content "$case/trailer-ora.txt" -Raw).Trim()
+if ($libTrailer -ne $oraTrailer) { Write-Output "[writer-ids] FAIL: static trailers differ"; $script:failures++ }
+elseif (-not $libTrailer.Contains('31415926535897932384626433832795')) { Write-Output "[writer-ids] FAIL: test constant missing"; $script:failures++ }
+else { Write-Output "[writer-ids] static trailers agree (test constant)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/det.pdf=$case/lib-det.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--deterministic-id', '--', 'outputs/det.pdf')
+if ($code -ne 0) { throw "writer-controls/det: emit failed ($code)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--', 'outputs/plain.pdf')
+if ($code -ne 0) { throw "writer-controls/plain: emit failed ($code)" }
+$lh = (Get-FileHash "$case/lib-det.pdf" -Algorithm SHA256).Hash
+$ph = (Get-FileHash "$case/lib-plain.pdf" -Algorithm SHA256).Hash
+if ($lh -ne $ph) { Write-Output "[writer-ids] FAIL: deterministic flag changes default bytes"; $script:failures++ }
+else { Write-Output "[writer-ids] deterministic output matches default bytes" }
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', "$case/lib-det.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+if ($p.ExitCode -ne 0) { Write-Output "[writer-ids] FAIL: deterministic output check exit $($p.ExitCode)"; $script:failures++ }
+else { Write-Output "[writer-ids] deterministic output validates under oracle check" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/nl.pdf=$case/lib-nl.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--newline-before-endstream', '--', 'outputs/nl.pdf')
+if ($code -ne 0) { throw "writer-controls/nl: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--newline-before-endstream', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-nl.pdf")
+if ($code -ne 0) { throw "writer-controls/nl: oracle failed ($code)" }
+Assert-Trio 'writer-controls/nl' "$case/lib-nl.pdf" "$case/ora-nl.pdf" 1
+$nlMismatch = $false
+foreach ($pair in @(('lib', "$case/lib-nl.pdf"), ('ora', "$case/ora-nl.pdf"))) {
+  $bytes = [IO.File]::ReadAllBytes($pair[1])
+  $needle = [Text.Encoding]::ASCII.GetBytes('endstream')
+  $ends = 0
+  $bare = 0
+  for ($i = 0; $i + $needle.Length -le $bytes.Length; $i++) {
+    $m = $true
+    for ($k = 0; $k -lt $needle.Length; $k++) { if ($bytes[$i + $k] -ne $needle[$k]) { $m = $false; break } }
+    if ($m) { $ends += 1; if ($i -eq 0 -or $bytes[$i - 1] -ne 10) { $bare += 1 } }
+  }
+  if ($ends -eq 0 -or $bare -gt 0) { Write-Output "[writer-newlines] FAIL: $($pair[0]) has $ends endstreams, $bare without preceding LF"; $script:failures++; $nlMismatch = $true }
+}
+if (-not $nlMismatch) { Write-Output "[writer-newlines] stream endings agree (LF before every endstream)" }
+
 # --- case: qdf (editable view with generated object streams) ---
 $case = New-Case 'qdf'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1061,4 +1130,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, writer-controls, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

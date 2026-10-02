@@ -433,4 +433,26 @@ public sealed class WriterControlsTests
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
+
+    [Theory]
+    [InlineData("--min-version=1.7")]
+    [InlineData("--force-version=1.1")]
+    [InlineData("--deterministic-id")]
+    [InlineData("--static-id")]
+    [InlineData("--newline-before-endstream")]
+    public async Task WriterControlsYieldToExhaustedBudget(params string[] flags)
+    {
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(argv),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

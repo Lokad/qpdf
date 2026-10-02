@@ -2360,22 +2360,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Default IDs are deterministic content hashes (no ambient clock), unlike upstream time-based random IDs; documented intentional difference. Oracle ID comparison needs normalization."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "WriterControlsTests.DeterministicFlagMatchesDefaultForSameContent",
           "WriterControlsTests.DefaultIdsAreDeterministicAcrossRuns"
         ],
-        "negative": [],
+        "negative": [
+          "WriterControlsTests.MalformedWriterFlagsFail",
+          "WriterControlsTests.DuplicateWriterFlagsFail"
+        ],
         "interaction": [
           "WriterControlsTests.JobJsonWriterControlsParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:writer-ids"
+        ]
       }
     },
     {
@@ -2651,11 +2656,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Object-stream disabling for forced versions below 1.5 is vacuous until 22b generates streams; no other feature downgrading is claimed."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "WriterControlsTests.ForceVersionOverridesBothDirections",
@@ -2667,8 +2670,12 @@
         "interaction": [
           "WriterControlsTests.ForceVersionWinsOverMinVersion"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:writer-versions"
+        ]
       }
     },
     {
@@ -3528,11 +3535,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Object-stream interaction for forced versions below 1.5 awaits work item 22b; extension levels beyond catalog ADBE emission need oracle comparison."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "WriterControlsTests.MinVersionRaisesLowerInput",
@@ -3545,8 +3550,12 @@
           "WriterControlsTests.ForceVersionWinsOverMinVersion",
           "WriterControlsTests.JobJsonWriterControlsParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:writer-versions"
+        ]
       }
     },
     {
@@ -3567,22 +3576,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Classic-xref streams only; object/xref-stream interactions await 22b."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "WriterControlsTests.NewlineFlagAddsExtraNewline",
           "WriterControlsTests.NewlineFlagDoublesTrailingNewline"
         ],
-        "negative": [],
+        "negative": [
+          "WriterControlsTests.MalformedWriterFlagsFail",
+          "WriterControlsTests.DuplicateWriterFlagsFail"
+        ],
         "interaction": [
           "WriterControlsTests.DefaultStreamHasNoExtraNewline"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:writer-newlines"
+        ]
       }
     },
     {
@@ -5185,22 +5199,27 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Matches upstream test constant and original-ID preservation; static wins when both ID flags are given."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "WriterControlsTests.StaticIdEmitsTestConstant",
           "WriterControlsTests.StaticIdPreservesOriginalFirstWord"
         ],
-        "negative": [],
+        "negative": [
+          "WriterControlsTests.MalformedWriterFlagsFail",
+          "WriterControlsTests.DuplicateWriterFlagsFail"
+        ],
         "interaction": [
           "WriterControlsTests.JobJsonWriterControlsParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:writer-ids"
+        ]
       }
     },
     {

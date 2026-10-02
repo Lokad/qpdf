@@ -63,10 +63,10 @@ compares managed and oracle outputs operation by operation under ignored
 independent page counts must agree, plus per-case assertions. Current
 coverage, all passing with no engine discrepancies: select (first- and last-page trios), merge,
 uncompress (decoded stream payloads identical), normalize (normalized
-content payloads identical), coalesce (decoded payloads identical), flatten-rotation
+content payloads identical), coalesce (decoded payloads identical), compress (recompressed payloads identical), flatten-rotation
 (swapped MediaBox, dropped /Rotate, byte-identical wrap streams), prune (unreferenced
 /F2 dropped under page operations with decoded payloads identical), JSON structural
-page-descriptor agreement (version, object and contents references, positions), json-modes (trailer filter, inline payloads, minimal-output, and prefix sidecars each agreeing with the oracle), json-import (shared oracle JSON built by both writers with trios green and sorted decoded-payload identity), json-update (shared mutated JSON applied by both writers with trios green and `/Custom` in both outputs),
+page-descriptor agreement (version, object and contents references, positions), json-modes (trailer filter, inline payloads, minimal-output, and prefix sidecars each agreeing with the oracle), json-import (shared oracle JSON built by both writers with trios green and sorted decoded-payload identity), json-update (shared mutated JSON applied by both writers with trios green and `/Custom` in both outputs), writer-controls (negotiated/forced/extension headers and catalogs, static test-constant trailers, deterministic/default byte identity, LF-before-endstream shapes),
 error exit-class parity (out-of-range page, missing input, and unknown flag all exit 2
 on both sides), warning exit parity (3/3, 0/0, 3/3), show-npages page-count agreement, show-pages/show-object/show-xref line-for-line dumps, show-pages-with-images listings (clean and dimension-less fixtures, warning exits 3/3), ignore-xref-streams reading (hybrid/classic/stream-only exit parity plus a hybrid selection trio), remove-acroform/remove-structure invariants, forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
@@ -430,8 +430,8 @@ lower; `--force-version` sets it exactly even when lower. Both accept
 `major.minor[.extension-level]` for the supported headers 1.0-1.7 and 2.0;
 other values fail as invalid arguments. A positive extension level emits a
 direct catalog `/Extensions << /ADBE << /BaseVersion /M.m /ExtensionLevel N >> >>`.
-Forced versions below 1.5 already yield classic xref (object streams stay
-disabled until work item 22b); no other feature downgrading is claimed.
+Forced versions below 1.5 yield classic xref tables with object streams disabled first, per upstream (work item 22b);
+no other feature downgrading is claimed.
 
 Trailer `/ID` is always emitted. The first word preserves the source trailer
 identifier when present, otherwise it repeats the generated second word. The

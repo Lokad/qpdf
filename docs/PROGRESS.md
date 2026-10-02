@@ -1,6 +1,10 @@
 # Progress
 
 ## Current checkpoint
+Work item 71: writer-controls completion (M11). `--min-version`, `--force-version`, `--deterministic-id`, `--static-id`, and `--newline-before-endstream` move to complete: existing malformed/duplicate guard tests fill the negative slots, a new `WriterControlsYieldToExhaustedBudget` theory fills the resource slots, and a new `writer-controls` differential case proves oracle agreement (negotiated/forced/extension headers and extension catalogs identical, static trailers byte-identical on the shared test constant, deterministic output matching default bytes and validating, LF-before-endstream shapes agreeing). The stale below-1.5-awaits-22b sentence now states the implemented rule.
+
+Prior gate
+
 Work item 70: compression-controls completion (M11). `--stream-data`, `--compress-streams`, `--decode-level`, `--recompress-flate`, and `--compression-level` move to complete: existing malformed/duplicate/valued guard tests fill the negative slots, a new shared-pipeline `CompressYieldsToExhaustedBudget` theory fills the resource slots, and a new `compress` differential case (oracle-compressed input rebuilt by both writers with recompress plus level 9, oracle trios green with sorted decoded-payload identity) fills the oracle slots alongside the existing uncompress case. Intentional differences stay documented in COMPATIBILITY (explicit-override precedence, opaque-preserving defaults, DCT/CMYK opacity, BCL level buckets); the stale "containers stay uncompressed until 23b" sentence now states the implemented packing rule.
 
 Prior gate
@@ -259,7 +263,7 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1490 tests (844
+- Locked restore, Release build with zero warnings, and all 1495 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 27 content transform cases (checked-in unreferenced-font fixture pruning, newline rewriting): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 2 JSON budget cases (import/update exhausted budgets), plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
@@ -279,7 +283,7 @@ binary.
 ## Next work
 
 1. M11 audit (in progress): crypto, warning/exit-code, identity, page-count, page-dictionary, object, xref, selection, form-dictionary, structure-tree, budget, and release-gate entries evidenced
-   (work items 41-42, 53-70).
+   (work items 41-42, 53-71).
    Next slices: remaining oracle-parity gaps across the 87 partials,
    then final package/docs/release gates.
    Re-run `tools/run-reference-checks.ps1` and reconcile the result, including
