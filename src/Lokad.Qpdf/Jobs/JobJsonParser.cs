@@ -139,6 +139,8 @@ internal static class JobJsonParser
             bool seenCheckLinearization = false;
             bool showLinearization = false;
             bool seenShowLinearization = false;
+            bool showNpages = false;
+            bool seenShowNpages = false;
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
@@ -513,6 +515,15 @@ internal static class JobJsonParser
                         seenShowLinearization = true;
                         showLinearization = RequireBareFlag(property.Value, "showLinearization");
                         break;
+                    case "showNpages":
+                        if (seenShowNpages)
+                        {
+                                throw new QpdfParseException("Duplicate job key showNpages.", 0L, null);
+                        }
+
+                        seenShowNpages = true;
+                        showNpages = RequireBareFlag(property.Value, "showNpages");
+                        break;
                     case "noOriginalObjectIds":
                         if (seenNoOriginalObjectIds)
                         {
@@ -828,6 +839,34 @@ internal static class JobJsonParser
                 {
                     Check = checkLinearization,
                     Show = showLinearization,
+                };
+            }
+
+            if (showNpages)
+            {
+                if (hasPages || output is not null
+                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
+                    || seenRotate || seenLabels || seenRemoveLabels
+                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
+                    || seenObjectStreams || seenPreserveUnreferenced
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenRecompressFlate || seenCompressionLevel
+                    || seenRemoveInfo || seenRemoveMetadata
+                    || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
+                    || seenOverlay || seenUnderlay
+                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
+                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
+                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
+                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
+                    || seenCheckLinearization || seenShowLinearization
+                    || seenListAttachments || showAttachment is not null)
+                {
+                    throw new QpdfParseException("Job showNpages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
+                }
+
+                return new ShowNpagesPlan(SelectionPlan.CheckedPath(input), recovery)
+                {
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
                 };
             }
 

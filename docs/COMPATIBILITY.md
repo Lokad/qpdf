@@ -68,7 +68,7 @@ content payloads identical), coalesce (decoded payloads identical), flatten-rota
 /F2 dropped under page operations with decoded payloads identical), JSON structural
 page-descriptor agreement (version, object and contents references, positions),
 error exit-class parity (out-of-range page, missing input, and unknown flag all exit 2
-on both sides), forms (generated
+on both sides), show-npages page-count agreement, forms (generated
 appearance bytes and `/Fxo1` stamping match, including the `1 5.2 Td`
 placement), overlay, qdf (editable view with generated object streams: trio plus QDF/ObjStm/XRef/member markers on both outputs and an upstream fix-qdf round trip), fixqdf (managed repair versus oracle fix-qdf byte-identical on edited classic and streamed files, trios green), linearized (oracle-linearized files plus page-count and hint-length mutations on both sides), linearize (managed writer versus oracle writer on one- and two-page outputs, both validating under oracle and managed checks with independent page-count agreement), linearize-streams (managed versus oracle writers with generated object streams on one-, two-page, and outlined selections, both outputs validating under both checkers), check-linearization (managed versus oracle inspection exits and messages on valid, plain, and hint-damaged files), show-linearization (managed versus oracle dumps compared line for line), linearize-pass1 (zeroed-entry shape and shorter-than-final on both sides), linearize-outlines (managed and oracle outputs validate with matching show dumps on both files), and linearize-thumbs (thumbnail part-9 placement with matching show dumps). Confirmed intentional differences: our default
 output stays uncompressed where upstream compresses, and our `--overlay`
@@ -254,6 +254,11 @@ with explicit null treated as absent (ancestor fallback, else `/MediaBox` failur
 page-only boxes such as `/BleedBox` and `/UserUnit` never inherit.
 
 ## Inspection breadth (work item 16)
+
+`qpdf input --show-npages` (plus job key `showNpages`) reports the traversed page count
+as an info diagnostic with exit 0; valued forms, output files, page selections, and other
+operations fail explicitly, and encrypted or exhausted-budget inputs fail without output.
+The differential lane compares managed and oracle counts on one- and two-page fixtures.
 
 `Qpdf.CheckAsync` runs a declared partial check: header, cross-reference,
 trailer, page tree, full object-graph traversal, decode-level-gated stream

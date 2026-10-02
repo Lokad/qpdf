@@ -52,6 +52,72 @@ internal static class ArgvParser
         int jsonInputAt = FindFlag(argv, "--json-input");
         int updateFromJsonAt = FindUpdateFromJson(argv);
         int jsonImportAt = jsonInputAt >= 0 && updateFromJsonAt >= 0 ? (jsonInputAt < updateFromJsonAt ? jsonInputAt : updateFromJsonAt) : (jsonInputAt >= 0 ? jsonInputAt : updateFromJsonAt);
+        int showNpagesAt = FindFlag(argv, "--show-npages");
+        if (showNpagesAt >= 0)
+        {
+            if (pagesAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-npages and --pages cannot be combined.", showNpagesAt, null);
+            }
+
+            if (firstOverlayAt >= 0)
+            {
+                throw new QpdfParseException("Options --show-npages and --overlay or --underlay cannot be combined.", showNpagesAt, null);
+            }
+
+            if (globals.FlattenRotation)
+            {
+                throw new QpdfParseException("Options --show-npages and --flatten-rotation cannot be combined.", showNpagesAt, null);
+            }
+
+            if (globals.FlattenAnnotations is not null)
+            {
+                throw new QpdfParseException("Options --show-npages and --flatten-annotations cannot be combined.", showNpagesAt, null);
+            }
+
+            if (globals.GenerateAppearances)
+            {
+                throw new QpdfParseException("Options --show-npages and --generate-appearances cannot be combined.", showNpagesAt, null);
+            }
+
+            if (globals.Qdf)
+            {
+                throw new QpdfParseException("Options --show-npages and --qdf cannot be combined.", showNpagesAt, null);
+            }
+
+            if (globals.Linearize)
+            {
+                throw new QpdfParseException("Options --show-npages and --linearize cannot be combined.", showNpagesAt, null);
+            }
+
+            if (globals.SplitPages.HasValue || globals.ReplaceInput)
+            {
+                throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showNpagesAt, null);
+            }
+
+            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-npages cannot be combined with other inspection.", showNpagesAt, null);
+            }
+
+            if (HasAttachmentEdit(argv, 0, argv.Count))
+            {
+                throw new QpdfParseException("Option --show-npages cannot be combined with attachment editing.", showNpagesAt, null);
+            }
+
+            if (jsonEntryAt >= 0 || jsonImportAt >= 0)
+            {
+                throw new QpdfParseException("Option --show-npages cannot be combined with JSON work.", showNpagesAt, null);
+            }
+
+            string npagesInput = ParseInspectionInput(argv, showNpagesAt, -1, -1, "--show-npages");
+            return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                NoWarn = globals.NoWarn,
+            };
+        }
+
         if (jsonEntryAt >= 0)
         {
             if (checkAt >= 0 || pagesAt >= 0)

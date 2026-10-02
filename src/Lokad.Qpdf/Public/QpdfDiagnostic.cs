@@ -60,6 +60,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Linearization inspection line.</summary>
     LinearizationReport = 13,
+
+    /// <summary>Page-count inspection line.</summary>
+    PageCount = 14,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

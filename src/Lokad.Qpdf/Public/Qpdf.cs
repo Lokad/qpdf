@@ -4086,6 +4086,25 @@ public static class Qpdf
             }
         }
 
+        if (plan is ShowNpagesPlan npages)
+        {
+            try
+            {
+                await using QpdfDocument document = await QpdfDocument.OpenCore(host, npages.Input, limits, governor, diagnostics, npages.Recovery, cancellationToken).ConfigureAwait(false);
+                int count = document.PageCount;
+                diagnostics.Add(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, $"{npages.Input.Value}: {count}");
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+            }
+            catch (QpdfException ex)
+            {
+                return ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                return QpdfExecutionResult.Canceled([], ZeroCounters());
+            }
+        }
+
         if (plan is LinearizationPlan linearization)
         {
             try

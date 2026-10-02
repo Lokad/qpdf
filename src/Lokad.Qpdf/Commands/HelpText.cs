@@ -68,6 +68,7 @@ internal static class HelpText
           --json-input  build a PDF from qpdf JSON
           --update-from-json=file  update a PDF from qpdf JSON
           --check-linearization       check linearization tables only
+          --show-npages                 show number of pages
           --show-linearization          display linearization hint tables
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help

@@ -4986,17 +4986,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowNpagesTests.ReportsPageCounts", "ShowNpagesTests.JobShowNpagesMatchesArgv"],
+        "negative": ["ShowNpagesTests.RejectsCombinationsAndValuedForm"],
+        "interaction": ["ShowNpagesTests.JobShowNpagesMatchesArgv"],
+        "resource": ["ShowNpagesTests.FailsOnExhaustedInputBudget"],
+        "oracle": ["diff:show-npages"]
       }
     },
     {

@@ -1,6 +1,12 @@
 # Progress
 
 ## Current checkpoint
+Work item 44: page-count inspection (M11). `--show-npages` (plus job key `showNpages`)
+reports traversed page counts across argv and job paths with explicit combination failures,
+encrypted/budget failures without output, and a managed-versus-oracle count-agreement lane case.
+
+Prior gate
+
 Work item 43: identity outputs and the no-external audit (M11). `--copyright` returns honest
 implementation text; valued identity forms fail explicitly; identity requests bypass exhausted
 output budgets; the ordinary suite passes 1150/1150 with `external/` absent while the reference
@@ -132,26 +138,26 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1157 tests (844
+- Locked restore, Release build with zero warnings, and all 1174 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
   plus 2 streamed-manifest rows (oracle object-stream fixtures), plus 5 streamed-inspection cases
   (check/show over object-stream files), plus 3 streamed-parts cases (container placement and numbering),
-  plus 3 streamed-emission cases (managed check, determinism, classic fallback), plus 5 streamed-mode cases
+  plus 3 streamed-emission cases (managed check, determinism, classic fallback), plus 17 page-count cases (counts, combinations, job parity, budgets) plus 5 streamed-mode cases
   (generate/preserve/disable, outlines, job parity)).
 - Release `.nupkg`/`.snupkg` creation and inspection: expected contents only,
   with exactly ImageSharp 3.1.12 as the runtime dependency, plus a clean
   package-consumer smoke (`CONSUMER SMOKE PASSED`).
 - Pinned oracle bootstrapped: official qpdf-12.4.2-msvc64.zip (zip SHA-256 db87077e…, exe SHA-256 1bdaf878…), `qpdf version 12.4.2`, libjpeg linked, Zopfli absent. Reference lane passes; differential lane (select with first-page coverage, merge, uncompress, normalize, coalesce, flatten-rotation,
-  prune with an unreferenced-font fixture, structural JSON page descriptors, error exit-class parity, forms, overlay, qdf with fix-qdf round trip, fixqdf byte-identity, zlibflate round trips, linearized check parity, linearize writer parity, linearize-streams parity (generated object streams on one-, two-page, and outlined selections), check-linearization inspection parity, show-linearization dump parity, linearize-pass1 shape parity, linearize-outlines parity, linearize-thumbs parity) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
+  prune with an unreferenced-font fixture, structural JSON page descriptors, error exit-class parity, warning exit parity, show-npages page-count agreement, forms, overlay, qdf with fix-qdf round trip, fixqdf byte-identity, zlibflate round trips, linearized check parity, linearize writer parity, linearize-streams parity (generated object streams on one-, two-page, and outlined selections), check-linearization inspection parity, show-linearization dump parity, linearize-pass1 shape parity, linearize-outlines parity, linearize-thumbs parity) passes with oracle trios green and no engine discrepancies (see docs/COMPATIBILITY.md).
 
 Ordinary `dotnet test` stays offline and never needs `external/` or a qpdf
 binary.
 
 ## Next work
 
-1. M11 audit (in progress): crypto, warning/exit-code, and identity entries evidenced
+1. M11 audit (in progress): crypto, warning/exit-code, identity, and page-count entries evidenced
    (work items 41-42).
    Next slices: remaining stale required entries (help/version identity, inspection gaps like
    show-npages/show-object, unimplemented global/progress/keep-open flags), no-external build/test
