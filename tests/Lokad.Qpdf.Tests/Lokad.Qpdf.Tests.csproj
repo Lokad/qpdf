@@ -14,6 +14,7 @@
     <None Include="../Fixtures/manifest.json" Link="Fixtures/manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-1page.pdf" Link="Fixtures/minimal-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/minimal-2page.pdf" Link="Fixtures/minimal-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/rotated-1page.pdf" Link="Fixtures/rotated-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/forms-1page.pdf" Link="Fixtures/forms-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-2page.pdf" Link="Fixtures/outlined-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-use-2page.pdf" Link="Fixtures/outlined-use-2page.pdf" CopyToOutputDirectory="PreserveNewest" />

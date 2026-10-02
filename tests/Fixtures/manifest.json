@@ -27,6 +27,15 @@
       "description": "Two pages sharing one font, classic xref, unencrypted. Oracle and independent page counts must agree on 2."
     },
     {
+      "file": "rotated-1page.pdf",
+      "sha256": "33118e667a5be6a4e96d7dcc6172823cabe2d2c9e70395bd5a633addbbdaafce",
+      "bytes": 592,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with /Rotate 90, classic xref, unencrypted. Rotation flattening must drop /Rotate, swap the media box, and wrap content with the 90-degree counter-transform; the rotation differential consumes it."
+    },
+    {
       "file": "forms-1page.pdf",
       "sha256": "49efd5043b16147158647f24c1408cdf06ec390734c45e4df3184fa0873da324",
       "bytes": 1012,

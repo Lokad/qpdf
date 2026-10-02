@@ -395,5 +395,21 @@ InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
 QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
 Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(result.Checks, check => check.Name == "page-content").Status);
 }
+[Fact]
+public async Task CheckedInRotatedFixtureFlattens()
+{
+byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "rotated-1page.pdf"));
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-rotation")).Pdf;
+byte[] content = await PageContentAsync(pdf);
+Assert.Contains("0 -1 1 0 0 612 cm", Encoding.ASCII.GetString(content));
+Assert.Contains("(Hello)", Encoding.ASCII.GetString(content));
+using JsonDocument pages = await PageJsonAsync(pdf);
+JsonElement page = pages.RootElement.GetProperty("pages")[0];
+using JsonDocument full = await QpdfJsonAsync(pdf);
+JsonElement value = full.RootElement.GetProperty("qpdf")[1].GetProperty(PageObjectKey(page)).GetProperty("value");
+Assert.False(value.TryGetProperty("/Rotate", out JsonElement _));
+Assert.Equal("792", value.GetProperty("/MediaBox")[2].GetRawText());
+Assert.Equal("612", value.GetProperty("/MediaBox")[3].GetRawText());
+}
 }
 
