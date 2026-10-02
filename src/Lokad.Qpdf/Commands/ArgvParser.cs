@@ -85,6 +85,11 @@ internal static class ArgvParser
         }
         int showNpagesAt = FindFlag(argv, "--show-npages");
         int showXrefAt = FindFlag(argv, "--show-xref");
+        if (globals.WithImages && showPagesAt < 0)
+        {
+            throw new QpdfParseException("Option --with-images requires --show-pages.", 0, null);
+        }
+
         if (showXrefAt >= 0)
         {
             if (pagesAt >= 0)
@@ -341,6 +346,7 @@ internal static class ArgvParser
             return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
             {
                 WarningExitZero = globals.WarningExitZero,
+                WithImages = globals.WithImages,
                 NoWarn = globals.NoWarn,
             };
         }
@@ -1024,7 +1030,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages);
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
     {
@@ -1106,6 +1112,8 @@ internal static class ArgvParser
         long? maxStreamFilters = null;
         bool seenParserMaxNesting = false;
         long? parserMaxNesting = null;
+        bool seenWithImages = false;
+        bool withImages = false;
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
@@ -1670,6 +1678,23 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --linearize takes no value.", i, null);
             }
 
+            if (argv[i] == "--with-images")
+            {
+                if (seenWithImages)
+                {
+                    throw new QpdfParseException("Duplicate --with-images is outside the narrow profile.", i, null);
+                }
+
+                seenWithImages = true;
+                withImages = true;
+                continue;
+            }
+
+            if (argv[i].StartsWith("--with-images=", StringComparison.Ordinal))
+            {
+                throw new QpdfParseException("Option --with-images takes no value.", i, null);
+            }
+
             if (argv[i].StartsWith("--no-original-object-ids=", StringComparison.Ordinal))
             {
                 throw new QpdfParseException("Option --no-original-object-ids takes no value.", i, null);
@@ -1692,7 +1717,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)

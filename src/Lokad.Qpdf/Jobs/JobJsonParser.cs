@@ -147,6 +147,8 @@ internal static class JobJsonParser
             bool seenShowNpages = false;
             bool showPages = false;
             bool seenShowPages = false;
+            bool withImages = false;
+            bool seenWithImages = false;
             string? showObject = null;
             bool seenShowObject = false;
             bool showXref = false;
@@ -590,6 +592,15 @@ internal static class JobJsonParser
                         seenShowPages = true;
                         showPages = RequireBareFlag(property.Value, "showPages");
                         break;
+                    case "withImages":
+                        if (seenWithImages)
+                        {
+                                throw new QpdfParseException("Duplicate job key withImages.", 0L, null);
+                        }
+
+                        seenWithImages = true;
+                        withImages = RequireBareFlag(property.Value, "withImages");
+                        break;
                     case "showObject":
                         if (seenShowObject)
                         {
@@ -887,6 +898,11 @@ internal static class JobJsonParser
                 }
             }
 
+            if (seenWithImages && !showPages)
+            {
+                throw new QpdfParseException("Job withImages requires showPages.", 0L, null);
+            }
+
             if (input == "-")
             {
                 throw new QpdfParseException("Standard input is not a seekable PDF input.", 0L, null);
@@ -1006,6 +1022,7 @@ internal static class JobJsonParser
                 return new ShowPagesPlan(SelectionPlan.CheckedPath(input), recovery)
                 {
                     WarningExitZero = warningExit0,
+                    WithImages = withImages,
                     NoWarn = noWarn,
                 };
             }

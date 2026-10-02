@@ -5484,17 +5484,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["ShowPagesTests.ListsDirectImagesSortedSkippingForms", "ShowPagesTests.OmitsImagesSectionWithoutImages", "ShowPagesTests.WarnsOnMissingDimensions", "ShowPagesTests.JobWithImagesMatchesArgv"],
+        "negative": ["ShowPagesTests.RejectsImagesWithoutShowPages", "ShowPagesTests.JobWithImagesRejectsCombinations"],
+        "interaction": ["ShowPagesTests.JobWithImagesMatchesArgv", "ShowPagesTests.JobWithImagesRejectsCombinations"],
+        "resource": ["ShowPagesTests.WithImagesYieldsToExhaustedBudget"],
+        "oracle": ["diff:show-pages-with-images"]
       }
     },
     {

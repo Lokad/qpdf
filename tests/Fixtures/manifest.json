@@ -126,6 +126,24 @@
       "description": "Two pages linearized by the pinned oracle with static IDs and generated object streams (xref streams plus an object stream). Managed linearization inspection must pass without dedicated container handling."
     },
     {
+      "file": "images-1page.pdf",
+      "sha256": "c0726a9ffa9713120cb4b5eb13ea21c88b4839f686297bdd3581711d8de85352",
+      "bytes": 987,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a direct image XObject and a form XObject holding a nested image. --show-pages --with-images must list only the direct image with dimensions; the form and its nested image stay unlisted."
+    },
+    {
+      "file": "images-nodim-1page.pdf",
+      "sha256": "e37ee5881aaba1b09d9aa6eb65de23163f673ae52f5e4bbca7ea014febc3a224",
+      "bytes": 572,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a dimension-less image XObject. --show-pages --with-images must list 0 x 0 dimensions with per-key warnings (exit 3 on both sides)."
+    },
+    {
       "file": "truncated-1page.pdf",
       "sha256": "6aafbe19f99a8eb28e0d87a061dbaa3973e148214a6d3dfbc4b67723ad5cdd2a",
       "bytes": 120,

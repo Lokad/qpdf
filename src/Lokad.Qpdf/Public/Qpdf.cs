@@ -1415,6 +1415,174 @@ public static class Qpdf
         return inverted;
     }
 
+    private sealed record PageImage(string Name, int Number, int Generation, long Width, long Height);
+
+    private static List<PageImage> ListPageImages(
+        DocumentEngine engine,
+        PageLocation location,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        List<PageImage> images = new();
+        PdfDictionary? resources = EffectivePageResources(engine, location, limits, governor, cancellationToken);
+        if (resources is null)
+        {
+            return images;
+        }
+
+        if (!resources.TryGet(PdfName.FromAscii("XObject"), out QpdfObject xobjectsRaw) || xobjectsRaw is PdfNull)
+        {
+            return images;
+        }
+
+        PdfDictionary? xobjects = xobjectsRaw as PdfDictionary;
+        if (xobjects is null && xobjectsRaw is PdfReference xobjectsReference
+            && ((IIndirectResolver)engine).TryResolve(xobjectsReference, out QpdfObject? xobjectsResolved))
+        {
+            xobjects = xobjectsResolved as PdfDictionary;
+        }
+
+        if (xobjects is null)
+        {
+            return images;
+        }
+
+        List<PdfName> names = new(xobjects.Keys);
+        names.Sort(static (left, right) => string.CompareOrdinal(left.DisplayText, right.DisplayText));
+        foreach (PdfName key in names)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!xobjects.TryGet(key, out QpdfObject entry) || entry is not PdfReference reference)
+            {
+                continue;
+            }
+
+            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? target) || target is not PdfStream stream)
+            {
+                continue;
+            }
+
+            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || subtypeName.DisplayText != "Image")
+            {
+                continue;
+            }
+
+            long width = ImageDimension(stream.Dictionary, "Width", reference, engine, diagnostics, governor, cancellationToken);
+            long height = ImageDimension(stream.Dictionary, "Height", reference, engine, diagnostics, governor, cancellationToken);
+            images.Add(new PageImage(key.DisplayText, reference.ObjectNumber, reference.Generation, width, height));
+        }
+
+        return images;
+    }
+
+    private static PdfDictionary? EffectivePageResources(
+        DocumentEngine engine,
+        PageLocation location,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        HashSet<int> visited = new();
+        if (location.Source is not null)
+        {
+            visited.Add(location.Source.ObjectNumber);
+        }
+
+        PdfDictionary current = location.Page;
+        int depth = 0;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (current.TryGet(PdfName.FromAscii("Resources"), out QpdfObject resourcesRaw) && resourcesRaw is not PdfNull)
+            {
+                if (resourcesRaw is PdfDictionary direct)
+                {
+                    return direct;
+                }
+
+                if (resourcesRaw is PdfReference resourcesReference
+                    && ((IIndirectResolver)engine).TryResolve(resourcesReference, out QpdfObject? resourcesResolved)
+                    && resourcesResolved is PdfDictionary resolved)
+                {
+                    return resolved;
+                }
+
+                return null;
+            }
+
+            if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject parentRaw) || parentRaw is PdfNull)
+            {
+                return null;
+            }
+
+            PdfDictionary parent;
+            if (parentRaw is PdfReference parentReference)
+            {
+                if (!visited.Add(parentReference.ObjectNumber))
+                {
+                    throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
+                }
+
+                if (!((IIndirectResolver)engine).TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedParent)
+                {
+                    throw new QpdfParseException("Unresolvable page parent.", null, parentReference.ObjectNumber);
+                }
+
+                parent = resolvedParent;
+            }
+            else if (parentRaw is PdfDictionary directParent)
+            {
+                parent = directParent;
+            }
+            else
+            {
+                throw new QpdfParseException("Page /Parent must be a dictionary or a reference.", null, null);
+            }
+
+            depth += 1;
+            if (depth > limits.MaxNestingDepth)
+            {
+                throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
+            }
+
+            governor.ChargeWork(1L);
+            current = parent;
+        }
+    }
+
+    private static long ImageDimension(
+        PdfDictionary image,
+        string key,
+        PdfReference reference,
+        DocumentEngine engine,
+        DiagnosticBag diagnostics,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.ChargeWork(1L);
+        if (image.TryGet(PdfName.FromAscii(key), out QpdfObject raw) && raw is not PdfNull)
+        {
+            if (raw is PdfInteger direct)
+            {
+                return direct.Value;
+            }
+
+            if (raw is PdfReference indirect
+                && ((IIndirectResolver)engine).TryResolve(indirect, out QpdfObject? resolved)
+                && resolved is PdfInteger target)
+            {
+                return target.Value;
+            }
+        }
+
+        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Image {reference.ObjectNumber} is missing /{key}; using 0.");
+        return 0L;
+    }
+
     private static List<int> PageContentRefs(Objects.PdfDictionary page)
     {
         List<int> refs = new();
@@ -4255,6 +4423,19 @@ public static class Qpdf
                     }
 
                     diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"page {index}: {location.Source.ObjectNumber} 0 R");
+                    if (showPages.WithImages)
+                    {
+                        List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken);
+                        if (images.Count > 0)
+                        {
+                            diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  images:");
+                            foreach (PageImage image in images)
+                            {
+                                diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    /{image.Name}: {image.Number} {image.Generation} R, {image.Width} x {image.Height}");
+                            }
+                        }
+                    }
+
                     diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
                     foreach (int content in PageContentRefs(location.Page))
                     {

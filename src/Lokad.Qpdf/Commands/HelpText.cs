@@ -76,6 +76,7 @@ internal static class HelpText
           --check-linearization       check linearization tables only
           --show-npages                 show number of pages
           --show-pages                  show page dictionaries and contents
+          --with-images                 include image details with --show-pages
           --show-object={trailer|obj[,gen]}  show one object definition
           --show-xref                   show cross-reference entries
           --show-linearization          display linearization hint tables
@@ -158,7 +159,7 @@ internal static class HelpText
           removeMetadata, coalesceContents, normalizeContent, externalizeInlineImages,
           iiMinBytes, removeUnreferencedResources, overlay, underlay, flattenRotation,
           flattenAnnotations, generateAppearances, qdf, linearize, linearizePass1,
-          checkLinearization, showLinearization, showNpages, showPages, showObject,
+          checkLinearization, showLinearization, showNpages, showPages, withImages, showObject,
           showXref, removeAcroform, removeStructure, noOriginalObjectIds, optimizeImages,
           oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality,
           listAttachments, showAttachment, addAttachment, removeAttachment,
@@ -215,7 +216,7 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --no-default-limits --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --no-default-limits --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
 
     internal static string BashCompletion()
     {

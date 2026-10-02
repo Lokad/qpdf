@@ -634,6 +634,38 @@ foreach ($sub in @(@("two", "inputs/a.pdf"), @("one", "inputs/b.pdf"))) {
   else { Write-Output "[show-pages/$name] page dumps match line for line" }
 }
 
+# --- case: show-pages-with-images (managed vs oracle image listing) ---
+$case = New-Case 'show-pages-with-images'
+Copy-Item "$fixtureDir/images-1page.pdf" "$case/inputs/i.pdf"
+Copy-Item "$fixtureDir/images-nodim-1page.pdf" "$case/inputs/n.pdf"
+function Invoke-ManagedPagesImages {
+  param([string]$Workdir, [string]$InFile, [string]$Tag)
+  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-pages', '--with-images') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+  if ($null -eq $line) { throw "show-pages-with-images: managed emit produced no status line ($Tag)" }
+  return [int]$line.Matches[0].Groups[1].Value
+}
+$mcode = Invoke-ManagedPagesImages $case "inputs/i.pdf" "images-clean"
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', '--with-images', "$case/inputs/i.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+$ocode = $p.ExitCode
+if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[show-pages-with-images/clean] FAIL: exits managed=$mcode oracle=$ocode, expected 0/0"; $script:failures++ }
+else {
+  $mLines = Get-Content "$case/managed-images-clean.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-pages-with-images/clean] FAIL: dump mismatch"; $script:failures++ }
+  else { Write-Output "[show-pages-with-images/clean] dumps match line for line" }
+}
+$mcode = Invoke-ManagedPagesImages $case "inputs/n.pdf" "images-nodim"
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', '--with-images', "$case/inputs/n.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+$ocode = $p.ExitCode
+if ($mcode -ne 3 -or $ocode -ne 3) { Write-Output "[show-pages-with-images/nodim] FAIL: exits managed=$mcode oracle=$ocode, expected 3/3"; $script:failures++ }
+else {
+  $mLines = Get-Content "$case/managed-images-nodim.txt" | Where-Object { $_ -match '^emit: diagnostic PageListing ' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-pages-with-images/nodim] FAIL: listing mismatch"; $script:failures++ }
+  else { Write-Output "[show-pages-with-images/nodim] listings match with warning exits 3/3" }
+}
+
 # --- case: show-object (managed vs oracle object definitions) ---
 $case = New-Case 'show-object'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -840,4 +872,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, show-object, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
