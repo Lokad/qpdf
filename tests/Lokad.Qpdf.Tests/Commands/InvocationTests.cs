@@ -366,11 +366,55 @@ public sealed class InvocationTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 
+    [Fact]
+    public async Task CompletionScriptsAreIdentityRequests()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult bash = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--completion-bash"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, bash.Status);
+        Assert.Equal(QpdfExitCode.Success, bash.ExitCode);
+        QpdfDiagnostic bashScript = Assert.Single(bash.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, bashScript.Code);
+        Assert.Contains("complete -F _qpdf_complete qpdf", bashScript.Message, StringComparison.Ordinal);
+        foreach (string flag in new[] { "--check", "--pages", "--json", "--qdf", "--linearize" })
+        {
+            Assert.Contains(flag, bashScript.Message, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("--encrypt", bashScript.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("--password", bashScript.Message, StringComparison.Ordinal);
+
+        QpdfExecutionResult zsh = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--completion-zsh"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, zsh.Status);
+        Assert.Equal(QpdfExitCode.Success, zsh.ExitCode);
+        QpdfDiagnostic zshScript = Assert.Single(zsh.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, zshScript.Code);
+        Assert.Contains("compdef _qpdf_complete qpdf", zshScript.Message, StringComparison.Ordinal);
+        Assert.Contains("--check", zshScript.Message, StringComparison.Ordinal);
+
+        QpdfExecutionResult withInput = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--completion-bash"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, withInput.ExitCode);
+        Assert.Equal(bashScript.Message, Assert.Single(withInput.Diagnostics).Message);
+
+        QpdfExecutionResult combined = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--completion-zsh", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, combined.Status);
+        Assert.Equal(QpdfExitCode.Success, combined.ExitCode);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
     [Theory]
     [InlineData("--help=x")]
     [InlineData("--version=x")]
     [InlineData("--copyright=x")]
     [InlineData("--job-json-help=x")]
+    [InlineData("--completion-bash=x")]
+    [InlineData("--completion-zsh=x")]
     public async Task ValuedIdentityFormsFail(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -386,6 +430,8 @@ public sealed class InvocationTests
     [InlineData("--copyright")]
     [InlineData("--job-json-help")]
     [InlineData("--json-help")]
+    [InlineData("--completion-bash")]
+    [InlineData("--completion-zsh")]
     public async Task IdentityRequestsIgnoreExhaustedOutputBudget(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

@@ -81,6 +81,8 @@ internal static class HelpText
           --version             show version and compatibility target
           --copyright           show copyright and license notice
           --job-json-help       show job JSON format
+          --completion-bash     output a bash completion command
+          --completion-zsh      output a zsh completion command
         """;
 
     internal const string Copyright = """
@@ -200,6 +202,48 @@ internal static class HelpText
             if (token == "--json-help=1")
             {
                 text = JsonHelpV1;
+                return true;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
+    internal const string CompletionFlags = "--suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --show-object --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key";
+
+    internal static string BashCompletion()
+    {
+        return "# Lokad.qpdf bash completion (supported subset of qpdf 12.4.2; static script with no executable or environment lookup).\n_qpdf_complete() {\n    local flags=\"" + CompletionFlags + "\"\n    COMPREPLY=($(compgen -W \"$flags\" -- \"${COMP_WORDS[COMP_CWORD]}\"))\n}\ncomplete -F _qpdf_complete qpdf\n";
+    }
+
+    internal static string ZshCompletion()
+    {
+        return "#compdef qpdf\n# Lokad.qpdf zsh completion (supported subset of qpdf 12.4.2; static script with no executable or environment lookup).\n_qpdf_complete() {\n    local -a flags\n    flags=(" + CompletionFlags + ")\n    compadd -a flags\n}\ncompdef _qpdf_complete qpdf\n";
+    }
+
+    internal static bool TryMatchCompletionBash(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in argv)
+        {
+            if (token == "--completion-bash")
+            {
+                text = BashCompletion();
+                return true;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
+    internal static bool TryMatchCompletionZsh(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in argv)
+        {
+            if (token == "--completion-zsh")
+            {
+                text = ZshCompletion();
                 return true;
             }
         }

@@ -3867,6 +3867,20 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
+        if (HelpText.TryMatchCompletionBash(expanded, out string completionBash))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionBash)],
+                governor.Snapshot());
+        }
+
+        if (HelpText.TryMatchCompletionZsh(expanded, out string completionZsh))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionZsh)],
+                governor.Snapshot());
+        }
+
         if (HelpText.TryMatchZopfli(expanded, out string zopfli))
         {
             return QpdfExecutionResult.Failed(

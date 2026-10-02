@@ -5603,16 +5603,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Subset completion scripts with identity semantics; oracle script parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
+        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
+        "interaction": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },
@@ -5632,16 +5632,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Subset completion scripts with identity semantics; oracle script parity pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
+        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
+        "interaction": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },
