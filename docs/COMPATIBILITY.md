@@ -516,7 +516,7 @@ of upstream compress defaults, so existing previews stay byte-stable without
 flags. `--zopfli` reports that Zopfli is not enabled in this build and exits
 with an error; `QPDF_ZOPFLI` has no host environment capability yet and is
 treated as unset (matching upstream unset behavior). Generated object/xref
-streams stay uncompressed until work item 23b.
+streams Flate-encode whenever the resolved compression request enables compression (work item 23b); otherwise they stay raw.
 
 ## Container Flate packing (work item 23b)
 

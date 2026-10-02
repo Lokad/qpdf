@@ -2108,24 +2108,29 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Default preserves opaquely instead of upstream compress defaults (intentional)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "CompressionTests.CompressStreamsBareDefaultsToYes",
           "CompressionTests.CompressYesKeepsFlateWithoutRecompress",
           "CompressionTests.CompressStreamsNoLeavesRaw"
         ],
-        "negative": [],
+        "negative": [
+          "CompressionTests.InvalidValuesFail",
+          "CompressionTests.DuplicateFlagsFail"
+        ],
         "interaction": [
           "CompressionTests.DecodeNoneWithCompressKeepsHex",
           "ObjectStreamTests.GenerateWithCompressFlatesContainers"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:compress"
+        ]
       }
     },
     {
@@ -2146,11 +2151,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Numeric levels bucket to BCL effort (1 fastest, 2..8 optimal, 9 smallest) per the recorded build profile, not 1:1 zlib levels."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "CompressionTests.CompressionLevelsSucceed"
@@ -2164,8 +2167,12 @@
           "CompressionTests.RecompressFlateRewritesFlate",
           "ObjectStreamTests.CompressLevelsApplyToContainers"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:compress"
+        ]
       }
     },
     {
@@ -2270,11 +2277,9 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "level `all` decodes 1- and 3-component DCT; four-component CMYK/YCCK stays opaque (approved codec has no raw-sample path). Default none instead of upstream generalized (intentional)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "CompressionTests.DecodeGeneralizedUncompressesHex",
@@ -2296,9 +2301,13 @@
           "CheckTests.ValidDctPassesStreamsCheck"
         ],
         "resource": [
-          "DctDecodeTests.OversizedFrameFailsBeforeAllocation"
+          "DctDecodeTests.OversizedFrameFailsBeforeAllocation",
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:uncompress-payloads",
+          "diff:compress"
+        ]
       }
     },
     {
@@ -4313,21 +4322,26 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Takes effect only with a covering decode level; generated containers stay uncompressed until 23b."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "CompressionTests.RecompressFlateRewritesFlate"
         ],
-        "negative": [],
+        "negative": [
+          "CompressionTests.RecompressValuedFails",
+          "CompressionTests.DuplicateFlagsFail"
+        ],
         "interaction": [
           "CompressionTests.JobJsonParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:compress"
+        ]
       }
     },
     {
@@ -5215,24 +5229,28 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Upstream order-sensitive flag precedence replaced by explicit-override rule."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "CompressionTests.StreamDataCompressFlatesRawStream",
           "CompressionTests.StreamDataUncompressDecodesHex",
           "CompressionTests.StreamDataPreserveKeepsEncoding"
         ],
-        "negative": [],
+        "negative": [
+          "CompressionTests.InvalidValuesFail",
+          "CompressionTests.DuplicateFlagsFail"
+        ],
         "interaction": [
           "CompressionTests.JobJsonParityHolds"
         ],
-        "resource": [],
+        "resource": [
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+        ],
         "oracle": [
-          "diff:uncompress-payloads"
+          "diff:uncompress-payloads",
+          "diff:compress"
         ]
       }
     },

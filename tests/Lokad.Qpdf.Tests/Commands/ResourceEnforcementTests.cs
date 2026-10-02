@@ -45,6 +45,21 @@ public sealed class ResourceEnforcementTests
         await AssertBudgetExceeded(host, ["inputs/a.pdf", "--json", "--json-key=pages", "--", "outputs/a.json"], "outputs/a.json");
     }
 
+    [Theory]
+    [InlineData("--stream-data=compress")]
+    [InlineData("--compress-streams=y")]
+    [InlineData("--decode-level=all")]
+    [InlineData("--compression-level=9")]
+    [InlineData("--stream-data=compress", "--recompress-flate", "--compression-level=9")]
+    public async Task CompressYieldsToExhaustedBudget(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.pdf"]);
+        await AssertBudgetExceeded(host, argv, "outputs/a.pdf");
+    }
+
     [Fact]
     public async Task CoalesceYieldsToExhaustedBudget()
     {

@@ -220,6 +220,18 @@ if ($code -ne 0) { throw "coalesce: oracle failed ($code)" }
 Assert-Trio 'coalesce' "$case/lib.pdf" "$case/ora.pdf" 2
 if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[coalesce] FAIL: coalesced content payloads differ"; $script:failures++ } else { Write-Output "[coalesce] payloads match" }
 
+# --- case: compress (recompressed payloads identical) ---
+$case = New-Case 'compress'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--stream-data=compress', '--', "$case/inputs/c.pdf")
+if ($code -ne 0) { throw "compress setup: oracle compress failed ($code)" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--stream-data=compress', '--recompress-flate', '--compression-level=9', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "compress: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--stream-data=compress', '--recompress-flate', '--compression-level=9', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "compress: oracle failed ($code)" }
+Assert-Trio 'compress' "$case/lib.pdf" "$case/ora.pdf" 2
+if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf")) { Write-Output "[compress] FAIL: recompressed content payloads differ"; $script:failures++ } else { Write-Output "[compress] payloads match" }
+
 # --- case: flatten-rotation (baked boxes and counter-transform) ---
 $case = New-Case 'flatten-rotation'
 Copy-Item "$fixtureDir/rotated-1page.pdf" "$case/inputs/r.pdf"
@@ -1049,4 +1061,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, json, json-import, json-update, json-modes, compress, forms, overlay, errors, warnings, show-npages, show-pages, show-pages-with-images, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, remove-structure, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
