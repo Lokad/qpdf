@@ -3860,6 +3860,13 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
+        if (HelpText.TryMatchJsonHelp(expanded, out string jsonHelp))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jsonHelp)],
+                governor.Snapshot());
+        }
+
         if (HelpText.TryMatchZopfli(expanded, out string zopfli))
         {
             return QpdfExecutionResult.Failed(

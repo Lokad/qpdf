@@ -111,7 +111,7 @@ echoing values.
   overrides the output-derived prefix), decoding per the decode level with
   raw fallback; version 1 ignores stream payloads. `--json-output[=2|latest]`
   implies JSON with inline payloads, no decode, only the qpdf key by default,
-  and no version or parameters keys. The typed `GetDocumentJsonAsync` shares
+  and no version or parameters keys. `--json-help[=1|2|latest]` (default 2) describes the matching version with same-keys/descriptive-values JSON and wins over `--json` combinations. The typed `GetDocumentJsonAsync` shares
   the engine.
 - `input.json --json-input -- output.pdf` builds a PDF from qpdf JSON version
   2 (only the top-level qpdf array is read): strict object keys, canonical

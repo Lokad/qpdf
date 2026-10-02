@@ -265,7 +265,6 @@ public sealed class JsonInspectionTests
     }
 
     [Theory]
-    [InlineData("--json-help")]
     [InlineData("--json-input")]
     public async Task DeferredOptionsFail(params string[] flags)
     {
@@ -275,6 +274,64 @@ public sealed class JsonInspectionTests
         argv.AddRange(["--", "outputs/a.json"]);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Theory]
+    [InlineData("--json-help")]
+    [InlineData("--json-help=1")]
+    [InlineData("--json-help=2")]
+    [InlineData("--json-help=latest")]
+    public async Task JsonHelpDescribesRequestedVersion(string flag)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation([flag]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        QpdfDiagnostic help = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, help.Code);
+        using JsonDocument described = JsonDocument.Parse(help.Message);
+        JsonElement root = described.RootElement;
+        Assert.True(root.TryGetProperty("pages", out _));
+        Assert.True(root.TryGetProperty("acroform", out _));
+        if (flag == "--json-help=1")
+        {
+            Assert.True(root.TryGetProperty("objects", out _));
+            Assert.True(root.TryGetProperty("objectinfo", out _));
+            Assert.False(root.TryGetProperty("qpdf", out _));
+        }
+        else
+        {
+            Assert.True(root.TryGetProperty("qpdf", out _));
+            Assert.False(root.TryGetProperty("objects", out _));
+        }
+    }
+
+    [Theory]
+    [InlineData("--json-help=")]
+    [InlineData("--json-help=3")]
+    [InlineData("--json-help=x")]
+    public async Task JsonHelpRejectsUnknownVersions(string flag)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", flag, "--", "outputs/a.json"]), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task JsonHelpWinsOverJsonOperation()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--json", "--json-help", "--", "outputs/a.json"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] _));
     }
 
     [Fact]

@@ -63,6 +63,7 @@ internal static class HelpText
           --remove-attachment=key       drop an embedded file
           --copy-attachments-from file [--prefix=] --  copy embedded files
           --json[=1|2|latest] [--json-key=key] --  write document JSON
+          --json-help[=1|2|latest]  show JSON format
           --json-object={trailer|obj[,gen]}  limit JSON objects
           --json-stream-data={none|inline|file}  stream payloads in JSON
           --json-stream-prefix=file-prefix  prefix for JSON stream files
@@ -170,6 +171,35 @@ internal static class HelpText
             if (token == "--job-json-help")
             {
                 text = JobJsonHelp;
+                return true;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
+    internal const string JsonHelpV2 = """
+        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines and pageposfrom1", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "qpdf": "object table (version 2)"}
+        """;
+
+    internal const string JsonHelpV1 = """
+        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines and pageposfrom1", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table (version 1)", "objectinfo": "object metadata (version 1)"}
+        """;
+
+    internal static bool TryMatchJsonHelp(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in argv)
+        {
+            if (token == "--json-help" || token == "--json-help=2" || token == "--json-help=latest")
+            {
+                text = JsonHelpV2;
+                return true;
+            }
+
+            if (token == "--json-help=1")
+            {
+                text = JsonHelpV1;
                 return true;
             }
         }

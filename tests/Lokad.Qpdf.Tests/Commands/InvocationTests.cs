@@ -385,6 +385,7 @@ public sealed class InvocationTests
     [InlineData("--version")]
     [InlineData("--copyright")]
     [InlineData("--job-json-help")]
+    [InlineData("--json-help")]
     public async Task IdentityRequestsIgnoreExhaustedOutputBudget(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

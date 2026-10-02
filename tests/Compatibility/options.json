@@ -1760,13 +1760,13 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Deferred implementation; help text pending."
+        "Versioned help text with identity semantics; oracle output-parity evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": ["JsonInspectionTests.DeferredOptionsFail"],
-        "interaction": [],
-        "resource": [],
+        "positive": ["JsonInspectionTests.JsonHelpDescribesRequestedVersion"],
+        "negative": ["JsonInspectionTests.JsonHelpRejectsUnknownVersions", "JsonInspectionTests.DeferredOptionsFail"],
+        "interaction": ["JsonInspectionTests.JsonHelpWinsOverJsonOperation"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },
