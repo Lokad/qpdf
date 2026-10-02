@@ -12,7 +12,7 @@ Three routes converge on one selection plan executed by the shared engine:
   mapping; `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
   -- output` (repeated file/range groups with single-integer ranges), `input --check`, `--job-json-file`
-  file`, `@file` response files (one argument per line), `--help`/`--version`,
+  file`, `@file` response files (one argument per line), `--help`/`--version`/`--job-json-help`,
   `--rotate=[+|-]angle[:range]`, `--split-pages[=n]`, `--replace-input`,
   and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,

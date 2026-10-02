@@ -338,10 +338,39 @@ public sealed class InvocationTests
         Assert.Equal(notice.Message, Assert.Single(withInput.Diagnostics).Message);
     }
 
+    [Fact]
+    public async Task JobJsonHelpIsIdentityRequest()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult bare = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--job-json-help"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, bare.Status);
+        Assert.Equal(QpdfExitCode.Success, bare.ExitCode);
+        QpdfDiagnostic help = Assert.Single(bare.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, help.Code);
+        Assert.Contains("inputFile", help.Message, StringComparison.Ordinal);
+        Assert.Contains("outputFile", help.Message, StringComparison.Ordinal);
+        Assert.Contains("pages", help.Message, StringComparison.Ordinal);
+
+        QpdfExecutionResult withInput = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--job-json-help"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, withInput.ExitCode);
+        Assert.Equal(help.Message, Assert.Single(withInput.Diagnostics).Message);
+
+        QpdfExecutionResult combined = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--job-json-help", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, combined.Status);
+        Assert.Equal(QpdfExitCode.Success, combined.ExitCode);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
     [Theory]
     [InlineData("--help=x")]
     [InlineData("--version=x")]
     [InlineData("--copyright=x")]
+    [InlineData("--job-json-help=x")]
     public async Task ValuedIdentityFormsFail(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -355,6 +384,7 @@ public sealed class InvocationTests
     [InlineData("--help")]
     [InlineData("--version")]
     [InlineData("--copyright")]
+    [InlineData("--job-json-help")]
     public async Task IdentityRequestsIgnoreExhaustedOutputBudget(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

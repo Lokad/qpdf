@@ -3853,6 +3853,13 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
+        if (HelpText.TryMatchJobJsonHelp(expanded, out string jobJsonHelp))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jobJsonHelp)],
+                governor.Snapshot());
+        }
+
         if (HelpText.TryMatchZopfli(expanded, out string zopfli))
         {
             return QpdfExecutionResult.Failed(

@@ -79,6 +79,7 @@ internal static class HelpText
           --help                show this help
           --version             show version and compatibility target
           --copyright           show copyright and license notice
+          --job-json-help       show job JSON format
         """;
 
     internal const string Copyright = """
@@ -131,6 +132,44 @@ internal static class HelpText
             if (token == "--version")
             {
                 text = Version();
+                return true;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
+
+    internal const string JobJsonHelp = """
+        Lokad.qpdf job JSON: supported subset of the QPDFJob format (qpdf 12.4.2, non-cryptographic only).
+        Usage:
+          qpdf --job-json-file file
+        Top-level keys:
+          inputFile, outputFile, pages:[{file, range}, ...], rotate, setPageLabels,
+          removePageLabels, minVersion, forceVersion, deterministicId, staticId,
+          newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
+          compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
+          removeMetadata, coalesceContents, normalizeContent, externalizeInlineImages,
+          iiMinBytes, removeUnreferencedResources, overlay, underlay, flattenRotation,
+          flattenAnnotations, generateAppearances, qdf, linearize, linearizePass1,
+          checkLinearization, showLinearization, showNpages, showPages, showObject,
+          showXref, removeAcroform, removeStructure, noOriginalObjectIds, optimizeImages,
+          oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality,
+          listAttachments, showAttachment, addAttachment, removeAttachment,
+          copyAttachmentsFrom, json, jsonKey, jsonObject, jsonStreamData,
+          jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
+          suppressRecovery
+        Crypto keys (encrypt, decrypt, password and related options) are rejected with
+        UnsupportedCryptoOperation. See --help for the argv surface.
+        """;
+
+    internal static bool TryMatchJobJsonHelp(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in argv)
+        {
+            if (token == "--job-json-help")
+            {
+                text = JobJsonHelp;
                 return true;
             }
         }

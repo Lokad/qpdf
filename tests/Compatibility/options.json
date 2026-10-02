@@ -1720,16 +1720,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Oracle output-parity evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["InvocationTests.JobJsonHelpIsIdentityRequest"],
+        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
+        "interaction": ["InvocationTests.JobJsonHelpIsIdentityRequest"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },
