@@ -72,7 +72,29 @@ internal static class HelpText
           --remove-page-labels      drop explicit page numbers (accepted no-op)
           --help                show this help
           --version             show version and compatibility target
+          --copyright           show copyright and license notice
         """;
+
+    internal const string Copyright = """
+        Lokad.qpdf: managed non-cryptographic PDF structural processor.
+        Copyright (c) 2026 Lokad (MIT License).
+        Compatibility target: qpdf 12.4.2, non-cryptographic subset only.
+        """;
+
+    internal static bool TryMatchCopyright(IReadOnlyList<string> argv, out string text)
+    {
+        foreach (string token in argv)
+        {
+            if (token == "--copyright")
+            {
+                text = Copyright;
+                return true;
+            }
+        }
+
+        text = string.Empty;
+        return false;
+    }
 
     internal static string Version()
     {

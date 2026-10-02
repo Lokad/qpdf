@@ -1691,16 +1691,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Oracle copyright-parity not applicable; oracle evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["InvocationTests.CopyrightIdentifiesImplementation"],
+        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
+        "interaction": ["InvocationTests.CopyrightIdentifiesImplementation"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },
@@ -1757,14 +1757,14 @@
         }
       ],
       "milestone": "M6",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Deferred implementation; help text pending."
       ],
       "evidence": {
         "positive": [],
-        "negative": [],
+        "negative": ["JsonInspectionTests.DeferredOptionsFail"],
         "interaction": [],
         "resource": [],
         "oracle": []
@@ -1815,16 +1815,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Oracle version-parity evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
+        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
+        "interaction": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },
@@ -5682,16 +5682,16 @@
         }
       ],
       "milestone": "M4",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Oracle help-text parity not applicable; oracle evidence pending."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
+        "positive": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
+        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
+        "interaction": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
+        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
         "oracle": []
       }
     },

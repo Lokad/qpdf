@@ -1,6 +1,14 @@
 # Progress
 
 ## Current checkpoint
+Work item 43: identity outputs and the no-external audit (M11). `--copyright` returns honest
+implementation text; valued identity forms fail explicitly; identity requests bypass exhausted
+output budgets; the ordinary suite passes 1150/1150 with `external/` absent while the reference
+lane fails explicitly without `QPDF_EXE`. Help/version/copyright/json-help move to partial with
+evidence.
+
+Prior gate
+
 Work item 42: warning/exit-code contract with job parity (M11). `warningExit0`, `noWarn`,
 and `suppressRecovery` job keys ride the shared plan; `--no-warn` keeps exit 3 while dropping
 warning messages (matching the reference manual); the differential lane checks warning exit
@@ -124,7 +132,7 @@ and oversized names fail before publication; typed callers split by looping.
 
 Verified locally on Windows with SDK 10.0.401:
 
-- Locked restore, Release build with zero warnings, and all 1150 tests (844
+- Locked restore, Release build with zero warnings, and all 1157 tests (844
   prior plus 24 annotation cases (stamping, flag filtering, widgets, merge coverage, job round trips) plus 19 appearance cases (text/list synthesis, checkbox/radio sync, encodings, whole-file/merge/generate-then-flatten, job round trips) plus 23 rotation cases (checked-in /Rotate fixture flattening) plus 32 overlay cases plus 26 inline-image cases: thresholds, abbreviations, color lookup, naming, forms, damaged content, job round trips, plus 7 JPEG decode cases (1-/3-component decode, 4-component and corrupt opacity, level gating, job parity, header-first budgets) plus 24 image optimization cases (eligibility, thresholds, quality, shrink-only replacement, merge/job coverage) plus 11 hardening cases (inline externalize-and-optimize, keep-inline, truncation, components, chains, budgets, extraction, check) plus 26 content transform cases (checked-in unreferenced-font fixture pruning): coalescing, normalization,
   resource pruning with shared heuristics and form recursion, damaged
   content warnings, merge/split coverage, and job round trips, plus 16 QDF editable-view cases plus 1 stream-data regression plus 4 streamed-QDF cases replacing the interim rejection, plus 13 fix-qdf repair cases plus 1 two-page QDF length regression, plus 19 zlib-flate cases, plus 12 linearization cases plus 2 manifest page-count rows, plus 14 linearized-writing cases, plus 16 linearization-inspection cases, plus 13 linearization-display cases, plus 8 first-pass capture cases, plus 6 outline cases and 2 outline manifest rows, plus 2 thumbnail cases and 1 thumbnail manifest row, retiring the thumbnail rejection case,
@@ -143,7 +151,7 @@ binary.
 
 ## Next work
 
-1. M11 audit (in progress): crypto exclusions and warning/exit-code entries complete with evidence
+1. M11 audit (in progress): crypto, warning/exit-code, and identity entries evidenced
    (work items 41-42).
    Next slices: remaining stale required entries (help/version identity, inspection gaps like
    show-npages/show-object, unimplemented global/progress/keep-open flags), no-external build/test

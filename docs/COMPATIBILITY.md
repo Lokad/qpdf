@@ -329,8 +329,10 @@ exit 0, `--no-warn` drops warning messages while keeping exit 3 (both mirror the
 reference manual), and both ride the shared plan across argv and job JSON (`warningExit0`,
 `noWarn`, plus `suppressRecovery` mapping to strict recovery). The differential lane checks
 warning exit parity with the oracle (plain 3/3, flagged 0/0, suppressed-message 3/3).
-`--help` and `--version` return identity text as info diagnostics with exit 0;
-`--copyright`, completion, and all other operations stay explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
+`--help` and `--version` return identity text as info diagnostics with exit 0, as does the
+new `--copyright` notice (Lokad/MIT/12.4.2-target); valued identity forms fail explicitly, and
+identity requests bypass exhausted output budgets. Completion and all other operations stay
+explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
 
 ## Bounded repair (work item 17)
 

@@ -3816,6 +3816,13 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
+        if (HelpText.TryMatchCopyright(expanded, out string copyright))
+        {
+            return QpdfExecutionResult.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, copyright)],
+                governor.Snapshot());
+        }
+
         if (HelpText.TryMatchZopfli(expanded, out string zopfli))
         {
             return QpdfExecutionResult.Failed(

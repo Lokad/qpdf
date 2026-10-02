@@ -318,6 +318,56 @@ public sealed class InvocationTests
         Assert.Contains("Lokad.qpdf", versionText.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CopyrightIdentifiesImplementation()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult bare = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--copyright"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, bare.Status);
+        Assert.Equal(QpdfExitCode.Success, bare.ExitCode);
+        QpdfDiagnostic notice = Assert.Single(bare.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, notice.Code);
+        Assert.Contains("Lokad.qpdf", notice.Message, StringComparison.Ordinal);
+        Assert.Contains("MIT", notice.Message, StringComparison.Ordinal);
+        Assert.Contains("12.4.2", notice.Message, StringComparison.Ordinal);
+
+        QpdfExecutionResult withInput = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--copyright"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, withInput.ExitCode);
+        Assert.Equal(notice.Message, Assert.Single(withInput.Diagnostics).Message);
+    }
+
+    [Theory]
+    [InlineData("--help=x")]
+    [InlineData("--version=x")]
+    [InlineData("--copyright=x")]
+    public async Task ValuedIdentityFormsFail(string flag)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", flag, "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("--version")]
+    [InlineData("--copyright")]
+    public async Task IdentityRequestsIgnoreExhaustedOutputBudget(string flag)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation([flag]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+    }
+
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
         InMemoryQpdfHost host = new();
