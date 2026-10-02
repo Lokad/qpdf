@@ -3310,8 +3310,7 @@
           "LinearizedWriterTests.ObjectStreamsGenerateFails",
           "LinearizedWriterTests.ThumbnailsFailExplicitly",
           "LinearizedWriterTests.JsonCannotCombine",
-          "LinearizedWriterTests.CheckCannotCombine",
-          "LinearizedWriterTests.LinearizePass1IsUnsupported"
+          "LinearizedWriterTests.CheckCannotCombine"
         ],
         "interaction": [
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
@@ -3341,17 +3340,28 @@
         }
       ],
       "milestone": "M10",
-      "status": "not-started",
+      "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Behavior review and implementation pending."
+        "Captures the counting pass (padded dictionary, zeroed cross-references, no hint stream) to a named file; ignored without --linearize."
       ],
       "evidence": {
-        "positive": [],
-        "negative": [],
+        "positive": [
+          "LinearizedWriterTests.Pass1CapturedAlongsideFinalOutput",
+          "LinearizedWriterTests.Pass1WithoutLinearizeIsIgnored",
+          "LinearizedWriterTests.Pass1SpaceFormCaptures",
+          "LinearizedWriterTests.Pass1JobParityMatchesArgvBytes"
+        ],
+        "negative": [
+          "LinearizedWriterTests.Pass1MalformedFormsFail",
+          "LinearizedWriterTests.Pass1DuplicateFails",
+          "LinearizedWriterTests.Pass1MalformedJobKeysFail"
+        ],
         "interaction": [],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:linearize-pass1"
+        ]
       }
     },
     {

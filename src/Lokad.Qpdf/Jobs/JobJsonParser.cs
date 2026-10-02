@@ -126,6 +126,8 @@ internal static class JobJsonParser
             bool seenQdf = false;
             bool linearize = false;
             bool seenLinearize = false;
+            string? linearizePass1 = null;
+            bool seenLinearizePass1 = false;
             bool checkLinearization = false;
             bool seenCheckLinearization = false;
             bool showLinearization = false;
@@ -471,6 +473,20 @@ internal static class JobJsonParser
 
                         seenLinearize = true;
                         linearize = RequireBareFlag(property.Value, "linearize");
+                        break;
+                    case "linearizePass1":
+                        if (seenLinearizePass1)
+                        {
+                            throw new QpdfParseException("Duplicate job key linearizePass1.", 0L, null);
+                        }
+
+                        seenLinearizePass1 = true;
+                        linearizePass1 = RequireString(property.Value, "linearizePass1");
+                        if (linearizePass1.Length == 0)
+                        {
+                            throw new QpdfParseException("Job \"linearizePass1\" must not be empty.", 0L, null);
+                        }
+
                         break;
                     case "checkLinearization":
                         if (seenCheckLinearization)
@@ -972,6 +988,7 @@ internal static class JobJsonParser
                     GenerateAppearances = generateAppearances,
                     Qdf = qdf,
                     Linearize = linearize,
+                    LinearizePass1 = linearizePass1 is null ? null : SelectionPlan.CheckedPath(linearizePass1),
                     NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
@@ -1025,6 +1042,7 @@ internal static class JobJsonParser
                     GenerateAppearances = generateAppearances,
                     Qdf = qdf,
                     Linearize = linearize,
+                    LinearizePass1 = linearizePass1 is null ? null : SelectionPlan.CheckedPath(linearizePass1),
                     NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
@@ -1075,6 +1093,7 @@ internal static class JobJsonParser
                     GenerateAppearances = generateAppearances,
                     Qdf = qdf,
                     Linearize = linearize,
+                    LinearizePass1 = linearizePass1 is null ? null : SelectionPlan.CheckedPath(linearizePass1),
                     NoOriginalObjectIds = noOriginalObjectIds,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,

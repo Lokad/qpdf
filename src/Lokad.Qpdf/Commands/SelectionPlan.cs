@@ -86,6 +86,8 @@ internal abstract record JobPlan(QpdfPath Input)
     public bool NoOriginalObjectIds { get; init; }
 
     public bool Linearize { get; init; }
+    public QpdfPath? LinearizePass1 { get; init; }
+
 
     internal CompressionRequest Compression()
     {

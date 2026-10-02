@@ -478,6 +478,41 @@ $ora = Invoke-OracleShow "$case/inputs/badH.pdf"
 if ($code -ne 2 -or $ora -ne 2) { Write-Output "[show-linearization/badH] FAIL: exits managed=$code oracle=$ora, expected 2/2"; $script:failures++ }
 else { Write-Output "[show-linearization/badH] unreadable hints fail on both sides (2/2)" }
 
+# --- case: linearize-pass1 (managed vs oracle first pass) ---
+$case = New-Case 'linearize-pass1'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/p1.bin=$case/lib-p1.bin", '--out', "outputs/final.pdf=$case/lib-final.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--linearize', '--linearize-pass1=outputs/p1.bin', '--', 'outputs/final.pdf')
+if ($code -ne 0) { throw "linearize-pass1: managed emit failed ($code)" }
+$code = Invoke-Oracle $case @('--linearize', '--static-id', '--linearize-pass1=ora-p1.bin', 'inputs/a.pdf', '--', "$case/ora-final.pdf")
+if ($code -ne 0) { throw "linearize-pass1: oracle failed ($code)" }
+Copy-Item "$case/ora-p1.bin" "$case/inputs/orap1.bin"
+$libP1 = [IO.File]::ReadAllBytes("$case/lib-p1.bin")
+$libFinal = [IO.File]::ReadAllBytes("$case/lib-final.pdf")
+$oraP1 = [IO.File]::ReadAllBytes("$case/inputs/orap1.bin")
+function Test-HasNeedle {
+  param([byte[]]$Bytes, [string]$Needle)
+  $nb = [Text.Encoding]::ASCII.GetBytes($Needle)
+  for ($i = 0; $i + $nb.Length -le $Bytes.Length; $i++) {
+    $m = $true
+    for ($k = 0; $k -lt $nb.Length; $k++) { if ($Bytes[$i + $k] -ne $nb[$k]) { $m = $false; break } }
+    if ($m) { return $true }
+  }
+  return $false
+}
+if (-not (Test-HasNeedle $libP1 '0000000000 00000 n ')) { Write-Output '[linearize-pass1] FAIL: managed pass1 lacks zeroed xref entries'; $script:failures++ }
+elseif (Test-HasNeedle $libFinal '0000000000 00000 n ') { Write-Output '[linearize-pass1] FAIL: managed final keeps zeroed xref entries'; $script:failures++ }
+elseif ($libFinal.Length -le $libP1.Length) { Write-Output '[linearize-pass1] FAIL: managed final not longer than pass1'; $script:failures++ }
+else { Write-Output '[linearize-pass1] managed pass1 shape holds (zeroed entries, shorter than final)' }
+if (-not (Test-HasNeedle $oraP1 '0000000000 00000 n ')) { Write-Output '[linearize-pass1] FAIL: oracle pass1 lacks zeroed xref entries'; $script:failures++ }
+else { Write-Output '[linearize-pass1] oracle pass1 shape holds' }
+$code = Invoke-OracleCheck "$case/lib-final.pdf"
+if ($code -ne 0) { Write-Output "[linearize-pass1] FAIL: managed final check exit $code"; $script:failures++ }
+else { Write-Output '[linearize-pass1] managed final validates under oracle check' }
+Copy-Item "$case/lib-final.pdf" "$case/inputs/check-final.pdf"
+$code = Invoke-ManagedCheck $case "inputs/check-final.pdf" "pass1-final"
+if ($code -ne 0) { Write-Output "[linearize-pass1] FAIL: managed final check exit $code"; $script:failures++ }
+else { Write-Output "[linearize-pass1] managed final validates under managed check" }
+
 # --- case: linearize (managed writer vs oracle writer) ---
 $case = New-Case 'linearize'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -498,4 +533,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize/$name] writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization and linearize."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, json, forms, overlay, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize and linearize-pass1."

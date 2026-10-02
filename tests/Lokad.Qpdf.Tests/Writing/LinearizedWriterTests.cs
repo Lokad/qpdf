@@ -252,15 +252,6 @@ public sealed class LinearizedWriterTests
     }
 
     [Fact]
-    public async Task LinearizePass1IsUnsupported()
-    {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", "--linearize-pass1=x", "--", "outputs/a.pdf" };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-    }
-
-    [Fact]
     public async Task JobParityMatchesArgvBytes()
     {
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -271,5 +262,100 @@ public sealed class LinearizedWriterTests
         Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
         Assert.Equal(a, b);
         await CheckLinearizedAsync(b, 1);
+    }
+
+    [Fact]
+    public async Task Pass1CapturedAlongsideFinalOutput()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--linearize-pass1=outputs/p1.bin", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] pass1));
+        await CheckLinearizedAsync(pdf, 2);
+        string finalText = Encoding.ASCII.GetString(pdf);
+        string pass1Text = Encoding.ASCII.GetString(pass1);
+        Assert.Contains("0000000000 00000 n ", pass1Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("0000000000 00000 n ", finalText, StringComparison.Ordinal);
+        Assert.DoesNotContain(" /S ", pass1Text, StringComparison.Ordinal);
+        Assert.Contains(" /S ", finalText, StringComparison.Ordinal);
+        int hintAt = finalText.IndexOf("/H [ ", StringComparison.Ordinal);
+        Assert.NotEqual(-1, hintAt);
+        int hintEnd = finalText.IndexOf(" ]", hintAt, StringComparison.Ordinal);
+        string[] hintParts = finalText.Substring(hintAt + 5, hintEnd - hintAt - 5).Split((char)32, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(2, hintParts.Length);
+        Assert.Equal(pdf.Length, pass1.Length + int.Parse(hintParts[1], System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public async Task Pass1WithoutLinearizeIsIgnored()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize-pass1=outputs/p1.bin", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task Pass1SpaceFormCaptures()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", "--linearize-pass1", "outputs/p1.bin", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] pass1));
+        Assert.Contains("0000000000 00000 n ", Encoding.ASCII.GetString(pass1), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--linearize-pass1=")]
+    [InlineData("--linearize-pass1")]
+    public async Task Pass1MalformedFormsFail(string flag)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", flag, "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task Pass1DuplicateFails()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", "--linearize-pass1=a.bin", "--linearize-pass1=b.bin", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+    }
+
+    [Fact]
+    public async Task Pass1JobParityMatchesArgvBytes()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--linearize", "--linearize-pass1=outputs/p1.bin", "--", "outputs/a.pdf" };
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] a));
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"linearize\": \"\", \"linearizePass1\": \"outputs/p1.bin\"}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/p1.bin"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Theory]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"linearizePass1\": \"\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"linearizePass1\": true}")]
+    public async Task Pass1MalformedJobKeysFail(string jobJson)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
     }
 }

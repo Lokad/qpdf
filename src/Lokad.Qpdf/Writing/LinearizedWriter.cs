@@ -9,7 +9,9 @@ namespace Lokad.Qpdf.Writing;
 /// with placeholder dictionaries and zeroed cross-references; hint tables
 /// are generated from those hint-less coordinates; an emitting pass fills
 /// real values and hint content. Padding keeps both passes byte-identical
-/// in length, verified by a replay check.
+/// in length, verified by a replay check. An optional pass-one sink captures
+/// the counting pass bytes for debugging; the captured file is not a valid
+/// PDF file.
 /// </summary>
 internal sealed class LinearizedWriter
 {
@@ -38,6 +40,7 @@ internal sealed class LinearizedWriter
         bool compressHints,
         int? compressionLevel,
         IByteSink sink,
+        IByteSink? pass1Sink,
         CancellationToken cancellationToken)
     {
         if (version is null)
@@ -89,8 +92,14 @@ internal sealed class LinearizedWriter
         }
 
         CountingSink counter = new();
+        IByteSink countingSink = counter;
+        if (pass1Sink is not null)
+        {
+            countingSink = new TeeSink(counter, pass1Sink);
+        }
+
         LinearLayout counted = await EmitPassAsync(
-            version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, counter, cancellationToken).ConfigureAwait(false);
+            version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         byte[] hintObject = BuildHintObject(parts, counted, compressHints, compressionLevel, cancellationToken);
         long hintLength = hintObject.LongLength;
 
@@ -120,6 +129,26 @@ internal sealed class LinearizedWriter
         }
 
         return emitted;
+    }
+
+    private sealed class TeeSink : IByteSink
+    {
+        private readonly IByteSink _first;
+        private readonly IByteSink _second;
+
+        internal TeeSink(IByteSink first, IByteSink second)
+        {
+            _first = first;
+            _second = second;
+        }
+
+        public long Length => _first.Length;
+
+        public async ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
+        {
+            await _first.AppendAsync(chunk, cancellationToken).ConfigureAwait(false);
+            await _second.AppendAsync(chunk, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private sealed class LinearLayout
