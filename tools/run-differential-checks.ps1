@@ -666,6 +666,21 @@ foreach ($sub in @(@("classic", "inputs/a.pdf"), @("streams", "inputs/o.pdf"))) 
   else { Write-Output "[show-xref/$name] xref dumps match line for line" }
 }
 
+# --- case: remove-acroform (managed vs oracle form-dictionary removal) ---
+$case = New-Case 'remove-acroform'
+Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/f.pdf', '--pages', '.', '1', '--remove-acroform', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "remove-acroform: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--remove-acroform', 'inputs/f.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "remove-acroform: oracle failed ($code)" }
+Assert-Trio 'remove-acroform' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/AcroForm')) { Write-Output "[remove-acroform] FAIL: /AcroForm remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/Annots')) { Write-Output "[remove-acroform] FAIL: /Annots missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[remove-acroform] form-dictionary assertions done"
+
 # --- case: linearize-pass1 (managed vs oracle first pass) ---
 $case = New-Case 'linearize-pass1'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -810,4 +825,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, show-xref, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, uncompress, normalize, coalesce, flatten-rotation, prune, json, forms, overlay, errors, warnings, show-npages, show-pages, show-object, show-xref, remove-acroform, qdf, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

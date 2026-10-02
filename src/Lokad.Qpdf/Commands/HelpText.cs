@@ -45,6 +45,7 @@ internal static class HelpText
           --flatten-rotation                  bake page rotation into content
           --flatten-annotations=all|print|screen  push annotations into content
           --generate-appearances              regenerate widget appearances
+          --remove-acroform                 remove the interactive form dictionary
           --qdf                             editable QDF view of the PDF
           --no-original-object-ids          omit original object IDs in QDF
           --linearize                       generate linearized web-optimized output

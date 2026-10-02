@@ -4341,17 +4341,15 @@
         }
       ],
       "milestone": "M7",
-      "status": "not-started",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Behavior review and implementation pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
-        "positive": [],
-        "negative": [],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "positive": ["RemoveAcroformTests.FlagDropsFormDictionary", "RemoveAcroformTests.OutputsOmitFormDictionaryByDefault", "RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.JobRemoveAcroformMatchesArgv"],
+        "negative": ["RemoveAcroformTests.MalformedFlagsFail", "RemoveAcroformTests.JobRemoveAcroformRejectsMalformed"],
+        "interaction": ["RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.IgnoredWithCheck"],
+        "resource": ["RemoveAcroformTests.FlagYieldsToExhaustedBudget"],
+        "oracle": ["diff:remove-acroform"]
       }
     },
     {

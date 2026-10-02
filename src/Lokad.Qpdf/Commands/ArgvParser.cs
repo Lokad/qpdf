@@ -1029,6 +1029,7 @@ internal static class ArgvParser
         bool warningExitZero = false;
         bool noWarn = false;
         bool seenSuppress = false;
+        bool seenRemoveAcroform = false;
         bool seenWarningExitZero = false;
         bool seenNoWarn = false;
         bool seenSplit = false;
@@ -1110,6 +1111,19 @@ internal static class ArgvParser
 
                 seenSuppress = true;
                 recovery = QpdfRecoveryMode.Strict;
+                continue;
+            }
+
+            if (argv[i] == "--remove-acroform")
+            {
+                if (seenRemoveAcroform)
+                {
+                    throw new QpdfParseException("Duplicate --remove-acroform is outside the narrow profile.", i, null);
+                }
+
+                seenRemoveAcroform = true;
+                // Accepted as a no-op: every publication path rebuilds a fresh catalog
+                // without /AcroForm, so outputs never carry the form dictionary.
                 continue;
             }
 

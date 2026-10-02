@@ -670,7 +670,13 @@ Repeatable --overlay and --underlay blocks (--file or positional file, --to, --f
 
 ## Appearance generation (work item 31c)
 
---generate-appearances (plus job key generateAppearances) mirrors upstream generation order (generate, then flatten-annotations, then flatten-rotation): when the catalog needs appearances it regenerates text/list appearance streams from field values and default appearance (ASCII fallback, WinAnsi/MacRoman encodings, BMC/EMC value rewrite, list highlight) and synchronizes checkbox/radio /V and /AS state, then clears the condition so a later --flatten-annotations stamps fresh appearances. Appearances are rewritten raw (no /Filter). Intentional differences: parent-held field nodes never reach output pools so field context resolves by subtree search and parent-held radios degrade to skip; field default resources are not merged; signature fields are skipped and pushbuttons warn; damaged appearance streams warn and keep the field.
+--generate-appearances (plus job key generateAppearances) mirrors upstream generation order (generate, then flatten-annotations, then flatten-rotation): when the catalog needs appearances it regenerates text/list appearance streams from field values and default appearance (ASCII fallback, WinAnsi/MacRoman encodings, BMC/EMC value rewrite, list highlight) and synchronizes checkbox/radio /V and /AS state, then clears the condition so a later --flatten-annotations stamps fresh appearances. `--remove-acroform` (plus job key `removeAcroform`) is accepted as a
+no-op: every publication path rebuilds a fresh catalog without `/AcroForm`, so outputs never
+carry the form dictionary while widget annotations stay in place; the differential lane checks
+both sides drop the dictionary with trios green. `--remove-acroform` (plus job key `removeAcroform`) is accepted as a
+no-op: every publication path rebuilds a fresh catalog without `/AcroForm`, so outputs never
+carry the form dictionary while widget annotations stay in place; the differential lane checks
+both sides drop the dictionary with trios green. Appearances are rewritten raw (no /Filter). Intentional differences: parent-held field nodes never reach output pools so field context resolves by subtree search and parent-held radios degrade to skip; field default resources are not merged; signature fields are skipped and pushbuttons warn; damaged appearance streams warn and keep the field.
 
 ## Governed JPEG decoding (work item 32)
 
