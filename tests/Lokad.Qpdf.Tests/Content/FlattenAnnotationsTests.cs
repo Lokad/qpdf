@@ -203,6 +203,38 @@ JsonElement value = full.RootElement.GetProperty("qpdf")[1].GetProperty(PageObje
 Assert.False(value.TryGetProperty("/Annots", out JsonElement _));
 }
 [Fact]
+public async Task WidgetAppearanceWithDrFontStampsVerbatim()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("q /F1 12 Tf 100 700 Td (Hello) Tj ET");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /F1 6 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 100 50] /FT /Tx /T (Name) /V (Hello) /DA (/F1 12 Tf 0 g) /AP << /N 7 0 R >> >>", null),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Resources << /Font << /F1 6 0 R >> >> /Length ", appearance.Length.ToString(), " >>"), appearance),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] stamp = await FormContentAsync(pdf, "/Fxo1");
+Assert.Contains("(Hello)", Encoding.ASCII.GetString(stamp));
+using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement objects = catalog.RootElement.GetProperty("qpdf")[1];
+bool foundFont = false;
+foreach (JsonProperty property in objects.EnumerateObject())
+{
+if (property.Value.TryGetProperty("stream", out JsonElement _) || !property.Value.TryGetProperty("value", out JsonElement value))
+{
+continue;
+}
+string dump = value.ToString();
+if (dump.Contains("/BaseFont") && dump.Contains("/Helvetica"))
+{
+foundFont = true;
+}
+}
+Assert.True(foundFont);
+}
+[Fact]
 public async Task AppearanceWithoutSubtypeBecomesForm()
 {
 byte[] appearance = Encoding.ASCII.GetBytes("BT (Note) Tj ET");

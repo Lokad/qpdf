@@ -331,6 +331,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a flate RGB image carrying a gray SMask. Both sides must recompress the image to DCT while keeping /SMask and leaving the mask flate; the optimize-masks differential consumes it."
+    },
+    {
+      "file": "flatten-dr-1page.pdf",
+      "sha256": "2e1e47f218f579aa7ae8259f56d3602465eea51ac6ec62d686ba7b8c849d19b4",
+      "bytes": 1050,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a text widget carrying /DA and an appearance stream referencing an AcroForm DR font. Both sides must stamp the appearance verbatim on flatten; the flatten-dr differential consumes it."
     }
   ]
 }

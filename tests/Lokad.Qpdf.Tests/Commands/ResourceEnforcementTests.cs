@@ -89,6 +89,13 @@ public sealed class ResourceEnforcementTests
     }
 
     [Fact]
+    public async Task FlattenAnnotationsYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--flatten-annotations=all", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
     public async Task OverlayYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithTwoPage();
