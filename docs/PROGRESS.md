@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 103: typed single-page rotation overloads (M5). `SelectPageAsync` gains default-budget and explicit-budget overloads accepting `IReadOnlyList<PdfPageRotation>`, riding the shared rotation engine through `ConvertRotations` into the single-page core that previously received an empty specification list. Six unit cases prove application, output-position addressing across ordered selections, the null guard, clean out-of-range failure with no publication, and byte identity with the matching argv and job-JSON rotations (transitively tying the typed path to the `rotate-ranges` oracle agreement); the package consumer proves both new signatures. `--rotate` flips to complete. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys, codec allocation/cancellation and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 102: overlay/underlay annotation copying (M7). Applied overlay/underlay source pages now contribute fresh per-placement annotation clones appended to the destination `/Annots` through the shared copy engine: clone rectangles move with the content placement matrix, appearance-stream matrices concatenate with it, page-boundary references prune to null, and non-dictionary entries are skipped with a warning, all matching the pinned oracle. Fourteen overlay unit cases (copy, job parity, underlay, scaled rectangles, nulled destinations, appearance cloning, malformed/zero rectangles, direct/indirect forms, repeat independence, append order) plus an exhausted-budget case, a checked-in `overlay-annot-1page.pdf` fixture (manifest/csproj/manifest-tests wired), and an `overlay-annots` differential case (subtype/contents/rectangle/matrix agreement plus link-destination null parity) carry the evidence. Widget and form-field overlay annotations are skipped, so all six overlay entries stay partial behind parent-field lookup, default-resource merging and collision renaming, which stay explicitly open along with merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys, codec allocation/cancellation and typed split output.
 
 Prior gate

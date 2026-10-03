@@ -5278,11 +5278,9 @@
         }
       ],
       "milestone": "M5",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Typed single-page rotation overloads are open; use the multi-source API."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "RotationTests.AddRotatesFromInheritedBase",
@@ -5295,13 +5293,19 @@
           "RotationTests.ArgvRotateSpansMergeSources",
           "RotationTests.JobRotateRangeMatchesArgv",
           "RotationTests.ArgvRotateAppliesToFileRangeGroups",
-          "RotationTests.ArgvRotateAcrossFileRangeSources"
+          "RotationTests.ArgvRotateAcrossFileRangeSources",
+          "RotationTests.TypedSingleRotationApplies",
+          "RotationTests.TypedSingleRotationFollowsOutputPositions",
+          "RotationTests.TypedSingleRotationMatchesArgv",
+          "RotationTests.TypedSingleRotationMatchesJob"
         ],
         "negative": [
           "RotationTests.OutOfRangePositionsFailCleanly",
           "RotationTests.ArgvRotateInvalidSpecsFail",
           "RotationTests.ArgvRotateRangedOutOfRangeFails",
-          "RotationTests.ArgvRotateRequiresPages"
+          "RotationTests.ArgvRotateRequiresPages",
+          "RotationTests.TypedSingleRotationNullGuard",
+          "RotationTests.TypedSingleRotationOutOfRangeFailsCleanly"
         ],
         "interaction": [
           "RotationTests.SetIgnoresBaseAndLaterSpecsWin",

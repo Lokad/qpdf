@@ -371,18 +371,22 @@ both sides with failing checks) plus show-npages/check exit parity.
 ## Ordinary rotation (work item 20, part 1)
 
 `PdfPageRotation` (`Set`/`Add`/`Subtract` over output positions, any multiple of
-90 normalized modulo 360) rides the multi-source selection; `qpdf --rotate` and
+90 normalized modulo 360) rides the multi-source selection and the single-page
+typed selection (`SelectPageAsync` rotation overloads with default and explicit
+budgets, proven by the package consumer); `qpdf --rotate` and
 job-JSON `rotate` share the `[+|-]angle[:range]` specification with the full shared
 page-range grammar (spans, descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`,
 duplicates preserved and applied in order, matching the probed reference). `--rotate`
 is accepted at the main level as upstream places it, with the inside-`--pages` form kept
 as leniency and byte-identical results; repeated specifications accumulate with later
 specifications winning per page, and positions span merged outputs including
-`--file=`/`--range=` groups. Out-of-range positions
+`--file=`/`--range=` groups. Typed single-page rotations are byte-identical with
+the matching argv and job-JSON rotations, which transitively ties them to the
+`rotate-ranges` oracle agreement. Out-of-range positions
 fail explicitly. Rotation folds over the inherited
 base (explicit page values beat ancestry, null counts as absent); pages without
-applicable specifications keep their bytes untouched. Collation, page labels,
-and multi-file `--pages` forms stay open.
+applicable specifications keep their bytes untouched. Page labels
+stay open behind source-tree merging.
 
 ## Invocation breadth (work item 18)
 
