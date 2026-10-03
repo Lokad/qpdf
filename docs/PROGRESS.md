@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-Work item 126 done (M11): pinned the unreachable-forms selection difference. Oracle probes prove --generate-appearances with page-selection drops unreachable widgets and their form while managed selection preserves and generates appearances; preservation is load-bearing elsewhere, so the difference stands as tested behavior. Evidence: unreachable-widget preservation unit case; --generate-appearances keeps two gaps (selection difference, quadding). 1853 tests green and the full differential lane green.
+Work item 127 done (M11): offline build and package audit. Locked restore, Release build, and all 1853 tests pass with external/ absent (no tracked build or test source references it; only the ignored lane tooling needs the oracle). Pack, verify-package (ImageSharp 3.1.12 pinned, approved members only), and the package-consumer smoke run all pass. No code changes; 152 complete with 5 partial.
 
 ## Remaining work
 - CMYK/YCCK raw samples: the approved ImageSharp public API yields only converted RGB, so raw four-component samples cannot be preserved through it. Needs a decision: an alternate extraction path or a declared, tested difference with narrow tolerances.
