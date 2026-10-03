@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 106: supported-profile reconciliation and full-lane rerun (M11). SUPPORTED-PROFILE.md is refreshed from its stale M4 snapshot to the audited engine: full range grammar and operation coverage across entry paths, source label-tree merging, ordinary form/outline/structure preservation against contained preview, overlay annotation copying, tokenized page content, direct image descriptors, DCT decoding at decode level all, typed rotation and split surfaces, and a new QDF and linearization section. The full differential lane reruns green after items 104 and 105 with oracle trios green and no engine discrepancies. Static release gates hold: no unsafe blocks, interop, subprocess, or ambient file I/O in shipped code, ImageSharp confined to the JPEG adapter and pinned to 3.1.12. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 105: typed split surface (M5). PdfPageMergeOptions gains a SplitPages group size riding the shared merge engine into the split publication core that previously received a null split plan: six unit cases prove named-group publication, pre-grouping merge across sources, byte identity with the matching argv and job-JSON splits (transitively tying the typed path to the split oracle agreement), and clean non-positive failure with no publication; the package consumer proves the new property. --split-pages flips to complete. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
 
 Prior gate

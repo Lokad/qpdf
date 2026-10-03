@@ -1,4 +1,4 @@
-# Supported profile (M4)
+# Supported profile (M11 audit)
 
 This describes exactly what the library does today. Everything else in
 `docs/COMPATIBILITY.md` is a roadmap, not a claim.
@@ -7,23 +7,28 @@ This describes exactly what the library does today. Everything else in
 
 Three routes converge on one selection plan executed by the shared engine:
 
-- Typed: `Qpdf.SelectPageAsync` with explicit, `FirstAndLast`, or `Normalized` page sets;
-  `Qpdf.SelectPagesAsync` merges ordered `PdfPageSource` inputs with per-page source
-  mapping; `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection.
-- Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]n
-  -- output` (repeated file/range groups with single-integer ranges), `input --check`, `--job-json-file`
+- Typed: `Qpdf.SelectPageAsync` with explicit, `FirstAndLast`, or `Normalized` page sets (plus per-page rotation overloads);
+  `Qpdf.SelectPagesAsync` merges ordered `PdfPageSource` inputs with per-page source mapping
+  and optional `PdfPageMergeOptions` collation, rotations, labels, and split group size;
+  `Qpdf.CheckAsync` with `QpdfCheckOptions` (decode level) for partial inspection; attachment,
+  JSON, and companion operations (`FixQdfAsync`, `RunZlibFlateAsync`) share the same engine
+  and host contracts.
+- Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]range
+  -- output` (repeated file/range groups with the full range grammar, collation,
+  rotation, labels, split, and empty-base forms), `input --check`, `--job-json-file`
   file`, `@file` response files (one argument per line), `--help`/`--version`/`--job-json-help`/`--completion-bash`/`--completion-zsh`,
-  `--rotate=[+|-]angle[:range]`, `--split-pages[=n]`, `--replace-input`,
+  content flags, overlay and underlay blocks, appearance flags, image optimization,
+  QDF, linearization, JSON inspection and editing, attachment editing, writer controls,
   and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
 - Job JSON: `Qpdf.ExecuteJobAsync` accepts `{inputFile, outputFile,
-  pages:[{file, range}, ...]}` concatenating entries in order, plus optional
-  `rotate` and `setPageLabels` arrays; inspection and `collate` have no job
-  key yet.
+  pages:[{file, range}, ...]}` concatenating entries in order, plus matching keys
+  for collation, rotation, labels, split, content transforms, overlays, appearances,
+  optimization, QDF, linearization, attachments, writer controls, and inspection.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
-`QpdfExecutionResult` with exit codes 0/2/3). Anything outside the subset —
-ranges, `--empty`, `--replace-input`, stdout,
-response files, unknown options — fails explicitly. Password and encryption
+`QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —
+stdout binary forms,
+unknown options — fails explicitly. Password and encryption
 flags fail with `UnsupportedCryptoOperation` and exit 2 without retaining or
 echoing values.
 
@@ -56,11 +61,13 @@ echoing values.
   `FirstAndLast(N)` windows, or sorted/deduplicated `Normalized` sets; out-of-range
   indexes fail explicitly and empty explicit selections are rejected.
 - Ordinary rotation (`Set`/`Add`/`Subtract` multiples of 90 over output positions)
-  folds over the inherited base; untouched pages keep their bytes. Flattening
-  stays unsupported.
+  folds over the inherited base; untouched pages keep their bytes. `--flatten-rotation`
+  bakes rotation into content (see below).
 - `--empty` stands in for the input file so merges start from a zero-page base (catalog extras never carry over); `.` groups, overlays, replacement, and bare use fail explicitly.
-- Merge options interleave per-source groups (collation), rotate, and emit
-  explicit page labels; source label trees are dropped and never merged.
+- Merge options interleave per-source groups (collation), rotate, and emit explicit
+  page labels or merge source label trees with page-index offsets (unlabeled pages
+  fabricate continuations, runs compress); an optional split group size partitions
+  output through the same engine.
 - Output carries a fresh catalog with the copied pages only; each occurrence is an
   independent page object sharing immutable resources. Shared non-page objects
   are copied once; `/Parent` links are dropped. Results carry the source page
@@ -71,8 +78,11 @@ echoing values.
 - Page-tree nodes require `/Type /Page` or `/Pages`. Traversal wins over
   `/Count`, which only warns. Page-tree (`/Pages`) and catalog references fail
   explicitly; references to already-copied objects remap while references to any
-  other page prune to null, so omitted pages never resurrect. Widget annotations
-  travel with appearances; `/AcroForm`, outlines, and names are dropped, while
+  other page prune to null, so omitted pages never resurrect. Ordinary selection
+  preserves the form dictionary (fields, values, parent links, default resources),
+  outlines, and structure through the shared copy engine while contained preview
+  drops outlines and structure; explicit `--remove-acroform` and `--remove-structure`
+  prune them. Widget annotations travel with appearances, while
   document info (`/Info`, ModDate-only under `--remove-info`) and the catalog
   metadata stream are preserved unless `--remove-info`/`--remove-metadata`
   drop them (`--remove-info` also drops metadata).
@@ -81,9 +91,10 @@ echoing values.
   before commit, so failures leave existing targets untouched. Every lease
   closes on success, failure, and cancellation.
 - `--split-pages` publishes one file per page group with pruned objects and
-  sliced labels; `--replace-input` overwrites the single input with no backup.
+  sliced labels (typed callers use `PdfPageMergeOptions.SplitPages`); `--replace-input`
+  overwrites the single input with no backup.
   Partial split outputs can remain if a later group fails.
-- --overlay and --underlay blocks (--file, --to, --from, --repeat, repeatable with order kept) stamp whole pages from other files as /Fx form XObjects below or above each output page, centered with shrink-to-fit placement that inverts destination rotation and scale. Ranges accept plain numbers, dash ranges, and comma lists, and an empty --from= lets --repeat supply every page. Missing files fail, damaged overlay content warns and skips, and overlay annotations are not copied.
+- --overlay and --underlay blocks (--file, --to, --from, --repeat, repeatable with order kept) stamp whole pages from other files as /Fx form XObjects below or above each output page, centered with shrink-to-fit placement that inverts destination rotation and scale. Ranges use the full shared grammar with an empty --from= letting --repeat supply every page. Missing files fail, damaged overlay content warns and skips, and applied pages contribute placement-transformed non-widget annotation copies (widget and form-field annotations are skipped).
 - --flatten-rotation bakes page rotation into content: boxes rotate per the page angle, a counter-transform wraps the content streams, /Rotate is dropped, and annotation rectangles move with the page.
 - --flatten-annotations with all, print, or screen stamps annotation appearance streams as /Fxo form XObjects into page content and drops the flattened annotations. Print mode keeps only print-flagged annotations and screen mode drops no-view ones; widgets wait for generated appearances when the document needs them. Annotations without appearances stay unless they carry an appearance dictionary, and field default resources are not merged. Pages without actionable rotation stay byte-identical; damaged content or boxes warn and keep the page.
 - --generate-appearances regenerates widget appearance streams when the catalog needs them (text/list with field values and default appearance, checkbox/radio state sync), then clears the condition so a later --flatten-annotations stamps fresh appearances. Parent-held field nodes stay out of reach, field default resources are not merged, and damaged appearances warn and keep the field.
@@ -94,7 +105,8 @@ echoing values.
   trailer, page tree, object-graph traversal, decode-level-gated stream
   decoding, page content, and linearization.
 - Skipped stages stay visible with reasons and never pass silently; failures
-  carry capped per-object detail. Content (M7) always skips; linearization
+  carry capped per-object detail. Page content tokenizes content streams
+  (decode-level gated) instead of skipping; linearization
   passes when absent and validates dictionaries, hint streams, and
   bit-level hint tables when present; unavailable
   filters skip streams with a warning at level `all`.
@@ -103,8 +115,9 @@ echoing values.
 - `input --json[=1|2|latest] [--json-key=]... -- output` writes document JSON
   (version plus parameters, then pages, pagelabels, acroform, attachments,
   encrypt, outlines, and objects/objectinfo for version 1 or qpdf for
-  version 2). Pages carry object, contents, label, outlines, and
-  pageposfrom1 with empty images until content parsing lands (M7); outlines
+  version 2). Pages carry object, contents, label, outlines,
+  pageposfrom1, and direct image descriptors with dimensions, colorspace, and
+  filter data; outlines
   resolve explicit destinations only; acroform reports fields with inherited
   types, names, values, and annotations. `--json-object={trailer|obj[,gen]}`
   limits the objects dictionaries. `--json-stream-data={none|inline|file}`
@@ -181,8 +194,8 @@ echoing values.
   `--compress-streams`/`--decode-level` override the `--stream-data` mapping;
   `--recompress-flate` only takes effect with a decode level covering Flate.
   Decode coverage mirrors inspection (`generalized` adds ASCII/LZW/Flate,
-  `specialized` adds RunLength); `all` behaves as `specialized` until JPEG
-  support (M8), warning per undecodable stream. Corrupt streams and unknown
+  `specialized` adds RunLength); `all` additionally decodes 1- and 3-component
+  DCT JPEGs (four-component CMYK/YCCK stays opaque), warning per undecodable stream. Corrupt streams and unknown
   specs are kept opaque under a warning; streams with more than `--max-stream-filters=n` filters (default 25, 0 keeps every filtered stream opaque) stay opaque under a warning on every decode path; `/Crypt` is never decoded. The
   default profile differs intentionally from upstream compress defaults so
   typed previews stay byte-stable without flags.
@@ -206,7 +219,7 @@ echoing values.
   MIME type, PDF-syntax dates, stored checksum, stream number, and declared
   size; `Qpdf.ExtractAttachmentAsync` stages fully decoded bytes to an
   explicit output path (raw bytes plus a warning where decoding is
-  unavailable, e.g. JPEG until M8). The same engine backs
+  unavailable). The same engine backs
   `--list-attachments` (info diagnostics, no output file) and
   `--show-attachment=key` (last key wins; output file required). Upstream
   writes extracts to stdout; without a stdout binary contract this profile
@@ -226,6 +239,13 @@ echoing values.
   and unknown or encrypted sources fail. The typed surface
   (`AddAttachmentsAsync`, `RemoveAttachmentsAsync`, `CopyAttachmentsAsync`)
   shares the same engine and reports the final attachment count.
+
+## QDF and linearization profile
+
+- `--qdf` emits the editable QDF view (per-object comments, uncompressed streams with indirect lengths, classic or object-stream layouts) with `--no-original-object-ids` suppressing original-ID comments;
+  QDF implies generalized decoding with content normalization unless overridden. `FixQdfAsync` repairs edited QDF (stream lengths, object-stream tables, cross references, startxref offsets) and `RunZlibFlateAsync` compresses or uncompresses zlib bytes between host paths.
+- `--linearize` emits web-optimized output through a two-pass writer with generated page-offset, shared-object, and outline hint tables (hints Flate-encode under stream compression) and optional generated object streams;
+  `--linearize-pass1` captures the counting pass while `--check-linearization` and `--show-linearization` inspect through the shared engine. QDF stays disabled over linearization.
 
 ## Governance
 
