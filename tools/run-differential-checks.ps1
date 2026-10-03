@@ -975,6 +975,74 @@ else {
 }
 Write-Output "[overlay-annots] annotation assertions done"
 
+# --- case: overlay-widgets (managed vs oracle overlay form-field import) ---
+$case = New-Case 'overlay-widgets'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/overlay-widget-1page.pdf" "$case/inputs/o.pdf"
+$emitLog = "$case/emit-widgets.txt"
+$p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', '--', 'outputs/a.pdf')) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput $emitLog
+if ($p.ExitCode -ne 0) { throw "overlay-widgets: emit failed ($($p.ExitCode))" }
+$managedExit = [int]((Select-String -Path $emitLog -Pattern 'emit: status=\w+ exit=(\d+)').Matches[0].Groups[1].Value)
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "overlay-widgets: oracle failed ($code)" }
+if ($managedExit -ne 0 -or $code -ne 0) { Write-Output "[overlay-widgets] FAIL: exits managed=$managedExit oracle=$code, expected 0/0"; $script:failures++ }
+else { Write-Output "[overlay-widgets] exit parity (0/0)" }
+Assert-Trio 'overlay-widgets' "$case/lib.pdf" "$case/ora.pdf" 1
+$libJson = (& $QpdfExe --json "$case/lib.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$oraJson = (& $QpdfExe --json "$case/ora.pdf" 2>$null | Out-String) | ConvertFrom-Json
+if ($libJson.acroform.needappearances -ne $true -or $oraJson.acroform.needappearances -ne $true) { Write-Output "[overlay-widgets] FAIL: needAppearances lib=$($libJson.acroform.needappearances) ora=$($oraJson.acroform.needappearances), expected True/True"; $script:failures++ }
+else { Write-Output "[overlay-widgets] needAppearances agree (True)" }
+$libFields = @($libJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)@$($_.pageposfrom1)" } | Sort-Object)
+$oraFields = @($oraJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)@$($_.pageposfrom1)" } | Sort-Object)
+if (($libFields -join ',') -ne ($oraFields -join ',')) { Write-Output "[overlay-widgets] FAIL: fields lib=[$($libFields -join ',')] ora=[$($oraFields -join ',')]"; $script:failures++ }
+else { Write-Output "[overlay-widgets] imported field semantics agree ([$($libFields -join ',')])" }
+$oraStderr = Get-Content "$case/ora-stderr.txt" -Raw
+$emitText = Get-Content $emitLog -Raw
+if ($oraStderr -notmatch 'not reachable from /AcroForm') { Write-Output "[overlay-widgets] FAIL: oracle fallback note missing"; $script:failures++ }
+elseif ($emitText -notmatch 'does not reference') { Write-Output "[overlay-widgets] FAIL: managed fallback note missing"; $script:failures++ }
+else { Write-Output "[overlay-widgets] fallback notes agree (both sides note the unreached widget)" }
+Write-Output "[overlay-widgets] assertions done"
+
+# --- case: overlay-widgets-dr (managed vs oracle overlay DR conflict and collision renaming) ---
+$case = New-Case 'overlay-widgets-dr'
+Copy-Item "$fixtureDir/overlay-widget-dest-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/overlay-widget-dr-1page.pdf" "$case/inputs/o.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "overlay-widgets-dr: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "overlay-widgets-dr: oracle failed ($code)" }
+Assert-Trio 'overlay-widgets-dr' "$case/lib.pdf" "$case/ora.pdf" 1
+$libJson = (& $QpdfExe --json "$case/lib.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$oraJson = (& $QpdfExe --json "$case/ora.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$libFields = @($libJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)" } | Sort-Object)
+$oraFields = @($oraJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)" } | Sort-Object)
+if (($libFields -join ',') -ne ($oraFields -join ',')) { Write-Output "[overlay-widgets-dr] FAIL: fields lib=[$($libFields -join ',')] ora=[$($oraFields -join ',')]"; $script:failures++ }
+else { Write-Output "[overlay-widgets-dr] renamed field semantics agree ([$($libFields -join ',')])" }
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/F1_1', '(/F1 10 Tf 0 g)', '(/F1_1 12 Tf 0 g)', '/BaseFont /Helvetica', '/BaseFont /Courier', '(O+1)')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[overlay-widgets-dr] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[overlay-widgets-dr] resource merge assertions done"
+
+# --- case: overlay-widgets-repeat (managed vs oracle repeated overlay field import) ---
+$case = New-Case 'overlay-widgets-repeat'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/overlay-widget-dr-1page.pdf" "$case/inputs/o.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--repeat=1', '--', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "overlay-widgets-repeat: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--repeat=1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "overlay-widgets-repeat: oracle failed ($code)" }
+Assert-Trio 'overlay-widgets-repeat' "$case/lib.pdf" "$case/ora.pdf" 2
+$libJson = (& $QpdfExe --json "$case/lib.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$oraJson = (& $QpdfExe --json "$case/ora.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$libFields = @($libJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)@$($_.pageposfrom1)" } | Sort-Object)
+$oraFields = @($oraJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)@$($_.pageposfrom1)" } | Sort-Object)
+if (($libFields -join ',') -ne ($oraFields -join ',')) { Write-Output "[overlay-widgets-repeat] FAIL: fields lib=[$($libFields -join ',')] ora=[$($oraFields -join ',')]"; $script:failures++ }
+else { Write-Output "[overlay-widgets-repeat] repeated import semantics agree ([$($libFields -join ',')])" }
+Write-Output "[overlay-widgets-repeat] assertions done"
+
 # --- case: writer-controls (managed vs oracle header, identifier, and stream endings) ---
 $case = New-Case 'writer-controls'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -2155,4 +2223,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

@@ -295,6 +295,33 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an unnamed container holding a direct kid D plus widgets W2 and V. Merging with dc-a-1page.pdf must rename the colliding direct kid to D+1 on both sides; the direct-rename differential consumes it."
+    },
+    {
+      "file": "overlay-widget-1page.pdf",
+      "sha256": "64c55000859b5afb52334eda5e1789b6ce13c8d0cfe81295a5e612563020c9b9",
+      "bytes": 1261,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page overlay source with a merged text field O, a parent field P with a widget kid, a radio parent R with two widget kids, and an unreached widget UW. Overlaying it must import O, P and R once each plus UW as its own field with a fallback note on both sides; the overlay-widgets differential consumes it."
+    },
+    {
+      "file": "overlay-widget-dest-1page.pdf",
+      "sha256": "13f7451eaf9d0e859da392a08b76d2a4ae5cd42ff506914d7cfa6d7466761c11",
+      "bytes": 877,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page overlay destination with text fields D (with default appearance and Helvetica DR font F1) and O. Overlaying the DR source must keep D and F1, rename the colliding import to O+1, add the Courier font as F1_1 and rewrite its default appearance; the overlay-widgets-dr differential consumes it."
+    },
+    {
+      "file": "overlay-widget-dr-1page.pdf",
+      "sha256": "d4f151f0d389acc7ba07be2f7591e2aa36707cfd72b23240d01ddbb29514e1b1",
+      "bytes": 884,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page overlay source with text fields S (with default appearance and Courier DR font F1) and O. Overlaying it onto the DR destination must preserve values with destination-wins resource merging; the overlay-widgets-dr differential consumes it."
     }
   ]
 }
