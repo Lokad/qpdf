@@ -96,6 +96,13 @@ public sealed class ResourceEnforcementTests
     }
 
     [Fact]
+    public async Task OverlayFileYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithTwoPage();
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--overlay", "--file=inputs/b.pdf", "--", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
     public async Task OverlayAnnotationsYieldToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

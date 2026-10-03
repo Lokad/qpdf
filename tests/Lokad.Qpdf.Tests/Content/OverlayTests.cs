@@ -597,7 +597,6 @@ Assert.Equal(a, b);
 [InlineData("--overlay", "inputs/o.pdf", "--from=x1")]
 [InlineData("--overlay", "inputs/o.pdf", "--from=9")]
 [InlineData("--overlay", "inputs/o.pdf", "--to=1-2:even:odd")]
-[InlineData("--overlay", "inputs/o.pdf", "--to=")]
 public async Task RangedOverlayFlagsFail(params string[] flags)
 {
 byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET" });
@@ -610,6 +609,59 @@ QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvoca
 Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
 Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+}
+[Theory]
+[InlineData("--overlay", "--file", "inputs/o.pdf")]
+[InlineData("--overlay", "inputs/o.pdf", "--file")]
+[InlineData("--overlay", "inputs/o.pdf", "--to", "1")]
+[InlineData("--overlay", "inputs/o.pdf", "--from", "1")]
+[InlineData("--overlay", "inputs/o.pdf", "--from")]
+[InlineData("--overlay", "inputs/o.pdf", "--repeat", "1")]
+[InlineData("--underlay", "--file", "inputs/o.pdf")]
+[InlineData("--underlay", "inputs/o.pdf", "--to", "1")]
+public async Task OverlayBlockOptionsRequireEqualsForm(params string[] flags)
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
+InMemoryQpdfHost host = HostWithTwo(primary, overlay);
+List<string> argv = new() { "inputs/a.pdf" };
+argv.AddRange(flags);
+argv.AddRange(["--", "outputs/a.pdf"]);
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+}
+[Fact]
+public async Task EmptyToRangeAppliesOverlayNowhere()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--to=", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+byte[] content = await PageContentAsync(pdf);
+string text = Encoding.ASCII.GetString(content);
+Assert.Contains("Primary", text);
+Assert.DoesNotContain("/Fx1 Do", text);
+}
+[Fact]
+public async Task OverlayFileLongFormMatchesPositional()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
+byte[] positional;
+{
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+positional = pdf;
+}
+byte[] longForm;
+{
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "--file=inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+longForm = pdf;
+}
+Assert.Equal(positional, longForm);
 }
 private static async Task<HashSet<string>> OverlayMarkersOnPageAsync(byte[] pdf, int pageIndex)
 {
