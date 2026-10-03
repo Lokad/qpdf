@@ -319,6 +319,31 @@ public sealed class InvocationTests
     }
 
     [Fact]
+    public async Task HelpDescribesRemovePageLabelsAsPrune()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--help"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        QpdfDiagnostic help = Assert.Single(result.Diagnostics);
+        Assert.Contains("--remove-page-labels", help.Message, StringComparison.Ordinal);
+        Assert.Contains("drop merged page labels", help.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("accepted no-op", help.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task JobJsonHelpCryptoSentenceIsWellFormed()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--job-json-help"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        QpdfDiagnostic help = Assert.Single(result.Diagnostics);
+        Assert.Contains("are rejected with UnsupportedCryptoOperation", help.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("are rejected with (encrypt", help.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CopyrightIdentifiesImplementation()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

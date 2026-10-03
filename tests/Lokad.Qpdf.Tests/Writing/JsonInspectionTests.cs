@@ -308,6 +308,20 @@ public sealed class JsonInspectionTests
     }
 
     [Theory]
+    [InlineData("--json-help")]
+    [InlineData("--json-help=1")]
+    public async Task JsonHelpPagesMentionImages(string flag)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation([flag]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        QpdfDiagnostic help = Assert.Single(result.Diagnostics);
+        using JsonDocument described = JsonDocument.Parse(help.Message);
+        Assert.Contains("images", described.RootElement.GetProperty("pages").GetString(), StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("--json-help=")]
     [InlineData("--json-help=3")]
     [InlineData("--json-help=x")]

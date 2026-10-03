@@ -94,7 +94,7 @@ internal static class HelpText
           --filtered-stream-data          write decoded stream bytes to the output file
           --show-xref                   show cross-reference entries
           --show-linearization          display linearization hint tables
-          --remove-page-labels      drop explicit page numbers (accepted no-op)
+          --remove-page-labels      drop merged page labels
           --help                show this help
           --version             show version and compatibility target
           --copyright           show copyright and license notice
@@ -182,10 +182,8 @@ internal static class HelpText
           suppressRecovery, ignoreXrefStreams, reportMemoryUsage, testJsonSchema, verbose, progress, keepFilesOpen, keepFilesOpenThreshold
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
         parserMaxNesting (within 499), parserMaxContainerSize and parserMaxContainerSizeDamaged
-        (non-negative object counts, defaults 4294967295 and 5000). Other global keys fail;
-        parserMaxNesting (non-negative nesting depth within 499).
-        Crypto keys (encrypt, decrypt, password and related options) are rejected with (encrypt, decrypt, password and related options) are rejected with
-        UnsupportedCryptoOperation. See --help for the argv surface.
+        (non-negative object counts, defaults 4294967295 and 5000). Other global keys fail.
+        Crypto keys (encrypt, decrypt, password and related options) are rejected with UnsupportedCryptoOperation. See --help for the argv surface.
         """;
 
     internal static bool TryMatchJobJsonHelp(IReadOnlyList<string> argv, out string text)
@@ -204,11 +202,11 @@ internal static class HelpText
     }
 
     internal const string JsonHelpV2 = """
-        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines and pageposfrom1", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "qpdf": "object table (version 2)"}
+        {"version": "JSON format version (2)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "qpdf": "object table (version 2)"}
         """;
 
     internal const string JsonHelpV1 = """
-        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines and pageposfrom1", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table (version 1)", "objectinfo": "object metadata (version 1)"}
+        {"version": "JSON format version (1)", "parameters": "decode and stream-data parameters for this inspection", "pages": "per-page descriptors with object, contents, label, outlines, pageposfrom1 and images", "pagelabels": "explicit page labels", "attachments": "embedded-file entries", "encrypt": "unencrypted sentinel", "outlines": "explicit-destination outline entries", "acroform": "form fields with inherited types, names, values and annotations", "objects": "object table (version 1)", "objectinfo": "object metadata (version 1)"}
         """;
 
     internal static bool TryMatchJsonHelp(IReadOnlyList<string> argv, out string text)
