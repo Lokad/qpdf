@@ -253,12 +253,8 @@ selections fail on work budgets and out-of-range pages fail explicitly.
 
 ## Catalog, inheritance, and widget policy (work item 14)
 
-Preview output carries a fresh catalog with only `/Type` and `/Pages`: outlines,
-names, metadata, and `/AcroForm` never transfer. Page-tree (`/Pages`) and catalog
-references stay structural errors; references to already-copied objects remap, and
-references to any other page prune to null so omitted pages can never resurrect.
-Widget annotations travel with the page with appearance bytes preserved; the field
-hierarchy is not reconstructed. Only the four inheritable attributes materialize,
+Ordinary selection and rewrite paths carry a fresh catalog with the input form dictionary preserved through the shared copy engine (work item 80): field registration, values, parent links and default resources round-trip, with top-level fields pruned when every widget in their subtree falls outside the kept pages. `--remove-acroform` is the explicit prune switch threaded through every publication path; flatten-all drops the form with its annotations. Page-tree (`/Pages`) and catalog references stay structural errors; references to already-copied objects remap, and references to any other page prune to null under the ordinary selection policy so omitted pages can never resurrect. Field and annotation `/Parent` links remap through the shared memo table while page-tree ancestry stays dropped and materialized.
+Widget annotations travel with the page with appearance bytes preserved. Only the four inheritable attributes materialize,
 with explicit null treated as absent (ancestor fallback, else `/MediaBox` failure);
 page-only boxes such as `/BleedBox` and `/UserUnit` never inherit.
 
@@ -310,9 +306,8 @@ check has no upstream schema basis yet and fails explicitly.
 object identity: separate copiers share one destination numbering sequence and one
 governor, so equal object numbers across documents never collide while widgets
 keep their within-source field links. Every page keeps its own resources, so
-same-named resources and fields stay inert without content rewriting; the output
-catalog stays fresh with no merged `/AcroForm`. Output takes the highest source
-version and carries per-page source mapping plus per-source page counts.
+same-named resources and fields stay inert without content rewriting. Merged forms concatenate per-source field registrations without upstream fully-qualified-name collision renaming, keep the first default-resources dictionary, OR the NeedAppearances flags, and embed the combined form directly in the catalog where upstream writes an indirect object. Output takes the highest source
+version and carries per-page source mapping plus per-source page counts. Collision renaming, first-wins resources, parent-held lookup limits, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
 
 ## Split publication and replacement (work item 21)
 

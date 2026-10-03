@@ -11,8 +11,10 @@ namespace Lokad.Qpdf.Writing;
 /// ancestry (`/Parent` on page dictionaries) is never followed here; the selector
 /// materializes inherited attributes explicitly, while field and annotation
 /// `/Parent` links remap through the shared memo table. References to already-copied objects remap to
-/// their copies; references to other pages prune to null under the contained-preview
-/// policy so omitted pages can never resurrect. Page-tree (`/Pages`) and catalog
+/// their copies; references to other pages prune to null under the ordinary selection
+/// policy so omitted pages can never resurrect. Explicit form pruning lives in AcroFormCopy
+/// behind `--remove-acroform` (plus subset pruning); ordinary selection and rewrite paths
+/// preserve the form. Page-tree (`/Pages`) and catalog
 /// references stay structural errors and fail loudly.
 /// </summary>
 internal sealed class GraphCopier
