@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 114: hierarchical collision renaming (M11). Field subtrees now walk top-down with recomputed qualified names so collisions below named ancestors resolve like the reference: top-level parents rename with their subtree, unnamed-container kids rename in place, and three-level chains rename at the top. Three new unit cases join the seven flat-shape cases (ten total) with the per-source-snapshot model and intra-document duplicate retention unchanged. First-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 113: merge field-name collision renaming (M11). Merged field-name collisions now gain upstream per-source-snapshot +N suffixes through the shared copy engine: each source sees earlier sources final names, colliding parentless fields take the smallest free suffix, single-source intra-document duplicates are kept, and top-level parents rename with their subtree while parent-linked nodes keep behavior. Seven unit cases plus a forms-collision differential case carry the evidence. Hierarchical renaming for non-top-level nodes, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
 
 Prior gate

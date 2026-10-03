@@ -4381,7 +4381,10 @@
           "AcroFormPreservationTests.MergePreexistingSuffixKeepsOrderFill",
           "AcroFormPreservationTests.SingleSelectionKeepsIntraDocumentDuplicates",
           "AcroFormPreservationTests.HierarchicalParentRenamesLikeReference",
-          "AcroFormPreservationTests.JobMergeRenamesCollision"
+          "AcroFormPreservationTests.JobMergeRenamesCollision",
+          "AcroFormPreservationTests.UnnamedContainerKidRenames",
+          "AcroFormPreservationTests.ReverseOrderRenamesFlatCounterpart",
+          "AcroFormPreservationTests.ThreeLevelTopAncestorRenames"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
