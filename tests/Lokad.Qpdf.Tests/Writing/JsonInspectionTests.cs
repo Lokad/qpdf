@@ -486,6 +486,198 @@ public sealed class JsonInspectionTests
     }
 
     [Fact]
+    public async Task PageImagesListDirectImages()
+    {
+        JsonElement images = await InspectFixturePagesAsync("images-1page.pdf", "--json", "--json-key=pages");
+        Assert.Equal(1, images.GetArrayLength());
+        JsonElement image = images[0];
+        Assert.Equal(8, image.GetProperty("bitspercomponent").GetInt32());
+        Assert.Equal("/DeviceGray", image.GetProperty("colorspace").GetString());
+        Assert.Equal(1, image.GetProperty("decodeparms").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("decodeparms")[0].ValueKind);
+        Assert.Equal(1, image.GetProperty("filter").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("filter")[0].ValueKind);
+        Assert.Equal(JsonValueKind.True, image.GetProperty("filterable").ValueKind);
+        Assert.Equal(2, image.GetProperty("height").GetInt32());
+        Assert.Equal("/Im0", image.GetProperty("name").GetString());
+        Assert.Equal("5 0 R", image.GetProperty("object").GetString());
+        Assert.Equal(2, image.GetProperty("width").GetInt32());
+    }
+
+    [Fact]
+    public async Task PageImagesNullMissingDimensions()
+    {
+        JsonElement images = await InspectFixturePagesAsync("images-nodim-1page.pdf", "--json", "--json-key=pages");
+        Assert.Equal(1, images.GetArrayLength());
+        JsonElement image = images[0];
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("bitspercomponent").ValueKind);
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("colorspace").ValueKind);
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("height").ValueKind);
+        Assert.Equal("/NoDim", image.GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("width").ValueKind);
+    }
+
+    [Fact]
+    public async Task PageImagesFilteredDetails()
+    {
+        JsonElement images = await InspectFixturePagesAsync("images-filtered-1page.pdf", "--json", "--json-key=pages");
+        Assert.Equal(4, images.GetArrayLength());
+        Assert.Equal("/Chain8", images[0].GetProperty("name").GetString());
+        Assert.Equal("/ASCIIHexDecode", images[0].GetProperty("filter")[0].GetString());
+        Assert.Equal("/FlateDecode", images[0].GetProperty("filter")[1].GetString());
+        Assert.Equal(2, images[0].GetProperty("decodeparms").GetArrayLength());
+        Assert.Equal(JsonValueKind.True, images[0].GetProperty("filterable").ValueKind);
+        Assert.Equal("/Dct8", images[1].GetProperty("name").GetString());
+        Assert.Equal("/DCTDecode", images[1].GetProperty("filter")[0].GetString());
+        Assert.Equal(JsonValueKind.False, images[1].GetProperty("filterable").ValueKind);
+        Assert.Equal("/Fl8", images[2].GetProperty("name").GetString());
+        Assert.Equal("/FlateDecode", images[2].GetProperty("filter")[0].GetString());
+        Assert.Equal(1, images[2].GetProperty("decodeparms")[0].GetProperty("/Predictor").GetInt32());
+        Assert.Equal(JsonValueKind.True, images[2].GetProperty("filterable").ValueKind);
+        Assert.Equal("/Idx8", images[3].GetProperty("name").GetString());
+        Assert.Equal("/Indexed", images[3].GetProperty("colorspace")[0].GetString());
+        Assert.Equal("/DeviceRGB", images[3].GetProperty("colorspace")[1].GetString());
+        Assert.Equal(1, images[3].GetProperty("colorspace")[2].GetInt32());
+        Assert.Equal("b:00ff", images[3].GetProperty("colorspace")[3].GetString());
+    }
+
+    [Fact]
+    public async Task PageImagesRespectDecodeLevel()
+    {
+        JsonElement images = await InspectFixturePagesAsync("images-filtered-1page.pdf", "--json", "--json-key=pages", "--decode-level=all");
+        Assert.Equal(JsonValueKind.True, images[1].GetProperty("filterable").ValueKind);
+    }
+
+    [Fact]
+    public async Task PageImagesMatchAcrossVersions()
+    {
+        JsonElement latest = await InspectFixturePagesAsync("images-1page.pdf", "--json", "--json-key=pages");
+        JsonElement first = await InspectFixturePagesAsync("images-1page.pdf", "--json=1", "--json-key=pages");
+        Assert.Equal(latest.GetRawText(), first.GetRawText());
+    }
+
+    [Fact]
+    public async Task PageImagesJobParity()
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "images-1page.pdf"));
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", bytes);
+        using (JsonDocument argv = await InspectAsync(argvHost, "--json", "--json-key=pages"))
+        {
+            Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] a));
+            InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", bytes);
+            QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+                jobHost,
+                """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.json", "json": "latest", "jsonKey": ["pages"]}""",
+                CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+            Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] b));
+            Assert.Equal(a, b);
+            using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(b));
+            Assert.Equal(1, document.RootElement.GetProperty("pages")[0].GetProperty("images").GetArrayLength());
+        }
+    }
+
+    [Theory]
+    [InlineData("/Filter [/FlateDecode 7]", "")]
+    [InlineData("/Filter [/FlateDecode /FlateDecode] /DecodeParms [<< /Predictor 1 >>]", "")]
+    public async Task PageImagesMalformedFilterFails(string imageExtra, string _)
+    {
+        byte[] fixture = BuildImagePdf(imageExtra);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--json", "--json-key=pages", "--", "outputs/a.json"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] _));
+    }
+
+    private static async Task<JsonElement> InspectFixturePagesAsync(string fixture, params string[] flags)
+    {
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture));
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", bytes);
+        List<string> argv = new() { "inputs/a.pdf" };
+        argv.AddRange(flags);
+        argv.AddRange(["--", "outputs/a.json"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] json));
+        using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(json));
+        return document.RootElement.GetProperty("pages")[0].GetProperty("images").Clone();
+    }
+
+    private static byte[] BuildImagePdf(string imageExtra)
+    {
+        byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+        byte[] payload = new byte[] { 1, 2, 3, 4 };
+        List<string> bodies = new()
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /XObject << /Im0 5 0 R >> >> >>",
+            "<< /Length " + content.Length.ToString() + " >>",
+            "<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /BitsPerComponent 8 /ColorSpace /DeviceGray " + imageExtra + " /Length " + payload.Length.ToString() + " >>",
+        };
+        List<byte[]> parts = new();
+        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
+        parts.Add(header);
+        List<long> offsets = new();
+        long position = header.Length;
+        for (int i = 0; i < bodies.Count; i++)
+        {
+            int number = i + 1;
+            byte[]? streamData = number == 4 ? content : number == 5 ? payload : null;
+            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
+            if (streamData is null)
+            {
+                byte[] close = Encoding.ASCII.GetBytes("endobj\n");
+                offsets.Add(position);
+                position += open.Length + close.Length;
+                parts.Add(open);
+                parts.Add(close);
+                continue;
+            }
+
+            byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
+            byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
+            offsets.Add(position);
+            position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
+            parts.Add(open);
+            parts.Add(streamOpen);
+            parts.Add(streamData);
+            parts.Add(streamClose);
+        }
+
+        int size = bodies.Count + 1;
+        StringBuilder xref = new();
+        xref.Append("xref\n0 " + size.ToString() + "\n");
+        xref.Append("0000000000 65535 f \n");
+        foreach (long offset in offsets)
+        {
+            xref.Append(offset.ToString("D10") + " 00000 n \n");
+        }
+
+        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
+        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
+        parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
+        int total = 0;
+        foreach (byte[] part in parts)
+        {
+            total += part.Length;
+        }
+
+        byte[] output = new byte[total];
+        int cursor = 0;
+        foreach (byte[] part in parts)
+        {
+            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+            cursor += part.Length;
+        }
+
+        return output;
+    }
+
+    [Fact]
     public async Task TypedValidation()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new QpdfJsonOptions(3, []));

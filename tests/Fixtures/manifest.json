@@ -153,6 +153,15 @@
       "description": "One page with a dimension-less image XObject. --show-pages --with-images must list 0 x 0 dimensions with per-key warnings (exit 3 on both sides)."
     },
     {
+      "file": "images-filtered-1page.pdf",
+      "sha256": "ba03b790933402d5303c85632ab980eee9165dfcbb4c40ac90b1c2668d45c9db",
+      "bytes": 1341,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with four image XObjects: Flate with decode parms, undecodable DCT (filterable is support-based), chained ASCIIHex+Flate, and Indexed. --json must report filter names, aligned parms, and level-gated filterable flags; the json-images differential consumes it."
+    },
+    {
       "file": "meta-1page.pdf",
       "sha256": "30f139afa69dfc6ea82b85af3eae1517f785b0e15a4aa4120a1a4f16175a2780",
       "bytes": 802,

@@ -52,5 +52,6 @@
     <None Include="../Fixtures/prev-stream.pdf" Link="Fixtures/prev-stream.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/images-1page.pdf" Link="Fixtures/images-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/images-nodim-1page.pdf" Link="Fixtures/images-nodim-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-filtered-1page.pdf" Link="Fixtures/images-filtered-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

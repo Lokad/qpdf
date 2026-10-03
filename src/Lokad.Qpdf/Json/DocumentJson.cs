@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Lokad.Qpdf.Attachments;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -182,7 +183,7 @@ internal static class DocumentJson
         string key,
         string role)
     {
-        if (!parent.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        if (!parent.TryGet(PdfName.FromAscii(key), out QpdfObject raw) || raw is null || raw is PdfNull)
         {
             return null;
         }
@@ -684,7 +685,9 @@ internal static class DocumentJson
                 PdfJsonWriter.AppendValue(builder, location.Page, request.Version, resolver, governor, 0, limits);
             }
 
-            builder.Append(",\"images\": [],\"contents\": ");
+            builder.Append(",\"images\": ");
+            AppendImages(builder, document.Engine, location, request, resolver, limits, governor, cancellationToken);
+            builder.Append(",\"contents\": ");
             AppendContents(builder, location.Page, request, resolver, governor, limits);
             builder.Append(",\"label\": ");
             QpdfObject? label = LabelForPage(labels, i);
@@ -705,6 +708,282 @@ internal static class DocumentJson
         }
 
         builder.Append((char)93);
+    }
+
+    private sealed record PageImageDetail(PdfName Name, PdfReference Reference, PdfStream Stream);
+
+    private static void AppendImages(
+        StringBuilder builder,
+        DocumentEngine engine,
+        PageLocation location,
+        JsonRequest request,
+        Func<PdfReference, QpdfObject?> resolver,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        builder.Append((char)91);
+        bool first = true;
+        foreach (PageImageDetail detail in ListImages(engine, location, limits, governor, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!first)
+            {
+                builder.Append((char)44);
+            }
+
+            first = false;
+            AppendImage(builder, engine, detail, request, resolver, limits, governor, cancellationToken);
+        }
+
+        builder.Append((char)93);
+    }
+
+    private static void AppendImage(
+        StringBuilder builder,
+        DocumentEngine engine,
+        PageImageDetail detail,
+        JsonRequest request,
+        Func<PdfReference, QpdfObject?> resolver,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(detail.Stream.Dictionary, (IIndirectResolver)engine);
+        builder.Append("{\"bitspercomponent\": ");
+        AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "BitsPerComponent", engine));
+        builder.Append(",\"colorspace\": ");
+        if (!detail.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"), out QpdfObject colorspace) || colorspace is null || colorspace is PdfNull)
+        {
+            builder.Append("null");
+        }
+        else
+        {
+            PdfJsonWriter.AppendValue(builder, colorspace, request.Version, resolver, governor, 0, limits);
+        }
+
+        builder.Append(",\"decodeparms\": [");
+        if (stages.Count == 0)
+        {
+            builder.Append("null");
+        }
+
+        for (int i = 0; i < stages.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (i > 0)
+            {
+                builder.Append((char)44);
+            }
+
+            if (stages[i].Parms is PdfDictionary parms)
+            {
+                PdfJsonWriter.AppendValue(builder, parms, request.Version, resolver, governor, 0, limits);
+            }
+            else
+            {
+                builder.Append("null");
+            }
+        }
+
+        builder.Append("],\"filter\": [");
+        if (stages.Count == 0)
+        {
+            builder.Append("null");
+        }
+
+        for (int i = 0; i < stages.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (i > 0)
+            {
+                builder.Append((char)44);
+            }
+
+            PdfJsonWriter.AppendJsonString(builder, "/" + stages[i].Name);
+        }
+
+        builder.Append("],\"filterable\": ");
+        builder.Append(FilterChain.AllStagesInLevel(stages, request.DecodeLevel) ? "true" : "false");
+        builder.Append(",\"height\": ");
+        AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "Height", engine));
+        builder.Append(",\"name\": ");
+        PdfJsonWriter.AppendJsonString(builder, Encoding.ASCII.GetString(PdfJsonWriter.SlashForm(detail.Name)));
+        builder.Append(",\"object\": \"");
+        PdfJsonWriter.AppendReference(builder, detail.Reference.ObjectNumber, detail.Reference.Generation);
+        builder.Append("\",\"width\": ");
+        AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "Width", engine));
+        builder.Append((char)125);
+    }
+
+    private static void AppendOptionalInteger(StringBuilder builder, long? value)
+    {
+        if (value.HasValue)
+        {
+            builder.Append(value.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            builder.Append("null");
+        }
+    }
+
+    private static long? ImageInteger(PdfDictionary dictionary, string key, DocumentEngine engine)
+    {
+        if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject raw) || raw is PdfNull)
+        {
+            return null;
+        }
+
+        if (raw is PdfInteger direct)
+        {
+            return direct.Value;
+        }
+
+        if (raw is PdfReference reference
+            && ((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved)
+            && resolved is PdfInteger target)
+        {
+            return target.Value;
+        }
+
+        return null;
+    }
+
+    private static List<PageImageDetail> ListImages(
+        DocumentEngine engine,
+        PageLocation location,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        List<PageImageDetail> images = new();
+        PdfDictionary? resources = EffectiveImageResources(engine, location, limits, governor, cancellationToken);
+        if (resources is null)
+        {
+            return images;
+        }
+
+        if (!resources.TryGet(PdfName.FromAscii("XObject"), out QpdfObject xobjectsRaw) || xobjectsRaw is PdfNull)
+        {
+            return images;
+        }
+
+        PdfDictionary? xobjects = xobjectsRaw as PdfDictionary;
+        if (xobjects is null && xobjectsRaw is PdfReference xobjectsReference
+            && ((IIndirectResolver)engine).TryResolve(xobjectsReference, out QpdfObject? xobjectsResolved))
+        {
+            xobjects = xobjectsResolved as PdfDictionary;
+        }
+
+        if (xobjects is null)
+        {
+            return images;
+        }
+
+        List<PdfName> names = new(xobjects.Keys);
+        names.Sort(static (left, right) => string.CompareOrdinal(left.DisplayText, right.DisplayText));
+        foreach (PdfName key in names)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!xobjects.TryGet(key, out QpdfObject entry) || entry is not PdfReference reference)
+            {
+                continue;
+            }
+
+            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? target) || target is not PdfStream stream)
+            {
+                continue;
+            }
+
+            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || subtypeName.DisplayText != "Image")
+            {
+                continue;
+            }
+
+            images.Add(new PageImageDetail(key, reference, stream));
+        }
+
+        return images;
+    }
+
+    private static PdfDictionary? EffectiveImageResources(
+        DocumentEngine engine,
+        PageLocation location,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        HashSet<int> visited = new();
+        if (location.Source is not null)
+        {
+            visited.Add(location.Source.ObjectNumber);
+        }
+
+        PdfDictionary current = location.Page;
+        int depth = 0;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (current.TryGet(PdfName.FromAscii("Resources"), out QpdfObject resourcesRaw) && resourcesRaw is not PdfNull)
+            {
+                if (resourcesRaw is PdfDictionary direct)
+                {
+                    return direct;
+                }
+
+                if (resourcesRaw is PdfReference resourcesReference
+                    && ((IIndirectResolver)engine).TryResolve(resourcesReference, out QpdfObject? resourcesResolved)
+                    && resourcesResolved is PdfDictionary resolved)
+                {
+                    return resolved;
+                }
+
+                return null;
+            }
+
+            if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject parentRaw) || parentRaw is PdfNull)
+            {
+                return null;
+            }
+
+            PdfDictionary parent;
+            if (parentRaw is PdfReference parentReference)
+            {
+                if (!visited.Add(parentReference.ObjectNumber))
+                {
+                    throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
+                }
+
+                if (!((IIndirectResolver)engine).TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedParent)
+                {
+                    throw new QpdfParseException("Unresolvable page parent.", null, parentReference.ObjectNumber);
+                }
+
+                parent = resolvedParent;
+            }
+            else if (parentRaw is PdfDictionary directParent)
+            {
+                parent = directParent;
+            }
+            else
+            {
+                throw new QpdfParseException("Page /Parent must be a dictionary or a reference.", null, null);
+            }
+
+            depth += 1;
+            if (depth > limits.MaxNestingDepth)
+            {
+                throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
+            }
+
+            governor.ChargeWork(1L);
+            current = parent;
+        }
     }
 
     private static void AppendContents(
@@ -874,7 +1153,7 @@ internal static class DocumentJson
         {
             foreach (string name in NameKeys)
             {
-                if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject? raw) && raw is PdfByteString text)
+                if (spec.TryGet(PdfName.FromAscii(name), out QpdfObject raw) && raw is PdfByteString text)
                 {
                     if (!first)
                     {
@@ -978,7 +1257,7 @@ internal static class DocumentJson
         string creation = string.Empty;
         string checksum = string.Empty;
         string mime = string.Empty;
-        if (stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw) && subtypeRaw is PdfName subtype)
+        if (stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtypeRaw) && subtypeRaw is PdfName subtype)
         {
             mime = subtype.DisplayText;
         }
@@ -1522,7 +1801,7 @@ internal static class DocumentJson
                     continue;
                 }
 
-                if (!annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtypeRaw) || subtypeRaw is not PdfName subtype || subtype.DisplayText != "Widget")
+                if (!annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtypeRaw) || subtypeRaw is not PdfName subtype || subtype.DisplayText != "Widget")
                 {
                     continue;
                 }
@@ -1634,7 +1913,7 @@ internal static class DocumentJson
     {
         foreach (PdfDictionary node in chain)
         {
-            if (node.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) && raw is not null && raw is not PdfNull)
+            if (node.TryGet(PdfName.FromAscii(key), out QpdfObject raw) && raw is not null && raw is not PdfNull)
             {
                 return TryResolve(engine, raw) ?? raw;
             }
