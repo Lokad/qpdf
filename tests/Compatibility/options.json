@@ -6514,11 +6514,9 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "OverlayTests.SelfOverlayUsesPrimaryInput",
@@ -6537,17 +6535,23 @@
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
           "OverlayTests.EmptyAnnotsArrayCreated",
           "OverlayTests.ExistingAnnotationsAppended",
-          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
+          "OverlayTests.OverlayFileLongFormMatchesPositional",
+          "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "negative": [
-          "OverlayTests.MalformedOverlayFlagsFail"
+          "OverlayTests.MalformedOverlayFlagsFail",
+          "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv"
         ],
-        "resource": [],
+        "resource": [
+          "ResourceEnforcementTests.OverlayFileYieldsToExhaustedBudget"
+        ],
         "oracle": [
-          "diff:overlay-annots"
+          "diff:overlay-annots",
+          "diff:overlay-file"
         ]
       }
     },
@@ -6600,7 +6604,8 @@
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
-          "OverlayTests.RangedOverlayFlagsFail"
+          "OverlayTests.RangedOverlayFlagsFail",
+          "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "interaction": [
           "OverlayTests.JobRoundTripMatchesArgv",
@@ -6611,7 +6616,8 @@
         ],
         "oracle": [
           "diff:overlay-ranges",
-          "diff:overlay-annots"
+          "diff:overlay-annots",
+          "diff:overlay-file"
         ]
       }
     },
@@ -6694,7 +6700,8 @@
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
-          "OverlayTests.RangedOverlayFlagsFail"
+          "OverlayTests.RangedOverlayFlagsFail",
+          "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "interaction": [],
         "resource": [
@@ -6705,7 +6712,8 @@
           "diff:overlay-annots",
           "diff:overlay-widgets",
           "diff:overlay-widgets-dr",
-          "diff:overlay-widgets-repeat"
+          "diff:overlay-widgets-repeat",
+          "diff:overlay-file"
         ]
       }
     },
@@ -6750,11 +6758,13 @@
           "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
           "OverlayTests.EmptyAnnotsArrayCreated",
           "OverlayTests.ExistingAnnotationsAppended",
-          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget",
+          "OverlayTests.EmptyToRangeAppliesOverlayNowhere"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
-          "OverlayTests.RangedOverlayFlagsFail"
+          "OverlayTests.RangedOverlayFlagsFail",
+          "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "interaction": [],
         "resource": [
@@ -6762,7 +6772,8 @@
         ],
         "oracle": [
           "diff:overlay-ranges",
-          "diff:overlay-annots"
+          "diff:overlay-annots",
+          "diff:overlay-file"
         ]
       }
     }
