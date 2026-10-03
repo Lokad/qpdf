@@ -1,11 +1,10 @@
 # Progress
 
 ## Current checkpoint
-Work item 128 done (M11): quadding parity proven. Upstream sources state generated appearances ignore quadding for lack of font metrics, and oracle probes emit identical placement for /Q 0, 1, and 2; the engine matches exactly. Evidence: quadding-ignored theory case; --generate-appearances keeps one gap (unreachable-forms selection difference). 1856 tests green and the full differential lane green.
+Work item 129 done (M11): codec working-set budgeting. Allocation probes across 64 to 1024 pixel frames show ImageSharp fixed overhead peaking near 26 KiB above frame bytes, so decode and encode now reserve frame bytes plus a documented 64 KiB working set (released on return) instead of the frame alone; mid-call cancellation stays a declared boundary since the synchronous codec honors cancellation between calls. Evidence: decode/encode reservation unit cases with tight and roomy budgets; 1858 tests green and the full differential lane green.
 
 ## Remaining work
 - CMYK/YCCK raw samples: the approved ImageSharp public API yields only converted RGB, so raw four-component samples cannot be preserved through it. Needs a decision: an alternate extraction path or a declared, tested difference with narrow tolerances.
-- Codec allocation/cancellation accounting: ImageSharp-internal buffers are opaque to the governor. Needs a decision: a conservative budgeting model or a declared, tested difference.
 - Nonzero-generation inspection: show-object with nonzero generation fails explicitly; no versioned object store exists.
 - Page-unreachable form-tree pruning and direct-node promotion: the reference drops, ignores, or promotes where managed code preserves verbatim (declared differences).
 - Containment-only limits (--no-default-limits, --parser-max-errors) and the no-Zopfli build profile: intentional and never completable.
