@@ -2935,7 +2935,7 @@
       "defaultReview": "pending",
       "remainingGaps": [
         "Parents without back-linking /Kids stay out of reach (subtree search only; preserved /Parent links are not followed for field lookup). Radio buttons are never synchronized, matching the reference.",
-        "Field default resources are not merged into appearances.",
+        
         "Quadding is ignored in text layout."
       ],
       "evidence": {
@@ -2949,6 +2949,7 @@
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",
           "GenerateAppearancesTests.RadioButtonIsSkipped",
           "GenerateAppearancesTests.AcroFormDefaultResourcesEncodingKeepsAccents",
+          "GenerateAppearancesTests.MergesAcroFormFontIntoAppearanceResources",
           "GenerateAppearancesTests.FieldDefaultResourcesIsIgnored",
           "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding"
         ],
@@ -2968,7 +2969,8 @@
         "oracle": [
           "diff:forms",
           "diff:forms-preserve",
-          "diff:dr-encoding"
+          "diff:dr-encoding",
+   "diff:dr-merge"
         ]
       }
     },

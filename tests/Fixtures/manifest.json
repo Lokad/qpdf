@@ -259,6 +259,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a WinAnsi font reachable only through form default resources. Appearance generation must resolve the DA font encoding through default resources; the dr-encoding differential consumes it."
+    },
+    {
+      "file": "dr-merge-1page.pdf",
+      "sha256": "0f818bca37012d98b6c6cbd128c2fd79685c1dda663425b9c7c2db3015d4029c",
+      "bytes": 1152,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a WinAnsi font in AcroForm default resources while the appearance keeps unrelated resources. Appearance generation must merge the missing DR font into appearance resources; the dr-merge differential consumes it."
     }
   ]
 }

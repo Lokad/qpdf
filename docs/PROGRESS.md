@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 118: AcroForm DR font merging for appearances (M11). When the appearance stream keeps Resources but lacks the DA font, generation now copies the missing font entry from AcroForm default resources into a private merged Resources dictionary, matching the probed reference (merged /F1 alongside kept /Helv on both sides with WinAnsi bytes on both sides). A dr-merge-1page.pdf fixture (manifest, csproj and manifest-tests wired), a dr-merge differential case (trio plus WinAnsi bytes plus merged and kept font agreement) and a MergesAcroFormFontIntoAppearanceResources unit carry the evidence; the unit suite stands at 1807 green and the full differential lane reruns green including dr-merge. Parent-held lookup, quadding, radio synchronization, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 117: field-DR encoding correction (M11). Appearance generation now ignores field-level DR for DA font encoding like the reference (upstream getDefaultResources reads only AcroForm DR; page Resources never consulted): field-only WinAnsi falls back to ASCII on both sides while AcroForm DR keeps WinAnsi on both sides (probed with field-only and page-only fixtures). The field-encoding unit becomes FieldDefaultResourcesIsIgnored; the unit suite stands at 1805 green and the full differential lane reruns green including dr-encoding, forms-preserve and forms-collision. Parent-held lookup, default-resource merging, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
 
 Prior gate
