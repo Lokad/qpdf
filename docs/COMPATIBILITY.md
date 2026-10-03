@@ -335,7 +335,9 @@ merged; `--set-page-labels` (`first-page:[type][/start[/prefix]]` with `n`,
 `rN`, `z`) and job-JSON `setPageLabels` emit a fresh `/PageLabels` number tree
 (first entry at page 1, strictly increasing), while `--remove-page-labels` and
 job-JSON `removePageLabels: true` are accepted no-ops contradicted only by
-combining them with set. Prefixes store as UTF-8 bytes. Multi-file `--pages`
+combining them with set. Prefixes encode as upstream does (ASCII literals,
+PDFDocEncoding hex, otherwise UTF-16BE with byte-order mark); default start 1
+stays omitted. Multi-file `--pages`
 forms and `--collate` stay open.
 
 ## Multi-file merge (work item 20, part 3)

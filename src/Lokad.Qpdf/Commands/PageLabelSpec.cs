@@ -116,7 +116,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
             entries[PdfName.FromAscii("S")] = PdfName.FromAscii(name);
         }
 
-        if (Start.HasValue)
+        if (Start.HasValue && Start.Value != 1)
         {
             entries[PdfName.FromAscii("St")] = new PdfInteger(
                 Start.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -125,10 +125,35 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
 
         if (Prefix is not null)
         {
-            entries[PdfName.FromAscii("P")] = new PdfByteString(Encoding.UTF8.GetBytes(Prefix), hex: false);
+            entries[PdfName.FromAscii("P")] = EncodePrefix(Prefix);
         }
 
         return new PdfDictionary(entries);
+    }
+
+    private static PdfByteString EncodePrefix(string prefix)
+    {
+        bool ascii = true;
+        foreach (char c in prefix)
+        {
+            if (c >= 128)
+            {
+                ascii = false;
+                break;
+            }
+        }
+
+        if (ascii)
+        {
+            return new PdfByteString(Encoding.ASCII.GetBytes(prefix), hex: false);
+        }
+
+        if (Attachments.PdfText.TryEncodePdfDoc(prefix, out byte[] encoded))
+        {
+            return new PdfByteString(encoded, hex: true);
+        }
+
+        return new PdfByteString(Encoding.BigEndianUnicode.GetBytes("\uFEFF" + prefix), hex: true);
     }
 
     private static void CheckFirstPageSyntax(string firstPage, string specification, long offset)

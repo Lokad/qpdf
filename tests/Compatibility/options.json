@@ -4907,14 +4907,14 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Source page-label trees are dropped, never merged (number-tree reading is later work).",
-        "Prefix text is stored as UTF-8 bytes."
+        "Source page-label trees are dropped, never merged (number-tree reading is later work)."
       ],
       "evidence": {
         "positive": [
           "LabelTests.TypedLabelsEmitNumberTree",
           "LabelTests.ArgvSetPageLabelsMatchesTyped",
-          "LabelTests.JobSetPageLabelsMatchesArgv"
+          "LabelTests.JobSetPageLabelsMatchesArgv",
+          "LabelTests.PrefixEncodingsFollowUpstream"
         ],
         "negative": [
           "LabelTests.LabelOrderRulesFailCleanly",
@@ -4927,7 +4927,7 @@
           "LabelTests.LabelsYieldToExhaustedBudget"
         ],
         "oracle": [
-          "diff:set-page-labels"
+          "diff:labels"
         ]
       }
     },

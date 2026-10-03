@@ -620,6 +620,21 @@ $oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
 if ($libCat -ne $oraCat) { Write-Output "[set-page-labels] FAIL: labeled catalogs differ"; $script:failures++ }
 elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[set-page-labels] FAIL: labels missing"; $script:failures++ }
 else { Write-Output "[set-page-labels] labeled catalogs agree" }
+foreach ($sub in @(@('pdfdoc', "1:D/1/$([char]0xC9)"), @('utf16', "1:D/1/$([char]0x65E5)$([char]0x672C)"))) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/p-$name.pdf=$case/lib-p-$name.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--set-page-labels', $sub[1], '--', "outputs/p-$name.pdf"))
+  if ($code -ne 0) { throw "labels/prefix-$name`: emit failed ($code)" }
+  $code = Invoke-Oracle $case @('inputs/a.pdf', '--set-page-labels', $sub[1], '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-p-$name.pdf")
+  if ($code -ne 0) { throw "labels/prefix-$name`: oracle failed ($code)" }
+  Assert-Trio "labels-prefix-$name" "$case/lib-p-$name.pdf" "$case/ora-p-$name.pdf" 2
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-p-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-p-$name.txt" -RedirectStandardError "$case/show-lib-p-$name-err.txt"
+  $libCat = (Get-Content "$case/show-lib-p-$name.txt" -Raw).Trim()
+  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-p-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-p-$name.txt" -RedirectStandardError "$case/show-ora-p-$name-err.txt"
+  $oraCat = (Get-Content "$case/show-ora-p-$name.txt" -Raw).Trim()
+  if ($libCat -ne $oraCat) { Write-Output "[labels-prefix-$name] FAIL: prefixed catalogs differ"; $script:failures++ }
+  elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[labels-prefix-$name] FAIL: labels missing"; $script:failures++ }
+  else { Write-Output "[labels-prefix-$name] prefixed catalogs agree" }
+}
 Copy-Item "$case/ora-labeled.pdf" "$case/inputs/labeled.pdf" -Force
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/labeled.pdf', '--pages', '.', '1', '.', '2', '--remove-page-labels', '--', 'outputs/plain.pdf')
 if ($code -ne 0) { throw "labels/remove: emit failed ($code)" }

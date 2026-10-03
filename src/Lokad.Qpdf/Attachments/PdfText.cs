@@ -20,6 +20,52 @@ internal static class PdfText
         0xFFFD, 0x20AC,
     ];
 
+    private static readonly Dictionary<char, byte> EncodeMap = BuildEncodeMap();
+
+    /// <summary>
+    /// Encodes text into PDFDocEncoding bytes when every character round-trips.
+    /// Returns false for characters outside PDFDocEncoding (including surrogates
+    /// and the replacement character); callers fall back to UTF-16.
+    /// </summary>
+    internal static bool TryEncodePdfDoc(string value, out byte[] bytes)
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        byte[] encoded = new byte[value.Length];
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (!EncodeMap.TryGetValue(value[i], out byte unit))
+            {
+                bytes = [];
+                return false;
+            }
+
+            encoded[i] = unit;
+        }
+
+        bytes = encoded;
+        return true;
+    }
+
+    private static Dictionary<char, byte> BuildEncodeMap()
+    {
+        Dictionary<char, byte> map = new();
+        for (int unit = 0; unit <= 255; unit++)
+        {
+            byte b = (byte)unit;
+            string decoded = Decode([b]);
+            if (decoded.Length == 1 && decoded[0] != '\uFFFD')
+            {
+                map.TryAdd(decoded[0], b);
+            }
+        }
+
+        return map;
+    }
+
     internal static string Decode(byte[] value)
     {
         if (value is null)

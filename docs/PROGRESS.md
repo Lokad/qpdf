@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 96: page-label prefix encoding (M5). Label prefixes now encode exactly as the probed reference: ASCII stays literal, PDFDocEncoding-representable text goes hex, and anything else goes UTF-16BE with byte-order mark hex (including surrogate pairs); default start 1 stays omitted from the number tree. Six new encoding unit cases plus a two-form differential (PDFDoc and UTF-16 prefixes with identical labeled catalogs on both sides) carry the evidence. `--set-page-labels` stays partial behind source-tree merging. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 95: collate completion (M5/M11). `--collate` moves to complete with ranged-merge proof: groups carrying full ranges interleave in identical page order on both sides (new unit parity plus a `collate-ranges` differential asserting our marker order and the oracle sharing pattern), count mismatches fail explicitly, and collation yields to exhausted budgets. This also records a genuine intentional difference the proof exposed: duplicate page occurrences are independent copies here while the reference shares content streams. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

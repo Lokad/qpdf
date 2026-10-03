@@ -201,6 +201,32 @@ public sealed class LabelTests
         Assert.Equal([0x78], Assert.IsType<PdfByteString>(prefix2).Value);
     }
 
+    [Theory]
+    [InlineData("A-", new byte[] { 0x41, 0x2D }, false)]
+    [InlineData("É", new byte[] { 0xC9 }, true)]
+    [InlineData("€", new byte[] { 0xA0 }, true)]
+    [InlineData("AÉ", new byte[] { 0x41, 0xC9 }, true)]
+    [InlineData("日本", new byte[] { 0xFE, 0xFF, 0x65, 0xE5, 0x67, 0x2C }, true)]
+    [InlineData("A🎉", new byte[] { 0xFE, 0xFF, 0x00, 0x41, 0xD8, 0x3C, 0xDF, 0x89 }, true)]
+    public async Task PrefixEncodingsFollowUpstream(string prefix, byte[] expected, bool hex)
+    {
+        byte[] bytes = BuildDoc(1);
+        InMemoryQpdfHost host = HostWith("inputs/labels.pdf", bytes);
+        await Qpdf.SelectPagesAsync(
+            host,
+            [new PdfPageSource(QpdfPath.From("inputs/labels.pdf"), PdfPageSelectionOptions.FromPages([1]))],
+            QpdfPath.From("outputs/labels.pdf"),
+            new PdfPageMergeOptions { Labels = [new PdfPageLabel(1, PdfPageLabelStyle.Decimal, 1, prefix)] },
+            CancellationToken.None);
+        await using QpdfDocument output = await Reopen(host, "outputs/labels.pdf");
+        (List<long> keys, List<PdfDictionary> dicts) = ReadNums(ReadLabels(output));
+        Assert.Equal([0L], keys);
+        Assert.True(dicts[0].TryGet(PdfName.FromAscii("P"), out QpdfObject? prefixRaw));
+        PdfByteString stored = Assert.IsType<PdfByteString>(prefixRaw);
+        Assert.Equal(expected, stored.Value);
+        Assert.Equal(hex, stored.Hex);
+    }
+
     [Fact]
     public async Task LabelOrderRulesFailCleanly()
     {
