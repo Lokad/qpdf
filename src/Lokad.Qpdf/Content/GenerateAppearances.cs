@@ -595,11 +595,18 @@ internal static class GenerateAppearances
         }
 
         byte[] built = FilterAppearance(decoded, font.Appearance, encodedValue, encodedOpt, font.Size, bbox, limits, governor);
+        PdfDictionary? mergedResources = TryMergeDrFont(appearanceDict, font.FontName, formResources, resolver, governor);
         Dictionary<PdfName, QpdfObject> streamEntries = new();
         foreach (PdfName key in appearanceDict.Keys)
         {
             if (key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
             {
+                continue;
+            }
+
+            if (key.DisplayText == "Resources" && mergedResources is not null)
+            {
+                streamEntries[key] = mergedResources;
                 continue;
             }
 
@@ -986,6 +993,117 @@ internal static class GenerateAppearances
             }
 
         return encoding;
+    }
+
+    private static PdfDictionary? TryMergeDrFont(
+        PdfDictionary appearance,
+        string fontName,
+        PdfDictionary? formResources,
+        PoolResolver resolver,
+        ResourceGovernor governor)
+    {
+        if (fontName.Length == 0 || formResources is null)
+        {
+            return null;
+        }
+
+        if (!appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? appearanceResourcesRaw) || appearanceResourcesRaw is null || appearanceResourcesRaw is PdfNull)
+        {
+            return null;
+        }
+
+        QpdfObject appearanceResourcesTarget = appearanceResourcesRaw is PdfReference appearanceResourcesReference
+            ? ResolveOrNull(resolver, appearanceResourcesReference) ?? appearanceResourcesRaw
+            : appearanceResourcesRaw;
+        if (appearanceResourcesTarget is not PdfDictionary appearanceResources)
+        {
+            return null;
+        }
+
+        if (TryGetFontRaw(appearanceResources, fontName, resolver) is not null)
+        {
+            return null;
+        }
+
+        QpdfObject? drFont = TryGetFontRaw(formResources, fontName, resolver);
+        if (drFont is null)
+        {
+            return null;
+        }
+
+        Dictionary<PdfName, QpdfObject> fonts = new();
+        if (appearanceResources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw) && fontsRaw is not null && fontsRaw is not PdfNull)
+        {
+            QpdfObject fontsTarget = fontsRaw is PdfReference fontsReference
+                ? ResolveOrNull(resolver, fontsReference) ?? fontsRaw
+                : fontsRaw;
+            if (fontsTarget is PdfDictionary fontsDict)
+            {
+                foreach (PdfName key in fontsDict.Keys)
+                {
+                    if (fontsDict.TryGet(key, out QpdfObject? kept) && kept is not null)
+                    {
+                        fonts[key] = kept;
+                    }
+                }
+            }
+        }
+
+        governor.ReserveMemory(64L);
+        fonts[PdfName.FromAscii(fontName)] = drFont;
+        Dictionary<PdfName, QpdfObject> merged = new();
+        foreach (PdfName key in appearanceResources.Keys)
+        {
+            if (key.DisplayText == "Font")
+            {
+                continue;
+            }
+
+            if (appearanceResources.TryGet(key, out QpdfObject? kept) && kept is not null)
+            {
+                merged[key] = kept;
+            }
+        }
+
+        governor.ReserveMemory(64L);
+        merged[PdfName.FromAscii("Font")] = new PdfDictionary(fonts);
+        return new PdfDictionary(merged);
+    }
+
+    private static QpdfObject? TryGetFontRaw(
+        PdfDictionary resources,
+        string fontName,
+        PoolResolver resolver)
+    {
+        if (!resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw) || fontsRaw is null || fontsRaw is PdfNull)
+        {
+            return null;
+        }
+
+        QpdfObject fontsTarget = fontsRaw is PdfReference fontsReference
+            ? ResolveOrNull(resolver, fontsReference) ?? fontsRaw
+            : fontsRaw;
+        if (fontsTarget is not PdfDictionary fonts)
+        {
+            return null;
+        }
+
+        foreach (PdfName key in fonts.Keys)
+        {
+            if (key.DisplayText != fontName)
+            {
+                continue;
+            }
+
+            if (fonts.TryGet(key, out QpdfObject? fontRaw) && fontRaw is not null && fontRaw is not PdfNull)
+            {
+                return fontRaw;
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, string fontName, PdfDictionary? formResources, PoolResolver resolver)

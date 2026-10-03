@@ -356,6 +356,54 @@ byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains("(?) Tj", Encoding.ASCII.GetString(bytes));
 }
 [Fact]
+public async Task MergesAcroFormFontIntoAppearanceResources()
+{
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>");
+byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+(annotDict, null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 8 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+Assert.Contains(((char)140).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
+using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
+using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+JsonElement page = pages.RootElement.GetProperty("pages")[0];
+JsonElement annots = objects.GetProperty(PageObjectKey(page)).GetProperty("value").GetProperty("/Annots");
+if (annots.ValueKind == JsonValueKind.String)
+{
+string[] linked = (annots.GetString() ?? string.Empty).Split((char)32);
+annots = objects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+JsonElement entry = annots.EnumerateArray().First();
+JsonElement annot = entry.ValueKind == JsonValueKind.String
+? objects.GetProperty(StreamKey(entry.GetString() ?? string.Empty)).GetProperty("value")
+: entry;
+JsonElement ap = annot.GetProperty("/AP");
+if (ap.ValueKind == JsonValueKind.String)
+{
+string[] linked = (ap.GetString() ?? string.Empty).Split((char)32);
+ap = objects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+JsonElement normal = ap.GetProperty("/N");
+JsonElement appearanceStream = normal.ValueKind == JsonValueKind.String
+? objects.GetProperty(StreamKey(normal.GetString() ?? string.Empty))
+: normal;
+JsonElement appearanceDict = appearanceStream.TryGetProperty("stream", out JsonElement streamInfo)
+? streamInfo.GetProperty("dict")
+: appearanceStream;
+JsonElement fontDict = appearanceDict.GetProperty("/Resources").GetProperty("/Font");
+Assert.True(fontDict.TryGetProperty("/F1", out _));
+Assert.True(fontDict.TryGetProperty("/Helv", out _));
+}
+[Fact]
 public async Task MergeUsesPrimaryDefaultResourcesEncoding()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
