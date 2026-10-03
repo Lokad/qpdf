@@ -62,6 +62,7 @@
     <None Include="../Fixtures/images-1page.pdf" Link="Fixtures/images-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/images-nodim-1page.pdf" Link="Fixtures/images-nodim-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/images-filtered-1page.pdf" Link="Fixtures/images-filtered-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-smask-1page.pdf" Link="Fixtures/images-smask-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-1page.pdf" Link="Fixtures/overlay-widget-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dest-1page.pdf" Link="Fixtures/overlay-widget-dest-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dr-1page.pdf" Link="Fixtures/overlay-widget-dr-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

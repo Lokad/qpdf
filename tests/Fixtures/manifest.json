@@ -322,6 +322,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page overlay source with text fields S (with default appearance and Courier DR font F1) and O. Overlaying it onto the DR destination must preserve values with destination-wins resource merging; the overlay-widgets-dr differential consumes it."
+    },
+    {
+      "file": "images-smask-1page.pdf",
+      "sha256": "c0983b7db283259d9a571b9bb8f072b4eb7c6d332943897df9c546a8b1ca8092",
+      "bytes": 78390,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a flate RGB image carrying a gray SMask. Both sides must recompress the image to DCT while keeping /SMask and leaving the mask flate; the optimize-masks differential consumes it."
     }
   ]
 }
