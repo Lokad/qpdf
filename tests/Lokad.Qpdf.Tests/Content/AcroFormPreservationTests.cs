@@ -515,6 +515,100 @@ public sealed class AcroFormPreservationTests
     }
 
     [Fact]
+    public async Task DirectKidCollisionRenamesLikeReference()
+    {
+        byte[] contents = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 100 700 Td (U) Tj ET");
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true >>",
+            " /Annots [5 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (D) /V (a) /AP << /N 6 0 R >> >>", null),
+                ("<< /Length 13 >>", Encoding.ASCII.GetBytes("BT (Hi) Tj ET")),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            }), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /Kids [<< /T (D) /FT /Tx /V (b) >> 6 0 R] >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Parent 5 0 R /Rect [100 500 300 520] /FT /Tx /T (W2) /V (w2) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length 13 >>", Encoding.ASCII.GetBytes("BT (Hi) Tj ET")),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            }), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/m.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(2, fields.Count);
+        Assert.Equal("D", FieldText(fields[0], "T"));
+        Assert.Equal("a", FieldText(fields[0], "V"));
+        Assert.True(fields[1].TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
+        PdfArray kids = Assert.IsType<PdfArray>(kidsRaw);
+        Assert.Equal(2, kids.Count);
+        PdfDictionary directKid = Assert.IsType<PdfDictionary>(kids[0]);
+        Assert.Equal("D+1", FieldText(directKid, "T"));
+        Assert.Equal("b", FieldText(directKid, "V"));
+        PdfReference w2Ref = Assert.IsType<PdfReference>(kids[1]);
+        Assert.Equal("W2", FieldText(Assert.IsType<PdfDictionary>(output.GetObject(w2Ref.ObjectNumber)), "T"));
+    }
+
+    [Fact]
+    public async Task DirectKidUnderRenamedParentKeepsName()
+    {
+        byte[] contents = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 100 700 Td (U) Tj ET");
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /T (P) /Kids [<< /T (D) /FT /Tx /V (a) >> 6 0 R] >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Parent 5 0 R /Rect [100 600 300 620] /FT /Tx /T (W) /V (w) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length 13 >>", Encoding.ASCII.GetBytes("BT (Hi) Tj ET")),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            }), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /T (P) /Kids [<< /T (D) /FT /Tx /V (b) >> 6 0 R] >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Parent 5 0 R /Rect [100 600 300 620] /FT /Tx /T (W) /V (w) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length 13 >>", Encoding.ASCII.GetBytes("BT (Hi) Tj ET")),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            }), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/m.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(2, fields.Count);
+        string[] expectedParents = ["P", "P+1"];
+        string[] expectedValues = ["a", "b"];
+        for (int f = 0; f < 2; f++)
+        {
+            Assert.Equal(expectedParents[f], FieldText(fields[f], "T"));
+            Assert.True(fields[f].TryGet(PdfName.FromAscii("Kids"), out QpdfObject? fieldKidsRaw));
+            PdfArray fieldKids = Assert.IsType<PdfArray>(fieldKidsRaw);
+            Assert.Equal(2, fieldKids.Count);
+            PdfDictionary keptKid = Assert.IsType<PdfDictionary>(fieldKids[0]);
+            Assert.Equal("D", FieldText(keptKid, "T"));
+            Assert.Equal(expectedValues[f], FieldText(keptKid, "V"));
+            PdfReference keptWidgetRef = Assert.IsType<PdfReference>(fieldKids[1]);
+            Assert.Equal("W", FieldText(Assert.IsType<PdfDictionary>(output.GetObject(keptWidgetRef.ObjectNumber)), "T"));
+        }
+    }
+
+    [Fact]
     public async Task ThreeLevelTopAncestorRenames()
     {
         byte[] appearance = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 10 10 Td (Hi) Tj ET");
