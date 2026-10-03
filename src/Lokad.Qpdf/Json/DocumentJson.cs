@@ -206,7 +206,7 @@ internal static class DocumentJson
 
         return dictionary;
     }
-    private static SortedDictionary<int, QpdfObject> ReadLabelTree(
+    internal static SortedDictionary<int, QpdfObject> ReadLabelTree(
         DocumentEngine engine,
         QpdfLimits limits,
         ResourceGovernor governor,

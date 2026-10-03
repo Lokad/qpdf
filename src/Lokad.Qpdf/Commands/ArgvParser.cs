@@ -757,6 +757,7 @@ internal static class ArgvParser
         List<PageGroup> groups = new();
         List<OutputRotation> rotations = new();
         List<PageLabelSpec> labels = new();
+        bool removeLabels = false;
         List<int> collate = new();
         int cursor;
         bool emptyInput = pagesAt > 0 && argv[0] == "--empty";
@@ -806,7 +807,7 @@ internal static class ArgvParser
                 }
 
                 input = ParseInputArea(argv, pagesAt, "--pages");
-                (groups, rotations, labels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                (groups, rotations, labels, removeLabels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
                 cursor = areaEnd;
             }
             else
@@ -821,7 +822,7 @@ internal static class ArgvParser
                 {
                     areaEnd = overlayAt;
                 }
-                (groups, rotations, labels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
+                (groups, rotations, labels, removeLabels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
                 if (emptyInput)
                 {
                     foreach (PageGroup group in groups)
@@ -871,7 +872,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
             }
 
-            return ParseReplace(input, groups, rotations, labels, collate, recovery, globals) with
+            return ParseReplace(input, groups, rotations, labels, removeLabels, collate, recovery, globals) with
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
@@ -894,7 +895,7 @@ internal static class ArgvParser
 
         if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
         {
-            return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals, emptyInput) with
+            return ParseMerge(input, output, groups, rotations, labels, removeLabels, collate, recovery, globals, emptyInput) with
             {
                 AttachmentsToAdd = edits.Adds,
                 AttachmentsToRemove = edits.Removes,
@@ -922,6 +923,7 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             Rotations = [..globals.Rotations, ..rotations],
             Labels = labels,
+            RemoveLabels = removeLabels,
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,
@@ -3619,7 +3621,7 @@ internal static class ArgvParser
         return input;
     }
 
-    private static (List<PageGroup> Groups, List<OutputRotation> Rotations, List<PageLabelSpec> Labels, List<int> Collate) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    private static (List<PageGroup> Groups, List<OutputRotation> Rotations, List<PageLabelSpec> Labels, bool RemoveLabels, List<int> Collate) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
     {
         List<PageGroup> groups = new();
         string? file = null;
@@ -3760,7 +3762,7 @@ internal static class ArgvParser
             throw new QpdfParseException("The --pages selection requires one file.", pagesAt, null);
         }
 
-        return (groups, rotations, labels, collate);
+        return (groups, rotations, labels, removeLabels, collate);
     }
 
     private static JobPlan ParseReplace(
@@ -3768,13 +3770,14 @@ internal static class ArgvParser
         List<PageGroup> groups,
         List<OutputRotation> rotations,
         List<PageLabelSpec> labels,
+        bool removeLabels,
         List<int> collate,
         QpdfRecoveryMode recovery,
         GlobalOptions globals)
     {
         if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
         {
-            return ParseMerge(input, input, groups, rotations, labels, collate, recovery, globals, false) with
+            return ParseMerge(input, input, groups, rotations, labels, removeLabels, collate, recovery, globals, false) with
             {
                 ReplaceInput = true,
             };
@@ -3793,6 +3796,7 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             Rotations = [..globals.Rotations, ..rotations],
             Labels = labels,
+            RemoveLabels = removeLabels,
             SplitPages = globals.SplitPages,
             ReplaceInput = true,
             MinVersion = globals.MinVersion,
@@ -3842,6 +3846,7 @@ internal static class ArgvParser
         List<PageGroup> groups,
         List<OutputRotation> rotations,
         List<PageLabelSpec> labels,
+        bool removeLabels,
         List<int> collate,
         QpdfRecoveryMode recovery,
         GlobalOptions globals,
@@ -3873,6 +3878,7 @@ internal static class ArgvParser
             NoWarn = globals.NoWarn,
             Rotations = [..globals.Rotations, ..rotations],
             Labels = labels,
+            RemoveLabels = removeLabels,
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
             ForceVersion = globals.ForceVersion,

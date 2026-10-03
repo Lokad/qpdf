@@ -16,6 +16,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public IReadOnlyList<PageLabelSpec> Labels { get; init; } = [];
 
+    public bool RemoveLabels { get; init; }
+
     public int? SplitPages { get; init; }
 
     public bool ReplaceInput { get; init; }

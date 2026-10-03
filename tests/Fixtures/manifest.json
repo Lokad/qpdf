@@ -232,6 +232,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page carrying Text, Link and appearance-stream annotations, classic xref, unencrypted. Overlay and underlay stamping must copy its non-widget annotations with placement-transformed rectangles; the overlay-annots differential consumes it."
+    },
+    {
+      "file": "labels-2page.pdf",
+      "sha256": "23e408e1bca851c6217b90587ca8bfcb0bbc6817d4bc5eb6aaa9c8ffb4aa2f94",
+      "bytes": 941,
+      "expectedNpages": 2,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Two pages with a source page-label number tree, classic xref, unencrypted. Selection merging must concatenate source label entries with page-index offsets; the labels-merge differential consumes it."
     }
   ]
 }

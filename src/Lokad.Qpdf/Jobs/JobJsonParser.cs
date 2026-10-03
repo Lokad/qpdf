@@ -1514,14 +1514,15 @@ internal static class JobJsonParser
             bool wantQdf = qdf || seenNoOriginalObjectIds;
             bool wantOptimize = optimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality;
             bool wantSplit = splitPages.HasValue;
+            bool wantRemoveLabels = removeLabels;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize && !wantQdf && !wantSplit)
+                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize && !wantQdf && !wantSplit && !wantRemoveLabels)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
 
-                if (seenRotate || seenLabels || seenRemoveLabels || seenCollate)
+                if (seenRotate || seenLabels || seenCollate)
                 {
                     throw new QpdfParseException("Job rotation, label and collate keys require \"pages\".", 0L, null);
                 }
@@ -1534,6 +1535,7 @@ internal static class JobJsonParser
                 return new WholeFilePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    RemoveLabels = removeLabels,
                     SplitPages = splitPages,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -1628,6 +1630,7 @@ internal static class JobJsonParser
                     ReplaceInput = replaceInput,
                     Rotations = rotations,
                     Labels = labels,
+                    RemoveLabels = removeLabels,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -1693,6 +1696,7 @@ internal static class JobJsonParser
                 ReplaceInput = replaceInput,
                 Rotations = rotations,
                 Labels = labels,
+                RemoveLabels = removeLabels,
                 SplitPages = splitPages,
                 MinVersion = minVersion,
                 ForceVersion = forceVersion,
