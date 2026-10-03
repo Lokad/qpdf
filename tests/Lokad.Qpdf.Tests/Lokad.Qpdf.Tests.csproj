@@ -23,6 +23,7 @@
     <None Include="../Fixtures/inline-1page.pdf" Link="Fixtures/inline-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/rotated-ap-1page.pdf" Link="Fixtures/rotated-ap-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/orphans-1page.pdf" Link="Fixtures/orphans-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/photo-1page.pdf" Link="Fixtures/photo-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-2page.pdf" Link="Fixtures/outlined-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-use-2page.pdf" Link="Fixtures/outlined-use-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/thumb-1page.pdf" Link="Fixtures/thumb-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

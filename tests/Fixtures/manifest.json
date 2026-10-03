@@ -196,6 +196,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an orphan dictionary, an orphan stream, a dangling page and linked catalog metadata, classic xref, unencrypted. Object preservation must keep all four loose payloads with metadata linked on both sides; the preserve-unreferenced differential consumes it."
+    },
+    {
+      "file": "photo-1page.pdf",
+      "sha256": "4c1c9a7aec2b8d4ec631e97f4ba2c048bc6d1d0c02e03d41f995ba1797bf295a",
+      "bytes": 77460,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a large noisy RGB photo above the optimization thresholds, classic xref, unencrypted. Image optimization must emit smaller DCT streams with identical dimensions on both sides; the optimize differential consumes it."
     }
   ]
 }

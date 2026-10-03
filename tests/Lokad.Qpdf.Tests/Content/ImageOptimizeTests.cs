@@ -420,11 +420,42 @@ public sealed class ImageOptimizeTests
     }
 
     [Theory]
+    [InlineData("--oi-min-width=0", "\"oiMinWidth\": 0")]
+    [InlineData("--oi-min-height=0", "\"oiMinHeight\": 0")]
+    [InlineData("--oi-min-area=0", "\"oiMinArea\": 0")]
+    [InlineData("--keep-inline-images", "\"keepInlineImages\": \"\"")]
+    [InlineData("--jpeg-quality=50", "\"jpegQuality\": 50")]
+    public async Task ThresholdJobParityHolds(string flag, string jobKey)
+    {
+        byte[] raw = NoiseRgb(200, 200);
+        byte[] flated = ZLibCompress(raw);
+        byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
+        InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", fixture);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", flag, "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] argvPdf));
+        PdfStream argvImage = await OutputImageAsync(HostWith("inputs/x.pdf", argvPdf), argvPdf);
+        Assert.Equal("DCTDecode", FilterOf(argvImage));
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"optimizeImages\": \"\", " + jobKey + "}",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] jobPdf));
+        PdfStream jobImage = await OutputImageAsync(HostWith("inputs/y.pdf", jobPdf), jobPdf);
+        Assert.Equal("DCTDecode", FilterOf(jobImage));
+        Assert.Equal(argvImage.Data, jobImage.Data);
+    }
+
+    [Theory]
     [InlineData("--jpeg-quality=101")]
     [InlineData("--jpeg-quality=abc")]
     [InlineData("--jpeg-quality")]
     [InlineData("--oi-min-width=abc")]
     [InlineData("--oi-min-area=-1")]
+    [InlineData("--keep-inline-images=x")]
     public async Task InvalidValuesFail(params string[] flags)
     {
         byte[] raw = NoiseRgb(200, 200);

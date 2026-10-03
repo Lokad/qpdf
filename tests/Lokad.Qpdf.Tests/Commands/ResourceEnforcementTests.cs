@@ -131,6 +131,13 @@ public sealed class ResourceEnforcementTests
     }
 
     [Fact]
+    public async Task OptimizeImagesYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "photo-1page.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--optimize-images", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
     public async Task GenerateAppearancesYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
