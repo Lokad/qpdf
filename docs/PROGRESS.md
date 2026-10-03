@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 91: shared page-range grammar (M5 foundation). New `Pages/PageRanges` parser/expander implements the upstream range syntax probed on a 6-page scratch file against the pinned oracle: `rN`/`z` endpoints, descending ranges, `x` exclusions removing accumulated members, comma lists with duplicates/order preserved, a single trailing `:odd`/`:even` position filter applied last, empty range selecting all pages, `:odd`/`:even` alone selecting nothing, leading zeros accepted, whitespace rejected, 64-bit overflow and out-of-range endpoints (including excluded ones) failing explicitly, and a first-group exclusion rejected. Expansion carries an explicit entry budget plus a range-text cap. Covered by 48 `PageRangesTests` cases including every manual example. Not yet wired: `--pages` groups, `--rotate` ranges and overlay `--to`/`--from`/`--repeat` keep their partial entries and single-integer behavior until the wiring lands. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 90: collate job-key and placement completion (M5/M11). The job-JSON `collate` key (`""` for bare, otherwise `n[,m,...]`) now rides the shared merge plan with argv job-parity (byte-identical outputs plus marker order), group application, single-entry merge routing, and explicit malformed/duplicate/count-mismatch/pages-less failures. Argv also accepts the upstream main-level `--collate` placement (bare and `=` forms) with byte-identical results to the inside-`--pages` leniency, and mismatched group counts now fail explicitly instead of escaping as an unhandled error. A new `collate` differential case runs the upstream form on both sides with trios green. `--collate` stays partial behind single-integer page ranges and full range syntax. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate
