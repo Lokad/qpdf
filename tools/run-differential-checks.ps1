@@ -178,6 +178,33 @@ $code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/a.pdf', '1', 'inputs
 if ($code -ne 0) { throw "empty: oracle failed ($code)" }
 Assert-Trio 'empty' "$case/lib.pdf" "$case/ora.pdf" 3
 
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/bare.pdf=$case/lib-bare.pdf", '--', '--empty', '--', 'outputs/bare.pdf')
+if ($code -ne 0) { throw "empty-bare: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--empty', '--', "$case/ora-bare.pdf")
+if ($code -ne 0) { throw "empty-bare: oracle failed ($code)" }
+foreach ($pair in @(('lib-bare', "$case/lib-bare.pdf"), ('ora-bare', "$case/ora-bare.pdf"))) {
+  $n = Get-OracleNpages $pair[1]
+  if ($n -ne 0) { Write-Output "[empty-bare] FAIL: page count $($pair[0])=$n, expected 0"; $script:failures++ }
+  $c = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', $pair[1]) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+  if ($c.ExitCode -ne 2) { Write-Output "[empty-bare] FAIL: oracle check exit $($pair[0])=$($c.ExitCode), expected 2"; $script:failures++ }
+}
+Write-Output "[empty-bare] zero-page outputs agree"
+$p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll, 'emit', '--workdir', $case, '--', '--empty', '--show-npages') ) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-npages.txt"
+$line = Select-String -Path "$case/managed-npages.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+if ($null -eq $line) { throw "empty-npages: managed emit produced no status line" }
+$m = [int]$line.Matches[0].Groups[1].Value
+$o = Start-Process -FilePath $QpdfExe -ArgumentList @('--empty', '--show-npages') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/ora-npages.txt"
+if ($m -ne 0 -or $o.ExitCode -ne 0) { Write-Output "[empty-npages] FAIL: exits managed=$m oracle=$($o.ExitCode), expected 0/0"; $script:failures++ }
+elseif ((Get-Content "$case/ora-npages.txt" -Raw).Trim() -ne "0") { Write-Output "[empty-npages] FAIL: oracle page count is not 0"; $script:failures++ }
+else { Write-Output "[empty-npages] exit parity (0/0) with zero pages" }
+$p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll, 'emit', '--workdir', $case, '--', '--empty', '--check') ) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-check.txt"
+$line = Select-String -Path "$case/managed-check.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
+if ($null -eq $line) { throw "empty-check: managed emit produced no status line" }
+$m = [int]$line.Matches[0].Groups[1].Value
+$o = Invoke-Oracle $case @('--empty', '--check')
+if ($m -ne 2 -or $o -ne 2) { Write-Output "[empty-check] FAIL: exits managed=$m oracle=$o, expected 2/2"; $script:failures++ }
+else { Write-Output "[empty-check] exit parity (2/2) on page-less input" }
+
 # --- case: merge ---
 $case = New-Case 'merge'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"

@@ -2449,13 +2449,13 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": ["Bare --empty without --pages stays unsupported.", "Inspection of the empty input stays unsupported.", "Dot selections fail explicitly where the reference crashes."],
+      "remainingGaps": [],
       "evidence": {
-        "positive": ["EmptyInputTests.MergesFromEmptyBase", "EmptyInputTests.SingleGroupMergesFromEmptyBase", "EmptyInputTests.JobEmptyMatchesArgv"],
-        "negative": ["EmptyInputTests.MalformedEmptySelectionsFail", "EmptyInputTests.BareEmptyHasNoOperation", "EmptyInputTests.EmptyWithReplaceInputFails", "EmptyInputTests.EmptyWithOverlayFails", "EmptyInputTests.BadEmptyJobsFail"],
-        "interaction": ["EmptyInputTests.JobEmptyMatchesArgv", "EmptyInputTests.BadEmptyJobsFail"],
+        "positive": ["EmptyInputTests.BareEmptyWritesZeroPageDocument", "EmptyInputTests.MergesFromEmptyBase", "EmptyInputTests.SingleGroupMergesFromEmptyBase", "EmptyInputTests.JobEmptyMatchesArgv", "EmptyInputTests.EmptyShowNpagesReportsZero", "EmptyInputTests.EmptyCheckFailsWithoutPages", "EmptyInputTests.EmptyShowPagesListsNothing", "EmptyInputTests.EmptyShowObjectDumpsCatalog", "EmptyInputTests.EmptyShowXrefListsEntries", "EmptyInputTests.EmptyJsonReportsNoPages", "EmptyInputTests.EmptyListAttachmentsReportsNone", "EmptyInputTests.EmptyCheckLinearizationReportsNotLinearized", "EmptyInputTests.JobEmptyShowNpagesMatchesArgv"],
+        "negative": ["EmptyInputTests.MalformedEmptySelectionsFail", "EmptyInputTests.EmptyWithReplaceInputFails", "EmptyInputTests.EmptyWithOverlayFails", "EmptyInputTests.BadEmptyJobsFail"],
+        "interaction": ["EmptyInputTests.JobEmptyMatchesArgv", "EmptyInputTests.JobEmptyShowNpagesMatchesArgv", "EmptyInputTests.BadEmptyJobsFail"],
         "resource": ["EmptyInputTests.EmptyMergeYieldsToExhaustedBudget"],
         "oracle": ["diff:empty"]
       }

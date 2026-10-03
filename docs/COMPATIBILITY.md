@@ -351,6 +351,16 @@ Out-of-range pages map to explicit failures without publication.
 Page selection carries complete option evidence (ordered/duplicate/first-last coverage,
 explicit range failures, work-budget enforcement, select/merge differentials).
 
+Bare `--empty` writes a zero-page document (fresh catalog with an empty page
+tree) and every inspection accepts the empty input through argv and job JSON:
+`--show-npages` reports 0, `--show-pages` lists nothing, `--show-object`,
+`--show-xref`, `--json`, `--list-attachments`, and linearization inspections
+read the synthetic catalog, while `--check` fails explicitly on the page-less
+file, matching the reference exit classes throughout. Dot selections against
+the empty input fail explicitly here while the reference crashes; no crash
+parity is claimed. The differential lane covers bare rewrites (zero pages on
+both sides with failing checks) plus show-npages/check exit parity.
+
 ## Ordinary rotation (work item 20, part 1)
 
 `PdfPageRotation` (`Set`/`Add`/`Subtract` over output positions, any multiple of

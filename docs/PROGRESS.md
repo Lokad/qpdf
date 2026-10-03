@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 86: empty-input completion (M11). `--empty` moves to complete: bare `--empty -- out` writes a zero-page document through the normal writer, and every inspection (check, show-npages/pages/object/xref, json, list-attachments, linearization) accepts the empty input through argv and job JSON via a synthetic zero-page document parsed by the same strict reader pipeline with no host lease. `--check` fails explicitly on page-less files, matching the reference exit classes; dot selections keep failing explicitly where the reference crashes (documented hardening, no crash parity claimed). New empty-document unit theory plus extended empty differential assertions (zero-page agreement, show-npages/check exit parity) prove oracle agreement. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 85: replace-input completion (M11). `--replace-input` moves to complete with a new job-JSON `replaceInput` key (bare `""`/boolean, conflicting with `outputFile`, `pages`-less plans and `empty`, mirroring the argv rules through the shared plan) plus job parity, malformed-combination, rotation-interaction and exhausted-budget evidence proving failed publications leave the input untouched. A new `replace` differential case replaces a shared file on both sides (managed job vs oracle argv) with trio validation and no backup files created either side, documenting the no-backup behavior as probed parity. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate
