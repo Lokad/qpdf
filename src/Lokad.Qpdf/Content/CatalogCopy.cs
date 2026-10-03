@@ -129,6 +129,93 @@ internal static class CatalogCopy
         return (tree, mark);
     }
 
+    /// <summary>
+    /// Copies catalog keys the writer does not rebuild explicitly (for example
+    /// `/NeedsRendering`, `/PageLayout`, `/ViewerPreferences`, or `/OpenAction`)
+    /// through the owning copier so ordinary selection and rewrite paths preserve
+    /// them while merge keeps the primary source copy and split groups drop them.
+    /// Keys with explicit writer handling stay out; values that fail to resolve
+    /// or reach structural nodes are skipped silently like the reference, while
+    /// budget exhaustion and cancellation still fail loudly.
+    /// </summary>
+    internal static Dictionary<PdfName, QpdfObject> TryCopyExtras(
+        DocumentEngine engine,
+        GraphCopier copier,
+        bool preserveCatalog,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        Dictionary<PdfName, QpdfObject> extras = new();
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (copier is null)
+        {
+            throw new ArgumentNullException(nameof(copier));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        if (!preserveCatalog)
+        {
+            return extras;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.ChargeWork(1L);
+        PdfDictionary? catalog = TryGetCatalog(engine);
+        if (catalog is null)
+        {
+            return extras;
+        }
+
+        foreach (PdfName key in catalog.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (IsHandledCatalogKey(key.DisplayText))
+            {
+                continue;
+            }
+
+            if (!catalog.TryGet(key, out QpdfObject? raw) || raw is null || raw is PdfNull)
+            {
+                continue;
+            }
+
+            try
+            {
+                extras[key] = copier.CopyValue(raw, 0);
+            }
+            catch (QpdfParseException)
+            {
+                continue;
+            }
+        }
+        return extras;
+    }
+
+    private static bool IsHandledCatalogKey(string name)
+    {
+        return name == "Type"
+            || name == "Pages"
+            || name == "PageLabels"
+            || name == "Outlines"
+            || name == "StructTreeRoot"
+            || name == "MarkInfo"
+            || name == "Metadata"
+            || name == "Names"
+            || name == "PageMode"
+            || name == "AcroForm"
+            || name == "Version"
+            || name == "Extensions";
+    }
+
     private static PdfDictionary? TryGetCatalog(DocumentEngine engine)
     {
         if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) || root is null || root is PdfNull)

@@ -172,7 +172,7 @@ public sealed class PreserveUnreferencedTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", bytes);
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--preserve-unreferenced");
         string text = Encoding.ASCII.GetString(pdf);
-        Assert.DoesNotContain("NeedsRendering", text, StringComparison.Ordinal);
+        Assert.Equal(1, text.Split("NeedsRendering", StringSplitOptions.None).Length - 1);
         Assert.Equal(1, await RereadPageCountAsync(host, pdf));
     }
 

@@ -236,6 +236,7 @@ public static class Qpdf
         (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
         PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
         (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
+        Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, governor, cancellationToken);
         SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
         string? singlePageMode = ReadInputPageMode(document.Engine);
 
@@ -344,7 +345,7 @@ public static class Qpdf
                 governor,
                 diagnostics,
                 cancellationToken);
-        PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo);
+        PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras);
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
@@ -667,6 +668,7 @@ public static class Qpdf
         PdfReference? primaryOutlines = null;
         PdfReference? primaryStructTree = null;
         QpdfObject? primaryMarkInfo = null;
+        Dictionary<PdfName, QpdfObject> primaryExtras = new();
         HashSet<int> catalogExtraIds = new();
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(compression, qdf.Enabled);
@@ -754,6 +756,7 @@ public static class Qpdf
                 (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
                 primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
                 (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
+                primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, governor, cancellationToken);
                 if (primaryInfo is not null)
                 {
                     catalogExtraIds.Add(primaryInfo.ObjectNumber);
@@ -1010,7 +1013,7 @@ public static class Qpdf
         {
             List<NumberedObject> model = new()
             {
-                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo)),
+                new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras)),
                 new NumberedObject(2, PagesNode(kids)),
             };
             List<int> orderedPoolIds = new(pool.Keys);
@@ -1175,7 +1178,7 @@ public static class Qpdf
             }
             List<NumberedObject> sub = new()
             {
-                new NumberedObject(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo)),
+                new NumberedObject(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null)),
                 new NumberedObject(2, PagesNode(renumberedKids)),
             };
             foreach (int id in kept)
@@ -1378,10 +1381,10 @@ public static class Qpdf
 
     private static PdfDictionary NewCatalog(QpdfObject? pageLabels)
     {
-        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null, null, null, null, null);
+        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null, null, null, null, null, null);
     }
 
-    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo)
+    private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras)
     {
         if (finalVersion is null)
         {
@@ -1446,6 +1449,13 @@ public static class Qpdf
                 [PdfName.FromAscii("ADBE")] = adbe,
             });
             entries[PdfName.FromAscii("Extensions")] = extensions;
+        }
+        if (extras is not null)
+        {
+            foreach (KeyValuePair<PdfName, QpdfObject> extra in extras)
+            {
+                entries[extra.Key] = extra.Value;
+            }
         }
 
         return new PdfDictionary(entries);
@@ -3437,7 +3447,7 @@ public static class Qpdf
         (bool emptyCompress, string _, int? emptyLevel) = ResolveCompression(plan.Compression(), plan.Qdf);
         PdfVersion effective = negotiated;
         int extensionLevel = negotiatedExtension;
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(plan.Labels, 0, governor), effective, extensionLevel, null, null, null, null, null, null, null);
+        PdfDictionary catalog = NewCatalog(BuildPageLabels(plan.Labels, 0, governor), effective, extensionLevel, null, null, null, null, null, null, null, null);
         List<NumberedObject> model = new()
         {
             new NumberedObject(1, catalog),

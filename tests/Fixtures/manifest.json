@@ -241,6 +241,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "Two pages with a source page-label number tree, classic xref, unencrypted. Selection merging must concatenate source label entries with page-index offsets; the labels-merge differential consumes it."
+    },
+    {
+      "file": "catalog-extras-1page.pdf",
+      "sha256": "86a79b134938150529dabe323e811d55f0bfae3a1e756274f07c633d7ca6abaa",
+      "bytes": 708,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with catalog extras (NeedsRendering, PageLayout, ViewerPreferences, Lang, OpenAction), classic xref, unencrypted. Ordinary selection and rewrite must preserve unknown catalog keys through the shared copy engine; the catalog-extras differential consumes it."
     }
   ]
 }
