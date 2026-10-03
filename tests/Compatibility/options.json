@@ -4994,7 +4994,9 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "LabelTests.RemovePageLabelsIsAcceptedNoOp"
+          "LabelTests.RemovePageLabelsIsAcceptedNoOp",
+          "LabelTests.RemoveLabelsDropsMergedTree",
+          "LabelTests.JobWholeFileRemoveLabelsDropsTree"
         ],
         "negative": [
           "LabelTests.ArgvLabelFormsFailExplicitly"
@@ -5338,21 +5340,33 @@
         }
       ],
       "milestone": "M5",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Source page-label trees are dropped, never merged (number-tree reading is later work)."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "LabelTests.TypedLabelsEmitNumberTree",
           "LabelTests.ArgvSetPageLabelsMatchesTyped",
           "LabelTests.JobSetPageLabelsMatchesArgv",
-          "LabelTests.PrefixEncodingsFollowUpstream"
+          "LabelTests.PrefixEncodingsFollowUpstream",
+          "LabelTests.MergeConcatenatesSourceLabelsWithOffsets",
+          "LabelTests.MergePutsUnlabeledFirst",
+          "LabelTests.MergeMatchesArgvAndJob",
+          "LabelTests.SubsetSelectionAdjustsStarts",
+          "LabelTests.SubsetMatchesArgvAndJob",
+          "LabelTests.TypedSingleSelectionMergesLabels",
+          "LabelTests.UnlabeledMergeOmitsTree",
+          "LabelTests.WholeFileRewritePreservesTreeVerbatim",
+          "LabelTests.SplitSlicesMergedLabels",
+          "LabelTests.SetWinsOverMerge",
+          "LabelTests.SetDroppedUnderSplit",
+          "LabelTests.IndirectLabelValuesResolve"
         ],
         "negative": [
           "LabelTests.LabelOrderRulesFailCleanly",
-          "LabelTests.ArgvLabelFormsFailExplicitly"
+          "LabelTests.ArgvLabelFormsFailExplicitly",
+          "LabelTests.MalformedLabelTreeFailsExplicitly",
+          "LabelTests.LabelMergeYieldsToExhaustedBudget"
         ],
         "interaction": [
           "LabelTests.PrefixAndStartRoundTrip"
@@ -5361,7 +5375,8 @@
           "LabelTests.LabelsYieldToExhaustedBudget"
         ],
         "oracle": [
-          "diff:labels"
+          "diff:labels",
+          "diff:labels-merge"
         ]
       }
     },

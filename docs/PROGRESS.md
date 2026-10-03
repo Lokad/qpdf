@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 104: source page-label merge (M5). PageLabelMerge resolves each source number tree through the owning copy engine (indirect style and prefix references embed pool copies, Kids subtrees flatten, duplicates emit per occurrence) and merges per output page in output order with page-index offsets: unlabeled pages fabricate St continuations, every computed entry carries an explicit St, and runs compress on token-plus-delta match. Bare whole-file rewrites carry the source tree verbatim through the copier; split groups slice merged labels with restart and drop explicit specifications; explicit set-page-labels replaces merged labels outside split while remove-page-labels drops them everywhere including whole-file rewrites. Malformed trees fail explicitly and merging yields to exhausted budgets. Sixteen unit cases plus the checked-in labels-2page.pdf fixture (manifest, csproj and manifest-tests wired) and a labels-merge differential case (merge, subset, whole-file and split catalog agreement) carry the evidence; set-page-labels flips to complete. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation plus typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 103: typed single-page rotation overloads (M5). `SelectPageAsync` gains default-budget and explicit-budget overloads accepting `IReadOnlyList<PdfPageRotation>`, riding the shared rotation engine through `ConvertRotations` into the single-page core that previously received an empty specification list. Six unit cases prove application, output-position addressing across ordered selections, the null guard, clean out-of-range failure with no publication, and byte identity with the matching argv and job-JSON rotations (transitively tying the typed path to the `rotate-ranges` oracle agreement); the package consumer proves both new signatures. `--rotate` flips to complete. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys, codec allocation/cancellation and typed split output stay explicitly open.
 
 Prior gate

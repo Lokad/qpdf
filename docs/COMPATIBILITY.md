@@ -333,15 +333,23 @@ on both sides with trio validation and no backup files created.
 
 `PdfPageMergeOptions` carries collation (absent concatenates; one group size
 applies uniformly, otherwise one per source with round-robin exhaustion),
-rotations, and explicit labels. Source page-label trees are dropped, never
-merged; `--set-page-labels` (`first-page:[type][/start[/prefix]]` with `n`,
-`rN`, `z`) and job-JSON `setPageLabels` emit a fresh `/PageLabels` number tree
-(first entry at page 1, strictly increasing), while `--remove-page-labels` and
-job-JSON `removePageLabels: true` are accepted no-ops contradicted only by
-combining them with set. Prefixes encode as upstream does (ASCII literals,
+rotations, and explicit labels. Source page-label trees merge through the
+shared copy engine: per-output-page resolution over each source number tree in
+output order concatenates per-source entries with page-index offsets, unlabeled
+pages contribute fabricated continuation entries, covering starts are adjusted
+with explicit starts on every computed entry, and runs compress against the
+previous entry; indirect label dictionaries resolve through the owning source
+engine. `--set-page-labels` (`first-page:[type][/start[/prefix]]` with `n`,
+`rN`, `z`) and job-JSON `setPageLabels` replace merged labels with a fresh
+`/PageLabels` number tree (first entry at page 1, strictly increasing), while
+`--remove-page-labels` and job-JSON `removePageLabels: true` drop merged labels
+everywhere including whole-file rewrites, and are contradicted only by
+combining them with set. Bare whole-file rewrites carry the source tree
+verbatim; split groups slice merged labels with restart behavior and drop
+explicit specifications, matching the reference. Malformed trees fail
+explicitly instead of warning. Prefixes encode as upstream does (ASCII literals,
 PDFDocEncoding hex, otherwise UTF-16BE with byte-order mark); default start 1
-stays omitted. Multi-file `--pages`
-forms and `--collate` stay open.
+stays omitted from explicit specifications.
 
 ## Multi-file merge (work item 20, part 3)
 

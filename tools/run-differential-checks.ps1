@@ -719,6 +719,69 @@ if ($libPlain -ne $oraPlain) { Write-Output "[remove-page-labels] FAIL: unlabele
 elseif ($libPlain.Contains('/PageLabels')) { Write-Output "[remove-page-labels] FAIL: labels remain"; $script:failures++ }
 else { Write-Output "[remove-page-labels] unlabeled catalogs agree" }
 
+# --- case: labels-merge (managed vs oracle source-tree merging) ---
+$case = New-Case 'labels-merge'
+Copy-Item "$fixtureDir/labels-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', '--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/a.pdf', '2', 'inputs/b.pdf', '1', '--', 'outputs/m.pdf')
+if ($code -ne 0) { throw "labels-merge/merge: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/a.pdf', '2', 'inputs/b.pdf', '1', '--', "$case/ora-m.pdf")
+if ($code -ne 0) { throw "labels-merge/merge: oracle failed ($code)" }
+Assert-Trio 'labels-merge' "$case/lib-m.pdf" "$case/ora-m.pdf" 3
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-m.txt" -RedirectStandardError "$case/show-lib-m-err.txt"
+$libCat = (Get-Content "$case/show-lib-m.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-m.txt" -RedirectStandardError "$case/show-ora-m-err.txt"
+$oraCat = (Get-Content "$case/show-ora-m.txt" -Raw).Trim()
+if ($libCat -ne $oraCat) { Write-Output "[labels-merge] FAIL: merged catalogs differ"; $script:failures++ }
+elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[labels-merge] FAIL: labels missing"; $script:failures++ }
+else { Write-Output "[labels-merge] merged catalogs agree" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-s.pdf", '--', 'inputs/a.pdf', '--pages', '.', '2', '--', 'outputs/s.pdf')
+if ($code -ne 0) { throw "labels-merge/subset: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '2', '--', "$case/ora-s.pdf")
+if ($code -ne 0) { throw "labels-merge/subset: oracle failed ($code)" }
+Assert-Trio 'labels-merge-subset' "$case/lib-s.pdf" "$case/ora-s.pdf" 1
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-s.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-s.txt" -RedirectStandardError "$case/show-lib-s-err.txt"
+$libSub = (Get-Content "$case/show-lib-s.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-s.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-s.txt" -RedirectStandardError "$case/show-ora-s-err.txt"
+$oraSub = (Get-Content "$case/show-ora-s.txt" -Raw).Trim()
+if ($libSub -ne $oraSub) { Write-Output "[labels-merge-subset] FAIL: subset catalogs differ"; $script:failures++ }
+elseif (-not $libSub.Contains('/PageLabels')) { Write-Output "[labels-merge-subset] FAIL: labels missing"; $script:failures++ }
+else { Write-Output "[labels-merge-subset] subset catalogs agree" }
+Set-Content "$case/whole-job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/w.pdf", "coalesceContents": true}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whole-job.json", '--out', "outputs/w.pdf=$case/lib-w.pdf")
+if ($code -ne 0) { throw "labels-merge/whole: emit-job failed ($code)" }
+$code = Invoke-Oracle $case @('--coalesce-contents', 'inputs/a.pdf', '--', "$case/ora-w.pdf")
+if ($code -ne 0) { throw "labels-merge/whole: oracle failed ($code)" }
+Assert-Trio 'labels-merge-whole' "$case/lib-w.pdf" "$case/ora-w.pdf" 2
+function Get-LabelTreeNums {
+  param([string]$File)
+  $cat = & $QpdfExe --show-object=1 $File 2>$null | Out-String
+  $m = [regex]::Match($cat, '/PageLabels\s*(\d+) 0 R')
+  if (-not $m.Success) { return $null }
+  $tree = & $QpdfExe --show-object=$($m.Groups[1].Value) $File 2>$null | Out-String
+  $n = [regex]::Match($tree, '/Nums\s*\[(.*)\]')
+  if (-not $n.Success) { return '' }
+  return $n.Groups[1].Value.Trim()
+}
+$libNums = Get-LabelTreeNums "$case/lib-w.pdf"
+$oraNums = Get-LabelTreeNums "$case/ora-w.pdf"
+if ($null -eq $libNums -or $null -eq $oraNums) { Write-Output "[labels-merge-whole] FAIL: labels missing"; $script:failures++ }
+elseif ($libNums -ne $oraNums) { Write-Output "[labels-merge-whole] FAIL: verbatim number trees differ"; $script:failures++ }
+else { Write-Output "[labels-merge-whole] whole-file number trees agree" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/sp-1.pdf=$case/lib-sp-1.pdf", '--out', "outputs/sp-2.pdf=$case/lib-sp-2.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--split-pages', '--', 'outputs/sp.pdf')
+if ($code -ne 0) { throw "labels-merge/split: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--split-pages', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-sp.pdf")
+if ($code -ne 0) { throw "labels-merge/split: oracle failed ($code)" }
+Assert-Trio 'labels-merge-split-1' "$case/lib-sp-1.pdf" "$case/ora-sp-1.pdf" 1
+Assert-Trio 'labels-merge-split-2' "$case/lib-sp-2.pdf" "$case/ora-sp-2.pdf" 1
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-sp-1.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-sp1.txt" -RedirectStandardError "$case/show-lib-sp1-err.txt"
+$libSp1 = (Get-Content "$case/show-lib-sp1.txt" -Raw).Trim()
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-sp-1.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-sp1.txt" -RedirectStandardError "$case/show-ora-sp1-err.txt"
+$oraSp1 = (Get-Content "$case/show-ora-sp1.txt" -Raw).Trim()
+if ($libSp1 -ne $oraSp1) { Write-Output "[labels-merge-split] FAIL: split catalogs differ"; $script:failures++ }
+elseif (-not $libSp1.Contains('/PageLabels')) { Write-Output "[labels-merge-split] FAIL: labels missing"; $script:failures++ }
+else { Write-Output "[labels-merge-split] split catalogs agree" }
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -1929,4 +1992,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
