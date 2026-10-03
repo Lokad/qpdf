@@ -2936,7 +2936,6 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Generation follows preserved /Parent links for field lookup with subtree search as fallback. Radio buttons are never synchronized, matching the reference.",
         "On page-selection, the reference drops forms whose widgets are unreachable from AcroForm traversal (no AcroForm, no generation) while managed selection preserves and generates; whole-file behavior agrees.",
         "Quadding is ignored in text layout."
       ],
@@ -2954,7 +2953,8 @@
           "GenerateAppearancesTests.MergesAcroFormFontIntoAppearanceResources",
           "GenerateAppearancesTests.ParentHeldTextFieldGeneratesAppearance",
           "GenerateAppearancesTests.FieldDefaultResourcesIsIgnored",
-          "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding"
+          "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding",
+          "GenerateAppearancesTests.RadioButtonWarnsAndKeeps"
         ],
         "negative": [
           "GenerateAppearancesTests.SignatureFieldIsSkipped",
@@ -2974,7 +2974,8 @@
           "diff:forms-preserve",
           "diff:dr-encoding",
           "diff:dr-merge",
-          "diff:parent-held"
+          "diff:parent-held",
+          "diff:generate-radio"
         ]
       }
     },

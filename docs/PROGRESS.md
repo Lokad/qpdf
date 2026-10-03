@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-Work item 124 done (M11): closed --flatten-annotations. Oracle probes showed the remaining gap text was stale: appearance-less widgets stay, NeedAppearances-missing-AP warns exit 3, and DR-font appearances stamp verbatim on both sides. Evidence: DR-font verbatim unit case, flatten budget case, flatten-dr-1page.pdf fixture, and a new `flatten-dr` differential case; 1850 tests green and the full differential lane green.
+Work item 125 done (M11): radio synchronization warning parity. Oracle probes prove --generate-appearances warns exit 3 on every named radio (match or mismatch) while keeping /V and /AS; the engine silently kept them with exit 0. SyncButton now warns and keeps, matching states exactly. Evidence: radio warning unit case, generate-radio-1page.pdf fixture, and a new `generate-radio` differential case (3/3 exits plus /Choice1//Off agreement); --generate-appearances keeps two gaps (unreachable-forms selection difference, quadding). 1852 tests green and the full differential lane green.
 
 ## Remaining work
 - CMYK/YCCK raw samples: the approved ImageSharp public API yields only converted RGB, so raw four-component samples cannot be preserved through it. Needs a decision: an alternate extraction path or a declared, tested difference with narrow tolerances.
