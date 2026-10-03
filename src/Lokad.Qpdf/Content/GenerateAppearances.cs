@@ -449,7 +449,9 @@ internal static class GenerateAppearances
         if (radio)
         {
             // The reference leaves radio buttons untouched while checkboxes
-            // synchronize, so radios degrade to skip on every path.
+            // synchronize, so radios degrade to skip on every path, with the
+            // reference warning that it cannot set a radio button value.
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Radio button values cannot be synchronized; keeping it as is.");
             return false;
         }
 
