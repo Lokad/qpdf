@@ -13,8 +13,9 @@ namespace Lokad.Qpdf.Filters;
 /// streams are never silently reduced: they fail as unsupported and stay
 /// opaque. Frame dimensions are read from the JPEG header before any pixel
 /// buffer is allocated, and both work and memory budgets are charged up
-/// front. Decode parameters are ignored because JPEG frames are
-/// self-describing.
+/// front, plus <see cref="JpegCodec.CodecWorkingSetBytes"/> for the codec
+/// working set, released when decoding returns. Decode parameters are
+/// ignored because JPEG frames are self-describing.
 /// </summary>
 internal static class DctFilter
 {
@@ -61,7 +62,7 @@ internal static class DctFilter
         }
 
         governor.ChargeWork(pixels);
-        governor.ReserveMemory(expected);
+        governor.ReserveMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
         try
         {
             byte[] decoded = components == 1
@@ -77,7 +78,7 @@ internal static class DctFilter
         }
         finally
         {
-            governor.ReleaseMemory(expected);
+            governor.ReleaseMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
         }
     }
 

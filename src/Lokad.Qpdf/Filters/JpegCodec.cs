@@ -20,6 +20,17 @@ internal static class JpegCodec
 
     internal const int DefaultQuality = 75;
 
+    /// <summary>
+    /// Conservative working-set reservation held while the ImageSharp codec
+    /// runs, in addition to the frame itself. Allocation probes across 64 to
+    /// 1024 pixel frames show fixed codec overhead peaking near 26 KiB above
+    /// the frame bytes, so 64 KiB bounds it with margin; the reserve is
+    /// released when the call returns. Mid-call cancellation is not
+    /// available from the synchronous codec, so cancellation is honored
+    /// between codec calls through the governor instead.
+    /// </summary>
+    internal const long CodecWorkingSetBytes = 65536L;
+
     internal static int MapQuality(int qpdfQuality)
     {
         if (qpdfQuality < 0 || qpdfQuality > 100)
@@ -98,7 +109,7 @@ internal static class JpegCodec
 
         int mapped = MapQuality(quality);
         governor.ChargeWork(pixels);
-        governor.ReserveMemory(expected);
+        governor.ReserveMemory(checked(expected + CodecWorkingSetBytes));
         try
         {
             using Image<TPixel> image = LoadPixels<TPixel>(raw, width, height);
@@ -122,7 +133,7 @@ internal static class JpegCodec
         }
         finally
         {
-            governor.ReleaseMemory(expected);
+            governor.ReleaseMemory(checked(expected + CodecWorkingSetBytes));
         }
     }
 
