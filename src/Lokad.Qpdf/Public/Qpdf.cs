@@ -142,7 +142,7 @@ public static class Qpdf
     {
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         int total = document.PageReferences.Count;
-        IReadOnlyList<int> requested = options.Resolve(total);
+        IReadOnlyList<int> requested = options.Resolve(total, limits.MaxWork);
         if ((long)requested.Count > limits.MaxWork)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested.Count, limits.MaxWork);
@@ -599,7 +599,7 @@ public static class Qpdf
 
             sourceCompressed.Add(CollectCompressedOriginals(document.Engine));
 
-            IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count);
+            IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxWork);
             foreach (int pageNumber in requested)
             {
                 if (pageNumber > document.PageReferences.Count)

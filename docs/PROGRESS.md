@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 92: page-range wiring for page selection (M5). `--pages` groups now accept the full shared grammar (spans, descending ranges, `rN`/`z`, `x` exclusions, `:odd`/`:even`, duplicates) across argv, job JSON and a new internal typed `FromRange` form: parse-time syntax validation, per-source execution expansion against its own page count with the job work budget, and explicit failures without publication for malformed or out-of-range ranges. Plain single numbers keep the exact legacy single-page plan; anything richer routes through the shared merge engine (spec counting unchanged, so collation semantics hold). A new `ranges` differential case proves span/reverse/exclude trios green with identical marker order on both sides. `--rotate` ranges and overlay `--to`/`--from`/`--repeat` keep their partials until their own wiring lands; omitted ranges stay explicitly required. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 91: shared page-range grammar (M5 foundation). New `Pages/PageRanges` parser/expander implements the upstream range syntax probed on a 6-page scratch file against the pinned oracle: `rN`/`z` endpoints, descending ranges, `x` exclusions removing accumulated members, comma lists with duplicates/order preserved, a single trailing `:odd`/`:even` position filter applied last, empty range selecting all pages, `:odd`/`:even` alone selecting nothing, leading zeros accepted, whitespace rejected, 64-bit overflow and out-of-range endpoints (including excluded ones) failing explicitly, and a first-group exclusion rejected. Expansion carries an explicit entry budget plus a range-text cap. Covered by 48 `PageRangesTests` cases including every manual example. Not yet wired: `--pages` groups, `--rotate` ranges and overlay `--to`/`--from`/`--repeat` keep their partial entries and single-integer behavior until the wiring lands. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

@@ -9,10 +9,31 @@ namespace Lokad.Qpdf.Pages;
 /// Groups expand in order with duplicates preserved; exclusions remove every
 /// matching member accumulated so far, and the position filter applies last.
 /// Out-of-range endpoints (including excluded ones) fail explicitly.
+/// <c>CheckSyntax</c> validates structure without a page count so plans can
+/// fail fast at parse time; bounds still resolve at execution.
 /// </summary>
 internal static class PageRanges
 {
     internal const int MaxRangeTextLength = 4096;
+
+    private sealed record Endpoint(bool Relative, long Value);
+
+    private sealed record Group(bool Exclude, Endpoint First, Endpoint? Last);
+
+    internal static void CheckSyntax(string? range)
+    {
+        if (range is null || range.Length == 0)
+        {
+            return;
+        }
+
+        if (range.Length > MaxRangeTextLength)
+        {
+            throw new QpdfParseException($"Invalid page range: text exceeds {MaxRangeTextLength} characters.", 0L, null);
+        }
+
+        Parse(range);
+    }
 
     internal static IReadOnlyList<int> Expand(string? range, int total, long maxEntries)
     {
@@ -42,6 +63,62 @@ internal static class PageRanges
             throw new QpdfParseException($"Invalid page range: text exceeds {MaxRangeTextLength} characters.", 0L, null);
         }
 
+        (List<Group> groups, bool oddOnly, bool evenOnly) = Parse(range);
+        List<int> selected = new();
+        foreach (Group group in groups)
+        {
+            List<int> members = ExpandGroup(group, range, total);
+            if (!group.Exclude)
+            {
+                foreach (int page in members)
+                {
+                    if ((long)selected.Count >= maxEntries)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), (long)selected.Count + 1L, maxEntries);
+                    }
+
+                    selected.Add(page);
+                }
+
+                continue;
+            }
+
+            HashSet<int> excluded = new(members);
+            int kept = 0;
+            for (int i = 0; i < selected.Count; i++)
+            {
+                if (excluded.Contains(selected[i]))
+                {
+                    continue;
+                }
+
+                selected[kept] = selected[i];
+                kept += 1;
+            }
+
+            selected.RemoveRange(kept, selected.Count - kept);
+        }
+
+        if (!oddOnly && !evenOnly)
+        {
+            return selected;
+        }
+
+        List<int> filtered = new(selected.Count);
+        for (int i = 0; i < selected.Count; i++)
+        {
+            bool oddPosition = (i % 2) == 0;
+            if (oddPosition == oddOnly)
+            {
+                filtered.Add(selected[i]);
+            }
+        }
+
+        return filtered;
+    }
+
+    private static (List<Group> Groups, bool OddOnly, bool EvenOnly) Parse(string range)
+    {
         string groups = range;
         bool oddOnly = false;
         bool evenOnly = false;
@@ -71,44 +148,29 @@ internal static class PageRanges
             groups = head;
         }
 
-        List<int> selected = new();
+        List<Group> parsed = new();
         if (groups.Length > 0)
         {
             bool first = true;
-            foreach (string group in groups.Split(','))
+            foreach (string text in groups.Split(','))
             {
-                AppendGroup(selected, group, range, total, maxEntries, first);
+                parsed.Add(ParseGroup(text, range, first));
                 first = false;
             }
         }
 
-        if (!oddOnly && !evenOnly)
-        {
-            return selected;
-        }
-
-        List<int> filtered = new(selected.Count);
-        for (int i = 0; i < selected.Count; i++)
-        {
-            bool oddPosition = (i % 2) == 0;
-            if (oddPosition == oddOnly)
-            {
-                filtered.Add(selected[i]);
-            }
-        }
-
-        return filtered;
+        return (parsed, oddOnly, evenOnly);
     }
 
-    private static void AppendGroup(List<int> selected, string group, string range, int total, long maxEntries, bool first)
+    private static Group ParseGroup(string text, string range, bool first)
     {
-        if (group.Length == 0)
+        if (text.Length == 0)
         {
             throw new QpdfParseException($"Invalid page range '{range}': trailing comma.", 0L, null);
         }
 
         bool exclude = false;
-        string body = group;
+        string body = text;
         if (body[0] == 'x')
         {
             exclude = true;
@@ -130,63 +192,15 @@ internal static class PageRanges
             throw new QpdfParseException($"Invalid page range '{range}': invalid range syntax.", 0L, null);
         }
 
-        List<int> members = new();
         if (dash < 0)
         {
-            members.Add(ResolveEndpoint(body, range, total));
-        }
-        else
-        {
-            int firstPage = ResolveEndpoint(body.Substring(0, dash), range, total);
-            int lastPage = ResolveEndpoint(body.Substring(dash + 1), range, total);
-            if (firstPage <= lastPage)
-            {
-                for (int page = firstPage; page <= lastPage; page++)
-                {
-                    members.Add(page);
-                }
-            }
-            else
-            {
-                for (int page = firstPage; page >= lastPage; page--)
-                {
-                    members.Add(page);
-                }
-            }
+            return new Group(exclude, ParseEndpoint(body, range), null);
         }
 
-        if (!exclude)
-        {
-            foreach (int page in members)
-            {
-                if ((long)selected.Count >= maxEntries)
-                {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), (long)selected.Count + 1L, maxEntries);
-                }
-
-                selected.Add(page);
-            }
-
-            return;
-        }
-
-        HashSet<int> excluded = new(members);
-        int kept = 0;
-        for (int i = 0; i < selected.Count; i++)
-        {
-            if (excluded.Contains(selected[i]))
-            {
-                continue;
-            }
-
-            selected[kept] = selected[i];
-            kept += 1;
-        }
-
-        selected.RemoveRange(kept, selected.Count - kept);
+        return new Group(exclude, ParseEndpoint(body.Substring(0, dash), range), ParseEndpoint(body.Substring(dash + 1), range));
     }
 
-    private static int ResolveEndpoint(string text, string range, int total)
+    private static Endpoint ParseEndpoint(string text, string range)
     {
         if (text.Length == 0)
         {
@@ -195,7 +209,7 @@ internal static class PageRanges
 
         if (text == "z")
         {
-            return total;
+            return new Endpoint(true, 1L);
         }
 
         bool relative = false;
@@ -229,10 +243,43 @@ internal static class PageRanges
             }
         }
 
-        long page = relative ? (long)total - value + 1L : value;
+        return new Endpoint(relative, value);
+    }
+
+    private static List<int> ExpandGroup(Group group, string range, int total)
+    {
+        int first = ResolveEndpoint(group.First, range, total);
+        if (group.Last is null)
+        {
+            return new List<int> { first };
+        }
+
+        int last = ResolveEndpoint(group.Last, range, total);
+        List<int> members = new();
+        if (first <= last)
+        {
+            for (int page = first; page <= last; page++)
+            {
+                members.Add(page);
+            }
+        }
+        else
+        {
+            for (int page = first; page >= last; page--)
+            {
+                members.Add(page);
+            }
+        }
+
+        return members;
+    }
+
+    private static int ResolveEndpoint(Endpoint endpoint, string range, int total)
+    {
+        long page = endpoint.Relative ? (long)total - endpoint.Value + 1L : endpoint.Value;
         if (page < 1L || page > (long)total)
         {
-            throw new QpdfParseException($"Invalid page range '{range}': number {value} out of range.", 0L, null);
+            throw new QpdfParseException($"Invalid page range '{range}': number {endpoint.Value} out of range.", 0L, null);
         }
 
         return (int)page;

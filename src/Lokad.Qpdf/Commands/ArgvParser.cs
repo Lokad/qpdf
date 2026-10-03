@@ -887,7 +887,7 @@ internal static class ArgvParser
             throw new QpdfParseException("Options --overlay and --underlay cannot be combined with --empty.", pagesAt, null);
         }
 
-        if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0)
+        if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
         {
             return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals, emptyInput) with
             {
@@ -3729,7 +3729,7 @@ internal static class ArgvParser
         QpdfRecoveryMode recovery,
         GlobalOptions globals)
     {
-        if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0)
+        if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0 || (groups.Count == 1 && !SelectionPlan.IsPlainPageNumber(groups[0].Range)))
         {
             return ParseMerge(input, input, groups, rotations, labels, collate, recovery, globals, false) with
             {
@@ -3815,8 +3815,7 @@ internal static class ArgvParser
         List<PdfPageSource> sources = new(groups.Count);
         foreach (PageGroup group in groups)
         {
-            int page = SelectionPlan.ParsePageNumber(group.Range);
-            sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(group.File), new PdfPageSelectionOptions(page)));
+            sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(group.File), PdfPageSelectionOptions.FromRange(group.Range)));
         }
 
         PdfPageCollation? collation = combined.Count == 0 ? null : new PdfPageCollation(combined);

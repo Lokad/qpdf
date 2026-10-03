@@ -1606,7 +1606,7 @@ internal static class JobJsonParser
                 }
             }
 
-            if (entries.Count == 1 && !empty && collation is null)
+            if (entries.Count == 1 && !empty && collation is null && SelectionPlan.IsPlainPageNumber(entries[0].Range))
             {
                 string resolved = ResolveFile(entries[0].File, input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
@@ -1669,8 +1669,7 @@ internal static class JobJsonParser
             List<PdfPageSource> sources = new(entries.Count);
             foreach ((string file, string range) in entries)
             {
-                int page = SelectionPlan.ParsePageNumber(range);
-                sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), new PdfPageSelectionOptions(page)));
+                sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range)));
             }
 
             string primary = input ?? entries[0].File;

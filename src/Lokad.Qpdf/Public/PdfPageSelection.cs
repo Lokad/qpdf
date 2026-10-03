@@ -14,18 +14,22 @@ public sealed record PdfPageSelectionOptions
 
         Pages = [pageNumber];
         FirstAndLastCount = null;
+        Range = null;
     }
 
-    private PdfPageSelectionOptions(IReadOnlyList<int> pages, int? firstAndLastCount)
+    private PdfPageSelectionOptions(IReadOnlyList<int> pages, int? firstAndLastCount, string? range)
     {
         Pages = pages;
         FirstAndLastCount = firstAndLastCount;
+        Range = range;
     }
 
     /// <summary>Gets the explicit ordered selection; duplicates and order are preserved.</summary>
     public IReadOnlyList<int> Pages { get; }
 
     internal int? FirstAndLastCount { get; }
+
+    internal string? Range { get; }
 
     /// <summary>Creates an explicit ordered selection; order and duplicates are preserved.</summary>
     /// <exception cref="ArgumentNullException">The pages are null.</exception>
@@ -52,7 +56,7 @@ public sealed record PdfPageSelectionOptions
             }
         }
 
-        return new PdfPageSelectionOptions(selected, null);
+        return new PdfPageSelectionOptions(selected, null, null);
     }
 
     /// <summary>Creates a first-and-last preview selection for a positive window size.</summary>
@@ -64,7 +68,7 @@ public sealed record PdfPageSelectionOptions
             throw new ArgumentOutOfRangeException(nameof(count), "The preview size must be positive.");
         }
 
-        return new PdfPageSelectionOptions([], count);
+        return new PdfPageSelectionOptions([], count, null);
     }
 
     /// <summary>Creates a sorted, deduplicated ascending selection.</summary>
@@ -94,11 +98,35 @@ public sealed record PdfPageSelectionOptions
             throw new ArgumentException("The page selection must not be empty.", nameof(pages));
         }
 
-        return new PdfPageSelectionOptions([.. ordered], null);
+        return new PdfPageSelectionOptions([.. ordered], null, null);
+    }
+
+    /// <summary>Creates a range selection using the shared upstream page-range grammar.</summary>
+    /// <exception cref="ArgumentNullException">The range is null.</exception>
+    /// <exception cref="QpdfParseException">The range syntax is invalid.</exception>
+    internal static PdfPageSelectionOptions FromRange(string range)
+    {
+        if (range is null)
+        {
+            throw new ArgumentNullException(nameof(range));
+        }
+
+        global::Lokad.Qpdf.Pages.PageRanges.CheckSyntax(range);
+        return new PdfPageSelectionOptions([], null, range);
     }
 
     internal IReadOnlyList<int> Resolve(int totalPages)
     {
+        return Resolve(totalPages, long.MaxValue);
+    }
+
+    internal IReadOnlyList<int> Resolve(int totalPages, long maxEntries)
+    {
+        if (Range is not null)
+        {
+            return global::Lokad.Qpdf.Pages.PageRanges.Expand(Range, totalPages, maxEntries);
+        }
+
         if (!FirstAndLastCount.HasValue)
         {
             return Pages;

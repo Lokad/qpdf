@@ -134,6 +134,24 @@ internal abstract record JobPlan(QpdfPath Input)
 /// <summary>Validated single-page selection.</summary>
 internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
+    internal static bool IsPlainPageNumber(string? range)
+    {
+        if (string.IsNullOrEmpty(range) || range.Length > 10)
+        {
+            return false;
+        }
+
+        foreach (char c in range)
+        {
+            if (c < '0' || c > '9')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     internal static int ParsePageNumber(string range)
     {
         if (range is null || range.Length == 0 || range.Length > 10)

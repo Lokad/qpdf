@@ -284,6 +284,124 @@ public sealed class MergeCommandTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
     }
 
+    [Theory]
+    [InlineData("1-2", "First", "Second")]
+    [InlineData("2-1", "Second", "First")]
+    public async Task ArgvRangeSelectsPagesInOrder(string range, string first, string second)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", range, "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+        Assert.Contains(first, markers[0], StringComparison.Ordinal);
+        Assert.Contains(second, markers[1], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("z", "Second")]
+    [InlineData("r2", "First")]
+    [InlineData("1-2:even", "Second")]
+    [InlineData("1-2,x2", "First")]
+    [InlineData("1,1", "First")]
+    public async Task ArgvRangeFormsSelectExpectedPages(string range, string marker)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", range, "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Contains(marker, markers[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ArgvRangeOutOfRangeFailsWithoutOutput()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1-3", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("1-")]
+    [InlineData("x1")]
+    [InlineData("r")]
+    [InlineData("1-2-3")]
+    [InlineData("1-2:even:odd")]
+    public async Task ArgvRangeMalformedFailsWithoutOutput(string range)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", range, "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task JobRangeMatchesArgv()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(
+            argvHost,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "2-1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": ".", "range": "2-1"}]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, jobResult.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+        List<string> markers = await OutputMarkers(jobHost, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+        Assert.Contains("Second", markers[0], StringComparison.Ordinal);
+        Assert.Contains("First", markers[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TypedRangeSelectionExpandsInOrder()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(
+            host,
+            [new PdfPageSource(QpdfPath.From("inputs/a.pdf"), PdfPageSelectionOptions.FromRange("2-1"))],
+            QpdfPath.From("outputs/m.pdf"),
+            CancellationToken.None);
+        Assert.Equal(2, result.PageCount);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(2, markers.Count);
+        Assert.Contains("Second", markers[0], StringComparison.Ordinal);
+        Assert.Contains("First", markers[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RangeSelectionHonorsWorkBudgets()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1-2", "--", "outputs/m.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
     private static async Task<QpdfDocument> Reopen(InMemoryQpdfHost host, string output)
     {
         if (!host.TryGetOutput(QpdfPath.From(output), out byte[] published))

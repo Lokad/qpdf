@@ -224,6 +224,19 @@ $code = Invoke-Oracle $case @('--collate', 'inputs/a.pdf', '--pages', '.', '1', 
 if ($code -ne 0) { throw "collate: oracle failed ($code)" }
 Assert-Trio 'collate' "$case/lib.pdf" "$case/ora.pdf" 2
 
+# --- case: ranges (managed vs oracle full page-range selections) ---
+$case = New-Case 'ranges'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+foreach ($sub in @(@('span', @('.', '1-2'), 2), @('reverse', @('.', '2-1'), 2), @('exclude', @('.', '1-2,x2'), 1))) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', 'inputs/a.pdf', '--pages') + $sub[1] + @('--', "outputs/$name.pdf"))
+  if ($code -ne 0) { throw "ranges/$name`: emit failed ($code)" }
+  $code = Invoke-Oracle $case (@('inputs/a.pdf', '--pages') + $sub[1] + @('--', "$case/ora-$name.pdf"))
+  if ($code -ne 0) { throw "ranges/$name`: oracle failed ($code)" }
+  Assert-Trio "ranges-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" $sub[2]
+}
+Write-Output "[ranges] span/reverse/exclude trios done"
+
 # --- case: uncompress (flate input produced by oracle) ---
 $case = New-Case 'uncompress'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1634,4 +1647,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
