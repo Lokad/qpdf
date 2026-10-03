@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 90: collate job-key and placement completion (M5/M11). The job-JSON `collate` key (`""` for bare, otherwise `n[,m,...]`) now rides the shared merge plan with argv job-parity (byte-identical outputs plus marker order), group application, single-entry merge routing, and explicit malformed/duplicate/count-mismatch/pages-less failures. Argv also accepts the upstream main-level `--collate` placement (bare and `=` forms) with byte-identical results to the inside-`--pages` leniency, and mismatched group counts now fail explicitly instead of escaping as an unhandled error. A new `collate` differential case runs the upstream form on both sides with trios green. `--collate` stays partial behind single-integer page ranges and full range syntax. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 89: parser-limits completion (M11). `--max-stream-filters`, `--parser-max-nesting`, `--parser-max-container-size` and `--parser-max-container-size-damaged` move to complete with agreement-at-loose-caps evidence and documented strictness differences: over-limit filter chains stay opaque with a warning (exit 3) on both sides; the default nesting cap stays tighter (256 vs upstream 499) with agreement at 499; tight container caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3), with agreement at loose caps. The extended `global` differential case runs blocked selections (filters, nesting at 100 and 499, loose container caps) with trios green on both sides. `--no-default-limits` and `--parser-max-errors` stay partial as rejection-only containment. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

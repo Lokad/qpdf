@@ -339,10 +339,13 @@ forms and `--collate` stay open.
 
 `qpdf --pages` takes repeated file/range groups (positional or `--file=`/`--range=`
 forms, `.` for the primary input) with repeatable `--collate[=n[,m,...]]`
-(uniform, per-source, or bare single-group); single groups without collation keep
+(uniform, per-source, or bare single-group); `--collate` is accepted at the main level
+as upstream places it, while the inside-`--pages` form keeps working as leniency and both
+forms share one grammar with identical bytes. Single groups without collation keep
 the exact legacy single-file behavior. Job JSON accepts multi-entry `pages`
-arrays concatenating in order; the `collate` key stays explicitly unsupported.
-Out-of-range pages map to explicit failures without publication.
+arrays concatenating in order plus a `collate` key (`""` for bare, otherwise `n[,m,...]`)
+with argv job-parity. Group counts other than one value or one per source fail explicitly,
+as do out-of-range pages, without publication.
 Page selection carries complete option evidence (ordered/duplicate/first-last coverage,
 explicit range failures, work-budget enforcement, select/merge differentials).
 
