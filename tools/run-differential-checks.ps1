@@ -467,7 +467,7 @@ foreach ($sub in @(@('raw', 'inputs/raw.pdf', @()), @('nodim', 'inputs/nodim.pdf
   Copy-Item "$case/ora-stdout.txt" "$case/ora-$name.json" -Force
   Compare-ImageJson $name "$case/lib-$name.json" "$case/ora-$name.json"
 }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', 'outputs/all.json=$case/lib-all.json', '--', 'inputs/filtered.pdf', '--json', '--decode-level=all', '--', 'outputs/all.json')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/all.json=$case/lib-all.json", '--', 'inputs/filtered.pdf', '--json', '--decode-level=all', '--', 'outputs/all.json')
 if ($code -ne 0) { throw "json-images/all: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--json', '--decode-level=all', 'inputs/filtered.pdf')
 if ($code -ne 0) { throw "json-images/all: oracle failed ($code)" }
@@ -1597,6 +1597,51 @@ foreach ($pair in @(('lib-merge', "$case/lib-merge.pdf"), ('ora-merge', "$case/o
   }
 }
 Write-Output "[forms-preserve/merge] registration assertions done"
+foreach ($trio in @(@('full', "$case/lib-full.pdf", "$case/ora-full.pdf"), @('sub', "$case/lib-sub.pdf", "$case/ora-sub.pdf"), @('merge', "$case/lib-merge.pdf", "$case/ora-merge.pdf"))) {
+  $tag = $trio[0]
+  $libJsonRaw = & $QpdfExe --json $trio[1] 2>$null | Out-String
+  $oraJsonRaw = & $QpdfExe --json $trio[2] 2>$null | Out-String
+  $libJson = $libJsonRaw | ConvertFrom-Json
+  $oraJson = $oraJsonRaw | ConvertFrom-Json
+  if ($libJson.acroform.needappearances -ne $oraJson.acroform.needappearances) { Write-Output "[forms-preserve/$tag] FAIL: needAppearances mismatch"; $script:failures++ }
+  $libFields = @($libJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)" } | Sort-Object)
+  $oraFields = @($oraJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)" } | Sort-Object)
+  if (($libFields -join ',') -ne ($oraFields -join ',')) { Write-Output "[forms-preserve/$tag] FAIL: fields lib=[$($libFields -join ',')] ora=[$($oraFields -join ',')]"; $script:failures++ }
+  else { Write-Output "[forms-preserve/$tag] field semantics agree ([$($libFields -join ',')])" }
+}
+Write-Output "[forms-preserve] JSON semantic assertions done"
+
+# --- case: outlines-preserve (managed vs oracle outline preservation for ordinary) ---
+$case = New-Case 'outlines-preserve'
+Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/o.pdf', '--pages', '.', '1', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "outlines-preserve: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/o.pdf', '--pages', 'inputs/o.pdf', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "outlines-preserve: oracle failed ($code)" }
+Assert-Trio 'outlines-preserve' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/Outlines', '(Ch1)', '(Ch2)')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[outlines-preserve] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[outlines-preserve] outline assertions done"
+
+# --- case: structure-preserve (managed vs oracle structure preservation for ordinary) ---
+$case = New-Case 'structure-preserve'
+Copy-Item "$fixtureDir/struct-preserve-1page.pdf" "$case/inputs/s.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/s.pdf', '--pages', '.', '1', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "structure-preserve: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/s.pdf', '--pages', 'inputs/s.pdf', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "structure-preserve: oracle failed ($code)" }
+Assert-Trio 'structure-preserve' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/StructTreeRoot', '/MarkInfo', '/Marked')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[structure-preserve] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[structure-preserve] structure assertions done"
 
 # --- case: preserve-unreferenced (managed vs oracle object preservation) ---
 $case = New-Case 'preserve-unreferenced'
@@ -1815,4 +1860,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

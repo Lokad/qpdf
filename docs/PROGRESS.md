@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 101: catalog/form preservation separation (M7). Ordinary selection/rewrite (argv/job/whole-file/merge) now preserves outlines and structure through the shared copy engine while typed preview keeps the contained policy of dropping them: `CatalogCopy` copies `/Outlines`/`/StructTreeRoot`/`/MarkInfo` for ordinary (dangling outline dests prune to null, damaged structure drops leniently), `NewCatalog` carries the preserved trees, and `--remove-structure` is now an explicit prune switch instead of a no-op. Field registration, values, parent links and default resources round-trip across typed, argv and job paths (new parent/DR argv/job tests), with a `forms-preserve` JSON semantic lane (fullname/value/needAppearances agreement) plus new `outlines-preserve`/`structure-preserve` differential trios. `struct-preserve-1page.pdf` fixture (manifest/csproj/manifest-tests wired) carries the well-formed structure evidence; the damaged `struct-1page.pdf` still drops leniently without failing. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys, codec allocation/cancellation and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 100: splitPages job key (M5). The job-JSON `splitPages` key (string, `""` for bare) now rides the shared split engine across merge, single-page and whole-file plans with argv job-parity, group application, malformed/duplicate/conflict rejections and whole-file coverage. Sharing the value grammar also fixed argv `--split-pages=` (empty) to match the reference instead of failing. A new `split` differential case (managed job versus oracle argv) shows per-group trios green with matching placed markers on both sides. `--split-pages` stays partial behind the typed looping surface. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

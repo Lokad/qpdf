@@ -136,6 +136,7 @@ internal static class JobJsonParser
             bool removeInfo = false;
             bool seenRemoveInfo = false;
             bool removeAcroform = false;
+            bool removeStructure = false;
             bool removeMetadata = false;
             bool seenRemoveMetadata = false;
             bool coalesceContents = false;
@@ -740,9 +741,7 @@ internal static class JobJsonParser
                         }
 
                         seenRemoveStructure = true;
-                        // Accepted as a no-op: every publication path rebuilds a fresh catalog
-                        // without /StructTreeRoot or /MarkInfo.
-                        _ = RequireBareFlag(property.Value, "removeStructure");
+                        removeStructure = RequireBareFlag(property.Value, "removeStructure");
                         break;
                     case "noOriginalObjectIds":
                         if (seenNoOriginalObjectIds)
@@ -1559,6 +1558,7 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveAcroform = removeAcroform,
+                    RemoveStructure = removeStructure,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
@@ -1652,6 +1652,7 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveAcroform = removeAcroform,
+                    RemoveStructure = removeStructure,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
@@ -1711,6 +1712,7 @@ internal static class JobJsonParser
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
                     RemoveAcroform = removeAcroform,
+                    RemoveStructure = removeStructure,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),

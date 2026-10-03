@@ -18,6 +18,7 @@
     <None Include="../Fixtures/unref-1page.pdf" Link="Fixtures/unref-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/meta-1page.pdf" Link="Fixtures/meta-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/struct-1page.pdf" Link="Fixtures/struct-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/struct-preserve-1page.pdf" Link="Fixtures/struct-preserve-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/forms-1page.pdf" Link="Fixtures/forms-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/forms-2page.pdf" Link="Fixtures/forms-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/inline-1page.pdf" Link="Fixtures/inline-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

@@ -54,6 +54,15 @@
       "description": "One page whose catalog carries /StructTreeRoot and /MarkInfo, classic xref, unencrypted. Structure removal must drop both keys while keeping the pages tree; the removal differential consumes it."
     },
     {
+      "file": "struct-preserve-1page.pdf",
+      "sha256": "7452a428d16b552caeea1190bd2553c85a1823588afdfb352be38f2f61543f1d",
+      "bytes": 759,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page whose catalog carries a well-formed /StructTreeRoot and /MarkInfo, classic xref, unencrypted. Ordinary selection must preserve both keys while contained preview drops them; the catalog differential consumes it."
+    },
+    {
       "file": "forms-1page.pdf",
       "sha256": "49efd5043b16147158647f24c1408cdf06ec390734c45e4df3184fa0873da324",
       "bytes": 1012,

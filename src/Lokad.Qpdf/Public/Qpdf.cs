@@ -70,7 +70,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
     }
 
     private static void ApplySourceContentTransforms(
@@ -120,6 +120,7 @@ public static class Qpdf
         CompressionRequest compression,
         bool removeInfo,
         bool removeAcroform,
+        bool removeStructure,
         bool removeMetadata,
         AttachmentEdits edits,
         bool coalesceContents,
@@ -134,6 +135,7 @@ public static class Qpdf
         Content.ImageOptimizeRequest optimize,
         Writing.QdfOptions qdf,
         Content.ContentPrunePolicy prune,
+        bool preserveCatalog,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         bool linearize,
@@ -179,7 +181,8 @@ public static class Qpdf
         }
 
         (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
-        PdfReference? singleOutlines = CopyOutlinesForLinearize(copier, document.Engine, linearize);
+        PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
+        (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
         SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
         string? singlePageMode = ReadInputPageMode(document.Engine);
 
@@ -270,7 +273,7 @@ public static class Qpdf
                 governor,
                 diagnostics,
                 cancellationToken);
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm);
+        PdfDictionary catalog = NewCatalog(BuildPageLabels(labels, kids.Count, governor), effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo);
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
@@ -363,7 +366,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -429,7 +432,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -508,7 +511,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> SelectPagesCoreAsync(
@@ -533,6 +536,7 @@ public static class Qpdf
         CompressionRequest compression,
         bool removeInfo,
         bool removeAcroform,
+        bool removeStructure,
         bool removeMetadata,
         AttachmentEdits edits,
         bool coalesceContents,
@@ -547,6 +551,7 @@ public static class Qpdf
         Content.ImageOptimizeRequest optimize,
         Writing.QdfOptions qdf,
         Content.ContentPrunePolicy prune,
+        bool preserveCatalog,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         bool linearize,
@@ -579,6 +584,8 @@ public static class Qpdf
         PdfReference? primaryInfo = null;
         PdfReference? primaryMetadata = null;
         PdfReference? primaryOutlines = null;
+        PdfReference? primaryStructTree = null;
+        QpdfObject? primaryMarkInfo = null;
         HashSet<int> catalogExtraIds = new();
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(compression, qdf.Enabled);
@@ -651,7 +658,8 @@ public static class Qpdf
             if (s == primaryIdx && !emptyPrimary)
             {
                 (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
-                primaryOutlines = CopyOutlinesForLinearize(copier, document.Engine, linearize);
+                primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
+                (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
                 if (primaryInfo is not null)
                 {
                     catalogExtraIds.Add(primaryInfo.ObjectNumber);
@@ -664,6 +672,16 @@ public static class Qpdf
                 if (primaryOutlines is not null)
                 {
                     catalogExtraIds.Add(primaryOutlines.ObjectNumber);
+                }
+
+                if (primaryStructTree is not null)
+                {
+                    catalogExtraIds.Add(primaryStructTree.ObjectNumber);
+                }
+
+                if (primaryMarkInfo is PdfReference primaryMarkRef)
+                {
+                    catalogExtraIds.Add(primaryMarkRef.ObjectNumber);
                 }
 
                 primaryExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
@@ -848,7 +866,7 @@ public static class Qpdf
         {
             List<NumberedObject> model = new()
             {
-                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm)),
+                new NumberedObject(1, NewCatalog(labelItems.Count == 0 ? null : NumbersDictionary(labelItems), effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo)),
                 new NumberedObject(2, PagesNode(kids)),
             };
             List<int> orderedPoolIds = new(pool.Keys);
@@ -963,6 +981,22 @@ public static class Qpdf
                 groupOutlines = new PdfReference(mappedOutlines, 0);
             }
 
+            PdfReference? groupStructTree = null;
+            if (primaryStructTree is not null && renumber.TryGetValue(primaryStructTree.ObjectNumber, out int mappedStruct))
+            {
+                groupStructTree = new PdfReference(mappedStruct, 0);
+            }
+
+            QpdfObject? groupMarkInfo = primaryMarkInfo;
+            if (primaryMarkInfo is PdfReference markRef && !renumber.ContainsKey(markRef.ObjectNumber))
+            {
+                groupMarkInfo = null;
+            }
+            else if (primaryMarkInfo is PdfReference markRef2 && renumber.TryGetValue(markRef2.ObjectNumber, out int mappedMark))
+            {
+                groupMarkInfo = new PdfReference(mappedMark, 0);
+            }
+
             int? groupInfo = null;
             if (primaryInfo is not null && renumber.TryGetValue(primaryInfo.ObjectNumber, out int mappedInfo))
             {
@@ -981,7 +1015,7 @@ public static class Qpdf
             }
             List<NumberedObject> sub = new()
             {
-                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm)),
+                new NumberedObject(1, NewCatalog(SlicePageLabels(labelItems, first, last), effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo)),
                 new NumberedObject(2, PagesNode(renumberedKids)),
             };
             foreach (int id in kept)
@@ -1184,10 +1218,10 @@ public static class Qpdf
 
     private static PdfDictionary NewCatalog(PdfDictionary? pageLabels)
     {
-        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null, null, null);
+        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null, null, null, null, null);
     }
 
-    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm)
+    private static PdfDictionary NewCatalog(PdfDictionary? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo)
     {
         if (finalVersion is null)
         {
@@ -1227,6 +1261,16 @@ public static class Qpdf
         if (acroForm is not null)
         {
             entries[PdfName.FromAscii("AcroForm")] = acroForm;
+        }
+
+        if (structTreeRef is not null)
+        {
+            entries[PdfName.FromAscii("StructTreeRoot")] = structTreeRef;
+        }
+
+        if (markInfo is not null && markInfo is not PdfNull)
+        {
+            entries[PdfName.FromAscii("MarkInfo")] = markInfo;
         }
 
         if (extensionLevel > 0)
@@ -2636,32 +2680,6 @@ public static class Qpdf
         return kept;
     }
 
-    private static PdfReference? CopyOutlinesForLinearize(GraphCopier copier, DocumentEngine engine, bool linearize)
-    {
-        if (!linearize)
-        {
-            return null;
-        }
-
-        PdfDictionary? catalog = TryGetInputCatalog(engine);
-        if (catalog is null)
-        {
-            return null;
-        }
-
-        if (!catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject? raw) || raw is null || raw is PdfNull)
-        {
-            return null;
-        }
-
-        if (raw is not PdfReference)
-        {
-            throw new QpdfParseException("Linearized output with a direct outlines dictionary is not implemented.", null, null);
-        }
-
-        return copier.AddIndirectObject(raw);
-    }
-
     private static (PdfReference? InfoRef, PdfReference? MetadataRef) CopyCatalogExtras(
         GraphCopier copier,
         DocumentEngine engine,
@@ -3186,6 +3204,7 @@ public static class Qpdf
             plan.Compression(),
             plan.RemoveInfo,
             plan.RemoveAcroform,
+            plan.RemoveStructure,
             plan.RemoveMetadata,
             plan.Edits(),
             plan.CoalesceContents,
@@ -3200,6 +3219,7 @@ public static class Qpdf
             new Content.ImageOptimizeRequest(plan.OptimizeImages, plan.OiMinWidth, plan.OiMinHeight, plan.OiMinArea, plan.KeepInlineImages, plan.JpegQuality),
             new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds),
             new Content.ContentPrunePolicy(plan.SplitPages.HasValue, plan.RemoveUnreferencedResources),
+            true,
             governor,
             diagnostics,
             plan.Linearize,
@@ -3252,7 +3272,7 @@ public static class Qpdf
         (bool emptyCompress, string _, int? emptyLevel) = ResolveCompression(plan.Compression(), plan.Qdf);
         PdfVersion effective = negotiated;
         int extensionLevel = negotiatedExtension;
-        PdfDictionary catalog = NewCatalog(BuildPageLabels(plan.Labels, 0, governor), effective, extensionLevel, null, null, null, null, null);
+        PdfDictionary catalog = NewCatalog(BuildPageLabels(plan.Labels, 0, governor), effective, extensionLevel, null, null, null, null, null, null, null);
         List<NumberedObject> model = new()
         {
             new NumberedObject(1, catalog),
@@ -5093,6 +5113,7 @@ public static class Qpdf
                         merge.Compression(),
                         merge.RemoveInfo,
                         merge.RemoveAcroform,
+                        merge.RemoveStructure,
                         merge.RemoveMetadata,
                         merge.Edits(),
                         merge.CoalesceContents,
@@ -5107,6 +5128,7 @@ public static class Qpdf
                         new Content.ImageOptimizeRequest(merge.OptimizeImages, merge.OiMinWidth, merge.OiMinHeight, merge.OiMinArea, merge.KeepInlineImages, merge.JpegQuality),
                         new Writing.QdfOptions(merge.Qdf, merge.NoOriginalObjectIds),
                         new Content.ContentPrunePolicy(true, merge.RemoveUnreferencedResources),
+                        true,
                         governor,
                         diagnostics,
                         merge.Linearize,
@@ -5163,6 +5185,7 @@ public static class Qpdf
                         selection.Compression(),
                         selection.RemoveInfo,
                         selection.RemoveAcroform,
+                        selection.RemoveStructure,
                         selection.RemoveMetadata,
                         selection.Edits(),
                         selection.CoalesceContents,
@@ -5177,6 +5200,7 @@ public static class Qpdf
                         new Content.ImageOptimizeRequest(selection.OptimizeImages, selection.OiMinWidth, selection.OiMinHeight, selection.OiMinArea, selection.KeepInlineImages, selection.JpegQuality),
                         new Writing.QdfOptions(selection.Qdf, selection.NoOriginalObjectIds),
                         new Content.ContentPrunePolicy(true, selection.RemoveUnreferencedResources),
+                        true,
                         governor,
                         diagnostics,
                         selection.Linearize,
@@ -5220,6 +5244,7 @@ public static class Qpdf
                 selection.Compression(),
                 selection.RemoveInfo,
                 selection.RemoveAcroform,
+                selection.RemoveStructure,
                 selection.RemoveMetadata,
                 selection.Edits(),
                 selection.CoalesceContents,
@@ -5234,6 +5259,7 @@ public static class Qpdf
                 new Content.ImageOptimizeRequest(selection.OptimizeImages, selection.OiMinWidth, selection.OiMinHeight, selection.OiMinArea, selection.KeepInlineImages, selection.JpegQuality),
                 new Writing.QdfOptions(selection.Qdf, selection.NoOriginalObjectIds),
                 new Content.ContentPrunePolicy(true, selection.RemoveUnreferencedResources),
+                true,
                 governor,
                 diagnostics,
                 selection.Linearize,

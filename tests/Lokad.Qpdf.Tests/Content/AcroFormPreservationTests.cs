@@ -363,6 +363,72 @@ public sealed class AcroFormPreservationTests
     }
 
     [Fact]
+    public async Task ArgvSelectionPreservesParentAndDefaultResources()
+    {
+        byte[] appearance = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 10 10 Td (A) Tj ET");
+        byte[] contents = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 100 700 Td (P) Tj ET");
+        byte[] fixture = BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv 8 0 R >> >> >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /FT /Tx /T (Parent1) /Kids [6 0 R] /DA (/Helv 12 Tf) >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /Parent 5 0 R /V (AAA) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length " + appearance.Length.ToString() + " >>", appearance),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            });
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), fixture, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        PdfDictionary form = RequireForm(RequireCatalog(output));
+        PdfDictionary field = Assert.Single(ResolveFields(output, form));
+        Assert.Equal("Parent1", FieldText(field, "T"));
+        Assert.True(field.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
+        PdfArray kids = Assert.IsType<PdfArray>(kidsRaw);
+        PdfReference kid = Assert.IsType<PdfReference>(Assert.Single(kids.Items));
+        PdfDictionary widget = Assert.IsType<PdfDictionary>(output.GetObject(kid.ObjectNumber));
+        Assert.Equal("AAA", FieldText(widget, "V"));
+        Assert.True(widget.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw));
+        PdfReference parent = Assert.IsType<PdfReference>(parentRaw);
+        Assert.Equal("Parent1", FieldText(Assert.IsType<PdfDictionary>(output.GetObject(parent.ObjectNumber)), "T"));
+        Assert.True(form.TryGet(PdfName.FromAscii("DR"), out QpdfObject? drRaw));
+        Assert.IsType<PdfDictionary>(drRaw);
+    }
+
+    [Fact]
+    public async Task JobSelectionPreservesParentAndDefaultResources()
+    {
+        byte[] appearance = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 10 10 Td (A) Tj ET");
+        byte[] contents = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 100 700 Td (P) Tj ET");
+        byte[] fixture = BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv 8 0 R >> >> >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /FT /Tx /T (Parent1) /Kids [6 0 R] /DA (/Helv 12 Tf) >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /Parent 5 0 R /V (AAA) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length " + appearance.Length.ToString() + " >>", appearance),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            });
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), fixture, QpdfInputOwnership.Copy);
+        string job = "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}";
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        PdfDictionary form = RequireForm(RequireCatalog(output));
+        PdfDictionary field = Assert.Single(ResolveFields(output, form));
+        Assert.Equal("Parent1", FieldText(field, "T"));
+        Assert.True(form.TryGet(PdfName.FromAscii("DR"), out QpdfObject? drRaw));
+        Assert.IsType<PdfDictionary>(drRaw);
+    }
+
+    [Fact]
     public async Task FormCopyYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-2page.pdf");

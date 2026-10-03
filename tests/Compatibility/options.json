@@ -1552,11 +1552,27 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["CompressionTests.MaxStreamFiltersBoundaryDecodes", "CompressionTests.MaxStreamFiltersCapKeepsOverLimitOpaque"],
-        "negative": ["CompressionTests.InvalidValuesFail", "CompressionTests.DuplicateFlagsFail", "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations", "CompressionTests.JobJsonInvalidValuesFail"],
-        "interaction": ["CompressionTests.MaxStreamFiltersJobParityHolds", "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations"],
-        "resource": ["CompressionTests.HostStreamFilterBudgetKeepsOverLimitOpaque", "CompressionTests.NegativeStreamFilterBudgetFailsValidation"],
-        "oracle": ["diff:global"]
+        "positive": [
+          "CompressionTests.MaxStreamFiltersBoundaryDecodes",
+          "CompressionTests.MaxStreamFiltersCapKeepsOverLimitOpaque"
+        ],
+        "negative": [
+          "CompressionTests.InvalidValuesFail",
+          "CompressionTests.DuplicateFlagsFail",
+          "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations",
+          "CompressionTests.JobJsonInvalidValuesFail"
+        ],
+        "interaction": [
+          "CompressionTests.MaxStreamFiltersJobParityHolds",
+          "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations"
+        ],
+        "resource": [
+          "CompressionTests.HostStreamFilterBudgetKeepsOverLimitOpaque",
+          "CompressionTests.NegativeStreamFilterBudgetFailsValidation"
+        ],
+        "oracle": [
+          "diff:global"
+        ]
       }
     },
     {
@@ -1584,9 +1600,16 @@
       ],
       "evidence": {
         "positive": [],
-        "negative": ["GlobalLimitsTests.NoDefaultLimitsRefused", "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"],
-        "interaction": ["GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"],
-        "resource": ["GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"],
+        "negative": [
+          "GlobalLimitsTests.NoDefaultLimitsRefused",
+          "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"
+        ],
+        "interaction": [
+          "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"
+        ],
+        "resource": [
+          "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"
+        ],
         "oracle": []
       }
     },
@@ -1612,11 +1635,29 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
-        "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
-        "interaction": ["GlobalLimitsTests.ContainerCapsJobParityHolds", "GlobalLimitsTests.BadNestedContainerKeysFail"],
-        "resource": ["GlobalLimitsTests.HostContainerBudgetInterplay", "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"],
-        "oracle": ["diff:global"]
+        "positive": [
+          "GlobalLimitsTests.LooseContainerCapsParse",
+          "GlobalLimitsTests.ContainerCapsJobParityHolds"
+        ],
+        "negative": [
+          "GlobalLimitsTests.TightContainerCapFailsStrictParsing",
+          "GlobalLimitsTests.SmallDictionaryCapFails",
+          "GlobalLimitsTests.DamagedCapGovernsRepair",
+          "GlobalLimitsTests.BadContainerFlagsFail",
+          "GlobalLimitsTests.DuplicateContainerFlagsFail",
+          "GlobalLimitsTests.BadNestedContainerKeysFail"
+        ],
+        "interaction": [
+          "GlobalLimitsTests.ContainerCapsJobParityHolds",
+          "GlobalLimitsTests.BadNestedContainerKeysFail"
+        ],
+        "resource": [
+          "GlobalLimitsTests.HostContainerBudgetInterplay",
+          "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"
+        ],
+        "oracle": [
+          "diff:global"
+        ]
       }
     },
     {
@@ -1641,11 +1682,29 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
-        "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
-        "interaction": ["GlobalLimitsTests.ContainerCapsJobParityHolds", "GlobalLimitsTests.BadNestedContainerKeysFail"],
-        "resource": ["GlobalLimitsTests.HostContainerBudgetInterplay", "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"],
-        "oracle": ["diff:global"]
+        "positive": [
+          "GlobalLimitsTests.LooseContainerCapsParse",
+          "GlobalLimitsTests.ContainerCapsJobParityHolds"
+        ],
+        "negative": [
+          "GlobalLimitsTests.TightContainerCapFailsStrictParsing",
+          "GlobalLimitsTests.SmallDictionaryCapFails",
+          "GlobalLimitsTests.DamagedCapGovernsRepair",
+          "GlobalLimitsTests.BadContainerFlagsFail",
+          "GlobalLimitsTests.DuplicateContainerFlagsFail",
+          "GlobalLimitsTests.BadNestedContainerKeysFail"
+        ],
+        "interaction": [
+          "GlobalLimitsTests.ContainerCapsJobParityHolds",
+          "GlobalLimitsTests.BadNestedContainerKeysFail"
+        ],
+        "resource": [
+          "GlobalLimitsTests.HostContainerBudgetInterplay",
+          "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"
+        ],
+        "oracle": [
+          "diff:global"
+        ]
       }
     },
     {
@@ -1673,9 +1732,15 @@
       ],
       "evidence": {
         "positive": [],
-        "negative": ["GlobalLimitsTests.BadContainerFlagsFail"],
-        "interaction": ["GlobalLimitsTests.BadNestedContainerKeysFail"],
-        "resource": ["GlobalLimitsTests.BadContainerFlagsFail"],
+        "negative": [
+          "GlobalLimitsTests.BadContainerFlagsFail"
+        ],
+        "interaction": [
+          "GlobalLimitsTests.BadNestedContainerKeysFail"
+        ],
+        "resource": [
+          "GlobalLimitsTests.BadContainerFlagsFail"
+        ],
         "oracle": []
       }
     },
@@ -1701,11 +1766,27 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["GlobalLimitsTests.RaisedCapParsesDeepCatalog", "GlobalLimitsTests.NestedGlobalParityHolds"],
-        "negative": ["GlobalLimitsTests.DefaultNestingRejectsDeepCatalog", "GlobalLimitsTests.BadNestingValuesFail", "GlobalLimitsTests.DuplicateNestingFlagFails", "GlobalLimitsTests.CeilingMessageNamesTheMaximum", "GlobalLimitsTests.BadNestedGlobalFails"],
-        "interaction": ["GlobalLimitsTests.NestedGlobalParityHolds", "GlobalLimitsTests.BadNestedGlobalFails"],
-        "resource": ["GlobalLimitsTests.FlagOverridesTighterHostBudget"],
-        "oracle": ["diff:global"]
+        "positive": [
+          "GlobalLimitsTests.RaisedCapParsesDeepCatalog",
+          "GlobalLimitsTests.NestedGlobalParityHolds"
+        ],
+        "negative": [
+          "GlobalLimitsTests.DefaultNestingRejectsDeepCatalog",
+          "GlobalLimitsTests.BadNestingValuesFail",
+          "GlobalLimitsTests.DuplicateNestingFlagFails",
+          "GlobalLimitsTests.CeilingMessageNamesTheMaximum",
+          "GlobalLimitsTests.BadNestedGlobalFails"
+        ],
+        "interaction": [
+          "GlobalLimitsTests.NestedGlobalParityHolds",
+          "GlobalLimitsTests.BadNestedGlobalFails"
+        ],
+        "resource": [
+          "GlobalLimitsTests.FlagOverridesTighterHostBudget"
+        ],
+        "oracle": [
+          "diff:global"
+        ]
       }
     },
     {
@@ -1728,10 +1809,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.CopyrightIdentifiesImplementation"],
-        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
-        "interaction": ["InvocationTests.CopyrightIdentifiesImplementation"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "InvocationTests.CopyrightIdentifiesImplementation"
+        ],
+        "negative": [
+          "InvocationTests.ValuedIdentityFormsFail"
+        ],
+        "interaction": [
+          "InvocationTests.CopyrightIdentifiesImplementation"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:copyright"
         ]
@@ -1757,10 +1846,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.JobJsonHelpIsIdentityRequest"],
-        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
-        "interaction": ["InvocationTests.JobJsonHelpIsIdentityRequest"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "InvocationTests.JobJsonHelpIsIdentityRequest"
+        ],
+        "negative": [
+          "InvocationTests.ValuedIdentityFormsFail"
+        ],
+        "interaction": [
+          "InvocationTests.JobJsonHelpIsIdentityRequest"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:job-json-help"
         ]
@@ -1794,10 +1891,19 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["JsonInspectionTests.JsonHelpDescribesRequestedVersion"],
-        "negative": ["JsonInspectionTests.JsonHelpRejectsUnknownVersions", "JsonInspectionTests.DeferredOptionsFail"],
-        "interaction": ["JsonInspectionTests.JsonHelpWinsOverJsonOperation"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "JsonInspectionTests.JsonHelpDescribesRequestedVersion"
+        ],
+        "negative": [
+          "JsonInspectionTests.JsonHelpRejectsUnknownVersions",
+          "JsonInspectionTests.DeferredOptionsFail"
+        ],
+        "interaction": [
+          "JsonInspectionTests.JsonHelpWinsOverJsonOperation"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:json-help"
         ]
@@ -1852,10 +1958,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
-        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
-        "interaction": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "InvocationTests.HelpAndVersionAreIdentityRequests"
+        ],
+        "negative": [
+          "InvocationTests.ValuedIdentityFormsFail"
+        ],
+        "interaction": [
+          "InvocationTests.HelpAndVersionAreIdentityRequests"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:version"
         ]
@@ -1993,11 +2107,22 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["CheckTests.ValidDocumentReportsExpectedOutcomes", "CheckTests.ArgvCheckSucceedsWithoutOutput"],
-        "negative": ["CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"],
-        "interaction": ["CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"],
-        "resource": ["CheckTests.CheckFailsOnExhaustedInputBudget"],
-        "oracle": ["diff:linearized"]
+        "positive": [
+          "CheckTests.ValidDocumentReportsExpectedOutcomes",
+          "CheckTests.ArgvCheckSucceedsWithoutOutput"
+        ],
+        "negative": [
+          "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"
+        ],
+        "interaction": [
+          "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"
+        ],
+        "resource": [
+          "CheckTests.CheckFailsOnExhaustedInputBudget"
+        ],
+        "oracle": [
+          "diff:linearized"
+        ]
       }
     },
     {
@@ -2079,7 +2204,9 @@
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
-        "resource": ["ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:coalesce-payloads"
         ]
@@ -2122,9 +2249,16 @@
           "MergeCommandTests.JobCollateRequiresPages",
           "MergeCommandTests.CollateRangesCountMismatchFailsWithoutOutput"
         ],
-        "interaction": ["MergeCommandTests.JobCollateMatchesArgv", "MergeCommandTests.JobCollateRangesMatchArgv"],
-        "resource": ["MergeCommandTests.CollateYieldsToExhaustedBudget"],
-        "oracle": ["diff:collate"]
+        "interaction": [
+          "MergeCommandTests.JobCollateMatchesArgv",
+          "MergeCommandTests.JobCollateRangesMatchArgv"
+        ],
+        "resource": [
+          "MergeCommandTests.CollateYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:collate"
+        ]
       }
     },
     {
@@ -2450,11 +2584,38 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["EmptyInputTests.BareEmptyWritesZeroPageDocument", "EmptyInputTests.MergesFromEmptyBase", "EmptyInputTests.SingleGroupMergesFromEmptyBase", "EmptyInputTests.JobEmptyMatchesArgv", "EmptyInputTests.EmptyShowNpagesReportsZero", "EmptyInputTests.EmptyCheckFailsWithoutPages", "EmptyInputTests.EmptyShowPagesListsNothing", "EmptyInputTests.EmptyShowObjectDumpsCatalog", "EmptyInputTests.EmptyShowXrefListsEntries", "EmptyInputTests.EmptyJsonReportsNoPages", "EmptyInputTests.EmptyListAttachmentsReportsNone", "EmptyInputTests.EmptyCheckLinearizationReportsNotLinearized", "EmptyInputTests.JobEmptyShowNpagesMatchesArgv"],
-        "negative": ["EmptyInputTests.MalformedEmptySelectionsFail", "EmptyInputTests.EmptyWithReplaceInputFails", "EmptyInputTests.EmptyWithOverlayFails", "EmptyInputTests.BadEmptyJobsFail"],
-        "interaction": ["EmptyInputTests.JobEmptyMatchesArgv", "EmptyInputTests.JobEmptyShowNpagesMatchesArgv", "EmptyInputTests.BadEmptyJobsFail"],
-        "resource": ["EmptyInputTests.EmptyMergeYieldsToExhaustedBudget"],
-        "oracle": ["diff:empty"]
+        "positive": [
+          "EmptyInputTests.BareEmptyWritesZeroPageDocument",
+          "EmptyInputTests.MergesFromEmptyBase",
+          "EmptyInputTests.SingleGroupMergesFromEmptyBase",
+          "EmptyInputTests.JobEmptyMatchesArgv",
+          "EmptyInputTests.EmptyShowNpagesReportsZero",
+          "EmptyInputTests.EmptyCheckFailsWithoutPages",
+          "EmptyInputTests.EmptyShowPagesListsNothing",
+          "EmptyInputTests.EmptyShowObjectDumpsCatalog",
+          "EmptyInputTests.EmptyShowXrefListsEntries",
+          "EmptyInputTests.EmptyJsonReportsNoPages",
+          "EmptyInputTests.EmptyListAttachmentsReportsNone",
+          "EmptyInputTests.EmptyCheckLinearizationReportsNotLinearized",
+          "EmptyInputTests.JobEmptyShowNpagesMatchesArgv"
+        ],
+        "negative": [
+          "EmptyInputTests.MalformedEmptySelectionsFail",
+          "EmptyInputTests.EmptyWithReplaceInputFails",
+          "EmptyInputTests.EmptyWithOverlayFails",
+          "EmptyInputTests.BadEmptyJobsFail"
+        ],
+        "interaction": [
+          "EmptyInputTests.JobEmptyMatchesArgv",
+          "EmptyInputTests.JobEmptyShowNpagesMatchesArgv",
+          "EmptyInputTests.BadEmptyJobsFail"
+        ],
+        "resource": [
+          "EmptyInputTests.EmptyMergeYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:empty"
+        ]
       }
     },
     {
@@ -2556,8 +2717,12 @@
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv"
         ],
-        "resource": ["ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"],
-        "oracle": ["diff:inline"]
+        "resource": [
+          "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:inline"
+        ]
       }
     },
     {
@@ -2582,11 +2747,28 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowObjectTests.PublishesFilteredStreamBytes", "ShowObjectTests.FilteredBeatsRaw", "ShowObjectTests.JobStreamDataMatchesArgv"],
-        "negative": ["ShowObjectTests.StreamDataNeedsExactlyOneOutput", "ShowObjectTests.RejectsMalformedStreamForms", "ShowObjectTests.StreamDataRequiresShowObject", "ShowObjectTests.FailsOnUndecodableFiltered", "ShowObjectTests.JobStreamDataRejectsCombinations"],
-        "interaction": ["ShowObjectTests.JobStreamDataMatchesArgv", "ShowObjectTests.JobStreamDataRejectsCombinations"],
-        "resource": ["ShowObjectTests.StreamDataYieldsToExhaustedBudget"],
-        "oracle": ["diff:show-object-stream-data"]
+        "positive": [
+          "ShowObjectTests.PublishesFilteredStreamBytes",
+          "ShowObjectTests.FilteredBeatsRaw",
+          "ShowObjectTests.JobStreamDataMatchesArgv"
+        ],
+        "negative": [
+          "ShowObjectTests.StreamDataNeedsExactlyOneOutput",
+          "ShowObjectTests.RejectsMalformedStreamForms",
+          "ShowObjectTests.StreamDataRequiresShowObject",
+          "ShowObjectTests.FailsOnUndecodableFiltered",
+          "ShowObjectTests.JobStreamDataRejectsCombinations"
+        ],
+        "interaction": [
+          "ShowObjectTests.JobStreamDataMatchesArgv",
+          "ShowObjectTests.JobStreamDataRejectsCombinations"
+        ],
+        "resource": [
+          "ShowObjectTests.StreamDataYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:show-object-stream-data"
+        ]
       }
     },
     {
@@ -2681,7 +2863,9 @@
         "interaction": [
           "FlattenRotationTests.JobRoundTripMatchesArgv"
         ],
-        "resource": ["ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.FlattenRotationYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:flatten-rotation"
         ]
@@ -2773,7 +2957,9 @@
           "GenerateAppearancesTests.WholeFileJobGenerates",
           "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages"
         ],
-        "resource": ["ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:forms",
           "diff:forms-preserve"
@@ -2802,11 +2988,23 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["GlobalLimitsTests.GlobalBlockMatchesBareFlags", "GlobalLimitsTests.GlobalBlockAcceptsNestingLimit"],
-        "negative": ["GlobalLimitsTests.BadGlobalBlocksFail", "GlobalLimitsTests.GlobalBlockRefusesLimitsRemoval"],
-        "interaction": ["GlobalLimitsTests.BadGlobalBlocksFail"],
-        "resource": ["GlobalLimitsTests.GlobalBlockYieldsToExhaustedBudget"],
-        "oracle": ["diff:global"]
+        "positive": [
+          "GlobalLimitsTests.GlobalBlockMatchesBareFlags",
+          "GlobalLimitsTests.GlobalBlockAcceptsNestingLimit"
+        ],
+        "negative": [
+          "GlobalLimitsTests.BadGlobalBlocksFail",
+          "GlobalLimitsTests.GlobalBlockRefusesLimitsRemoval"
+        ],
+        "interaction": [
+          "GlobalLimitsTests.BadGlobalBlocksFail"
+        ],
+        "resource": [
+          "GlobalLimitsTests.GlobalBlockYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:global"
+        ]
       }
     },
     {
@@ -2831,11 +3029,28 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["IgnoreXrefStreamsTests.HybridFallsBackToClassicTable", "IgnoreXrefStreamsTests.DamagedStreamLinkReadsClean", "IgnoreXrefStreamsTests.StreamOnlyFileRecoversWithoutStreams", "IgnoreXrefStreamsTests.ClassicFileIgnoresFlag", "IgnoreXrefStreamsTests.JobParityHolds", "IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"],
-        "negative": ["IgnoreXrefStreamsTests.MalformedFlagsFail", "IgnoreXrefStreamsTests.JobRejectsMalformed"],
-        "interaction": ["IgnoreXrefStreamsTests.JobParityHolds", "IgnoreXrefStreamsTests.JobRejectsMalformed"],
-        "resource": ["IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"],
-        "oracle": ["diff:ignore-xref-streams"]
+        "positive": [
+          "IgnoreXrefStreamsTests.HybridFallsBackToClassicTable",
+          "IgnoreXrefStreamsTests.DamagedStreamLinkReadsClean",
+          "IgnoreXrefStreamsTests.StreamOnlyFileRecoversWithoutStreams",
+          "IgnoreXrefStreamsTests.ClassicFileIgnoresFlag",
+          "IgnoreXrefStreamsTests.JobParityHolds",
+          "IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"
+        ],
+        "negative": [
+          "IgnoreXrefStreamsTests.MalformedFlagsFail",
+          "IgnoreXrefStreamsTests.JobRejectsMalformed"
+        ],
+        "interaction": [
+          "IgnoreXrefStreamsTests.JobParityHolds",
+          "IgnoreXrefStreamsTests.JobRejectsMalformed"
+        ],
+        "resource": [
+          "IgnoreXrefStreamsTests.HostBudgetHonoredWithoutFlag"
+        ],
+        "oracle": [
+          "diff:ignore-xref-streams"
+        ]
       }
     },
     {
@@ -2872,8 +3087,12 @@
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv"
         ],
-        "resource": ["ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"],
-        "oracle": ["diff:inline"]
+        "resource": [
+          "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:inline"
+        ]
       }
     },
     {
@@ -2930,9 +3149,15 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.JobJsonFileMatchesInlineJob"],
-        "negative": ["InvocationTests.JobJsonFileErrorsAreExplicit"],
-        "interaction": ["InvocationTests.JobJsonFileErrorsAreExplicit"],
+        "positive": [
+          "InvocationTests.JobJsonFileMatchesInlineJob"
+        ],
+        "negative": [
+          "InvocationTests.JobJsonFileErrorsAreExplicit"
+        ],
+        "interaction": [
+          "InvocationTests.JobJsonFileErrorsAreExplicit"
+        ],
         "resource": [
           "InvocationTests.JobFileYieldsToExhaustedBudget"
         ],
@@ -2973,8 +3198,12 @@
         "interaction": [
           "ImageOptimizeTests.JobMalformedFails"
         ],
-        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
-        "oracle": ["diff:optimize"]
+        "resource": [
+          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:optimize"
+        ]
       }
     },
     {
@@ -3032,7 +3261,9 @@
           "JsonInspectionTests.PageImagesJobParity",
           "JsonModesTests.JobModesRoundTrip"
         ],
-        "resource": ["ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure",
@@ -3141,7 +3372,9 @@
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "JsonModesTests.JobModesRoundTrip"
         ],
-        "resource": ["ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure",
@@ -3358,10 +3591,21 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput", "OperationFlagsTests.JobKeepOpenMatchesArgv"],
-        "negative": ["OperationFlagsTests.BadKeepOpenFlagsFail", "OperationFlagsTests.BadKeepOpenJobKeysFail"],
-        "interaction": ["OperationFlagsTests.JobKeepOpenMatchesArgv", "OperationFlagsTests.BadKeepOpenJobKeysFail"],
-        "resource": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
+        "positive": [
+          "OperationFlagsTests.KeepOpenHintsDoNotChangeOutput",
+          "OperationFlagsTests.JobKeepOpenMatchesArgv"
+        ],
+        "negative": [
+          "OperationFlagsTests.BadKeepOpenFlagsFail",
+          "OperationFlagsTests.BadKeepOpenJobKeysFail"
+        ],
+        "interaction": [
+          "OperationFlagsTests.JobKeepOpenMatchesArgv",
+          "OperationFlagsTests.BadKeepOpenJobKeysFail"
+        ],
+        "resource": [
+          "OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"
+        ],
         "oracle": [
           "diff:keep-files-open"
         ]
@@ -3389,10 +3633,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
-        "negative": ["OperationFlagsTests.BadKeepOpenFlagsFail"],
-        "interaction": ["OperationFlagsTests.JobKeepOpenMatchesArgv"],
-        "resource": ["OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"],
+        "positive": [
+          "OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"
+        ],
+        "negative": [
+          "OperationFlagsTests.BadKeepOpenFlagsFail"
+        ],
+        "interaction": [
+          "OperationFlagsTests.JobKeepOpenMatchesArgv"
+        ],
+        "resource": [
+          "OperationFlagsTests.KeepOpenHintsDoNotChangeOutput"
+        ],
         "oracle": [
           "diff:keep-files-open"
         ]
@@ -3423,13 +3675,19 @@
         "positive": [
           "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone"
         ],
-        "negative": ["ImageOptimizeTests.InvalidValuesFail"],
+        "negative": [
+          "ImageOptimizeTests.InvalidValuesFail"
+        ],
         "interaction": [
           "ImageOptimizeTests.DuplicateFlagsFail",
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
-        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
-        "oracle": ["diff:optimize"]
+        "resource": [
+          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:optimize"
+        ]
       }
     },
     {
@@ -3478,7 +3736,9 @@
           "LinearizedWriterTests.JobParityMatchesArgvBytes",
           "LinearizedWriterTests.QdfSilentlyDisabled"
         ],
-        "resource": ["ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.LinearizeYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:linearize",
           "diff:linearize-streams"
@@ -3716,11 +3976,22 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.NoWarnSuppressesWarnings", "InvocationTests.JobNoWarnMatchesArgv"],
-        "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
-        "interaction": ["InvocationTests.NoWarnSuppressesWarnings"],
-        "resource": ["InvocationTests.WarningFlagsYieldToExhaustedBudget"],
-        "oracle": ["diff:warnings"]
+        "positive": [
+          "InvocationTests.NoWarnSuppressesWarnings",
+          "InvocationTests.JobNoWarnMatchesArgv"
+        ],
+        "negative": [
+          "InvocationTests.WarningFlagsRejectDuplicates"
+        ],
+        "interaction": [
+          "InvocationTests.NoWarnSuppressesWarnings"
+        ],
+        "resource": [
+          "InvocationTests.WarningFlagsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:warnings"
+        ]
       }
     },
     {
@@ -3762,7 +4033,9 @@
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip"
         ],
-        "resource": ["ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:normalize-payloads"
         ]
@@ -3858,8 +4131,12 @@
         "interaction": [
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
-        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
-        "oracle": ["diff:optimize"]
+        "resource": [
+          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:optimize"
+        ]
       }
     },
     {
@@ -3893,8 +4170,12 @@
         "interaction": [
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
-        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
-        "oracle": ["diff:optimize"]
+        "resource": [
+          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:optimize"
+        ]
       }
     },
     {
@@ -3931,8 +4212,12 @@
           "ImageOptimizeTests.JobMalformedFails",
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
-        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
-        "oracle": ["diff:optimize"]
+        "resource": [
+          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:optimize"
+        ]
       }
     },
     {
@@ -4031,7 +4316,9 @@
           "OverlayTests.JobRoundTripMatchesArgv",
           "OverlayTests.JobFromRangeMatchesArgv"
         ],
-        "resource": ["ResourceEnforcementTests.OverlayYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:overlay",
           "diff:overlay-ranges"
@@ -4060,11 +4347,36 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["PageSelectionTests.OrderedSelectionPreservesOrderAndDuplicates", "AdapterTests.ArgvNamedFormsSucceed", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
-        "negative": ["AdapterTests.ArgvRangeErrorsFail", "MergeCommandTests.ArgvMergeErrorsAreExplicit"],
-        "interaction": ["MergeCommandTests.ArgvMultiFileMergesInOrder", "MergeCommandTests.JobMultiEntryMergesInOrder"],
-        "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
-        "oracle": ["diff:select", "diff:merge", "diff:select-first", "diff:errors"]
+        "positive": [
+          "PageSelectionTests.OrderedSelectionPreservesOrderAndDuplicates",
+          "AdapterTests.ArgvNamedFormsSucceed",
+          "MergeCommandTests.ArgvMultiFileMergesInOrder",
+          "CatalogPreservationTests.ArgvSelectionPreservesOutlinesForOrdinary",
+          "CatalogPreservationTests.JobSelectionPreservesOutlinesForOrdinary",
+          "CatalogPreservationTests.ArgvSelectionPreservesStructureForOrdinary",
+          "CatalogPreservationTests.JobSelectionPreservesStructureForOrdinary",
+          "AcroFormPreservationTests.ArgvSelectionPreservesParentAndDefaultResources",
+          "AcroFormPreservationTests.JobSelectionPreservesParentAndDefaultResources"
+        ],
+        "negative": [
+          "AdapterTests.ArgvRangeErrorsFail",
+          "MergeCommandTests.ArgvMergeErrorsAreExplicit"
+        ],
+        "interaction": [
+          "MergeCommandTests.ArgvMultiFileMergesInOrder",
+          "MergeCommandTests.JobMultiEntryMergesInOrder"
+        ],
+        "resource": [
+          "MergeCommandTests.MergeFailsOnExhaustedWorkBudget"
+        ],
+        "oracle": [
+          "diff:select",
+          "diff:merge",
+          "diff:select-first",
+          "diff:errors",
+          "diff:outlines-preserve",
+          "diff:structure-preserve"
+        ]
       }
     },
     {
@@ -4244,8 +4556,12 @@
           "PreserveUnreferencedTests.PreserveSkipsUnpreservableWithWarning",
           "PreserveUnreferencedTests.JobJsonParityHolds"
         ],
-        "resource": ["PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget"],
-        "oracle": ["diff:preserve-unreferenced"]
+        "resource": [
+          "PreserveUnreferencedTests.PreserveFailsOnExhaustedWorkBudget"
+        ],
+        "oracle": [
+          "diff:preserve-unreferenced"
+        ]
       }
     },
     {
@@ -4311,11 +4627,24 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ProgressTests.ProgressReportsWriteMilestonesWithIdenticalBytes", "ProgressTests.JobProgressMatchesArgv"],
-        "negative": ["ProgressTests.BadProgressFlagsFail", "ProgressTests.BadProgressJobKeysFail", "ProgressTests.ProgressStaysSilentWithoutAnOutputFile"],
-        "interaction": ["ProgressTests.ProgressCombinesWithVerboseWithoutChangingBytes"],
-        "resource": ["ProgressTests.ProgressYieldsToExhaustedBudget"],
-        "oracle": ["diff:diagnostics"]
+        "positive": [
+          "ProgressTests.ProgressReportsWriteMilestonesWithIdenticalBytes",
+          "ProgressTests.JobProgressMatchesArgv"
+        ],
+        "negative": [
+          "ProgressTests.BadProgressFlagsFail",
+          "ProgressTests.BadProgressJobKeysFail",
+          "ProgressTests.ProgressStaysSilentWithoutAnOutputFile"
+        ],
+        "interaction": [
+          "ProgressTests.ProgressCombinesWithVerboseWithoutChangingBytes"
+        ],
+        "resource": [
+          "ProgressTests.ProgressYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:diagnostics"
+        ]
       }
     },
     {
@@ -4359,7 +4688,9 @@
           "QdfTests.NormalizeWinsOverDecodeNone",
           "QdfTests.NormalizeExplicitNoKeepsNewlines"
         ],
-        "resource": ["ResourceEnforcementTests.QdfYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.QdfYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:qdf-markers"
         ]
@@ -4387,11 +4718,28 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowObjectTests.PublishesRawStreamBytes", "ShowObjectTests.IgnoresStreamFlagsForTrailer", "ShowObjectTests.IgnoresStreamFlagsForMissingObject", "ShowObjectTests.JobStreamDataMatchesArgv"],
-        "negative": ["ShowObjectTests.StreamDataNeedsExactlyOneOutput", "ShowObjectTests.RejectsMalformedStreamForms", "ShowObjectTests.StreamDataRequiresShowObject", "ShowObjectTests.JobStreamDataRejectsCombinations"],
-        "interaction": ["ShowObjectTests.JobStreamDataMatchesArgv", "ShowObjectTests.JobStreamDataRejectsCombinations"],
-        "resource": ["ShowObjectTests.StreamDataYieldsToExhaustedBudget"],
-        "oracle": ["diff:show-object-stream-data"]
+        "positive": [
+          "ShowObjectTests.PublishesRawStreamBytes",
+          "ShowObjectTests.IgnoresStreamFlagsForTrailer",
+          "ShowObjectTests.IgnoresStreamFlagsForMissingObject",
+          "ShowObjectTests.JobStreamDataMatchesArgv"
+        ],
+        "negative": [
+          "ShowObjectTests.StreamDataNeedsExactlyOneOutput",
+          "ShowObjectTests.RejectsMalformedStreamForms",
+          "ShowObjectTests.StreamDataRequiresShowObject",
+          "ShowObjectTests.JobStreamDataRejectsCombinations"
+        ],
+        "interaction": [
+          "ShowObjectTests.JobStreamDataMatchesArgv",
+          "ShowObjectTests.JobStreamDataRejectsCombinations"
+        ],
+        "resource": [
+          "ShowObjectTests.StreamDataYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:show-object-stream-data"
+        ]
       }
     },
     {
@@ -4456,11 +4804,28 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["RemoveAcroformTests.FlagDropsFormDictionary", "RemoveAcroformTests.OutputsPreserveFormDictionaryByDefault", "RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.JobRemoveAcroformMatchesArgv", "AcroFormPreservationTests.RemoveAcroformDropsPreservedFormButKeepsWidgets"],
-        "negative": ["RemoveAcroformTests.MalformedFlagsFail", "RemoveAcroformTests.JobRemoveAcroformRejectsMalformed"],
-        "interaction": ["RemoveAcroformTests.MergeDropsFormDictionary", "RemoveAcroformTests.IgnoredWithCheck"],
-        "resource": ["RemoveAcroformTests.FlagYieldsToExhaustedBudget"],
-        "oracle": ["diff:remove-acroform", "diff:forms-preserve"]
+        "positive": [
+          "RemoveAcroformTests.FlagDropsFormDictionary",
+          "RemoveAcroformTests.OutputsPreserveFormDictionaryByDefault",
+          "RemoveAcroformTests.MergeDropsFormDictionary",
+          "RemoveAcroformTests.JobRemoveAcroformMatchesArgv",
+          "AcroFormPreservationTests.RemoveAcroformDropsPreservedFormButKeepsWidgets"
+        ],
+        "negative": [
+          "RemoveAcroformTests.MalformedFlagsFail",
+          "RemoveAcroformTests.JobRemoveAcroformRejectsMalformed"
+        ],
+        "interaction": [
+          "RemoveAcroformTests.MergeDropsFormDictionary",
+          "RemoveAcroformTests.IgnoredWithCheck"
+        ],
+        "resource": [
+          "RemoveAcroformTests.FlagYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:remove-acroform",
+          "diff:forms-preserve"
+        ]
       }
     },
     {
@@ -4683,11 +5048,26 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["RemoveStructureTests.FlagDropsStructureTree", "RemoveStructureTests.OutputsOmitStructureTreeByDefault", "RemoveStructureTests.MergeDropsStructureTree", "RemoveStructureTests.JobRemoveStructureMatchesArgv"],
-        "negative": ["RemoveStructureTests.MalformedFlagsFail", "RemoveStructureTests.JobRemoveStructureRejectsMalformed"],
-        "interaction": ["RemoveStructureTests.MergeDropsStructureTree", "RemoveStructureTests.IgnoredWithCheck"],
-        "resource": ["RemoveStructureTests.FlagYieldsToExhaustedBudget"],
-        "oracle": ["diff:remove-structure"]
+        "positive": [
+          "RemoveStructureTests.FlagDropsStructureTree",
+          "RemoveStructureTests.OutputsOmitStructureTreeByDefault",
+          "RemoveStructureTests.MergeDropsStructureTree",
+          "RemoveStructureTests.JobRemoveStructureMatchesArgv"
+        ],
+        "negative": [
+          "RemoveStructureTests.MalformedFlagsFail",
+          "RemoveStructureTests.JobRemoveStructureRejectsMalformed"
+        ],
+        "interaction": [
+          "RemoveStructureTests.MergeDropsStructureTree",
+          "RemoveStructureTests.IgnoredWithCheck"
+        ],
+        "resource": [
+          "RemoveStructureTests.FlagYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:remove-structure"
+        ]
       }
     },
     {
@@ -4739,7 +5119,9 @@
           "ContentTransformsTests.JobContentFlagsMalformedFail",
           "ContentTransformsTests.PruneAppliesOnMerge"
         ],
-        "resource": ["ResourceEnforcementTests.PruneYieldsToExhaustedBudget"],
+        "resource": [
+          "ResourceEnforcementTests.PruneYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:prune-resources"
         ]
@@ -4777,9 +5159,15 @@
           "SplitReplaceTests.ReplaceRejectsOutputAndSplitAndMultiInput",
           "SplitReplaceTests.JobReplaceRejectsMalformed"
         ],
-        "interaction": ["SplitReplaceTests.JobReplaceRotatesInPlace"],
-        "resource": ["SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"],
-        "oracle": ["diff:replace"]
+        "interaction": [
+          "SplitReplaceTests.JobReplaceRotatesInPlace"
+        ],
+        "resource": [
+          "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"
+        ],
+        "oracle": [
+          "diff:replace"
+        ]
       }
     },
     {
@@ -4804,11 +5192,24 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["TestingOptionsTests.ReportsPeakOnCheck", "TestingOptionsTests.ReportsPeakOnMerge", "TestingOptionsTests.ReportsPeakOnShowNpages", "TestingOptionsTests.JobMemoryKeyMatchesArgv"],
-        "negative": ["TestingOptionsTests.MalformedTestingFlagsFail"],
-        "interaction": ["TestingOptionsTests.JobMemoryKeyMatchesArgv"],
-        "resource": ["TestingOptionsTests.MemoryReportYieldsToExhaustedBudget"],
-        "oracle": ["diff:diagnostics"]
+        "positive": [
+          "TestingOptionsTests.ReportsPeakOnCheck",
+          "TestingOptionsTests.ReportsPeakOnMerge",
+          "TestingOptionsTests.ReportsPeakOnShowNpages",
+          "TestingOptionsTests.JobMemoryKeyMatchesArgv"
+        ],
+        "negative": [
+          "TestingOptionsTests.MalformedTestingFlagsFail"
+        ],
+        "interaction": [
+          "TestingOptionsTests.JobMemoryKeyMatchesArgv"
+        ],
+        "resource": [
+          "TestingOptionsTests.MemoryReportYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:diagnostics"
+        ]
       }
     },
     {
@@ -4891,8 +5292,12 @@
           "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
           "RotationTests.JobRotateRangeMatchesArgv"
         ],
-        "resource": ["ResourceEnforcementTests.RotateYieldsToExhaustedBudget"],
-        "oracle": ["diff:rotate-ranges"]
+        "resource": [
+          "ResourceEnforcementTests.RotateYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:rotate-ranges"
+        ]
       }
     },
     {
@@ -5116,11 +5521,22 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowNpagesTests.ReportsPageCounts", "ShowNpagesTests.JobShowNpagesMatchesArgv"],
-        "negative": ["ShowNpagesTests.RejectsCombinationsAndValuedForm"],
-        "interaction": ["ShowNpagesTests.JobShowNpagesMatchesArgv"],
-        "resource": ["ShowNpagesTests.FailsOnExhaustedInputBudget"],
-        "oracle": ["diff:show-npages"]
+        "positive": [
+          "ShowNpagesTests.ReportsPageCounts",
+          "ShowNpagesTests.JobShowNpagesMatchesArgv"
+        ],
+        "negative": [
+          "ShowNpagesTests.RejectsCombinationsAndValuedForm"
+        ],
+        "interaction": [
+          "ShowNpagesTests.JobShowNpagesMatchesArgv"
+        ],
+        "resource": [
+          "ShowNpagesTests.FailsOnExhaustedInputBudget"
+        ],
+        "oracle": [
+          "diff:show-npages"
+        ]
       }
     },
     {
@@ -5145,11 +5561,28 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowObjectTests.ReportsDictionaryDefinition", "ShowObjectTests.ReportsStreamDictionary", "ShowObjectTests.ReportsTrailer", "ShowObjectTests.ReportsNullForMissingObject", "ShowObjectTests.ReportsCompressedMember", "ShowObjectTests.JobShowObjectMatchesArgv"],
-        "negative": ["ShowObjectTests.RejectsMalformedAndCombinedForms", "ShowObjectTests.RejectsNonZeroGeneration", "ShowObjectTests.JobShowObjectRejectsCombinations"],
-        "interaction": ["ShowObjectTests.JobShowObjectMatchesArgv"],
-        "resource": ["ShowObjectTests.FailsOnExhaustedInputBudget"],
-        "oracle": ["diff:show-object"]
+        "positive": [
+          "ShowObjectTests.ReportsDictionaryDefinition",
+          "ShowObjectTests.ReportsStreamDictionary",
+          "ShowObjectTests.ReportsTrailer",
+          "ShowObjectTests.ReportsNullForMissingObject",
+          "ShowObjectTests.ReportsCompressedMember",
+          "ShowObjectTests.JobShowObjectMatchesArgv"
+        ],
+        "negative": [
+          "ShowObjectTests.RejectsMalformedAndCombinedForms",
+          "ShowObjectTests.RejectsNonZeroGeneration",
+          "ShowObjectTests.JobShowObjectRejectsCombinations"
+        ],
+        "interaction": [
+          "ShowObjectTests.JobShowObjectMatchesArgv"
+        ],
+        "resource": [
+          "ShowObjectTests.FailsOnExhaustedInputBudget"
+        ],
+        "oracle": [
+          "diff:show-object"
+        ]
       }
     },
     {
@@ -5174,11 +5607,23 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowPagesTests.ReportsTwoPageDictionaries", "ShowPagesTests.ReportsSinglePageDictionary", "ShowPagesTests.JobShowPagesMatchesArgv"],
-        "negative": ["ShowPagesTests.RejectsCombinationsAndValuedForm"],
-        "interaction": ["ShowPagesTests.JobShowPagesMatchesArgv"],
-        "resource": ["ShowPagesTests.FailsOnExhaustedInputBudget"],
-        "oracle": ["diff:show-pages"]
+        "positive": [
+          "ShowPagesTests.ReportsTwoPageDictionaries",
+          "ShowPagesTests.ReportsSinglePageDictionary",
+          "ShowPagesTests.JobShowPagesMatchesArgv"
+        ],
+        "negative": [
+          "ShowPagesTests.RejectsCombinationsAndValuedForm"
+        ],
+        "interaction": [
+          "ShowPagesTests.JobShowPagesMatchesArgv"
+        ],
+        "resource": [
+          "ShowPagesTests.FailsOnExhaustedInputBudget"
+        ],
+        "oracle": [
+          "diff:show-pages"
+        ]
       }
     },
     {
@@ -5203,11 +5648,23 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowXrefTests.ReportsClassicEntries", "ShowXrefTests.ReportsCompressedEntries", "ShowXrefTests.JobShowXrefMatchesArgv"],
-        "negative": ["ShowXrefTests.RejectsCombinationsAndValuedForm"],
-        "interaction": ["ShowXrefTests.JobShowXrefMatchesArgv"],
-        "resource": ["ShowXrefTests.FailsOnExhaustedInputBudget"],
-        "oracle": ["diff:show-xref"]
+        "positive": [
+          "ShowXrefTests.ReportsClassicEntries",
+          "ShowXrefTests.ReportsCompressedEntries",
+          "ShowXrefTests.JobShowXrefMatchesArgv"
+        ],
+        "negative": [
+          "ShowXrefTests.RejectsCombinationsAndValuedForm"
+        ],
+        "interaction": [
+          "ShowXrefTests.JobShowXrefMatchesArgv"
+        ],
+        "resource": [
+          "ShowXrefTests.FailsOnExhaustedInputBudget"
+        ],
+        "oracle": [
+          "diff:show-xref"
+        ]
       }
     },
     {
@@ -5252,8 +5709,12 @@
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
           "SplitReplaceTests.JobSplitMatchesArgv"
         ],
-        "resource": ["ResourceEnforcementTests.SplitYieldsToExhaustedBudget"],
-        "oracle": ["diff:split"]
+        "resource": [
+          "ResourceEnforcementTests.SplitYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:split"
+        ]
       }
     },
     {
@@ -5434,9 +5895,16 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["RecoveryTests.SuppressRecoveryFailsLikeStrict", "InvocationTests.JobSuppressRecoveryFailsLikeStrict"],
-        "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
-        "interaction": ["RecoveryTests.SuppressRecoveryFailsLikeStrict"],
+        "positive": [
+          "RecoveryTests.SuppressRecoveryFailsLikeStrict",
+          "InvocationTests.JobSuppressRecoveryFailsLikeStrict"
+        ],
+        "negative": [
+          "InvocationTests.WarningFlagsRejectDuplicates"
+        ],
+        "interaction": [
+          "RecoveryTests.SuppressRecoveryFailsLikeStrict"
+        ],
         "resource": [
           "RecoveryTests.SuppressRecoveryFailsWithoutOutputUnderBudget",
           "RecoveryTests.RecoveredOutputYieldsToExhaustedBudget"
@@ -5468,11 +5936,25 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["TestingOptionsTests.SchemaCheckValidatesVersions", "TestingOptionsTests.JobSchemaKeyMatchesArgv"],
-        "negative": ["TestingOptionsTests.MalformedTestingFlagsFail", "TestingOptionsTests.SchemaCheckWithoutJsonFails", "TestingOptionsTests.BadTestingJobKeysFail"],
-        "interaction": ["TestingOptionsTests.JobSchemaKeyMatchesArgv", "TestingOptionsTests.BadTestingJobKeysFail"],
-        "resource": ["TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget"],
-        "oracle": ["diff:diagnostics"]
+        "positive": [
+          "TestingOptionsTests.SchemaCheckValidatesVersions",
+          "TestingOptionsTests.JobSchemaKeyMatchesArgv"
+        ],
+        "negative": [
+          "TestingOptionsTests.MalformedTestingFlagsFail",
+          "TestingOptionsTests.SchemaCheckWithoutJsonFails",
+          "TestingOptionsTests.BadTestingJobKeysFail"
+        ],
+        "interaction": [
+          "TestingOptionsTests.JobSchemaKeyMatchesArgv",
+          "TestingOptionsTests.BadTestingJobKeysFail"
+        ],
+        "resource": [
+          "TestingOptionsTests.SchemaCheckYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:diagnostics"
+        ]
       }
     },
     {
@@ -5511,8 +5993,12 @@
         "interaction": [
           "OverlayTests.WholeFileJobOverlay"
         ],
-        "resource": ["ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget"],
-        "oracle": ["diff:overlay-ranges"]
+        "resource": [
+          "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:overlay-ranges"
+        ]
       }
     },
     {
@@ -5587,11 +6073,26 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["OperationFlagsTests.VerboseSummarizesCheck", "OperationFlagsTests.VerboseSummarizesMerge", "OperationFlagsTests.VerboseSummarizesShowNpages", "OperationFlagsTests.JobVerboseMatchesArgv"],
-        "negative": ["OperationFlagsTests.BadVerboseFlagsFail", "OperationFlagsTests.BadVerboseJobKeysFail"],
-        "interaction": ["OperationFlagsTests.JobVerboseMatchesArgv", "OperationFlagsTests.BadVerboseJobKeysFail"],
-        "resource": ["OperationFlagsTests.VerboseYieldsToExhaustedBudget"],
-        "oracle": ["diff:diagnostics"]
+        "positive": [
+          "OperationFlagsTests.VerboseSummarizesCheck",
+          "OperationFlagsTests.VerboseSummarizesMerge",
+          "OperationFlagsTests.VerboseSummarizesShowNpages",
+          "OperationFlagsTests.JobVerboseMatchesArgv"
+        ],
+        "negative": [
+          "OperationFlagsTests.BadVerboseFlagsFail",
+          "OperationFlagsTests.BadVerboseJobKeysFail"
+        ],
+        "interaction": [
+          "OperationFlagsTests.JobVerboseMatchesArgv",
+          "OperationFlagsTests.BadVerboseJobKeysFail"
+        ],
+        "resource": [
+          "OperationFlagsTests.VerboseYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:diagnostics"
+        ]
       }
     },
     {
@@ -5616,11 +6117,22 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.WarningExitZeroMapsWarningsToSuccess", "InvocationTests.JobWarningExitZeroMatchesArgv"],
-        "negative": ["InvocationTests.WarningFlagsRejectDuplicates"],
-        "interaction": ["InvocationTests.WarningExitZeroMapsWarningsToSuccess"],
-        "resource": ["InvocationTests.WarningFlagsYieldToExhaustedBudget"],
-        "oracle": ["diff:warnings"]
+        "positive": [
+          "InvocationTests.WarningExitZeroMapsWarningsToSuccess",
+          "InvocationTests.JobWarningExitZeroMatchesArgv"
+        ],
+        "negative": [
+          "InvocationTests.WarningFlagsRejectDuplicates"
+        ],
+        "interaction": [
+          "InvocationTests.WarningExitZeroMapsWarningsToSuccess"
+        ],
+        "resource": [
+          "InvocationTests.WarningFlagsYieldToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:warnings"
+        ]
       }
     },
     {
@@ -5645,11 +6157,26 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["ShowPagesTests.ListsDirectImagesSortedSkippingForms", "ShowPagesTests.OmitsImagesSectionWithoutImages", "ShowPagesTests.WarnsOnMissingDimensions", "ShowPagesTests.JobWithImagesMatchesArgv"],
-        "negative": ["ShowPagesTests.RejectsImagesWithoutShowPages", "ShowPagesTests.JobWithImagesRejectsCombinations"],
-        "interaction": ["ShowPagesTests.JobWithImagesMatchesArgv", "ShowPagesTests.JobWithImagesRejectsCombinations"],
-        "resource": ["ShowPagesTests.WithImagesYieldsToExhaustedBudget"],
-        "oracle": ["diff:show-pages-with-images"]
+        "positive": [
+          "ShowPagesTests.ListsDirectImagesSortedSkippingForms",
+          "ShowPagesTests.OmitsImagesSectionWithoutImages",
+          "ShowPagesTests.WarnsOnMissingDimensions",
+          "ShowPagesTests.JobWithImagesMatchesArgv"
+        ],
+        "negative": [
+          "ShowPagesTests.RejectsImagesWithoutShowPages",
+          "ShowPagesTests.JobWithImagesRejectsCombinations"
+        ],
+        "interaction": [
+          "ShowPagesTests.JobWithImagesMatchesArgv",
+          "ShowPagesTests.JobWithImagesRejectsCombinations"
+        ],
+        "resource": [
+          "ShowPagesTests.WithImagesYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:show-pages-with-images"
+        ]
       }
     },
     {
@@ -5674,11 +6201,22 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["AdapterTests.ArgvNamedFormsSucceed", "MergeCommandTests.ArgvMultiFileMergesInOrder"],
-        "negative": ["MergeCommandTests.ArgvMergeErrorsAreExplicit"],
-        "interaction": ["MergeCommandTests.ArgvMultiFileMergesInOrder"],
-        "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
-        "oracle": ["diff:merge"]
+        "positive": [
+          "AdapterTests.ArgvNamedFormsSucceed",
+          "MergeCommandTests.ArgvMultiFileMergesInOrder"
+        ],
+        "negative": [
+          "MergeCommandTests.ArgvMergeErrorsAreExplicit"
+        ],
+        "interaction": [
+          "MergeCommandTests.ArgvMultiFileMergesInOrder"
+        ],
+        "resource": [
+          "MergeCommandTests.MergeFailsOnExhaustedWorkBudget"
+        ],
+        "oracle": [
+          "diff:merge"
+        ]
       }
     },
     {
@@ -5735,11 +6273,21 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["AdapterTests.ArgvNamedFormsSucceed"],
-        "negative": ["AdapterTests.ArgvRangeErrorsFail"],
-        "interaction": ["AdapterTests.ArgvNamedFormsSucceed"],
-        "resource": ["MergeCommandTests.MergeFailsOnExhaustedWorkBudget"],
-        "oracle": ["diff:merge"]
+        "positive": [
+          "AdapterTests.ArgvNamedFormsSucceed"
+        ],
+        "negative": [
+          "AdapterTests.ArgvRangeErrorsFail"
+        ],
+        "interaction": [
+          "AdapterTests.ArgvNamedFormsSucceed"
+        ],
+        "resource": [
+          "MergeCommandTests.MergeFailsOnExhaustedWorkBudget"
+        ],
+        "oracle": [
+          "diff:merge"
+        ]
       }
     },
     {
@@ -5762,10 +6310,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
-        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
-        "interaction": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "InvocationTests.CompletionScriptsAreIdentityRequests"
+        ],
+        "negative": [
+          "InvocationTests.ValuedIdentityFormsFail"
+        ],
+        "interaction": [
+          "InvocationTests.CompletionScriptsAreIdentityRequests"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:completion-bash"
         ]
@@ -5791,10 +6347,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
-        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
-        "interaction": ["InvocationTests.CompletionScriptsAreIdentityRequests"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "InvocationTests.CompletionScriptsAreIdentityRequests"
+        ],
+        "negative": [
+          "InvocationTests.ValuedIdentityFormsFail"
+        ],
+        "interaction": [
+          "InvocationTests.CompletionScriptsAreIdentityRequests"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:completion-zsh"
         ]
@@ -5820,10 +6384,18 @@
       "defaultReview": "pending",
       "remainingGaps": [],
       "evidence": {
-        "positive": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
-        "negative": ["InvocationTests.ValuedIdentityFormsFail"],
-        "interaction": ["InvocationTests.HelpAndVersionAreIdentityRequests"],
-        "resource": ["InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"],
+        "positive": [
+          "InvocationTests.HelpAndVersionAreIdentityRequests"
+        ],
+        "negative": [
+          "InvocationTests.ValuedIdentityFormsFail"
+        ],
+        "interaction": [
+          "InvocationTests.HelpAndVersionAreIdentityRequests"
+        ],
+        "resource": [
+          "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
+        ],
         "oracle": [
           "diff:help"
         ]
@@ -5911,7 +6483,9 @@
           "OverlayTests.JobFromRangeMatchesArgv"
         ],
         "resource": [],
-        "oracle": ["diff:overlay-ranges"]
+        "oracle": [
+          "diff:overlay-ranges"
+        ]
       }
     },
     {
@@ -5983,7 +6557,9 @@
         ],
         "interaction": [],
         "resource": [],
-        "oracle": ["diff:overlay-ranges"]
+        "oracle": [
+          "diff:overlay-ranges"
+        ]
       }
     },
     {
@@ -6022,7 +6598,9 @@
         ],
         "interaction": [],
         "resource": [],
-        "oracle": ["diff:overlay-ranges"]
+        "oracle": [
+          "diff:overlay-ranges"
+        ]
       }
     }
   ]
