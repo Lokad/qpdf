@@ -175,4 +175,72 @@ public sealed class SplitReplaceTests
         Assert.True(split.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] actual));
         Assert.Equal(expected, actual);
     }
+    [Fact]
+    public async Task JobReplaceMatchesArgv()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            argvHost,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "2", "--replace-input"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "2"}], "replaceInput": true}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+        jobHost.AddInput(QpdfPath.From("inputs/reread.pdf"), b, QpdfInputOwnership.Copy);
+        await using QpdfDocument output = await QpdfDocument.OpenAsync(jobHost, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        Assert.Equal(1, output.PageCount);
+    }
+
+    [Fact]
+    public async Task JobReplaceRotatesInPlace()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(
+            host,
+            """{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "2"}], "replaceInput": true, "rotate": ["+90"]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] published));
+        host.AddInput(QpdfPath.From("inputs/reread.pdf"), published, QpdfInputOwnership.Copy);
+        await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        Assert.Equal(1, output.PageCount);
+        Assert.True(output.PageReferences[0].Page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject _));
+    }
+
+    [Theory]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": "yes"}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true, "replaceInput": true}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "replaceInput": true}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true, "empty": true}""")]
+    public async Task JobReplaceRejectsMalformed(string jobJson)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task ReplaceYieldsToExhaustedBudgetLeavingInputUntouched()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--replace-input"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] _));
+        await using QpdfDocument input = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
+        Assert.Equal(2, input.PageCount);
+    }
 }

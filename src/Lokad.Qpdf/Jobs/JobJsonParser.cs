@@ -61,6 +61,8 @@ internal static class JobJsonParser
             bool seenOutput = false;
             bool seenPages = false;
             string? output = null;
+            bool replaceInput = false;
+            bool seenReplaceInput = false;
             JsonElement pages = default;
             bool hasPages = false;
             List<OutputRotation> rotations = new();
@@ -245,6 +247,15 @@ internal static class JobJsonParser
 
                         seenOutput = true;
                         output = RequireString(property.Value, "outputFile");
+                        break;
+                    case "replaceInput":
+                        if (seenReplaceInput)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'replaceInput'.", 0L, null);
+                        }
+
+                        seenReplaceInput = true;
+                        replaceInput = RequireBareFlag(property.Value, "replaceInput");
                         break;
                     case "pages":
                         if (seenPages)
@@ -1266,7 +1277,24 @@ internal static class JobJsonParser
                 };
             }
 
-            if (output is null)
+            if (replaceInput)
+            {
+                if (output is not null)
+                {
+                    throw new QpdfParseException("Job \"replaceInput\" cannot be combined with \"outputFile\".", 0L, null);
+                }
+
+                if (!hasPages)
+                {
+                    throw new QpdfParseException("Job \"replaceInput\" requires \"pages\".", 0L, null);
+                }
+
+                if (empty)
+                {
+                    throw new QpdfParseException("Job \"replaceInput\" cannot be combined with \"empty\".", 0L, null);
+                }
+            }
+            else if (output is null)
             {
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
@@ -1542,8 +1570,9 @@ internal static class JobJsonParser
             {
                 string resolved = ResolveFile(entries[0].File, input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
-                return new SelectionPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), page, recovery) with
+                return new SelectionPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output ?? input), page, recovery) with
                 {
+                    ReplaceInput = replaceInput,
                     Rotations = rotations,
                     Labels = labels,
                     WarningExitZero = warningExit0,
@@ -1605,9 +1634,10 @@ internal static class JobJsonParser
             }
 
             string primary = input ?? entries[0].File;
-            return new MergePlan(SelectionPlan.CheckedPath(primary), SelectionPlan.CheckedPath(output), sources, null, recovery) with
+            return new MergePlan(SelectionPlan.CheckedPath(primary), SelectionPlan.CheckedPath(output ?? primary), sources, null, recovery) with
             {
                 EmptyInput = empty,
+                ReplaceInput = replaceInput,
                 Rotations = rotations,
                 Labels = labels,
                 MinVersion = minVersion,
