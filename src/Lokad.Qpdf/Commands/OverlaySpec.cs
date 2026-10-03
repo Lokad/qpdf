@@ -13,12 +13,7 @@ internal static class OverlayRanges
 
         if (text.Length == 0)
         {
-            if (role == "--from")
-            {
-                return;
-            }
-
-            throw new QpdfParseException("Option " + role + " requires a non-empty page range.", index, null);
+            return;
         }
 
         try

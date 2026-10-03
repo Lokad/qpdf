@@ -3267,7 +3267,12 @@ internal static class ArgvParser
                 throw new QpdfParseException("Null argument.", cursor, null);
             }
 
-            if (token == "--file" || token.StartsWith("--file=", StringComparison.Ordinal))
+            if (token == "--file")
+            {
+                throw new QpdfParseException("Option --file requires =file.", cursor, null);
+            }
+
+            if (token.StartsWith("--file=", StringComparison.Ordinal))
             {
                 if (seenFile)
                 {
@@ -3279,7 +3284,12 @@ internal static class ArgvParser
                 continue;
             }
 
-            if (token == "--to" || token.StartsWith("--to=", StringComparison.Ordinal))
+            if (token == "--to")
+            {
+                throw new QpdfParseException("Option --to requires =range.", cursor, null);
+            }
+
+            if (token.StartsWith("--to=", StringComparison.Ordinal))
             {
                 if (seenTo)
                 {
@@ -3287,12 +3297,17 @@ internal static class ArgvParser
                 }
 
                 seenTo = true;
-                to = TakeParameter(argv, argv.Count, ref cursor, "--to");
+                to = TakeOverlayRange(argv, ref cursor);
                 OverlayRanges.ValidateSyntax(to, "--to", cursor);
                 continue;
             }
 
-            if (token == "--from" || token.StartsWith("--from=", StringComparison.Ordinal))
+            if (token == "--from")
+            {
+                throw new QpdfParseException("Option --from requires =range.", cursor, null);
+            }
+
+            if (token.StartsWith("--from=", StringComparison.Ordinal))
             {
                 if (seenFrom)
                 {
@@ -3305,7 +3320,12 @@ internal static class ArgvParser
                 continue;
             }
 
-            if (token == "--repeat" || token.StartsWith("--repeat=", StringComparison.Ordinal))
+            if (token == "--repeat")
+            {
+                throw new QpdfParseException("Option --repeat requires =range.", cursor, null);
+            }
+
+            if (token.StartsWith("--repeat=", StringComparison.Ordinal))
             {
                 if (seenRepeat)
                 {
@@ -3313,7 +3333,7 @@ internal static class ArgvParser
                 }
 
                 seenRepeat = true;
-                repeat = TakeParameter(argv, argv.Count, ref cursor, "--repeat");
+                repeat = TakeOverlayRange(argv, ref cursor);
                 OverlayRanges.ValidateSyntax(repeat, "--repeat", cursor);
                 continue;
             }
@@ -3353,29 +3373,17 @@ internal static class ArgvParser
         return new OverlaySpec(file, to, from, repeat);
     }
 
-    private static string TakeOverlayFrom(IReadOnlyList<string> argv, ref int cursor)
+    private static string TakeOverlayRange(IReadOnlyList<string> argv, ref int cursor)
     {
         string token = argv[cursor];
         int equals = token.IndexOf("=", StringComparison.Ordinal);
-        if (equals >= 0)
-        {
-            cursor += 1;
-            return token.Substring(equals + 1);
-        }
+        cursor += 1;
+        return token.Substring(equals + 1);
+    }
 
-        if (cursor + 1 >= argv.Count)
-        {
-            throw new QpdfParseException("Missing -- terminator after --from block option.", cursor, null);
-        }
-
-        string next = argv[cursor + 1];
-        if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
-        {
-            cursor += 1;
-            return string.Empty;
-        }
-
-        return TakeParameter(argv, argv.Count, ref cursor, "--from");
+    private static string TakeOverlayFrom(IReadOnlyList<string> argv, ref int cursor)
+    {
+        return TakeOverlayRange(argv, ref cursor);
     }
 
     private static AttachmentCopy ParseCopyBlock(IReadOnlyList<string> argv, ref int cursor)
