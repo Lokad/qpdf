@@ -215,6 +215,23 @@ $code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/a.pdf', '1', 'inputs
 if ($code -ne 0) { throw "merge: oracle failed ($code)" }
 Assert-Trio 'merge' "$case/lib.pdf" "$case/ora.pdf" 3
 
+# --- case: split (managed job vs oracle argv split publication) ---
+$case = New-Case 'split'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Set-Content "$case/job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "splitPages": ""}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/job.json", '--out', "outputs/s-1.pdf=$case/lib-s-1.pdf", '--out', "outputs/s-2.pdf=$case/lib-s-2.pdf")
+if ($code -ne 0) { throw "split: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--split-pages', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-s.pdf")
+if ($code -ne 0) { throw "split: oracle failed ($code)" }
+Assert-Trio 'split-1' "$case/lib-s-1.pdf" "$case/ora-s-1.pdf" 1
+Assert-Trio 'split-2' "$case/lib-s-2.pdf" "$case/ora-s-2.pdf" 1
+foreach ($pair in @(('lib-s-1', "$case/lib-s-1.pdf", '(First)', '(Second)'), ('ora-s-1', "$case/ora-s-1.pdf", '(First)', '(Second)'), ('lib-s-2', "$case/lib-s-2.pdf", '(Second)', '(First)'), ('ora-s-2', "$case/ora-s-2.pdf", '(Second)', '(First)'))) {
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains($pair[2])) { Write-Output "[split] FAIL: '$($pair[2])' missing from decoded $($pair[0]) output"; $script:failures++ }
+  if ($decoded.Contains($pair[3])) { Write-Output "[split] FAIL: '$($pair[3])' remains in decoded $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[split] group marker assertions done"
+
 # --- case: collate (managed vs oracle interleaved merge) ---
 $case = New-Case 'collate'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1798,4 +1815,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

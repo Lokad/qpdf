@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 100: splitPages job key (M5). The job-JSON `splitPages` key (string, `""` for bare) now rides the shared split engine across merge, single-page and whole-file plans with argv job-parity, group application, malformed/duplicate/conflict rejections and whole-file coverage. Sharing the value grammar also fixed argv `--split-pages=` (empty) to match the reference instead of failing. A new `split` differential case (managed job versus oracle argv) shows per-group trios green with matching placed markers on both sides. `--split-pages` stays partial behind the typed looping surface. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 99: JSON page images (M6). `pages[].images[]` now reports direct image XObjects with dimensions, bits, canonical colorspace, filter names, aligned decode parms and level-gated `filterable` flags across argv, job JSON and typed paths (both versions share the shape): missing values surface as nulls, unknown filters stay literal with `filterable: false`, and malformed filter specs fail explicitly. A new checked-in `images-filtered-1page.pdf` fixture plus six unit theories and a `json-images` differential case (four fixtures plus the decode-level flip, full descriptor agreement) carry the evidence, flipping `--json` to complete. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

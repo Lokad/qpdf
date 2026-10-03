@@ -5231,7 +5231,6 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Job-JSON splitPages key stays unsupported.",
         "Typed callers split by looping single-output selections."
       ],
       "evidence": {
@@ -5239,16 +5238,22 @@
           "SplitReplaceTests.SplitPagesWritesNamedGroups",
           "SplitReplaceTests.SplitGroupsShareNamingRule",
           "SplitReplaceTests.SplitPercentDPatternApplies",
-          "SplitReplaceTests.SplitPrunesUnsharedObjects"
+          "SplitReplaceTests.SplitPrunesUnsharedObjects",
+          "SplitReplaceTests.JobSplitMatchesArgv",
+          "SplitReplaceTests.JobSplitGroupsApply",
+          "SplitReplaceTests.JobSplitWholeFile",
+          "SplitReplaceTests.ArgvSplitEmptyEqualsBare"
         ],
         "negative": [
-          "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly"
+          "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
+          "SplitReplaceTests.JobSplitMalformedFails"
         ],
         "interaction": [
-          "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes"
+          "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
+          "SplitReplaceTests.JobSplitMatchesArgv"
         ],
         "resource": ["ResourceEnforcementTests.SplitYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:split"]
       }
     },
     {

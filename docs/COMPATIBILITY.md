@@ -317,7 +317,10 @@ version and carries per-page source mapping plus per-source page counts. Collisi
 `qpdf --split-pages[=n]` partitions the selected pages into groups sharing one
 object pool with per-group reachability pruning and renumbering, upstream `%d`
 and `-NN[-MM]` naming, sliced page labels, and upfront collision validation;
-partial outputs can remain if a later group fails. `--replace-input` rewrites
+partial outputs can remain if a later group fails. The job-JSON `splitPages` key
+(string, `""` for bare) rides the same engine across merge, single-page and
+whole-file plans with argv job-parity, and an empty valued form matches bare upstream.
+`--replace-input` rewrites
 the single distinct input in place with no backup files and no output operand,
 through argv and job JSON (`replaceInput` as `""` or boolean, conflicting with
 `outputFile`, `pages`-less plans, and `empty`); failed publications leave the
