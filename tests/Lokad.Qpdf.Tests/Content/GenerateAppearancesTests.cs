@@ -185,6 +185,28 @@ JsonElement objects = catalog.RootElement.GetProperty("qpdf")[1];
 JsonElement root = objects.GetProperty("obj:1 0 R").GetProperty("value");
 Assert.True(root.TryGetProperty("/AcroForm", out JsonElement _));
 }
+[Theory]
+[InlineData(0)]
+[InlineData(1)]
+[InlineData(2)]
+public async Task QuaddingIsIgnoredLikeReference(int quadding)
+{
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] appearance = stale;
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+(string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /Q ", quadding.ToString(), " /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>"), null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", appearance.Length.ToString(), " >>"), appearance),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+string text = Encoding.ASCII.GetString(bytes);
+Assert.Contains("(Hello) Tj", text);
+Assert.Contains("1 5.2 Td", text);
+}
 [Fact]
 public async Task TextFieldAppearanceRegeneratesValue()
 {

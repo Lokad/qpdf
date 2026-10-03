@@ -1,12 +1,11 @@
 # Progress
 
 ## Current checkpoint
-Work item 127 done (M11): offline build and package audit. Locked restore, Release build, and all 1853 tests pass with external/ absent (no tracked build or test source references it; only the ignored lane tooling needs the oracle). Pack, verify-package (ImageSharp 3.1.12 pinned, approved members only), and the package-consumer smoke run all pass. No code changes; 152 complete with 5 partial.
+Work item 128 done (M11): quadding parity proven. Upstream sources state generated appearances ignore quadding for lack of font metrics, and oracle probes emit identical placement for /Q 0, 1, and 2; the engine matches exactly. Evidence: quadding-ignored theory case; --generate-appearances keeps one gap (unreachable-forms selection difference). 1856 tests green and the full differential lane green.
 
 ## Remaining work
 - CMYK/YCCK raw samples: the approved ImageSharp public API yields only converted RGB, so raw four-component samples cannot be preserved through it. Needs a decision: an alternate extraction path or a declared, tested difference with narrow tolerances.
 - Codec allocation/cancellation accounting: ImageSharp-internal buffers are opaque to the governor. Needs a decision: a conservative budgeting model or a declared, tested difference.
-- Quadding: blocked on font metrics; no metric source exists in the approved dependency set.
 - Nonzero-generation inspection: show-object with nonzero generation fails explicitly; no versioned object store exists.
 - Page-unreachable form-tree pruning and direct-node promotion: the reference drops, ignores, or promotes where managed code preserves verbatim (declared differences).
 - Containment-only limits (--no-default-limits, --parser-max-errors) and the no-Zopfli build profile: intentional and never completable.

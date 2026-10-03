@@ -2936,8 +2936,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "On page-selection, the reference drops forms whose widgets are unreachable from AcroForm traversal while managed selection preserves and generates them; whole-file behavior agrees.",
-        "Quadding is ignored in text layout."
+        "On page-selection, the reference drops forms whose widgets are unreachable from AcroForm traversal while managed selection preserves and generates them; whole-file behavior agrees."
       ],
       "evidence": {
         "positive": [
@@ -2955,7 +2954,8 @@
           "GenerateAppearancesTests.FieldDefaultResourcesIsIgnored",
           "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding",
           "GenerateAppearancesTests.RadioButtonWarnsAndKeeps",
-          "GenerateAppearancesTests.UnreachableWidgetPreservedAndGeneratedOnSelection"
+          "GenerateAppearancesTests.UnreachableWidgetPreservedAndGeneratedOnSelection",
+          "GenerateAppearancesTests.QuaddingIsIgnoredLikeReference"
         ],
         "negative": [
           "GenerateAppearancesTests.SignatureFieldIsSkipped",
