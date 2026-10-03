@@ -374,7 +374,8 @@ page-range grammar (spans, descending ranges, `rN`/`z`, exclusions, `:odd`/`:eve
 duplicates preserved and applied in order, matching the probed reference). `--rotate`
 is accepted at the main level as upstream places it, with the inside-`--pages` form kept
 as leniency and byte-identical results; repeated specifications accumulate with later
-specifications winning per page, and positions span merged outputs. Out-of-range positions
+specifications winning per page, and positions span merged outputs including
+`--file=`/`--range=` groups. Out-of-range positions
 fail explicitly. Rotation folds over the inherited
 base (explicit page values beat ancestry, null counts as absent); pages without
 applicable specifications keep their bytes untouched. Collation, page labels,

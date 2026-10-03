@@ -4856,7 +4856,6 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Multi-file --pages input forms stay unsupported.",
         "Typed single-page rotation overloads are open; use the multi-source API."
       ],
       "evidence": {
@@ -4869,7 +4868,9 @@
           "RotationTests.ArgvRotateDuplicatePositionsApplyTwice",
           "RotationTests.ArgvRepeatedRotateLaterSpecsWin",
           "RotationTests.ArgvRotateSpansMergeSources",
-          "RotationTests.JobRotateRangeMatchesArgv"
+          "RotationTests.JobRotateRangeMatchesArgv",
+          "RotationTests.ArgvRotateAppliesToFileRangeGroups",
+          "RotationTests.ArgvRotateAcrossFileRangeSources"
         ],
         "negative": [
           "RotationTests.OutOfRangePositionsFailCleanly",

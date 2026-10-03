@@ -274,6 +274,17 @@ foreach ($sub in @(@('desc', @('+90:2-1')), @('rel', @('+90:r1')), @('excl', @('
   if (($libRotates -join ',') -ne ($oraRotates -join ',')) { Write-Output "[rotate-ranges/$name] FAIL: rotations lib=[$($libRotates -join ',')] ora=[$($oraRotates -join ',')]"; $script:failures++ }
   else { Write-Output "[rotate-ranges/$name] per-page rotations agree ([$($libRotates -join ',')])" }
 }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/fileform.pdf=$case/lib-fileform.pdf", '--', '--rotate=+90:r1', 'inputs/a.pdf', '--pages', '--file=inputs/a.pdf', '--range=1-2', '--', 'outputs/fileform.pdf')
+if ($code -ne 0) { throw "rotate-ranges/fileform: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--rotate=+90:r1', 'inputs/a.pdf', '--pages', '--file=inputs/a.pdf', '--range=1-2', '--', "$case/ora-fileform.pdf")
+if ($code -ne 0) { throw "rotate-ranges/fileform: oracle failed ($code)" }
+Assert-Trio 'rotate-ranges-fileform' "$case/lib-fileform.pdf" "$case/ora-fileform.pdf" 2
+$libRotates = @()
+foreach ($m in [regex]::Matches([IO.File]::ReadAllText("$case/lib-fileform.pdf"), '/Rotate (\d+)')) { $libRotates += $m.Groups[1].Value }
+$oraRotates = @()
+foreach ($m in [regex]::Matches([IO.File]::ReadAllText("$case/ora-fileform.pdf"), '/Rotate (\d+)')) { $oraRotates += $m.Groups[1].Value }
+if (($libRotates -join ',') -ne ($oraRotates -join ',') -or ($libRotates -join ',') -ne '90') { Write-Output "[rotate-ranges/fileform] FAIL: rotations lib=[$($libRotates -join ',')] ora=[$($oraRotates -join ',')]"; $script:failures++ }
+else { Write-Output "[rotate-ranges/fileform] file-form rotations agree ([90])" }
 
 # --- case: uncompress (flate input produced by oracle) ---
 $case = New-Case 'uncompress'

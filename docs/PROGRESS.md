@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 97: rotation file-form coverage (M5). Proved `--rotate` applies across `--file=`/`--range=` groups and multi-file merges (positional and file forms, main-level placement) with per-page unit assertions plus a file-form differential asserting identical per-page rotations on both sides. The `--rotate` entry drops its multi-file gap and stays partial only behind typed single-page overloads. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 96: page-label prefix encoding (M5). Label prefixes now encode exactly as the probed reference: ASCII stays literal, PDFDocEncoding-representable text goes hex, and anything else goes UTF-16BE with byte-order mark hex (including surrogate pairs); default start 1 stays omitted from the number tree. Six new encoding unit cases plus a two-form differential (PDFDoc and UTF-16 prefixes with identical labeled catalogs on both sides) carry the evidence. `--set-page-labels` stays partial behind source-tree merging. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate
