@@ -1889,6 +1889,23 @@ foreach ($side in @(('managed', $libText), ('oracle', $oraText))) {
 }
 Write-Output "[parent-held] parent-held appearance assertions done"
 
+# --- case: direct-rename (managed vs oracle direct-kid collision renaming) ---
+$case = New-Case 'direct-rename'
+Copy-Item "$fixtureDir/dc-a-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/dc-b-1page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib.pdf", '--', '--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', '--', 'outputs/m.pdf')
+if ($code -ne 0) { throw "direct-rename: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', '--', "$case/ora.pdf")
+if ($code -ne 3) { Write-Output "[direct-rename] FAIL: oracle merge exit $code, expected 3 (direct-object warnings)"; $script:failures++ }
+else { Write-Output "[direct-rename] exit parity (0/3, managed silent where oracle warns direct objects)" }
+if ((Get-OracleNpages "$case/lib.pdf") -ne 2 -or (Get-OracleNpages "$case/ora.pdf") -ne 2 -or (Get-PigNpages "$case/lib.pdf") -ne 2 -or (Get-PigNpages "$case/ora.pdf") -ne 2) { Write-Output "[direct-rename] FAIL: page counts differ from 2"; $script:failures++ }
+else { Write-Output "[direct-rename] page counts agree (2 everywhere)" }
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText -notmatch '/T \(D\+1\)') { Write-Output "[direct-rename] FAIL: renamed direct kid missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[direct-rename] direct rename assertions done"
+
 # --- case: outlines-preserve (managed vs oracle outline preservation for ordinary) ---
 $case = New-Case 'outlines-preserve'
 Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
@@ -2138,4 +2155,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

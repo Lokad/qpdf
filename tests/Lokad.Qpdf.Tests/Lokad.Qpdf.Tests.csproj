@@ -31,6 +31,8 @@
     <None Include="../Fixtures/dr-encoding-1page.pdf" Link="Fixtures/dr-encoding-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/dr-merge-1page.pdf" Link="Fixtures/dr-merge-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/parent-held-1page.pdf" Link="Fixtures/parent-held-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/dc-a-1page.pdf" Link="Fixtures/dc-a-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/dc-b-1page.pdf" Link="Fixtures/dc-b-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-2page.pdf" Link="Fixtures/outlined-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-use-2page.pdf" Link="Fixtures/outlined-use-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/thumb-1page.pdf" Link="Fixtures/thumb-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

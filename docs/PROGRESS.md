@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 120: direct-dictionary collision renaming (M11). RenameTree now returns the effective node so colliding direct kids rename with upward Kids-array rebuilds (indirect nodes keep pool-identity writes); tree-walk qualified names coincide with the reference post-promotion model (probed: oracle promotes the colliding direct kid and renames it D+1). Two dc fixtures plus a direct-rename differential case (0/3 exit parity, page counts and renamed direct kid on both sides) and two unit cases (rename plus keep path) carry the evidence; the unit suite stands at 1813 green and the full differential lane reruns green including direct-rename. Direct-node promotion, page-unreachable tree pruning, quadding, radio synchronization, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 119: parent-link field lookup for appearances (M11). FindFieldChain now walks preserved /Parent links before the Kids-container search, so parent-held widgets resolve FT/V/DA like the reference (probed: oracle generates with an unreachable-widget warning where managed code skipped). A parent-held-1page.pdf fixture (manifest, csproj and manifest-tests wired), a whole-file parent-held differential case (0/3 exit parity, page counts and generated parent value plus placement on both sides) and a ParentHeldTextFieldGeneratesAppearance unit carry the evidence; the unit suite stands at 1809 green and the full differential lane reruns green including parent-held. Quadding, radio synchronization, page-selection pruning of unreachable forms, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
 
 Prior gate

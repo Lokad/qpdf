@@ -7,7 +7,7 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 **Implemented PDF operations: the audited non-cryptographic subset.** 145 inventory entries
 are complete and 12 stay partial behind explicitly held-open gaps (containment-only
 limits, the no-Zopfli build profile, parent-held field lookup, default-resource merging,
-CMYK/YCCK decoding, and direct-dictionary field renaming); excluded crypto operations carry
+CMYK/YCCK decoding, direct-node promotion (embedded direct kids stay embedded where the reference promotes them to indirect), and page-unreachable form-tree pruning); excluded crypto operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and
 package boundaries; operation coverage is carried by the per-entry unit, budget,
@@ -79,9 +79,9 @@ output stays uncompressed where upstream compresses, and our `--overlay`
 block requires a second `--` terminator before the output file while
 upstream takes the output directly after the block terminator. Merged forms
 concatenate per-source field registrations with per-source-snapshot `+N` collision renaming
-for named field nodes (nodes without indirect identity keep behavior), keep the first default-resources
+for named field nodes (including direct-dictionary nodes renamed in place with upward rebuilds), keep the first default-resources
 dictionary, and embed the combined form directly in the catalog where
-upstream writes an indirect object. Damaged structure with unresolvable references drops leniently instead of failing, while the reference keeps the damaged tree; well-formed outlines/structure preserve with dangling destinations pruned to null where the reference keeps references to null objects. Catalog extras that reference page-tree or catalog nodes drop their key where the reference remaps them onto the rebuilt nodes.
+upstream writes an indirect object. Direct-dictionary kids stay embedded where the reference promotes them to indirect objects (rename outcomes agree on surviving shapes); page-unreachable form trees are dropped by the reference and kept verbatim here. Damaged structure with unresolvable references drops leniently instead of failing, while the reference keeps the damaged tree; well-formed outlines/structure preserve with dangling destinations pruned to null where the reference keeps references to null objects. Catalog extras that reference page-tree or catalog nodes drop their key where the reference remaps them onto the rebuilt nodes.
 ## Codec feasibility probes (work item 03)
 
 `QpdfProbe probe-jpeg` exercises the pinned ImageSharp `3.1.12` JPEG codec
@@ -314,7 +314,7 @@ object identity: separate copiers share one destination numbering sequence and o
 governor, so equal object numbers across documents never collide while widgets
 keep their within-source field links. Every page keeps its own resources, so
 same-named resources and fields stay inert without content rewriting. Merged forms concatenate per-source field registrations with per-source-snapshot `+N` collision renaming for named field nodes, keep the first default-resources dictionary, OR the NeedAppearances flags, and embed the combined form directly in the catalog where upstream writes an indirect object. Output takes the highest source
-version and carries per-page source mapping plus per-source page counts. Direct-dictionary field renaming, first-wins resources, parent-held lookup limits, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+version and carries per-page source mapping plus per-source page counts. Direct-node promotion, first-wins resources, page-unreachable tree pruning, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
 
 ## Split publication and replacement (work item 21)
 

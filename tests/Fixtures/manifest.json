@@ -277,6 +277,24 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a bare widget whose Tx field lives behind /Parent without a /Kids back-link. Appearance generation must follow the preserved parent link; the parent-held differential consumes it."
+    },
+    {
+      "file": "dc-a-1page.pdf",
+      "sha256": "3bcd83c4b6db91936e3d50c85f9e92e8af4f4e5f925bc56e32b08f40911ad50b",
+      "bytes": 1280,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with top-level fields D and W. Merging with dc-b-1page.pdf must rename the colliding direct kid to D+1 on both sides; the direct-rename differential consumes it."
+    },
+    {
+      "file": "dc-b-1page.pdf",
+      "sha256": "411758f6af33b71cae3426d8eae12a83dce33303f2a5a0f60fb039e577ac3732",
+      "bytes": 1227,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with an unnamed container holding a direct kid D plus widgets W2 and V. Merging with dc-a-1page.pdf must rename the colliding direct kid to D+1 on both sides; the direct-rename differential consumes it."
     }
   ]
 }
