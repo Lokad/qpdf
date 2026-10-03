@@ -4,11 +4,14 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-**Implemented PDF operations: none.** Every inventory entry is initially
-`not-started`, including excluded operations whose future runtime rejection
-still needs tests. Passing the scaffold, runner and codec-probe tests
-establishes inventory consistency, fixture/independent-reader contracts,
-codec feasibility and package boundaries, not PDF compatibility.
+**Implemented PDF operations: the audited non-cryptographic subset.** 145 inventory entries
+are complete and 12 stay partial behind explicitly held-open gaps (containment-only
+limits, the no-Zopfli build profile, parent-held field lookup, default-resource merging,
+CMYK/YCCK decoding, and name-collision renaming); excluded crypto operations carry
+negative rejection evidence. The scaffold, runner, and codec-probe tests establish
+inventory consistency, fixture/independent-reader contracts, codec feasibility, and
+package boundaries; operation coverage is carried by the per-entry unit, budget,
+and oracle-differential evidence reconciled below.
 
 ## Inventory
 
@@ -28,18 +31,19 @@ from the main command's flag count.
 Supported behavior should match documented qpdf semantics. Stable inspection
 data, page sequence, sharing, lossless stream bytes and exit classes need
 appropriate comparisons. Compressed output need not be byte-identical.
-JPEG component/color invariants and narrowly defined sample tolerances must be
-established against the approved codec; the M0 probe bounds feasibility only
-(see below) and full JPEG integration remains M8.
+JPEG component/color invariants and narrowly defined sample tolerances are established
+against the approved codec: governed 1- and 3-component DCT decoding plus shrink-only
+optimization shipped in M8 with four-component CMYK/YCCK samples and codec
+allocation/cancellation accounting held open (see below).
 
 ## Validation runners and fixtures
 
 `tools/QpdfProbe` is the development-only differential runner. It invokes the
 pinned qpdf 12.4.2 executable (`--version`, `--show-npages`, `--check`) and the
 pinned independent reader (PdfPig `[0.1.16]`, never a runtime dependency).
-`tests/Fixtures/manifest.json` records synthetic classic-xref fixtures
-(`minimal-1page.pdf`, `minimal-2page.pdf`) and a truncated negative fixture,
-with SHA-256, byte counts and expected page counts. Ordinary tests use these
+`tests/Fixtures/manifest.json` records 26 synthetic fixtures (single- and multi-page
+selections, outlines, thumbnails, images, overlays, labels, and orphans, plus truncated
+negative fixtures) with SHA-256, byte counts and expected page counts. Ordinary tests use these
 fixtures and a fake oracle; they never require `external/` or a real qpdf
 binary. The explicit reference lane (`tools/bootstrap-qpdf.ps1`,
 `tools/run-reference-checks.ps1`) requires `QPDF_EXE` and fails when it is

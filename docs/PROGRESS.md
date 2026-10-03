@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 109: compatibility intro refresh (M11). The M0-era header claiming no implemented operations and not-started entries is replaced with the audited counts (145 complete, 12 partial behind held-open gaps, crypto exclusions with negative evidence); the fixture paragraph reflects all 26 fixtures and the JPEG paragraph records shipped M8 decoding and optimization with held-open gaps. Docs-only change. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 108: architecture and development notes refresh (M11). ARCHITECTURE.md moves from M1-era future tense to the implemented engine, entry points, build order, and solution layout with benchmarks kept as explicit future work; DEVELOPMENT.md drops the future-JPEG-adapter wording and describes current consumer coverage. Docs-only change with no behavior impact. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
 
 Prior gate
