@@ -1610,7 +1610,7 @@
       "milestone": "M4",
       "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": ["Tight caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3); agreement at loose caps through the --global block. Bare limit flags outside the block are accepted as narrow-profile leniency while the reference rejects them."],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
         "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
@@ -1639,7 +1639,7 @@
       "milestone": "M4",
       "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": ["Tight caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3); agreement at loose caps through the --global block. Bare limit flags outside the block are accepted as narrow-profile leniency while the reference rejects them."],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
         "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
@@ -1699,7 +1699,7 @@
       "milestone": "M4",
       "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": ["Default cap 256 is tighter than the upstream default 499 (stack safety); agreement at 499 through the --global block. Bare limit flags outside the block are accepted as narrow-profile leniency while the reference rejects them."],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["GlobalLimitsTests.RaisedCapParsesDeepCatalog", "GlobalLimitsTests.NestedGlobalParityHolds"],
         "negative": ["GlobalLimitsTests.DefaultNestingRejectsDeepCatalog", "GlobalLimitsTests.BadNestingValuesFail", "GlobalLimitsTests.DuplicateNestingFlagFails", "GlobalLimitsTests.CeilingMessageNamesTheMaximum", "GlobalLimitsTests.BadNestedGlobalFails"],
@@ -2106,20 +2106,24 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Job-JSON collate key stays unsupported.",
         "Single-integer page ranges only; full range syntax stays open."
       ],
       "evidence": {
         "positive": [
           "MergeCommandTests.ArgvCollateInterleavesSources",
-          "MergeCommandTests.ArgvCollateGroupsApply"
+          "MergeCommandTests.ArgvCollateGroupsApply",
+          "MergeCommandTests.JobCollateMatchesArgv",
+          "MergeCommandTests.JobCollateGroupsApply",
+          "MergeCommandTests.JobCollateSingleEntryMerges"
         ],
         "negative": [
-          "MergeCommandTests.ArgvMergeErrorsAreExplicit"
+          "MergeCommandTests.ArgvMergeErrorsAreExplicit",
+          "MergeCommandTests.JobCollateMalformedFails",
+          "MergeCommandTests.JobCollateRequiresPages"
         ],
-        "interaction": [],
+        "interaction": ["MergeCommandTests.JobCollateMatchesArgv"],
         "resource": [],
-        "oracle": []
+        "oracle": ["diff:collate"]
       }
     },
     {
