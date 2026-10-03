@@ -851,6 +851,25 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 Write-Output "[forms] appearance assertions done"
 
+# --- case: flatten-dr (managed vs oracle flatten with DR-font appearance) ---
+$case = New-Case 'flatten-dr'
+Copy-Item "$fixtureDir/flatten-dr-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--flatten-annotations=all', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "flatten-dr: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--flatten-annotations=all', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "flatten-dr: oracle failed ($code)" }
+Assert-Trio 'flatten-dr' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/Annots')) { Write-Output "[flatten-dr] FAIL: /Annots remains in $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/BaseFont /Helvetica')) { Write-Output "[flatten-dr] FAIL: DR font missing from $($pair[0]) output"; $script:failures++ }
+  $decoded = Get-DecodedText $pair[1]
+  foreach ($needle in @('(Hello)', '/Fxo')) {
+    if (-not $decoded.Contains($needle)) { Write-Output "[flatten-dr] FAIL: '$needle' missing from decoded $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[flatten-dr] DR appearance assertions done"
+
 # --- case: overlay ---
 $case = New-Case 'overlay'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -2289,4 +2308,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
