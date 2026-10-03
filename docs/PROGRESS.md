@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-Work item 125 done (M11): radio synchronization warning parity. Oracle probes prove --generate-appearances warns exit 3 on every named radio (match or mismatch) while keeping /V and /AS; the engine silently kept them with exit 0. SyncButton now warns and keeps, matching states exactly. Evidence: radio warning unit case, generate-radio-1page.pdf fixture, and a new `generate-radio` differential case (3/3 exits plus /Choice1//Off agreement); --generate-appearances keeps two gaps (unreachable-forms selection difference, quadding). 1852 tests green and the full differential lane green.
+Work item 126 done (M11): pinned the unreachable-forms selection difference. Oracle probes prove --generate-appearances with page-selection drops unreachable widgets and their form while managed selection preserves and generates appearances; preservation is load-bearing elsewhere, so the difference stands as tested behavior. Evidence: unreachable-widget preservation unit case; --generate-appearances keeps two gaps (selection difference, quadding). 1853 tests green and the full differential lane green.
 
 ## Remaining work
 - CMYK/YCCK raw samples: the approved ImageSharp public API yields only converted RGB, so raw four-component samples cannot be preserved through it. Needs a decision: an alternate extraction path or a declared, tested difference with narrow tolerances.
