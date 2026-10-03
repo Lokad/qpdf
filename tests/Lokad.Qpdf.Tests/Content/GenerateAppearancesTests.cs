@@ -404,6 +404,25 @@ Assert.True(fontDict.TryGetProperty("/F1", out _));
 Assert.True(fontDict.TryGetProperty("/Helv", out _));
 }
 [Fact]
+public async Task ParentHeldTextFieldGeneratesAppearance()
+{
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [6 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /FT /Tx /T (Name) /V (Hello) /DA (/Helv 12 Tf) >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /Parent 5 0 R /AP << /N 7 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length ", stale.Length.ToString(), " >>"), stale),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+});
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+string text = Encoding.ASCII.GetString(bytes);
+Assert.Contains("(Hello) Tj", text);
+Assert.Contains("1 5.2 Td", text);
+}
+[Fact]
 public async Task MergeUsesPrimaryDefaultResourcesEncoding()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");

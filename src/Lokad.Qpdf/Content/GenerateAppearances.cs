@@ -245,8 +245,62 @@ internal static class GenerateAppearances
             visited.Add(annotId.Value);
         }
 
-        int? current = annotId;
-        PdfDictionary? direct = annotId.HasValue ? null : annot;
+        // Follow preserved /Parent links first like the reference: a widget whose
+        // field holds FT/V/DA without a /Kids back-link still resolves outward.
+        PdfDictionary? cursor = annot;
+        int parentDepth = 0;
+        while (parentDepth < 32 && cursor is not null)
+        {
+            parentDepth += 1;
+            if (!cursor.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull)
+            {
+                break;
+            }
+
+            if (parentRaw is PdfReference parentReference)
+            {
+                if (!visited.Add(parentReference.ObjectNumber))
+                {
+                    break;
+                }
+
+                if (ResolveOrNull(resolver, parentReference) is not PdfDictionary parentDict)
+                {
+                    break;
+                }
+
+                chain.Add((parentDict, parentReference.ObjectNumber));
+                cursor = parentDict;
+                continue;
+            }
+
+            if (parentRaw is PdfDictionary parentDirect)
+            {
+                bool seen = false;
+                foreach ((PdfDictionary node, int? _) in chain)
+                {
+                    if (ReferenceEquals(node, parentDirect))
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+
+                if (seen)
+                {
+                    break;
+                }
+
+                chain.Add((parentDirect, null));
+                cursor = parentDirect;
+                continue;
+            }
+
+            break;
+        }
+
+        int? current = chain[chain.Count - 1].Id;
+        PdfDictionary? direct = chain[chain.Count - 1].Id.HasValue ? null : chain[chain.Count - 1].Node;
         int depth = 0;
         while (depth < 32)
         {
