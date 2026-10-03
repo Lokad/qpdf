@@ -2962,11 +2962,9 @@
         }
       ],
       "milestone": "M8",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Only effective with --optimize-images; also recompresses already-DCT images. Quality 0 maps to 1 and the default is 75."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ImageOptimizeTests.QualityForcesDctRecompression",
@@ -2978,8 +2976,8 @@
         "interaction": [
           "ImageOptimizeTests.JobMalformedFails"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
+        "oracle": ["diff:optimize"]
       }
     },
     {
@@ -3413,21 +3411,20 @@
         }
       ],
       "milestone": "M8",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Inline images stay inline and are excluded from optimization."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone"
         ],
-        "negative": [],
+        "negative": ["ImageOptimizeTests.InvalidValuesFail"],
         "interaction": [
-          "ImageOptimizeTests.DuplicateFlagsFail"
+          "ImageOptimizeTests.DuplicateFlagsFail",
+          "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
+        "oracle": ["diff:optimize"]
       }
     },
     {
@@ -3842,11 +3839,9 @@
         }
       ],
       "milestone": "M8",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Gates --optimize-images by pixel area (default 16384, 0 disables), including externalized inline images."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
@@ -3855,9 +3850,11 @@
           "ImageOptimizeTests.SmallImageStaysUntouched",
           "ImageOptimizeTests.InvalidValuesFail"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "ImageOptimizeTests.ThresholdJobParityHolds"
+        ],
+        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
+        "oracle": ["diff:optimize"]
       }
     },
     {
@@ -3878,11 +3875,9 @@
         }
       ],
       "milestone": "M8",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Gates --optimize-images by height (default 128, 0 disables), including externalized inline images."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
@@ -3890,9 +3885,11 @@
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": [
+          "ImageOptimizeTests.ThresholdJobParityHolds"
+        ],
+        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
+        "oracle": ["diff:optimize"]
       }
     },
     {
@@ -3913,11 +3910,9 @@
         }
       ],
       "milestone": "M8",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Gates --optimize-images by width (default 128, 0 disables), including externalized inline images."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
@@ -3928,10 +3923,11 @@
           "ImageOptimizeTests.InvalidValuesFail"
         ],
         "interaction": [
-          "ImageOptimizeTests.JobMalformedFails"
+          "ImageOptimizeTests.JobMalformedFails",
+          "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": ["ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"],
+        "oracle": ["diff:optimize"]
       }
     },
     {

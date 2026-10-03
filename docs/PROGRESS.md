@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 88: image-threshold completion (M11). `--jpeg-quality`, `--keep-inline-images`, `--oi-min-width`, `--oi-min-height` and `--oi-min-area` move to complete with a shared exhausted-budget theory, a threshold job-parity theory, a new checked-in `photo-1page.pdf` fixture (manifest/csproj/manifest-tests wired), and a new `optimize` differential case proving oracle agreement (matching DCT dimensions at an explicit quality, byte-identical kept payloads under disabling thresholds, inline kept inline on both sides). JPEG bytes stay encoder-defined; only structural and payload agreement is claimed. The `--optimize-images` entry itself stays partial behind its CMYK/mask gaps. Merge collision renaming, first-wins default resources, nonzero-generation inspection, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 87: global-block completion (M11). `--global` moves to complete with a new `global` differential case proving block parity (both sides run `--global --max-stream-filters` and `--global --parser-max-nesting` selections with green trios). Bare limit flags outside the block stay accepted as documented narrow-profile leniency (the reference rejects them). Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

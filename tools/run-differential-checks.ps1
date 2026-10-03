@@ -1058,6 +1058,40 @@ foreach ($pair in @(('lib-keep', "$case/lib-keep.pdf"), ('ora-keep', "$case/ora-
 }
 Write-Output "[inline/keep] threshold assertions done"
 
+# --- case: optimize (managed vs oracle image optimization) ---
+$case = New-Case 'optimize'
+Copy-Item "$fixtureDir/photo-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/inline-1page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--optimize-images', '--jpeg-quality=50', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "optimize: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--optimize-images', '--jpeg-quality=50', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "optimize: oracle failed ($code)" }
+Assert-Trio 'optimize' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/DCTDecode', '/Width 160', '/Height 160', '/DeviceRGB')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[optimize] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[optimize] recompression assertions done"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-skip.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--optimize-images', '--oi-min-width=100000', '--oi-min-height=100000', '--oi-min-area=100000000', '--', 'outputs/s.pdf')
+if ($code -ne 0) { throw "optimize/skip: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--optimize-images', '--oi-min-width=100000', '--oi-min-height=100000', '--oi-min-area=100000000', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-skip.pdf")
+if ($code -ne 0) { throw "optimize/skip: oracle failed ($code)" }
+Assert-Trio 'optimize-skip' "$case/lib-skip.pdf" "$case/ora-skip.pdf" 1
+if ((Get-StreamPayloads "$case/lib-skip.pdf") -ne (Get-StreamPayloads "$case/ora-skip.pdf")) { Write-Output "[optimize/skip] FAIL: kept image payloads differ"; $script:failures++ }
+else { Write-Output "[optimize/skip] threshold payloads match" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/b.pdf', '--pages', '.', '1', '--optimize-images', '--keep-inline-images', '--', 'outputs/k.pdf')
+if ($code -ne 0) { throw "optimize/keep: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--optimize-images', '--keep-inline-images', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-keep.pdf")
+if ($code -ne 0) { throw "optimize/keep: oracle failed ($code)" }
+Assert-Trio 'optimize-keep' "$case/lib-keep.pdf" "$case/ora-keep.pdf" 1
+foreach ($pair in @(('lib-keep', "$case/lib-keep.pdf"), ('ora-keep', "$case/ora-keep.pdf"))) {
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains(' BI ')) { Write-Output "[optimize/keep] FAIL: inline image missing from decoded $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[optimize/keep] keep-inline assertions done"
+
 # --- case: diagnostics (managed vs oracle output-neutral diagnostics) ---
 $case = New-Case 'diagnostics'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1591,4 +1625,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
