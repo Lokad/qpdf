@@ -484,4 +484,118 @@ public sealed class RotationTests
         host.AddInput(QpdfPath.From(logical), bytes, QpdfInputOwnership.Copy);
         return host;
     }
+    [Fact]
+    public async Task TypedSingleRotationApplies()
+    {
+        byte[] bytes = BuildDoc(string.Empty, string.Empty, "Hi");
+        InMemoryQpdfHost host = HostWith("inputs/rot.pdf", bytes);
+        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/rot.pdf"),
+            QpdfPath.From("outputs/rot.pdf"),
+            new PdfPageSelectionOptions(1),
+            [new PdfPageRotation(PdfRotationMode.Add, 90, null)],
+            CancellationToken.None);
+        Assert.Equal([1], result.SourcePages);
+        await using QpdfDocument output = await Reopen(host, "outputs/rot.pdf");
+        Assert.Equal(90L, PageRotation(output, 0));
+    }
+
+    [Fact]
+    public async Task TypedSingleRotationFollowsOutputPositions()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/a.pdf"),
+            QpdfPath.From("outputs/rot.pdf"),
+            PdfPageSelectionOptions.FromPages([2, 1]),
+            [new PdfPageRotation(PdfRotationMode.Add, 90, [1])],
+            CancellationToken.None);
+        Assert.Equal([2, 1], result.SourcePages);
+        await using QpdfDocument output = await Reopen(host, "outputs/rot.pdf");
+        Assert.Equal(2, output.PageCount);
+        Assert.Equal(90L, PageRotation(output, 0));
+        Assert.False(output.PageReferences[1].Page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject _));
+    }
+
+    [Fact]
+    public async Task TypedSingleRotationNullGuard()
+    {
+        byte[] bytes = BuildDoc(string.Empty, string.Empty, "Hi");
+        InMemoryQpdfHost host = HostWith("inputs/rot.pdf", bytes);
+#pragma warning disable CS8625, CS8600 // Intentional null rotations for negative tests.
+await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/rot.pdf"),
+            QpdfPath.From("outputs/x.pdf"),
+            new PdfPageSelectionOptions(1),
+            (IReadOnlyList<PdfPageRotation>)null,
+            CancellationToken.None).AsTask());
+#pragma warning restore CS8625, CS8600
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task TypedSingleRotationOutOfRangeFailsCleanly()
+    {
+        byte[] bytes = BuildDoc(string.Empty, string.Empty, "Hi");
+        InMemoryQpdfHost host = HostWith("inputs/rot.pdf", bytes);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Qpdf.SelectPageAsync(
+            host,
+            QpdfPath.From("inputs/rot.pdf"),
+            QpdfPath.From("outputs/x.pdf"),
+            new PdfPageSelectionOptions(1),
+            [new PdfPageRotation(PdfRotationMode.Add, 90, [5])],
+            CancellationToken.None).AsTask());
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task TypedSingleRotationMatchesArgv()
+    {
+        byte[] bytes = BuildDoc(string.Empty, string.Empty, "Hi");
+        InMemoryQpdfHost typedHost = HostWith("inputs/rot.pdf", bytes);
+        PdfPageSelectionResult typed = await Qpdf.SelectPageAsync(
+            typedHost,
+            QpdfPath.From("inputs/rot.pdf"),
+            QpdfPath.From("outputs/typed.pdf"),
+            new PdfPageSelectionOptions(1),
+            [new PdfPageRotation(PdfRotationMode.Add, 90, null)],
+            CancellationToken.None);
+        Assert.True(typedHost.TryGetOutput(QpdfPath.From("outputs/typed.pdf"), out byte[] a));
+        InMemoryQpdfHost argvHost = HostWith("inputs/rot.pdf", bytes);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            argvHost,
+            new QpdfCommandInvocation(["inputs/rot.pdf", "--pages", ".", "1", "--rotate=+90", "--", "outputs/argv.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public async Task TypedSingleRotationMatchesJob()
+    {
+        byte[] bytes = BuildDoc(string.Empty, string.Empty, "Hi");
+        InMemoryQpdfHost typedHost = HostWith("inputs/rot.pdf", bytes);
+        await Qpdf.SelectPageAsync(
+            typedHost,
+            QpdfPath.From("inputs/rot.pdf"),
+            QpdfPath.From("outputs/typed.pdf"),
+            new PdfPageSelectionOptions(1),
+            [new PdfPageRotation(PdfRotationMode.Set, 270, [1])],
+            CancellationToken.None);
+        Assert.True(typedHost.TryGetOutput(QpdfPath.From("outputs/typed.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = HostWith("inputs/rot.pdf", bytes);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/rot.pdf", "outputFile": "outputs/job.pdf", "pages": [{"file": ".", "range": "1"}], "rotate": ["270:1"]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/job.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
 }

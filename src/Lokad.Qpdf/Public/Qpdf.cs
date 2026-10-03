@@ -73,6 +73,58 @@ public static class Qpdf
         return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Copies the selected pages into a standalone PDF, rotating output
+    /// pages, with default budgets.
+    /// </summary>
+    public static ValueTask<PdfPageSelectionResult> SelectPageAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        PdfPageSelectionOptions options,
+        IReadOnlyList<PdfPageRotation> rotations,
+        CancellationToken cancellationToken)
+    {
+        return SelectPageAsync(host, inputPath, outputPath, options, rotations, QpdfLimits.Default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies the selected pages into a standalone PDF, rotating output
+    /// pages, with explicit budgets.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A page exceeds the count.</exception>
+    public static async ValueTask<PdfPageSelectionResult> SelectPageAsync(
+        IQpdfHost host,
+        QpdfPath inputPath,
+        QpdfPath outputPath,
+        PdfPageSelectionOptions options,
+        IReadOnlyList<PdfPageRotation> rotations,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
+    {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host));
+        }
+
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
+        List<OutputRotation> specifications = ConvertRotations(rotations);
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DiagnosticBag diagnostics = new(governor);
+        return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, specifications, [], null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+    }
+
     private static void ApplySourceContentTransforms(
         GraphCopier copier,
         IReadOnlyList<int> pageIds,

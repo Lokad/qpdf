@@ -130,6 +130,18 @@ internal static class Program
             CancellationToken.None);
         Check(rotated.Status == QpdfExecutionStatus.Completed && rotated.ExitCode == QpdfExitCode.Success, "rotated execution");
         Console.WriteLine("PASS rotated selection (--rotate)");
+        InMemoryQpdfHost typedRotateHost = NewHost("inputs/in.pdf", input);
+        PdfPageSelectionResult typedRotated = await Qpdf.SelectPageAsync(
+            typedRotateHost,
+            QpdfPath.From("inputs/in.pdf"),
+            QpdfPath.From("outputs/typed-rotated.pdf"),
+            new PdfPageSelectionOptions(1),
+            [new PdfPageRotation(PdfRotationMode.Add, 90, null)],
+            CancellationToken.None);
+        Check(typedRotated.PageCount == 1, "typed rotation counts");
+        await CheckOutputAsync(typedRotateHost, "outputs/typed-rotated.pdf", "First");
+        Check(Published(typedRotateHost, "outputs/typed-rotated.pdf").AsSpan().SequenceEqual(Published(rotateHost, "outputs/rotated.pdf")), "typed/argv rotation parity");
+        Console.WriteLine("PASS typed single-page rotation overloads");
         InMemoryQpdfHost labelHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult labeled = await Qpdf.ExecuteAsync(
             labelHost,
