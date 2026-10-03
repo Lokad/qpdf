@@ -58,4 +58,7 @@ public sealed record PdfPageMergeOptions
 
     /// <summary>Gets the explicit page labels for the output document.</summary>
     public IReadOnlyList<PdfPageLabel> Labels { get; init; } = [];
+
+    /// <summary>Gets the split group size in pages, or null to publish one output.</summary>
+    public int? SplitPages { get; init; }
 }

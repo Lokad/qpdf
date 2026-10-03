@@ -156,6 +156,17 @@ internal static class Program
             CancellationToken.None);
         Check(split.Status == QpdfExecutionStatus.Completed && split.ExitCode == QpdfExitCode.Success, "split execution");
         Console.WriteLine("PASS split publication (--split-pages)");
+        InMemoryQpdfHost typedSplitHost = NewHost("inputs/in.pdf", input);
+        PdfMultiPageSelectionResult typedSplit = await Qpdf.SelectPagesAsync(
+            typedSplitHost,
+            [new PdfPageSource(QpdfPath.From("inputs/in.pdf"), new PdfPageSelectionOptions(1)),
+             new PdfPageSource(QpdfPath.From("inputs/in.pdf"), new PdfPageSelectionOptions(2))],
+            QpdfPath.From("outputs/typed-split.pdf"),
+            new PdfPageMergeOptions { SplitPages = 1 },
+            CancellationToken.None);
+        Check(typedSplit.PageCount == 2 && typedSplit.OutputPaths.Count == 2, "typed split counts");
+        await CheckOutputAsync(typedSplitHost, "outputs/typed-split-1.pdf", "First");
+        Console.WriteLine("PASS typed split publication (merge-options SplitPages)");
 
         InMemoryQpdfHost replaceHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult replaced = await Qpdf.ExecuteAsync(
