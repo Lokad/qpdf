@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-Work item 130 done (M11): true-CMYK parity mapping. A hand-built minimal valid 4-component JPEG (DC-only blocks, 326 bytes) proves the exact delta on genuine CMYK data: --optimize-images, --json decode, and corrupt-stream --check all match (untouched exit 0; corrupt warns both sides), while --check on valid CMYK diverges (oracle silent exit 0 since it decodes; managed skips with warning because raw samples cannot round-trip the approved codec). YCCK falls in the same bucket. No code change: resolving it needs the maintainer codec-vs-difference decision, now specified per operation.
+Work item 131 done (M11): evidence-reference audit. Cross-checked all 725 test names and 89 oracle tags cited in options.json against the suite and the lane: fixed 5 stale budget-test references pointing at a nonexistent test, verified every other reference resolves to a real test or lane assertion. No behavior change; 152 complete with 5 partial.
 
 ## Remaining work
 - CMYK/YCCK raw samples: true-4-component probes show only --check on valid CMYK diverges (oracle silent exit 0; managed skip+warning); optimize, json-decode, and corrupt-stream checks match. Needs a decision: a CMYK-capable extraction path or a declared, tested difference scoped to valid-stream checks.
