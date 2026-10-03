@@ -351,6 +351,7 @@ public static class Qpdf
                 KeptLocations(document, requested),
                 overlayOccurrences,
                 singlePool,
+                overlayApplied.FieldImports,
                 limits,
                 governor,
                 diagnostics,
@@ -906,9 +907,22 @@ public static class Qpdf
             }
         }
 
+        List<Content.CopiedForm?> renameForms = multiForms;
+        List<GraphCopier> renameCopiers = copiers;
+        if (!removeAcroform && overlayApplied.FieldImports.Count > 0)
+        {
+            renameForms = new List<Content.CopiedForm?>(multiForms);
+            renameCopiers = new List<GraphCopier>(copiers);
+            foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+            {
+                renameForms.Add(import.Part);
+                renameCopiers.Add(import.Copier);
+            }
+        }
+
         if (!removeAcroform)
         {
-            Content.AcroFormCopy.RenameCollidingFields(multiForms, copiers, limits, governor, cancellationToken);
+            Content.AcroFormCopy.RenameCollidingFields(renameForms, renameCopiers, limits, governor, cancellationToken);
         }
 
         Dictionary<int, QpdfObject> pool = new();
@@ -1022,7 +1036,37 @@ public static class Qpdf
         Dictionary<int, int> multiOriginalIds = InvertOriginals(multiOriginalMaps);
         Content.CopiedForm? multiCombined = removeAcroform
             ? null
-            : Content.AcroFormCopy.Combine(NonNullForms(multiForms));
+            : Content.AcroFormCopy.Combine(NonNullForms(renameForms));
+        if (multiCombined is not null && overlayApplied.FieldImports.Count > 0)
+        {
+            (string? multiDestAppearance, int? multiDestQuadding) = Content.AcroFormCopy.ReadMergedDefaults(multiCombined);
+            int importAllocator = 1;
+            foreach (int id in pool.Keys)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (id >= importAllocator)
+                {
+                    checked
+                    {
+                        importAllocator = id + 1;
+                    }
+                }
+            }
+
+            multiCombined = Content.AcroFormCopy.ApplyOverlayImports(
+                multiCombined,
+                overlayApplied.FieldImports,
+                multiDestAppearance,
+                multiDestQuadding,
+                overlayApplied.FieldImports[0].Copier,
+                pool,
+                ref importAllocator,
+                limits,
+                governor,
+                diagnostics,
+                cancellationToken);
+        }
         PdfDictionary? multiAcroForm = multiCombined is null
             ? null
             : Content.AcroFormCopy.BuildCatalogForm(

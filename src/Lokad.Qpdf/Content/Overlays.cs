@@ -10,7 +10,7 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
-internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId);
+internal sealed record OverlayApplication(List<GraphCopier> Copiers, int NextId, IReadOnlyList<AcroFormCopy.OverlayFieldImport> FieldImports);
 
 internal static class Overlays
 {
@@ -69,7 +69,7 @@ internal static class Overlays
         Dictionary<string, OverlaySource> sources = new(StringComparer.Ordinal);
         if ((underlays.Count == 0 && overlays.Count == 0) || occurrences.Count == 0)
         {
-            return new OverlayApplication(new List<GraphCopier>(sources.Values.Select(static source => source.Copier)), nextId);
+            return new OverlayApplication(new List<GraphCopier>(sources.Values.Select(static source => source.Copier)), nextId, []);
         }
 
         if ((long)occurrences.Count > limits.MaxWork)
@@ -99,6 +99,7 @@ internal static class Overlays
         List<Dictionary<int, List<OverlayPlacement>>> underlayPages = BuildMapping(resolvedUnderlays, occurrences.Count);
         List<Dictionary<int, List<OverlayPlacement>>> overlayPages = BuildMapping(resolvedOverlays, occurrences.Count);
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache = new();
+        List<AcroFormCopy.OverlayFieldImport> imports = new();
         for (int dest = 0; dest < occurrences.Count; dest++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -123,6 +124,7 @@ internal static class Overlays
                 resolvedUnderlays,
                 resolvedOverlays,
                 formCache,
+                imports,
                 compress,
                 level,
                 limits,
@@ -143,7 +145,7 @@ internal static class Overlays
             copiers.Add(source.Copier);
         }
 
-        return new OverlayApplication(copiers, allocator);
+        return new OverlayApplication(copiers, allocator, imports);
     }
 
     private static int MaxAllocator(int allocator, Dictionary<string, OverlaySource> sources)
@@ -159,7 +161,7 @@ internal static class Overlays
         return allocator;
     }
 
-    private sealed record OverlaySource(QpdfDocument Document, GraphCopier Copier, int PageCount);
+    private sealed record OverlaySource(QpdfDocument Document, GraphCopier Copier, int PageCount, AcroFormCopy.OverlaySourceForm? FormInfo, HashSet<string> ImportNotes);
 
     private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject? BoxObject, double[]? Box, byte[]? Content, long Rotate, double UserUnit, bool HasTransform);
 
@@ -206,7 +208,21 @@ internal static class Overlays
             }
 
             GraphCopier copier = new(opened.Engine, governor, limits, firstId);
-            source = new OverlaySource(opened, copier, count);
+            AcroFormCopy.OverlaySourceForm? formInfo = AcroFormCopy.TryReadOverlaySourceForm(opened.Engine, limits, governor, cancellationToken);
+            if (formInfo is not null)
+            {
+                if (formInfo.FieldsNotArray)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a source /Fields entry that is not an array while importing overlay form fields.");
+                }
+
+                if (formInfo.HasDirectNodes)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring a direct object as a field or annotation while importing overlay form fields.");
+                }
+            }
+
+            source = new OverlaySource(opened, copier, count, formInfo, new HashSet<string>(StringComparer.Ordinal));
             sources[path.Value] = source;
         }
 
@@ -654,6 +670,7 @@ internal static class Overlays
         List<ResolvedSpec> resolvedUnderlays,
         List<ResolvedSpec> resolvedOverlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
+        List<AcroFormCopy.OverlayFieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -825,7 +842,7 @@ internal static class Overlays
         allocator = checked(allocator + 1);
         replaced = ReplaceEntry(replaced, PdfName.FromAscii("Contents"), stackedLink, governor);
         copier.ReplaceCopiedObject(pageId, replaced);
-        CopyPlacementAnnotations(copier, pageId, placeBox, destTransform, underlays, overlays, resolvedUnderlays, resolvedOverlays, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
+        CopyPlacementAnnotations(copier, pageId, placeBox, destTransform, underlays, overlays, resolvedUnderlays, resolvedOverlays, formCache, imports, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
     }
 
     private sealed record OverlayForm(PdfReference Link, double[] Box, double[]? FormMatrix);
@@ -1362,10 +1379,14 @@ internal static class Overlays
     /// dictionary keys are dropped while null array elements are kept as
     /// indirect null objects, matching reference output. Entries that are not
     /// dictionaries are skipped with a warning, matching the reference.
-    /// <c>/Widget</c> annotations are skipped: overlay form-field import would
-    /// need parent-field lookup, default-resource merging and collision
-    /// renaming, which stay explicitly open, so the overlay entries remain
-    /// partial behind that gap.
+    /// <c>/Widget</c> annotations import their top-level fields through the
+    /// shared form machinery: one fresh field copy per placement with
+    /// per-placement default resources, document default-appearance and
+    /// quadding overrides, destination-wins resource merging with conflict
+    /// renaming, and merge collision renaming, matching the reference.
+    /// Widgets without an importable field (direct annotations, formless
+    /// sources, bare tops) fall back to plain clones, also matching the
+    /// reference.
     /// </summary>
     private static void CopyPlacementAnnotations(
         GraphCopier copier,
@@ -1377,6 +1398,7 @@ internal static class Overlays
         List<ResolvedSpec> resolvedUnderlays,
         List<ResolvedSpec> resolvedOverlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
+        List<AcroFormCopy.OverlayFieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -1386,8 +1408,8 @@ internal static class Overlays
         ref int allocator)
     {
         limits.Validate();
-        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, resolvedUnderlays, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
-        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, resolvedOverlays, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, resolvedUnderlays, formCache, imports, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, resolvedOverlays, formCache, imports, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
     }
 
     private static void CopyGroupAnnotations(
@@ -1398,6 +1420,7 @@ internal static class Overlays
         Dictionary<int, List<OverlayPlacement>> groups,
         List<ResolvedSpec> resolved,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
+        List<AcroFormCopy.OverlayFieldImport> imports,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -1420,7 +1443,7 @@ internal static class Overlays
                 }
 
                 double[] cm = PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false);
-                CopyOverlayPageAnnots(copier, pageId, spec.Source, placement.FromPage, cm, limits, governor, diagnostics, cancellationToken, ref allocator);
+                CopyOverlayPageAnnots(copier, pageId, spec.Source, placement.FromPage, cm, imports, limits, governor, diagnostics, cancellationToken, ref allocator);
             }
         }
     }
@@ -1431,6 +1454,7 @@ internal static class Overlays
         OverlaySource source,
         int fromPage,
         double[] cm,
+        List<AcroFormCopy.OverlayFieldImport> imports,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -1470,6 +1494,9 @@ internal static class Overlays
         Dictionary<int, int> memo = new();
         int nullId = -1;
         List<PdfReference> fresh = new(annots.Count);
+        AcroFormCopy.OverlaySourceForm? sourceForm = source.FormInfo;
+        PdfReference? placementDr = null;
+        int annotIndex = 0;
         foreach (QpdfObject item in annots.Items)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1500,9 +1527,15 @@ internal static class Overlays
 
             if (IsWidgetAnnotation(annot, resolver))
             {
-                continue;
+                int? widgetId = item is PdfReference widgetReference ? widgetReference.ObjectNumber : (int?)null;
+                if (TryImportOverlayWidget(destCopier, engine, annot, widgetId, item, fromPage, annotIndex, source, sourceForm, memo, cm, imports, ref placementDr, limits, governor, diagnostics, cancellationToken, ref allocator, ref nullId, fresh))
+                {
+                    annotIndex += 1;
+                    continue;
+                }
             }
 
+            annotIndex += 1;
             QpdfObject built = BuildOverlayContainer(target, engine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, 0);
             int id = allocator;
             checked { allocator += 1; }
@@ -1560,6 +1593,143 @@ internal static class Overlays
         {
             destCopier.ReplaceCopiedObject(destPageId, ReplaceEntry(page, annotsKey, rebuilt, governor));
         }
+    }
+
+    /// <summary>
+    /// Imports one overlay/underlay widget annotation's field through the shared
+    /// form machinery, mirroring the reference annotation transform: the top-level
+    /// field is copied once per placement with per-placement default resources,
+    /// radio siblings share that copy through the placement memo, and the
+    /// annotation clone reuses the field copy (merged fields) or its kid copy so
+    /// later field pruning stays linked. Returns true when the annotation was
+    /// handled; otherwise the caller falls back to the ordinary plain clone.
+    /// </summary>
+    private static bool TryImportOverlayWidget(
+        GraphCopier destCopier,
+        DocumentEngine sourceEngine,
+        PdfDictionary annot,
+        int? annotId,
+        QpdfObject item,
+        int fromPage,
+        int annotIndex,
+        OverlaySource source,
+        AcroFormCopy.OverlaySourceForm? sourceForm,
+        Dictionary<int, int> memo,
+        double[] cm,
+        List<AcroFormCopy.OverlayFieldImport> imports,
+        ref PdfReference? placementDr,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken,
+        ref int allocator,
+        ref int nullId,
+        List<PdfReference> fresh)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.ChargeWork(1L);
+        if (sourceForm is null || !sourceForm.HasFields)
+        {
+            return false;
+        }
+
+        if (!annotId.HasValue)
+        {
+            if (source.ImportNotes.Add("d:" + fromPage.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" + annotIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring an overlay widget annotation that the source form does not reference; cloning it without a field.");
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring an overlay form field that is not indirect; cloning its annotation without a field.");
+            }
+
+            return false;
+        }
+
+        AcroFormCopy.OverlayTopMatch? top = AcroFormCopy.FindOverlayTopField(annot, annotId, true, (IIndirectResolver)sourceEngine);
+        if (top is null)
+        {
+            return false;
+        }
+
+        if (!sourceForm.ReachedObjects.Contains(annotId.Value))
+        {
+            if (source.ImportNotes.Add("r:" + annotId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Info, "Ignoring an overlay widget annotation that the source form does not reference; cloning it without a field.");
+            }
+        }
+
+        if (top.DirectTop)
+        {
+            return false;
+        }
+
+        if (top.Cycled)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Detected a cycle in overlay form-field parents; importing the top field as encountered.");
+        }
+
+        int topId = top.Id ?? annotId.Value;
+        if (!memo.ContainsKey(topId))
+        {
+            QpdfObject fieldCopy = CopyOverlayNode(new PdfReference(topId, 0), sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, 0);
+            if (fieldCopy is not PdfReference fieldRef)
+            {
+                return false;
+            }
+
+            placementDr ??= CopyOverlayImportDR(sourceForm, sourceEngine, destCopier, memo, limits, governor, cancellationToken, ref allocator, ref nullId);
+            Dictionary<PdfName, QpdfObject> extras = new();
+            CopiedForm part = new([fieldRef], sourceForm.NeedAppearances, sourceForm.NeedAppearances, placementDr, false, [], extras);
+            imports.Add(new AcroFormCopy.OverlayFieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding));
+        }
+
+        QpdfObject cloned = CopyOverlayNode(item, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, 0);
+        if (cloned is not PdfReference cloneRef)
+        {
+            return false;
+        }
+
+        TransformOverlayRect(destCopier, cloneRef.ObjectNumber, cm, governor);
+        TransformOverlayAppearances(destCopier, cloneRef.ObjectNumber, cm, governor, cancellationToken);
+        fresh.Add(cloneRef);
+        return true;
+    }
+
+    private static PdfReference? CopyOverlayImportDR(
+        AcroFormCopy.OverlaySourceForm sourceForm,
+        DocumentEngine sourceEngine,
+        GraphCopier destCopier,
+        Dictionary<int, int> memo,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken,
+        ref int allocator,
+        ref int nullId)
+    {
+        if (sourceForm.DefaultResources is null)
+        {
+            return null;
+        }
+
+        QpdfObject copied = CopyOverlayNode(sourceForm.DefaultResources, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, 0);
+        if (copied is PdfReference link)
+        {
+            return link;
+        }
+
+        if (copied is PdfDictionary dictionary)
+        {
+            int id = allocator;
+            checked
+            {
+                allocator += 1;
+            }
+
+            governor.ReserveMemory(64L);
+            return destCopier.AddIndirectObjectWithId(dictionary, id);
+        }
+
+        return null;
     }
 
     private static bool IsWidgetAnnotation(PdfDictionary annot, IIndirectResolver source)
