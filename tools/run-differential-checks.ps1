@@ -2042,6 +2042,26 @@ foreach ($side in @(('managed', $libText), ('oracle', $oraText))) {
 }
 Write-Output "[parent-held] parent-held appearance assertions done"
 
+# --- case: generate-radio (managed vs oracle radio synchronization warning) ---
+$case = New-Case 'generate-radio'
+Copy-Item "$fixtureDir/generate-radio-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "generate-radio: emit failed ($code)" }
+$managedExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/m.pdf') "gen-radio"
+$code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 3) { Write-Output "[generate-radio] FAIL: oracle generate exit $code, expected 3 (radio sync warning)"; $script:failures++ }
+elseif ($managedExit -ne 3) { Write-Output "[generate-radio] FAIL: managed generate exit $managedExit, expected 3 (radio sync warning)"; $script:failures++ }
+else { Write-Output "[generate-radio] exit parity (3/3, both sides warn on radio sync)" }
+Assert-Trio 'generate-radio' "$case/lib.pdf" "$case/ora.pdf" 1
+$libJson = (& $QpdfExe --json "$case/lib.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$oraJson = (& $QpdfExe --json "$case/ora.pdf" 2>$null | Out-String) | ConvertFrom-Json
+$libField = @($libJson.acroform.fields)[0]
+$oraField = @($oraJson.acroform.fields)[0]
+if ($libField.value -ne '/Choice1' -or $oraField.value -ne '/Choice1') { Write-Output "[generate-radio] FAIL: value lib=$($libField.value) ora=$($oraField.value), expected /Choice1"; $script:failures++ }
+elseif ($libField.annotation.appearancestate -ne '/Off' -or $oraField.annotation.appearancestate -ne '/Off') { Write-Output "[generate-radio] FAIL: state lib=$($libField.annotation.appearancestate) ora=$($oraField.annotation.appearancestate), expected /Off"; $script:failures++ }
+else { Write-Output "[generate-radio] radio states agree (value /Choice1, state /Off, both kept)" }
+Write-Output "[generate-radio] assertions done"
+
 # --- case: direct-rename (managed vs oracle direct-kid collision renaming) ---
 $case = New-Case 'direct-rename'
 Copy-Item "$fixtureDir/dc-a-1page.pdf" "$case/inputs/a.pdf"
@@ -2308,4 +2328,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), generate-radio (radio sync warns 3/3 with states kept), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

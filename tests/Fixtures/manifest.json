@@ -340,6 +340,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a text widget carrying /DA and an appearance stream referencing an AcroForm DR font. Both sides must stamp the appearance verbatim on flatten; the flatten-dr differential consumes it."
+    },
+    {
+      "file": "generate-radio-1page.pdf",
+      "sha256": "35059934da1d69cc639f6d891a3cd8a8ebadd1ed1fb6fe759d85f11d04bb20f1",
+      "bytes": 832,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a radio button whose value and appearance state disagree. Both sides must keep both states and warn about radio synchronization; the generate-radio differential consumes it."
     }
   ]
 }
