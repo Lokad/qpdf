@@ -16,6 +16,7 @@ internal static class GenerateAppearances
 
     internal static int Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        IReadOnlyDictionary<GraphCopier, PdfDictionary?> formResources,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -27,6 +28,10 @@ internal static class GenerateAppearances
         if (occurrences is null)
         {
             throw new ArgumentNullException(nameof(occurrences));
+        }
+        if (formResources is null)
+        {
+            throw new ArgumentNullException(nameof(formResources));
         }
 
         if (limits is null)
@@ -115,7 +120,12 @@ internal static class GenerateAppearances
                     continue;
                 }
 
-                if (GenerateText(copier, annot, item, annotId, field, resolver, entries, limits, governor, diagnostics, cancellationToken, ref allocator))
+                PdfDictionary? formResourcesForCopier = null;
+                if (formResources.TryGetValue(copier, out PdfDictionary? mappedResources))
+                {
+                    formResourcesForCopier = mappedResources;
+                }
+                if (GenerateText(copier, annot, item, annotId, field, resolver, entries, limits, governor, diagnostics, cancellationToken, formResourcesForCopier, ref allocator))
                 {
                     pageChanged = true;
                 }
@@ -155,7 +165,8 @@ internal static class GenerateAppearances
         byte[]? DefaultAppearance,
         List<string> Choices,
         PdfDictionary? Node,
-        int? NodeId);
+        int? NodeId,
+        PdfDictionary? DefaultResources);
 
     private static bool IsWidget(PdfDictionary annot)
     {
@@ -177,6 +188,7 @@ internal static class GenerateAppearances
         byte[]? appearance = null;
         PdfDictionary? node = null;
         int? nodeId = null;
+        PdfDictionary? resources = null;
         bool flagsFound = false;
         foreach ((PdfDictionary current, int? currentId) in chain)
         {
@@ -195,6 +207,17 @@ internal static class GenerateAppearances
             if (appearance is null && current.TryGet(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceString)
             {
                 appearance = appearanceString.Value;
+            }
+
+            if (resources is null && current.TryGet(PdfName.FromAscii("DR"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull)
+            {
+                QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
+                    ? ResolveOrNull(resolver, resourcesReference) ?? resourcesRaw
+                    : resourcesRaw;
+                if (resourcesTarget is PdfDictionary resourcesDict)
+                {
+                    resources = resourcesDict;
+                }
             }
 
             if (!flagsFound && current.TryGet(PdfName.FromAscii("Ff"), out QpdfObject? flagsRaw) && flagsRaw is not null && flagsRaw is not PdfNull)
@@ -216,7 +239,7 @@ internal static class GenerateAppearances
             choices = ReadChoices(node, resolver);
         }
 
-        return new FieldContext(type, flags, value, appearance, choices, node, nodeId);
+        return new FieldContext(type, flags, value, appearance, choices, node, nodeId, resources);
     }
 
     private static List<(PdfDictionary Node, int? Id)> FindFieldChain(
@@ -513,6 +536,7 @@ internal static class GenerateAppearances
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
+        PdfDictionary? formResources,
         ref int allocator)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -572,7 +596,7 @@ internal static class GenerateAppearances
         }
 
         TfResult font = AnalyzeDa(daText, limits, governor);
-        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, resolver);
+        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, field.DefaultResources, formResources, resolver);
         byte[] encodedValue = encoder(valueText);
         List<byte[]> encodedOpt = new();
         if (field.Type == "Ch" && (field.Flags & FlagCombo) == 0L)
@@ -926,16 +950,14 @@ internal static class GenerateAppearances
         return new TfResult(size, font, rebuilt);
     }
 
-    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, string fontName, PoolResolver resolver)
+    private static string FindFontEncoding(QpdfObject? resourcesRaw, string fontName, PoolResolver resolver)
     {
-        if (fontName.Length == 0)
+        string encoding = string.Empty;
+        if (resourcesRaw is null || resourcesRaw is PdfNull)
         {
-            return EncodeAscii;
+            return encoding;
         }
 
-        string encoding = string.Empty;
-        if (appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull)
-        {
             QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
                 ? ResolveOrNull(resolver, resourcesReference) ?? resourcesRaw
                 : resourcesRaw;
@@ -975,6 +997,31 @@ internal static class GenerateAppearances
                     }
                 }
             }
+
+        return encoding;
+    }
+
+    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, string fontName, PdfDictionary? fieldResources, PdfDictionary? formResources, PoolResolver resolver)
+    {
+        if (fontName.Length == 0)
+        {
+            return EncodeAscii;
+        }
+
+        string encoding = string.Empty;
+        if (appearance.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull)
+        {
+            encoding = FindFontEncoding(resourcesRaw, fontName, resolver);
+        }
+
+        if (encoding.Length == 0 && fieldResources is not null)
+        {
+            encoding = FindFontEncoding(fieldResources, fontName, resolver);
+        }
+
+        if (encoding.Length == 0 && formResources is not null)
+        {
+            encoding = FindFontEncoding(formResources, fontName, resolver);
         }
 
         if (encoding == "WinAnsiEncoding")

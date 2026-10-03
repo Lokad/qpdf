@@ -28,6 +28,7 @@
     <None Include="../Fixtures/overlay-annot-1page.pdf" Link="Fixtures/overlay-annot-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/labels-2page.pdf" Link="Fixtures/labels-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/catalog-extras-1page.pdf" Link="Fixtures/catalog-extras-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/dr-encoding-1page.pdf" Link="Fixtures/dr-encoding-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-2page.pdf" Link="Fixtures/outlined-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/outlined-use-2page.pdf" Link="Fixtures/outlined-use-2page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/thumb-1page.pdf" Link="Fixtures/thumb-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

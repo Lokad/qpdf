@@ -236,6 +236,16 @@ public static class Qpdf
         (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
         PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
         (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
+        Dictionary<GraphCopier, PdfDictionary?> singleFormResources = new();
+        if (!removeAcroform)
+        {
+            PdfDictionary? singleDefaultResources = Content.AcroFormCopy.TryCopyFormDR(document.Engine, copier, governor, cancellationToken);
+            if (singleDefaultResources is not null)
+            {
+                singleFormResources[copier] = singleDefaultResources;
+            }
+        }
+
         Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, governor, cancellationToken);
         SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, cancellationToken);
         string? singlePageMode = ReadInputPageMode(document.Engine);
@@ -266,7 +276,7 @@ public static class Qpdf
         bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
         if (generateAppearances && needAppearances)
         {
-            flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+            flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
             needAppearances = false;
         }
         if (flattenAnnotations is not null)
@@ -833,7 +843,16 @@ public static class Qpdf
         int multiFlattenAllocator = overlayApplied.NextId;
         if (generateAppearances && needAppearances)
         {
-            multiFlattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            Dictionary<GraphCopier, PdfDictionary?> multiFormResources = new();
+            for (int s = 0; s < copiers.Count && s < multiForms.Count; s++)
+            {
+                if (multiForms[s]?.DefaultResources is PdfDictionary sourceResources)
+                {
+                    multiFormResources[copiers[s]] = sourceResources;
+                }
+            }
+
+            multiFlattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
             needAppearances = false;
         }
         if (flattenAnnotations is not null)

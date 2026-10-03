@@ -250,6 +250,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with catalog extras (NeedsRendering, PageLayout, ViewerPreferences, Lang, OpenAction), classic xref, unencrypted. Ordinary selection and rewrite must preserve unknown catalog keys through the shared copy engine; the catalog-extras differential consumes it."
+    },
+    {
+      "file": "dr-encoding-1page.pdf",
+      "sha256": "65addd24f3d38f7034bf06a7107e986b78e35dfedde5f74349711e66be21bb3e",
+      "bytes": 1111,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a WinAnsi font reachable only through form default resources. Appearance generation must resolve the DA font encoding through default resources; the dr-encoding differential consumes it."
     }
   ]
 }
