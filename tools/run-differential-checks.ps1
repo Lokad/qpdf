@@ -818,6 +818,19 @@ if ($code -ne 0) { throw "job-file: oracle failed ($code)" }
 Copy-Item "$case/outputs/a.pdf" "$case/ora.pdf" -Force
 Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 
+# --- case: replace (managed job vs oracle argv in-place replacement) ---
+$case = New-Case 'replace'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/o.pdf"
+Set-Content "$case/job.json" '{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/job.json", '--out', "inputs/a.pdf=$case/lib.pdf")
+if ($code -ne 0) { throw "replace: emit-job failed ($code)" }
+$code = Invoke-Oracle $case @('--replace-input', 'inputs/o.pdf', '--pages', '.', '1', '--')
+if ($code -ne 0) { throw "replace: oracle failed ($code)" }
+Assert-Trio 'replace' "$case/lib.pdf" "$case/inputs/o.pdf" 1
+if ((Get-ChildItem -Path $case -Recurse -Filter *.bak).Count -ne 0) { Write-Output "[replace] FAIL: backup files created"; $script:failures++ }
+else { Write-Output "[replace] in-place replacement agrees with no backups" }
+
 # --- case: recovery (managed vs oracle damaged-input behavior) ---
 $case = New-Case 'recovery'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf" -Force
@@ -1538,4 +1551,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

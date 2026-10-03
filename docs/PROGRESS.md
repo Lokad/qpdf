@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 85: replace-input completion (M11). `--replace-input` moves to complete with a new job-JSON `replaceInput` key (bare `""`/boolean, conflicting with `outputFile`, `pages`-less plans and `empty`, mirroring the argv rules through the shared plan) plus job parity, malformed-combination, rotation-interaction and exhausted-budget evidence proving failed publications leave the input untouched. A new `replace` differential case replaces a shared file on both sides (managed job vs oracle argv) with trio validation and no backup files created either side, documenting the no-backup behavior as probed parity. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 84: unreferenced-object preservation completion (M11). `--preserve-unreferenced` moves to complete: detached pages and detached trees are now preserved as loose objects (identity-based exclusion of rebuilt roots only), preservation runs for the primary merge input and suspends under `--empty`, and preserved metadata stays linked with intact bytes, all matching the pinned oracle. The old contained-preview exclusions and the stale unlinked-metadata claim are replaced by probed parity; remaining intentional differences (ascending copy order, decoded stream members instead of containers) are documented. A shared orphan/metadata/dangling-page fixture plus a `preserve-unreferenced` differential case (single-source loose-object agreement plus empty-base agreement) and the previously unwired exhausted-budget theory fill the evidence. Open follow-up recorded: unknown catalog keys ride along on every reference path while this profile drops them (separate catalog-extras item); merge collision renaming, first-wins default resources, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
 
 Prior gate

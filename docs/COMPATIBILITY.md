@@ -320,9 +320,13 @@ version and carries per-page source mapping plus per-source page counts.
 object pool with per-group reachability pruning and renumbering, upstream `%d`
 and `-NN[-MM]` naming, sliced page labels, and upfront collision validation;
 partial outputs can remain if a later group fails. `--replace-input` rewrites
-the single distinct input in place with no backup files and no output operand.
+the single distinct input in place with no backup files and no output operand,
+through argv and job JSON (`replaceInput` as `""` or boolean, conflicting with
+`outputFile`, `pages`-less plans, and `empty`); failed publications leave the
+target untouched, matching the reference, which likewise creates no backups.
 Both reject contradictory combinations explicitly; typed callers split by looping
-single-output selections.
+single-output selections. The differential lane replaces a shared two-page file
+on both sides with trio validation and no backup files created.
 
 ## Collation and page labels (work item 20, part 2)
 

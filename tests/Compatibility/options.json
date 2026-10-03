@@ -4754,22 +4754,23 @@
         }
       ],
       "milestone": "M5",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Job-JSON replaceInput key stays unsupported.",
-        "No backup files are made; failed publications leave targets untouched."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
-          "SplitReplaceTests.ReplaceInputOverwritesInPlace"
+          "SplitReplaceTests.ReplaceInputOverwritesInPlace",
+          "SplitReplaceTests.JobReplaceMatchesArgv",
+          "SplitReplaceTests.JobReplaceRotatesInPlace",
+          "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"
         ],
         "negative": [
-          "SplitReplaceTests.ReplaceRejectsOutputAndSplitAndMultiInput"
+          "SplitReplaceTests.ReplaceRejectsOutputAndSplitAndMultiInput",
+          "SplitReplaceTests.JobReplaceRejectsMalformed"
         ],
-        "interaction": [],
-        "resource": [],
-        "oracle": []
+        "interaction": ["SplitReplaceTests.JobReplaceRotatesInPlace"],
+        "resource": ["SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"],
+        "oracle": ["diff:replace"]
       }
     },
     {
