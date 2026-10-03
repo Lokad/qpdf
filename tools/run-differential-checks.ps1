@@ -1561,6 +1561,44 @@ foreach ($pair in @(('lib-keep', "$case/lib-keep.pdf"), ('ora-keep', "$case/ora-
 }
 Write-Output "[optimize/keep] keep-inline assertions done"
 
+# --- case: optimize-masks (managed vs oracle masked image optimization) ---
+$case = New-Case 'optimize-masks'
+Copy-Item "$fixtureDir/images-smask-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--optimize-images', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "optimize-masks: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--optimize-images', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "optimize-masks: oracle failed ($code)" }
+Assert-Trio 'optimize-masks' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  foreach ($needle in @('/DCTDecode', '/SMask', '/DeviceRGB', '/Width 160', '/Height 160')) {
+    if (-not $rawText.Contains($needle)) { Write-Output "[optimize-masks] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[optimize-masks] masked recompression assertions done"
+function Get-SmaskSpec {
+  param([string]$File)
+  $shown = & $QpdfExe --show-pages $File 2>$null | Out-String
+  $pm = [regex]::Match($shown, 'page 1:\s*(\d+) 0 R')
+  if (-not $pm.Success) { throw "optimize-masks: no page 1 in $File" }
+  $pageDump = & $QpdfExe --show-object=$($pm.Groups[1].Value) $File 2>$null | Out-String
+  $im = [regex]::Match($pageDump, "/Im0\s+(\d+) 0 R")
+  if (-not $im.Success) { throw "optimize-masks: no /Im0 in $File" }
+  $imgDump = & $QpdfExe --show-object=$($im.Groups[1].Value) $File 2>$null | Out-String
+  $sm = [regex]::Match($imgDump, "/SMask\s+(\d+) 0 R")
+  if (-not $sm.Success) { throw "optimize-masks: no /SMask in $File" }
+  $maskDump = & $QpdfExe --show-object=$($sm.Groups[1].Value) $File 2>$null | Out-String
+  return @{ Image = $imgDump; Mask = $maskDump }
+}
+$libSpec = Get-SmaskSpec "$case/lib.pdf"
+$oraSpec = Get-SmaskSpec "$case/ora.pdf"
+foreach ($pair in @(('lib', $libSpec), ('ora', $oraSpec))) {
+  if ($pair[1].Image -notmatch '/Filter /DCTDecode') { Write-Output "[optimize-masks] FAIL: image not recompressed in $($pair[0]) output"; $script:failures++ }
+  if ($pair[1].Mask -notmatch '/Filter /FlateDecode') { Write-Output "[optimize-masks] FAIL: mask not left flate in $($pair[0]) output"; $script:failures++ }
+  if ($pair[1].Mask -notmatch '/ColorSpace /DeviceGray') { Write-Output "[optimize-masks] FAIL: mask colorspace changed in $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[optimize-masks] mask preservation assertions done"
+
 # --- case: diagnostics (managed vs oracle output-neutral diagnostics) ---
 $case = New-Case 'diagnostics'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -2251,4 +2289,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
