@@ -792,6 +792,75 @@ foreach ($pair in @(('lib', "$case/lib-toodd.pdf"), ('ora', "$case/ora-toodd.pdf
 }
 Write-Output "[overlay-ranges/toodd] stamp assertions done"
 
+# --- case: overlay-annots (managed vs oracle annotation copying) ---
+$case = New-Case 'overlay-annots'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/overlay-annot-1page.pdf" "$case/inputs/o.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "overlay-annots: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "overlay-annots: oracle failed ($code)" }
+Assert-Trio 'overlay-annots' "$case/lib.pdf" "$case/ora.pdf" 1
+function Get-OverlayAnnotSpecs {
+  param([string]$File)
+  $pages = & $QpdfExe --show-pages $File 2>$null | Out-String
+  $m = [regex]::Match($pages, 'page 1:\s*(\d+) 0 R')
+  if (-not $m.Success) { throw "overlay-annots: no page 1 in $File" }
+  $pageDump = & $QpdfExe --show-object=$($m.Groups[1].Value) $File 2>$null | Out-String
+  $am = [regex]::Match($pageDump, '/Annots\s*\[([^\]]*)\]')
+  if (-not $am.Success) { throw "overlay-annots: no /Annots in $File page" }
+  $refs = [regex]::Matches($am.Groups[1].Value, '(\d+) 0 R') | ForEach-Object { $_.Groups[1].Value }
+  $specs = @()
+  foreach ($ref in $refs) {
+    $dump = & $QpdfExe --show-object=$ref $File 2>$null | Out-String
+    $sub = ([regex]::Match($dump, '/Subtype\s*/(\w+)').Groups[1].Value)
+    $con = ([regex]::Match($dump, '/Contents\s*(\((?:[^()\\]|\\.)*\)|<[0-9A-Fa-f]*>)').Groups[1].Value)
+    $rect = @()
+    $rm = [regex]::Match($dump, '/Rect\s*\[([^\]]*)\]')
+    if ($rm.Success) { $rect = @($rm.Groups[1].Value.Trim() -split '\s+' | Where-Object { $_ -ne '' } | ForEach-Object { [double]::Parse($_, [cultureinfo]::InvariantCulture) }) }
+    $matrix = $null
+    $hasP = $dump -match '/P(\s|$)'
+    $destNull = $false
+    $apm = [regex]::Match($dump, '/AP\s*<<\s*/N\s*(\d+) 0 R')
+    if ($apm.Success) {
+      $sdump = & $QpdfExe --show-object=$($apm.Groups[1].Value) $File 2>$null | Out-String
+      $mm = [regex]::Match($sdump, '/Matrix\s*\[([^\]]*)\]')
+      if ($mm.Success) { $matrix = @($mm.Groups[1].Value.Trim() -split '\s+' | Where-Object { $_ -ne '' } | ForEach-Object { [double]::Parse($_, [cultureinfo]::InvariantCulture) }) }
+    }
+    $dm = [regex]::Match($dump, '/D\s*\[\s*(\d+) 0 R')
+    if ($dm.Success) {
+      $tdump = & $QpdfExe --show-object=$($dm.Groups[1].Value) $File 2>$null | Out-String
+      if ($tdump.Trim() -eq 'null') { $destNull = $true }
+    }
+    $specs += @{ Subtype = $sub; Contents = $con; Rect = $rect; Matrix = $matrix; HasP = $hasP; DestNull = $destNull }
+  }
+  return $specs
+}
+$libSpecs = Get-OverlayAnnotSpecs "$case/lib.pdf"
+$oraSpecs = Get-OverlayAnnotSpecs "$case/ora.pdf"
+if ($libSpecs.Count -ne 3 -or $oraSpecs.Count -ne 3) { Write-Output "[overlay-annots] FAIL: annot counts lib=$($libSpecs.Count) ora=$($oraSpecs.Count), expected 3/3"; $script:failures++ }
+else {
+  for ($i = 0; $i -lt 3; $i++) {
+    $l = $libSpecs[$i]
+    $o = $oraSpecs[$i]
+    if ($l.Subtype -ne $o.Subtype) { Write-Output "[overlay-annots/$i] FAIL: subtype lib=$($l.Subtype) ora=$($o.Subtype)"; $script:failures++ }
+    if ($l.Contents -ne $o.Contents) { Write-Output "[overlay-annots/$i] FAIL: contents lib=$($l.Contents) ora=$($o.Contents)"; $script:failures++ }
+    foreach ($k in @('Rect', 'Matrix')) {
+      $lv = $l[$k]
+      $ov = $o[$k]
+      if (($null -eq $lv) -ne ($null -eq $ov)) { Write-Output "[overlay-annots/$i] FAIL: $k presence differs"; $script:failures++ }
+      elseif ($null -ne $lv) {
+        if ($lv.Count -ne $ov.Count) { Write-Output "[overlay-annots/$i] FAIL: $k length"; $script:failures++ }
+        else { for ($j = 0; $j -lt $lv.Count; $j++) { if ([Math]::Abs($lv[$j] - $ov[$j]) -gt 1e-6) { Write-Output "[overlay-annots/$i] FAIL: $k[$j] lib=$($lv[$j]) ora=$($ov[$j])"; $script:failures++ } } }
+      }
+    }
+    if ($l.HasP -or $o.HasP) { Write-Output "[overlay-annots/$i] FAIL: /P present lib=$($l.HasP) ora=$($o.HasP)"; $script:failures++ }
+  }
+  if ($libSpecs[1].DestNull -and $oraSpecs[1].DestNull) { Write-Output "[overlay-annots] link-destination null agreement" }
+  else { Write-Output "[overlay-annots] FAIL: link-destination null agreement lib=$($libSpecs[1].DestNull) ora=$($oraSpecs[1].DestNull)"; $script:failures++ }
+}
+Write-Output "[overlay-annots] annotation assertions done"
+
 # --- case: writer-controls (managed vs oracle header, identifier, and stream endings) ---
 $case = New-Case 'writer-controls'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -1860,4 +1929,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

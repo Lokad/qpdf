@@ -4292,7 +4292,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Overlay annotations are not copied."
+        "Widget and form-field overlay annotations are not copied; overlay form-field import needs parent-field lookup, default-resource merging and collision renaming, which stay explicitly open."
       ],
       "evidence": {
         "positive": [
@@ -4306,7 +4306,22 @@
           "OverlayTests.FromOddPositionsMapInOrder",
           "OverlayTests.ToOddRestrictsDestinations",
           "OverlayTests.RepeatRangesCycleAfterFromPages",
-          "OverlayTests.JobFromRangeMatchesArgv"
+          "OverlayTests.JobFromRangeMatchesArgv",
+          "OverlayTests.OverlayCopiesTextAnnotation",
+          "OverlayTests.OverlayAnnotationsJobMatchesArgv",
+          "OverlayTests.UnderlayCopiesAnnotations",
+          "OverlayTests.OverlayTransformsRectForScaledPlacement",
+          "OverlayTests.OverlayDropsPageReferenceToNull",
+          "OverlayTests.OverlayClonesAppearanceWithConcatenatedMatrix",
+          "OverlayTests.MalformedAppearanceMatrixBecomesZeros",
+          "OverlayTests.MissingRectBecomesTransformedZeros",
+          "OverlayTests.DirectAnnotationBecomesIndirect",
+          "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
+          "OverlayTests.WidgetAnnotationSkipped",
+          "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
+          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.ExistingAnnotationsAppended",
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
@@ -4321,7 +4336,8 @@
         ],
         "oracle": [
           "diff:overlay",
-          "diff:overlay-ranges"
+          "diff:overlay-ranges",
+          "diff:overlay-annots"
         ]
       }
     },
@@ -5978,14 +5994,29 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Overlay annotations are not copied."
+        "Widget and form-field overlay annotations are not copied; overlay form-field import needs parent-field lookup, default-resource merging and collision renaming, which stay explicitly open."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.UnderlayGoesBelowOriginal",
           "OverlayTests.UnderlayAndOverlayCombineAroundOriginal",
           "OverlayTests.EmptyFromWithRepeatCoversAllPages",
-          "OverlayTests.UnderlayRangesShareGrammar"
+          "OverlayTests.UnderlayRangesShareGrammar",
+          "OverlayTests.OverlayCopiesTextAnnotation",
+          "OverlayTests.OverlayAnnotationsJobMatchesArgv",
+          "OverlayTests.UnderlayCopiesAnnotations",
+          "OverlayTests.OverlayTransformsRectForScaledPlacement",
+          "OverlayTests.OverlayDropsPageReferenceToNull",
+          "OverlayTests.OverlayClonesAppearanceWithConcatenatedMatrix",
+          "OverlayTests.MalformedAppearanceMatrixBecomesZeros",
+          "OverlayTests.MissingRectBecomesTransformedZeros",
+          "OverlayTests.DirectAnnotationBecomesIndirect",
+          "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
+          "OverlayTests.WidgetAnnotationSkipped",
+          "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
+          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.ExistingAnnotationsAppended",
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
         "negative": [
           "OverlayTests.OverlayPasswordIsCrypto"
@@ -5997,7 +6028,8 @@
           "ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget"
         ],
         "oracle": [
-          "diff:overlay-ranges"
+          "diff:overlay-ranges",
+          "diff:overlay-annots"
         ]
       }
     },
@@ -6423,12 +6455,27 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
+        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; widget and form-field overlay annotations are not copied; overlay form-field import needs parent-field lookup, default-resource merging and collision renaming, which stay explicitly open."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.SelfOverlayUsesPrimaryInput",
-          "OverlayTests.MultipleOverlaysStackInOrder"
+          "OverlayTests.MultipleOverlaysStackInOrder",
+          "OverlayTests.OverlayCopiesTextAnnotation",
+          "OverlayTests.OverlayAnnotationsJobMatchesArgv",
+          "OverlayTests.UnderlayCopiesAnnotations",
+          "OverlayTests.OverlayTransformsRectForScaledPlacement",
+          "OverlayTests.OverlayDropsPageReferenceToNull",
+          "OverlayTests.OverlayClonesAppearanceWithConcatenatedMatrix",
+          "OverlayTests.MalformedAppearanceMatrixBecomesZeros",
+          "OverlayTests.MissingRectBecomesTransformedZeros",
+          "OverlayTests.DirectAnnotationBecomesIndirect",
+          "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
+          "OverlayTests.WidgetAnnotationSkipped",
+          "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
+          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.ExistingAnnotationsAppended",
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail"
@@ -6437,7 +6484,9 @@
           "OverlayTests.JobRoundTripMatchesArgv"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": [
+          "diff:overlay-annots"
+        ]
       }
     },
     {
@@ -6462,7 +6511,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Overlay annotations are not copied."
+        "Widget and form-field overlay annotations are not copied; overlay form-field import needs parent-field lookup, default-resource merging and collision renaming, which stay explicitly open."
       ],
       "evidence": {
         "positive": [
@@ -6472,7 +6521,22 @@
           "OverlayTests.FromRelativeSelectsLastOverlayPage",
           "OverlayTests.FromExclusionSkipsOverlayPage",
           "OverlayTests.FromOddPositionsMapInOrder",
-          "OverlayTests.JobFromRangeMatchesArgv"
+          "OverlayTests.JobFromRangeMatchesArgv",
+          "OverlayTests.OverlayCopiesTextAnnotation",
+          "OverlayTests.OverlayAnnotationsJobMatchesArgv",
+          "OverlayTests.UnderlayCopiesAnnotations",
+          "OverlayTests.OverlayTransformsRectForScaledPlacement",
+          "OverlayTests.OverlayDropsPageReferenceToNull",
+          "OverlayTests.OverlayClonesAppearanceWithConcatenatedMatrix",
+          "OverlayTests.MalformedAppearanceMatrixBecomesZeros",
+          "OverlayTests.MissingRectBecomesTransformedZeros",
+          "OverlayTests.DirectAnnotationBecomesIndirect",
+          "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
+          "OverlayTests.WidgetAnnotationSkipped",
+          "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
+          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.ExistingAnnotationsAppended",
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
@@ -6484,7 +6548,8 @@
         ],
         "resource": [],
         "oracle": [
-          "diff:overlay-ranges"
+          "diff:overlay-ranges",
+          "diff:overlay-annots"
         ]
       }
     },
@@ -6543,13 +6608,28 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Overlay annotations are not copied."
+        "Widget and form-field overlay annotations are not copied; overlay form-field import needs parent-field lookup, default-resource merging and collision renaming, which stay explicitly open."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.RepeatCyclesAfterFromPages",
           "OverlayTests.EmptyFromWithRepeatCoversAllPages",
-          "OverlayTests.RepeatRangesCycleAfterFromPages"
+          "OverlayTests.RepeatRangesCycleAfterFromPages",
+          "OverlayTests.OverlayCopiesTextAnnotation",
+          "OverlayTests.OverlayAnnotationsJobMatchesArgv",
+          "OverlayTests.UnderlayCopiesAnnotations",
+          "OverlayTests.OverlayTransformsRectForScaledPlacement",
+          "OverlayTests.OverlayDropsPageReferenceToNull",
+          "OverlayTests.OverlayClonesAppearanceWithConcatenatedMatrix",
+          "OverlayTests.MalformedAppearanceMatrixBecomesZeros",
+          "OverlayTests.MissingRectBecomesTransformedZeros",
+          "OverlayTests.DirectAnnotationBecomesIndirect",
+          "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
+          "OverlayTests.WidgetAnnotationSkipped",
+          "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
+          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.ExistingAnnotationsAppended",
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
@@ -6558,7 +6638,8 @@
         "interaction": [],
         "resource": [],
         "oracle": [
-          "diff:overlay-ranges"
+          "diff:overlay-ranges",
+          "diff:overlay-annots"
         ]
       }
     },
@@ -6584,13 +6665,28 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Overlay annotations are not copied."
+        "Widget and form-field overlay annotations are not copied; overlay form-field import needs parent-field lookup, default-resource merging and collision renaming, which stay explicitly open."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.ToRestrictsDestinationPages",
           "OverlayTests.DefaultMappingPairsPagesInOrder",
-          "OverlayTests.ToOddRestrictsDestinations"
+          "OverlayTests.ToOddRestrictsDestinations",
+          "OverlayTests.OverlayCopiesTextAnnotation",
+          "OverlayTests.OverlayAnnotationsJobMatchesArgv",
+          "OverlayTests.UnderlayCopiesAnnotations",
+          "OverlayTests.OverlayTransformsRectForScaledPlacement",
+          "OverlayTests.OverlayDropsPageReferenceToNull",
+          "OverlayTests.OverlayClonesAppearanceWithConcatenatedMatrix",
+          "OverlayTests.MalformedAppearanceMatrixBecomesZeros",
+          "OverlayTests.MissingRectBecomesTransformedZeros",
+          "OverlayTests.DirectAnnotationBecomesIndirect",
+          "OverlayTests.NonDictionaryAnnotationSkippedWithWarning",
+          "OverlayTests.WidgetAnnotationSkipped",
+          "OverlayTests.RepeatedOverlayClonesAnnotationsIndependently",
+          "OverlayTests.EmptyAnnotsArrayCreated",
+          "OverlayTests.ExistingAnnotationsAppended",
+          "ResourceEnforcementTests.OverlayAnnotationsYieldToExhaustedBudget"
         ],
         "negative": [
           "OverlayTests.MalformedOverlayFlagsFail",
@@ -6599,7 +6695,8 @@
         "interaction": [],
         "resource": [],
         "oracle": [
-          "diff:overlay-ranges"
+          "diff:overlay-ranges",
+          "diff:overlay-annots"
         ]
       }
     }
