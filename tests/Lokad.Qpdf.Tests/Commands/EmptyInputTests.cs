@@ -1,4 +1,6 @@
+using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -92,15 +94,6 @@ public sealed class EmptyInputTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 
-    [Fact]
-    public async Task BareEmptyHasNoOperation()
-    {
-        InMemoryQpdfHost host = await HostWithTwoSources();
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["--empty", "--", "outputs/a.pdf"]), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
-    }
 
     [Fact]
     public async Task EmptyWithReplaceInputFails()
@@ -127,7 +120,6 @@ public sealed class EmptyInputTests
     [InlineData("{\"empty\": true, \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}]}")]
     [InlineData("{\"empty\": true, \"outputFile\": \"outputs/a.pdf\"}")]
     [InlineData("{\"empty\": true, \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
-    [InlineData("{\"empty\": true, \"showNpages\": true}")]
     [InlineData("{\"empty\": \"yes\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}]}")]
     public async Task BadEmptyJobsFail(string jobJson)
     {
@@ -145,6 +137,140 @@ public sealed class EmptyInputTests
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
             new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, diagnostic.Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+    [Fact]
+    public async Task BareEmptyWritesZeroPageDocument()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        QpdfPath reread = QpdfPath.From("inputs/reread.pdf");
+        host.AddInput(reread, pdf, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None);
+        Assert.Equal(0, document.PageCount);
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(1));
+        Assert.True(catalog.TryGet(PdfName.FromAscii("Pages"), out QpdfObject? pagesRaw));
+        PdfReference pagesRef = Assert.IsType<PdfReference>(pagesRaw);
+        PdfDictionary tree = Assert.IsType<PdfDictionary>(document.GetObject(pagesRef.ObjectNumber));
+        Assert.True(tree.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
+        Assert.Equal(0, Assert.IsType<PdfArray>(kidsRaw).Count);
+    }
+
+    [Fact]
+    public async Task EmptyShowNpagesReportsZero()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--show-npages"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        QpdfDiagnostic note = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCount);
+        Assert.Contains(": 0", note.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EmptyCheckFailsWithoutPages()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed);
+    }
+
+    [Fact]
+    public async Task EmptyShowPagesListsNothing()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--show-pages"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageListing);
+    }
+
+    [Fact]
+    public async Task EmptyShowObjectDumpsCatalog()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--show-object=1"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        QpdfDiagnostic note = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.ObjectListing);
+        Assert.Contains("/Catalog", note.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EmptyShowXrefListsEntries()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--show-xref"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.XrefListing);
+    }
+
+    [Fact]
+    public async Task EmptyJsonReportsNoPages()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--json", "--json-key=pages", "--", "outputs/a.json"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.json"), out byte[] json));
+        using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(Encoding.UTF8.GetString(json));
+        Assert.Equal(0, document.RootElement.GetProperty("pages").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task EmptyListAttachmentsReportsNone()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--list-attachments"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.AttachmentListing);
+    }
+
+    [Fact]
+    public async Task EmptyCheckLinearizationReportsNotLinearized()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--check-linearization"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task JobEmptyShowNpagesMatchesArgv()
+    {
+        InMemoryQpdfHost argvHost = await HostWithTwoSources();
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            argvHost, new QpdfCommandInvocation(["--empty", "--show-npages"]), CancellationToken.None);
+        string argvMessage = Assert.Single(argv.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCount).Message;
+        InMemoryQpdfHost jobHost = await HostWithTwoSources();
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, """{"empty": true, "showNpages": true}""", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCount).Message;
+        Assert.Equal(argvMessage, jobMessage);
+    }
+
+    [Fact]
+    public async Task BareEmptyYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithTwoSources();
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--empty", "--", "outputs/a.pdf"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);

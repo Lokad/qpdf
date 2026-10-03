@@ -57,7 +57,9 @@ internal static class DocumentCheck
             new QpdfCheckOutcome("header", QpdfCheckStatus.Passed, $"Version {document.Version}."),
             new QpdfCheckOutcome("cross-reference", QpdfCheckStatus.Passed, $"{engine.XRefEntries.Count} entries cover the effective size."),
             new QpdfCheckOutcome("trailer", QpdfCheckStatus.Passed, "Catalog root is reachable and input is unencrypted."),
-            new QpdfCheckOutcome("page-tree", QpdfCheckStatus.Passed, $"{document.PageCount} pages traversed."),
+            document.PageCount == 0
+                ? new QpdfCheckOutcome("page-tree", QpdfCheckStatus.Failed, "File does not contain any pages.")
+                : new QpdfCheckOutcome("page-tree", QpdfCheckStatus.Passed, $"{document.PageCount} pages traversed."),
         };
 
         List<(int Number, PdfStream Stream)> streams = new();

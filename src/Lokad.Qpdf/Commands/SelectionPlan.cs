@@ -3,6 +3,11 @@ namespace Lokad.Qpdf.Commands;
 /// <summary>Validated job plan shared by every entry path.</summary>
 internal abstract record JobPlan(QpdfPath Input)
 {
+    /// <summary>Input token standing in for the synthetic zero-page document.</summary>
+    internal const string EmptyDocumentInput = "--empty";
+
+    public bool EmptyDocument { get; init; }
+
     public bool WarningExitZero { get; init; }
 
     public bool NoWarn { get; init; }

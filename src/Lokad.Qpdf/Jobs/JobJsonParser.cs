@@ -1079,7 +1079,11 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null);
             }
 
-            if (empty && !hasPages)
+            bool emptyInspection = showNpages || showPages || showObject is not null || showXref
+                || listAttachments || showAttachment is not null
+                || checkLinearization || showLinearization
+                || seenJson || seenJsonOutput;
+            if (empty && !hasPages && !emptyInspection)
             {
                 throw new QpdfParseException("Job \"empty\" requires \"pages\".", 0L, null);
             }
@@ -1104,7 +1108,8 @@ internal static class JobJsonParser
                         throw new QpdfParseException("Job JSON requires \"outputFile\" with \"showAttachment\".", 0L, null);
                     }
 
-                    return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
+                    (QpdfPath attachmentInput, bool attachmentEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
+                    return new AttachmentPlan(attachmentInput, SelectionPlan.CheckedPath(output), showAttachment, listAttachments, recovery) with { EmptyDocument = attachmentEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
                 }
 
                 if (output is not null)
@@ -1112,7 +1117,8 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job \"outputFile\" must not be given without \"showAttachment\".", 0L, null);
                 }
 
-                return new AttachmentPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), null, null, true, recovery) with { IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
+                (QpdfPath attachmentListInput, bool attachmentListEmpty) = ResolveInspectionInput(input, empty, "attachment inspection");
+                return new AttachmentPlan(attachmentListInput, null, null, true, recovery) with { EmptyDocument = attachmentListEmpty, IgnoreXrefStreams = ignoreXrefStreams, ReportMemoryUsage = reportMemoryUsage, Verbose = verbose, Progress = progress };
             }
 
             if (checkLinearization || showLinearization)
@@ -1134,10 +1140,12 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job linearization inspection cannot be combined with transformation or other inspection keys.", 0L, null);
                 }
 
-                return new LinearizationPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
+                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "linearization inspection");
+                return new LinearizationPlan(inspectionInput, recovery)
                 {
                     Check = checkLinearization,
                     Show = showLinearization,
+                    EmptyDocument = emptyDocument,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
                     Progress = progress,
@@ -1166,8 +1174,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job showNpages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
                 }
 
-                return new ShowNpagesPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
+                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showNpages");
+                return new ShowNpagesPlan(inspectionInput, recovery)
                 {
+                    EmptyDocument = emptyDocument,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -1198,8 +1208,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job showPages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
                 }
 
-                return new ShowPagesPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
+                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showPages");
+                return new ShowPagesPlan(inspectionInput, recovery)
                 {
+                    EmptyDocument = emptyDocument,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -1231,8 +1243,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job showObject cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
                 }
 
-                return new ShowObjectPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery, showObject)
+                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showObject");
+                return new ShowObjectPlan(inspectionInput, recovery, showObject)
                 {
+                    EmptyDocument = emptyDocument,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -1266,8 +1280,10 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job showXref cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
                 }
 
-                return new ShowXrefPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), recovery)
+                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showXref");
+                return new ShowXrefPlan(inspectionInput, recovery)
                 {
+                    EmptyDocument = emptyDocument,
                     WarningExitZero = warningExit0,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -1443,8 +1459,10 @@ internal static class JobJsonParser
                 }
 
                 string jsonStreams = seenJsonStreamData ? jsonStreamData! : (seenJsonOutput ? "inline" : "none");
-                return new JsonPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
+                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "json inspection");
+                return new JsonPlan(inspectionInput, SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
+                    EmptyDocument = emptyDocument,
                     DecodeLevel = jsonDecode,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
@@ -2514,6 +2532,26 @@ internal static class JobJsonParser
         }
 
         return value;
+    }
+
+    private static (QpdfPath Path, bool EmptyDocument) ResolveInspectionInput(string? input, bool empty, string role)
+    {
+        if (empty)
+        {
+            if (input is not null)
+            {
+                throw new QpdfParseException("Job \"empty\" cannot be combined with \"inputFile\" for " + role + ".", 0L, null);
+            }
+
+            return (SelectionPlan.CheckedPath(Commands.SelectionPlan.EmptyDocumentInput), true);
+        }
+
+        if (input is null)
+        {
+            throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null);
+        }
+
+        return (SelectionPlan.CheckedPath(input), false);
     }
 
     private static bool RequireBareFlag(JsonElement element, string role)

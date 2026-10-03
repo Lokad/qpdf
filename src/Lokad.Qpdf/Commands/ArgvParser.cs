@@ -161,6 +161,7 @@ internal static class ArgvParser
             string xrefInput = ParseInspectionInput(argv, showXrefAt, -1, -1, "--show-xref");
             return new ShowXrefPlan(SelectionPlan.CheckedPath(xrefInput), recovery) with
             {
+                EmptyDocument = string.Equals(xrefInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
             Progress = globals.Progress,
@@ -236,7 +237,7 @@ internal static class ArgvParser
                     throw new QpdfParseException("Options --normalize-content and stream-data inspection cannot be combined.", showObjectAt, null);
                 }
 
-                objectInput = ParseInputArea(argv, showObjectAt, "--show-object");
+                objectInput = IsEmptyDocumentInput(argv, showObjectAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, showObjectAt, "--show-object");
                 int streamTermAt = -1;
                 for (int i = showObjectAt + 1; i < argv.Count && streamTermAt < 0; i++)
                 {
@@ -268,6 +269,7 @@ internal static class ArgvParser
 
             return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
             {
+                EmptyDocument = string.Equals(objectInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
                 Output = objectOutput,
                 RawStreamData = globals.RawStreamData,
                 FilteredStreamData = globals.FilteredStreamData,
@@ -340,6 +342,7 @@ internal static class ArgvParser
             string npagesInput = ParseInspectionInput(argv, showNpagesAt, -1, -1, "--show-npages");
             return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
             {
+                EmptyDocument = string.Equals(npagesInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
             Progress = globals.Progress,
@@ -409,6 +412,7 @@ internal static class ArgvParser
             string pagesInput = ParseInspectionInput(argv, showPagesAt, -1, -1, "--show-pages");
             return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
             {
+                EmptyDocument = string.Equals(pagesInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
             Progress = globals.Progress,
@@ -661,7 +665,10 @@ internal static class ArgvParser
             if (checkAt >= 0)
             {
                 string checkInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, "--check");
-                return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(checkInput), recovery), globals) with
+                return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(checkInput), recovery) with
+                {
+                    EmptyDocument = string.Equals(checkInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
+                }, globals) with
                 {
                     CheckLinearization = checkLinearizationAt >= 0,
                     ShowLinearization = showLinearizationAt >= 0,
@@ -671,6 +678,7 @@ internal static class ArgvParser
             string soloInput = ParseInspectionInput(argv, -1, checkLinearizationAt, showLinearizationAt, linFlag);
             return new LinearizationPlan(SelectionPlan.CheckedPath(soloInput), recovery) with
             {
+                EmptyDocument = string.Equals(soloInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
                 Check = checkLinearizationAt >= 0,
                 Show = showLinearizationAt >= 0,
                 WarningExitZero = globals.WarningExitZero,
@@ -719,6 +727,15 @@ internal static class ArgvParser
             }
 
             return WithCheckGlobals(ParseCheck(argv, checkAt, recovery), globals);
+        }
+
+        if (pagesAt < 0 && argv.Count == 3 && argv[0] == JobPlan.EmptyDocumentInput && argv[1] == "--")
+        {
+            string bareOutput = ParseOutputArea(argv, 1);
+            return NewWholeFilePlan(JobPlan.EmptyDocumentInput, bareOutput, recovery, globals, new List<OutputRotation>(), new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>()) with
+            {
+                EmptyDocument = true,
+            };
         }
 
         if (pagesAt < 0 && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
@@ -879,60 +896,7 @@ internal static class ArgvParser
 
         if (groups.Count == 0)
         {
-            return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
-            {
-                WarningExitZero = globals.WarningExitZero,
-                Verbose = globals.Verbose,
-            Progress = globals.Progress,
-                ReportMemoryUsage = globals.ReportMemoryUsage,
-                IgnoreXrefStreams = globals.IgnoreXrefStreams,
-                NoWarn = globals.NoWarn,
-                Rotations = rotations,
-                Labels = labels,
-                SplitPages = globals.SplitPages,
-                MinVersion = globals.MinVersion,
-                ForceVersion = globals.ForceVersion,
-                DeterministicId = globals.DeterministicId,
-                StaticId = globals.StaticId,
-                NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
-                ObjectStreams = globals.ObjectStreams,
-                PreserveUnreferenced = globals.PreserveUnreferenced,
-                StreamData = globals.StreamData,
-                CompressStreams = globals.CompressStreams,
-                DecodeLevel = globals.DecodeLevel,
-                MaxStreamFilters = globals.MaxStreamFilters,
-                ParserMaxNesting = globals.ParserMaxNesting,
-                MaxContainerSize = globals.MaxContainerSize,
-                MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
-                RecompressFlate = globals.RecompressFlate,
-                CompressionLevel = globals.CompressionLevel,
-                RemoveInfo = globals.RemoveInfo,
-                RemoveAcroform = globals.RemoveAcroform,
-                RemoveMetadata = globals.RemoveMetadata,
-                CoalesceContents = globals.CoalesceContents,
-                NormalizeContent = globals.NormalizeContent,
-                RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
-                ExternalizeInlineImages = globals.ExternalizeInlineImages,
-                IiMinBytes = globals.IiMinBytes,
-            FlattenRotation = globals.FlattenRotation,
-            FlattenAnnotations = globals.FlattenAnnotations,
-            GenerateAppearances = globals.GenerateAppearances,
-            OptimizeImages = globals.OptimizeImages,
-            OiMinWidth = globals.OiMinWidth,
-            OiMinHeight = globals.OiMinHeight,
-            OiMinArea = globals.OiMinArea,
-            KeepInlineImages = globals.KeepInlineImages,
-            JpegQuality = globals.JpegQuality,
-            Qdf = globals.Qdf,
-            Linearize = globals.Linearize,
-            LinearizePass1 = ParseLinearizePass1(globals),
-            NoOriginalObjectIds = globals.NoOriginalObjectIds,
-                AttachmentsToAdd = edits.Adds,
-                AttachmentsToRemove = edits.Removes,
-                AttachmentsToCopy = edits.Copies,
-                Overlays = overlays,
-                Underlays = underlays,
-            };
+            return NewWholeFilePlan(input, output, recovery, globals, rotations, labels, edits, overlays, underlays);
         }
 
         string file = groups[0].File;
@@ -1067,7 +1031,7 @@ internal static class ArgvParser
             }
         }
 
-        string input = ParseInputArea(argv, firstAt, "attachment inspection");
+        string input = IsEmptyDocumentInput(argv, firstAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, firstAt, "attachment inspection");
         if (showKey is not null)
         {
             int termAt = -1;
@@ -1094,6 +1058,7 @@ internal static class ArgvParser
 
             return new AttachmentPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), showKey, listAt >= 0, recovery) with
             {
+                EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
                 WarningExitZero = globals.WarningExitZero,
                 Verbose = globals.Verbose,
             Progress = globals.Progress,
@@ -1114,6 +1079,7 @@ internal static class ArgvParser
 
         return new AttachmentPlan(SelectionPlan.CheckedPath(input), null, null, true, recovery) with
         {
+            EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
             WarningExitZero = globals.WarningExitZero,
             Verbose = globals.Verbose,
             Progress = globals.Progress,
@@ -2656,7 +2622,22 @@ internal static class ArgvParser
             throw new QpdfParseException($"Unexpected argument '{token}' after {operation}; inspection takes no output file.", i, null);
         }
 
+        if (argv.Count > 0 && argv[0] == JobPlan.EmptyDocumentInput)
+        {
+            return JobPlan.EmptyDocumentInput;
+        }
+
         return ParseInputArea(argv, 1, operation);
+    }
+
+    private static bool IsEmptyDocumentInput(IReadOnlyList<string> argv, int boundaryAt)
+    {
+        if (boundaryAt != 1)
+        {
+            return false;
+        }
+
+        return argv.Count > 0 && argv[0] == JobPlan.EmptyDocumentInput;
     }
 
     private static CheckPlan WithCheckGlobals(CheckPlan plan, GlobalOptions globals)
@@ -2698,10 +2679,13 @@ internal static class ArgvParser
 
     private static CheckPlan ParseCheck(IReadOnlyList<string> argv, int checkAt, QpdfRecoveryMode recovery)
     {
-        string input = ParseInputArea(argv, checkAt, "--check");
+        string input = IsEmptyDocumentInput(argv, checkAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, checkAt, "--check");
         if (checkAt + 1 >= argv.Count)
         {
-            return new CheckPlan(SelectionPlan.CheckedPath(input), recovery);
+            return new CheckPlan(SelectionPlan.CheckedPath(input), recovery) with
+            {
+                EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
+            };
         }
 
         string? token = argv[checkAt + 1];
@@ -2788,7 +2772,7 @@ internal static class ArgvParser
 
     private static JobPlan ParseJson(IReadOnlyList<string> argv, int entryAt, QpdfRecoveryMode recovery, GlobalOptions globals)
     {
-        string input = ParseInputArea(argv, entryAt, "--json");
+        string input = IsEmptyDocumentInput(argv, entryAt) ? JobPlan.EmptyDocumentInput : ParseInputArea(argv, entryAt, "--json");
         int cursor = entryAt;
         bool seenJsonVersion = false;
         int jsonVersion = 0;
@@ -2926,6 +2910,7 @@ internal static class ArgvParser
         string output = ParseOutputArea(argv, cursor);
         return new JsonPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), version, keys, recovery) with
         {
+            EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
             DecodeLevel = globals.DecodeLevel ?? (minimalOutput ? "none" : "generalized"),
             ReportMemoryUsage = globals.ReportMemoryUsage,
             TestJsonSchema = globals.TestJsonSchema,
@@ -3911,6 +3896,72 @@ internal static class ArgvParser
         return sizes;
     }
 
+    private static WholeFilePlan NewWholeFilePlan(
+        string input,
+        string output,
+        QpdfRecoveryMode recovery,
+        GlobalOptions globals,
+        List<OutputRotation> rotations,
+        List<PageLabelSpec> labels,
+        AttachmentEdits edits,
+        List<OverlaySpec> overlays,
+        List<OverlaySpec> underlays)
+    {
+        return new WholeFilePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), recovery) with
+            {
+                WarningExitZero = globals.WarningExitZero,
+                Verbose = globals.Verbose,
+            Progress = globals.Progress,
+                ReportMemoryUsage = globals.ReportMemoryUsage,
+                IgnoreXrefStreams = globals.IgnoreXrefStreams,
+                NoWarn = globals.NoWarn,
+                Rotations = rotations,
+                Labels = labels,
+                SplitPages = globals.SplitPages,
+                MinVersion = globals.MinVersion,
+                ForceVersion = globals.ForceVersion,
+                DeterministicId = globals.DeterministicId,
+                StaticId = globals.StaticId,
+                NewlineBeforeEndstream = globals.NewlineBeforeEndstream,
+                ObjectStreams = globals.ObjectStreams,
+                PreserveUnreferenced = globals.PreserveUnreferenced,
+                StreamData = globals.StreamData,
+                CompressStreams = globals.CompressStreams,
+                DecodeLevel = globals.DecodeLevel,
+                MaxStreamFilters = globals.MaxStreamFilters,
+                ParserMaxNesting = globals.ParserMaxNesting,
+                MaxContainerSize = globals.MaxContainerSize,
+                MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+                RecompressFlate = globals.RecompressFlate,
+                CompressionLevel = globals.CompressionLevel,
+                RemoveInfo = globals.RemoveInfo,
+                RemoveAcroform = globals.RemoveAcroform,
+                RemoveMetadata = globals.RemoveMetadata,
+                CoalesceContents = globals.CoalesceContents,
+                NormalizeContent = globals.NormalizeContent,
+                RemoveUnreferencedResources = globals.RemoveUnreferencedResources,
+                ExternalizeInlineImages = globals.ExternalizeInlineImages,
+                IiMinBytes = globals.IiMinBytes,
+            FlattenRotation = globals.FlattenRotation,
+            FlattenAnnotations = globals.FlattenAnnotations,
+            GenerateAppearances = globals.GenerateAppearances,
+            OptimizeImages = globals.OptimizeImages,
+            OiMinWidth = globals.OiMinWidth,
+            OiMinHeight = globals.OiMinHeight,
+            OiMinArea = globals.OiMinArea,
+            KeepInlineImages = globals.KeepInlineImages,
+            JpegQuality = globals.JpegQuality,
+            Qdf = globals.Qdf,
+            Linearize = globals.Linearize,
+            LinearizePass1 = ParseLinearizePass1(globals),
+            NoOriginalObjectIds = globals.NoOriginalObjectIds,
+                AttachmentsToAdd = edits.Adds,
+                AttachmentsToRemove = edits.Removes,
+                AttachmentsToCopy = edits.Copies,
+                Overlays = overlays,
+                Underlays = underlays,
+            };
+        }
     private static string TakeParameter(IReadOnlyList<string> argv, int terminatorAt, ref int i, string option)
     {
         string token = argv[i];

@@ -97,6 +97,93 @@ public sealed class QpdfDocument : IAsyncDisposable
         return await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Synthetic zero-page document backing <c>--empty</c> inspections and rewrites.
+    /// The bytes are a minimal classic-xref file parsed by the same strict pipeline
+    /// as host inputs, so the empty document carries real xref entries, a catalog,
+    /// and an empty page tree with no host lease involved.
+    /// </summary>
+    private static readonly byte[] EmptyPdfBytes = System.Text.Encoding.ASCII.GetBytes(
+        "%PDF-1.3\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [ ] /Count 0 >>\nendobj\nxref\n0 3\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n111\n%%EOF\n");
+
+    private sealed class EmptyPdfInput : IQpdfInput
+    {
+        internal EmptyPdfInput(QpdfPath path)
+        {
+            Path = path;
+        }
+
+        public QpdfPath Path { get; }
+
+        public string Identity => "empty";
+
+        public long Length => EmptyPdfBytes.Length;
+
+        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+        {
+            if (offset < 0 || count < 0 || offset + count > EmptyPdfBytes.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return new ValueTask<ReadOnlyMemory<byte>>(EmptyPdfBytes.AsMemory((int)offset, count));
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    internal static async ValueTask<QpdfDocument> OpenEmptyDocument(
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken)
+    {
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        if (diagnostics is null)
+        {
+            throw new ArgumentNullException(nameof(diagnostics));
+        }
+
+        limits.Validate();
+        IQpdfInput input = new EmptyPdfInput(path);
+        try
+        {
+            governor.ReserveMemory(EmptyPdfBytes.Length);
+            byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, EmptyPdfBytes.Length, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadOnlyMemory<byte> data = bytes;
+            PdfVersion headerVersion = ParseHeader(data);
+            cancellationToken.ThrowIfCancellationRequested();
+            XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
+            DocumentEngine engine = new(data, table, limits, governor, diagnostics);
+            cancellationToken.ThrowIfCancellationRequested();
+            RejectEncrypted(path, engine);
+            PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
+            List<PageLocation> pages = ListPages(engine, diagnostics, governor, limits, cancellationToken);
+            return new QpdfDocument(input, engine, governor, diagnostics, pages, path, limits, version, headerVersion);
+        }
+        catch
+        {
+            await input.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     internal static async ValueTask<QpdfDocument> OpenCore(
         IQpdfHost host,
         QpdfPath path,
