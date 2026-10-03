@@ -999,7 +999,7 @@ else { Write-Output "[hints] hinted output matches unhinted bytes" }
 # --- case: global (managed vs oracle --global limit blocks) ---
 $case = New-Case 'global'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-foreach ($sub in @(@('filters', @('--max-stream-filters=25')), @('nesting', @('--parser-max-nesting=100')))) {
+foreach ($sub in @(@('filters', @('--max-stream-filters=25')), @('nesting', @('--parser-max-nesting=100')), @('nesting499', @('--parser-max-nesting=499')), @('containers', @('--parser-max-container-size=1000', '--parser-max-container-size-damaged=1000')))) {
   $name = $sub[0]
   $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', '--global') + $sub[1] + @('--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "outputs/$name.pdf"))
   if ($code -ne 0) { throw "global/$name`: emit failed ($code)" }
