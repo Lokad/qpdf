@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 112: catalog-extras preservation (M11). Unknown catalog keys (NeedsRendering, PageLayout, ViewerPreferences, Lang, OpenAction) now copy through the owning source engine on ordinary selection, whole-file rewrite, and primary-source merge; split groups and empty bases drop them, unresolvable values drop keys silently, and structural-node references drop keys where the reference remaps them (documented intentional difference). Twelve unit cases plus the catalog-extras-1page.pdf fixture and a catalog-extras differential case carry the evidence, and the preserve-unreferenced follow-up is closed. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 111: inventory regeneration reconciliation (M11). Regenerating the compatibility inventory from the pinned reference checkout reproduces all 157 option/context entries with zero drift on generator-owned fields (flags, contexts, argument kinds, choices, job-JSON paths, scopes, manual forms, milestones); human-owned status, evidence, gaps, and review fields live only in the checked-in file. Docs-only record change. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
 
 Prior gate

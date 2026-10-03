@@ -782,6 +782,57 @@ if ($libSp1 -ne $oraSp1) { Write-Output "[labels-merge-split] FAIL: split catalo
 elseif (-not $libSp1.Contains('/PageLabels')) { Write-Output "[labels-merge-split] FAIL: labels missing"; $script:failures++ }
 else { Write-Output "[labels-merge-split] split catalogs agree" }
 
+# --- case: catalog-extras (managed vs oracle unknown-catalog-key preservation) ---
+$case = New-Case 'catalog-extras'
+Copy-Item "$fixtureDir/catalog-extras-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+function Get-NormalizedCatalog {
+  param([string]$File)
+  $cat = & $QpdfExe --show-object=1 $File 2>$null | Out-String
+  return ($cat -replace '\d+ 0 R', 'R').Trim()
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', 'inputs/b.pdf', '1', '--', 'outputs/m.pdf')
+if ($code -ne 0) { throw "catalog-extras/merge: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', 'inputs/b.pdf', '1', '--', "$case/ora-m.pdf")
+if ($code -ne 0) { throw "catalog-extras/merge: oracle failed ($code)" }
+Assert-Trio 'catalog-extras' "$case/lib-m.pdf" "$case/ora-m.pdf" 2
+$libCat = Get-NormalizedCatalog "$case/lib-m.pdf"
+$oraCat = Get-NormalizedCatalog "$case/ora-m.pdf"
+if ($libCat -ne $oraCat) { Write-Output "[catalog-extras] FAIL: merged catalogs differ"; $script:failures++ }
+elseif (-not $libCat.Contains('/PageLayout')) { Write-Output "[catalog-extras] FAIL: extras missing"; $script:failures++ }
+else { Write-Output "[catalog-extras] merged catalogs agree" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-s.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--', 'outputs/s.pdf')
+if ($code -ne 0) { throw "catalog-extras/subset: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-s.pdf")
+if ($code -ne 0) { throw "catalog-extras/subset: oracle failed ($code)" }
+Assert-Trio 'catalog-extras-subset' "$case/lib-s.pdf" "$case/ora-s.pdf" 1
+$libSub = Get-NormalizedCatalog "$case/lib-s.pdf"
+$oraSub = Get-NormalizedCatalog "$case/ora-s.pdf"
+if ($libSub -ne $oraSub) { Write-Output "[catalog-extras-subset] FAIL: subset catalogs differ"; $script:failures++ }
+elseif (-not $libSub.Contains('/OpenAction')) { Write-Output "[catalog-extras-subset] FAIL: extras missing"; $script:failures++ }
+else { Write-Output "[catalog-extras-subset] subset catalogs agree" }
+Set-Content "$case/whole-job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/w.pdf", "coalesceContents": true}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whole-job.json", '--out', "outputs/w.pdf=$case/lib-w.pdf")
+if ($code -ne 0) { throw "catalog-extras/whole: emit-job failed ($code)" }
+$code = Invoke-Oracle $case @('--coalesce-contents', 'inputs/a.pdf', '--', "$case/ora-w.pdf")
+if ($code -ne 0) { throw "catalog-extras/whole: oracle failed ($code)" }
+Assert-Trio 'catalog-extras-whole' "$case/lib-w.pdf" "$case/ora-w.pdf" 1
+$libWhole = Get-NormalizedCatalog "$case/lib-w.pdf"
+$oraWhole = Get-NormalizedCatalog "$case/ora-w.pdf"
+if ($libWhole -ne $oraWhole) { Write-Output "[catalog-extras-whole] FAIL: whole-file catalogs differ"; $script:failures++ }
+elseif (-not $libWhole.Contains('/ViewerPreferences')) { Write-Output "[catalog-extras-whole] FAIL: extras missing"; $script:failures++ }
+else { Write-Output "[catalog-extras-whole] whole-file catalogs agree" }
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/sp-1.pdf=$case/lib-sp-1.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--split-pages', '--', 'outputs/sp.pdf')
+if ($code -ne 0) { throw "catalog-extras/split: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--split-pages', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-sp.pdf")
+if ($code -ne 0) { throw "catalog-extras/split: oracle failed ($code)" }
+Assert-Trio 'catalog-extras-split' "$case/lib-sp-1.pdf" "$case/ora-sp-1.pdf" 1
+$libSp = Get-NormalizedCatalog "$case/lib-sp-1.pdf"
+$oraSp = Get-NormalizedCatalog "$case/ora-sp-1.pdf"
+if ($libSp -ne $oraSp) { Write-Output "[catalog-extras-split] FAIL: split catalogs differ"; $script:failures++ }
+elseif ($libSp.Contains('/NeedsRendering')) { Write-Output "[catalog-extras-split] FAIL: extras remain"; $script:failures++ }
+else { Write-Output "[catalog-extras-split] split catalogs agree" }
+
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
@@ -1992,4 +2043,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
