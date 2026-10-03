@@ -386,7 +386,7 @@ warning exit parity with the oracle (plain 3/3, flagged 0/0, suppressed-message 
 `--help` and `--version` return identity text as info diagnostics with exit 0, as does the
 new `--copyright` notice (Lokad/MIT/12.4.2-target); valued identity forms fail explicitly, and
 identity requests bypass exhausted output budgets. `--completion-bash` and `--completion-zsh` emit static subset completion scripts (no shell execution or environment lookup), `--job-json-help` prints the supported job-key subset, and `--json-help[=1|2|latest]` describes the matching inspection version; the differential lane checks exit-0 identity parity with shared markers on both sides. `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with identical outputs (host lease policy stays authoritative); the differential lane runs hinted merges with trios green on both sides. All other operations stay
-explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides.
+explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides. `--global [options] --` limit blocks behave identically on both sides; bare limit flags outside the block are accepted here as a narrow-profile leniency while the reference rejects them, and the differential lane runs blocked selections with trios green on both sides.
 
 Output-neutral diagnostics (work item 81): `--progress` reports counted-byte
 milestones (25/50/75/100%) while the reference streams object-based

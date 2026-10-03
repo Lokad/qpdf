@@ -996,6 +996,19 @@ $ph = (Get-FileHash "$case/lib-plain.pdf" -Algorithm SHA256).Hash
 if ($lh -ne $ph) { Write-Output "[hints] FAIL: hinted bytes differ from unhinted bytes"; $script:failures++ }
 else { Write-Output "[hints] hinted output matches unhinted bytes" }
 
+# --- case: global (managed vs oracle --global limit blocks) ---
+$case = New-Case 'global'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+foreach ($sub in @(@('filters', @('--max-stream-filters=25')), @('nesting', @('--parser-max-nesting=100')))) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', '--global') + $sub[1] + @('--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "outputs/$name.pdf"))
+  if ($code -ne 0) { throw "global/$name`: emit failed ($code)" }
+  $code = Invoke-Oracle $case (@('--global') + $sub[1] + @('--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-$name.pdf"))
+  if ($code -ne 0) { throw "global/$name`: oracle failed ($code)" }
+  Assert-Trio "global-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 2
+}
+Write-Output "[global] block parity done"
+
 # --- case: warnings (warning exit-code parity) ---
 $case = New-Case 'warnings'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -1578,4 +1591,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
