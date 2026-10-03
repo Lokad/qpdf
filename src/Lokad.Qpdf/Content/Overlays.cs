@@ -825,6 +825,7 @@ internal static class Overlays
         allocator = checked(allocator + 1);
         replaced = ReplaceEntry(replaced, PdfName.FromAscii("Contents"), stackedLink, governor);
         copier.ReplaceCopiedObject(pageId, replaced);
+        CopyPlacementAnnotations(copier, pageId, placeBox, destTransform, underlays, overlays, resolvedUnderlays, resolvedOverlays, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
     }
 
     private sealed record OverlayForm(PdfReference Link, double[] Box, double[]? FormMatrix);
@@ -1341,6 +1342,731 @@ internal static class Overlays
         }
 
         return JoinContentBytes(chunks, governor);
+    }
+
+    /// <summary>
+    /// Copies overlay/underlay source-page annotations onto the stamped
+    /// destination page, mirroring the upstream reference
+    /// (<c>QPDFPageObjectHelper::copyAnnotations</c> over
+    /// <c>QPDFAcroFormDocumentHelper::transformAnnotations</c>). Each applied
+    /// source page contributes fresh per-placement clones appended to the
+    /// destination <c>/Annots</c> array, so repeated placements never share
+    /// annotation objects. Clone <c>/Rect</c> entries are transformed by the
+    /// same placement matrix used for content stamping (missing or malformed
+    /// rectangles behave as all-zeros, matching the reference), and
+    /// appearance-stream <c>/Matrix</c> entries are concatenated with it
+    /// (missing matrices stay absent under identity placements; malformed
+    /// matrices behave as all-zeros, matching the reference). References that
+    /// would resurrect overlay source pages prune to null exactly as the
+    /// reference stops foreign copies at page boundaries; null-valued
+    /// dictionary keys are dropped while null array elements are kept as
+    /// indirect null objects, matching reference output. Entries that are not
+    /// dictionaries are skipped with a warning, matching the reference.
+    /// <c>/Widget</c> annotations are skipped: overlay form-field import would
+    /// need parent-field lookup, default-resource merging and collision
+    /// renaming, which stay explicitly open, so the overlay entries remain
+    /// partial behind that gap.
+    /// </summary>
+    private static void CopyPlacementAnnotations(
+        GraphCopier copier,
+        int pageId,
+        double[] placeBox,
+        double[] destTransform,
+        Dictionary<int, List<OverlayPlacement>> underlays,
+        Dictionary<int, List<OverlayPlacement>> overlays,
+        List<ResolvedSpec> resolvedUnderlays,
+        List<ResolvedSpec> resolvedOverlays,
+        Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
+        bool compress,
+        int? level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken,
+        ref int allocator)
+    {
+        limits.Validate();
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, underlays, resolvedUnderlays, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
+        CopyGroupAnnotations(copier, pageId, placeBox, destTransform, overlays, resolvedOverlays, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
+    }
+
+    private static void CopyGroupAnnotations(
+        GraphCopier copier,
+        int pageId,
+        double[] placeBox,
+        double[] destTransform,
+        Dictionary<int, List<OverlayPlacement>> groups,
+        List<ResolvedSpec> resolved,
+        Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
+        bool compress,
+        int? level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken,
+        ref int allocator)
+    {
+        foreach (KeyValuePair<int, List<OverlayPlacement>> group in SortedGroups(groups))
+        {
+            ResolvedSpec spec = resolved[group.Key];
+            foreach (OverlayPlacement placement in group.Value)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                OverlayForm? form = GetOrBuildOverlayForm(spec, placement, formCache, compress, level, limits, governor, diagnostics, cancellationToken, ref allocator);
+                if (form is null)
+                {
+                    continue;
+                }
+
+                double[] cm = PlacementMatrix(form.Box, form.FormMatrix, placeBox, destTransform, true, false);
+                CopyOverlayPageAnnots(copier, pageId, spec.Source, placement.FromPage, cm, limits, governor, diagnostics, cancellationToken, ref allocator);
+            }
+        }
+    }
+
+    private static void CopyOverlayPageAnnots(
+        GraphCopier destCopier,
+        int destPageId,
+        OverlaySource source,
+        int fromPage,
+        double[] cm,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken,
+        ref int allocator)
+    {
+        if (fromPage < 1 || fromPage > source.Document.PageReferences.Count)
+        {
+            return;
+        }
+
+        PageLocation location = source.Document.PageReferences[fromPage - 1];
+        DocumentEngine engine = source.Document.Engine;
+        IIndirectResolver resolver = (IIndirectResolver)engine;
+        PdfName annotsKey = PdfName.FromAscii("Annots");
+        if (!location.Page.TryGet(annotsKey, out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
+        {
+            return;
+        }
+
+        QpdfObject annotsTarget = annotsRaw;
+        if (annotsRaw is PdfReference annotsReference)
+        {
+            if (!resolver.TryResolve(annotsReference, out QpdfObject? resolvedAnnots) || resolvedAnnots is null || resolvedAnnots is PdfNull)
+            {
+                return;
+            }
+
+            annotsTarget = resolvedAnnots;
+        }
+
+        if (annotsTarget is not PdfArray annots)
+        {
+            return;
+        }
+
+        Dictionary<int, int> memo = new();
+        int nullId = -1;
+        List<PdfReference> fresh = new(annots.Count);
+        foreach (QpdfObject item in annots.Items)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            QpdfObject target = item;
+            if (item is PdfReference itemReference)
+            {
+                if (!resolver.TryResolve(itemReference, out QpdfObject? resolvedItem) || resolvedItem is null || resolvedItem is PdfNull)
+                {
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Ignoring overlay annotation that is not a dictionary.");
+                    continue;
+                }
+
+                target = resolvedItem;
+            }
+
+            if (target is not PdfDictionary annot)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Ignoring overlay annotation that is not a dictionary.");
+                continue;
+            }
+
+            if (IsPageTreeDictionary(annot, resolver))
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Ignoring overlay annotation that is not a dictionary.");
+                continue;
+            }
+
+            if (IsWidgetAnnotation(annot, resolver))
+            {
+                continue;
+            }
+
+            QpdfObject built = BuildOverlayContainer(target, engine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, 0);
+            int id = allocator;
+            checked { allocator += 1; }
+            governor.ReserveMemory(64L);
+            destCopier.AddIndirectObjectWithId(built, id);
+            TransformOverlayRect(destCopier, id, cm, governor);
+            TransformOverlayAppearances(destCopier, id, cm, governor, cancellationToken);
+            fresh.Add(new PdfReference(id, 0));
+        }
+
+        if (!destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary page)
+        {
+            return;
+        }
+
+        PoolResolver pool = new(destCopier.CopiedObjects);
+        PdfArray? current = null;
+        int currentId = -1;
+        if (page.TryGet(annotsKey, out QpdfObject? destRaw) && destRaw is not null && destRaw is not PdfNull)
+        {
+            if (destRaw is PdfReference destReference
+                && ((IIndirectResolver)pool).TryResolve(destReference, out QpdfObject? destResolved)
+                && destResolved is PdfArray destFound)
+            {
+                current = destFound;
+                currentId = destReference.ObjectNumber;
+            }
+            else if (destRaw is PdfArray destDirect)
+            {
+                current = destDirect;
+            }
+        }
+
+        List<QpdfObject> items = new();
+        if (current is not null)
+        {
+            for (int i = 0; i < current.Count; i++)
+            {
+                items.Add(current[i]);
+            }
+        }
+
+        foreach (PdfReference clone in fresh)
+        {
+            items.Add(clone);
+        }
+
+        governor.ReserveMemory(64L);
+        PdfArray rebuilt = new(items);
+        if (currentId >= 0)
+        {
+            destCopier.ReplaceCopiedObject(currentId, rebuilt);
+        }
+        else
+        {
+            destCopier.ReplaceCopiedObject(destPageId, ReplaceEntry(page, annotsKey, rebuilt, governor));
+        }
+    }
+
+    private static bool IsWidgetAnnotation(PdfDictionary annot, IIndirectResolver source)
+    {
+        if (!annot.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return false;
+        }
+
+        QpdfObject target = raw;
+        if (raw is PdfReference reference
+            && source.TryResolve(reference, out QpdfObject? resolved)
+            && resolved is not null
+            && resolved is not PdfNull)
+        {
+            target = resolved;
+        }
+
+        return target is PdfName name && name.DisplayText == "Widget";
+    }
+
+    private static bool IsPageTreeDictionary(PdfDictionary dictionary, IIndirectResolver source)
+    {
+        if (!dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return false;
+        }
+
+        QpdfObject target = raw;
+        if (raw is PdfReference reference
+            && source.TryResolve(reference, out QpdfObject? resolved)
+            && resolved is not null
+            && resolved is not PdfNull)
+        {
+            target = resolved;
+        }
+
+        if (target is not PdfName name)
+        {
+            return false;
+        }
+
+        return name.DisplayText == "Page" || name.DisplayText == "Pages" || name.DisplayText == "Catalog";
+    }
+
+    private static QpdfObject CopyOverlayNode(
+        QpdfObject node,
+        DocumentEngine sourceEngine,
+        GraphCopier destCopier,
+        Dictionary<int, int> memo,
+        ref int allocator,
+        ref int nullId,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken,
+        int depth)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.ChargeWork(1L);
+        if (depth > limits.MaxNestingDepth)
+        {
+            throw new QpdfParseException("Overlay annotation depth exceeds the limit.", null, null);
+        }
+
+        if (node is PdfReference reference)
+        {
+            if (memo.TryGetValue(reference.ObjectNumber, out int mapped))
+            {
+                return new PdfReference(mapped, 0);
+            }
+
+            IIndirectResolver resolver = (IIndirectResolver)sourceEngine;
+            if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            {
+                return PdfNull.Instance;
+            }
+
+            if (resolved is PdfDictionary dictionary)
+            {
+                string? kind = OverlayNodeKind(dictionary, resolver);
+                if (kind == "Page")
+                {
+                    return OverlayNullRef(destCopier, ref allocator, ref nullId, governor);
+                }
+
+                if (kind == "Pages" || kind == "Catalog")
+                {
+                    return PdfNull.Instance;
+                }
+            }
+
+            int id = allocator;
+            checked { allocator += 1; }
+            governor.ReserveMemory(64L);
+            memo[reference.ObjectNumber] = id;
+            QpdfObject built = BuildOverlayContainer(resolved, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, depth + 1);
+            destCopier.AddIndirectObjectWithId(built, id);
+            return new PdfReference(id, 0);
+        }
+
+        if (node is PdfDictionary || node is PdfArray || node is PdfStream)
+        {
+            return BuildOverlayContainer(node, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, depth + 1);
+        }
+
+        return node;
+    }
+
+    private static QpdfObject BuildOverlayContainer(
+        QpdfObject node,
+        DocumentEngine sourceEngine,
+        GraphCopier destCopier,
+        Dictionary<int, int> memo,
+        ref int allocator,
+        ref int nullId,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken,
+        int depth)
+    {
+        if (node is PdfDictionary dictionary)
+        {
+            Dictionary<PdfName, QpdfObject> entries = new();
+            foreach (PdfName key in dictionary.Keys)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!dictionary.TryGet(key, out QpdfObject? found) || found is null || found is PdfNull)
+                {
+                    continue;
+                }
+
+                governor.ReserveMemory(32L);
+                QpdfObject child = CopyOverlayNode(found, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, depth);
+                if (child is PdfNull)
+                {
+                    continue;
+                }
+
+                if (child is PdfReference childReference && nullId >= 0 && childReference.ObjectNumber == nullId)
+                {
+                    continue;
+                }
+
+                entries[key] = child;
+            }
+
+            governor.ReserveMemory(64L);
+            return new PdfDictionary(entries);
+        }
+
+        if (node is PdfArray array)
+        {
+            List<QpdfObject> items = new(array.Count);
+            for (int i = 0; i < array.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ReserveMemory(16L);
+                items.Add(CopyOverlayNode(array[i], sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, depth));
+            }
+
+            governor.ReserveMemory(32L);
+            return new PdfArray(items);
+        }
+
+        if (node is PdfStream stream)
+        {
+            QpdfObject rebuiltDictionary = BuildOverlayContainer(stream.Dictionary, sourceEngine, destCopier, memo, ref allocator, ref nullId, limits, governor, cancellationToken, depth);
+            PdfDictionary dictionaryValue = rebuiltDictionary as PdfDictionary ?? stream.Dictionary;
+            byte[] data = stream.Data;
+            governor.ReserveMemory(data.Length);
+            return new PdfStream(dictionaryValue, data);
+        }
+
+        return node;
+    }
+
+    private static string? OverlayNodeKind(PdfDictionary dictionary, IIndirectResolver source)
+    {
+        if (!dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return null;
+        }
+
+        QpdfObject target = raw;
+        if (raw is PdfReference reference
+            && source.TryResolve(reference, out QpdfObject? resolved)
+            && resolved is not null
+            && resolved is not PdfNull)
+        {
+            target = resolved;
+        }
+
+        if (target is not PdfName name)
+        {
+            return null;
+        }
+
+        if (name.DisplayText == "Page" || name.DisplayText == "Pages" || name.DisplayText == "Catalog")
+        {
+            return name.DisplayText;
+        }
+
+        return null;
+    }
+
+    private static PdfReference OverlayNullRef(GraphCopier destCopier, ref int allocator, ref int nullId, ResourceGovernor governor)
+    {
+        if (nullId < 0)
+        {
+            nullId = allocator;
+            checked { allocator += 1; }
+            governor.ReserveMemory(64L);
+            destCopier.AddIndirectObjectWithId(PdfNull.Instance, nullId);
+        }
+
+        return new PdfReference(nullId, 0);
+    }
+
+    private static void TransformOverlayRect(
+        GraphCopier destCopier,
+        int annotId,
+        double[] cm,
+        ResourceGovernor governor)
+    {
+        if (!destCopier.CopiedObjects.TryGetValue(annotId, out QpdfObject? raw) || raw is not PdfDictionary annot)
+        {
+            return;
+        }
+
+        PoolResolver pool = new(destCopier.CopiedObjects);
+        double[] rect = ReadOverlayNumbers(annot, "Rect", 4, pool) ?? new double[4];
+        rect[0] = Math.Min(rect[0], rect[2]);
+        rect[1] = Math.Min(rect[1], rect[3]);
+        rect[2] = Math.Max(rect[0], rect[2]);
+        rect[3] = Math.Max(rect[1], rect[3]);
+        double[] moved = FromArray(cm).TransformRect(rect);
+        if (!IsFiniteRect(moved))
+        {
+            moved = new double[4];
+        }
+
+        List<QpdfObject> values = new(4);
+        foreach (double value in moved)
+        {
+            governor.ReserveMemory(32L);
+            values.Add(new PdfReal(FormatDouble(value), value));
+        }
+
+        Dictionary<PdfName, QpdfObject> entries = new();
+        PdfName rectKey = PdfName.FromAscii("Rect");
+        foreach (PdfName key in annot.Keys)
+        {
+            if (key.DisplayText == "Rect")
+            {
+                continue;
+            }
+
+            if (annot.TryGet(key, out QpdfObject? found) && found is not null)
+            {
+                entries[key] = found;
+            }
+        }
+
+        entries[rectKey] = new PdfArray(values);
+        governor.ReserveMemory(64L);
+        destCopier.ReplaceCopiedObject(annotId, new PdfDictionary(entries));
+    }
+
+    private static void TransformOverlayAppearances(
+        GraphCopier destCopier,
+        int annotId,
+        double[] cm,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        PoolResolver pool = new(destCopier.CopiedObjects);
+        if (!destCopier.CopiedObjects.TryGetValue(annotId, out QpdfObject? raw) || raw is not PdfDictionary annot)
+        {
+            return;
+        }
+
+        if (!annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? apRaw) || apRaw is null || apRaw is PdfNull)
+        {
+            return;
+        }
+
+        QpdfObject apTarget = apRaw is PdfReference apReference
+            ? ResolveOrNull(pool, apReference) ?? apRaw
+            : apRaw;
+        if (apTarget is not PdfDictionary ap)
+        {
+            return;
+        }
+
+        HashSet<int> done = new();
+        foreach (PdfName key1 in ap.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ap.TryGet(key1, out QpdfObject? value1) || value1 is null)
+            {
+                continue;
+            }
+
+            QpdfObject target1 = value1 is PdfReference reference1
+                ? ResolveOrNull(pool, reference1) ?? value1
+                : value1;
+            if (target1 is PdfStream)
+            {
+                if (value1 is PdfReference streamReference)
+                {
+                    TransformOverlayStreamMatrix(destCopier, streamReference.ObjectNumber, cm, done, governor);
+                }
+
+                continue;
+            }
+
+            if (target1 is PdfDictionary nested)
+            {
+                foreach (PdfName key2 in nested.Keys)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!nested.TryGet(key2, out QpdfObject? value2) || value2 is null)
+                    {
+                        continue;
+                    }
+
+                    if (value2 is PdfReference streamReference2)
+                    {
+                        QpdfObject? resolved2 = ResolveOrNull(pool, streamReference2);
+                        if (resolved2 is PdfStream)
+                        {
+                            TransformOverlayStreamMatrix(destCopier, streamReference2.ObjectNumber, cm, done, governor);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void TransformOverlayStreamMatrix(
+        GraphCopier destCopier,
+        int streamId,
+        double[] cm,
+        HashSet<int> done,
+        ResourceGovernor governor)
+    {
+        if (!done.Add(streamId))
+        {
+            return;
+        }
+
+        governor.ChargeWork(1L);
+        if (!destCopier.CopiedObjects.TryGetValue(streamId, out QpdfObject? raw) || raw is not PdfStream stream)
+        {
+            return;
+        }
+
+        PoolResolver pool = new(destCopier.CopiedObjects);
+        bool present = stream.Dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? matrixRaw) && matrixRaw is not null && matrixRaw is not PdfNull;
+        double[] matrix = new double[6] { 1.0, 0.0, 0.0, 1.0, 0.0, 0.0 };
+        if (present && matrixRaw is not null)
+        {
+            matrix = ReadOverlayMatrix(matrixRaw, pool) ?? new double[6];
+        }
+
+        ContentMatrix work = FromArray(matrix);
+        work.Concat(FromArray(cm));
+        double[] next = work.ToArray();
+        if (!present && IsIdentityMatrix(next))
+        {
+            return;
+        }
+
+        Dictionary<PdfName, QpdfObject> entries = new();
+        PdfName matrixKey = PdfName.FromAscii("Matrix");
+        foreach (PdfName key in stream.Dictionary.Keys)
+        {
+            if (key.DisplayText == "Matrix")
+            {
+                continue;
+            }
+
+            if (stream.Dictionary.TryGet(key, out QpdfObject? found) && found is not null)
+            {
+                entries[key] = found;
+            }
+        }
+
+        List<QpdfObject> values = new(6);
+        foreach (double value in next)
+        {
+            governor.ReserveMemory(32L);
+            values.Add(new PdfReal(FormatDouble(value), value));
+        }
+
+        entries[matrixKey] = new PdfArray(values);
+        governor.ReserveMemory(64L);
+        destCopier.ReplaceCopiedObject(streamId, new PdfStream(new PdfDictionary(entries), stream.Data));
+    }
+
+    private static double[]? ReadOverlayNumbers(PdfDictionary dictionary, string key, int count, PoolResolver pool)
+    {
+        if (!dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return null;
+        }
+
+        QpdfObject target = raw is PdfReference reference
+            ? ResolveOrNull(pool, reference) ?? raw
+            : raw;
+        if (target is not PdfArray array || array.Count != count)
+        {
+            return null;
+        }
+
+        double[] values = new double[count];
+        for (int i = 0; i < count; i++)
+        {
+            QpdfObject item = array[i];
+            if (item is PdfReference itemReference)
+            {
+                QpdfObject? resolved = ResolveOrNull(pool, itemReference);
+                if (resolved is null)
+                {
+                    return null;
+                }
+
+                item = resolved;
+            }
+
+            if (item is PdfInteger integer)
+            {
+                values[i] = (double)integer.Value;
+            }
+            else if (item is PdfReal real)
+            {
+                values[i] = real.Value;
+            }
+            else
+            {
+                return null;
+            }
+
+            if (!double.IsFinite(values[i]))
+            {
+                return null;
+            }
+        }
+
+        return values;
+    }
+
+    private static double[]? ReadOverlayMatrix(QpdfObject raw, PoolResolver pool)
+    {
+        QpdfObject target = raw is PdfReference reference
+            ? ResolveOrNull(pool, reference) ?? raw
+            : raw;
+        if (target is not PdfArray array || array.Count != 6)
+        {
+            return null;
+        }
+
+        double[] values = new double[6];
+        for (int i = 0; i < 6; i++)
+        {
+            QpdfObject item = array[i];
+            if (item is PdfReference itemReference)
+            {
+                QpdfObject? resolved = ResolveOrNull(pool, itemReference);
+                if (resolved is null)
+                {
+                    return null;
+                }
+
+                item = resolved;
+            }
+
+            if (item is PdfInteger integer)
+            {
+                values[i] = (double)integer.Value;
+            }
+            else if (item is PdfReal real)
+            {
+                values[i] = real.Value;
+            }
+            else
+            {
+                return null;
+            }
+
+            if (!double.IsFinite(values[i]))
+            {
+                return null;
+            }
+        }
+
+        return values;
+    }
+
+    private static bool IsIdentityMatrix(double[] values)
+    {
+        return values[0] == 1.0 && values[1] == 0.0 && values[2] == 0.0 && values[3] == 1.0 && values[4] == 0.0 && values[5] == 0.0;
+    }
+
+    private static bool IsFiniteRect(double[] rect)
+    {
+        return double.IsFinite(rect[0]) && double.IsFinite(rect[1]) && double.IsFinite(rect[2]) && double.IsFinite(rect[3]);
     }
 
     private static IEnumerable<KeyValuePair<int, List<OverlayPlacement>>> SortedGroups(Dictionary<int, List<OverlayPlacement>> groups)

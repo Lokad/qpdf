@@ -23,7 +23,7 @@ public sealed class FixtureManifestTests
     {
         using JsonDocument manifest = ReadManifest();
         JsonElement fixtures = manifest.RootElement.GetProperty("fixtures");
-        Assert.Equal(24, fixtures.GetArrayLength());
+        Assert.Equal(25, fixtures.GetArrayLength());
 
         foreach (JsonElement entry in fixtures.EnumerateArray())
         {
@@ -63,6 +63,7 @@ public sealed class FixtureManifestTests
     [InlineData("rotated-ap-1page.pdf", 1)]
     [InlineData("orphans-1page.pdf", 1)]
     [InlineData("photo-1page.pdf", 1)]
+    [InlineData("overlay-annot-1page.pdf", 1)]
     [InlineData("outlined-2page.pdf", 2)]
     [InlineData("outlined-use-2page.pdf", 2)]
     [InlineData("thumb-1page.pdf", 1)]

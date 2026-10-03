@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
@@ -680,5 +682,367 @@ markers.Add(match.Groups[1].Value);
 }
 }
 return markers;
+}
+[Fact]
+public async Task OverlayCopiesTextAnnotation()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 60] /Contents (OverlayNote) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal("Text", AnnotName(annot, "Subtype"));
+Assert.Equal(new double[4] { 10.0, 10.0, 60.0, 60.0 }, AnnotRect(annot));
+Assert.Equal("OverlayNote", AnnotString(annot, "Contents"));
+Assert.False(annot.TryGet(PdfName.FromAscii("P"), out QpdfObject? _));
+}
+[Fact]
+public async Task OverlayAnnotationsJobMatchesArgv()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 60] /Contents (OverlayNote) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+byte[] a = new byte[0];
+InMemoryQpdfHost argvHost = HostWithTwo(primary, overlay);
+{
+(QpdfExecutionResult r, byte[] pdf) = await RunAsync(argvHost, "--overlay", "inputs/o.pdf", "--");
+a = pdf;
+Assert.Equal(QpdfExitCode.Success, r.ExitCode);
+}
+InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
+string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf"}]}""";
+QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+Assert.Equal(a, b);
+}
+[Fact]
+public async Task UnderlayCopiesAnnotations()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 60] /Contents (UnderNote) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--underlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal("UnderNote", AnnotString(annot, "Contents"));
+}
+[Fact]
+public async Task OverlayTransformsRectForScaledPlacement()
+{
+byte[] primary = BuildAnnotPdf("[0 0 100 100]", string.Empty, new List<(string Dict, byte[]? StreamData)>(), "BT (Base) Tj ET");
+byte[] overlay = BuildAnnotPdf("[0 0 200 50]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 40] /Contents (Scaled) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Over) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal(new double[4] { 5.0, 42.5, 30.0, 57.5 }, AnnotRect(annot));
+}
+[Fact]
+public async Task OverlayDropsPageReferenceToNull()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Link /Rect [70 10 120 40] /A << /S /GoTo /D [3 0 R /Fit] >> >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.True(annot.TryGet(PdfName.FromAscii("A"), out QpdfObject? actionRaw));
+PdfDictionary action = Assert.IsType<PdfDictionary>(actionRaw);
+Assert.True(action.TryGet(PdfName.FromAscii("D"), out QpdfObject? destRaw));
+PdfArray dest = Assert.IsType<PdfArray>(destRaw);
+PdfReference pageLink = Assert.IsType<PdfReference>(dest[0]);
+Assert.IsType<PdfNull>(output.GetObject(pageLink.ObjectNumber));
+}
+[Fact]
+public async Task OverlayClonesAppearanceWithConcatenatedMatrix()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 0 m 10 10 l S");
+byte[] overlay = BuildAnnotPdf("[0 0 200 50]", "[<< /Type /Annot /Subtype /Text /Rect [130 10 180 40] /Contents (NoteAP) /AP << /N 5 0 R >> >>]", new List<(string Dict, byte[]? StreamData)>() { ("<< /Length " + appearance.Length.ToString() + " /Matrix [2 0 0 2 5 5] >>", appearance) }, "BT (Over) Tj ET");
+byte[] primary = BuildAnnotPdf("[0 0 100 100]", string.Empty, new List<(string Dict, byte[]? StreamData)>(), "BT (Base) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.True(annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? apRaw));
+PdfDictionary ap = Assert.IsType<PdfDictionary>(apRaw);
+Assert.True(ap.TryGet(PdfName.FromAscii("N"), out QpdfObject? streamRaw));
+PdfReference streamLink = Assert.IsType<PdfReference>(streamRaw);
+PdfStream stream = Assert.IsType<PdfStream>(output.GetObject(streamLink.ObjectNumber));
+Assert.Equal(appearance, stream.Data);
+Assert.Equal(new double[6] { 1.0, 0.0, 0.0, 1.0, 5.0, 80.0 }, AnnotMatrix(stream.Dictionary));
+}
+[Fact]
+public async Task MalformedAppearanceMatrixBecomesZeros()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 0 m 5 5 l S");
+byte[] overlay = BuildAnnotPdf("[0 0 100 100]", "[<< /Type /Annot /Subtype /Text /Rect [0 0 20 20] /Contents (BadM) /AP << /N 5 0 R >> >>]", new List<(string Dict, byte[]? StreamData)>() { ("<< /Length " + appearance.Length.ToString() + " /Matrix [1 2] >>", appearance) }, "BT (Over) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.True(annot.TryGet(PdfName.FromAscii("AP"), out QpdfObject? apRaw));
+PdfDictionary ap = Assert.IsType<PdfDictionary>(apRaw);
+Assert.True(ap.TryGet(PdfName.FromAscii("N"), out QpdfObject? streamRaw));
+PdfReference streamLink = Assert.IsType<PdfReference>(streamRaw);
+PdfStream stream = Assert.IsType<PdfStream>(output.GetObject(streamLink.ObjectNumber));
+Assert.Equal(new double[6] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, AnnotMatrix(stream.Dictionary));
+}
+[Fact]
+public async Task MissingRectBecomesTransformedZeros()
+{
+byte[] primary = BuildAnnotPdf("[0 0 100 100]", string.Empty, new List<(string Dict, byte[]? StreamData)>(), "BT (Base) Tj ET");
+byte[] overlay = BuildAnnotPdf("[0 0 200 50]", "[<< /Type /Annot /Subtype /Stamp /Name /Approved >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Over) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal(new double[4] { 0.0, 37.5, 0.0, 37.5 }, AnnotRect(annot));
+}
+[Fact]
+public async Task DirectAnnotationBecomesIndirect()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (Direct) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PageLocation location = output.PageReferences[0];
+Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw));
+PdfArray annots = Assert.IsType<PdfArray>(annotsRaw);
+Assert.IsType<PdfReference>(Assert.Single(annots.Items));
+}
+[Fact]
+public async Task NonDictionaryAnnotationSkippedWithWarning()
+{
+byte[] appearance = Encoding.ASCII.GetBytes("0 0 m 1 1 l S");
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (Kept) >> 5 0 R]", new List<(string Dict, byte[]? StreamData)>() { ("<< /Length " + appearance.Length.ToString() + " >>", appearance) }, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+InMemoryQpdfHost host = HostWithTwo(primary, overlay);
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal("Kept", AnnotString(annot, "Contents"));
+}
+[Fact]
+public async Task WidgetAnnotationSkipped()
+{
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (W) /V (vv) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PageLocation location = output.PageReferences[0];
+Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw));
+Assert.Equal(0, Assert.IsType<PdfArray>(annotsRaw).Count);
+PdfDictionary catalog = Assert.IsType<PdfDictionary>(output.GetObject(1));
+Assert.False(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? _));
+}
+[Fact]
+public async Task RepeatedOverlayClonesAnnotationsIndependently()
+{
+byte[] one = BuildAnnotPdf("[0 0 612 792]", string.Empty, new List<(string Dict, byte[]? StreamData)>(), "BT (One) Tj ET");
+byte[] two = BuildAnnotPdf("[0 0 612 792]", string.Empty, new List<(string Dict, byte[]? StreamData)>(), "BT (Two) Tj ET");
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 60] /Contents (Twice) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+InMemoryQpdfHost host = HostWithTwo(one, overlay);
+host.AddInput(QpdfPath.From("inputs/b.pdf"), two, QpdfInputOwnership.Copy);
+List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--overlay", "inputs/o.pdf", "--repeat=1", "--", "--", "outputs/a.pdf" };
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+Assert.Equal(2, output.PageCount);
+List<PdfDictionary> first = OutputAnnots(output, 0);
+List<PdfDictionary> last = OutputAnnots(output, 1);
+Assert.Single(first);
+Assert.Single(last);
+Assert.True(output.PageReferences[0].Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? firstRaw));
+Assert.True(output.PageReferences[1].Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? lastRaw));
+PdfReference firstLink = Assert.IsType<PdfReference>(Assert.Single(Assert.IsType<PdfArray>(firstRaw).Items));
+PdfReference lastLink = Assert.IsType<PdfReference>(Assert.Single(Assert.IsType<PdfArray>(lastRaw).Items));
+Assert.NotEqual(firstLink.ObjectNumber, lastLink.ObjectNumber);
+Assert.Equal(AnnotRect(first[0]), AnnotRect(last[0]));
+}
+[Fact]
+public async Task EmptyAnnotsArrayCreated()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PageLocation location = output.PageReferences[0];
+Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw));
+Assert.Equal(0, Assert.IsType<PdfArray>(annotsRaw).Count);
+}
+[Fact]
+public async Task ExistingAnnotationsAppended()
+{
+byte[] primary = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [0 0 5 5] /Contents (Mine) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Primary) Tj ET");
+byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 60] /Contents (OverlayNote) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+List<PdfDictionary> annots = OutputAnnots(output, 0);
+Assert.Equal(2, annots.Count);
+Assert.Equal("Mine", AnnotString(annots[0], "Contents"));
+Assert.Equal("OverlayNote", AnnotString(annots[1], "Contents"));
+}
+private static async Task<QpdfDocument> OpenOutputAsync(byte[] pdf)
+{
+InMemoryQpdfHost host = new();
+host.AddInput(QpdfPath.From("inputs/reread.pdf"), pdf, QpdfInputOwnership.Copy);
+return await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+}
+private static List<PdfDictionary> OutputAnnots(QpdfDocument output, int pageIndex)
+{
+PageLocation location = output.PageReferences[pageIndex];
+Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw));
+PdfArray annots = Assert.IsType<PdfArray>(annotsRaw);
+List<PdfDictionary> resolved = new(annots.Count);
+for (int i = 0; i < annots.Count; i++)
+{
+if (annots[i] is PdfDictionary direct)
+{
+resolved.Add(direct);
+}
+else
+{
+PdfReference reference = Assert.IsType<PdfReference>(annots[i]);
+resolved.Add(Assert.IsType<PdfDictionary>(output.GetObject(reference.ObjectNumber)));
+}
+}
+return resolved;
+}
+private static double[] AnnotRect(PdfDictionary annot)
+{
+Assert.True(annot.TryGet(PdfName.FromAscii("Rect"), out QpdfObject? raw));
+PdfArray array = Assert.IsType<PdfArray>(raw);
+Assert.Equal(4, array.Count);
+double[] values = new double[4];
+for (int i = 0; i < 4; i++)
+{
+if (array[i] is PdfInteger integer)
+{
+values[i] = (double)integer.Value;
+}
+else if (array[i] is PdfReal real)
+{
+values[i] = real.Value;
+}
+else
+{
+throw new Xunit.Sdk.XunitException("non-numeric rect");
+}
+}
+return values;
+}
+private static double[] AnnotMatrix(PdfDictionary dictionary)
+{
+Assert.True(dictionary.TryGet(PdfName.FromAscii("Matrix"), out QpdfObject? raw));
+PdfArray array = Assert.IsType<PdfArray>(raw);
+Assert.Equal(6, array.Count);
+double[] values = new double[6];
+for (int i = 0; i < 6; i++)
+{
+if (array[i] is PdfInteger integer)
+{
+values[i] = (double)integer.Value;
+}
+else if (array[i] is PdfReal real)
+{
+values[i] = real.Value;
+}
+else
+{
+throw new Xunit.Sdk.XunitException("non-numeric matrix");
+}
+}
+return values;
+}
+private static string AnnotName(PdfDictionary annot, string key)
+{
+Assert.True(annot.TryGet(PdfName.FromAscii(key), out QpdfObject? raw));
+return Assert.IsType<PdfName>(raw).DisplayText;
+}
+private static string AnnotString(PdfDictionary annot, string key)
+{
+Assert.True(annot.TryGet(PdfName.FromAscii(key), out QpdfObject? raw));
+return Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(raw).Value);
+}
+private static byte[] BuildAnnotPdf(string mediaBox, string annots, List<(string Dict, byte[]? StreamData)> extras, string contentText)
+{
+byte[] contentBytes = Encoding.ASCII.GetBytes(contentText);
+List<string> bodies = new()
+{
+"<< /Type /Catalog /Pages 2 0 R >>",
+"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+"<< /Type /Page /Parent 2 0 R /MediaBox " + mediaBox + " /Contents 4 0 R /Resources << >>" + (annots.Length == 0 ? string.Empty : " /Annots " + annots) + " >>",
+"<< /Length " + contentBytes.Length.ToString() + " >>",
+};
+foreach ((string dict, byte[]? _) in extras)
+{
+bodies.Add(dict);
+}
+List<byte[]?> payloads = new() { null, null, null, contentBytes };
+foreach ((string _, byte[]? streamData) in extras)
+{
+payloads.Add(streamData);
+}
+List<byte[]> parts = new();
+byte[] header = Encoding.ASCII.GetBytes(string.Concat("%PDF-1.4", NL()));
+parts.Add(header);
+List<long> offsets = new();
+long position = header.Length;
+for (int i = 0; i < bodies.Count; i++)
+{
+int number = i + 1;
+byte[]? streamData = payloads[i];
+byte[] open = Encoding.ASCII.GetBytes(string.Concat(number.ToString(), SP(), "0 obj", NL(), bodies[i], NL()));
+if (streamData is null)
+{
+byte[] close = Encoding.ASCII.GetBytes(string.Concat("endobj", NL()));
+offsets.Add(position);
+position += open.Length + close.Length;
+parts.Add(open);
+parts.Add(close);
+continue;
+}
+byte[] streamOpen = Encoding.ASCII.GetBytes(string.Concat("stream", NL()));
+byte[] streamClose = Encoding.ASCII.GetBytes(string.Concat(NL(), "endstream", NL(), "endobj", NL()));
+offsets.Add(position);
+position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
+parts.Add(open);
+parts.Add(streamOpen);
+parts.Add(streamData);
+parts.Add(streamClose);
+}
+int size = bodies.Count + 1;
+StringBuilder xref = new();
+xref.Append(string.Concat("xref", NL(), "0 ", size.ToString(), NL()));
+xref.Append(string.Concat("0000000000 65535 f ", NL()));
+foreach (long offset in offsets)
+{
+xref.Append(string.Concat(offset.ToString("D10"), " 00000 n ", NL()));
+}
+xref.Append(string.Concat("trailer", NL(), "<< /Size ", size.ToString(), " /Root 1 0 R >>", NL()));
+xref.Append(string.Concat("startxref", NL(), position.ToString(), NL(), "%%EOF", NL()));
+parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
+int total = 0;
+foreach (byte[] part in parts)
+{
+total += part.Length;
+}
+byte[] output = new byte[total];
+int cursor = 0;
+foreach (byte[] part in parts)
+{
+Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+cursor += part.Length;
+}
+return output;
 }
 }

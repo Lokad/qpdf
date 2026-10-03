@@ -223,6 +223,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a large noisy RGB photo above the optimization thresholds, classic xref, unencrypted. Image optimization must emit smaller DCT streams with identical dimensions on both sides; the optimize differential consumes it."
+    },
+    {
+      "file": "overlay-annot-1page.pdf",
+      "sha256": "b81f6d15dea13d4e22f06e0d2d22e95518c8cd2070eab391f2ef867b2ab12492",
+      "bytes": 947,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page carrying Text, Link and appearance-stream annotations, classic xref, unencrypted. Overlay and underlay stamping must copy its non-widget annotations with placement-transformed rectangles; the overlay-annots differential consumes it."
     }
   ]
 }

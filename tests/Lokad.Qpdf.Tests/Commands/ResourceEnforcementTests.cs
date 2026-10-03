@@ -96,6 +96,14 @@ public sealed class ResourceEnforcementTests
     }
 
     [Fact]
+    public async Task OverlayAnnotationsYieldToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        host.AddInput(QpdfPath.From("inputs/o.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "overlay-annot-1page.pdf")), QpdfInputOwnership.Copy);
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
     public async Task UnderlayYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithTwoPage();
