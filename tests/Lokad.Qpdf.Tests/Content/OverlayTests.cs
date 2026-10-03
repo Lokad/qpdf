@@ -828,19 +828,330 @@ PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
 Assert.Equal("Kept", AnnotString(annot, "Contents"));
 }
 [Fact]
-public async Task WidgetAnnotationSkipped()
+public async Task OverlayWidgetImportsFieldWithValueAndEmptyDr()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (O) /V (ov) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("O", AnnotString(field, "T"));
+Assert.Equal("ov", AnnotString(field, "V"));
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal("O", AnnotString(annot, "T"));
+Assert.Equal(OutputFieldRefs(output)[0].ObjectNumber, OutputAnnotRefs(output, 0)[0].ObjectNumber);
+PdfDictionary resources = OutputFormDR(output, OutputForm(output));
+Assert.Empty(resources.Keys);
+}
+[Fact]
+public async Task OverlayWidgetImportsParentTopWithNeedAppearances()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /FT /Tx /T (P) /V (pv) /Kids [6 0 R] >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /Parent 5 0 R >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", "[6 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("P", AnnotString(field, "T"));
+Assert.Equal("pv", AnnotString(field, "V"));
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.True(annot.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw));
+Assert.Equal(OutputFieldRefs(output)[0].ObjectNumber, Assert.IsType<PdfReference>(parentRaw).ObjectNumber);
+PdfDictionary form = OutputForm(output);
+Assert.True(form.TryGet(PdfName.FromAscii("NeedAppearances"), out QpdfObject? needRaw));
+Assert.True(Assert.IsType<PdfBoolean>(needRaw).Value);
+}
+[Fact]
+public async Task OverlayWidgetCollisionRenamesImport()
+{
+List<(string Dict, byte[]? StreamData)> destExtras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Tx /T (O) /V (dest) >>", null),
+};
+List<(string Dict, byte[]? StreamData)> srcExtras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (O) /V (ov) >>", null),
+};
+byte[] primary = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", destExtras, "BT (Primary) Tj ET");
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", srcExtras, "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+List<PdfDictionary> fields = OutputFields(output);
+Assert.Equal(2, fields.Count);
+Assert.Equal("O", AnnotString(fields[0], "T"));
+Assert.Equal("dest", AnnotString(fields[0], "V"));
+Assert.Equal("O+1", AnnotString(fields[1], "T"));
+Assert.Equal("ov", AnnotString(fields[1], "V"));
+}
+[Fact]
+public async Task OverlayWidgetDrConflictRenamesFontAndRewritesDa()
+{
+List<(string Dict, byte[]? StreamData)> destExtras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Tx /T (D) /V (dd) /DA (/F1 10 Tf 0 g) >>", null),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+};
+List<(string Dict, byte[]? StreamData)> srcExtras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (S) /V (sv) /DA (/F1 12 Tf 0 g) >>", null),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>", null),
+};
+byte[] primary = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /F1 6 0 R >> >> >>", "[5 0 R]", destExtras, "BT (Primary) Tj ET");
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /F1 6 0 R >> >> >>", "[5 0 R]", srcExtras, "BT (Stamp) Tj ET");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+List<PdfDictionary> fields = OutputFields(output);
+Assert.Equal(2, fields.Count);
+Assert.Equal("D", AnnotString(fields[0], "T"));
+Assert.Equal("S", AnnotString(fields[1], "T"));
+Assert.Equal("/F1 10 Tf 0 g", AnnotString(fields[0], "DA"));
+Assert.Equal("/F1_1 12 Tf 0 g", AnnotString(fields[1], "DA"));
+PdfDictionary resources = OutputFormDR(output, OutputForm(output));
+Assert.True(resources.TryGet(PdfName.FromAscii("Font"), out QpdfObject? fontsRaw));
+PdfDictionary fonts = fontsRaw is PdfReference fontsRef ? Assert.IsType<PdfDictionary>(output.GetObject(fontsRef.ObjectNumber)) : Assert.IsType<PdfDictionary>(fontsRaw);
+Assert.True(fonts.TryGet(PdfName.FromAscii("F1"), out QpdfObject? f1Raw));
+Assert.True(fonts.TryGet(PdfName.FromAscii("F1_1"), out QpdfObject? f1aRaw));
+PdfDictionary f1 = Assert.IsType<PdfDictionary>(output.GetObject(Assert.IsType<PdfReference>(f1Raw).ObjectNumber));
+PdfDictionary f1a = Assert.IsType<PdfDictionary>(output.GetObject(Assert.IsType<PdfReference>(f1aRaw).ObjectNumber));
+Assert.Equal("Helvetica", AnnotName(f1, "BaseFont"));
+Assert.Equal("Courier", AnnotName(f1a, "BaseFont"));
+}
+[Fact]
+public async Task OverlayWidgetStampsFormDefaultAppearance()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (O) /V (ov) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] /DA (/F1 12 Tf 0 g) >>", "[5 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("/F1 12 Tf 0 g", AnnotString(field, "DA"));
+}
+
+[Fact]
+public async Task OverlayWidgetRepeatRenamesAcrossPlacements()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (O) /V (ov) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--repeat=1", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+Assert.Equal(2, output.PageCount);
+List<PdfDictionary> fields = OutputFields(output);
+Assert.Equal(2, fields.Count);
+Assert.Equal("O", AnnotString(fields[0], "T"));
+Assert.Equal("O+1", AnnotString(fields[1], "T"));
+Assert.Single(OutputAnnots(output, 0));
+Assert.Single(OutputAnnots(output, 1));
+}
+[Fact]
+public async Task OverlayWidgetRadioSiblingsShareParent()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /FT /Btn /T (R) /Kids [6 0 R 7 0 R] >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /Parent 5 0 R >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [20 0 30 10] /Parent 5 0 R >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[6 0 R 7 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("R", AnnotString(field, "T"));
+List<PdfDictionary> annots = OutputAnnots(output, 0);
+Assert.Equal(2, annots.Count);
+int fieldNumber = OutputFieldRefs(output)[0].ObjectNumber;
+foreach (PdfDictionary annot in annots)
+{
+Assert.True(annot.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw));
+Assert.Equal(fieldNumber, Assert.IsType<PdfReference>(parentRaw).ObjectNumber);
+}
+}
+[Fact]
+public async Task OverlayWidgetUnreachedImportsWithInfo()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Tx /T (F) /V (f) >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (UW) /V (uv) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R 6 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Info && diagnostic.Message.Contains("does not reference"));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+List<PdfDictionary> fields = OutputFields(output);
+Assert.Equal(2, fields.Count);
+Assert.Equal("F", AnnotString(fields[0], "T"));
+Assert.Equal("UW", AnnotString(fields[1], "T"));
+Assert.Equal("uv", AnnotString(fields[1], "V"));
+}
+[Fact]
+public async Task OverlayWidgetDirectWithFormClonesWithInfo()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Tx /T (F) /V (f) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (DW) /V (dv) >>]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Info && diagnostic.Message.Contains("does not reference"));
+Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Info && diagnostic.Message.Contains("not indirect"));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("F", AnnotString(field, "T"));
+Assert.Equal(2, OutputAnnots(output, 0).Count);
+}
+[Fact]
+public async Task OverlayWidgetBareTopClonesWithoutField()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (Note) >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [6 0 R] >>", "[5 0 R 6 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+Assert.Equal(2, OutputAnnots(output, 0).Count);
+PdfDictionary catalog = Assert.IsType<PdfDictionary>(output.GetObject(1));
+Assert.False(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? _));
+}
+
+[Fact]
+public async Task UnderlayWidgetImportsField()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (U) /V (uv) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--underlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("U", AnnotString(field, "T"));
+Assert.Equal("uv", AnnotString(field, "V"));
+}
+[Fact]
+public async Task OverlayWidgetJobMatchesArgv()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (O) /V (ov) >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+byte[] a = new byte[0];
+InMemoryQpdfHost argvHost = HostWithTwo(primary, overlay);
+{
+(QpdfExecutionResult r, byte[] pdf) = await RunAsync(argvHost, "--overlay", "inputs/o.pdf", "--");
+a = pdf;
+Assert.Equal(QpdfExitCode.Success, r.ExitCode);
+}
+InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
+string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf"}]}""";
+QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+Assert.Equal(a, b);
+await using QpdfDocument output = await OpenOutputAsync(a);
+Assert.Equal("O", AnnotString(Assert.Single(OutputFields(output)), "T"));
+}
+[Fact]
+public async Task OverlayWidgetCycleWarnsAndStaysValid()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Tx /T (C) /V (cv) /Parent 6 0 R >>", null),
+("<< /FT /Tx /T (P) /Kids [5 0 R] /Parent 5 0 R >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[5 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("P", AnnotString(field, "T"));
+Assert.Single(OutputAnnots(output, 0));
+}
+[Fact]
+public async Task OverlayWidgetMissingKidParentCorrectedWithWarning()
+{
+List<(string Dict, byte[]? StreamData)> extras = new()
+{
+("<< /FT /Tx /T (P) /Kids [<< /Type /Annot /Subtype /Widget /Rect [0 0 5 5] /T (DK) /V (dkv) >> 6 0 R] >>", null),
+("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /Parent 5 0 R >>", null),
+};
+byte[] overlay = BuildFormPdf(" /AcroForm << /Fields [5 0 R] >>", "[6 0 R]", extras, "BT (Stamp) Tj ET");
+byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
+Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Warning && diagnostic.Message.Contains("parent link"));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+PdfDictionary field = Assert.Single(OutputFields(output));
+Assert.Equal("P", AnnotString(field, "T"));
+Assert.True(field.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
+PdfArray kids = Assert.IsType<PdfArray>(kidsRaw);
+PdfDictionary directKid = Assert.IsType<PdfDictionary>(kids[0]);
+Assert.True(directKid.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw));
+PdfDictionary parent = Assert.IsType<PdfDictionary>(output.GetObject(Assert.IsType<PdfReference>(parentRaw).ObjectNumber));
+Assert.Equal("P", AnnotString(parent, "T"));
+}
+
+[Fact]
+public async Task DirectWidgetClonedWithoutFieldWhenFormless()
 {
 byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (W) /V (vv) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--");
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 await using QpdfDocument output = await OpenOutputAsync(pdf);
-PageLocation location = output.PageReferences[0];
-Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw));
-Assert.Equal(0, Assert.IsType<PdfArray>(annotsRaw).Count);
+PdfDictionary annot = Assert.Single(OutputAnnots(output, 0));
+Assert.Equal("W", AnnotString(annot, "T"));
+Assert.Equal("vv", AnnotString(annot, "V"));
 PdfDictionary catalog = Assert.IsType<PdfDictionary>(output.GetObject(1));
 Assert.False(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? _));
 }
+
 [Fact]
 public async Task RepeatedOverlayClonesAnnotationsIndependently()
 {
@@ -891,6 +1202,131 @@ Assert.Equal(2, annots.Count);
 Assert.Equal("Mine", AnnotString(annots[0], "Contents"));
 Assert.Equal("OverlayNote", AnnotString(annots[1], "Contents"));
 }
+private static byte[] BuildFormPdf(string catalogInner, string annots, List<(string Dict, byte[]? StreamData)> extras, string contentText)
+{
+byte[] contentBytes = Encoding.ASCII.GetBytes(contentText);
+List<string> bodies = new()
+{
+"<< /Type /Catalog /Pages 2 0 R" + catalogInner + " >>",
+"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >>" + (annots.Length == 0 ? string.Empty : " /Annots " + annots) + " >>",
+"<< /Length " + contentBytes.Length.ToString() + " >>",
+};
+foreach ((string dict, byte[]? _) in extras)
+{
+bodies.Add(dict);
+}
+List<byte[]?> payloads = new() { null, null, null, contentBytes };
+foreach ((string _, byte[]? streamData) in extras)
+{
+payloads.Add(streamData);
+}
+List<byte[]> parts = new();
+byte[] header = Encoding.ASCII.GetBytes(string.Concat("%PDF-1.4", NL()));
+parts.Add(header);
+List<long> offsets = new();
+long position = header.Length;
+for (int i = 0; i < bodies.Count; i++)
+{
+int number = i + 1;
+byte[]? streamData = payloads[i];
+byte[] open = Encoding.ASCII.GetBytes(string.Concat(number.ToString(), SP(), "0 obj", NL(), bodies[i], NL()));
+if (streamData is null)
+{
+byte[] close = Encoding.ASCII.GetBytes(string.Concat("endobj", NL()));
+offsets.Add(position);
+position += open.Length + close.Length;
+parts.Add(open);
+parts.Add(close);
+continue;
+}
+byte[] streamOpen = Encoding.ASCII.GetBytes(string.Concat("stream", NL()));
+byte[] streamClose = Encoding.ASCII.GetBytes(string.Concat(NL(), "endstream", NL(), "endobj", NL()));
+offsets.Add(position);
+position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
+parts.Add(open);
+parts.Add(streamOpen);
+parts.Add(streamData);
+parts.Add(streamClose);
+}
+int size = bodies.Count + 1;
+StringBuilder xref = new();
+xref.Append(string.Concat("xref", NL(), "0 ", size.ToString(), NL()));
+xref.Append(string.Concat("0000000000 65535 f ", NL()));
+foreach (long offset in offsets)
+{
+xref.Append(string.Concat(offset.ToString("D10"), " 00000 n ", NL()));
+}
+xref.Append(string.Concat("trailer", NL(), "<< /Size ", size.ToString(), " /Root 1 0 R >>", NL()));
+xref.Append(string.Concat("startxref", NL(), position.ToString(), NL(), "%%EOF", NL()));
+parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
+int total = 0;
+foreach (byte[] part in parts)
+{
+total += part.Length;
+}
+byte[] output = new byte[total];
+int cursor = 0;
+foreach (byte[] part in parts)
+{
+Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+cursor += part.Length;
+}
+return output;
+}
+private static PdfDictionary OutputForm(QpdfDocument output)
+{
+PdfDictionary catalog = Assert.IsType<PdfDictionary>(output.GetObject(1));
+Assert.True(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? raw));
+return Assert.IsType<PdfDictionary>(raw);
+}
+private static List<PdfDictionary> OutputFields(QpdfDocument output)
+{
+PdfDictionary form = OutputForm(output);
+Assert.True(form.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? raw));
+PdfArray fields = Assert.IsType<PdfArray>(raw);
+List<PdfDictionary> resolved = new(fields.Count);
+for (int i = 0; i < fields.Count; i++)
+{
+PdfReference reference = Assert.IsType<PdfReference>(fields[i]);
+resolved.Add(Assert.IsType<PdfDictionary>(output.GetObject(reference.ObjectNumber)));
+}
+return resolved;
+}
+private static List<PdfReference> OutputFieldRefs(QpdfDocument output)
+{
+PdfDictionary form = OutputForm(output);
+Assert.True(form.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? raw));
+PdfArray fields = Assert.IsType<PdfArray>(raw);
+List<PdfReference> refs = new(fields.Count);
+for (int i = 0; i < fields.Count; i++)
+{
+refs.Add(Assert.IsType<PdfReference>(fields[i]));
+}
+return refs;
+}
+private static List<PdfReference> OutputAnnotRefs(QpdfDocument output, int pageIndex)
+{
+PageLocation location = output.PageReferences[pageIndex];
+Assert.True(location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? raw));
+PdfArray annots = Assert.IsType<PdfArray>(raw);
+List<PdfReference> refs = new(annots.Count);
+for (int i = 0; i < annots.Count; i++)
+{
+refs.Add(Assert.IsType<PdfReference>(annots[i]));
+}
+return refs;
+}
+private static PdfDictionary OutputFormDR(QpdfDocument output, PdfDictionary form)
+{
+Assert.True(form.TryGet(PdfName.FromAscii("DR"), out QpdfObject? raw));
+if (raw is PdfReference link)
+{
+return Assert.IsType<PdfDictionary>(output.GetObject(link.ObjectNumber));
+}
+return Assert.IsType<PdfDictionary>(raw);
+}
+
 private static async Task<QpdfDocument> OpenOutputAsync(byte[] pdf)
 {
 InMemoryQpdfHost host = new();
