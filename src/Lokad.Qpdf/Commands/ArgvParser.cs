@@ -101,6 +101,11 @@ internal static class ArgvParser
             throw new QpdfParseException("Options --raw-stream-data and --filtered-stream-data require --show-object.", 0, null);
         }
 
+        if (globals.Collate.Count > 0 && pagesAt < 0)
+        {
+            throw new QpdfParseException("Option --collate requires --pages.", 0, null);
+        }
+
         if (showXrefAt >= 0)
         {
             if (pagesAt >= 0)
@@ -882,7 +887,7 @@ internal static class ArgvParser
             throw new QpdfParseException("Options --overlay and --underlay cannot be combined with --empty.", pagesAt, null);
         }
 
-        if (emptyInput || groups.Count > 1 || collate.Count > 0)
+        if (emptyInput || groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0)
         {
             return ParseMerge(input, output, groups, rotations, labels, collate, recovery, globals, emptyInput) with
             {
@@ -1134,7 +1139,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, List<int> Collate);
 
     private static bool IsGlobalOptionToken(string token)
     {
@@ -1230,6 +1235,7 @@ internal static class ArgvParser
         bool seenReplace = false;
         int? splitPages = null;
         bool replaceInput = false;
+        List<int> collate = new();
         bool seenMin = false;
         bool seenForce = false;
         bool seenDeterministic = false;
@@ -1324,6 +1330,20 @@ internal static class ArgvParser
         bool deterministicId = false;
         bool staticId = false;
         bool newlineBeforeEndstream = false;
+        int mainPagesAt = FindFlag(argv, "--pages");
+        int mainPagesEnd = argv.Count;
+        if (mainPagesAt >= 0)
+        {
+            for (int t = mainPagesAt + 1; t < argv.Count; t++)
+            {
+                if (argv[t] == "--")
+                {
+                    mainPagesEnd = t;
+                    break;
+                }
+            }
+        }
+
         for (int i = 0; i < argv.Count; i++)
         {
             if (argv[i] == "--suppress-recovery")
@@ -1384,6 +1404,18 @@ internal static class ArgvParser
 
                 seenNoWarn = true;
                 noWarn = true;
+                continue;
+            }
+
+            if ((argv[i] == "--collate" || argv[i].StartsWith("--collate=", StringComparison.Ordinal)) && (mainPagesAt < 0 || i < mainPagesAt || i >= mainPagesEnd))
+            {
+                string? collateValue = null;
+                if (argv[i].StartsWith("--collate=", StringComparison.Ordinal))
+                {
+                    collateValue = argv[i].Substring("--collate=".Length);
+                }
+
+                collate.AddRange(ParseCollateValue(collateValue, i));
                 continue;
             }
 
@@ -2112,7 +2144,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, collate);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -3697,7 +3729,7 @@ internal static class ArgvParser
         QpdfRecoveryMode recovery,
         GlobalOptions globals)
     {
-        if (groups.Count > 1 || collate.Count > 0)
+        if (groups.Count > 1 || collate.Count > 0 || globals.Collate.Count > 0)
         {
             return ParseMerge(input, input, groups, rotations, labels, collate, recovery, globals, false) with
             {
@@ -3772,6 +3804,14 @@ internal static class ArgvParser
         GlobalOptions globals,
         bool emptyInput)
     {
+        List<int> combined = new(globals.Collate.Count + collate.Count);
+        combined.AddRange(globals.Collate);
+        combined.AddRange(collate);
+        if (combined.Count != 0 && combined.Count != 1 && combined.Count != groups.Count)
+        {
+            throw new QpdfParseException("--pages: if --collate has more than one value, it must have one value per page specification.", 0L, null);
+        }
+
         List<PdfPageSource> sources = new(groups.Count);
         foreach (PageGroup group in groups)
         {
@@ -3779,7 +3819,7 @@ internal static class ArgvParser
             sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(group.File), new PdfPageSelectionOptions(page)));
         }
 
-        PdfPageCollation? collation = collate.Count == 0 ? null : new PdfPageCollation(collate);
+        PdfPageCollation? collation = combined.Count == 0 ? null : new PdfPageCollation(combined);
         return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
         {
             EmptyInput = emptyInput,

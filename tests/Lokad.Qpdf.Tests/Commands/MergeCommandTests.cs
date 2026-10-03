@@ -163,6 +163,49 @@ public sealed class MergeCommandTests
     }
 
     [Fact]
+    public async Task ArgvMainLevelCollateMatchesInsideForm()
+    {
+        InMemoryQpdfHost insideHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult insideResult = await Qpdf.ExecuteAsync(
+            insideHost,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, insideResult.ExitCode);
+        Assert.True(insideHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] inside));
+        InMemoryQpdfHost mainHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult mainResult = await Qpdf.ExecuteAsync(
+            mainHost,
+            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, mainResult.ExitCode);
+        Assert.True(mainHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] main));
+        Assert.Equal(inside, main);
+    }
+
+    [Fact]
+    public async Task ArgvCollateCountMismatchFailsExplicitly()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "inputs/a.pdf", "1", "--collate=1,2", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task ArgvCollateRequiresPages()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--check"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Fact]
     public async Task JobCollateMatchesArgv()
     {
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
