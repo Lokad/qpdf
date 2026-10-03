@@ -3998,24 +3998,34 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
+        "Overlay annotations are not copied."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.OverlayStacksStampOnTop",
           "OverlayTests.MultipleOverlaysStackInOrder",
           "OverlayTests.PagesSelectionThenOverlay",
-          "OverlayTests.MergeThenOverlayAppliesToFinalPages"
+          "OverlayTests.MergeThenOverlayAppliesToFinalPages",
+          "OverlayTests.FromDescendingMapsInOrder",
+          "OverlayTests.FromRelativeSelectsLastOverlayPage",
+          "OverlayTests.FromExclusionSkipsOverlayPage",
+          "OverlayTests.FromOddPositionsMapInOrder",
+          "OverlayTests.ToOddRestrictsDestinations",
+          "OverlayTests.RepeatRangesCycleAfterFromPages",
+          "OverlayTests.JobFromRangeMatchesArgv"
         ],
         "negative": [
-          "OverlayTests.MalformedOverlayFlagsFail"
+          "OverlayTests.MalformedOverlayFlagsFail",
+          "OverlayTests.RangedOverlayFlagsFail"
         ],
         "interaction": [
-          "OverlayTests.JobRoundTripMatchesArgv"
+          "OverlayTests.JobRoundTripMatchesArgv",
+          "OverlayTests.JobFromRangeMatchesArgv"
         ],
         "resource": ["ResourceEnforcementTests.OverlayYieldsToExhaustedBudget"],
         "oracle": [
-          "diff:overlay"
+          "diff:overlay",
+          "diff:overlay-ranges"
         ]
       }
     },
@@ -5471,13 +5481,14 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
+        "Overlay annotations are not copied."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.UnderlayGoesBelowOriginal",
           "OverlayTests.UnderlayAndOverlayCombineAroundOriginal",
-          "OverlayTests.EmptyFromWithRepeatCoversAllPages"
+          "OverlayTests.EmptyFromWithRepeatCoversAllPages",
+          "OverlayTests.UnderlayRangesShareGrammar"
         ],
         "negative": [
           "OverlayTests.OverlayPasswordIsCrypto"
@@ -5486,7 +5497,7 @@
           "OverlayTests.WholeFileJobOverlay"
         ],
         "resource": ["ResourceEnforcementTests.UnderlayYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:overlay-ranges"]
       }
     },
     {
@@ -5864,21 +5875,28 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
+        "Overlay annotations are not copied."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.FromExhaustionLeavesRemainingPagesAlone",
-          "OverlayTests.EmptyFromWithRepeatCoversAllPages"
+          "OverlayTests.EmptyFromWithRepeatCoversAllPages",
+          "OverlayTests.FromDescendingMapsInOrder",
+          "OverlayTests.FromRelativeSelectsLastOverlayPage",
+          "OverlayTests.FromExclusionSkipsOverlayPage",
+          "OverlayTests.FromOddPositionsMapInOrder",
+          "OverlayTests.JobFromRangeMatchesArgv"
         ],
         "negative": [
-          "OverlayTests.MalformedOverlayFlagsFail"
+          "OverlayTests.MalformedOverlayFlagsFail",
+          "OverlayTests.RangedOverlayFlagsFail"
         ],
         "interaction": [
-          "OverlayTests.JobRoundTripMatchesArgv"
+          "OverlayTests.JobRoundTripMatchesArgv",
+          "OverlayTests.JobFromRangeMatchesArgv"
         ],
         "resource": [],
-        "oracle": []
+        "oracle": ["diff:overlay-ranges"]
       }
     },
     {
@@ -5936,19 +5954,21 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
+        "Overlay annotations are not copied."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.RepeatCyclesAfterFromPages",
-          "OverlayTests.EmptyFromWithRepeatCoversAllPages"
+          "OverlayTests.EmptyFromWithRepeatCoversAllPages",
+          "OverlayTests.RepeatRangesCycleAfterFromPages"
         ],
         "negative": [
-          "OverlayTests.MalformedOverlayFlagsFail"
+          "OverlayTests.MalformedOverlayFlagsFail",
+          "OverlayTests.RangedOverlayFlagsFail"
         ],
         "interaction": [],
         "resource": [],
-        "oracle": []
+        "oracle": ["diff:overlay-ranges"]
       }
     },
     {
@@ -5973,19 +5993,21 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Relative page numbers, exclusions, and odd/even ranges remain unsupported; overlay annotations are not copied."
+        "Overlay annotations are not copied."
       ],
       "evidence": {
         "positive": [
           "OverlayTests.ToRestrictsDestinationPages",
-          "OverlayTests.DefaultMappingPairsPagesInOrder"
+          "OverlayTests.DefaultMappingPairsPagesInOrder",
+          "OverlayTests.ToOddRestrictsDestinations"
         ],
         "negative": [
-          "OverlayTests.MalformedOverlayFlagsFail"
+          "OverlayTests.MalformedOverlayFlagsFail",
+          "OverlayTests.RangedOverlayFlagsFail"
         ],
         "interaction": [],
         "resource": [],
-        "oracle": []
+        "oracle": ["diff:overlay-ranges"]
       }
     }
   ]

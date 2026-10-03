@@ -644,6 +644,51 @@ $code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--',
 if ($code -ne 0) { throw "overlay: oracle failed ($code)" }
 Assert-Trio 'overlay' "$case/lib.pdf" "$case/ora.pdf" 2
 
+# --- case: overlay-ranges (managed vs oracle overlay ranges) ---
+$case = New-Case 'overlay-ranges'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/b.pdf"
+foreach ($sub in @(
+  @('from-desc', @('--from=2-1'), @('(Second)'), @('(First)')),
+  @('from-rel', @('--from=r1', '--to=1'), @('(Second)'), @('(First)')),
+  @('from-excl', @('--from=1-2,x2'), @('(First)'), @('(Second)')),
+  @('from-odd', @('--from=1-2:odd'), @('(First)'), @('(Second)'))
+)) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/b.pdf') + $sub[1] + @('--', '--', "outputs/$name.pdf"))
+  if ($code -ne 0) { throw "overlay-ranges/$name`: emit failed ($code)" }
+  $code = Invoke-Oracle $case (@('inputs/a.pdf', '--overlay', 'inputs/b.pdf') + $sub[1] + @('--', "$case/ora-$name.pdf"))
+  if ($code -ne 0) { throw "overlay-ranges/$name`: oracle failed ($code)" }
+  Assert-Trio "overlay-ranges-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 1
+  foreach ($pair in @(('lib', "$case/lib-$name.pdf"), ('ora', "$case/ora-$name.pdf"))) {
+    $decoded = Get-DecodedText $pair[1]
+    if (-not $decoded.Contains($sub[2])) { Write-Output "[overlay-ranges/$name] FAIL: '$($sub[2])' missing from decoded $($pair[0]) output"; $script:failures++ }
+    if ($decoded.Contains($sub[3])) { Write-Output "[overlay-ranges/$name] FAIL: '$($sub[3])' remains in decoded $($pair[0]) output"; $script:failures++ }
+  }
+}
+Write-Output "[overlay-ranges/from] placed-marker assertions done"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/und.pdf=$case/lib-und.pdf", '--', 'inputs/a.pdf', '--underlay', 'inputs/b.pdf', '--from=2-1', '--', '--', 'outputs/und.pdf')
+if ($code -ne 0) { throw "overlay-ranges/und: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--underlay', 'inputs/b.pdf', '--from=2-1', '--', "$case/ora-und.pdf")
+if ($code -ne 0) { throw "overlay-ranges/und: oracle failed ($code)" }
+Assert-Trio 'overlay-ranges-und' "$case/lib-und.pdf" "$case/ora-und.pdf" 1
+foreach ($pair in @(('lib', "$case/lib-und.pdf"), ('ora', "$case/ora-und.pdf"))) {
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains('(Second)')) { Write-Output "[overlay-ranges/und] FAIL: '(Second)' missing from decoded $($pair[0]) output"; $script:failures++ }
+  if ($decoded.Contains('(First)')) { Write-Output "[overlay-ranges/und] FAIL: '(First)' remains in decoded $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[overlay-ranges/und] placed-marker assertions done"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/toodd.pdf=$case/lib-toodd.pdf", '--', 'inputs/b.pdf', '--overlay', 'inputs/a.pdf', '--to=1-2:odd', '--', '--', 'outputs/toodd.pdf')
+if ($code -ne 0) { throw "overlay-ranges/toodd: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/b.pdf', '--overlay', 'inputs/a.pdf', '--to=1-2:odd', '--', "$case/ora-toodd.pdf")
+if ($code -ne 0) { throw "overlay-ranges/toodd: oracle failed ($code)" }
+Assert-Trio 'overlay-ranges-toodd' "$case/lib-toodd.pdf" "$case/ora-toodd.pdf" 2
+foreach ($pair in @(('lib', "$case/lib-toodd.pdf"), ('ora', "$case/ora-toodd.pdf"))) {
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains('(Hello)')) { Write-Output "[overlay-ranges/toodd] FAIL: '(Hello)' missing from decoded $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[overlay-ranges/toodd] stamp assertions done"
+
 # --- case: writer-controls (managed vs oracle header, identifier, and stream endings) ---
 $case = New-Case 'writer-controls'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -1667,4 +1712,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, overlay-ranges, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

@@ -708,7 +708,7 @@ output without page selection keeps resources, matching the upstream page-spec g
 
 ## Overlay and underlay (work item 30b)
 
-Repeatable --overlay and --underlay blocks (--file or positional file, --to, --from with empty allowed, --repeat, plus job keys) mirror upstream stacking: underlays in order, then the original page as /Fx0, then overlays in order, each placed from TrimBox fallbacks with centered shrink-to-fit matrices that invert destination rotation and scale. Page ranges accept plain numbers, dash ranges in either direction, and comma lists. Intentional differences: relative numbers, exclusions, and odd/even positions stay unsupported; overlay annotations are not copied; inherited /UserUnit on output pages is not inverted; damaged overlay content warns and skips instead of emitting partial forms.
+Repeatable --overlay and --underlay blocks (--file or positional file, --to, --from with empty allowed, --repeat, plus job keys) mirror upstream stacking: underlays in order, then the original page as /Fx0, then overlays in order, each placed from TrimBox fallbacks with centered shrink-to-fit matrices that invert destination rotation and scale. Page ranges use the full shared grammar (spans, descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`, duplicates preserved), with unused overlay pages left unembedded on both sides. Intentional differences: overlay annotations are not copied; inherited /UserUnit on output pages is not inverted; damaged overlay content warns and skips instead of emitting partial forms.
 
 ## Rotation flattening and page-content checks (work item 31a)
 

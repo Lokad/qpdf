@@ -497,4 +497,188 @@ string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "ov
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(HostWithTwo(primary, overlay), job, CancellationToken.None);
 Assert.Equal(QpdfDiagnosticCode.UnsupportedCryptoOperation, SingleError(result).Code);
 }
+
+[Fact]
+public async Task FromDescendingMapsInOrder()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=2-1", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 1));
+}
+[Fact]
+public async Task FromRelativeSelectsLastOverlayPage()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=r1", "--to=1", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(), await OverlayMarkersOnPageAsync(pdf, 1));
+Assert.DoesNotContain("(A)", Encoding.ASCII.GetString(pdf));
+}
+[Fact]
+public async Task FromExclusionSkipsOverlayPage()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=1-2,x2", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(), await OverlayMarkersOnPageAsync(pdf, 1));
+}
+[Fact]
+public async Task FromOddPositionsMapInOrder()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET", "BT (Three) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET", "BT (C) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=1-3:odd", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(["C"]), await OverlayMarkersOnPageAsync(pdf, 1));
+Assert.Equal(new HashSet<string>(), await OverlayMarkersOnPageAsync(pdf, 2));
+}
+[Fact]
+public async Task ToOddRestrictsDestinations()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--to=1-2:odd", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(), await OverlayMarkersOnPageAsync(pdf, 1));
+Assert.DoesNotContain("(B)", Encoding.ASCII.GetString(pdf));
+}
+[Fact]
+public async Task RepeatRangesCycleAfterFromPages()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET", "BT (Three) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (F) Tj ET", "BT (R) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--overlay", "inputs/o.pdf", "--from=1", "--repeat=r1", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["F"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(["R"]), await OverlayMarkersOnPageAsync(pdf, 1));
+Assert.Equal(new HashSet<string>(["R"]), await OverlayMarkersOnPageAsync(pdf, 2));
+}
+[Fact]
+public async Task UnderlayRangesShareGrammar()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWithTwo(primary, overlay), "--underlay", "inputs/o.pdf", "--from=2-1", "--");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0));
+Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 1));
+}
+[Fact]
+public async Task JobFromRangeMatchesArgv()
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
+byte[] a = new byte[0];
+InMemoryQpdfHost argvHost = HostWithTwo(primary, overlay);
+{
+(QpdfExecutionResult r, byte[] pdf) = await RunAsync(argvHost, "--overlay", "inputs/o.pdf", "--from=2-1", "--");
+a = pdf;
+Assert.Equal(QpdfExitCode.Success, r.ExitCode);
+}
+InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
+string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "from": "2-1"}]}""";
+QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
+Assert.Equal(a, b);
+}
+[Theory]
+[InlineData("--overlay", "inputs/o.pdf", "--from=x1")]
+[InlineData("--overlay", "inputs/o.pdf", "--from=9")]
+[InlineData("--overlay", "inputs/o.pdf", "--to=1-2:even:odd")]
+[InlineData("--overlay", "inputs/o.pdf", "--to=")]
+public async Task RangedOverlayFlagsFail(params string[] flags)
+{
+byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET" });
+byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
+InMemoryQpdfHost host = HostWithTwo(primary, overlay);
+List<string> argv = new() { "inputs/a.pdf" };
+argv.AddRange(flags);
+argv.AddRange(["--", "outputs/a.pdf"]);
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+}
+private static async Task<HashSet<string>> OverlayMarkersOnPageAsync(byte[] pdf, int pageIndex)
+{
+using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
+JsonElement page = pages.RootElement.GetProperty("pages")[pageIndex];
+string reference = page.GetProperty("object").GetString() ?? string.Empty;
+string[] parts = reference.Split((char)32);
+string pageKey = string.Concat("obj:", parts[0], SP(), parts[1], " R");
+using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf", "--json-stream-data=inline");
+JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
+JsonElement pageValue = objects.GetProperty(pageKey).GetProperty("value");
+JsonElement resources;
+if (!pageValue.TryGetProperty("/Resources", out resources))
+{
+return new HashSet<string>(StringComparer.Ordinal);
+}
+if (resources.ValueKind == JsonValueKind.String)
+{
+string[] linked = (resources.GetString() ?? string.Empty).Split((char)32);
+resources = objects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+HashSet<string> markers = new(StringComparer.Ordinal);
+JsonElement xobjects;
+if (!resources.TryGetProperty("/XObject", out xobjects))
+{
+return markers;
+}
+foreach (JsonProperty property in xobjects.EnumerateObject())
+{
+if (property.Name == "/Fx0")
+{
+continue;
+}
+string formReference = property.Value.GetString() ?? string.Empty;
+string[] formParts = formReference.Split((char)32);
+if (formParts.Length < 2)
+{
+continue;
+}
+string formKey = string.Concat("obj:", formParts[0], SP(), formParts[1], " R");
+JsonElement form;
+if (!objects.TryGetProperty(formKey, out form))
+{
+continue;
+}
+JsonElement stream;
+if (!form.TryGetProperty("stream", out stream))
+{
+continue;
+}
+JsonElement data;
+if (!stream.TryGetProperty("data", out data))
+{
+continue;
+}
+string encoded = data.GetString() ?? string.Empty;
+byte[] bytes;
+try
+{
+bytes = Convert.FromBase64String(encoded);
+}
+catch (FormatException)
+{
+continue;
+}
+string text = Encoding.ASCII.GetString(bytes);
+foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(text, @"\(([A-Za-z0-9]+)\)"))
+{
+markers.Add(match.Groups[1].Value);
+}
+}
+return markers;
+}
 }

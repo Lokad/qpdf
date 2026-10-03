@@ -210,11 +210,13 @@ internal static class Overlays
             sources[path.Value] = source;
         }
 
-        IReadOnlyList<int> fromPages = OverlayRanges.Resolve(spec.From, source.PageCount, "--from");
-        IReadOnlyList<int> toPages = OverlayRanges.Resolve(spec.To, destCount, "--to");
+        IReadOnlyList<int> fromPages = spec.From is not null && spec.From.Length == 0
+            ? []
+            : OverlayRanges.Resolve(spec.From, source.PageCount, limits.MaxWork);
+        IReadOnlyList<int> toPages = OverlayRanges.Resolve(spec.To, destCount, limits.MaxWork);
         IReadOnlyList<int> repeatPages = spec.Repeat is null || spec.Repeat.Length == 0
             ? []
-            : OverlayRanges.Resolve(spec.Repeat, source.PageCount, "--repeat");
+            : OverlayRanges.Resolve(spec.Repeat, source.PageCount, limits.MaxWork);
         Dictionary<int, PageBundle> bundles = new();
         HashSet<int> needed = new();
         foreach (int page in fromPages)

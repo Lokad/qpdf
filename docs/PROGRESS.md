@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 94: overlay range wiring (M7). Overlay `--to`/`--from`/`--repeat` now use the full shared grammar across argv, job JSON and underlays: descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`, and duplicates preserved, with empty `--from` still selecting nothing and unused overlay pages left unembedded exactly as the reference. Per-page placed-marker unit tests prove descending/relative/exclusion/odd/repeat/underlay/job-parity mappings plus malformed failures, and a new `overlay-ranges` differential case (including underlay) shows placed-marker agreement on both sides. All five overlay entries stay partial behind uncopied annotations. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 93: rotation range wiring (M5). `--rotate` ranges now use the full shared grammar across argv, job JSON and typed rotations: descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`, and duplicates preserved and applied in order (the reference double-applies `+90:1,1` to 270, replacing the old dedup). `--rotate` is accepted at the main level as upstream places it, with the inside-`--pages` form kept as leniency and byte-identical results; repeats accumulate with later specs winning per page and positions spanning merged outputs. Bounds failures keep the typed `ArgumentOutOfRange` contract while argv/job map them to explicit `InvalidArguments`; mismatched counts and pages-less combinations fail explicitly, and expansion runs under the job work budget. A new `rotate-ranges` differential case (including a two-spec mapping proof) shows per-page rotations agreeing on both sides. `--rotate` stays partial behind multi-file `--pages` input forms and typed single-page overloads. Overlay ranges, omitted ranges, merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate
