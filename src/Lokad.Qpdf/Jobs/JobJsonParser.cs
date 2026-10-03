@@ -63,6 +63,8 @@ internal static class JobJsonParser
             string? output = null;
             bool replaceInput = false;
             bool seenReplaceInput = false;
+            int? splitPages = null;
+            bool seenSplitPages = false;
             JsonElement pages = default;
             bool hasPages = false;
             string? collate = null;
@@ -258,6 +260,15 @@ internal static class JobJsonParser
 
                         seenReplaceInput = true;
                         replaceInput = RequireBareFlag(property.Value, "replaceInput");
+                        break;
+                    case "splitPages":
+                        if (seenSplitPages)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'splitPages'.", 0L, null);
+                        }
+
+                        seenSplitPages = true;
+                        splitPages = Commands.ArgvParser.ParseSplitPagesValue(RequireString(property.Value, "splitPages"), 0L);
                         break;
                     case "pages":
                         if (seenPages)
@@ -1503,9 +1514,10 @@ internal static class JobJsonParser
             bool wantGenerate = generateAppearances;
             bool wantQdf = qdf || seenNoOriginalObjectIds;
             bool wantOptimize = optimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality;
+            bool wantSplit = splitPages.HasValue;
             if (!hasPages)
             {
-                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize && !wantQdf)
+                if (!wantEdits && !wantContent && !wantOverlays && !wantFlatten && !wantGenerate && !wantOptimize && !wantQdf && !wantSplit)
                 {
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
@@ -1523,6 +1535,7 @@ internal static class JobJsonParser
                 return new WholeFilePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
                     WarningExitZero = warningExit0,
+                    SplitPages = splitPages,
                     ReportMemoryUsage = reportMemoryUsage,
                     Verbose = verbose,
                     Progress = progress,
@@ -1606,7 +1619,7 @@ internal static class JobJsonParser
                 }
             }
 
-            if (entries.Count == 1 && !empty && collation is null && SelectionPlan.IsPlainPageNumber(entries[0].Range))
+            if (entries.Count == 1 && !empty && collation is null && splitPages is null && SelectionPlan.IsPlainPageNumber(entries[0].Range))
             {
                 string resolved = ResolveFile(entries[0].File, input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
@@ -1679,6 +1692,7 @@ internal static class JobJsonParser
                 ReplaceInput = replaceInput,
                 Rotations = rotations,
                 Labels = labels,
+                SplitPages = splitPages,
                 MinVersion = minVersion,
                 ForceVersion = forceVersion,
                 DeterministicId = deterministicId,

@@ -2452,14 +2452,19 @@ internal static class ArgvParser
             }
         }
 
-        if (value is null)
+        return ParseSplitPagesValue(value, i);
+    }
+
+    internal static int ParseSplitPagesValue(string? value, long offset)
+    {
+        if (value is null || value.Length == 0)
         {
             return 1;
         }
 
-        if (value.Length == 0 || value.Length > 10)
+        if (value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", i, null);
+            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", offset, null);
         }
 
         long size = 0L;
@@ -2467,7 +2472,7 @@ internal static class ArgvParser
         {
             if (digit < '0' || digit > '9')
             {
-                throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", i, null);
+                throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", offset, null);
             }
 
             size = checked(size * 10L + (digit - '0'));
@@ -2475,7 +2480,7 @@ internal static class ArgvParser
 
         if (size < 1L || size > int.MaxValue)
         {
-            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", i, null);
+            throw new QpdfParseException($"Invalid --split-pages value '{value}' : expected a positive group size.", offset, null);
         }
 
         return (int)size;
