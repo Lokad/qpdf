@@ -4251,16 +4251,17 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Large inline images externalize first (unless --keep-inline-images) and join the same shrink-only rules.",
-        "Four-component CMYK has no raw-sample encode path and stays as is.",
-        "Masks, exotic colorspaces, and non-shrinking results are skipped silently."
+        "Four-component CMYK has no raw-sample encode path and stays as is."
       ],
       "evidence": {
         "positive": [
           "ImageOptimizeTests.NoisyPhotoOptimizesToSmallerDct",
           "ImageOptimizeTests.GrayPhotoOptimizesToSingleComponentDct",
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
-          "ImageOptimizeTests.LargeInlineImageExternalizesAndOptimizes"
+          "ImageOptimizeTests.LargeInlineImageExternalizesAndOptimizes",
+          "ImageOptimizeTests.SmaskImageOptimizesKeepingMask",
+          "ImageOptimizeTests.MaskArrayImageKeepsMaskEntry",
+          "ImageOptimizeTests.IndexedImageStaysUntouched"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
@@ -4277,8 +4278,12 @@
           "ImageOptimizeTests.MergeOptimizesEveryPage",
           "ImageOptimizeTests.JobParityHolds"
         ],
-        "resource": [],
-        "oracle": []
+        "resource": [
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+        ],
+        "oracle": [
+          "diff:optimize-masks"
+        ]
       }
     },
     {
