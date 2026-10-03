@@ -887,6 +887,11 @@ public static class Qpdf
             }
         }
 
+        if (!removeAcroform)
+        {
+            Content.AcroFormCopy.RenameCollidingFields(multiForms, copiers, limits, governor, cancellationToken);
+        }
+
         Dictionary<int, QpdfObject> pool = new();
         foreach (GraphCopier copier in copiers)
         {

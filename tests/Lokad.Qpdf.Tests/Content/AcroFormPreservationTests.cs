@@ -314,6 +314,166 @@ public sealed class AcroFormPreservationTests
     }
 
     [Fact]
+    public async Task TypedSelfMergeRenamesCollision()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
+        PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(
+            host,
+            [new PdfPageSource(QpdfPath.From("inputs/a.pdf"), new PdfPageSelectionOptions(1)),
+             new PdfPageSource(QpdfPath.From("inputs/a.pdf"), new PdfPageSelectionOptions(1))],
+            QpdfPath.From("outputs/merged.pdf"),
+            CancellationToken.None);
+        Assert.Equal(2, result.PageCount);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/merged.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(2, fields.Count);
+        Assert.Equal("Name", FieldText(fields[0], "T"));
+        Assert.Equal("Hello", FieldText(fields[0], "V"));
+        Assert.Equal("Name+1", FieldText(fields[1], "T"));
+        Assert.Equal("Hello", FieldText(fields[1], "V"));
+    }
+
+    [Fact]
+    public async Task ArgvThreeWayCollisionSuffixesInOrder()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/a.pdf", "1", "inputs/a.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/m.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(3, fields.Count);
+        Assert.Equal("Name", FieldText(fields[0], "T"));
+        Assert.Equal("Name+1", FieldText(fields[1], "T"));
+        Assert.Equal("Name+2", FieldText(fields[2], "T"));
+    }
+
+    private static byte[] BuildTwoFieldPdf(string firstName, string firstValue, string secondName, string secondValue)
+    {
+        byte[] contents = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 100 700 Td (P) Tj ET");
+        byte[] firstAppearance = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 10 10 Td (" + firstValue + ") Tj ET");
+        byte[] secondAppearance = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 10 10 Td (" + secondValue + ") Tj ET");
+        return BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R 6 0 R] /NeedAppearances true >>",
+            " /Annots [5 0 R 6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (" + firstName + ") /V (" + firstValue + ") /DA (/Helv 12 Tf) /AP << /N 7 0 R >> >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Rect [100 500 300 520] /FT /Tx /T (" + secondName + ") /V (" + secondValue + ") /DA (/Helv 12 Tf) /AP << /N 9 0 R >> >>", null),
+                ("<< /Length " + firstAppearance.Length.ToString() + " >>", firstAppearance),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+                ("<< /Length " + secondAppearance.Length.ToString() + " >>", secondAppearance),
+            });
+    }
+
+    [Fact]
+    public async Task MergePreexistingSuffixAdvances()
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), BuildTwoFieldPdf("Name", "Hello", "Name+1", "World"), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "forms-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/m.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(3, fields.Count);
+        Assert.Equal("Name", FieldText(fields[0], "T"));
+        Assert.Equal("Hello", FieldText(fields[0], "V"));
+        Assert.Equal("Name+1", FieldText(fields[1], "T"));
+        Assert.Equal("World", FieldText(fields[1], "V"));
+        Assert.Equal("Name+2", FieldText(fields[2], "T"));
+        Assert.Equal("Hello", FieldText(fields[2], "V"));
+    }
+
+    [Fact]
+    public async Task MergePreexistingSuffixKeepsOrderFill()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), BuildTwoFieldPdf("Name", "Hello", "Name+1", "World"), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/m.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(3, fields.Count);
+        Assert.Equal("Name", FieldText(fields[0], "T"));
+        Assert.Equal("Hello", FieldText(fields[0], "V"));
+        Assert.Equal("Name+1", FieldText(fields[1], "T"));
+        Assert.Equal("Hello", FieldText(fields[1], "V"));
+        Assert.Equal("Name+1", FieldText(fields[2], "T"));
+        Assert.Equal("World", FieldText(fields[2], "V"));
+    }
+
+    [Fact]
+    public async Task SingleSelectionKeepsIntraDocumentDuplicates()
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), BuildTwoFieldPdf("Same", "A", "Same", "B"), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(2, fields.Count);
+        Assert.Equal("Same", FieldText(fields[0], "T"));
+        Assert.Equal("A", FieldText(fields[0], "V"));
+        Assert.Equal("Same", FieldText(fields[1], "T"));
+        Assert.Equal("B", FieldText(fields[1], "V"));
+    }
+
+    [Fact]
+    public async Task HierarchicalParentRenamesLikeReference()
+    {
+        byte[] appearance = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 10 10 Td (Hi) Tj ET");
+        byte[] contents = Encoding.ASCII.GetBytes("BT /Helv 12 Tf 100 700 Td (P) Tj ET");
+        byte[] hierarchical = BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] /NeedAppearances true >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /FT /Tx /T (P) /Kids [6 0 R] /DA (/Helv 12 Tf) >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Parent 5 0 R /Rect [100 600 300 620] /T (K) /V (Hi) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length " + appearance.Length.ToString() + " >>", appearance),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            });
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), hierarchical, QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), hierarchical, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/m.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal(2, fields.Count);
+        Assert.Equal("P", FieldText(fields[0], "T"));
+        Assert.Equal("P+1", FieldText(fields[1], "T"));
+    }
+
+    [Fact]
+    public async Task JobMergeRenamesCollision()
+    {
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
+            jobHost, """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/job.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "1"}]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/job.pdf"), out byte[] j));
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            argvHost, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "1", "--", "outputs/argv.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv.pdf"), out byte[] b));
+        Assert.Equal(b, j);
+        await using QpdfDocument output = await RereadAsync(jobHost, "outputs/job.pdf");
+        List<PdfDictionary> fields = ResolveFields(output, RequireForm(RequireCatalog(output)));
+        Assert.Equal("Name", FieldText(fields[0], "T"));
+        Assert.Equal("Name+1", FieldText(fields[1], "T"));
+    }
+
+    [Fact]
     public async Task SplitGroupsKeepTheirOwnFields()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-2page.pdf");
