@@ -7,7 +7,7 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 **Implemented PDF operations: the audited non-cryptographic subset.** 145 inventory entries
 are complete and 12 stay partial behind explicitly held-open gaps (containment-only
 limits, the no-Zopfli build profile, parent-held field lookup, default-resource merging,
-CMYK/YCCK decoding, and name-collision renaming); excluded crypto operations carry
+CMYK/YCCK decoding, and hierarchical field renaming); excluded crypto operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and
 package boundaries; operation coverage is carried by the per-entry unit, budget,
@@ -78,8 +78,9 @@ placement), overlay, overlay-annots (copied subtypes, contents, transformed rect
 output stays uncompressed where upstream compresses, and our `--overlay`
 block requires a second `--` terminator before the output file while
 upstream takes the output directly after the block terminator. Merged forms
-concatenate per-source field registrations without the upstream
-fully-qualified-name collision renaming, keep the first default-resources
+concatenate per-source field registrations with per-source-snapshot `+N` collision renaming
+for parentless fields (parent-linked nodes keep duplicates; the reference additionally
+renames their top ancestor), keep the first default-resources
 dictionary, and embed the combined form directly in the catalog where
 upstream writes an indirect object. Damaged structure with unresolvable references drops leniently instead of failing, while the reference keeps the damaged tree; well-formed outlines/structure preserve with dangling destinations pruned to null where the reference keeps references to null objects. Catalog extras that reference page-tree or catalog nodes drop their key where the reference remaps them onto the rebuilt nodes.
 ## Codec feasibility probes (work item 03)
@@ -313,8 +314,8 @@ check has no upstream schema basis yet and fails explicitly.
 object identity: separate copiers share one destination numbering sequence and one
 governor, so equal object numbers across documents never collide while widgets
 keep their within-source field links. Every page keeps its own resources, so
-same-named resources and fields stay inert without content rewriting. Merged forms concatenate per-source field registrations without upstream fully-qualified-name collision renaming, keep the first default-resources dictionary, OR the NeedAppearances flags, and embed the combined form directly in the catalog where upstream writes an indirect object. Output takes the highest source
-version and carries per-page source mapping plus per-source page counts. Collision renaming, first-wins resources, parent-held lookup limits, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+same-named resources and fields stay inert without content rewriting. Merged forms concatenate per-source field registrations with per-source-snapshot `+N` collision renaming for parentless fields, keep the first default-resources dictionary, OR the NeedAppearances flags, and embed the combined form directly in the catalog where upstream writes an indirect object. Output takes the highest source
+version and carries per-page source mapping plus per-source page counts. Hierarchical renaming, first-wins resources, parent-held lookup limits, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
 
 ## Split publication and replacement (work item 21)
 

@@ -4374,7 +4374,14 @@
           "CatalogPreservationTests.ArgvSelectionPreservesStructureForOrdinary",
           "CatalogPreservationTests.JobSelectionPreservesStructureForOrdinary",
           "AcroFormPreservationTests.ArgvSelectionPreservesParentAndDefaultResources",
-          "AcroFormPreservationTests.JobSelectionPreservesParentAndDefaultResources"
+          "AcroFormPreservationTests.JobSelectionPreservesParentAndDefaultResources",
+          "AcroFormPreservationTests.TypedSelfMergeRenamesCollision",
+          "AcroFormPreservationTests.ArgvThreeWayCollisionSuffixesInOrder",
+          "AcroFormPreservationTests.MergePreexistingSuffixAdvances",
+          "AcroFormPreservationTests.MergePreexistingSuffixKeepsOrderFill",
+          "AcroFormPreservationTests.SingleSelectionKeepsIntraDocumentDuplicates",
+          "AcroFormPreservationTests.HierarchicalParentRenamesLikeReference",
+          "AcroFormPreservationTests.JobMergeRenamesCollision"
         ],
         "negative": [
           "AdapterTests.ArgvRangeErrorsFail",
@@ -4393,7 +4400,8 @@
           "diff:select-first",
           "diff:errors",
           "diff:outlines-preserve",
-          "diff:structure-preserve"
+          "diff:structure-preserve",
+          "diff:forms-collision"
         ]
       }
     },

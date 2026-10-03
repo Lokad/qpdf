@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 113: merge field-name collision renaming (M11). Merged field-name collisions now gain upstream per-source-snapshot +N suffixes through the shared copy engine: each source sees earlier sources final names, colliding parentless fields take the smallest free suffix, single-source intra-document duplicates are kept, and top-level parents rename with their subtree while parent-linked nodes keep behavior. Seven unit cases plus a forms-collision differential case carry the evidence. Hierarchical renaming for non-top-level nodes, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 112: catalog-extras preservation (M11). Unknown catalog keys (NeedsRendering, PageLayout, ViewerPreferences, Lang, OpenAction) now copy through the owning source engine on ordinary selection, whole-file rewrite, and primary-source merge; split groups and empty bases drop them, unresolvable values drop keys silently, and structural-node references drop keys where the reference remaps them (documented intentional difference). Twelve unit cases plus the catalog-extras-1page.pdf fixture and a catalog-extras differential case carry the evidence, and the preserve-unreferenced follow-up is closed. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
 
 Prior gate

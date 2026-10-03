@@ -1794,6 +1794,23 @@ foreach ($trio in @(@('full', "$case/lib-full.pdf", "$case/ora-full.pdf"), @('su
 }
 Write-Output "[forms-preserve] JSON semantic assertions done"
 
+# --- case: forms-collision (managed vs oracle merge field-name collision renaming) ---
+$case = New-Case 'forms-collision'
+Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib.pdf", '--', '--empty', '--pages', 'inputs/f.pdf', '1', 'inputs/f.pdf', '1', '--', 'outputs/m.pdf')
+if ($code -ne 0) { throw "forms-collision: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/f.pdf', '1', 'inputs/f.pdf', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "forms-collision: oracle failed ($code)" }
+Assert-Trio 'forms-collision' "$case/lib.pdf" "$case/ora.pdf" 2
+$libJsonRaw = & $QpdfExe --json $case/lib.pdf 2>$null | Out-String
+$oraJsonRaw = & $QpdfExe --json $case/ora.pdf 2>$null | Out-String
+$libJson = $libJsonRaw | ConvertFrom-Json
+$oraJson = $oraJsonRaw | ConvertFrom-Json
+$libFields = @($libJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)" } | Sort-Object)
+$oraFields = @($oraJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.value)" } | Sort-Object)
+if (($libFields -join ',') -ne ($oraFields -join ',')) { Write-Output "[forms-collision] FAIL: fields lib=[$($libFields -join ',')] ora=[$($oraFields -join ',')]"; $script:failures++ }
+else { Write-Output "[forms-collision] renamed field semantics agree ([$($libFields -join ',')])" }
+
 # --- case: outlines-preserve (managed vs oracle outline preservation for ordinary) ---
 $case = New-Case 'outlines-preserve'
 Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
@@ -2043,4 +2060,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
