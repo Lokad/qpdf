@@ -363,9 +363,13 @@ both sides with failing checks) plus show-npages/check exit parity.
 
 `PdfPageRotation` (`Set`/`Add`/`Subtract` over output positions, any multiple of
 90 normalized modulo 360) rides the multi-source selection; `qpdf --rotate` and
-job-JSON `rotate` share the `[+|-]angle[:range]` specification with `n`, `n-m`,
-comma lists, and `z`. Later specifications win per page, duplicates apply once,
-and out-of-range positions fail explicitly. Rotation folds over the inherited
+job-JSON `rotate` share the `[+|-]angle[:range]` specification with the full shared
+page-range grammar (spans, descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`,
+duplicates preserved and applied in order, matching the probed reference). `--rotate`
+is accepted at the main level as upstream places it, with the inside-`--pages` form kept
+as leniency and byte-identical results; repeated specifications accumulate with later
+specifications winning per page, and positions span merged outputs. Out-of-range positions
+fail explicitly. Rotation folds over the inherited
 base (explicit page values beat ancestry, null counts as absent); pages without
 applicable specifications keep their bytes untouched. Collation, page labels,
 and multi-file `--pages` forms stay open.

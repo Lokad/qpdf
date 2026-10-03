@@ -237,6 +237,26 @@ foreach ($sub in @(@('span', @('.', '1-2'), 2), @('reverse', @('.', '2-1'), 2), 
 }
 Write-Output "[ranges] span/reverse/exclude trios done"
 
+# --- case: rotate-ranges (managed vs oracle rotation ranges, upstream outside form) ---
+$case = New-Case 'rotate-ranges'
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
+foreach ($sub in @(@('desc', @('+90:2-1')), @('rel', @('+90:r1')), @('excl', @('+90:1-2,x2')), @('odd', @('+90:1-2:odd')), @('multi', @('+90:r1', '+180:1')))) {
+  $name = $sub[0]
+  $flags = @()
+  foreach ($spec in $sub[1]) { $flags += "--rotate=$spec" }
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--') + $flags + @('inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "outputs/$name.pdf"))
+  if ($code -ne 0) { throw "rotate-ranges/$name`: emit failed ($code)" }
+  $code = Invoke-Oracle $case ($flags + @('inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-$name.pdf"))
+  if ($code -ne 0) { throw "rotate-ranges/$name`: oracle failed ($code)" }
+  Assert-Trio "rotate-ranges-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 2
+  $libRotates = @()
+  foreach ($m in [regex]::Matches([IO.File]::ReadAllText("$case/lib-$name.pdf"), '/Rotate (\d+)')) { $libRotates += $m.Groups[1].Value }
+  $oraRotates = @()
+  foreach ($m in [regex]::Matches([IO.File]::ReadAllText("$case/ora-$name.pdf"), '/Rotate (\d+)')) { $oraRotates += $m.Groups[1].Value }
+  if (($libRotates -join ',') -ne ($oraRotates -join ',')) { Write-Output "[rotate-ranges/$name] FAIL: rotations lib=[$($libRotates -join ',')] ora=[$($oraRotates -join ',')]"; $script:failures++ }
+  else { Write-Output "[rotate-ranges/$name] per-page rotations agree ([$($libRotates -join ',')])" }
+}
+
 # --- case: uncompress (flate input produced by oracle) ---
 $case = New-Case 'uncompress'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
@@ -1647,4 +1667,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

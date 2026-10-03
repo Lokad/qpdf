@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 93: rotation range wiring (M5). `--rotate` ranges now use the full shared grammar across argv, job JSON and typed rotations: descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`, and duplicates preserved and applied in order (the reference double-applies `+90:1,1` to 270, replacing the old dedup). `--rotate` is accepted at the main level as upstream places it, with the inside-`--pages` form kept as leniency and byte-identical results; repeats accumulate with later specs winning per page and positions spanning merged outputs. Bounds failures keep the typed `ArgumentOutOfRange` contract while argv/job map them to explicit `InvalidArguments`; mismatched counts and pages-less combinations fail explicitly, and expansion runs under the job work budget. A new `rotate-ranges` differential case (including a two-spec mapping proof) shows per-page rotations agreeing on both sides. `--rotate` stays partial behind multi-file `--pages` input forms and typed single-page overloads. Overlay ranges, omitted ranges, merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 92: page-range wiring for page selection (M5). `--pages` groups now accept the full shared grammar (spans, descending ranges, `rN`/`z`, `x` exclusions, `:odd`/`:even`, duplicates) across argv, job JSON and a new internal typed `FromRange` form: parse-time syntax validation, per-source execution expansion against its own page count with the job work budget, and explicit failures without publication for malformed or out-of-range ranges. Plain single numbers keep the exact legacy single-page plan; anything richer routes through the shared merge engine (spec counting unchanged, so collation semantics hold). A new `ranges` differential case proves span/reverse/exclude trios green with identical marker order on both sides. `--rotate` ranges and overlay `--to`/`--from`/`--repeat` keep their partials until their own wiring lands; omitted ranges stay explicitly required. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

@@ -279,7 +279,7 @@ internal static class PageRanges
         long page = endpoint.Relative ? (long)total - endpoint.Value + 1L : endpoint.Value;
         if (page < 1L || page > (long)total)
         {
-            throw new QpdfParseException($"Invalid page range '{range}': number {endpoint.Value} out of range.", 0L, null);
+            throw new ArgumentOutOfRangeException(nameof(range), $"Invalid page range '{range}': number {endpoint.Value} out of range.");
         }
 
         return (int)page;

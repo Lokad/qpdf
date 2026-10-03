@@ -4846,24 +4846,33 @@
       "defaultReview": "pending",
       "remainingGaps": [
         "Multi-file --pages input forms stay unsupported.",
-        "Range forms rN, :odd, :even, and x-groups stay unsupported.",
         "Typed single-page rotation overloads are open; use the multi-source API."
       ],
       "evidence": {
         "positive": [
           "RotationTests.AddRotatesFromInheritedBase",
           "RotationTests.ArgvRotateCoversAllPagesByDefault",
-          "RotationTests.JobRotateKeyMatchesArgv"
+          "RotationTests.JobRotateKeyMatchesArgv",
+          "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
+          "RotationTests.ArgvRotateRangeFormsApplyToOutputPositions",
+          "RotationTests.ArgvRotateDuplicatePositionsApplyTwice",
+          "RotationTests.ArgvRepeatedRotateLaterSpecsWin",
+          "RotationTests.ArgvRotateSpansMergeSources",
+          "RotationTests.JobRotateRangeMatchesArgv"
         ],
         "negative": [
           "RotationTests.OutOfRangePositionsFailCleanly",
-          "RotationTests.ArgvRotateInvalidSpecsFail"
+          "RotationTests.ArgvRotateInvalidSpecsFail",
+          "RotationTests.ArgvRotateRangedOutOfRangeFails",
+          "RotationTests.ArgvRotateRequiresPages"
         ],
         "interaction": [
-          "RotationTests.SetIgnoresBaseAndLaterSpecsWin"
+          "RotationTests.SetIgnoresBaseAndLaterSpecsWin",
+          "RotationTests.ArgvMainLevelRotateMatchesInsideForm",
+          "RotationTests.JobRotateRangeMatchesArgv"
         ],
         "resource": ["ResourceEnforcementTests.RotateYieldsToExhaustedBudget"],
-        "oracle": []
+        "oracle": ["diff:rotate-ranges"]
       }
     },
     {

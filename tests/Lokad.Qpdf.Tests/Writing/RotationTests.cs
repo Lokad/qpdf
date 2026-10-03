@@ -305,6 +305,142 @@ public sealed class RotationTests
         Assert.Equal(QpdfExecutionStatus.Failed, rejected.Status);
     }
 
+    [Fact]
+    public async Task ArgvMainLevelRotateMatchesInsideForm()
+    {
+        InMemoryQpdfHost insideHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult insideResult = await Qpdf.ExecuteAsync(
+            insideHost,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--rotate=+90", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, insideResult.ExitCode);
+        Assert.True(insideHost.TryGetOutput(QpdfPath.From("outputs/r.pdf"), out byte[] inside));
+        InMemoryQpdfHost mainHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult mainResult = await Qpdf.ExecuteAsync(
+            mainHost,
+            new QpdfCommandInvocation(["--rotate=+90", "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, mainResult.ExitCode);
+        Assert.True(mainHost.TryGetOutput(QpdfPath.From("outputs/r.pdf"), out byte[] main));
+        Assert.Equal(inside, main);
+    }
+
+    [Theory]
+    [InlineData("+90:2-1", 90L, 90L)]
+    [InlineData("+90:r1", 0L, 90L)]
+    [InlineData("+90:1-2,x2", 90L, 0L)]
+    [InlineData("+90:1-2:odd", 90L, 0L)]
+    [InlineData("+90:1-2:even", 0L, 90L)]
+    public async Task ArgvRotateRangeFormsApplyToOutputPositions(string specification, long first, long second)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--rotate=" + specification, "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
+        Assert.Equal(2, output.PageCount);
+        Assert.Equal(first, OptionalRotation(output, 0));
+        Assert.Equal(second, OptionalRotation(output, 1));
+    }
+
+    [Fact]
+    public async Task ArgvRotateDuplicatePositionsApplyTwice()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "rotated-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90:1,1", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
+        Assert.Equal(270L, PageRotation(output, 0));
+    }
+
+    [Fact]
+    public async Task ArgvRotateRangedOutOfRangeFails()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90:2-1", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/r.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task ArgvRotateRequiresPages()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--rotate=+90", "inputs/a.pdf", "--check"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+    }
+
+    [Fact]
+    public async Task JobRotateRangeMatchesArgv()
+    {
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/j.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "rotate": ["+90:r1"]}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, jobResult.ExitCode);
+        await using QpdfDocument output = await Reopen(jobHost, "outputs/j.pdf");
+        Assert.Equal(2, output.PageCount);
+        Assert.Equal(0L, OptionalRotation(output, 0));
+        Assert.Equal(90L, OptionalRotation(output, 1));
+    }
+
+    [Fact]
+    public async Task ArgvRotateSpansMergeSources()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--rotate=+90:2", "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
+        Assert.Equal(2, output.PageCount);
+        Assert.Equal(0L, OptionalRotation(output, 0));
+        Assert.Equal(90L, OptionalRotation(output, 1));
+    }
+
+
+    [Fact]
+    public async Task ArgvRepeatedRotateLaterSpecsWin()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--rotate=+90:r1", "--rotate=+180:1", "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--", "outputs/r.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
+        Assert.Equal(2, output.PageCount);
+        Assert.Equal(180L, OptionalRotation(output, 0));
+        Assert.Equal(90L, OptionalRotation(output, 1));
+    }
+
+    private static long OptionalRotation(QpdfDocument document, int index)
+    {
+        PdfDictionary page = document.PageReferences[index].Page;
+        if (!page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? raw) || raw is PdfNull)
+        {
+            return 0L;
+        }
+
+        return Assert.IsType<PdfInteger>(raw).Value;
+    }
+
     private static string FixtureDir()
     {
         return Path.Combine(AppContext.BaseDirectory, "Fixtures");

@@ -106,6 +106,11 @@ internal static class ArgvParser
             throw new QpdfParseException("Option --collate requires --pages.", 0, null);
         }
 
+        if (globals.Rotations.Count > 0 && pagesAt < 0)
+        {
+            throw new QpdfParseException("Option --rotate requires --pages.", 0, null);
+        }
+
         if (showXrefAt >= 0)
         {
             if (pagesAt >= 0)
@@ -916,7 +921,7 @@ internal static class ArgvParser
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
-            Rotations = rotations,
+            Rotations = [..globals.Rotations, ..rotations],
             Labels = labels,
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,
@@ -1139,7 +1144,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, List<int> Collate);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, List<int> Collate, List<OutputRotation> Rotations);
 
     private static bool IsGlobalOptionToken(string token)
     {
@@ -1236,6 +1241,7 @@ internal static class ArgvParser
         int? splitPages = null;
         bool replaceInput = false;
         List<int> collate = new();
+        List<OutputRotation> mainRotations = new();
         bool seenMin = false;
         bool seenForce = false;
         bool seenDeterministic = false;
@@ -1416,6 +1422,37 @@ internal static class ArgvParser
                 }
 
                 collate.AddRange(ParseCollateValue(collateValue, i));
+                continue;
+            }
+
+            if ((argv[i] == "--rotate" || argv[i].StartsWith("--rotate=", StringComparison.Ordinal)) && (mainPagesAt < 0 || i < mainPagesAt || i >= mainPagesEnd))
+            {
+                string? specification = null;
+                if (argv[i].StartsWith("--rotate=", StringComparison.Ordinal))
+                {
+                    specification = argv[i].Substring("--rotate=".Length);
+                    if (specification.Length == 0)
+                    {
+                        throw new QpdfParseException("Empty parameter for --rotate.", i, null);
+                    }
+                }
+                else if (i + 1 < argv.Count)
+                {
+                    string next = argv[i + 1];
+                    if (next is null || next == "--" || (next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+                    {
+                        throw new QpdfParseException("Missing parameter for --rotate.", i, null);
+                    }
+
+                    specification = next;
+                    i += 1;
+                }
+                else
+                {
+                    throw new QpdfParseException("Missing parameter for --rotate.", i, null);
+                }
+
+                mainRotations.Add(OutputRotation.Parse(specification, i));
                 continue;
             }
 
@@ -2144,7 +2181,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, collate);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, collate, mainRotations);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -3749,7 +3786,7 @@ internal static class ArgvParser
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
-            Rotations = rotations,
+            Rotations = [..globals.Rotations, ..rotations],
             Labels = labels,
             SplitPages = globals.SplitPages,
             ReplaceInput = true,
@@ -3828,7 +3865,7 @@ internal static class ArgvParser
             ReportMemoryUsage = globals.ReportMemoryUsage,
             IgnoreXrefStreams = globals.IgnoreXrefStreams,
             NoWarn = globals.NoWarn,
-            Rotations = rotations,
+            Rotations = [..globals.Rotations, ..rotations],
             Labels = labels,
             SplitPages = globals.SplitPages,
             MinVersion = globals.MinVersion,

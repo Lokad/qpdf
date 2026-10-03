@@ -171,7 +171,7 @@ public static class Qpdf
             occurrences.Add((copier, pageId, page));
         }
 
-        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
+        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits), governor);
         if (preserveUnreferenced)
         {
             HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
@@ -705,7 +705,7 @@ public static class Qpdf
             occurrences.Add((copier, pageId, page));
         }
 
-        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
+        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits), governor);
 
         List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
         foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
@@ -1028,8 +1028,15 @@ public static class Qpdf
     private static List<List<(PdfRotationMode Mode, int Angle)>> ResolveRotationFolds(
         IReadOnlyList<OutputRotation> rotations,
         int total,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        QpdfLimits limits)
     {
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        limits.Validate();
         List<List<(PdfRotationMode Mode, int Angle)>> folds = new(total);
         for (int i = 0; i < total; i++)
         {
@@ -1038,7 +1045,7 @@ public static class Qpdf
 
         foreach (OutputRotation specification in rotations)
         {
-            foreach (int position in specification.Expand(total))
+            foreach (int position in specification.Expand(total, limits.MaxWork))
             {
                 governor.ChargeWork(1L);
                 folds[position - 1].Add((specification.Mode, specification.Angle));

@@ -83,9 +83,6 @@ public sealed class PageRangesTests
 
     [Theory]
     [InlineData("x1-3")]
-    [InlineData("0")]
-    [InlineData("r0")]
-    [InlineData("r99")]
     [InlineData("1-")]
     [InlineData(",1")]
     [InlineData("1,")]
@@ -99,17 +96,26 @@ public sealed class PageRangesTests
     [InlineData("xx2")]
     [InlineData("1-3,x")]
     [InlineData("99999999999999999999")]
-    [InlineData("7-3")]
-    [InlineData("4-10,x7-9")]
     public void OracleProbedRejectionsFail(string range)
     {
         Assert.Throws<QpdfParseException>(() => PageRanges.Expand(range, 6, long.MaxValue));
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("r0")]
+    [InlineData("r99")]
+    [InlineData("7-3")]
+    [InlineData("4-10,x7-9")]
+    public void OutOfRangeEndpointsFailCleanly(string range)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand(range, 6, long.MaxValue));
+    }
+
     [Fact]
     public void ExcludedEndpointsStillValidate()
     {
-        Assert.Throws<QpdfParseException>(() => PageRanges.Expand("4-10,x7-9", 6, long.MaxValue));
+        Assert.Throws<ArgumentOutOfRangeException>(() => PageRanges.Expand("4-10,x7-9", 6, long.MaxValue));
     }
 
     [Fact]
