@@ -65,6 +65,8 @@ internal static class JobJsonParser
             bool seenReplaceInput = false;
             JsonElement pages = default;
             bool hasPages = false;
+            string? collate = null;
+            bool seenCollate = false;
             List<OutputRotation> rotations = new();
             bool seenRotate = false;
             List<PageLabelSpec> labels = new();
@@ -266,6 +268,15 @@ internal static class JobJsonParser
                         seenPages = true;
                         pages = property.Value;
                         hasPages = true;
+                        break;
+                    case "collate":
+                        if (seenCollate)
+                        {
+                            throw new QpdfParseException("Duplicate job key 'collate'.", 0L, null);
+                        }
+
+                        seenCollate = true;
+                        collate = RequireString(property.Value, "collate");
                         break;
                     case "rotate":
                         if (seenRotate)
@@ -1499,9 +1510,9 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job JSON requires \"pages\" with one entry.", 0L, null);
                 }
 
-                if (seenRotate || seenLabels || seenRemoveLabels)
+                if (seenRotate || seenLabels || seenRemoveLabels || seenCollate)
                 {
-                    throw new QpdfParseException("Job rotation and label keys require \"pages\".", 0L, null);
+                    throw new QpdfParseException("Job rotation, label and collate keys require \"pages\".", 0L, null);
                 }
 
                 if (output is null)
@@ -1568,6 +1579,17 @@ internal static class JobJsonParser
             }
 
             List<(string File, string Range)> entries = ParsePagesEntries(pages);
+            PdfPageCollation? collation = null;
+            if (seenCollate)
+            {
+                List<int> groupSizes = ArgvParser.ParseCollateValue(collate, 0L);
+                if (groupSizes.Count != 1 && groupSizes.Count != entries.Count)
+                {
+                    throw new QpdfParseException("Job \"collate\" must hold one value or one per \"pages\" entry.", 0L, null);
+                }
+
+                collation = new PdfPageCollation(groupSizes);
+            }
             if (empty)
             {
                 foreach ((string file, string _) in entries)
@@ -1584,7 +1606,7 @@ internal static class JobJsonParser
                 }
             }
 
-            if (entries.Count == 1 && !empty)
+            if (entries.Count == 1 && !empty && collation is null)
             {
                 string resolved = ResolveFile(entries[0].File, input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 int page = SelectionPlan.ParsePageNumber(entries[0].Range);
@@ -1652,7 +1674,7 @@ internal static class JobJsonParser
             }
 
             string primary = input ?? entries[0].File;
-            return new MergePlan(SelectionPlan.CheckedPath(primary), SelectionPlan.CheckedPath(output ?? primary), sources, null, recovery) with
+            return new MergePlan(SelectionPlan.CheckedPath(primary), SelectionPlan.CheckedPath(output ?? primary), sources, collation, recovery) with
             {
                 EmptyInput = empty,
                 ReplaceInput = replaceInput,

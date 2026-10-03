@@ -3859,7 +3859,7 @@ internal static class ArgvParser
         return next;
     }
 
-    private static List<int> ParseCollateValue(string? value, long offset)
+    internal static List<int> ParseCollateValue(string? value, long offset)
     {
         if (value is null || value.Length == 0)
         {

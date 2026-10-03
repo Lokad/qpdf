@@ -166,7 +166,7 @@ internal static class HelpText
         Usage:
           qpdf --job-json-file file
         Top-level keys:
-          inputFile, outputFile, pages:[{file, range}, ...], replaceInput, rotate, setPageLabels,
+          inputFile, outputFile, pages:[{file, range}, ...], collate, replaceInput, rotate, setPageLabels,
           removePageLabels, minVersion, forceVersion, deterministicId, staticId,
           newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData,
           compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo,
