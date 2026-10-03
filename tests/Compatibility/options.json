@@ -1548,17 +1548,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Over-limit streams stay opaque with a warning on every decode path; oracle parity pending."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": ["CompressionTests.MaxStreamFiltersBoundaryDecodes", "CompressionTests.MaxStreamFiltersCapKeepsOverLimitOpaque"],
         "negative": ["CompressionTests.InvalidValuesFail", "CompressionTests.DuplicateFlagsFail", "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations", "CompressionTests.JobJsonInvalidValuesFail"],
         "interaction": ["CompressionTests.MaxStreamFiltersJobParityHolds", "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations"],
         "resource": ["CompressionTests.HostStreamFilterBudgetKeepsOverLimitOpaque", "CompressionTests.NegativeStreamFilterBudgetFailsValidation"],
-        "oracle": []
+        "oracle": ["diff:global"]
       }
     },
     {
@@ -1610,17 +1608,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Strict opens use the undamaged cap while repair trial-parses use the damaged cap; oracle parity pending."
-      ],
+      "remainingGaps": ["Tight caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3); agreement at loose caps through the --global block. Bare limit flags outside the block are accepted as narrow-profile leniency while the reference rejects them."],
       "evidence": {
         "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
         "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
         "interaction": ["GlobalLimitsTests.ContainerCapsJobParityHolds", "GlobalLimitsTests.BadNestedContainerKeysFail"],
         "resource": ["GlobalLimitsTests.HostContainerBudgetInterplay", "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"],
-        "oracle": []
+        "oracle": ["diff:global"]
       }
     },
     {
@@ -1641,17 +1637,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Strict opens use the undamaged cap while repair trial-parses use the damaged cap; oracle parity pending."
-      ],
+      "remainingGaps": ["Tight caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3); agreement at loose caps through the --global block. Bare limit flags outside the block are accepted as narrow-profile leniency while the reference rejects them."],
       "evidence": {
         "positive": ["GlobalLimitsTests.LooseContainerCapsParse", "GlobalLimitsTests.ContainerCapsJobParityHolds"],
         "negative": ["GlobalLimitsTests.TightContainerCapFailsStrictParsing", "GlobalLimitsTests.SmallDictionaryCapFails", "GlobalLimitsTests.DamagedCapGovernsRepair", "GlobalLimitsTests.BadContainerFlagsFail", "GlobalLimitsTests.DuplicateContainerFlagsFail", "GlobalLimitsTests.BadNestedContainerKeysFail"],
         "interaction": ["GlobalLimitsTests.ContainerCapsJobParityHolds", "GlobalLimitsTests.BadNestedContainerKeysFail"],
         "resource": ["GlobalLimitsTests.HostContainerBudgetInterplay", "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"],
-        "oracle": []
+        "oracle": ["diff:global"]
       }
     },
     {
@@ -1703,17 +1697,15 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Invocation cap 499 (upstream default) for stack safety; oracle parity pending."
-      ],
+      "remainingGaps": ["Default cap 256 is tighter than the upstream default 499 (stack safety); agreement at 499 through the --global block. Bare limit flags outside the block are accepted as narrow-profile leniency while the reference rejects them."],
       "evidence": {
         "positive": ["GlobalLimitsTests.RaisedCapParsesDeepCatalog", "GlobalLimitsTests.NestedGlobalParityHolds"],
         "negative": ["GlobalLimitsTests.DefaultNestingRejectsDeepCatalog", "GlobalLimitsTests.BadNestingValuesFail", "GlobalLimitsTests.DuplicateNestingFlagFails", "GlobalLimitsTests.CeilingMessageNamesTheMaximum", "GlobalLimitsTests.BadNestedGlobalFails"],
         "interaction": ["GlobalLimitsTests.NestedGlobalParityHolds", "GlobalLimitsTests.BadNestedGlobalFails"],
         "resource": ["GlobalLimitsTests.FlagOverridesTighterHostBudget"],
-        "oracle": []
+        "oracle": ["diff:global"]
       }
     },
     {

@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 89: parser-limits completion (M11). `--max-stream-filters`, `--parser-max-nesting`, `--parser-max-container-size` and `--parser-max-container-size-damaged` move to complete with agreement-at-loose-caps evidence and documented strictness differences: over-limit filter chains stay opaque with a warning (exit 3) on both sides; the default nesting cap stays tighter (256 vs upstream 499) with agreement at 499; tight container caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3), with agreement at loose caps. The extended `global` differential case runs blocked selections (filters, nesting at 100 and 499, loose container caps) with trios green on both sides. `--no-default-limits` and `--parser-max-errors` stay partial as rejection-only containment. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 88: image-threshold completion (M11). `--jpeg-quality`, `--keep-inline-images`, `--oi-min-width`, `--oi-min-height` and `--oi-min-area` move to complete with a shared exhausted-budget theory, a threshold job-parity theory, a new checked-in `photo-1page.pdf` fixture (manifest/csproj/manifest-tests wired), and a new `optimize` differential case proving oracle agreement (matching DCT dimensions at an explicit quality, byte-identical kept payloads under disabling thresholds, inline kept inline on both sides). JPEG bytes stay encoder-defined; only structural and payload agreement is claimed. The `--optimize-images` entry itself stays partial behind its CMYK/mask gaps. Merge collision renaming, first-wins default resources, nonzero-generation inspection, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate
