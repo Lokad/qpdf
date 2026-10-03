@@ -248,7 +248,10 @@ sets. `FirstAndLast(N)` returns the first N and last N pages in document order,
 or every page once when the windows meet or overlap. Results carry the source
 page count and the exact per-output-page source mapping. Each occurrence copies
 to an independent page object while immutable resources stay shared; selecting
-every page still rewrites the graph rather than echoing input bytes. Oversized
+every page still rewrites the graph rather than echoing input bytes. The reference
+instead shares content streams across duplicate occurrences (probed: a ranged collate
+repeating pages yields shared streams there, independent copies here, with identical
+page order on both sides). Oversized
 selections fail on work budgets and out-of-range pages fail explicitly.
 
 ## Catalog, inheritance, and widget policy (work item 14)
@@ -345,7 +348,8 @@ forms share one grammar with identical bytes. Single groups without collation ke
 the exact legacy single-file behavior. Job JSON accepts multi-entry `pages`
 arrays concatenating in order plus a `collate` key (`""` for bare, otherwise `n[,m,...]`)
 with argv job-parity. Group counts other than one value or one per source fail explicitly,
-as do out-of-range pages, without publication.
+as do out-of-range pages, without publication. Ranged groups interleave in identical page
+order on both sides (see the sharing note above).
 Page selection carries complete option evidence (ordered/duplicate/first-last coverage,
 explicit range failures, work-budget enforcement, select/merge differentials).
 

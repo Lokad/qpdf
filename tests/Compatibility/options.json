@@ -2103,26 +2103,27 @@
         }
       ],
       "milestone": "M5",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Single-integer page ranges only; full range syntax stays open."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "MergeCommandTests.ArgvCollateInterleavesSources",
           "MergeCommandTests.ArgvCollateGroupsApply",
           "MergeCommandTests.JobCollateMatchesArgv",
           "MergeCommandTests.JobCollateGroupsApply",
-          "MergeCommandTests.JobCollateSingleEntryMerges"
+          "MergeCommandTests.JobCollateSingleEntryMerges",
+          "MergeCommandTests.ArgvCollateRangesInterleaveInOrder",
+          "MergeCommandTests.JobCollateRangesMatchArgv"
         ],
         "negative": [
           "MergeCommandTests.ArgvMergeErrorsAreExplicit",
           "MergeCommandTests.JobCollateMalformedFails",
-          "MergeCommandTests.JobCollateRequiresPages"
+          "MergeCommandTests.JobCollateRequiresPages",
+          "MergeCommandTests.CollateRangesCountMismatchFailsWithoutOutput"
         ],
-        "interaction": ["MergeCommandTests.JobCollateMatchesArgv"],
-        "resource": [],
+        "interaction": ["MergeCommandTests.JobCollateMatchesArgv", "MergeCommandTests.JobCollateRangesMatchArgv"],
+        "resource": ["MergeCommandTests.CollateYieldsToExhaustedBudget"],
         "oracle": ["diff:collate"]
       }
     },

@@ -223,6 +223,24 @@ if ($code -ne 0) { throw "collate: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--collate', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "collate: oracle failed ($code)" }
 Assert-Trio 'collate' "$case/lib.pdf" "$case/ora.pdf" 2
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/r.pdf=$case/lib-r.pdf", '--', '--collate', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1-2', 'inputs/a.pdf', '2-1', '--', 'outputs/r.pdf')
+if ($code -ne 0) { throw "collate/ranges: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--collate', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1-2', 'inputs/a.pdf', '2-1', '--', "$case/ora-r.pdf")
+if ($code -ne 0) { throw "collate/ranges: oracle failed ($code)" }
+Assert-Trio 'collate-ranges' "$case/lib-r.pdf" "$case/ora-r.pdf" 4
+$libText = [IO.File]::ReadAllText("$case/lib-r.pdf")
+$libMarks = @()
+foreach ($m in [regex]::Matches($libText, '\((First|Second)\)')) { $libMarks += $m.Groups[1].Value }
+if (($libMarks -join ',') -ne 'First,Second,Second,First') { Write-Output "[collate-ranges] FAIL: lib order [$($libMarks -join ',')]"; $script:failures++ }
+else { Write-Output "[collate-ranges] lib order agrees ([First,Second,Second,First])" }
+$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', "$case/ora-r.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-r.txt" -RedirectStandardError "$case/show-ora-r-err.txt"
+if ($p.ExitCode -ne 0) { Write-Output "[collate-ranges] FAIL: oracle show-pages exit $($p.ExitCode)"; $script:failures++ }
+else {
+  $oraRefs = @()
+  foreach ($m in [regex]::Matches((Get-Content "$case/show-ora-r.txt" -Raw), 'content:\s*\r?\n\s*(\d+) 0 R')) { $oraRefs += $m.Groups[1].Value }
+  if ($oraRefs.Count -ne 4 -or $oraRefs[2] -ne $oraRefs[1] -or $oraRefs[3] -ne $oraRefs[0] -or $oraRefs[0] -eq $oraRefs[1]) { Write-Output "[collate-ranges] FAIL: ora sharing pattern [$($oraRefs -join ',')]"; $script:failures++ }
+  else { Write-Output "[collate-ranges] ora order agrees under sharing ([$($oraRefs -join ',')])" }
+}
 
 # --- case: ranges (managed vs oracle full page-range selections) ---
 $case = New-Case 'ranges'

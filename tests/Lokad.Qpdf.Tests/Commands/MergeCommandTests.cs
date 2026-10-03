@@ -402,6 +402,69 @@ public sealed class MergeCommandTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
     }
 
+    [Fact]
+    public async Task ArgvCollateRangesInterleaveInOrder()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--pages", "inputs/a.pdf", "1-2", "inputs/a.pdf", "2-1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
+        Assert.Equal(4, markers.Count);
+        Assert.Contains("First", markers[0], StringComparison.Ordinal);
+        Assert.Contains("Second", markers[1], StringComparison.Ordinal);
+        Assert.Contains("Second", markers[2], StringComparison.Ordinal);
+        Assert.Contains("First", markers[3], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task JobCollateRangesMatchArgv()
+    {
+        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(
+            argvHost,
+            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--pages", "inputs/a.pdf", "1-2", "inputs/a.pdf", "2-1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
+        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] a));
+        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(
+            jobHost,
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": "inputs/a.pdf", "range": "1-2"}, {"file": "inputs/a.pdf", "range": "2-1"}], "collate": ""}""",
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, jobResult.ExitCode);
+        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] b));
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public async Task CollateRangesCountMismatchFailsWithoutOutput()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--collate=1,2", "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/a.pdf", "2", "inputs/a.pdf", "1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task CollateYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/a.pdf", "2", "--", "outputs/m.pdf"]),
+            new QpdfExecutionOptions(limits),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+    }
+
     private static async Task<QpdfDocument> Reopen(InMemoryQpdfHost host, string output)
     {
         if (!host.TryGetOutput(QpdfPath.From(output), out byte[] published))

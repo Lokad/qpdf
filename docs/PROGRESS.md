@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 95: collate completion (M5/M11). `--collate` moves to complete with ranged-merge proof: groups carrying full ranges interleave in identical page order on both sides (new unit parity plus a `collate-ranges` differential asserting our marker order and the oracle sharing pattern), count mismatches fail explicitly, and collation yields to exhausted budgets. This also records a genuine intentional difference the proof exposed: duplicate page occurrences are independent copies here while the reference shares content streams. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 94: overlay range wiring (M7). Overlay `--to`/`--from`/`--repeat` now use the full shared grammar across argv, job JSON and underlays: descending ranges, `rN`/`z`, exclusions, `:odd`/`:even`, and duplicates preserved, with empty `--from` still selecting nothing and unused overlay pages left unembedded exactly as the reference. Per-page placed-marker unit tests prove descending/relative/exclusion/odd/repeat/underlay/job-parity mappings plus malformed failures, and a new `overlay-ranges` differential case (including underlay) shows placed-marker agreement on both sides. All five overlay entries stay partial behind uncopied annotations. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate
