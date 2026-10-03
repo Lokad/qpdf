@@ -2949,7 +2949,7 @@
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",
           "GenerateAppearancesTests.RadioButtonIsSkipped",
           "GenerateAppearancesTests.AcroFormDefaultResourcesEncodingKeepsAccents",
-          "GenerateAppearancesTests.FieldDefaultResourcesEncodingKeepsAccents",
+          "GenerateAppearancesTests.FieldDefaultResourcesIsIgnored",
           "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding"
         ],
         "negative": [

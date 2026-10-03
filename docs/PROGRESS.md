@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 117: field-DR encoding correction (M11). Appearance generation now ignores field-level DR for DA font encoding like the reference (upstream getDefaultResources reads only AcroForm DR; page Resources never consulted): field-only WinAnsi falls back to ASCII on both sides while AcroForm DR keeps WinAnsi on both sides (probed with field-only and page-only fixtures). The field-encoding unit becomes FieldDefaultResourcesIsIgnored; the unit suite stands at 1805 green and the full differential lane reruns green including dr-encoding, forms-preserve and forms-collision. Parent-held lookup, default-resource merging, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 116: default-resource font encoding for appearances (M11). Appearance generation now resolves the default-appearance font encoding through field default resources and then AcroForm default resources when the appearance resources lack the font, matching the probed reference (WinAnsi-encoded value bytes instead of ASCII fallback); page resources and conflicting dictionaries stay explicitly open, as do parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation. Three unit cases plus a dr-encoding differential case carry the evidence.
 
 Prior gate
