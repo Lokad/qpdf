@@ -495,17 +495,25 @@ Flate-packed output. Flate packing arrives with the compression controls
 boolean) keeps every input object the page selection did not reach, in
 ascending original object-number order per source, appended after the
 reachable graph with shared references remapped through the same memoized
-copier. Fresh catalog/pages stay 1/2. Preserved objects participate in
-`--object-streams` packing (compressed-ness or generation eligibility apply
-to them like any selected object) and are included in every split group via
-the reachability closure, so no dangling references are emitted. Intentional
-differences from upstream: reachable objects keep copy order rather than
-being re-sorted by original ID; the input catalog, page-tree, page, and
-object/xref-stream containers are excluded by contained-preview policy
-(omitted pages can never resurrect; stream payloads travel through their
-members); preserved metadata stays unlinked (catalog relinking is structural
-editing, a later milestone); objects that fail to load or copy are skipped
-under one aggregated `UnsupportedFeature` warning instead of failing the job.
+copier. Preservation covers the primary input on merges (other sources keep
+only their selected pages) and is suspended under `--empty`, matching the
+reference on both counts. Detached pages and detached trees survive as loose
+objects while rebuilt roots (the input catalog plus the selected page-tree
+chain) are superseded, and preserved metadata stays linked from the rebuilt
+catalog with its bytes intact. Fresh catalog/pages stay 1/2. Preserved
+objects participate in `--object-streams` packing (compressed-ness or
+generation eligibility apply to them like any selected object) and are
+included in every split group via the reachability closure, so no dangling
+references are emitted. Intentional differences from upstream: preserved
+objects keep ascending copy order rather than original-ID order (identical on
+single-source selections; multi-source pools renumber per source);
+object/xref-stream containers are not carried over while their members are
+preserved decoded as direct objects; objects that fail to load or copy are
+skipped under one aggregated `UnsupportedFeature` warning instead of failing
+the job. Open follow-up: unknown catalog keys (e.g. `/NeedsRendering`) are
+carried into the rebuilt catalog by the reference on every path while this
+profile still drops them; catalog-extras preservation is a separate work
+item.
 
 ## Stream compression controls (work item 23a)
 

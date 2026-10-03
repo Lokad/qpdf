@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 84: unreferenced-object preservation completion (M11). `--preserve-unreferenced` moves to complete: detached pages and detached trees are now preserved as loose objects (identity-based exclusion of rebuilt roots only), preservation runs for the primary merge input and suspends under `--empty`, and preserved metadata stays linked with intact bytes, all matching the pinned oracle. The old contained-preview exclusions and the stale unlinked-metadata claim are replaced by probed parity; remaining intentional differences (ascending copy order, decoded stream members instead of containers) are documented. A shared orphan/metadata/dangling-page fixture plus a `preserve-unreferenced` differential case (single-source loose-object agreement plus empty-base agreement) and the previously unwired exhausted-budget theory fill the evidence. Open follow-up recorded: unknown catalog keys ride along on every reference path while this profile drops them (separate catalog-extras item); merge collision renaming, first-wins default resources, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 83: rotation-flattening completion (M11). `--flatten-rotation` moves to complete: appearance form XObjects referenced from annotation /AP dictionaries (including /N, /R, /D state dictionaries) now gain the same rotation matrix the content wrap uses, composed over any existing matrix exactly as the reference does (probed across 90/180/270 degrees, nonzero origins, composed priors, markup annotations and direct-stream appearances, which upstream leaves untouched). Direct /UserUnit entries survive and inherited units stay uninherited on both sides with no code change. New appearance-matrix unit theory plus a `rotated-ap-1page.pdf` fixture (manifest/csproj/manifest-tests wired) and an extended flatten-rotation differential sub-case prove oracle agreement. Parent-held field lookup, default-resource merging, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
 
 Prior gate

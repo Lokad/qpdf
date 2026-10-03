@@ -1321,6 +1321,35 @@ foreach ($pair in @(('lib-merge', "$case/lib-merge.pdf"), ('ora-merge', "$case/o
 }
 Write-Output "[forms-preserve/merge] registration assertions done"
 
+# --- case: preserve-unreferenced (managed vs oracle object preservation) ---
+$case = New-Case 'preserve-unreferenced'
+Copy-Item "$fixtureDir/orphans-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--preserve-unreferenced', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "preserve-unreferenced: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--preserve-unreferenced', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "preserve-unreferenced: oracle failed ($code)" }
+Assert-Trio 'preserve-unreferenced' "$case/lib.pdf" "$case/ora.pdf" 1
+foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  $decoded = Get-DecodedText $pair[1]
+  foreach ($needle in @('(OrphanOne)', 'HELLO-ORPHAN', '/Metadata', '<x>meta</x>')) {
+    if (-not $rawText.Contains($needle) -and -not $decoded.Contains($needle)) { Write-Output "[preserve-unreferenced] FAIL: '$needle' missing from $($pair[0]) output"; $script:failures++ }
+  }
+  if ($rawText -notmatch '\[\s*0\s+0\s+10\s+10\s*\]') { Write-Output "[preserve-unreferenced] FAIL: dangling page missing from $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[preserve-unreferenced] loose-object assertions done"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-empty.pdf", '--', '--empty', '--preserve-unreferenced', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', '--', 'outputs/m.pdf')
+if ($code -ne 0) { throw "preserve-unreferenced/empty: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--preserve-unreferenced', '--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', '--', "$case/ora-empty.pdf")
+if ($code -ne 0) { throw "preserve-unreferenced/empty: oracle failed ($code)" }
+Assert-Trio 'preserve-unreferenced-empty' "$case/lib-empty.pdf" "$case/ora-empty.pdf" 2
+foreach ($pair in @(('lib-empty', "$case/lib-empty.pdf"), ('ora-empty', "$case/ora-empty.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('(OrphanOne)')) { Write-Output "[preserve-unreferenced/empty] FAIL: orphan kept in $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[preserve-unreferenced/empty] empty-base assertions done"
+
 # --- case: remove-structure (managed vs oracle structure-tree removal) ---
 $case = New-Case 'remove-structure'
 Copy-Item "$fixtureDir/struct-1page.pdf" "$case/inputs/s.pdf"
@@ -1509,4 +1538,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, forms, overlay, errors, job-file, recovery, identity, hints, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
