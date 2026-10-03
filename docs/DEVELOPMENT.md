@@ -7,7 +7,7 @@ with central package versions and checked-in lock files. Only ImageSharp
 PdfPig `[0.1.16]` is pinned for development validation only in `tools/QpdfProbe`
 and the test project; it must never become a runtime dependency of `Lokad.Qpdf`.
 ImageSharp is also referenced by the probe and tests for codec feasibility
-work; the library keeps it behind the future JPEG adapter. Test packages are
+work; the library keeps it behind the governed JPEG adapter. Test packages are
 only allowed in test projects. SourceLink is private build
 tooling. Debug packaging and unsafe compilation are rejected by build targets.
 
@@ -85,8 +85,9 @@ The differential lane (`tools/run-differential-checks.ps1`, via `QpdfProbe emit`
 `tests/Lokad.Qpdf.PackageConsumer` is a clean console project outside the
 solution. It restores the packed `Lokad.qpdf` NuGet from
 `artifacts/nuget` (never a project reference) plus approved dependencies
-from NuGet, then exercises typed selection, argv and job routes, their
-parity, and crypto rejection using only the public API and an in-memory
+from NuGet, then exercises the public surface across selection, merge, rotation, labels,
+split, replacement, appearances, QDF, linearization, and the companions, with argv
+and job parity checks plus crypto rejection, using only the public API and an in-memory
 host. It needs no upstream checkout, reference executable, or renderer.
 
 ```sh

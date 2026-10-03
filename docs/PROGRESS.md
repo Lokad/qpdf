@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 108: architecture and development notes refresh (M11). ARCHITECTURE.md moves from M1-era future tense to the implemented engine, entry points, build order, and solution layout with benchmarks kept as explicit future work; DEVELOPMENT.md drops the future-JPEG-adapter wording and describes current consumer coverage. Docs-only change with no behavior impact. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 107: identity text reconciliation and reference-lane rerun (M11). The remove-page-labels help line drops its stale accepted-no-op claim, the JSON help pages description reports image descriptors, and the garbled job-JSON help crypto sentence is repaired with a duplicated nesting line folded in; three new unit cases pin the corrected strings and the identity entries gain the evidence. The full reference lane reruns green with the differential lane passing every case and no engine discrepancies. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
 
 Prior gate
