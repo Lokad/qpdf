@@ -1578,7 +1578,7 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"setPageLabels\" cannot be combined with \"removePageLabels\".", 0L, null);
             }
 
-            List<(string File, string Range)> entries = ParsePagesEntries(pages);
+            List<(string File, string? Range)> entries = ParsePagesEntries(pages);
             PdfPageCollation? collation = null;
             if (seenCollate)
             {
@@ -1592,7 +1592,7 @@ internal static class JobJsonParser
             }
             if (empty)
             {
-                foreach ((string file, string _) in entries)
+                foreach ((string file, string? _) in entries)
                 {
                     if (file == ".")
                     {
@@ -1667,7 +1667,7 @@ internal static class JobJsonParser
             }
 
             List<PdfPageSource> sources = new(entries.Count);
-            foreach ((string file, string range) in entries)
+            foreach ((string file, string? range) in entries)
             {
                 sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range)));
             }
@@ -2455,7 +2455,7 @@ internal static class JobJsonParser
         return new OverlaySpec(file, to, from, repeat);
     }
 
-    private static List<(string File, string Range)> ParsePagesEntries(JsonElement pages)
+    private static List<(string File, string? Range)> ParsePagesEntries(JsonElement pages)
     {
         if (pages.ValueKind != JsonValueKind.Array)
         {
@@ -2467,7 +2467,7 @@ internal static class JobJsonParser
             throw new QpdfParseException("Job \"pages\" must hold at least one entry.", 0L, null);
         }
 
-        List<(string File, string Range)> entries = new();
+        List<(string File, string? Range)> entries = new();
         foreach (JsonElement entry in pages.EnumerateArray())
         {
             if (entry.ValueKind != JsonValueKind.Object)
@@ -2481,7 +2481,7 @@ internal static class JobJsonParser
         return entries;
     }
 
-    private static (string File, string Range) ParsePagesEntry(JsonElement entry)
+    private static (string File, string? Range) ParsePagesEntry(JsonElement entry)
     {
         string? file = null;
         string? range = null;
@@ -2513,11 +2513,6 @@ internal static class JobJsonParser
         if (file is null)
         {
             throw new QpdfParseException("Job pages entries require \"file\".", 0L, null);
-        }
-
-        if (range is null)
-        {
-            throw new QpdfParseException("Job pages entries require \"range\" in this profile.", 0L, null);
         }
 
         return (file, range);

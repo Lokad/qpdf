@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 98: omitted page ranges (M5). A missing range now selects all pages across positional files, `--file=` groups (including a pending file followed by another `--file`), and job entries, matching the probed reference on all three shapes plus argv/job parity. `--pages` with no groups still fails explicitly. New unit coverage plus two omitted-range differential subs with trios green carry the evidence. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 97: rotation file-form coverage (M5). Proved `--rotate` applies across `--file=`/`--range=` groups and multi-file merges (positional and file forms, main-level placement) with per-page unit assertions plus a file-form differential asserting identical per-page rotations on both sides. The `--rotate` entry drops its multi-file gap and stays partial only behind typed single-page overloads. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

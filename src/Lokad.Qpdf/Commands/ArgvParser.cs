@@ -910,9 +910,8 @@ internal static class ArgvParser
         }
 
         string file = groups[0].File;
-        string range = groups[0].Range;
         string resolvedFile = ResolveFile(file, input);
-        int page = SelectionPlan.ParsePageNumber(range);
+        int page = SelectionPlan.ParsePageNumber(groups[0].Range);
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), page, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,
@@ -3642,7 +3641,7 @@ internal static class ArgvParser
                 {
                     if (file is not null)
                     {
-                        throw new QpdfParseException("Each --pages file needs one range before the next file.", i, null);
+                        groups.Add(new PageGroup(file, null));
                     }
 
                     file = TakeParameter(argv, terminatorAt, ref i, "--file");
@@ -3746,7 +3745,7 @@ internal static class ArgvParser
 
         if (file is not null)
         {
-            throw new QpdfParseException("The --pages selection requires one range in this profile.", pagesAt, null);
+            groups.Add(new PageGroup(file, null));
         }
 
         if (groups.Count == 0)
@@ -3775,9 +3774,8 @@ internal static class ArgvParser
         }
 
         string file = groups[0].File;
-        string range = groups[0].Range;
         string resolvedFile = ResolveFile(file, input);
-        int page = SelectionPlan.ParsePageNumber(range);
+        int page = SelectionPlan.ParsePageNumber(groups[0].Range);
         return new SelectionPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(input), page, recovery) with
         {
             WarningExitZero = globals.WarningExitZero,

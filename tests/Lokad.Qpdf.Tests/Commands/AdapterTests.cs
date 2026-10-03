@@ -38,6 +38,18 @@ public sealed class AdapterTests
     }
 
     [Fact]
+    public async Task ArgvMissingSecondFileFails()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "2", "--", "outputs/a.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.HostOperationFailed, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
     public async Task ArgvPositionalSelectionSucceeds()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
@@ -86,11 +98,9 @@ public sealed class AdapterTests
 
     [Theory]
     [InlineData("inputs/a.pdf", "--pages")]
-    [InlineData("inputs/a.pdf", "--pages", ".", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--pages", ".", "1", "outputs/a.pdf")]
     [InlineData("--pages", ".", "1", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "inputs/b.pdf", "--pages", ".", "1", "--", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--pages", ".", "1", "2", "--", "outputs/a.pdf")]
     public async Task ArgvStructuralErrorsFail(params string[] argv)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
@@ -194,7 +204,6 @@ public sealed class AdapterTests
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": []}""")]
 
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": "."}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"range": "1"}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": 1}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"file": ".", "range": "1", "password": "x"}]}""")]

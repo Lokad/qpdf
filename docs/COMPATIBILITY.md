@@ -453,7 +453,7 @@ narrow single-page subset into one shared selection plan executed by the
 typed path. The argv subset follows upstream spelling (`--pages`, `--file`,
 `--range`, `.` for the primary input, the terminating `--`); the job subset
 uses upstream field names (`inputFile`, `outputFile`, `pages[].file`,
-`pages[].range`). Both require an explicit single numeric range; ranges,
+`pages[].range`). An omitted range selects all pages; ranges,
 collation, multiple sources, `--empty`, `--replace-input`, stdout `-`,
 response files, flexible operand order, and unknown options fail
 explicitly. All documented password/encryption flags reject with the

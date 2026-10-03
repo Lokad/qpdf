@@ -101,18 +101,12 @@ public sealed record PdfPageSelectionOptions
         return new PdfPageSelectionOptions([.. ordered], null, null);
     }
 
-    /// <summary>Creates a range selection using the shared upstream page-range grammar.</summary>
-    /// <exception cref="ArgumentNullException">The range is null.</exception>
+    /// <summary>Creates a range selection using the shared upstream page-range grammar. A null range selects every page.</summary>
     /// <exception cref="QpdfParseException">The range syntax is invalid.</exception>
-    internal static PdfPageSelectionOptions FromRange(string range)
+    internal static PdfPageSelectionOptions FromRange(string? range)
     {
-        if (range is null)
-        {
-            throw new ArgumentNullException(nameof(range));
-        }
-
         global::Lokad.Qpdf.Pages.PageRanges.CheckSyntax(range);
-        return new PdfPageSelectionOptions([], null, range);
+        return new PdfPageSelectionOptions([], null, range ?? string.Empty);
     }
 
     internal IReadOnlyList<int> Resolve(int totalPages)

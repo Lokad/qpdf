@@ -245,7 +245,7 @@ else {
 # --- case: ranges (managed vs oracle full page-range selections) ---
 $case = New-Case 'ranges'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-foreach ($sub in @(@('span', @('.', '1-2'), 2), @('reverse', @('.', '2-1'), 2), @('exclude', @('.', '1-2,x2'), 1))) {
+foreach ($sub in @(@('span', @('.', '1-2'), 2), @('reverse', @('.', '2-1'), 2), @('exclude', @('.', '1-2,x2'), 1), @('omitted', @('inputs/a.pdf'), 2), @('fileform-all', @('--file=inputs/a.pdf'), 2))) {
   $name = $sub[0]
   $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', 'inputs/a.pdf', '--pages') + $sub[1] + @('--', "outputs/$name.pdf"))
   if ($code -ne 0) { throw "ranges/$name`: emit failed ($code)" }
@@ -253,7 +253,7 @@ foreach ($sub in @(@('span', @('.', '1-2'), 2), @('reverse', @('.', '2-1'), 2), 
   if ($code -ne 0) { throw "ranges/$name`: oracle failed ($code)" }
   Assert-Trio "ranges-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" $sub[2]
 }
-Write-Output "[ranges] span/reverse/exclude trios done"
+Write-Output "[ranges] span/reverse/exclude/omitted trios done"
 
 # --- case: rotate-ranges (managed vs oracle rotation ranges, upstream outside form) ---
 $case = New-Case 'rotate-ranges'
