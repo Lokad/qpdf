@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 115: post-rename lane verification (M11). The full differential lane reruns green on the final hierarchical renaming code with zero failures, including the forms-collision renamed-semantics agreement; the unit suite stands at 1801 green. Verification-only record change. First-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation, and direct-dictionary field renaming stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 114: hierarchical collision renaming (M11). Field subtrees now walk top-down with recomputed qualified names so collisions below named ancestors resolve like the reference: top-level parents rename with their subtree, unnamed-container kids rename in place, and three-level chains rename at the top. Three new unit cases join the seven flat-shape cases (ten total) with the per-source-snapshot model and intra-document duplicate retention unchanged. First-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation stay explicitly open.
 
 Prior gate
