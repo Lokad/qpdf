@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 111: inventory regeneration reconciliation (M11). Regenerating the compatibility inventory from the pinned reference checkout reproduces all 157 option/context entries with zero drift on generator-owned fields (flags, contexts, argument kinds, choices, job-JSON paths, scopes, manual forms, milestones); human-owned status, evidence, gaps, and review fields live only in the checked-in file. Docs-only record change. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 110: verification-record reconciliation (M11). The static Verification section is regenerated from evidence: 1778 tests across 77 classes counted from the runner listing replacing the stale 1527 total, the differential case list replaced with the lane passing summary, and Next-work slices updated from 87 partials to the 12 remaining behind held-open gaps. Docs-only change. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
 
 Prior gate
