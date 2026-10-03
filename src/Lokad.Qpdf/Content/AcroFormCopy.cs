@@ -281,9 +281,11 @@ internal static class AcroFormCopy
     /// <summary>
     /// Renames colliding field names across merged sources with upstream
     /// `+N` suffixes: each source sees the final names of strictly earlier sources,
-    /// keeps originals absent from that snapshot, and gains the smallest free `+N` suffix
-    /// for colliding parentless fields. Single-form merges keep intra-document
-    /// duplicates like the reference, and parent-linked nodes keep current behavior.
+    /// walks field subtrees top-down recomputing fully-qualified names, keeps
+    /// originals absent from that snapshot, and rewrites the smallest free `+N`
+    /// suffix onto colliding named nodes. Single-form merges keep intra-document
+    /// duplicates like the reference; nodes without an indirect identity keep
+    /// current behavior.
     /// </summary>
     internal static void RenameCollidingFields(
         IReadOnlyList<CopiedForm?> forms,
@@ -337,6 +339,7 @@ internal static class AcroFormCopy
             GraphCopier copier = copiers[s] ?? throw new ArgumentException("Copiers must not contain null entries.", nameof(copiers));
             HashSet<string> snapshot = new(accumulated, StringComparer.Ordinal);
             List<string> finals = new();
+            HashSet<int> visited = new();
             foreach (PdfReference fieldRef in form.Fields)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -345,21 +348,91 @@ internal static class AcroFormCopy
                 {
                     continue;
                 }
-                (string qualified, bool topLevel, PdfByteString? ownText) = QualifyField(copier, node, limits, governor, cancellationToken);
-                if (qualified.Length == 0)
+                RenameTree(copier, fieldRef.ObjectNumber, node, [], snapshot, finals, visited, limits, governor, cancellationToken, 0);
+            }
+            foreach (string final in finals)
+            {
+                accumulated.Add(final);
+            }
+        }
+    }
+
+    private static void RenameTree(
+        GraphCopier copier,
+        int? nodeId,
+        PdfDictionary node,
+        IReadOnlyList<string?> ancestors,
+        HashSet<string> snapshot,
+        List<string> finals,
+        HashSet<int> visited,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken,
+        int depth)
+    {
+        if (copier is null)
+        {
+            throw new ArgumentNullException(nameof(copier));
+        }
+        if (node is null)
+        {
+            throw new ArgumentNullException(nameof(node));
+        }
+        if (ancestors is null)
+        {
+            throw new ArgumentNullException(nameof(ancestors));
+        }
+        if (snapshot is null)
+        {
+            throw new ArgumentNullException(nameof(snapshot));
+        }
+        if (finals is null)
+        {
+            throw new ArgumentNullException(nameof(finals));
+        }
+        if (visited is null)
+        {
+            throw new ArgumentNullException(nameof(visited));
+        }
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.ChargeWork(1L);
+        if (depth > limits.MaxNestingDepth)
+        {
+            return;
+        }
+        if (nodeId.HasValue && !visited.Add(nodeId.Value))
+        {
+            return;
+        }
+        PdfByteString? ownBytes = ReadFieldText(copier, node);
+        string? own = ownBytes is null ? null : Attachments.PdfText.Decode(ownBytes.Value);
+        string? effective = own;
+        if (own is not null)
+        {
+            List<string> parts = new();
+            foreach (string? ancestor in ancestors)
+            {
+                if (ancestor is not null)
                 {
-                    continue;
+                    parts.Add(ancestor);
                 }
-                if (!snapshot.Contains(qualified))
-                {
-                    finals.Add(qualified);
-                    continue;
-                }
-                if (!topLevel || ownText is null)
-                {
-                    finals.Add(qualified);
-                    continue;
-                }
+            }
+            parts.Add(own);
+            string qualified = string.Join(".", parts);
+            if (!snapshot.Contains(qualified))
+            {
+                finals.Add(qualified);
+            }
+            else if (nodeId.HasValue)
+            {
                 string renamed = qualified;
                 int suffix = 0;
                 while (snapshot.Contains(renamed))
@@ -367,13 +440,12 @@ internal static class AcroFormCopy
                     cancellationToken.ThrowIfCancellationRequested();
                     governor.ChargeWork(1L);
                     suffix++;
-                    renamed = qualified + "+" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    renamed = qualified.Substring(0, qualified.Length - own.Length) + own + "+" + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
-                finals.Add(renamed);
                 byte[] renamedBytes;
-                if (!Attachments.PdfText.TryEncodePdfDoc(renamed, out renamedBytes))
+                if (!Attachments.PdfText.TryEncodePdfDoc(renamed.Substring(qualified.Length - own.Length), out renamedBytes))
                 {
-                    renamedBytes = Utf16Be(renamed);
+                    renamedBytes = Utf16Be(renamed.Substring(qualified.Length - own.Length));
                 }
                 governor.ReserveMemory(renamedBytes.Length + 64L);
                 Dictionary<PdfName, QpdfObject> entries = new();
@@ -386,73 +458,44 @@ internal static class AcroFormCopy
                     governor.ChargeWork(1L);
                     entries[key] = key.DisplayText == "T" ? new PdfByteString(renamedBytes, false) : entry;
                 }
-                copier.ReplaceCopiedObject(fieldRef.ObjectNumber, new PdfDictionary(entries));
-            }
-            foreach (string final in finals)
-            {
-                accumulated.Add(final);
-            }
-        }
-    }
-
-    private static (string Qualified, bool TopLevel, PdfByteString? OwnText) QualifyField(
-        GraphCopier copier,
-        PdfDictionary node,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        bool topLevel = !node.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw) || parentRaw is null || parentRaw is PdfNull;
-        List<string> parts = new();
-        PdfByteString? own = null;
-        bool first = true;
-        PdfDictionary? current = node;
-        HashSet<int> visited = new();
-        int depth = 0;
-        while (current is not null && depth <= limits.MaxNestingDepth)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            PdfByteString? text = ReadFieldText(copier, current);
-            if (first)
-            {
-                own = text;
-                first = false;
-            }
-            if (text is not null)
-            {
-                parts.Add(Attachments.PdfText.Decode(text.Value));
-            }
-            if (!current.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? link) || link is null || link is PdfNull)
-            {
-                break;
-            }
-            PdfDictionary? next = null;
-            if (link is PdfReference parentRef)
-            {
-                if (!visited.Add(parentRef.ObjectNumber))
-                {
-                    break;
+                copier.ReplaceCopiedObject(nodeId.Value, new PdfDictionary(entries));
+                effective = renamed.Substring(qualified.Length - own.Length);
+                finals.Add(renamed);
                 }
-                if (!copier.CopiedObjects.TryGetValue(parentRef.ObjectNumber, out QpdfObject? parentValue) || parentValue is not PdfDictionary parentDict)
+                else
                 {
-                    break;
+                    finals.Add(qualified);
                 }
-                next = parentDict;
             }
-            else if (link is PdfDictionary direct)
+            List<string?> childAncestors = [..ancestors, effective];
+            if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is not null && kidsRaw is not PdfNull)
             {
-                next = direct;
+                PdfArray? kids = null;
+                if (kidsRaw is PdfArray directKids)
+                {
+                    kids = directKids;
+                }
+                else if (kidsRaw is PdfReference kidsRef && copier.CopiedObjects.TryGetValue(kidsRef.ObjectNumber, out QpdfObject? kidsResolved) && kidsResolved is PdfArray indirectKids)
+                {
+                    kids = indirectKids;
+                }
+                if (kids is not null)
+                {
+                    for (int i = 0; i < kids.Count; i++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        governor.ChargeWork(1L);
+                        if (kids[i] is PdfReference kidRef && copier.CopiedObjects.TryGetValue(kidRef.ObjectNumber, out QpdfObject? kidRaw) && kidRaw is PdfDictionary kid)
+                        {
+                            RenameTree(copier, kidRef.ObjectNumber, kid, childAncestors, snapshot, finals, visited, limits, governor, cancellationToken, depth + 1);
+                        }
+                        else if (kids[i] is PdfDictionary directKid)
+                        {
+                            RenameTree(copier, null, directKid, childAncestors, snapshot, finals, visited, limits, governor, cancellationToken, depth + 1);
+                        }
+                    }
+                }
             }
-            else
-            {
-                break;
-            }
-            current = next;
-            depth++;
-        }
-        parts.Reverse();
-        return (string.Join(".", parts), topLevel, own);
     }
 
     private static PdfByteString? ReadFieldText(GraphCopier copier, PdfDictionary node)
