@@ -165,8 +165,7 @@ internal static class GenerateAppearances
         byte[]? DefaultAppearance,
         List<string> Choices,
         PdfDictionary? Node,
-        int? NodeId,
-        PdfDictionary? DefaultResources);
+        int? NodeId);
 
     private static bool IsWidget(PdfDictionary annot)
     {
@@ -188,7 +187,6 @@ internal static class GenerateAppearances
         byte[]? appearance = null;
         PdfDictionary? node = null;
         int? nodeId = null;
-        PdfDictionary? resources = null;
         bool flagsFound = false;
         foreach ((PdfDictionary current, int? currentId) in chain)
         {
@@ -207,17 +205,6 @@ internal static class GenerateAppearances
             if (appearance is null && current.TryGet(PdfName.FromAscii("DA"), out QpdfObject? appearanceRaw) && appearanceRaw is PdfByteString appearanceString)
             {
                 appearance = appearanceString.Value;
-            }
-
-            if (resources is null && current.TryGet(PdfName.FromAscii("DR"), out QpdfObject? resourcesRaw) && resourcesRaw is not null && resourcesRaw is not PdfNull)
-            {
-                QpdfObject resourcesTarget = resourcesRaw is PdfReference resourcesReference
-                    ? ResolveOrNull(resolver, resourcesReference) ?? resourcesRaw
-                    : resourcesRaw;
-                if (resourcesTarget is PdfDictionary resourcesDict)
-                {
-                    resources = resourcesDict;
-                }
             }
 
             if (!flagsFound && current.TryGet(PdfName.FromAscii("Ff"), out QpdfObject? flagsRaw) && flagsRaw is not null && flagsRaw is not PdfNull)
@@ -239,7 +226,7 @@ internal static class GenerateAppearances
             choices = ReadChoices(node, resolver);
         }
 
-        return new FieldContext(type, flags, value, appearance, choices, node, nodeId, resources);
+        return new FieldContext(type, flags, value, appearance, choices, node, nodeId);
     }
 
     private static List<(PdfDictionary Node, int? Id)> FindFieldChain(
@@ -596,7 +583,7 @@ internal static class GenerateAppearances
         }
 
         TfResult font = AnalyzeDa(daText, limits, governor);
-        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, field.DefaultResources, formResources, resolver);
+        Func<string, byte[]> encoder = SelectEncoder(appearanceDict, font.FontName, formResources, resolver);
         byte[] encodedValue = encoder(valueText);
         List<byte[]> encodedOpt = new();
         if (field.Type == "Ch" && (field.Flags & FlagCombo) == 0L)
@@ -1001,7 +988,7 @@ internal static class GenerateAppearances
         return encoding;
     }
 
-    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, string fontName, PdfDictionary? fieldResources, PdfDictionary? formResources, PoolResolver resolver)
+    private static Func<string, byte[]> SelectEncoder(PdfDictionary appearance, string fontName, PdfDictionary? formResources, PoolResolver resolver)
     {
         if (fontName.Length == 0)
         {
@@ -1014,11 +1001,9 @@ internal static class GenerateAppearances
             encoding = FindFontEncoding(resourcesRaw, fontName, resolver);
         }
 
-        if (encoding.Length == 0 && fieldResources is not null)
-        {
-            encoding = FindFontEncoding(fieldResources, fontName, resolver);
-        }
-
+        // Field-level /DR is ignored like the reference: upstream getDefaultResources()
+        // reads only the document-level /AcroForm /DR (field /DR is ignored by
+        // popular readers), and page /Resources is never consulted for encoding.
         if (encoding.Length == 0 && formResources is not null)
         {
             encoding = FindFontEncoding(formResources, fontName, resolver);

@@ -336,7 +336,7 @@ byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains(((char)140).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
 }
 [Fact]
-public async Task FieldDefaultResourcesEncodingKeepsAccents()
+public async Task FieldDefaultResourcesIsIgnored()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
@@ -351,7 +351,9 @@ byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 
 });
 byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
-Assert.Contains(((char)140).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
+// The reference ignores field-level /DR for encoding (AcroForm /DR only),
+// so a WinAnsi font reachable only through the field falls back to ASCII.
+Assert.Contains("(?) Tj", Encoding.ASCII.GetString(bytes));
 }
 [Fact]
 public async Task MergeUsesPrimaryDefaultResourcesEncoding()
