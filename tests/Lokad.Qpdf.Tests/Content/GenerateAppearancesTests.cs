@@ -165,6 +165,27 @@ return Assert.Single(result.Diagnostics);
 }
 
 [Fact]
+public async Task UnreachableWidgetPreservedAndGeneratedOnSelection()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [7 0 R] /NeedAppearances true /DR << /Font << /F1 6 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Loose) /V (Hello) /DA (/F1 12 Tf 0 g) >>", null),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+("<< /FT /Tx /T (Other) /V (World) >>", null),
+});
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+Assert.Contains("(Hello) Tj", Encoding.ASCII.GetString(bytes));
+using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement objects = catalog.RootElement.GetProperty("qpdf")[1];
+JsonElement root = objects.GetProperty("obj:1 0 R").GetProperty("value");
+Assert.True(root.TryGetProperty("/AcroForm", out JsonElement _));
+}
+[Fact]
 public async Task TextFieldAppearanceRegeneratesValue()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
