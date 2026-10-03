@@ -2947,7 +2947,10 @@
           "GenerateAppearancesTests.ListBoxHighlightsSelectedRow",
           "GenerateAppearancesTests.GenerateThenFlattenStampsFreshAppearance",
           "GenerateAppearancesTests.ParentHeldFieldIsSkipped",
-          "GenerateAppearancesTests.RadioButtonIsSkipped"
+          "GenerateAppearancesTests.RadioButtonIsSkipped",
+          "GenerateAppearancesTests.AcroFormDefaultResourcesEncodingKeepsAccents",
+          "GenerateAppearancesTests.FieldDefaultResourcesEncodingKeepsAccents",
+          "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding"
         ],
         "negative": [
           "GenerateAppearancesTests.SignatureFieldIsSkipped",
@@ -2964,7 +2967,8 @@
         ],
         "oracle": [
           "diff:forms",
-          "diff:forms-preserve"
+          "diff:forms-preserve",
+          "diff:dr-encoding"
         ]
       }
     },

@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 116: default-resource font encoding for appearances (M11). Appearance generation now resolves the default-appearance font encoding through field default resources and then AcroForm default resources when the appearance resources lack the font, matching the probed reference (WinAnsi-encoded value bytes instead of ASCII fallback); page resources and conflicting dictionaries stay explicitly open, as do parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation. Three unit cases plus a dr-encoding differential case carry the evidence.
+
+Prior gate
+
+## Current checkpoint
 Work item 115: post-rename lane verification (M11). The full differential lane reruns green on the final hierarchical renaming code with zero failures, including the forms-collision renamed-semantics agreement; the unit suite stands at 1801 green. Verification-only record change. First-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, codec allocation and cancellation, and direct-dictionary field renaming stay explicitly open.
 
 Prior gate

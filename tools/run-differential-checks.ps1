@@ -1811,6 +1811,46 @@ $oraFields = @($oraJson.acroform.fields | ForEach-Object { "$($_.fullname)=$($_.
 if (($libFields -join ',') -ne ($oraFields -join ',')) { Write-Output "[forms-collision] FAIL: fields lib=[$($libFields -join ',')] ora=[$($oraFields -join ',')]"; $script:failures++ }
 else { Write-Output "[forms-collision] renamed field semantics agree ([$($libFields -join ',')])" }
 
+# --- case: dr-encoding (managed vs oracle default-resource font encoding) ---
+$case = New-Case 'dr-encoding'
+Copy-Item "$fixtureDir/dr-encoding-1page.pdf" "$case/inputs/a.pdf"
+function Get-AllStreamBytes {
+  param([string]$File)
+  $bytes = [IO.File]::ReadAllBytes($File)
+  $text = [Text.Encoding]::Latin1.GetString($bytes)
+  $found = New-Object Collections.Generic.List[byte]
+  $pos = 0
+  while (($pos = $text.IndexOf("endstream", $pos)) -ge 0) {
+    $spos = $text.LastIndexOf("stream", $pos - 1)
+    $ds = $spos + 6
+    while ($ds -lt $bytes.Length -and ($bytes[$ds] -eq 13 -or $bytes[$ds] -eq 10)) { $ds++ }
+    $de = $pos
+    while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
+    if ($de -gt $ds) {
+      $raw = $bytes[$ds..($de - 1)]
+      try {
+        $ms = [IO.MemoryStream]::new($raw)
+        $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
+        $out = [IO.MemoryStream]::new()
+        $zs.CopyTo($out); $zs.Dispose(); $ms.Dispose()
+        $found.AddRange([byte[]]$out.ToArray())
+      } catch { $found.AddRange([byte[]]$raw) }
+    }
+    $pos += 9
+  }
+  return $found.ToArray()
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/a.pdf')
+if ($code -ne 0) { throw "dr-encoding: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--generate-appearances','inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
+if ($code -ne 0) { throw "dr-encoding: oracle failed ($code)" }
+Assert-Trio 'dr-encoding' "$case/lib.pdf" "$case/ora.pdf" 1
+$libBytes = Get-AllStreamBytes "$case/lib.pdf"
+$oraBytes = Get-AllStreamBytes "$case/ora.pdf"
+if (-not ($libBytes -contains 140)) { Write-Output "[dr-encoding] FAIL: managed appearance lacks WinAnsi-encoded value"; $script:failures++ }
+elseif (([Text.Encoding]::Latin1.GetString($oraBytes) -notmatch '(?i)<8c>')) { Write-Output "[dr-encoding] FAIL: oracle appearance lacks WinAnsi-encoded value"; $script:failures++ }
+else { Write-Output "[dr-encoding] both sides encode the value as WinAnsi" }
+
 # --- case: outlines-preserve (managed vs oracle outline preservation for ordinary) ---
 $case = New-Case 'outlines-preserve'
 Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
@@ -2060,4 +2100,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
