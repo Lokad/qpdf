@@ -3213,7 +3213,7 @@
           "ImageOptimizeTests.JobMalformedFails"
         ],
         "resource": [
-          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [
           "diff:optimize"
@@ -3697,7 +3697,7 @@
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
         "resource": [
-          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [
           "diff:optimize"
@@ -4146,7 +4146,7 @@
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
         "resource": [
-          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [
           "diff:optimize"
@@ -4185,7 +4185,7 @@
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
         "resource": [
-          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [
           "diff:optimize"
@@ -4227,7 +4227,7 @@
           "ImageOptimizeTests.ThresholdJobParityHolds"
         ],
         "resource": [
-          "ImageOptimizeTests.OptimizeYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
         ],
         "oracle": [
           "diff:optimize"
