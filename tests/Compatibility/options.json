@@ -1847,7 +1847,8 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "InvocationTests.JobJsonHelpIsIdentityRequest"
+          "InvocationTests.JobJsonHelpIsIdentityRequest",
+          "InvocationTests.JobJsonHelpCryptoSentenceIsWellFormed"
         ],
         "negative": [
           "InvocationTests.ValuedIdentityFormsFail"
@@ -1892,7 +1893,8 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "JsonInspectionTests.JsonHelpDescribesRequestedVersion"
+          "JsonInspectionTests.JsonHelpDescribesRequestedVersion",
+          "JsonInspectionTests.JsonHelpPagesMentionImages"
         ],
         "negative": [
           "JsonInspectionTests.JsonHelpRejectsUnknownVersions",
@@ -6441,7 +6443,8 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "InvocationTests.HelpAndVersionAreIdentityRequests"
+          "InvocationTests.HelpAndVersionAreIdentityRequests",
+          "InvocationTests.HelpDescribesRemovePageLabelsAsPrune"
         ],
         "negative": [
           "InvocationTests.ValuedIdentityFormsFail"

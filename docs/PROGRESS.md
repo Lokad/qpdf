@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 107: identity text reconciliation and reference-lane rerun (M11). The remove-page-labels help line drops its stale accepted-no-op claim, the JSON help pages description reports image descriptors, and the garbled job-JSON help crypto sentence is repaired with a duplicated nesting line folded in; three new unit cases pin the corrected strings and the identity entries gain the evidence. The full reference lane reruns green with the differential lane passing every case and no engine discrepancies. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 106: supported-profile reconciliation and full-lane rerun (M11). SUPPORTED-PROFILE.md is refreshed from its stale M4 snapshot to the audited engine: full range grammar and operation coverage across entry paths, source label-tree merging, ordinary form/outline/structure preservation against contained preview, overlay annotation copying, tokenized page content, direct image descriptors, DCT decoding at decode level all, typed rotation and split surfaces, and a new QDF and linearization section. The full differential lane reruns green after items 104 and 105 with oracle trios green and no engine discrepancies. Static release gates hold: no unsafe blocks, interop, subprocess, or ambient file I/O in shipped code, ImageSharp confined to the JPEG adapter and pinned to 3.1.12. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
 
 Prior gate
