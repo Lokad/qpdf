@@ -238,21 +238,29 @@ internal sealed class GraphCopier
     /// Copies every input object that page selection did not reach, in
     /// ascending original object-number order, returning the new destination
     /// numbers. Shares the memoized copier so references into the selected
-    /// graph remap and omitted pages still prune to null. The input catalog,
-    /// page-tree, page, and object/xref-stream containers are skipped by
-    /// contained-preview policy: structure is rebuilt fresh and stream
-    /// payloads travel through their members. Objects that fail to load or
+    /// graph remap and omitted pages still prune to null. Rebuilt roots
+    /// (the input catalog plus the selected page-tree chain, supplied as
+    /// excluded identities) are skipped, and object/xref-stream containers
+    /// are skipped while their members travel through decoded values, so
+    /// detached pages, detached trees, orphan dictionaries and orphan
+    /// streams all survive as loose objects. Objects that fail to load or
     /// copy are skipped under one aggregated warning. Call only when the
     /// validated plan requests preservation.
     /// </summary>
     internal HashSet<int> PreserveUnreferencedObjects(
         DocumentEngine engine,
+        IReadOnlySet<int> excluded,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         if (engine is null)
         {
             throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (excluded is null)
+        {
+            throw new ArgumentNullException(nameof(excluded));
         }
 
         if (diagnostics is null)
@@ -295,7 +303,7 @@ internal sealed class GraphCopier
                 continue;
             }
 
-            if (IsSkippedStructure(resolved))
+            if (IsSkippedStructure(resolved, number, excluded))
             {
                 continue;
             }
@@ -332,15 +340,11 @@ internal sealed class GraphCopier
         return preserved;
     }
 
-    private static bool IsSkippedStructure(QpdfObject value)
+    private static bool IsSkippedStructure(QpdfObject value, int number, IReadOnlySet<int> excluded)
     {
-        if (value is PdfDictionary dictionary)
+        if (excluded.Contains(number))
         {
-            string type = ReadType(dictionary);
-            if (type == "Catalog" || type == "Pages" || type == "Page")
-            {
-                return true;
-            }
+            return true;
         }
 
         if (value is PdfStream stream)
@@ -355,7 +359,6 @@ internal sealed class GraphCopier
 
         return false;
     }
-
 
     internal (int Id, PdfDictionary Page) CopyPageRoot(
         PdfDictionary page,

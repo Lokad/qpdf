@@ -187,6 +187,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with /Rotate 90, direct /UserUnit and a widget carrying an appearance stream, classic xref, unencrypted. Rotation flattening must rotate the appearance matrix and keep the user unit on both sides; the flatten-rotation differential consumes it."
+    },
+    {
+      "file": "orphans-1page.pdf",
+      "sha256": "818f7b42cf53cc0f1c7826b8f7f360e5ec0ea89c17171eb33ed62988b0bbe6ee",
+      "bytes": 920,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with an orphan dictionary, an orphan stream, a dangling page and linked catalog metadata, classic xref, unencrypted. Object preservation must keep all four loose payloads with metadata linked on both sides; the preserve-unreferenced differential consumes it."
     }
   ]
 }

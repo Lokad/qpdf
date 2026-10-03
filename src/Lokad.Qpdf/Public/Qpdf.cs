@@ -174,7 +174,8 @@ public static class Qpdf
         ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor), governor);
         if (preserveUnreferenced)
         {
-            copier.PreserveUnreferencedObjects(document.Engine, diagnostics, cancellationToken);
+            HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
+            copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken);
         }
 
         (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
@@ -626,9 +627,10 @@ public static class Qpdf
                 taken.Add((copier, pageId, page, pageNumber));
             }
 
-            if (preserveUnreferenced)
+            if (preserveUnreferenced && s == primaryIdx && !emptyPrimary)
             {
-                foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, diagnostics, cancellationToken))
+                HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
+                foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken))
                 {
                     allPreserved.Add(preserved);
                 }
@@ -2516,6 +2518,94 @@ public static class Qpdf
         }
 
         return present;
+    }
+
+    private static HashSet<int> PreservationExclusions(
+        DocumentEngine engine,
+        IReadOnlyList<PageLocation> kept,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
+        if (engine is null)
+        {
+            throw new ArgumentNullException(nameof(engine));
+        }
+
+        if (kept is null)
+        {
+            throw new ArgumentNullException(nameof(kept));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        limits.Validate();
+        HashSet<int> excluded = new();
+        if (engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) && root is PdfReference rootReference)
+        {
+            excluded.Add(rootReference.ObjectNumber);
+        }
+
+        IIndirectResolver resolver = (IIndirectResolver)engine;
+        PdfName parentKey = PdfName.FromAscii("Parent");
+        foreach (PageLocation location in kept)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            PdfReference? source = location.Source;
+            if (source is null)
+            {
+                continue;
+            }
+
+            HashSet<int> visited = new() { source.ObjectNumber };
+            excluded.Add(source.ObjectNumber);
+            PdfReference current = source;
+            int depth = 0;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (!resolver.TryResolve(current, out QpdfObject? node) || node is not PdfDictionary parent)
+                {
+                    break;
+                }
+
+                if (!parent.TryGet(parentKey, out QpdfObject? raw) || raw is null || raw is PdfNull)
+                {
+                    break;
+                }
+
+                if (raw is not PdfReference next)
+                {
+                    break;
+                }
+
+                if (!visited.Add(next.ObjectNumber))
+                {
+                    break;
+                }
+
+                excluded.Add(next.ObjectNumber);
+                depth += 1;
+                if (depth > limits.MaxNestingDepth)
+                {
+                    break;
+                }
+
+                current = next;
+            }
+        }
+
+        return excluded;
     }
 
     private static List<PageLocation> KeptLocations(QpdfDocument document, IReadOnlyList<int> requested)

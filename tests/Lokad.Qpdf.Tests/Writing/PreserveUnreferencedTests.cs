@@ -1,5 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -163,10 +164,23 @@ public sealed class PreserveUnreferencedTests
     }
 
     [Fact]
-    public async Task PreserveSkipsOldDocumentStructure()
+    public async Task PreserveSkipsRebuiltRoots()
     {
         byte[] bytes = BuildOrphanPdf(
             " /NeedsRendering true",
+            new List<(string Dict, byte[]? StreamData)>());
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", bytes);
+        byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--preserve-unreferenced");
+        string text = Encoding.ASCII.GetString(pdf);
+        Assert.DoesNotContain("NeedsRendering", text, StringComparison.Ordinal);
+        Assert.Equal(1, await RereadPageCountAsync(host, pdf));
+    }
+
+    [Fact]
+    public async Task PreserveKeepsDetachedPages()
+    {
+        byte[] bytes = BuildOrphanPdf(
+            string.Empty,
             new List<(string Dict, byte[]? StreamData)>
             {
                 ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1 1] /Contents 4 0 R /StructParents 424242 >>", null),
@@ -174,9 +188,16 @@ public sealed class PreserveUnreferencedTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", bytes);
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--preserve-unreferenced");
         string text = Encoding.ASCII.GetString(pdf);
-        Assert.DoesNotContain("NeedsRendering", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("424242", text, StringComparison.Ordinal);
+        Assert.Contains("424242", text, StringComparison.Ordinal);
         Assert.Equal(1, await RereadPageCountAsync(host, pdf));
+        host.AddInput(QpdfPath.From("inputs/tree.pdf"), pdf, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/tree.pdf"), CancellationToken.None);
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(1));
+        Assert.True(catalog.TryGet(PdfName.FromAscii("Pages"), out QpdfObject? pagesRaw));
+        PdfReference pagesRef = Assert.IsType<PdfReference>(pagesRaw);
+        PdfDictionary tree = Assert.IsType<PdfDictionary>(document.GetObject(pagesRef.ObjectNumber));
+        Assert.True(tree.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
+        Assert.Equal(1, Assert.IsType<PdfArray>(kidsRaw).Count);
     }
 
     [Fact]
@@ -204,7 +225,7 @@ public sealed class PreserveUnreferencedTests
     }
 
     [Fact]
-    public async Task PreserveAcrossMergeKeepsBothOrphans()
+    public async Task PreserveAcrossMergeKeepsPrimaryOrphans()
     {
         byte[] aBytes = BuildOrphanPdf(
             string.Empty,
@@ -222,7 +243,29 @@ public sealed class PreserveUnreferencedTests
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] pdf));
         string text = Encoding.ASCII.GetString(pdf);
         Assert.Contains("AlphaOrphan", text, StringComparison.Ordinal);
-        Assert.Contains("BetaOrphan", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("BetaOrphan", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PreserveEmptyMergeDropsOrphans()
+    {
+        byte[] aBytes = BuildOrphanPdf(
+            string.Empty,
+            new List<(string Dict, byte[]? StreamData)> { ("<< /Marker (AlphaOrphan) >>", null) });
+        byte[] bBytes = BuildOrphanPdf(
+            string.Empty,
+            new List<(string Dict, byte[]? StreamData)> { ("<< /Marker (BetaOrphan) >>", null) });
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", aBytes);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), bBytes, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host,
+            new QpdfCommandInvocation(["--empty", "--preserve-unreferenced", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] pdf));
+        string text = Encoding.ASCII.GetString(pdf);
+        Assert.DoesNotContain("AlphaOrphan", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("BetaOrphan", text, StringComparison.Ordinal);
     }
 
     [Fact]
