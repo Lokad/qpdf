@@ -1870,6 +1870,25 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 Write-Output "[dr-merge] resource merge assertions done"
 
+# --- case: parent-held (managed vs oracle Parent-link field lookup, whole-file) ---
+$case = New-Case 'parent-held'
+Copy-Item "$fixtureDir/parent-held-1page.pdf" "$case/inputs/a.pdf"
+Set-Content "$case/whole-job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/w.pdf", "generateAppearances": true}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whole-job.json", '--out', "outputs/w.pdf=$case/lib.pdf")
+if ($code -ne 0) { throw "parent-held: emit-job failed ($code)" }
+$code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--', "$case/ora.pdf")
+if ($code -ne 3) { Write-Output "[parent-held] FAIL: oracle generate exit $code, expected 3 (unreachable-widget warning)"; $script:failures++ }
+else { Write-Output "[parent-held] exit parity (0/3, managed silent where oracle warns unreachable)" }
+if ((Get-OracleNpages "$case/lib.pdf") -ne 1 -or (Get-OracleNpages "$case/ora.pdf") -ne 1 -or (Get-PigNpages "$case/lib.pdf") -ne 1 -or (Get-PigNpages "$case/ora.pdf") -ne 1) { Write-Output "[parent-held] FAIL: page counts differ from 1"; $script:failures++ }
+else { Write-Output "[parent-held] page counts agree (1 everywhere)" }
+$libText = [Text.Encoding]::Latin1.GetString((Get-AllStreamBytes "$case/lib.pdf"))
+$oraText = [Text.Encoding]::Latin1.GetString((Get-AllStreamBytes "$case/ora.pdf"))
+foreach ($side in @(('managed', $libText), ('oracle', $oraText))) {
+  if ($side[1] -notmatch '\(Hello\) Tj') { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks parent value"; $script:failures++ }
+  elseif ($side[1] -notmatch '1 5\.2 Td') { Write-Output "[parent-held] FAIL: $($side[0]) appearance lacks generated placement"; $script:failures++ }
+}
+Write-Output "[parent-held] parent-held appearance assertions done"
+
 # --- case: outlines-preserve (managed vs oracle outline preservation for ordinary) ---
 $case = New-Case 'outlines-preserve'
 Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
@@ -2119,4 +2138,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

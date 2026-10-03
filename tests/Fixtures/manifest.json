@@ -268,6 +268,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a WinAnsi font in AcroForm default resources while the appearance keeps unrelated resources. Appearance generation must merge the missing DR font into appearance resources; the dr-merge differential consumes it."
+    },
+    {
+      "file": "parent-held-1page.pdf",
+      "sha256": "ced276154b3c4df046164713ddca2fdcd05849d5ba00f73a7daaa8652159194e",
+      "bytes": 1023,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a bare widget whose Tx field lives behind /Parent without a /Kids back-link. Appearance generation must follow the preserved parent link; the parent-held differential consumes it."
     }
   ]
 }
