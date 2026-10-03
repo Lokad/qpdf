@@ -325,8 +325,7 @@ the single distinct input in place with no backup files and no output operand,
 through argv and job JSON (`replaceInput` as `""` or boolean, conflicting with
 `outputFile`, `pages`-less plans, and `empty`); failed publications leave the
 target untouched, matching the reference, which likewise creates no backups.
-Both reject contradictory combinations explicitly; typed callers split by looping
-single-output selections. The differential lane replaces a shared two-page file
+Both reject contradictory combinations explicitly; typed callers split through `PdfPageMergeOptions.SplitPages` (pages per group) on the shared merge engine, rejecting non-positive sizes with `ArgumentOutOfRangeException`. The differential lane replaces a shared two-page file
 on both sides with trio validation and no backup files created.
 
 ## Collation and page labels (work item 20, part 2)

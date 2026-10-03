@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 105: typed split surface (M5). PdfPageMergeOptions gains a SplitPages group size riding the shared merge engine into the split publication core that previously received a null split plan: six unit cases prove named-group publication, pre-grouping merge across sources, byte identity with the matching argv and job-JSON splits (transitively tying the typed path to the split oracle agreement), and clean non-positive failure with no publication; the package consumer proves the new property. --split-pages flips to complete. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 104: source page-label merge (M5). PageLabelMerge resolves each source number tree through the owning copy engine (indirect style and prefix references embed pool copies, Kids subtrees flatten, duplicates emit per occurrence) and merges per output page in output order with page-index offsets: unlabeled pages fabricate St continuations, every computed entry carries an explicit St, and runs compress on token-plus-delta match. Bare whole-file rewrites carry the source tree verbatim through the copier; split groups slice merged labels with restart and drop explicit specifications; explicit set-page-labels replaces merged labels outside split while remove-page-labels drops them everywhere including whole-file rewrites. Malformed trees fail explicitly and merging yields to exhausted budgets. Sixteen unit cases plus the checked-in labels-2page.pdf fixture (manifest, csproj and manifest-tests wired) and a labels-merge differential case (merge, subset, whole-file and split catalog agreement) carry the evidence; set-page-labels flips to complete. Merge collision renaming, first-wins default resources, parent-held lookup, nonzero-generation inspection, CMYK and YCCK decoding, unknown catalog keys, codec allocation and cancellation plus typed split output stay explicitly open.
 
 Prior gate

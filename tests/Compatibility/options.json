@@ -5720,11 +5720,9 @@
         }
       ],
       "milestone": "M5",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "Typed callers split by looping single-output selections."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "SplitReplaceTests.SplitPagesWritesNamedGroups",
@@ -5734,15 +5732,22 @@
           "SplitReplaceTests.JobSplitMatchesArgv",
           "SplitReplaceTests.JobSplitGroupsApply",
           "SplitReplaceTests.JobSplitWholeFile",
-          "SplitReplaceTests.ArgvSplitEmptyEqualsBare"
+          "SplitReplaceTests.ArgvSplitEmptyEqualsBare",
+          "SplitReplaceTests.TypedSplitWritesNamedGroups",
+          "SplitReplaceTests.TypedSplitMergesSourcesBeforeGrouping",
+          "SplitReplaceTests.TypedSplitMatchesArgv",
+          "SplitReplaceTests.TypedSplitMatchesJob"
         ],
         "negative": [
           "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
-          "SplitReplaceTests.JobSplitMalformedFails"
+          "SplitReplaceTests.JobSplitMalformedFails",
+          "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly"
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
-          "SplitReplaceTests.JobSplitMatchesArgv"
+          "SplitReplaceTests.JobSplitMatchesArgv",
+          "SplitReplaceTests.TypedSplitMatchesArgv",
+          "SplitReplaceTests.TypedSplitMatchesJob"
         ],
         "resource": [
           "ResourceEnforcementTests.SplitYieldsToExhaustedBudget"
