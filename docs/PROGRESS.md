@@ -1,6 +1,11 @@
 # Progress
 
 ## Current checkpoint
+Work item 99: JSON page images (M6). `pages[].images[]` now reports direct image XObjects with dimensions, bits, canonical colorspace, filter names, aligned decode parms and level-gated `filterable` flags across argv, job JSON and typed paths (both versions share the shape): missing values surface as nulls, unknown filters stay literal with `filterable: false`, and malformed filter specs fail explicitly. A new checked-in `images-filtered-1page.pdf` fixture plus six unit theories and a `json-images` differential case (four fixtures plus the decode-level flip, full descriptor agreement) carry the evidence, flipping `--json` to complete. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
+
+Prior gate
+
+## Current checkpoint
 Work item 98: omitted page ranges (M5). A missing range now selects all pages across positional files, `--file=` groups (including a pending file followed by another `--file`), and job entries, matching the probed reference on all three shapes plus argv/job parity. `--pages` with no groups still fails explicitly. New unit coverage plus two omitted-range differential subs with trios green carry the evidence. Merge collision renaming, first-wins default resources, nonzero-generation inspection, CMYK/YCCK decoding, unknown catalog keys and typed split output stay explicitly open.
 
 Prior gate

@@ -415,6 +415,48 @@ else {
   if ($mismatch) { Write-Output "[json] FAIL: page descriptors differ structurally"; $script:failures++ } else { Write-Output "[json] page descriptors agree structurally (2 pages)" }
 }
 
+# --- case: json-images (managed vs oracle page-image descriptors) ---
+$case = New-Case 'json-images'
+Copy-Item "$fixtureDir/images-1page.pdf" "$case/inputs/raw.pdf"
+Copy-Item "$fixtureDir/images-nodim-1page.pdf" "$case/inputs/nodim.pdf"
+Copy-Item "$fixtureDir/photo-1page.pdf" "$case/inputs/photo.pdf"
+Copy-Item "$fixtureDir/images-filtered-1page.pdf" "$case/inputs/filtered.pdf"
+function Compare-ImageJson {
+  param([string]$Tag, [string]$LibFile, [string]$OraFile)
+  $lib = (Get-Content $LibFile -Raw | ConvertFrom-Json -Depth 20).pages
+  $ora = (Get-Content $OraFile -Raw | ConvertFrom-Json -Depth 20).pages
+  if ($lib.Count -ne $ora.Count) { Write-Output "[json-images/$Tag] FAIL: page count lib=$($lib.Count) ora=$($ora.Count)"; $script:failures++; return }
+  for ($i = 0; $i -lt $lib.Count; $i++) {
+    $limages = $lib[$i].images
+    $oimages = $ora[$i].images
+    if ($limages.Count -ne $oimages.Count) { Write-Output "[json-images/$Tag] FAIL: image count lib=$($limages.Count) ora=$($oimages.Count)"; $script:failures++; return }
+    for ($j = 0; $j -lt $limages.Count; $j++) {
+      $l = $limages[$j]
+      $o = $oimages[$j]
+      $same = ("$($l.bitspercomponent)" -eq "$($o.bitspercomponent)") -and ("$($l.height)" -eq "$($o.height)") -and ("$($l.width)" -eq "$($o.width)") -and ($l.name -eq $o.name) -and ($l.object -eq $o.object) -and ($l.filterable -eq $o.filterable) -and (($l.filter -join ',') -eq ($o.filter -join ','))
+      $same = $same -and ((ConvertTo-Json $l.colorspace -Compress -Depth 10) -eq (ConvertTo-Json $o.colorspace -Compress -Depth 10))
+      $same = $same -and ((ConvertTo-Json $l.decodeparms -Compress -Depth 10) -eq (ConvertTo-Json $o.decodeparms -Compress -Depth 10))
+      if (-not $same) { Write-Output "[json-images/$Tag] FAIL: image $j differs"; $script:failures++; return }
+    }
+  }
+  Write-Output "[json-images/$Tag] image descriptors agree"
+}
+foreach ($sub in @(@('raw', 'inputs/raw.pdf', @()), @('nodim', 'inputs/nodim.pdf', @()), @('photo', 'inputs/photo.pdf', @()), @('filtered', 'inputs/filtered.pdf', @()))) {
+  $name = $sub[0]
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.json=$case/lib-$name.json", '--', $sub[1], '--json', '--', "outputs/$name.json"))
+  if ($code -ne 0) { throw "json-images/$name`: emit failed ($code)" }
+  $code = Invoke-Oracle $case (@('--json', $sub[1]))
+  if ($code -ne 0) { throw "json-images/$name`: oracle failed ($code)" }
+  Copy-Item "$case/ora-stdout.txt" "$case/ora-$name.json" -Force
+  Compare-ImageJson $name "$case/lib-$name.json" "$case/ora-$name.json"
+}
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', 'outputs/all.json=$case/lib-all.json', '--', 'inputs/filtered.pdf', '--json', '--decode-level=all', '--', 'outputs/all.json')
+if ($code -ne 0) { throw "json-images/all: emit failed ($code)" }
+$code = Invoke-Oracle $case @('--json', '--decode-level=all', 'inputs/filtered.pdf')
+if ($code -ne 0) { throw "json-images/all: oracle failed ($code)" }
+Copy-Item "$case/ora-stdout.txt" "$case/ora-all.json" -Force
+Compare-ImageJson 'all' "$case/lib-all.json" "$case/ora-all.json"
+
 # --- case: json-import (managed vs oracle PDF construction from qpdf JSON) ---
 $case = New-Case 'json-import'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"

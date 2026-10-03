@@ -641,9 +641,12 @@ forms, arbitrary-precision numbers with upstream real normalization),
 sorted dictionary keys, per-key selection with version rules, page entries
 with contents/labels/per-page outlines, number-tree page labels, recursive
 outlines with page positions, attachment details with ISO-8601 dates, and a
-constant unencrypted report for the encrypt key. Intentional differences:
-JSON requires a declared output file (no stdout contract); pages report no
-images yet; named outline destinations do not resolve. The differential lane compares the pages key structurally against the oracle (version, object and contents references, page positions).
+constant unencrypted report for the encrypt key. Page entries list direct image
+XObjects with dimensions, bits, colorspace, filter names, aligned decode parms
+and level-gated filterable flags, matching the reference on raw, dimension-less,
+photo and filtered fixtures (both decode levels). Intentional differences:
+JSON requires a declared output file (no stdout contract);
+named outline destinations do not resolve. The differential lane compares the pages key structurally against the oracle (version, object and contents references, page positions).
 
 ## PDF JSON stream modes and serialization output (work item 26b)
 

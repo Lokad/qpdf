@@ -3003,33 +3003,40 @@
         }
       ],
       "milestone": "M6",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Page images stay unsupported."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "JsonInspectionTests.DefaultVersionIsTwo",
           "JsonInspectionTests.ExplicitVersionOne",
-          "JsonInspectionTests.NamesAndStringsEncode"
+          "JsonInspectionTests.NamesAndStringsEncode",
+          "JsonInspectionTests.PageImagesListDirectImages",
+          "JsonInspectionTests.PageImagesNullMissingDimensions",
+          "JsonInspectionTests.PageImagesFilteredDetails",
+          "JsonInspectionTests.PageImagesRespectDecodeLevel",
+          "JsonInspectionTests.PageImagesMatchAcrossVersions",
+          "JsonInspectionTests.PageImagesJobParity"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
           "JsonInspectionTests.BadKeyFails",
           "JsonInspectionTests.JsonCombinationsFail",
+          "JsonInspectionTests.PageImagesMalformedFilterFails",
           "JsonModesTests.JsonOutputRejectsVersionOne",
           "JsonModesTests.JobModesMalformedFail"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
           "JsonInspectionTests.TypedRoundTripMatchesArgv",
+          "JsonInspectionTests.PageImagesJobParity",
           "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": ["ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"],
         "oracle": [
           "diff:json-pages",
-          "diff:json-structure"
+          "diff:json-structure",
+          "diff:json-images"
         ]
       }
     },
@@ -3137,7 +3144,8 @@
         "resource": ["ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"],
         "oracle": [
           "diff:json-pages",
-          "diff:json-structure"
+          "diff:json-structure",
+          "diff:json-images"
         ]
       }
     },
