@@ -741,7 +741,7 @@ Repeatable --overlay and --underlay blocks (--file=file or positional file, --to
 
 ## Annotation flattening (work item 31b)
 
---flatten-annotations with ll, print, or screen (plus job key) mirrors upstream stamping: appearance streams become /Fxo form XObjects placed by annotation-derived matrices with flag filtering and page-rotation counter-rotation, and flattened annotations leave /Annots. Widgets defer to generated appearances when the document needs them, and appearance-less annotations drop only when they carry an appearance dictionary. Intentional differences: indirect damage keeps originals with a warning instead of failing.
+--flatten-annotations with ll, print, or screen (plus job key) mirrors upstream stamping: appearance streams become /Fxo form XObjects placed by annotation-derived matrices with flag filtering and page-rotation counter-rotation, and flattened annotations leave /Annots. Widgets defer to generated appearances when the document needs them, and appearance-less annotations drop only when they carry an appearance dictionary. Appearances referencing AcroForm default-resource fonts stamp verbatim with the DR font intact, matching the reference (flatten-dr lane case). Intentional differences: indirect damage keeps originals with a warning instead of failing.
 
 ## Appearance generation (work item 31c)
 

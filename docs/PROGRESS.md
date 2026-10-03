@@ -1,7 +1,7 @@
 # Progress
 
 ## Current checkpoint
-Work item 123 done (M11): image-optimization mask skip parity with evidence. Oracle probes prove /SMask and /Mask-array images optimize on both sides with masks preserved, while 1-bit image masks and non-gray/RGB colorspaces (/Indexed, /CalGray, /Separation) skip silently with exit 0 on both sides. Evidence: SMask-keeping, mask-array, and Indexed unit cases, an `images-smask-1page.pdf` fixture, and a new `optimize-masks` differential case (DCT needles plus dynamic /SMask resolution proving flate gray masks); --optimize-images keeps one remaining gap (CMYK raw-sample encode path). 1847 tests green and the full differential lane green.
+Work item 124 done (M11): closed --flatten-annotations. Oracle probes showed the remaining gap text was stale: appearance-less widgets stay, NeedAppearances-missing-AP warns exit 3, and DR-font appearances stamp verbatim on both sides. Evidence: DR-font verbatim unit case, flatten budget case, flatten-dr-1page.pdf fixture, and a new `flatten-dr` differential case; 1850 tests green and the full differential lane green.
 
 ## Remaining work
 - CMYK/YCCK raw samples: the approved ImageSharp public API yields only converted RGB, so raw four-component samples cannot be preserved through it. Needs a decision: an alternate extraction path or a declared, tested difference with narrow tolerances.
@@ -19,4 +19,4 @@ Work item 123 done (M11): image-optimization mask skip parity with evidence. Ora
 - Editing notes: repo files use LF, while PowerShell writers emit CRLF, so normalize edited files back to LF. Builds often exceed the 10 s tool window, so run log-file builds in the background and poll. Before lanes, verify the probe directory Lokad.Qpdf.dll hash matches the fresh library build.
 
 ## Reference pin
-- qpdf 12.4.2, ImageSharp 3.1.12 as the only runtime package, net10.0, nullable enabled, warnings as errors, no unsafe blocks, interop, subprocess bridges, or vendored code. 151 inventory entries complete with 6 partial behind the gaps above; crypto operations excluded with negative rejection evidence.
+- qpdf 12.4.2, ImageSharp 3.1.12 as the only runtime package, net10.0, nullable enabled, warnings as errors, no unsafe blocks, interop, subprocess bridges, or vendored code. 152 inventory entries complete with 5 partial behind the gaps above; crypto operations excluded with negative rejection evidence.

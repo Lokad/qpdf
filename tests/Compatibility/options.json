@@ -2799,17 +2799,16 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Appearance stamping with flag filtering is covered; field default-resource merging and appearance regeneration arrive with later appearance work."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "FlattenAnnotationsTests.StampTextAnnotationOnTop",
           "FlattenAnnotationsTests.PrintModeFiltersOnFlag",
           "FlattenAnnotationsTests.UncheckedCheckboxIsDropped",
-          "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages"
+          "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages",
+          "FlattenAnnotationsTests.WidgetAppearanceWithDrFontStampsVerbatim"
         ],
         "negative": [
           "FlattenAnnotationsTests.MalformedFlattenFlagsFail"
@@ -2817,10 +2816,13 @@
         "interaction": [
           "FlattenAnnotationsTests.JobRoundTripMatchesArgv"
         ],
-        "resource": [],
+        "resource": [
+          "ResourceEnforcementTests.FlattenAnnotationsYieldsToExhaustedBudget"
+        ],
         "oracle": [
           "diff:forms",
-          "diff:forms-preserve"
+          "diff:forms-preserve",
+          "diff:flatten-dr"
         ]
       }
     },
