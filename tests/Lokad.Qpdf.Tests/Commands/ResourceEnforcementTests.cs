@@ -104,6 +104,27 @@ public sealed class ResourceEnforcementTests
     }
 
     [Fact]
+    public async Task OverlayFromYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithTwoPage();
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--overlay", "inputs/b.pdf", "--from=1", "--", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
+    public async Task OverlayRepeatYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithTwoPage();
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--overlay", "inputs/b.pdf", "--repeat=1", "--", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
+    public async Task OverlayToYieldsToExhaustedBudget()
+    {
+        InMemoryQpdfHost host = await HostWithTwoPage();
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--overlay", "inputs/b.pdf", "--to=1", "--", "--", "outputs/a.pdf"], "outputs/a.pdf");
+    }
+
+    [Fact]
     public async Task UnderlayYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithTwoPage();
