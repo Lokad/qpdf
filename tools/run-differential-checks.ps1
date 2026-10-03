@@ -906,6 +906,34 @@ foreach ($pair in @(('lib', "$case/lib-toodd.pdf"), ('ora', "$case/ora-toodd.pdf
 }
 Write-Output "[overlay-ranges/toodd] stamp assertions done"
 
+# --- case: overlay-file (managed vs oracle overlay file and option forms) ---
+$case = New-Case 'overlay-file'
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/f.pdf=$case/lib-f.pdf", '--', 'inputs/a.pdf', '--overlay', '--file=inputs/b.pdf', '--', '--', 'outputs/f.pdf')
+if ($code -ne 0) { throw "overlay-file: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', '--file=inputs/b.pdf', '--', "$case/ora-f.pdf")
+if ($code -ne 0) { throw "overlay-file: oracle failed ($code)" }
+Assert-Trio 'overlay-file' "$case/lib-f.pdf" "$case/ora-f.pdf" 1
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/u.pdf=$case/lib-u.pdf", '--', 'inputs/a.pdf', '--underlay', '--file=inputs/b.pdf', '--', '--', 'outputs/u.pdf')
+if ($code -ne 0) { throw "overlay-file/underlay: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--underlay', '--file=inputs/b.pdf', '--', "$case/ora-u.pdf")
+if ($code -ne 0) { throw "overlay-file/underlay: oracle failed ($code)" }
+Assert-Trio 'overlay-file-underlay' "$case/lib-u.pdf" "$case/ora-u.pdf" 1
+foreach ($sub in @(
+  @('file-space', @('emit', '--workdir', $case, '--out', "outputs/x.pdf=$case/lib-x.pdf", '--', 'inputs/a.pdf', '--overlay', '--file', 'inputs/b.pdf', '--', '--', 'outputs/x.pdf'), @('inputs/a.pdf', '--overlay', '--file', 'inputs/b.pdf', '--', "$case/ora-x.pdf")),
+  @('to-space', @('emit', '--workdir', $case, '--out', "outputs/x.pdf=$case/lib-x.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--to', '1', '--', '--', 'outputs/x.pdf'), @('inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--to', '1', '--', "$case/ora-x.pdf")),
+  @('from-space', @('emit', '--workdir', $case, '--out', "outputs/x.pdf=$case/lib-x.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--from', '1', '--', '--', 'outputs/x.pdf'), @('inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--from', '1', '--', "$case/ora-x.pdf")),
+  @('repeat-space', @('emit', '--workdir', $case, '--out', "outputs/x.pdf=$case/lib-x.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--repeat', '1', '--', '--', 'outputs/x.pdf'), @('inputs/a.pdf', '--overlay', 'inputs/b.pdf', '--repeat', '1', '--', "$case/ora-x.pdf"))
+)) {
+  $m = Invoke-Emit $case $sub[1]
+  $o = Invoke-Oracle $case $sub[2]
+  if ($m -ne $o) { Write-Output "[overlay-file/$($sub[0])] FAIL: exit mismatch managed=$m oracle=$o"; $script:failures++ }
+  elseif ($m -ne 2) { Write-Output "[overlay-file/$($sub[0])] FAIL: expected exits 2/2, got $m/$o"; $script:failures++ }
+  else { Write-Output "[overlay-file/$($sub[0])] exit parity (2/2)" }
+}
+Write-Output "[overlay-file] option-form assertions done"
+
 # --- case: overlay-annots (managed vs oracle annotation copying) ---
 $case = New-Case 'overlay-annots'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
@@ -2223,4 +2251,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
