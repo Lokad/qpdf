@@ -113,8 +113,15 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
 /// <summary>Predictor transforms shared by Flate and LZW stages.</summary>
 internal static class PredictorStages
 {
+    private const int CheckInterval = 1024;
+
     internal static byte[] Apply(byte[] inflated, PredictorParameters parms, string filterName, ResourceGovernor governor)
     {
+        if (inflated is null)
+        {
+            throw new ArgumentNullException(nameof(inflated));
+        }
+
         if (parms is null)
         {
             throw new ArgumentNullException(nameof(parms));
@@ -125,11 +132,45 @@ internal static class PredictorStages
             throw new ArgumentNullException(nameof(governor));
         }
 
-        byte[] output = parms.Predictor == 2
-            ? ApplyTiff(inflated, parms, filterName)
-            : ApplyPng(inflated, parms, filterName);
-        governor.ReserveMemory(output.Length);
-        return output;
+        governor.CheckCancellation();
+        int rowLength = RowLength(parms, filterName);
+        bool tiff = parms.Predictor == 2;
+        long stride = tiff ? rowLength : rowLength + 1L;
+        if (inflated.Length % stride != 0L)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, filterName,
+                $"Inflated length {inflated.Length} is not a multiple of the predictor stride {stride}.");
+        }
+
+        int rows = (int)(inflated.Length / stride);
+        int outputLength = checked(rows * rowLength);
+        if (outputLength == 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        governor.ChargeWork(outputLength);
+        long reserved = outputLength + GovernedBufferStream.ArrayOverheadBytes;
+        governor.ReserveMemory(reserved);
+        try
+        {
+            byte[] output = new byte[outputLength];
+            if (tiff)
+            {
+                ApplyTiff(inflated, output, rows, rowLength, parms, governor);
+            }
+            else
+            {
+                ApplyPng(inflated, output, rows, rowLength, parms, filterName, governor);
+            }
+
+            return output;
+        }
+        catch
+        {
+            governor.ReleaseMemory(reserved);
+            throw;
+        }
     }
 
     private static int RowLength(PredictorParameters parms, string filterName)
@@ -147,111 +188,87 @@ internal static class PredictorStages
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, "Predictor dimensions overflow.", ex);
         }
 
-        if (rowLength < 1L || rowLength > int.MaxValue)
+        if (rowLength < 1L || rowLength > Array.MaxLength)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, "Predictor row length is out of range.");
         }
 
         return (int)rowLength;
     }
-    private static byte[] ApplyTiff(byte[] inflated, PredictorParameters parms, string filterName)
+
+    private static void ApplyTiff(byte[] inflated, byte[] output, int rows, int rowLength,
+        PredictorParameters parms, ResourceGovernor governor)
     {
-        int rowLength = RowLength(parms, filterName);
-        if (inflated.Length % rowLength != 0)
-        {
-            throw new QpdfFilterException(
-                QpdfFilterFailureReason.TruncatedInput, filterName,
-                $"Inflated length {inflated.Length} is not a multiple of the TIFF row length {rowLength}.");
-        }
-
-        byte[] output = new byte[inflated.Length];
-        if (parms.BitsPerComponent == 8)
-        {
-            int colors = parms.Colors;
-            int[] previous = new int[colors];
-            int rows = inflated.Length / rowLength;
-            for (int row = 0; row < rows; row++)
-            {
-                Array.Clear(previous, 0, colors);
-                int baseOffset = row * rowLength;
-                for (int i = 0; i < rowLength; i++)
-                {
-                    int component = i % colors;
-                    int decoded = (inflated[baseOffset + i] + previous[component]) & 0xFF;
-                    previous[component] = decoded;
-                    output[baseOffset + i] = (byte)decoded;
-                }
-            }
-
-            return output;
-        }
-
-        TiffBitReader reader = new(inflated);
-        TiffBitWriter writer = new(output);
-        int mask = (1 << parms.BitsPerComponent) - 1;
+        int bits = parms.BitsPerComponent;
         long samplesPerRow = (long)parms.Columns * parms.Colors;
-        int rowCount = inflated.Length / rowLength;
-        for (int row = 0; row < rowCount; row++)
-        {
-            int[] previous = new int[parms.Colors];
-            for (long s = 0; s < samplesPerRow; s++)
-            {
-                int component = (int)(s % parms.Colors);
-                int sample = reader.ReadBits(parms.BitsPerComponent);
-                int decoded = (sample + previous[component]) & mask;
-                previous[component] = decoded;
-                writer.WriteBits(decoded, parms.BitsPerComponent);
-            }
-
-            reader.SkipRowPadding(row * rowLength + rowLength);
-        }
-
-        writer.Flush();
-        return output;
-    }
-
-    private static byte[] ApplyPng(byte[] inflated, PredictorParameters parms, string filterName)
-    {
-        int rowLength = RowLength(parms, filterName);
-        long stride = (long)rowLength + 1L;
-        if (inflated.Length % stride != 0L)
-        {
-            throw new QpdfFilterException(
-                QpdfFilterFailureReason.TruncatedInput, filterName,
-                $"Inflated length {inflated.Length} is not a multiple of the PNG stride {stride}.");
-        }
-
-        int rows = (int)(inflated.Length / stride);
-        long outputLength = (long)rows * rowLength;
-        if (outputLength > int.MaxValue)
-        {
-            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, "Predictor output is oversized.");
-        }
-
-        byte[] output = new byte[(int)outputLength];
-        int bytesPerPixel = (parms.BitsPerComponent * parms.Colors + 7) / 8;
-        if (bytesPerPixel > rowLength)
-        {
-            bytesPerPixel = rowLength;
-        }
-
-        byte[] previous = new byte[rowLength];
+        int mask = (1 << bits) - 1;
         for (int row = 0; row < rows; row++)
         {
+            governor.CheckCancellation();
+            int start = row * rowLength;
+            if (bits == 8)
+            {
+                governor.ChargeWork(rowLength);
+                for (int i = 0; i < rowLength; i++)
+                {
+                    if (i % CheckInterval == 0)
+                    {
+                        governor.CheckCancellation();
+                    }
+
+                    int previous = i >= parms.Colors ? output[start + i - parms.Colors] : 0;
+                    output[start + i] = (byte)((inflated[start + i] + previous) & 0xFF);
+                }
+            }
+            else
+            {
+                governor.ChargeWork(samplesPerRow * bits * 3L);
+                for (long sample = 0; sample < samplesPerRow; sample++)
+                {
+                    if (sample % CheckInterval == 0)
+                    {
+                        governor.CheckCancellation();
+                    }
+
+                    long bitPosition = sample * bits;
+                    int previous = sample >= parms.Colors
+                        ? ReadSample(output, start, (sample - parms.Colors) * bits, bits)
+                        : 0;
+                    int value = (ReadSample(inflated, start, bitPosition, bits) + previous) & mask;
+                    WriteSample(output, start, bitPosition, bits, value);
+                }
+            }
+        }
+    }
+
+    private static void ApplyPng(byte[] inflated, byte[] output, int rows, int rowLength,
+        PredictorParameters parms, string filterName, ResourceGovernor governor)
+    {
+        int bytesPerPixel = (int)Math.Min(rowLength, ((long)parms.BitsPerComponent * parms.Colors + 7L) / 8L);
+        for (int row = 0; row < rows; row++)
+        {
+            governor.CheckCancellation();
+            governor.ChargeWork(rowLength);
             int inputBase = row * (rowLength + 1);
             int filter = inflated[inputBase];
-            if (filter < 0 || filter > 4)
+            if (filter > 4)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Unknown PNG row filter {filter}.");
             }
 
             int outputBase = row * rowLength;
+            int previousBase = outputBase - rowLength;
             for (int i = 0; i < rowLength; i++)
             {
+                if (i % CheckInterval == 0)
+                {
+                    governor.CheckCancellation();
+                }
+
                 int raw = inflated[inputBase + 1 + i];
                 int left = i >= bytesPerPixel ? output[outputBase + i - bytesPerPixel] : 0;
-                int up = previous[i];
-                int upperLeft = i >= bytesPerPixel ? previous[i - bytesPerPixel] : 0;
+                int up = row > 0 ? output[previousBase + i] : 0;
+                int upperLeft = row > 0 && i >= bytesPerPixel ? output[previousBase + i - bytesPerPixel] : 0;
                 int decoded = filter switch
                 {
                     0 => raw,
@@ -262,11 +279,29 @@ internal static class PredictorStages
                 };
                 output[outputBase + i] = (byte)(decoded & 0xFF);
             }
+        }
+    }
 
-            Buffer.BlockCopy(output, outputBase, previous, 0, rowLength);
+    private static int ReadSample(byte[] data, int rowStart, long bitPosition, int bits)
+    {
+        int value = 0;
+        for (int bit = 0; bit < bits; bit++)
+        {
+            long position = bitPosition + bit;
+            value = (value << 1) | ((data[rowStart + (int)(position / 8L)] >> (7 - (int)(position % 8L))) & 1);
         }
 
-        return output;
+        return value;
+    }
+
+    private static void WriteSample(byte[] data, int rowStart, long bitPosition, int bits, int value)
+    {
+        for (int bit = 0; bit < bits; bit++)
+        {
+            long position = bitPosition + bit;
+            int index = rowStart + (int)(position / 8L);
+            data[index] |= (byte)(((value >> (bits - bit - 1)) & 1) << (7 - (int)(position % 8L)));
+        }
     }
 
     private static int Paeth(int left, int up, int upperLeft)
@@ -281,77 +316,5 @@ internal static class PredictorStages
         }
 
         return distanceUp <= distanceUpperLeft ? up : upperLeft;
-    }
-
-    private sealed class TiffBitReader
-    {
-        private readonly byte[] _data;
-        private int _position;
-        private int _buffer;
-        private int _available;
-
-        internal TiffBitReader(byte[] data)
-        {
-            _data = data;
-            _position = 0;
-        }
-
-        internal int ReadBits(int count)
-        {
-            while (_available < count)
-            {
-                _buffer = (_buffer << 8) | _data[_position];
-                _position += 1;
-                _available += 8;
-            }
-
-            _available -= count;
-            return (_buffer >> _available) & ((1 << count) - 1);
-        }
-
-        internal void SkipRowPadding(int rowEnd)
-        {
-            if (_position < rowEnd)
-            {
-                _position = rowEnd;
-            }
-
-            _buffer = 0;
-            _available = 0;
-        }
-    }
-
-    private sealed class TiffBitWriter
-    {
-        private readonly byte[] _data;
-        private int _position;
-        private int _buffer;
-        private int _available;
-
-        internal TiffBitWriter(byte[] data)
-        {
-            _data = data;
-            _position = 0;
-        }
-
-        internal void WriteBits(int value, int count)
-        {
-            _buffer = (_buffer << count) | (value & ((1 << count) - 1));
-            _available += count;
-            while (_available >= 8)
-            {
-                _available -= 8;
-                _data[_position] = (byte)((_buffer >> _available) & 0xFF);
-                _position += 1;
-            }
-        }
-
-        internal void Flush()
-        {
-            if (_available > 0)
-            {
-                _data[_position] = (byte)((_buffer << (8 - _available)) & 0xFF);
-            }
-        }
     }
 }

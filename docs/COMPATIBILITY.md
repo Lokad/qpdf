@@ -174,7 +174,7 @@ for default compression and 40 KiB for inflation;
 uses an additional 8 KiB pooled buffer. The allowances add headroom; their
 adequacy across supported runtime/platform implementations still needs
 independent measurement. Returned pool buffers can remain retained by the BCL
-after a job. Predictor allocations, aggregate decode admission and measured
+after a job. Aggregate decode admission and measured
 cancellation/retention remain audit work; these changes do not establish a
 process-memory ceiling.
 
@@ -219,6 +219,14 @@ checks, preset-dictionary rejection, per-chunk output budgets, and an
 Adler-32 trailer verification that catches truncations BCL alone would
 decode short without error. Corrupt bodies and checksum mismatches fail
 as truncated input; decompression bombs fail on budgets.
+
+Shared TIFF/PNG predictors now admit returned output before allocation, charge
+work before copying/transforming, and check cancellation within wide rows.
+Previous samples come from the output itself, so empty inputs allocate no row
+scratch even with huge declared columns. Failed transformations release their
+output reservation; Flate releases its inflated intermediate after prediction.
+Packed TIFF samples start each row at its byte boundary, including padding;
+sixteen-bit samples retain their component and row boundaries.
 
 Predictors mirror upstream parameters (`/Predictor` 1, 2, or 10-15 with
 defaults 1/1/1/8 for predictor/columns/colors/bits, unknown keys

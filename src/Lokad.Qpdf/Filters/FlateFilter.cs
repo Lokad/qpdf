@@ -46,7 +46,14 @@ internal static class FlateFilter
             return inflated;
         }
 
-        return PredictorStages.Apply(inflated, parms, FilterName, governor);
+        try
+        {
+            return PredictorStages.Apply(inflated, parms, FilterName, governor);
+        }
+        finally
+        {
+            governor.ReleaseMemory(inflated.Length == 0 ? 0L : inflated.Length + GovernedBufferStream.ArrayOverheadBytes);
+        }
     }
 
     private static byte[] Inflate(byte[] input, ResourceGovernor governor, QpdfLimits limits)

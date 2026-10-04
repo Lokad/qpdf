@@ -2532,7 +2532,11 @@
           "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
           "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation",
           "FlateMemoryTests.BadChecksumReleasesAllWorkingMemory",
-          "FlateMemoryTests.CompressedBlocksWithoutOutputConsumeWork"
+          "FlateMemoryTests.CompressedBlocksWithoutOutputConsumeWork",
+          "PredictorMemoryTests.TightMemoryRejectsBeforeAllocatingPredictorOutput",
+          "PredictorMemoryTests.EmptyPngWithHugeRowsNeedsNoRowBuffer",
+          "PredictorMemoryTests.WorkAdmissionPrecedesOutputAllocation",
+          "PredictorMemoryTests.FlatePredictorReleasesItsInflatedIntermediate"
         ],
         "oracle": [
           "diff:uncompress-payloads",
