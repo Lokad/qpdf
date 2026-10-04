@@ -7,6 +7,8 @@
     <!-- Independent validation reader: development tooling only, never the shipped library. -->
     <AllowedPackageReference Include="PdfPig" Condition="'$(IsTestProject)' == 'true'" />
     <AllowedPackageReference Include="PdfPig" Condition="'$(IsQpdfProbeTool)' == 'true'" />
+    <!-- Benchmark harness: development tooling only, never the shipped library. -->
+    <AllowedPackageReference Include="BenchmarkDotNet" Condition="'$(IsQpdfBenchmarkTool)' == 'true'" />
     <!-- Clean consumer restores the packed library, never project sources. -->
     <AllowedPackageReference Include="Lokad.qpdf" Condition="'$(IsPackageConsumer)' == 'true'" />
   </ItemGroup>

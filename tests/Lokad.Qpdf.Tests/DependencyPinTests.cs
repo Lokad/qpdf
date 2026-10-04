@@ -51,6 +51,17 @@ public sealed class DependencyPinTests
     }
 
     [Fact]
+    public void CentralVersionsPinBenchmarkHarness()
+    {
+        XDocument versions = XDocument.Load(Path.Combine(RepoRoot(), "Directory.Packages.props"));
+        string? harness = versions.Descendants("PackageVersion")
+            .Where(element => string.Equals(element.Attribute("Include")?.Value, "BenchmarkDotNet", StringComparison.Ordinal))
+            .Select(element => element.Attribute("Version")?.Value)
+            .SingleOrDefault();
+        Assert.Equal("[0.15.8]", harness);
+    }
+
+    [Fact]
     public void LibraryLockFileResolvesImageSharp312()
     {
         using JsonDocument inventory = JsonDocument.Parse(

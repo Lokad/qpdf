@@ -84,6 +84,19 @@ count must exit 2; truncated input must fail validation). A real 12.4.2
 executable is pinned at `external/oracle/msvc64/qpdf-12.4.2-msvc64/bin/qpdf.exe` (ignored by git; set `QPDF_EXE` to it).
 Checksum, version output and JPEG/Zopfli build features are recorded in `docs/COMPATIBILITY.md`.
 The differential lane (`tools/run-differential-checks.ps1`, via `QpdfProbe emit`) compares managed and oracle outputs operation by operation.
+
+## Benchmarks
+
+`benchmarks/Lokad.Qpdf.Benchmarks` is the developer-only resource-counter and benchmark harness. It is built with the
+solution but is never packed. All inputs are synthetic; no qpdf executable or upstream checkout is required. These commands have been executed:
+
+```sh
+dotnet build benchmarks/Lokad.Qpdf.Benchmarks/Lokad.Qpdf.Benchmarks.csproj -c Release
+dotnet run -c Release --project benchmarks/Lokad.Qpdf.Benchmarks -- --help
+dotnet run -c Release --project benchmarks/Lokad.Qpdf.Benchmarks -- --counter-report
+```
+
+`--counter-report` runs representative operations (50-page inspection and selection, shared-font and 20-way merges, a 30-filter decode chain, JSON inspection, compressed rewrite, photo optimization, 10-page linearization, and a pre-canceled selection) and prints deterministic governor counters: work units, decoded bytes, peak/live memory, host operations, and diagnostics. It exits nonzero when a scenario fails to complete. Timed BenchmarkDotNet benchmarks over the same synthetic inputs run locally via `--filter`; their timings are machine-specific and are never asserted. Baseline counter results are recorded in `docs/BENCHMARKS.md`.
 ## Package consumer
 
 `tests/Lokad.Qpdf.PackageConsumer` is a clean console project outside the

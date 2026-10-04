@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsQpdfBenchmarkTool>true</IsQpdfBenchmarkTool>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Lokad.Qpdf.Benchmarks</RootNamespace>
+    <AssemblyName>Lokad.Qpdf.Benchmarks</AssemblyName>
+    <Description>Developer-only resource-counter and benchmark harness. Not part of the shipped package.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="SixLabors.ImageSharp" />
+    <ProjectReference Include="..\..\src\Lokad.Qpdf\Lokad.Qpdf.csproj" />
+  </ItemGroup>
+</Project>

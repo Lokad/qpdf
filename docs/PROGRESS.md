@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-Limits work done: invocation flags cannot raise host ceilings (BudgetExceeded), --no-default-limits lifts compatible parser defaults, bounded --parser-max-errors (default 15) governs repair trial parses. Suite 1931/1931 green. Inventory 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); defaultReview 157/157 reviewed. Reference+differential lanes green with zero FAIL (log external/diff/w188-lane.log), including new over-limit NDL decode parity and budgeted-repair legs. Next: benchmarks project with counter report and BenchmarkDotNet measurements.
+Limits work done: invocation flags cannot raise host ceilings (BudgetExceeded), --no-default-limits lifts compatible parser defaults, bounded --parser-max-errors (default 15) governs repair trial parses. Suite 1931/1931 green. Inventory 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); defaultReview 157/157 reviewed. Reference+differential lanes green with zero FAIL (log external/diff/w188-lane.log), including new over-limit NDL decode parity and budgeted-repair legs. Benchmarks scaffolded with a 10-scenario counter report, all green. Next: timed BenchmarkDotNet runs, baseline analysis, and findings.
 
 ## Remaining work
 
