@@ -490,6 +490,16 @@ public sealed class CheckTests
         Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
         Assert.Equal(QpdfExitCode.Warning, argv.ExitCode);
     }
+    [Fact]
+    public async Task CancelledTokenReportsCanceledOnCheck()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "parent-held-1page.pdf");
+        using CancellationTokenSource source = new();
+        source.Cancel();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), source.Token);
+        Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
+    }
     private static int FindMarker(byte[] haystack, byte[] needle)
     {
         for (int i = 0; i + needle.Length <= haystack.Length; i++)
