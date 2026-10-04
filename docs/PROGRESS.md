@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 170; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 5 image-threshold defaultReview rows (--jpeg-quality=level, --keep-inline-images, --oi-min-width/height/area) are now reviewed against pinned upstream cli.rst: =/bare forms with camelCase job keys, threshold/job parity and budget pins, oracle optimize comparisons green. --optimize-images stays pending review with its partial CMYK-held-open gap. defaultReview stands at 92 reviewed and 65 pending (49 crypto plus 16 other); flip only in verified batches, never bulk. Next is item 171 in the remaining backlog.
+M11 completion audit through item 171; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 file-hint defaultReview rows (--keep-files-open=[y|n], --keep-files-open-threshold=count default 200) are now reviewed against pinned upstream cli.rst: validated performance hints with byte-identical outputs under host lease policy, camelCase job keys with argv parity, oracle hinted-merge trio green. defaultReview stands at 94 reviewed and 63 pending (49 crypto plus 14 other); flip only in verified batches, never bulk. Next is item 172 in the remaining backlog.
 
 ## Remaining work
 
