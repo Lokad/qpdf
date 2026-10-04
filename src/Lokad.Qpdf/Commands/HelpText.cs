@@ -37,7 +37,8 @@ internal static class HelpText
           --parser-max-container-size=n   cap objects per container (default 4294967295)
           --parser-max-container-size-damaged=n  cap objects per container during repair (default 5000)
           --parser-max-nesting=n          cap object nesting depth (default host budgets, max 499)
-          --no-default-limits             refused: limits cannot be disabled in this build
+          --parser-max-errors=n           cap errors while parsing an object (default 15, 0 removes)
+          --no-default-limits             lift optional parser defaults within host ceilings
           --global [options] --            set global limits inside the block (bare limit flags also accepted)
           --recompress-flate            recompress already-flate streams
           --compression-level=1..9      flate effort for compressed streams

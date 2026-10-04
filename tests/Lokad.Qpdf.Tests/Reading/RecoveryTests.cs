@@ -415,4 +415,33 @@ public sealed class RecoveryTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
+    [Fact]
+    public async Task ErrorsZeroRemovesThreshold()
+    {
+        byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 20);
+        InMemoryQpdfHost host = HostWith("inputs/broken.pdf", storm);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/broken.pdf", "--parser-max-errors=0", "--pages", ".", "1", "--", "outputs/fixed.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task NoDefaultLimitsLiftsErrorBudget()
+    {
+        byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 20);
+        InMemoryQpdfHost host = HostWith("inputs/broken.pdf", storm);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/broken.pdf", "--no-default-limits", "--pages", ".", "1", "--", "outputs/fixed.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task NoDefaultLimitsExplicitErrorWins()
+    {
+        byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 3);
+        InMemoryQpdfHost host = HostWith("inputs/broken.pdf", storm);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/broken.pdf", "--no-default-limits", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/fixed.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+    }
 }

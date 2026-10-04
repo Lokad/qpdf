@@ -2433,7 +2433,7 @@ internal static class ArgvParser
 
         if (value is null || value.Length == 0 || value.Length > 10)
         {
-            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a positive error count.", i, null);
+            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a non-negative error count (0 removes the threshold).", i, null);
         }
 
         long count = 0L;
@@ -2441,15 +2441,10 @@ internal static class ArgvParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a positive error count.", i, null);
+                throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a non-negative error count (0 removes the threshold).", i, null);
             }
 
             count = checked(count * 10L + (digit - (char)48));
-        }
-
-        if (count == 0L)
-        {
-            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: unbounded tolerance contradicts containment.", i, null);
         }
 
         return count;

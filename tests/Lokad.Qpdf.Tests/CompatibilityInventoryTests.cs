@@ -135,8 +135,8 @@ public sealed class CompatibilityInventoryTests
         using var inventory = ReadInventory();
         var entries = inventory.RootElement.GetProperty("options").EnumerateArray().ToArray();
         Assert.Equal(157, entries.Length);
-        Assert.Equal(155, entries.Count(entry => entry.GetProperty("status").GetString() == "complete"));
-        Assert.Equal(2, entries.Count(entry => entry.GetProperty("status").GetString() == "partial"));
+        Assert.Equal(154, entries.Count(entry => entry.GetProperty("status").GetString() == "complete"));
+        Assert.Equal(3, entries.Count(entry => entry.GetProperty("status").GetString() == "partial"));
         Assert.Equal(49, entries.Count(entry => entry.GetProperty("scope").GetString() == "excluded-crypto"));
     }
 

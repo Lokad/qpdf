@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Reading;
 /// Bounded cross-reference repair, separate from strict resolution so heuristics
 /// can never weaken the strict contract. Scans for indirect object headers,
 /// trial-parses each candidate, keeps the last valid occurrence, aborts after
-/// MaxParserErrors failed trial parses, and fills
+/// MaxParserErrors failed trial parses (0 removes the interim threshold), and fills
 /// unscanned gaps as free. The tail trailer wins when its root resolves;
 /// otherwise the last scanned catalog wins.
 /// </summary>
@@ -230,10 +230,11 @@ internal static class XRefRecovery
             if (errored)
             {
                 errors += 1L;
-                if (errors > limits.MaxParserErrors)
-                {
+                // Interim counting unit: failed trial parses across the scan. Per-object
+                // error budgets (with tolerant trial parsing) remain follow-up work;
+                // a zero budget already removes this interim threshold like upstream.
+                if (limits.MaxParserErrors != 0L && errors > limits.MaxParserErrors)
                     throw new QpdfParseException($"Bounded repair exceeded the maximum of {limits.MaxParserErrors} parsable errors at object {number}.", null, null);
-                }
             }
 
             if (value is not null)

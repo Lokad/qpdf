@@ -2,14 +2,13 @@
 
 ## Current checkpoint
 
-Containment, names, recovery, reader and lease governance done: argv/job governors now use the caller cancellation token; Flate inflate charges work/decoded bytes with per-chunk cancellation; empty Flate emits a valid 8-byte zlib stream; FilterChain charges DCT once; page-range expansion admits entry budgets before allocating (null/empty plus span checks); names unescape exactly once for display/JSON/filter dispatch. Suite 1951/1951 green (19 new: canceled Flate, empty round-trip, DCT single-charge, null-range budget, tight zlib work budget, plus single-unescape name/JSON and escaped-filter checks, plus damaged-encrypted rejection, plus objstm allocation guard, plus load-depth bound, plus JPEG retained-memory ownership, plus governed leases (per-job handles on every input/output lease, per-call short-read charging, disposal-safe admission ordering, response memory admission, duplicate-lease refcounts), plus input-preparation admission (governed job-JSON parsing with model release, base64 pre-reserve), plus /Extends reads with an oracle differential leg). Inventory stays 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); crypto rejection stays separate from implemented behavior.
+Containment, reader, lease, input-admission, and parser-limit mechanics done (explicit host ceilings, upstream-scoped --no-default-limits, 0 removes the threshold; governed leases/reads/disposal; job-JSON and base64 admission; /Extends reads). Suite 1955/1955 green.
 
 ## Remaining work
 
-- Review findings: all R01-R16 probes pass (17/17; R14 closed this batch).
-- Parser semantics: per-object error counting, 0 means unlimited, --no-default-limits lifts errors/damaged/filters only (never nesting), explicit host-set tracking instead of value equality, oracle evidence for finite/zero/default.
+- Parser semantics remainder: per-object error budgets with tolerant trial parsing (interim still counts failed repair candidates; tight-budget legs stay managed-only with oracle succeeding per object); valid-xref repairable-syntax inputs participate only as a documented strict delta.
 - Benchmarks: fix counters/memory ownership before treating peaks as evidence; independent allocation/retention plus mid-operation cancellation; record reproducible results and fix demonstrated problems.
-- M11 narrowed to the two accepted partials with truthful labeling; push/tag/publication are separate actions, not implementation blockers.
+- M11 open with three truthful partials (no-Zopfli profile, CMYK images, parser-max-errors per-object budgets); push/tag/publication are separate actions, not implementation blockers.
 - Stale drman.log (151 bytes) left alone; never ships.
 
 ## Verification

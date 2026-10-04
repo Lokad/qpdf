@@ -2315,9 +2315,9 @@ internal static class JobJsonParser
     {
         if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
         {
-            if (number <= 0L)
+            if (number < 0L)
             {
-                throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
+                throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a non-negative error count (0 removes the threshold).", 0L, null);
             }
 
             return number;
@@ -2331,7 +2331,7 @@ internal static class JobJsonParser
 
         if (text is null || text.Length == 0 || text.Length > 10)
         {
-            throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a non-negative error count (0 removes the threshold).", 0L, null);
         }
 
         long count = 0L;
@@ -2339,15 +2339,10 @@ internal static class JobJsonParser
         {
             if (digit < (char)48 || digit > (char)57)
             {
-                throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
+                throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a non-negative error count (0 removes the threshold).", 0L, null);
             }
 
             count = checked(count * 10L + (digit - (char)48));
-        }
-
-        if (count == 0L)
-        {
-            throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
         }
 
         return count;

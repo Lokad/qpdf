@@ -58,7 +58,7 @@ public sealed record QpdfLimits
     /// <summary>Maximum cross-reference sections followed per file.</summary>
     public long MaxRevisions { get; init; } = 64L;
 
-    /// <summary>Maximum failed trial parses tolerated while repairing a damaged file.</summary>
+    /// <summary>Maximum errors tolerated while parsing a damaged object; 0 removes the threshold.</summary>
     public long MaxParserErrors { get; init; } = 15L;
 
     /// <summary>Gets the default budgets.</summary>
@@ -128,9 +128,9 @@ public sealed record QpdfLimits
             throw new ArgumentOutOfRangeException(nameof(MaxRevisions), "Budget must be positive.");
         }
 
-        if (MaxParserErrors <= 0)
+        if (MaxParserErrors < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(MaxParserErrors), "Error budget must be positive; unbounded tolerance contradicts containment.");
+            throw new ArgumentOutOfRangeException(nameof(MaxParserErrors), "Error budget must not be negative; zero removes the threshold within host ceilings.");
         }
 
         if (MaxContainerSize < 0)

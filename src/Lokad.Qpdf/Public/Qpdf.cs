@@ -4851,7 +4851,7 @@ public static class Qpdf
                 return ToFailedResult(ex);
             }
 
-            return await RunPlanAsync(host, jobPlan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            return await RunPlanAsync(host, jobPlan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         JobPlan plan;
@@ -4864,7 +4864,7 @@ public static class Qpdf
             return ToFailedResult(ex);
         }
 
-        return await RunPlanAsync(host, plan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool TryTakeJobJsonFile(IReadOnlyList<string> argv, out string? jobPath, out QpdfException? error)
@@ -4952,7 +4952,7 @@ public static class Qpdf
         {
             return ToFailedResult(ex);
         }
-        return await RunPlanAsync(host, plan, options.Limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(
@@ -5029,70 +5029,70 @@ public static class Qpdf
         return infos;
     }
 
-    private static QpdfLimits ResolveParserLimits(JobPlan plan, QpdfLimits host)
+    private static QpdfLimits ResolveParserLimits(JobPlan plan, QpdfLimits host, bool hostExplicit)
     {
         QpdfLimits limits = host;
         if (plan.MaxStreamFilters is long maxStreamFilters)
         {
-            RequireHostCeiling(nameof(QpdfLimits.MaxStreamFilters), maxStreamFilters, host.MaxStreamFilters, QpdfLimits.Default.MaxStreamFilters);
+            RequireParserCeiling(nameof(QpdfLimits.MaxStreamFilters), maxStreamFilters, host.MaxStreamFilters, hostExplicit);
             limits = limits with { MaxStreamFilters = maxStreamFilters };
         }
 
         if (plan.ParserMaxNesting is long parserMaxNesting)
         {
-            RequireHostCeiling(nameof(QpdfLimits.MaxNestingDepth), parserMaxNesting, host.MaxNestingDepth, QpdfLimits.Default.MaxNestingDepth);
+            RequireParserCeiling(nameof(QpdfLimits.MaxNestingDepth), parserMaxNesting, host.MaxNestingDepth, hostExplicit);
             limits = limits with { MaxNestingDepth = parserMaxNesting };
         }
 
         if (plan.MaxContainerSize is long maxContainerSize)
         {
-            RequireHostCeiling(nameof(QpdfLimits.MaxContainerSize), maxContainerSize, host.MaxContainerSize, QpdfLimits.Default.MaxContainerSize);
+            RequireParserCeiling(nameof(QpdfLimits.MaxContainerSize), maxContainerSize, host.MaxContainerSize, hostExplicit);
             limits = limits with { MaxContainerSize = maxContainerSize };
         }
 
         if (plan.MaxContainerSizeDamaged is long maxContainerSizeDamaged)
         {
-            RequireHostCeiling(nameof(QpdfLimits.MaxContainerSizeDamaged), maxContainerSizeDamaged, host.MaxContainerSizeDamaged, QpdfLimits.Default.MaxContainerSizeDamaged);
+            RequireParserCeiling(nameof(QpdfLimits.MaxContainerSizeDamaged), maxContainerSizeDamaged, host.MaxContainerSizeDamaged, hostExplicit);
             limits = limits with { MaxContainerSizeDamaged = maxContainerSizeDamaged };
         }
 
         if (plan.ParserMaxErrors is long parserMaxErrors)
         {
-            RequireHostCeiling(nameof(QpdfLimits.MaxParserErrors), parserMaxErrors, host.MaxParserErrors, QpdfLimits.Default.MaxParserErrors);
+            RequireParserCeiling(nameof(QpdfLimits.MaxParserErrors), parserMaxErrors, host.MaxParserErrors, hostExplicit);
             limits = limits with { MaxParserErrors = parserMaxErrors };
         }
 
-        if (plan.NoDefaultLimits)
+        if (plan.NoDefaultLimits && !hostExplicit)
         {
-            // Compatible parser defaults (filter and container counts) lift when the
-            // host left them at library defaults. Explicit invocation values and
-            // host-customized ceilings always stand; nesting and error budgets stay.
-            if (plan.MaxStreamFilters is null && host.MaxStreamFilters == QpdfLimits.Default.MaxStreamFilters)
+            // Mirror upstream disable_defaults: only optional parser defaults lift,
+            // and only when neither the invocation nor the host set them explicitly.
+            // Parser nesting and the undamaged container size are never lifted.
+            if (plan.ParserMaxErrors is null)
             {
-                limits = limits with { MaxStreamFilters = long.MaxValue };
+                limits = limits with { MaxParserErrors = 0L };
             }
 
-            if (plan.MaxContainerSize is null && host.MaxContainerSize == QpdfLimits.Default.MaxContainerSize)
+            if (plan.MaxContainerSizeDamaged is null)
             {
-                limits = limits with { MaxContainerSize = long.MaxValue };
+                limits = limits with { MaxContainerSizeDamaged = 4294967295L };
             }
 
-            if (plan.MaxContainerSizeDamaged is null && host.MaxContainerSizeDamaged == QpdfLimits.Default.MaxContainerSizeDamaged)
+            if (plan.MaxStreamFilters is null)
             {
-                limits = limits with { MaxContainerSizeDamaged = long.MaxValue };
+                limits = limits with { MaxStreamFilters = 4294967295L };
             }
         }
 
         return limits;
     }
 
-    private static void RequireHostCeiling(string name, long requested, long hostCeiling, long libraryDefault)
+    private static void RequireParserCeiling(string name, long requested, long hostCeiling, bool hostExplicit)
     {
-        // Invocation parser knobs tighten behavior within the embedding host's
-        // hard ceilings; they never raise a ceiling the host customized.
-        // An untouched host ceiling still carries the library default, in which
-        // case invocation values within their own absolute bounds apply.
-        if (hostCeiling != libraryDefault && requested > hostCeiling)
+        // Invocation parser knobs only tighten within the embedding host hard
+        // ceilings. Value equality with a library default does not establish that
+        // the host left the ceiling untouched: only default-constructed options
+        // leave invocation values (within their own absolute bounds) in charge.
+        if (hostExplicit && requested > hostCeiling)
         {
             throw new QpdfLimitException(name, requested, hostCeiling);
         }
@@ -5102,13 +5102,14 @@ public static class Qpdf
         IQpdfHost host,
         JobPlan plan,
         QpdfLimits limits,
+        bool hostExplicit,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         try
         {
-            limits = ResolveParserLimits(plan, limits);
+            limits = ResolveParserLimits(plan, limits, hostExplicit);
         }
         catch (QpdfException ex)
         {
