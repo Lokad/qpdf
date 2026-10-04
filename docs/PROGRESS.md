@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 174; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 content-transform defaultReview rows (--rotate=[+|-]angle[:page-range], --generate-appearances) are now reviewed against pinned upstream cli.rst: full shared range grammar with main/inside parity and typed agreement, limited appearance generation with declared skips, camelCase job keys and budget pins, oracle rotate/forms lanes green. defaultReview stands at 101 reviewed and 56 pending (49 crypto plus 7 other); flip only in verified batches, never bulk. Next is item 175 in the remaining backlog.
+M11 completion audit through item 175; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 invocation defaultReview rows (--global [options] --, --job-json-file=file) are now reviewed against pinned upstream cli.rst: limit-block parity with bare-flag leniency, job file through host with inline parity and explicit errors, argv-only empty job path. defaultReview stands at 103 reviewed and 54 pending (49 crypto plus 5 other); flip only in verified batches, never bulk. Next is item 176 in the remaining backlog.
 
 ## Remaining work
 
