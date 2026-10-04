@@ -79,6 +79,56 @@ public sealed class CompatibilityInventoryTests
         Assert.Equal("excluded-crypto", entry.GetProperty("choiceScopes").GetProperty("encrypt").GetString());
     }
 
+    [Fact]
+    public void EvidenceNamesResolveToRealTests()
+    {
+        var discovered = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var type in typeof(CompatibilityInventoryTests).Assembly.GetTypes())
+        {
+            foreach (var method in type.GetMethods(
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static))
+            {
+                bool isTest = false;
+                foreach (var attribute in method.GetCustomAttributes(false))
+                {
+                    string? fullName = attribute.GetType().FullName;
+                    if (string.Equals(fullName, "Xunit.FactAttribute", StringComparison.Ordinal) ||
+                        string.Equals(fullName, "Xunit.TheoryAttribute", StringComparison.Ordinal))
+                    {
+                        isTest = true;
+                        break;
+                    }
+                }
+
+                if (isTest && method.DeclaringType is not null)
+                {
+                    discovered.Add(method.DeclaringType.Name + "." + method.Name);
+                }
+            }
+        }
+
+        var missing = new List<string>();
+        using var inventory = ReadInventory();
+        foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            var evidence = entry.GetProperty("evidence");
+            foreach (var slot in new[] { "positive", "negative", "interaction", "resource" })
+            {
+                foreach (var name in evidence.GetProperty(slot).EnumerateArray())
+                {
+                    string? test = name.GetString();
+                    if (!string.IsNullOrEmpty(test) && !discovered.Contains(test))
+                    {
+                        missing.Add(entry.GetProperty("context").GetString() + "/" +
+                            entry.GetProperty("flag").GetString() + " " + slot + ": " + test);
+                    }
+                }
+            }
+        }
+
+        Assert.Empty(missing);
+    }
     private static JsonDocument ReadInventory() => JsonDocument.Parse(
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Compatibility", "options.json")));
 }
