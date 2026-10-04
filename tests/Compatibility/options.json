@@ -2757,7 +2757,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -4789,7 +4789,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -6273,7 +6273,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
