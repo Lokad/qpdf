@@ -41,7 +41,7 @@ and codec allocation/cancellation is proven bounded (see below).
 `tools/QpdfProbe` is the development-only differential runner. It invokes the
 pinned qpdf 12.4.2 executable (`--version`, `--show-npages`, `--check`) and the
 pinned independent reader (PdfPig `[0.1.16]`, never a runtime dependency).
-`tests/Fixtures/manifest.json` records 26 synthetic fixtures (single- and multi-page
+`tests/Fixtures/manifest.json` records 43 synthetic fixtures (single- and multi-page
 selections, outlines, thumbnails, images, overlays, labels, and orphans, plus truncated
 negative fixtures) with SHA-256, byte counts and expected page counts. Ordinary tests use these
 fixtures and a fake oracle; they never require `external/` or a real qpdf
