@@ -3212,7 +3212,7 @@
       ],
       "milestone": "M8",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -3696,7 +3696,7 @@
       ],
       "milestone": "M8",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -4145,7 +4145,7 @@
       ],
       "milestone": "M8",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -4185,7 +4185,7 @@
       ],
       "milestone": "M8",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -4224,7 +4224,7 @@
       ],
       "milestone": "M8",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [

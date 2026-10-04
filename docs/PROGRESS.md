@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 169; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 4 page-assembly defaultReview rows (--pages block, --collate[=n[,m,...]], --empty, --split-pages[=n]) are now reviewed against pinned upstream cli.rst: block grammar with -- terminator, collate/split optional group defaults, empty zero-page base, camelCase job keys with argv/job/typed parity and budget pins, oracle select/merge/collate/split lanes green. defaultReview stands at 87 reviewed and 70 pending (49 crypto plus 21 other); flip only in verified batches, never bulk. Next is item 170 in the remaining backlog.
+M11 completion audit through item 170; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 5 image-threshold defaultReview rows (--jpeg-quality=level, --keep-inline-images, --oi-min-width/height/area) are now reviewed against pinned upstream cli.rst: =/bare forms with camelCase job keys, threshold/job parity and budget pins, oracle optimize comparisons green. --optimize-images stays pending review with its partial CMYK-held-open gap. defaultReview stands at 92 reviewed and 65 pending (49 crypto plus 16 other); flip only in verified batches, never bulk. Next is item 171 in the remaining backlog.
 
 ## Remaining work
 
