@@ -149,6 +149,7 @@ internal static class PredictorStages
             return Array.Empty<byte>();
         }
 
+        governor.CheckDecodedBytes(outputLength);
         governor.ChargeWork(outputLength);
         long reserved = outputLength + GovernedBufferStream.ArrayOverheadBytes;
         governor.ReserveMemory(reserved);
@@ -173,7 +174,7 @@ internal static class PredictorStages
         }
     }
 
-    private static int RowLength(PredictorParameters parms, string filterName)
+    internal static int RowLength(PredictorParameters parms, string filterName)
     {
         long rowLength;
         try

@@ -66,6 +66,7 @@ internal static class DctFilter
             throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), expected, maximum);
         }
 
+        governor.CheckDecodedBytes(expected);
         governor.ChargeWork(pixels);
         long reserved = checked(expected + JpegCodec.SampleArrayOverheadBytes + JpegCodec.CodecWorkingSetBytes);
         governor.ReserveMemory(reserved);

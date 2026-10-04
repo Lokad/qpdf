@@ -1,5 +1,9 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Filters;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
@@ -104,6 +108,29 @@ public sealed class LinearizationTests
         QpdfCheckOutcome linearization = LinearizationOutcome(result);
         Assert.Equal(QpdfCheckStatus.Passed, linearization.Status);
         Assert.Contains("not linearized", linearization.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DirectHintDecodingChargesOnceAndEnforcesAggregateAdmission()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("linearized-2page.pdf"));
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        LinearizationData? data = LinearizationCheck.TryReadData(document.Engine, document.PageCount,
+            QpdfLimits.Default, governor, CancellationToken.None);
+        Assert.NotNull(data);
+        PdfStream hint = Assert.IsType<PdfStream>(document.Engine.Load(data.HintObject));
+        byte[] expected = FlateFilter.Decode(hint.Data, null, QpdfLimits.Default,
+            new ResourceGovernor(QpdfLimits.Default, CancellationToken.None));
+        Assert.True(expected.Length > 1);
+        Assert.Equal(expected.Length, governor.Snapshot().TotalDecodedBytes);
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = expected.Length };
+        ResourceGovernor exhausted = new(limits, CancellationToken.None);
+        exhausted.ChargeDecodedBytes(1L);
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => LinearizationCheck.TryReadData(
+            document.Engine, document.PageCount, limits, exhausted, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), error.LimitName);
+        Assert.Equal(1L, exhausted.Snapshot().TotalDecodedBytes);
     }
 
     [Fact]

@@ -138,7 +138,9 @@ Every growing capacity and returned copy is admitted while its previous owner
 is still charged; failures dispose the working owners. Encoded bytes are not
 counted as decoded stream bytes. Both codec directions receive the caller's
 cancellation token through the pinned token-bearing APIs, with row copying and
-stream writes checking it as well. Progressive-input evidence, the remaining
+stream writes checking it as well. Aggregate decoded bytes are admitted from
+the frame header before another pixel/sample frame is allocated.
+Progressive-input evidence, the remaining
 codec-state allowance, and measured cancellation latency still need auditing.
 
 `QpdfProbe probe-flate` exercises the governed BCL Flate pipeline.
@@ -174,8 +176,8 @@ for default compression and 40 KiB for inflation;
 uses an additional 8 KiB pooled buffer. The allowances add headroom; their
 adequacy across supported runtime/platform implementations still needs
 independent measurement. Returned pool buffers can remain retained by the BCL
-after a job. Aggregate decode admission and measured
-cancellation/retention remain audit work; these changes do not establish a
+after a job. Measured cancellation/retention and state-allowance adequacy remain
+audit work; these changes do not establish a
 process-memory ceiling.
 
 ImageSharp stays behind the JPEG adapter and out of the public API;
@@ -219,6 +221,16 @@ checks, preset-dictionary rejection, per-chunk output budgets, and an
 Adler-32 trailer verification that catches truncations BCL alone would
 decode short without error. Corrupt bodies and checksum mismatches fail
 as truncated input; decompression bombs fail on budgets.
+
+Flate now owns the decoded-byte charge for direct, filter-chain, companion and
+linearization-hint calls. Each bounded inflate chunk checks the aggregate
+prospective sample count before output growth or copying; successful stages
+commit their charge once. PNG working buffers admit the additional row
+selectors, which do not count as returned sample bytes. Shared predictors also
+check aggregate admission before allocating transformed output. Failed budget
+checks release working owners while preserving prior returned results. Other
+filters' capacity/ownership and failed/canceled public counters remain part of
+the broader containment audit.
 
 Shared TIFF/PNG predictors now admit returned output before allocation, charge
 work before copying/transforming, and check cancellation within wide rows.

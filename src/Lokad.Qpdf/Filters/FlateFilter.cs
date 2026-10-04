@@ -40,23 +40,40 @@ internal static class FlateFilter
 
         limits.Validate();
         governor.CheckCancellation();
-        byte[] inflated = Inflate(input, governor, limits);
+        long selectorStride = parms is not null && parms.Predictor >= 10
+            ? PredictorStages.RowLength(parms, FilterName) + 1L
+            : 0L;
+        byte[] inflated = Inflate(input, selectorStride, governor, limits);
+        byte[] result;
         if (parms is null || parms.Predictor == 1)
         {
-            return inflated;
+            result = inflated;
+        }
+        else
+        {
+            try
+            {
+                result = PredictorStages.Apply(inflated, parms, FilterName, governor);
+            }
+            finally
+            {
+                governor.ReleaseMemory(inflated.Length == 0 ? 0L : inflated.Length + GovernedBufferStream.ArrayOverheadBytes);
+            }
         }
 
         try
         {
-            return PredictorStages.Apply(inflated, parms, FilterName, governor);
+            governor.ChargeDecodedBytes(result.Length);
+            return result;
         }
-        finally
+        catch
         {
-            governor.ReleaseMemory(inflated.Length == 0 ? 0L : inflated.Length + GovernedBufferStream.ArrayOverheadBytes);
+            governor.ReleaseMemory(result.Length == 0 ? 0L : result.Length + GovernedBufferStream.ArrayOverheadBytes);
+            throw;
         }
     }
 
-    private static byte[] Inflate(byte[] input, ResourceGovernor governor, QpdfLimits limits)
+    private static byte[] Inflate(byte[] input, long selectorStride, ResourceGovernor governor, QpdfLimits limits)
     {
         governor.CheckCancellation();
         if (input.Length < 7)
@@ -90,7 +107,15 @@ internal static class FlateFilter
         {
             using GovernedReadStream source = new(input.AsMemory(2, input.Length - 6), governor);
             using DeflateStream decompressor = new(source, CompressionMode.Decompress);
-            using GovernedBufferStream output = new(governor, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes));
+            long maximumRaw = Math.Min(limits.MaxDecodedBytes, Array.MaxLength);
+            if (selectorStride > 0L)
+            {
+                // Raw PNG rows also hold selectors. Bound their expansion while
+                // admitting only sample bytes against the decoded-byte budget.
+                maximumRaw = Math.Min(Array.MaxLength, maximumRaw + maximumRaw / (selectorStride - 1L) + 1L);
+            }
+
+            using GovernedBufferStream output = new(governor, maximumRaw, nameof(QpdfLimits.MaxDecodedBytes));
             byte[] buffer = new byte[ChunkBytes];
             try
             {
@@ -106,6 +131,11 @@ internal static class FlateFilter
                         break;
                     }
 
+                    long prospectiveLength = output.Length + read;
+                    long sampleBytes = selectorStride == 0L
+                        ? prospectiveLength
+                        : prospectiveLength - (prospectiveLength + selectorStride - 1L) / selectorStride;
+                    governor.CheckDecodedBytes(sampleBytes);
                     output.Write(buffer, 0, read);
                 }
             }

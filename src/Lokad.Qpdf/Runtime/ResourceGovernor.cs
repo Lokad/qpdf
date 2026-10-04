@@ -90,6 +90,13 @@ internal sealed class ResourceGovernor
 
     internal void ChargeDecodedBytes(long bytes)
     {
+        CheckDecodedBytes(bytes);
+        _totalDecodedBytes = checked(_totalDecodedBytes + bytes);
+    }
+
+    /// <summary>Checks a prospective stage result without committing its byte charge.</summary>
+    internal void CheckDecodedBytes(long bytes)
+    {
         if (bytes < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(bytes), "Charge must not be negative.");
@@ -102,8 +109,6 @@ internal sealed class ResourceGovernor
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), next, _limits.MaxDecodedBytes);
             }
-
-            _totalDecodedBytes = next;
         }
     }
 

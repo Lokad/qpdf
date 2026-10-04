@@ -543,4 +543,23 @@ public sealed class DctDecodeTests
         Assert.Equal(64, result.Length);
         Assert.Equal(64L, governor.Snapshot().TotalDecodedBytes);
     }
+
+    [Fact]
+    public void AggregateBudgetRejectsBeforeAllocatingAnotherFrame()
+    {
+        byte[] jpeg = EncodeGrayJpeg(1024, 1024);
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 1024L * 1024L + 1L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        byte[] first = DctFilter.Decode(jpeg, limits, governor);
+        long peak = governor.Snapshot().PeakMemoryBytes;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, limits, governor));
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(nameof(QpdfLimits.MaxDecodedBytes), error.LimitName);
+        Assert.True(allocated < 65536L, $"Rejected second frame allocated {allocated} bytes.");
+        Assert.Equal(peak, governor.Snapshot().PeakMemoryBytes);
+        Assert.Equal(first.Length + JpegCodec.SampleArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(first.Length, governor.Snapshot().TotalDecodedBytes);
+        GC.KeepAlive(first);
+    }
 }

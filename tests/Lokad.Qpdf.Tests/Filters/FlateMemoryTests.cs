@@ -66,7 +66,7 @@ public sealed class FlateMemoryTests
         Assert.Equal(result.Length + GovernedBufferStream.ArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
         long state = decode ? FlateFilter.InflateWorkingSetBytes : FlateFilter.DeflateWorkingSetBytes;
         Assert.True(governor.Snapshot().PeakMemoryBytes >= state + 2L * result.Length);
-        Assert.Equal(0L, governor.Snapshot().TotalDecodedBytes);
+        Assert.Equal(decode ? result.Length : 0L, governor.Snapshot().TotalDecodedBytes);
         GC.KeepAlive(result);
     }
 

@@ -83,6 +83,21 @@ public sealed class ZlibFlateTests
     }
 
     [Fact]
+    public async Task UncompressChargesTheResultOnce()
+    {
+        byte[] raw = BinaryPayload();
+        InMemoryQpdfHost host = HostWith("inputs/a.bin", await CompressAsync(raw, null));
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = raw.Length };
+        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"),
+            QpdfPath.From("outputs/b.bin"), new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null),
+            limits, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/b.bin"), out byte[] output));
+        Assert.Equal(raw, output);
+        Assert.Equal(raw.Length, result.Counters.TotalDecodedBytes);
+    }
+
+    [Fact]
     public async Task HigherLevelCompressesSmaller()
     {
         byte[] input = TextPayload();

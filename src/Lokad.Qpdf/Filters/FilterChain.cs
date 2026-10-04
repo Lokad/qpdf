@@ -132,7 +132,8 @@ internal static class FilterChain
         if (stage.Name == FlateFilter.FilterName)
         {
             PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, FlateFilter.FilterName, stage.Resolver);
-            return DecodeChecked(FlateFilter.Decode(input, parms, limits, governor), limits, governor);
+            // The decoder also serves direct hint and companion calls and owns its byte charge.
+            return FlateFilter.Decode(input, parms, limits, governor);
         }
 
         if (stage.Name == LzwFilter.FilterName)

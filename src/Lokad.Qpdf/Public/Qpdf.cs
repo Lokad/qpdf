@@ -6033,9 +6033,7 @@ public static class Qpdf
     {
         try
         {
-            byte[] decoded = FlateFilter.Decode(bytes, null, limits, governor);
-            governor.ChargeDecodedBytes(decoded.Length);
-            return decoded;
+            return FlateFilter.Decode(bytes, null, limits, governor);
         }
         catch (QpdfFilterException ex)
         {

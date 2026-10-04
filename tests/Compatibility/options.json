@@ -2200,7 +2200,8 @@
           "LinearizationInspectionTests.JobCheckLinearizationRejectsCombinations"
         ],
         "resource": [
-          "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget"
+          "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget",
+          "LinearizationTests.DirectHintDecodingChargesOnceAndEnforcesAggregateAdmission"
         ],
         "oracle": [
           "diff:check-linearization"
@@ -2536,7 +2537,11 @@
           "PredictorMemoryTests.TightMemoryRejectsBeforeAllocatingPredictorOutput",
           "PredictorMemoryTests.EmptyPngWithHugeRowsNeedsNoRowBuffer",
           "PredictorMemoryTests.WorkAdmissionPrecedesOutputAllocation",
-          "PredictorMemoryTests.FlatePredictorReleasesItsInflatedIntermediate"
+          "PredictorMemoryTests.FlatePredictorReleasesItsInflatedIntermediate",
+          "FlateDecodedBudgetTests.DirectAndChainChargeTheResultOnce",
+          "FlateDecodedBudgetTests.AggregateFailurePrecedesAnotherLargeOutputAllocation",
+          "FlateDecodedBudgetTests.PngSelectorsDoNotConsumeTheSampleBudget",
+          "DctDecodeTests.AggregateBudgetRejectsBeforeAllocatingAnotherFrame"
         ],
         "oracle": [
           "diff:uncompress-payloads",
@@ -5632,7 +5637,8 @@
           "LinearizationInspectionTests.JobShowLinearizationRejectsCombinations"
         ],
         "resource": [
-          "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget"
+          "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget",
+          "LinearizationTests.DirectHintDecodingChargesOnceAndEnforcesAggregateAdmission"
         ],
         "oracle": [
           "diff:show-linearization"
