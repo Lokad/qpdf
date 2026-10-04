@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 163; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 warning-modifier defaultReview rows (--warning-exit-0, --no-warn) are now reviewed against pinned upstream cli.rst: exit-0 maps warnings to exit 0, no-warn drops messages keeping exit 3, combined they ignore warnings; both ride the shared plan across argv/job keys warningExit0/noWarn with duplicates rejected and form-warning interaction pinned. defaultReview stands at 66 reviewed and 91 pending (49 crypto plus 42 other); flip only in verified batches, never bulk. Next is item 164 in the remaining backlog.
+M11 completion audit through item 164; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 5 inspection-dump defaultReview rows (--show-npages, --show-pages, --show-xref, --show-object=trailer|obj[,gen], --show-linearization) are now reviewed against pinned upstream cli.rst: bare forms (valued rejected) except show-object required parameter, camelCase job keys ride the shared plan with combination rejections and budget failures pinned, oracle show dumps compared against the reference. defaultReview stands at 71 reviewed and 86 pending (49 crypto plus 37 other); flip only in verified batches, never bulk. Next is item 165 in the remaining backlog.
 
 ## Remaining work
 
