@@ -5063,6 +5063,27 @@ public static class Qpdf
             limits = limits with { MaxContainerSizeDamaged = maxContainerSizeDamaged };
         }
 
+        if (plan.NoDefaultLimits)
+        {
+            // Compatible parser defaults (filter and container counts) lift when the
+            // host left them at library defaults. Explicit invocation values and
+            // host-customized ceilings always stand; nesting and error budgets stay.
+            if (plan.MaxStreamFilters is null && host.MaxStreamFilters == QpdfLimits.Default.MaxStreamFilters)
+            {
+                limits = limits with { MaxStreamFilters = long.MaxValue };
+            }
+
+            if (plan.MaxContainerSize is null && host.MaxContainerSize == QpdfLimits.Default.MaxContainerSize)
+            {
+                limits = limits with { MaxContainerSize = long.MaxValue };
+            }
+
+            if (plan.MaxContainerSizeDamaged is null && host.MaxContainerSizeDamaged == QpdfLimits.Default.MaxContainerSizeDamaged)
+            {
+                limits = limits with { MaxContainerSizeDamaged = long.MaxValue };
+            }
+        }
+
         return limits;
     }
 

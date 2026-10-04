@@ -96,6 +96,8 @@ internal static class JobJsonParser
             string? decodeLevel = null;
             bool seenDecodeLevel = false;
             long? maxStreamFilters = null;
+            bool noDefaultLimits = false;
+            bool seenNoDefaultLimits = false;
             bool seenMaxStreamFilters = false;
             bool ignoreXrefStreams = false;
             bool seenIgnoreXrefStreams = false;
@@ -447,7 +449,14 @@ internal static class JobJsonParser
                                     parserMaxNesting = RequireParserMaxNesting(globalProperty.Value);
                                     break;
                                 case "noDefaultLimits":
-                                    throw new QpdfParseException("Default limits cannot be disabled in this build.", 0L, null);
+                                    if (seenNoDefaultLimits)
+                                    {
+                                        throw new QpdfParseException("Duplicate job key \u0027global.noDefaultLimits\u0027.", 0L, null);
+                                    }
+
+                                    seenNoDefaultLimits = true;
+                                    noDefaultLimits = RequireBareFlag(globalProperty.Value, "global.noDefaultLimits");
+                                    break;
                                 case "parserMaxContainerSize":
                                     if (seenMaxContainerSize)
                                     {
@@ -1149,7 +1158,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1181,7 +1190,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1215,7 +1224,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1250,7 +1259,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1287,7 +1296,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1374,7 +1383,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
@@ -1419,7 +1428,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"updateFromJson\".", 0L, null);
@@ -1490,6 +1499,7 @@ internal static class JobJsonParser
                     Progress = progress,
                     TestJsonSchema = testJsonSchema,
                     MaxStreamFilters = maxStreamFilters,
+                    NoDefaultLimits = noDefaultLimits,
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
@@ -1553,6 +1563,7 @@ internal static class JobJsonParser
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
                     MaxStreamFilters = maxStreamFilters,
+                    NoDefaultLimits = noDefaultLimits,
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
@@ -1648,6 +1659,7 @@ internal static class JobJsonParser
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
                     MaxStreamFilters = maxStreamFilters,
+                    NoDefaultLimits = noDefaultLimits,
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
@@ -1709,6 +1721,7 @@ internal static class JobJsonParser
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
                     MaxStreamFilters = maxStreamFilters,
+                    NoDefaultLimits = noDefaultLimits,
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,

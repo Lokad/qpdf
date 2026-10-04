@@ -1601,16 +1601,23 @@
         "Rejection-only; default limits can never be disabled (containment). No accepting behavior exists."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "GlobalLimitsTests.NoDefaultLimitsAccepted",
+          "GlobalLimitsTests.NoDefaultLimitsDecodesOverLimitFilters",
+          "GlobalLimitsTests.NoDefaultLimitsJobParityHolds"
+        ],
         "negative": [
-          "GlobalLimitsTests.NoDefaultLimitsRefused",
-          "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"
+          "GlobalLimitsTests.ValuedNoDefaultLimitsFails",
+          "GlobalLimitsTests.NoDefaultLimitsDuplicateFails",
+          "GlobalLimitsTests.NoDefaultLimitsRejectsRestrictedCombinations"
         ],
         "interaction": [
-          "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"
+          "GlobalLimitsTests.NoDefaultLimitsJobParityHolds",
+          "GlobalLimitsTests.NoDefaultLimitsExplicitFlagWins"
         ],
         "resource": [
-          "GlobalLimitsTests.NoDefaultLimitsRefusedEverywhere"
+          "GlobalLimitsTests.NoDefaultLimitsRespectsTightHost",
+          "GlobalLimitsTests.NoDefaultLimitsKeepsNestingCap"
         ],
         "oracle": []
       }
@@ -3029,7 +3036,7 @@
         ],
         "negative": [
           "GlobalLimitsTests.BadGlobalBlocksFail",
-          "GlobalLimitsTests.GlobalBlockRefusesLimitsRemoval"
+          "GlobalLimitsTests.GlobalBlockAcceptsLimitsRemoval"
         ],
         "interaction": [
           "GlobalLimitsTests.BadGlobalBlocksFail"
