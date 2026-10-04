@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-Limits work done: invocation flags cannot raise host ceilings (BudgetExceeded), --no-default-limits lifts compatible parser defaults, bounded --parser-max-errors (default 15) governs repair trial parses. Suite 1931/1931 green. Inventory 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); defaultReview 157/157 reviewed. Reference+differential lanes green with zero FAIL (log external/diff/w188-lane.log), including new over-limit NDL decode parity and budgeted-repair legs. Benchmarks done: 10-scenario counter report green with recorded baseline (docs/BENCHMARKS.md); timed BenchmarkDotNet run green (3/3, sub-millisecond means, proportional allocations, no anomalies to fix). Next: final full-gate verification.
+Limits work done: invocation flags cannot raise host ceilings (BudgetExceeded), --no-default-limits lifts compatible parser defaults, bounded --parser-max-errors (default 15) governs repair trial parses. Full gate chain green end to end: restore, build, suite 1932/1932, lanes zero FAIL, package verify, consumer smoke, counter report, timed benchmarks. Inventory 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); defaultReview 157/157 reviewed. Reference+differential lanes green with zero FAIL (log external/diff/w188-lane.log), including new over-limit NDL decode parity and budgeted-repair legs. Benchmarks done: 10-scenario counter report green with recorded baseline (docs/BENCHMARKS.md); timed BenchmarkDotNet run green (3/3, sub-millisecond means, proportional allocations, no anomalies to fix).
 
 ## Remaining work
 
