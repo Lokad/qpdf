@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 161; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 3 parser defaultReview rows (--completion-bash, --completion-zsh, --help[=option|topic]) are now reviewed against pinned upstream cli.rst: bare identity forms with empty job paths, valued forms rejected as declared (valued identity forms fail explicitly), budget-immune, completion scripts static-subset without env lookup, differential identity case exits 0/0 with shared markers. defaultReview stands at 62 reviewed and 95 pending (49 crypto plus 46 other); flip only in verified batches, never bulk. Next is item 162 in the remaining backlog.
+M11 completion audit through item 162; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 pages defaultReview rows (--file=file, --range=numeric-range) are now reviewed against pinned upstream cli.rst: = and space named forms plus positional file/range with argv/job parity, omitted range selects all pages, []-element job schemas covered by parent entries, differential merge case green. defaultReview stands at 64 reviewed and 93 pending (49 crypto plus 44 other); flip only in verified batches, never bulk. Next is item 163 in the remaining backlog.
 
 ## Remaining work
 

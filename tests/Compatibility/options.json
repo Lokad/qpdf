@@ -6317,7 +6317,7 @@
       ],
       "milestone": "M7",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -6389,7 +6389,7 @@
       ],
       "milestone": "M7",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
