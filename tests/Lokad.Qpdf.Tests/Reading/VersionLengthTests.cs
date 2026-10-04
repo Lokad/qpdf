@@ -265,4 +265,28 @@ public sealed class VersionLengthTests
         PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(4));
         Assert.Equal(tricky, stream.Data);
     }
+    [Fact]
+    public async Task IndirectLengthChainRespectsLoadDepth()
+    {
+        List<string> objects = new() { "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>" };
+        for (int n = 4; n < 40; n++) { objects.Add("<< /Length " + (n + 1).ToString() + " 0 R >>\nstream\n\nendstream"); }
+        objects.Add("0");
+        byte[] bytes = ChainPdf(objects);
+        InMemoryQpdfHost host = HostWith("inputs/chain.pdf", bytes);
+        QpdfLimits limits = QpdfLimits.Default with { MaxNestingDepth = 4L };
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/chain.pdf"), limits, CancellationToken.None);
+        Assert.Throws<QpdfParseException>(() => document.GetObject(4));
+    }
+
+    private static byte[] ChainPdf(List<string> objects)
+    {
+        StringBuilder pdf = new("%PDF-1.7\n");
+        List<int> offsets = new();
+        for (int i = 0; i < objects.Count; i++) { offsets.Add(pdf.Length); pdf.Append($"{i + 1} 0 obj\n{objects[i]}\nendobj\n"); }
+        int xref = pdf.Length;
+        pdf.Append($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
+        foreach (int offset in offsets) { pdf.Append(offset.ToString("D10", System.Globalization.CultureInfo.InvariantCulture) + " 00000 n \n"); }
+        pdf.Append($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        return Encoding.ASCII.GetBytes(pdf.ToString());
+    }
 }

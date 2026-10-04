@@ -123,6 +123,11 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     private QpdfObject Load(int number, XrefEntry entry)
     {
+        if (_loading.Count >= _limits.MaxNestingDepth)
+        {
+            throw new QpdfParseException($"Object load depth exceeds {_limits.MaxNestingDepth}.", null, number);
+        }
+
         if (!_loading.Add(number))
         {
             throw new QpdfParseException($"Object {number} is referenced cyclically during load.", null, number);
