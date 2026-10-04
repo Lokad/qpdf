@@ -156,4 +156,16 @@ public sealed class CryptoExclusionTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/e.pdf"), out byte[] _));
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/e.json"), out byte[] _));
     }
+
+    [Fact]
+    public async Task UnknownTopLevelFlagFailsAsInvalidArguments()
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        List<string> argv = new() { "inputs/a.pdf", "--bogus-flag", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

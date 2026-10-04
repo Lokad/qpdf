@@ -222,6 +222,51 @@ public sealed class CompatibilityInventoryTests
         Assert.True(bad.Count == 0, "Job paths without a parser key: " + string.Join("; ", bad));
     }
 
+    [Fact]
+    public void CryptoOptionsMatchInventory()
+    {
+        string? directory = AppContext.BaseDirectory;
+        string parser = string.Empty;
+        for (int i = 0; i < 8 && directory is not null; i++)
+        {
+            string candidate = Path.Combine(directory, "src", "Lokad.Qpdf", "Commands", "ArgvParser.cs");
+            if (File.Exists(candidate))
+            {
+                parser = File.ReadAllText(candidate);
+                break;
+            }
+
+            directory = Path.GetDirectoryName(directory);
+        }
+
+        Assert.NotEqual(string.Empty, parser);
+        var names = new List<string>();
+        var set = System.Text.RegularExpressions.Regex.Match(parser, "CryptoOptions = new\\(StringComparer.Ordinal\\)\\s*\\{([^}]*)\\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+        Assert.True(set.Success, "CryptoOptions set not found in ArgvParser.cs.");
+        foreach (System.Text.RegularExpressions.Match name in System.Text.RegularExpressions.Regex.Matches(set.Groups[1].Value, "\"([^\"]+)\""))
+        {
+            names.Add(name.Groups[1].Value);
+        }
+
+        using var inventory = ReadInventory();
+        var flagged = new List<string>();
+        foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            if (entry.GetProperty("scope").GetString() != "excluded-crypto")
+            {
+                continue;
+            }
+
+            string? flag = entry.GetProperty("flag").GetString();
+            if (!string.IsNullOrEmpty(flag) && flag.StartsWith("--", StringComparison.Ordinal))
+            {
+                flagged.Add(flag.Substring(2));
+            }
+        }
+
+        Assert.Equal(names.Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal), flagged.Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal));
+    }
+
     private static JsonDocument ReadInventory() => JsonDocument.Parse(
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Compatibility", "options.json")));
 }
