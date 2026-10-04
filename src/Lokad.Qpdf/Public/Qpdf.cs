@@ -68,7 +68,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
     }
@@ -120,7 +120,7 @@ public static class Qpdf
 
         limits.Validate();
         List<OutputRotation> specifications = ConvertRotations(rotations);
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, specifications, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
     }
@@ -562,7 +562,7 @@ public static class Qpdf
             throw new ArgumentException("At least one page source is required.", nameof(sources));
         }
 
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
@@ -628,7 +628,7 @@ public static class Qpdf
         }
 
         List<OutputRotation> specifications = ConvertRotations(rotations);
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, specifications, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
@@ -712,7 +712,7 @@ public static class Qpdf
 
         List<OutputRotation> specifications = ConvertRotations(mergeOptions.Rotations);
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
@@ -3742,7 +3742,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
@@ -3779,7 +3779,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await ListAttachmentsCoreAsync(host, inputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
@@ -3831,7 +3831,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
@@ -3878,7 +3878,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
         Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
@@ -3920,7 +3920,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
@@ -3962,7 +3962,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await ImportUpdateCoreAsync(host, inputPath, jsonPath, outputPath, null, null, false, false, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
@@ -4177,7 +4177,7 @@ public static class Qpdf
             AttachmentsToRemove = removes,
             AttachmentsToCopy = copies,
         };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         (PdfMultiPageSelectionResult result, int attachmentCount) = await WholeFileCoreAsync(
             host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
@@ -5820,7 +5820,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         try
         {
             await using IQpdfInput input = await host.OpenInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
@@ -5918,7 +5918,7 @@ public static class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
         {
             return ToFailedResult(new QpdfParseException("The zlib-flate mode is not supported.", null, null));

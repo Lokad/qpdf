@@ -92,7 +92,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         return await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
     }

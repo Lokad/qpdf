@@ -405,6 +405,23 @@ public sealed class ImageOptimizeTests
     }
 
     [Fact]
+    public async Task TrueCmykDctStaysUntouched()
+    {
+        // Even forced recompression cannot touch genuine four-component DCT:
+        // decode fails explicitly inside the optimizer, so the bytes survive.
+        byte[] jpeg = Tests.Filters.CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
+        byte[] input = BuildImagePage(8, 8, "DeviceCMYK", 8, " /Filter /DCTDecode", jpeg);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--jpeg-quality=50", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal("DCTDecode", FilterOf(image));
+        Assert.Equal(jpeg, image.Data);
+    }
+    [Fact]
     public async Task BitMaskStaysUntouched()
     {
         byte[] raw = new byte[200 * 200];

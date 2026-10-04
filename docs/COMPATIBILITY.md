@@ -844,6 +844,8 @@ ordinary Flate compression remains required. Host limits remain enforceable
 even when a caller disables qpdf-compatible default parser limits. A shared budget-enforcement suite proves every public entry path
 (selection, inspection, content transforms, overlays, linearization, QDF, split, rotation,
 appearances) fails explicitly with `BudgetExceeded` and publishes nothing under exhausted budgets.
+Every public entry path constructs its governor with the caller's cancellation token,
+so interval checks and codec entry/row checks observe cancellation instead of running blind.
 
 ## Progression and dependency gates
 

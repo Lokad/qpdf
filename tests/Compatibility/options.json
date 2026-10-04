@@ -4267,7 +4267,7 @@
       "status": "partial",
       "defaultReview": "pending",
       "remainingGaps": [
-        "Four-component CMYK has no raw-sample encode path and stays as is."
+        "Four-component CMYK images are never eligible for recompression: the approved codec cannot decode their raw samples (work item 133 decision), so no encode path can exist. Permanent."
       ],
       "evidence": {
         "positive": [
@@ -4283,6 +4283,7 @@
           "ImageOptimizeTests.SmallImageStaysUntouched",
           "ImageOptimizeTests.IncompressibleSolidKeepsFlate",
           "ImageOptimizeTests.UnsupportedColorspaceStaysUntouched",
+          "ImageOptimizeTests.TrueCmykDctStaysUntouched",
           "ImageOptimizeTests.BitMaskStaysUntouched",
           "ImageOptimizeTests.ExistingDctStaysUntouchedWithoutQuality",
           "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone",
