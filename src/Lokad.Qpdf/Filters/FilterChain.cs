@@ -150,7 +150,8 @@ internal static class FilterChain
 
         if (stage.Name == DctFilter.FilterName)
         {
-            return DecodeChecked(DctFilter.Decode(input, limits, governor), limits, governor);
+            // DctFilter owns decoded-byte accounting for its frame; DecodeChecked would charge twice.
+            return DctFilter.Decode(input, limits, governor);
         }
 
         if (stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName || stage.Name == RunLengthFilter.FilterName)

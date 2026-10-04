@@ -32,6 +32,7 @@ internal static class FlateFilter
         }
 
         limits.Validate();
+        governor.CheckCancellation();
         byte[] inflated = Inflate(input, governor, limits);
         if (parms is null || parms.Predictor == 1)
         {
@@ -43,6 +44,7 @@ internal static class FlateFilter
 
     private static byte[] Inflate(byte[] input, ResourceGovernor governor, QpdfLimits limits)
     {
+        governor.CheckCancellation();
         if (input.Length < 7)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, FilterName, $"Zlib input holds {input.Length} bytes.");
@@ -79,6 +81,9 @@ internal static class FlateFilter
             int read;
             while ((read = decompressor.Read(buffer, 0, buffer.Length)) > 0)
             {
+                governor.CheckCancellation();
+                governor.ChargeWork(read);
+                governor.ChargeDecodedBytes(read);
                 total += read;
                 if (total > limits.MaxDecodedBytes)
                 {
@@ -88,6 +93,8 @@ internal static class FlateFilter
                 governor.ReserveMemory(read);
                 output.Write(buffer, 0, read);
             }
+
+            governor.CheckCancellation();
         }
         catch (InvalidDataException ex)
         {
@@ -96,8 +103,15 @@ internal static class FlateFilter
 
         uint expected = ((uint)input[input.Length - 4] << 24) | ((uint)input[input.Length - 3] << 16)
             | ((uint)input[input.Length - 2] << 8) | input[input.Length - 1];
+        governor.CheckCancellation();
+        governor.ChargeWork(output.Length + 1L);
+        governor.ReserveMemory(output.Length);
         byte[] result = output.ToArray();
-        if (Adler32(result) != expected)
+        governor.ReleaseMemory(output.Length);
+        governor.ReserveMemory(result.Length);
+        // Retain one copy for the returned buffer; release the working buffer reservation.
+        governor.ReleaseMemory(output.Length);
+        if (Adler32(result, governor) != expected)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, FilterName, "Adler-32 mismatch.");
         }
@@ -128,6 +142,17 @@ internal static class FlateFilter
         }
 
         limits.Validate();
+        governor.CheckCancellation();
+        if (input.Length == 0)
+        {
+            // BCL emits no framing for empty input; return the valid empty zlib stream
+            // (header 78 9C, empty fixed block 03 00, Adler-32 of empty 00 00 00 01).
+            byte[] empty = new byte[] { 0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01 };
+            governor.ChargeWork(1L);
+            governor.ReserveMemory(empty.Length);
+            return empty;
+        }
+
         System.IO.Compression.CompressionLevel mapped = level switch
         {
             1 => System.IO.Compression.CompressionLevel.Fastest,
@@ -164,7 +189,7 @@ internal static class FlateFilter
         }
     }
 
-    private static uint Adler32(byte[] data)
+    private static uint Adler32(byte[] data, ResourceGovernor governor)
     {
         const uint Mod = 65521U;
         uint a = 1U;
@@ -172,6 +197,8 @@ internal static class FlateFilter
         int i = 0;
         while (i < data.Length)
         {
+            governor.CheckCancellation();
+            governor.ChargeWork(1L);
             int chunk = Math.Min(5552, data.Length - i);
             for (int j = 0; j < chunk; j++)
             {

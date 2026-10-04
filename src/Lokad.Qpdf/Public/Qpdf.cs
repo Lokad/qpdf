@@ -4750,7 +4750,7 @@ public static class Qpdf
         }
 
         options.Limits.Validate();
-        ResourceGovernor governor = new(options.Limits, CancellationToken.None);
+        ResourceGovernor governor = new(options.Limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         IReadOnlyList<string> expanded;
         try
@@ -4948,7 +4948,7 @@ public static class Qpdf
         }
 
         options.Limits.Validate();
-        ResourceGovernor governor = new(options.Limits, CancellationToken.None);
+        ResourceGovernor governor = new(options.Limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
         JobPlan plan;
         try

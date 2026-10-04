@@ -497,4 +497,14 @@ public sealed class DctDecodeTests
 
         return output.ToArray();
     }
+    [Fact]
+    public void ChainChargesDecodedBytesOnce()
+    {
+        byte[] jpeg = EncodeGrayJpeg(8, 8);
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 96L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        byte[] result = FilterChain.Decode(jpeg, [new FilterStage("DCTDecode", null, null)], limits, governor);
+        Assert.Equal(64, result.Length);
+        Assert.Equal(64L, governor.Snapshot().TotalDecodedBytes);
+    }
 }

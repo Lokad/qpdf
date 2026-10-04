@@ -2,13 +2,15 @@
 
 ## Current checkpoint
 
-Limits work done: invocation flags cannot raise host ceilings (BudgetExceeded), --no-default-limits lifts compatible parser defaults, bounded --parser-max-errors (default 15) governs repair trial parses. Full gate chain green end to end: restore, build, suite 1932/1932, lanes zero FAIL, package verify, consumer smoke, counter report, timed benchmarks. Inventory 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); defaultReview 157/157 reviewed. Reference+differential lanes green with zero FAIL (log external/diff/w188-lane.log), including new over-limit NDL decode parity and budgeted-repair legs. Benchmarks done: 10-scenario counter report green with recorded baseline (docs/BENCHMARKS.md); timed BenchmarkDotNet run green (3/3, sub-millisecond means, proportional allocations, no anomalies to fix).
+Containment batch 1 done: argv/job governors now use the caller cancellation token; Flate inflate charges work/decoded bytes with per-chunk cancellation; empty Flate emits a valid 8-byte zlib stream; FilterChain charges DCT once; page-range expansion admits entry budgets before allocating (null/empty plus span checks). Suite 1937/1937 green (5 new: canceled Flate, empty round-trip, DCT single-charge, null-range budget, tight zlib work budget). Inventory stays 157 entries (140 flags): 155 complete, 2 partial (no-Zopfli profile, CMYK images, accepted as tested compatibility exceptions); crypto rejection stays separate from implemented behavior.
 
 ## Remaining work
 
-- Held-open partials: no-Zopfli build profile, CMYK four-component images; plus the tested direct-node promotion difference.
-- Benchmarks: representative operations, allocations/retained memory, work counters, cancellation latency; record reproducible results and address findings.
-- Publication is a separate explicit action; no push, tag, or release from implementation work.
+- Review findings R01-R04 (recovery encryption, objstm allocation, length recursion, name unescape), R05-R11 remainder (handles, short reads, lease disposal, input admission), R12-R16 remainder (leases, Extends, JPEG live buffers).
+- Parser semantics: per-object error counting, 0 means unlimited, --no-default-limits lifts errors/damaged/filters only (never nesting), explicit host-set tracking instead of value equality, oracle evidence for finite/zero/default.
+- Benchmarks: fix counters/memory ownership before treating peaks as evidence; independent allocation/retention plus mid-operation cancellation; record reproducible results and fix demonstrated problems.
+- M11 narrowed to the two accepted partials with truthful labeling; push/tag/publication are separate actions, not implementation blockers.
+- Stale drman.log (151 bytes) left alone; never ships.
 
 ## Verification
 

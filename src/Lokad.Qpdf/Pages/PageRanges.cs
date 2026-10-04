@@ -49,6 +49,11 @@ internal static class PageRanges
 
         if (range is null || range.Length == 0)
         {
+            if ((long)total > maxEntries)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), (long)total, maxEntries);
+            }
+
             List<int> all = new(total);
             for (int page = 1; page <= total; page++)
             {
@@ -67,7 +72,7 @@ internal static class PageRanges
         List<int> selected = new();
         foreach (Group group in groups)
         {
-            List<int> members = ExpandGroup(group, range, total);
+            List<int> members = ExpandGroup(group, range, total, maxEntries, selected.Count);
             if (!group.Exclude)
             {
                 foreach (int page in members)
@@ -246,7 +251,7 @@ internal static class PageRanges
         return new Endpoint(relative, value);
     }
 
-    private static List<int> ExpandGroup(Group group, string range, int total)
+    private static List<int> ExpandGroup(Group group, string range, int total, long maxEntries, int selectedCount)
     {
         int first = ResolveEndpoint(group.First, range, total);
         if (group.Last is null)
@@ -255,7 +260,25 @@ internal static class PageRanges
         }
 
         int last = ResolveEndpoint(group.Last, range, total);
-        List<int> members = new();
+        long span = first <= last ? (long)last - first + 1L : (long)first - last + 1L;
+        // Admit before allocating: an included span cannot exceed the remaining entry budget,
+        // and an exclusion span cannot exceed the total selectable budget without materializing
+        // an unbounded intermediate.
+        long admission;
+        if (group.Exclude)
+        {
+            admission = maxEntries >= (9223372036854775807L - selectedCount) ? 9223372036854775807L : maxEntries + selectedCount;
+        }
+        else
+        {
+            admission = maxEntries < selectedCount ? 0L : maxEntries - selectedCount;
+        }
+        if (span > admission)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), span, maxEntries);
+        }
+
+        List<int> members = new((int)span);
         if (first <= last)
         {
             for (int page = first; page <= last; page++)

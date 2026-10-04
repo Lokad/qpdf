@@ -288,4 +288,23 @@ public sealed class FlateTests
         byte[] decoded = DecodeThroughChain(payload, new PdfDictionary(entries));
         Assert.Equal(payload, decoded);
     }
+    [Fact]
+    public void AlreadyCanceledGovernorFailsFast()
+    {
+        byte[] compressed = ZLibCompress(new byte[1024]);
+        using CancellationTokenSource source = new();
+        source.Cancel();
+        ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
+        Assert.Throws<OperationCanceledException>(() => FlateFilter.Decode(compressed, null, QpdfLimits.Default, governor));
+    }
+
+    [Fact]
+    public void EmptyInputRoundTripsAsValidZlib()
+    {
+        (QpdfLimits limits, ResourceGovernor governor) = Governed();
+        byte[] compressed = FlateFilter.Encode([], null, limits, governor);
+        Assert.True(compressed.Length >= 8);
+        byte[] decoded = FlateFilter.Decode(compressed, null, limits, new ResourceGovernor(limits, CancellationToken.None));
+        Assert.Empty(decoded);
+    }
 }

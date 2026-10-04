@@ -137,4 +137,10 @@ public sealed class PageRangesTests
         Assert.Throws<QpdfLimitException>(() => PageRanges.Expand("1-6", 6, 5L));
         Matches(6, "1-6", [1, 2, 3, 4, 5, 6]);
     }
+    [Fact]
+    public void EntireSelectionHonorsTheEntryBudget()
+    {
+        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand(null, 10000, 1L));
+        Assert.Throws<QpdfLimitException>(() => PageRanges.Expand("", 10000, 1L));
+    }
 }
