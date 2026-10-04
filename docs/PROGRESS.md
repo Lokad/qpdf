@@ -10,7 +10,7 @@ Work item 136 done (M11): warn-only form-tree validation in `--check`. The manag
 
 ## Verification
 - Offline lane: dotnet restore Lokad.Qpdf.slnx --locked-mode, dotnet build, dotnet test (currently 1884 green).
-- Reference lanes need QPDF_EXE pointing at external/oracle/msvc64/qpdf-12.4.2-msvc64/bin/qpdf.exe (pinned qpdf 12.4.2): tools/run-reference-checks.ps1 and tools/run-differential-checks.ps1 (currently green, including the dr-encoding, dr-merge, parent-held, direct-rename, forms-check, overlay-widgets, overlay-file, generate-unreachable, cmyk, show-object generation, and incr cases).
+- Reference lanes need QPDF_EXE pointing at external/oracle/msvc64/qpdf-12.4.2-msvc64/bin/qpdf.exe (pinned qpdf 12.4.2): tools/run-reference-checks.ps1 and tools/run-differential-checks.ps1 (re-ran green after item 136, including the dr-encoding, dr-merge, parent-held, direct-rename, forms-check with 3/3, 3/3 and 0/0 legs, overlay-widgets, overlay-file, generate-unreachable, cmyk, show-object generation, and incr cases).
 - Ordinary tests must never require external/; reference lanes must fail loudly when tools are missing, never skip.
 - Editing notes: repo files use LF, while PowerShell writers emit CRLF, so normalize edited files back to LF. Builds often exceed the 10 s tool window, so run log-file builds in the background and poll. Before lanes, verify the probe directory Lokad.Qpdf.dll hash matches the fresh library build.
 
