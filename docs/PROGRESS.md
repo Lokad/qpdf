@@ -2,11 +2,12 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 185; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. defaultReview is now 157/157 reviewed: the last row (partial --optimize-images) was reviewed for forms/keys/evidence while its status stays partial behind the permanent CMYK gap, like the other 3 partials (rejection-only containment limits, no-Zopfli profile). All 4 partials keep non-empty remainingGaps, pinned by test. Next is item 186: release-action follow-ups, which stay separate explicit actions.
+M11 completion audit through item 186 (completion audit); suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto; defaultReview 157/157 reviewed. Verdict: every mechanically verifiable gate is green (tests, lanes zero FAIL, package, consumer, docs pins, review sweep), but full M11 completion cannot be claimed: 3 required-scope partials are permanent by settled scope (containment limits, CMYK codec), measured benchmark work is future work (no benchmarks/ project), and push/tag/publication are separate unauthorized actions. These need user scope decisions, not more code. Goal stays active pending those decisions.
 
 ## Remaining work
 
 - Held-open partials: containment-only limits, no-Zopfli build profile, CMYK four-component images; plus the tested direct-node promotion difference.
+- Scope decisions for the user: accept the 4 partials as permanent declared differences with subset labeling (CHANGELOG already labels 153/157), defer benchmark work explicitly, and authorize any release action separately.
 - Publication is a separate explicit action; no push, tag, or release from implementation work.
 
 ## Verification
