@@ -1,4 +1,4 @@
-using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Syntax;
 
@@ -26,6 +26,8 @@ internal enum PdfTokenKind
     Trailer,
     StartXRef,
     End,
+    UnknownWord,
+    BadToken,
 }
 
 /// <summary>A token as a raw byte slice plus its absolute offset.</summary>
@@ -54,6 +56,8 @@ internal sealed class PdfTokenizer
 {
     private readonly ReadOnlyMemory<byte> _data;
     private int _position;
+    private ResourceGovernor? _governor;
+    private int _scanWork;
 
     internal PdfTokenizer(ReadOnlyMemory<byte> data)
     {
@@ -76,6 +80,18 @@ internal sealed class PdfTokenizer
     }
 
     internal bool TryReadToken(out PdfToken token)
+    {
+        return TryReadTokenCore(out token, false);
+    }
+
+    internal bool TryReadToken(out PdfToken token, bool tolerateErrors, ResourceGovernor governor)
+    {
+        _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+        _governor.CheckCancellation();
+        return TryReadTokenCore(out token, tolerateErrors);
+    }
+
+    private bool TryReadTokenCore(out PdfToken token, bool tolerateErrors)
     {
         SkipWhitespaceAndComments();
         if (_position >= _data.Length)
@@ -109,7 +125,7 @@ internal sealed class PdfTokenizer
                 return true;
             }
 
-            token = ReadHexString();
+            token = ReadHexString(tolerateErrors);
             return true;
         }
 
@@ -122,12 +138,19 @@ internal sealed class PdfTokenizer
                 return true;
             }
 
+            if (tolerateErrors)
+            {
+                _position += 1;
+                token = new PdfToken(PdfTokenKind.BadToken, _data.Slice((int)offset, 1), offset);
+                return true;
+            }
+
             throw new QpdfParseException("Lone '>' byte outside a dictionary close.", offset, null);
         }
 
         if (b == (byte)'(')
         {
-            token = ReadLiteralString();
+            token = ReadLiteralString(tolerateErrors);
             return true;
         }
 
@@ -139,13 +162,36 @@ internal sealed class PdfTokenizer
 
         if (IsNumberStart(b))
         {
-            token = ReadNumberOrReference();
-            return true;
+            try
+            {
+                token = ReadNumberOrReference();
+                return true;
+            }
+            catch (QpdfParseException) when (tolerateErrors)
+            {
+                token = ReadKeyword(true);
+                return true;
+            }
         }
 
         if (IsLetter(b))
         {
-            token = ReadKeyword();
+            token = ReadKeyword(tolerateErrors);
+            return true;
+        }
+
+        if (tolerateErrors)
+        {
+            if (b is (byte)')' or (byte)'{' or (byte)'}')
+            {
+                _position += 1;
+                token = new PdfToken(PdfTokenKind.BadToken, _data.Slice((int)offset, 1), offset);
+            }
+            else
+            {
+                token = ReadKeyword(true);
+            }
+
             return true;
         }
 
@@ -157,6 +203,7 @@ internal sealed class PdfTokenizer
         ReadOnlySpan<byte> span = _data.Span;
         while (_position < span.Length)
         {
+            ScanStep();
             byte b = span[_position];
             if (IsWhitespace(b))
             {
@@ -168,6 +215,7 @@ internal sealed class PdfTokenizer
             {
                 while (_position < span.Length && span[_position] != (byte)'\n' && span[_position] != (byte)'\r')
                 {
+                    ScanStep();
                     _position += 1;
                 }
 
@@ -208,6 +256,7 @@ internal sealed class PdfTokenizer
         int i = start;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
+            ScanStep();
             i += 1;
         }
 
@@ -215,7 +264,7 @@ internal sealed class PdfTokenizer
         return new PdfToken(PdfTokenKind.Name, _data.Slice(start, i - start), offset);
     }
 
-    private PdfToken ReadLiteralString()
+    private PdfToken ReadLiteralString(bool tolerateErrors)
     {
         long offset = _position;
         ReadOnlySpan<byte> span = _data.Span;
@@ -223,6 +272,7 @@ internal sealed class PdfTokenizer
         int depth = 1;
         while (i < span.Length)
         {
+            ScanStep();
             byte b = span[i];
             if (b == (byte)'\\')
             {
@@ -253,21 +303,43 @@ internal sealed class PdfTokenizer
             i += 1;
         }
 
+        if (tolerateErrors)
+        {
+            _position = span.Length;
+            return new PdfToken(PdfTokenKind.BadToken, _data.Slice((int)offset), offset);
+        }
+
         throw new QpdfParseException("Unterminated literal string.", offset, null);
     }
 
-    private PdfToken ReadHexString()
+    private PdfToken ReadHexString(bool tolerateErrors)
     {
         long offset = _position;
         ReadOnlySpan<byte> span = _data.Span;
         int i = _position + 1;
         while (i < span.Length && span[i] != (byte)'>')
         {
+            ScanStep();
+            if (tolerateErrors && !IsWhitespace(span[i])
+                && !(span[i] >= (byte)'0' && span[i] <= (byte)'9')
+                && !(span[i] >= (byte)'a' && span[i] <= (byte)'f')
+                && !(span[i] >= (byte)'A' && span[i] <= (byte)'F'))
+            {
+                _position = i + 1;
+                return new PdfToken(PdfTokenKind.BadToken, _data.Slice((int)offset, i - (int)offset + 1), offset);
+            }
+
             i += 1;
         }
 
         if (i >= span.Length)
         {
+            if (tolerateErrors)
+            {
+                _position = span.Length;
+                return new PdfToken(PdfTokenKind.BadToken, _data.Slice((int)offset), offset);
+            }
+
             throw new QpdfParseException("Unterminated hexadecimal string.", offset, null);
         }
 
@@ -290,6 +362,7 @@ internal sealed class PdfTokenizer
         int digits = 0;
         while (i < span.Length)
         {
+            ScanStep();
             byte b = span[i];
             if (b >= (byte)'0' && b <= (byte)'9')
             {
@@ -323,46 +396,47 @@ internal sealed class PdfTokenizer
         return new PdfToken(kind, _data.Slice((int)offset, i - (int)offset), offset);
     }
 
-    private PdfToken ReadKeyword()
+    private PdfToken ReadKeyword(bool tolerateErrors)
     {
         long offset = _position;
         ReadOnlySpan<byte> span = _data.Span;
         int i = _position;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
+            ScanStep();
             i += 1;
         }
 
         ReadOnlyMemory<byte> word = _data.Slice((int)offset, i - (int)offset);
         _position = i;
-        string text = ToAscii(word.Span);
-        PdfTokenKind kind = text switch
+        ReadOnlySpan<byte> value = word.Span;
+        PdfTokenKind kind = value.SequenceEqual("null"u8) ? PdfTokenKind.Null
+            : value.SequenceEqual("true"u8) ? PdfTokenKind.True
+            : value.SequenceEqual("false"u8) ? PdfTokenKind.False
+            : value.SequenceEqual("R"u8) ? PdfTokenKind.Reference
+            : value.SequenceEqual("obj"u8) ? PdfTokenKind.Object
+            : value.SequenceEqual("endobj"u8) ? PdfTokenKind.EndObject
+            : value.SequenceEqual("stream"u8) ? PdfTokenKind.Stream
+            : value.SequenceEqual("endstream"u8) ? PdfTokenKind.EndStream
+            : value.SequenceEqual("xref"u8) ? PdfTokenKind.XRef
+            : value.SequenceEqual("trailer"u8) ? PdfTokenKind.Trailer
+            : value.SequenceEqual("startxref"u8) ? PdfTokenKind.StartXRef
+            : PdfTokenKind.UnknownWord;
+        if (kind == PdfTokenKind.UnknownWord && !tolerateErrors)
         {
-            "null" => PdfTokenKind.Null,
-            "true" => PdfTokenKind.True,
-            "false" => PdfTokenKind.False,
-            "R" => PdfTokenKind.Reference,
-            "obj" => PdfTokenKind.Object,
-            "endobj" => PdfTokenKind.EndObject,
-            "stream" => PdfTokenKind.Stream,
-            "endstream" => PdfTokenKind.EndStream,
-            "xref" => PdfTokenKind.XRef,
-            "trailer" => PdfTokenKind.Trailer,
-            "startxref" => PdfTokenKind.StartXRef,
-            _ => throw new QpdfParseException($"Unknown keyword '{text}'.", offset, null),
-        };
+            throw new QpdfParseException("Unknown keyword.", offset, null);
+        }
+
         return new PdfToken(kind, word, offset);
     }
 
-    private static string ToAscii(ReadOnlySpan<byte> span)
+    private void ScanStep()
     {
-        char[] chars = new char[span.Length];
-        for (int i = 0; i < span.Length; i++)
+        if (++_scanWork >= 4096)
         {
-            chars[i] = span[i] < 0x80 ? (char)span[i] : '?';
+            _governor?.ChargeWork(1L);
+            _governor?.CheckCancellation();
+            _scanWork = 0;
         }
-
-        return new string(chars);
     }
 }
-

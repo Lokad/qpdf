@@ -1,0 +1,214 @@
+using System.Globalization;
+using System.Text;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+
+namespace Lokad.Qpdf.Tests.Reading;
+
+public sealed class TolerantObjectLoadingTests
+{
+    private static byte[] Pdf(string[] bodies, bool brokenXref)
+    {
+        List<string> objects =
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R /Audit 5 0 R >>",
+            "<< /Length 0 >>\nstream\n\nendstream",
+        ];
+        objects.AddRange(bodies);
+        using MemoryStream bytes = new();
+        void Write(string text) => bytes.Write(Encoding.ASCII.GetBytes(text));
+        Write("%PDF-1.4\n");
+        List<long> offsets = [0L];
+        for (int i = 0; i < objects.Count; i++)
+        {
+            offsets.Add(bytes.Position);
+            Write($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+        }
+
+        long xref = bytes.Position;
+        Write($"xref\n0 {offsets.Count}\n0000000000 65535 f \n");
+        foreach (long offset in offsets.Skip(1))
+        {
+            Write(offset.ToString("D10", CultureInfo.InvariantCulture) + " 00000 n \n");
+        }
+
+        Write($"trailer\n<< /Root 1 0 R /Size {offsets.Count} >>\nstartxref\n{(brokenXref ? 0L : xref)}\n%%EOF\n");
+        return bytes.ToArray();
+    }
+
+    private static InMemoryQpdfHost Host(byte[] bytes)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), bytes, QpdfInputOwnership.Copy);
+        return host;
+    }
+
+    [Theory]
+    [InlineData(false, 1, "null")]
+    [InlineData(false, 2, "[ 1 (@) 2 ]")]
+    [InlineData(false, 0, "[ 1 (@) 2 ]")]
+    [InlineData(true, 1, "null")]
+    [InlineData(true, 2, "[ 1 null 2 ]")]
+    [InlineData(true, 0, "[ 1 null 2 ]")]
+    public async Task ActualLoadsRepairBothValidAndBrokenXrefs(bool broken, int budget, string expected)
+    {
+        InMemoryQpdfHost host = Host(Pdf(["[ 1 @ 2 ]"], broken));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=" + budget.ToString(), "--show-object=5"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Message.Trim() == expected);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RepairedObject);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host,
+            "{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"5\",\"global\":{\"parserMaxErrors\":" + budget.ToString() + "}}", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, job.ExitCode);
+        Assert.Contains(job.Diagnostics, d => d.Message.Trim() == expected);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RewrittenRepairedValuesRemainReadableWithArgvJobParity(bool broken)
+    {
+        byte[] bytes = Pdf(["[ 1 @ 2 ]"], broken);
+        InMemoryQpdfHost argv = Host(bytes);
+        InMemoryQpdfHost job = Host(bytes);
+        QpdfExecutionResult a = await Qpdf.ExecuteAsync(argv,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        QpdfExecutionResult b = await Qpdf.ExecuteJobAsync(job,
+            """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}],"global":{"parserMaxErrors":2}}""", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, a.ExitCode);
+        Assert.Equal(QpdfExitCode.Warning, b.ExitCode);
+        Assert.True(argv.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] aBytes));
+        Assert.True(job.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] bBytes));
+        Assert.Equal(aBytes, bBytes);
+        argv.AddInput(QpdfPath.From("inputs/reopened.pdf"), aBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument output = await QpdfDocument.OpenAsync(argv, QpdfPath.From("inputs/reopened.pdf"), CancellationToken.None))
+        {
+            Assert.Equal(1, output.PageCount);
+            PdfDictionary page = Assert.IsType<PdfDictionary>(output.GetObject(3));
+            Assert.True(page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+            PdfReference reference = Assert.IsType<PdfReference>(audit);
+            PdfArray value = Assert.IsType<PdfArray>(output.GetObject(reference.ObjectNumber));
+            Assert.Equal(3, value.Count);
+            if (broken)
+            {
+                Assert.IsType<PdfNull>(value[1]);
+            }
+            else
+            {
+                Assert.Equal("@"u8.ToArray(), Assert.IsType<PdfByteString>(value[1]).Value);
+            }
+        }
+
+        Assert.Equal(0L, argv.OpenLeaseCount);
+        Assert.Equal(0L, job.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task ManyDamagedObjectsDoNotShareAnErrorBudget()
+    {
+        string[] bodies = Enumerable.Range(5, 20).Select(n => n == 24 ? $"[ @ {n} ]" : $"[ @ {n} {n + 1} 0 R ]").ToArray();
+        InMemoryQpdfHost host = Host(Pdf(bodies, false));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] rewritten));
+        host.AddInput(QpdfPath.From("inputs/reopened.pdf"), rewritten, QpdfInputOwnership.Copy);
+        await using (QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reopened.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = Assert.IsType<PdfDictionary>(output.GetObject(3));
+            Assert.True(page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+            PdfReference reference = Assert.IsType<PdfReference>(audit);
+            for (int i = 5; i < 25; i++)
+            {
+                PdfArray array = Assert.IsType<PdfArray>(output.GetObject(reference.ObjectNumber));
+                Assert.Equal("@"u8.ToArray(), Assert.IsType<PdfByteString>(array[0]).Value);
+                Assert.Equal(i, Assert.IsType<PdfInteger>(array[1]).Value);
+                if (i < 24)
+                {
+                    reference = Assert.IsType<PdfReference>(array[2]);
+                }
+            }
+        }
+
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task NoDefaultLimitsLiftsOnlyUnspecifiedErrorThreshold()
+    {
+        InMemoryQpdfHost host = Host(Pdf(["[ @ @ @ @ ]"], false));
+        QpdfExecutionResult unlimited = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--no-default-limits", "--show-object=5"]), CancellationToken.None);
+        QpdfExecutionResult finite = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--no-default-limits", "--parser-max-errors=2", "--show-object=5"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, unlimited.ExitCode);
+        Assert.Equal(QpdfExitCode.Warning, finite.ExitCode);
+        Assert.Contains(unlimited.Diagnostics, d => d.Message.Trim() == "[ (@) (@) (@) (@) ]");
+        Assert.Contains(finite.Diagnostics, d => d.Message.Trim() == "null");
+    }
+
+    [Fact]
+    public async Task StrictPublicPathsRejectValidXrefSyntaxDamage()
+    {
+        InMemoryQpdfHost host = Host(Pdf(["[ 1 @ 2 ]"], false));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--suppress-recovery", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
+        {
+            Assert.Throws<QpdfParseException>(() => document.GetObject(5));
+        }
+
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task HostCeilingPreventsInvocationFromRaisingItsErrorBudget()
+    {
+        InMemoryQpdfHost host = Host(Pdf(["[ 1 @ 2 ]"], false));
+        QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(15, 0)]
+    [InlineData(15, 16)]
+    public async Task FiniteExplicitHostErrorCeilingRejectsUnlimitedOrLargerInvocation(int hostErrors, int requested)
+    {
+        InMemoryQpdfHost host = Host(Pdf(["[ 1 @ 2 ]"], false));
+        QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxParserErrors = hostErrors });
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=" + requested.ToString(), "--show-object=5"]), options, CancellationToken.None);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host,
+            "{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"5\",\"global\":{\"parserMaxErrors\":" + requested.ToString() + "}}", options, CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(argv.Diagnostics).Code);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(job.Diagnostics).Code);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task ExplicitUnlimitedHostAllowsFiniteInvocationThreshold()
+    {
+        InMemoryQpdfHost host = Host(Pdf(["[ 1 @ 2 ]"], false));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=2", "--show-object=5"]),
+            new QpdfExecutionOptions(QpdfLimits.Default with { MaxParserErrors = 0L }), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Message.Trim() == "[ 1 (@) 2 ]");
+    }
+
+}

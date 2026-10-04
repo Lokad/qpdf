@@ -170,7 +170,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
-            DocumentEngine engine = new(data, table, limits, governor, diagnostics);
+            DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
             PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
@@ -218,7 +218,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
-            DocumentEngine engine = new(data, table, limits, governor, diagnostics);
+            DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
             PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);

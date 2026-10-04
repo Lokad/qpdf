@@ -320,43 +320,21 @@ public sealed class RecoveryTests
         return combined;
     }
 
-    [Fact]
-    public async Task ErrorsBudgetBoundsRepair()
+    [Theory]
+    [InlineData(2, 3)]
+    [InlineData(3, 3)]
+    [InlineData(15, 20)]
+    public async Task ErrorsBudgetDoesNotCountFailedCandidatesAcrossTheScan(int budget, int count)
     {
-        byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 3);
-        InMemoryQpdfHost strict = HostWith("inputs/broken.pdf", storm);
-        byte[] repaired = await SelectSingle(strict, "inputs/broken.pdf", "outputs/fixed.pdf");
-        Assert.True(repaired.Length > 0);
-        InMemoryQpdfHost capped = HostWith("inputs/broken.pdf", storm);
-        QpdfExecutionResult denied = await Qpdf.ExecuteAsync(
-            capped,
-            new QpdfCommandInvocation(["inputs/broken.pdf", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/fixed.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, denied.Status);
-        QpdfDiagnostic deniedError = Assert.Single(denied.Diagnostics);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, deniedError.Code);
-        Assert.Contains("maximum of 2 parsable errors", deniedError.Message, StringComparison.Ordinal);
-        Assert.False(capped.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
-        InMemoryQpdfHost exact = HostWith("inputs/broken.pdf", storm);
-        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(
-            exact,
-            new QpdfCommandInvocation(["inputs/broken.pdf", "--parser-max-errors=3", "--pages", ".", "1", "--", "outputs/fixed.pdf"]),
-            CancellationToken.None);
-        Assert.True(allowed.ExitCode == QpdfExitCode.Warning, string.Join(" | ", allowed.Diagnostics.Select(d => d.Code.ToString() + ":" + d.Message)));
-        Assert.True(exact.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
-    }
-
-    [Fact]
-    public async Task ErrorsDefaultFailsLargeStorm()
-    {
-        byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 20);
+        byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), count);
         InMemoryQpdfHost host = HostWith("inputs/broken.pdf", storm);
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host,
-            new QpdfCommandInvocation(["inputs/broken.pdf", "--pages", ".", "1", "--", "outputs/fixed.pdf"]),
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/broken.pdf", "--parser-max-errors=" + budget.ToString(), "--pages", ".", "1", "--", "outputs/fixed.pdf"]),
             CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
@@ -389,7 +367,7 @@ public sealed class RecoveryTests
     }
 
     [Fact]
-    public async Task ErrorsBudgetTightHostStillBounds()
+    public async Task ExplicitHostErrorBudgetIsPerObjectRatherThanPerScan()
     {
         byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 3);
         QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = 1L };
@@ -399,8 +377,9 @@ public sealed class RecoveryTests
             new QpdfCommandInvocation(["inputs/broken.pdf", "--pages", ".", "1", "--", "outputs/fixed.pdf"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
     }
     [Fact]
     public async Task DamagedEncryptedStillRejects()
@@ -436,12 +415,13 @@ public sealed class RecoveryTests
     }
 
     [Fact]
-    public async Task NoDefaultLimitsExplicitErrorWins()
+    public async Task ExplicitErrorUnderNoDefaultLimitsDoesNotCountScanCandidates()
     {
         byte[] storm = WithErrorStorm(await FixtureBytes("minimal-1page.pdf"), 3);
         InMemoryQpdfHost host = HostWith("inputs/broken.pdf", storm);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/broken.pdf", "--no-default-limits", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/fixed.pdf"]), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
     }
 }

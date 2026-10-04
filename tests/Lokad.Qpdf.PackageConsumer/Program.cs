@@ -89,6 +89,20 @@ internal static class Program
         await CheckOutputAsync(repairHost, "outputs/repaired.pdf", "First");
         Console.WriteLine("PASS bounded repair of damaged input");
 
+        byte[] syntaxDamage = (byte[])input.Clone();
+        int scalarAt = Encoding.ASCII.GetString(syntaxDamage).IndexOf("/BaseFont /Helvetica", StringComparison.Ordinal);
+        Check(scalarAt >= 0, "parser smoke scalar marker");
+        syntaxDamage[scalarAt + "/BaseFont ".Length] = (byte)' ';
+        InMemoryQpdfHost parserHost = NewHost("inputs/syntax.pdf", syntaxDamage);
+        QpdfExecutionResult repairedObject = await Qpdf.ExecuteAsync(parserHost,
+            new QpdfCommandInvocation(["inputs/syntax.pdf", "--parser-max-errors=2", "--show-object=7"]), CancellationToken.None);
+        Check(repairedObject.ExitCode == QpdfExitCode.Warning, "syntax repair warning");
+        Check(repairedObject.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.RepairedObject), "public repair diagnostic");
+        Check(repairedObject.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Contains("/BaseFont (Helvetica)", StringComparison.Ordinal)), "repaired scalar is readable");
+        Check(parserHost.OpenLeaseCount == 0L, "parser smoke leases closed");
+        Console.WriteLine("PASS valid-xref object syntax repair and public diagnostic");
+
+
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

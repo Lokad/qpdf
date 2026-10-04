@@ -1220,7 +1220,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1244,6 +1244,12 @@ internal static class JobJsonParser
                     Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
                 };
             }
 
@@ -1254,7 +1260,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1279,6 +1285,12 @@ internal static class JobJsonParser
                     IgnoreXrefStreams = ignoreXrefStreams,
                     WithImages = withImages,
                     NoWarn = noWarn,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
                 };
             }
 
@@ -1289,7 +1301,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1316,6 +1328,12 @@ internal static class JobJsonParser
                     Output = output is null ? null : SelectionPlan.CheckedPath(output),
                     RawStreamData = rawStreamData,
                     FilteredStreamData = filteredStreamData,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
                 };
             }
 
@@ -1326,7 +1344,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1350,6 +1368,12 @@ internal static class JobJsonParser
                     Progress = progress,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
                 };
             }
 

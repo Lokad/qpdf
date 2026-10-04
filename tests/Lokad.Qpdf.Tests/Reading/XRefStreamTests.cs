@@ -211,7 +211,7 @@ public sealed class XRefStreamTests
         };
         PdfDictionary trailer = new(new System.Collections.Generic.Dictionary<PdfName, QpdfObject>());
         var table = new XRefTable(0L, entries, trailer, [trailer]);
-        var engine = new DocumentEngine(data, table, limits, governor, new DiagnosticBag(governor));
+        var engine = new DocumentEngine(data, table, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict);
         long before = GC.GetAllocatedBytesForCurrentThread();
         try { engine.Load(6); } catch (QpdfException) { }
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;

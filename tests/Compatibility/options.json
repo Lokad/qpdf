@@ -1739,12 +1739,13 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object error budgets with tolerant trial parsing remain follow-up work; the interim counts failed repair trial parses across the scan."
+        "Per-object budgets and valid/rebuilt-xref repair are implemented for the verified damage matrix; complete lexical/numeric damage, damaged-container transitions, orphan-key/error interactions and nested-load evidence before closing the entry."
       ],
       "evidence": {
         "positive": [
-          "RecoveryTests.ErrorsBudgetBoundsRepair",
-          "RecoveryTests.ErrorsBudgetJobParityHolds",
+          "TolerantParserTests.RepairsMatchPinnedObjectValues",
+          "TolerantObjectLoadingTests.ActualLoadsRepairBothValidAndBrokenXrefs",
+          "RecoveryTests.ErrorsBudgetDoesNotCountFailedCandidatesAcrossTheScan",
           "RecoveryTests.ErrorsZeroRemovesThreshold",
           "GlobalLimitsTests.ParserMaxErrorsZeroJobAccepted"
         ],
@@ -1752,22 +1753,26 @@
           "GlobalLimitsTests.BadParserMaxErrorsValuesFail",
           "GlobalLimitsTests.DuplicateParserMaxErrorsFails",
           "GlobalLimitsTests.BadParserMaxErrorsJobKeysFail",
-          "RecoveryTests.ErrorsDefaultFailsLargeStorm",
+          "TolerantObjectLoadingTests.StrictPublicPathsRejectValidXrefSyntaxDamage",
           "RecoveryTests.ErrorsBudgetStrictUnaffected"
         ],
         "interaction": [
-          "RecoveryTests.ErrorsBudgetJobParityHolds",
-          "RecoveryTests.NoDefaultLimitsLiftsErrorBudget",
-          "RecoveryTests.NoDefaultLimitsExplicitErrorWins"
+          "TolerantObjectLoadingTests.RewrittenRepairedValuesRemainReadableWithArgvJobParity",
+          "TolerantObjectLoadingTests.ManyDamagedObjectsDoNotShareAnErrorBudget",
+          "TolerantObjectLoadingTests.NoDefaultLimitsLiftsOnlyUnspecifiedErrorThreshold",
+          "TolerantParserTests.CompressedMembersHaveIndependentBudgetsAndReadableValues",
+          "RecoveryTests.ExplicitErrorUnderNoDefaultLimitsDoesNotCountScanCandidates"
         ],
         "resource": [
           "GlobalLimitsTests.ParserMaxErrorsRespectsTightHost",
-          "RecoveryTests.ErrorsBudgetTightHostStillBounds",
-          "GlobalLimitsTests.ParserMaxErrorsValidationAllowsZeroUnlimited",
-          "GlobalLimitsTests.FlagCannotRaiseExplicitDefaultHostBudget"
+          "GlobalLimitsTests.FlagCannotRaiseExplicitDefaultHostBudget",
+          "TolerantParserTests.LongDamagedWordsRemainSubjectToWorkBudget",
+          "TolerantParserTests.DiagnosticBudgetFailuresPropagateDuringRepair",
+          "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
         ],
         "oracle": [
-          "diff:recovery"
+          "diff:recovery",
+          "parser:per-object-budgets"
         ]
       }
     },
@@ -2526,10 +2531,10 @@
         ],
         "resource": [
           "DctDecodeTests.OversizedFrameFailsBeforeAllocation",
-        "DctDecodeTests.LargeFrameChargesConcurrentCodecAndSampleOwners",
-        "DctDecodeTests.ConcurrentFrameBudgetRejectsAndReleasesCodecOwners",
-        "DctDecodeTests.DecodeBudgetFailurePreservesPublishedTarget",
-        "JpegMemoryAllocatorTests.TightBudgetRejectsBeforeCreatingTheRequestedArray",
+          "DctDecodeTests.LargeFrameChargesConcurrentCodecAndSampleOwners",
+          "DctDecodeTests.ConcurrentFrameBudgetRejectsAndReleasesCodecOwners",
+          "DctDecodeTests.DecodeBudgetFailurePreservesPublishedTarget",
+          "JpegMemoryAllocatorTests.TightBudgetRejectsBeforeCreatingTheRequestedArray",
           "DctDecodeTests.CancelledDecodeFailsFast",
           "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
           "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation",
@@ -3277,11 +3282,11 @@
         "interaction": [
           "ImageOptimizeTests.JobMalformedFails"
         ],
-      "resource": [
-        "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
-        "JpegEncodeTests.EncodedOutputLimitReleasesAllWorkingOwners",
-        "JpegEncodeTests.TightMemoryAdmissionPrecedesFrameAllocation",
-        "JpegEncodeTests.EncodingLeavesOnlyTheReturnedBytesCharged"
+        "resource": [
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+          "JpegEncodeTests.EncodedOutputLimitReleasesAllWorkingOwners",
+          "JpegEncodeTests.TightMemoryAdmissionPrecedesFrameAllocation",
+          "JpegEncodeTests.EncodingLeavesOnlyTheReturnedBytesCharged"
         ],
         "oracle": [
           "diff:optimize"

@@ -133,7 +133,7 @@ internal static class CanonicalDisplay
             builder.Append("<<");
             foreach (KeyValuePair<byte[], PdfName> entry in keys)
             {
-                if (!dictionary.TryGet(entry.Value, out QpdfObject? member) || member is null)
+                if (!dictionary.TryGet(entry.Value, out QpdfObject? member) || member is null or PdfNull)
                 {
                     continue;
                 }

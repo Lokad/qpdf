@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Globalization;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -12,7 +13,7 @@ internal interface IIndirectResolver
 }
 
 /// <summary>
-/// Strict PDF object parser over bytes. Containers recurse with an explicit
+/// PDF object parser with explicit strict and repair policies. Containers recurse with an explicit
 /// depth budget; every value charges work and every copy reserves memory
 /// before allocating. Duplicate dictionary keys resolve last-wins with a
 /// recorded warning, matching the upstream reference behavior.
@@ -40,6 +41,102 @@ internal sealed class PdfParser
         _resolver = resolver;
     }
 
+    /// <summary>Allows object syntax repair without relaxing host resource ceilings.</summary>
+    internal bool TolerateObjectErrors { get; set; }
+
+    /// <summary>Budgeted errors encountered in the current object.</summary>
+    internal long ToleratedErrors { get; private set; }
+
+    internal bool ObjectAborted { get; private set; }
+
+    internal bool SanityChecks { get; set; }
+
+    internal bool SuppressRepairDiagnostics { get; set; }
+
+    private int _nearbyErrors;
+    private int _goodTokens;
+
+    internal void BeginTolerantObject()
+    {
+        ObjectAborted = false;
+        ToleratedErrors = 0L;
+        _nearbyErrors = 0;
+        _goodTokens = 0;
+    }
+
+    private sealed class RepairAbort : Exception;
+
+    private void WarnRepair(string detail, long offset)
+    {
+        if (SuppressRepairDiagnostics)
+        {
+            // Trial damage is summarized by RecoveryEngaged. Loaded objects
+            // report their own repairs, avoiding repeated scan diagnostics.
+            return;
+        }
+
+        _diagnostics.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning,
+            $"Object syntax repair at offset {offset.ToString(CultureInfo.InvariantCulture)}: {detail}");
+    }
+
+    private void CountToleratedError(long offset)
+    {
+        ToleratedErrors = checked(ToleratedErrors + 1L);
+        if (_limits.MaxParserErrors != 0L && ToleratedErrors >= _limits.MaxParserErrors)
+        {
+            WarnRepair("limits error(parser-max-errors): too many errors; treating object as null.", offset);
+            throw new RepairAbort();
+        }
+
+        // The incoming token was counted optimistically. Four intervening good
+        // tokens break the proximity cluster; they do not reset the total budget.
+        _nearbyErrors = _goodTokens > 4 ? 1 : _nearbyErrors + 1;
+        _goodTokens = 0;
+        if (_nearbyErrors > 5)
+        {
+            WarnRepair("Too many errors in close proximity; treating object as null.", offset);
+            throw new RepairAbort();
+        }
+    }
+
+    private bool TryReadValueToken(PdfTokenizer tokenizer, out PdfToken token)
+    {
+        _governor.ChargeWork(1L);
+        bool found = tokenizer.TryReadToken(out token, TolerateObjectErrors, _governor);
+        if (found && TolerateObjectErrors)
+        {
+            _goodTokens = Math.Min(5, _goodTokens + 1);
+        }
+
+        return found;
+    }
+
+    private void UnterminatedContainer(string kind, long offset)
+    {
+        if (!TolerateObjectErrors)
+        {
+            throw new QpdfParseException($"Unterminated {kind}.", offset, null);
+        }
+
+        WarnRepair("Unterminated container; treating object as null.", offset);
+        throw new RepairAbort();
+    }
+
+    /// <summary>Parses one object-stream member with independent error state.</summary>
+    internal QpdfObject ParseObjectValue(PdfTokenizer tokenizer, int depth)
+    {
+        BeginTolerantObject();
+        try
+        {
+            return ParseValue(tokenizer, depth);
+        }
+        catch (RepairAbort) when (TolerateObjectErrors)
+        {
+            ObjectAborted = true;
+            return PdfNull.Instance;
+        }
+    }
+
     internal QpdfObject ParseValue(PdfTokenizer tokenizer, int depth)
     {
         if (tokenizer is null)
@@ -52,10 +149,19 @@ internal sealed class PdfParser
             throw new QpdfParseException($"Nesting depth exceeds {_limits.MaxNestingDepth}.", tokenizer.Position, null);
         }
 
-        _governor.ChargeWork(1L);
-        if (!tokenizer.TryReadToken(out PdfToken token))
+        if (!TryReadValueToken(tokenizer, out PdfToken token))
         {
             throw new QpdfParseException("Unexpected end of input while parsing a value.", tokenizer.Position, null);
+        }
+
+        return ParseToken(tokenizer, token, depth);
+    }
+
+    private QpdfObject ParseToken(PdfTokenizer tokenizer, PdfToken token, int depth)
+    {
+        if (depth > _limits.MaxNestingDepth)
+        {
+            throw new QpdfParseException($"Nesting depth exceeds {_limits.MaxNestingDepth}.", token.Offset, null);
         }
 
         switch (token.Kind)
@@ -73,15 +179,46 @@ internal sealed class PdfParser
             case PdfTokenKind.Name:
                 return ParseName(token);
             case PdfTokenKind.LiteralString:
-                return new PdfByteString(UnescapeLiteral(token.Data, token.Offset), hex: false);
+                return ParseByteString(token, false);
             case PdfTokenKind.HexString:
-                return new PdfByteString(DecodeHex(token.Data, token.Offset), hex: true);
+                return ParseByteString(token, true);
             case PdfTokenKind.ArrayOpen:
                 return ParseArray(tokenizer, depth);
             case PdfTokenKind.DictionaryOpen:
                 return ParseDictionaryOrStream(tokenizer, depth, token.Offset);
+            case PdfTokenKind.EndObject when TolerateObjectErrors && depth == 0:
+                tokenizer.SetPosition(token.Offset);
+                WarnRepair("Empty object treated as null.", token.Offset);
+                return PdfNull.Instance;
             default:
-                throw new QpdfParseException($"Unexpected token {token.Kind} while parsing a value.", token.Offset, null);
+                if (!TolerateObjectErrors)
+                {
+                    throw new QpdfParseException($"Unexpected token {token.Kind} while parsing a value.", token.Offset, null);
+                }
+
+                if (SanityChecks && token.Kind is PdfTokenKind.EndObject or PdfTokenKind.EndStream
+                    or PdfTokenKind.ArrayClose or PdfTokenKind.DictionaryClose)
+                {
+                    WarnRepair("Unexpected terminator during xref trial parsing; treating object as null.", token.Offset);
+                    throw new RepairAbort();
+                }
+
+                bool word = !SanityChecks && token.Kind is not (PdfTokenKind.ArrayClose or PdfTokenKind.DictionaryClose or PdfTokenKind.BadToken);
+                WarnRepair(word ? "Unknown token treated as string." : "Unexpected token treated as null.", token.Offset);
+                if (depth > 0)
+                {
+                    CountToleratedError(token.Offset);
+                }
+
+                if (!word)
+                {
+                    return PdfNull.Instance;
+                }
+
+                _governor.ReserveMemory(checked((token.Data.Length * 2L) + 96L));
+                PdfByteString repaired = new(token.Data.ToArray(), hex: false);
+                _governor.ReleaseMemory(checked(token.Data.Length + 32L));
+                return repaired;
         }
     }
 
@@ -92,27 +229,46 @@ internal sealed class PdfParser
             throw new ArgumentNullException(nameof(tokenizer));
         }
 
-        if (!tokenizer.TryReadToken(out PdfToken numberToken) || numberToken.Kind != PdfTokenKind.Integer)
+        BeginTolerantObject();
+        if (!tokenizer.TryReadToken(out PdfToken numberToken, false, _governor) || numberToken.Kind != PdfTokenKind.Integer)
         {
             throw new QpdfParseException("Expected an object number.", tokenizer.Position, null);
         }
 
-        if (!tokenizer.TryReadToken(out PdfToken generationToken) || generationToken.Kind != PdfTokenKind.Integer)
+        if (!tokenizer.TryReadToken(out PdfToken generationToken, false, _governor) || generationToken.Kind != PdfTokenKind.Integer)
         {
             throw new QpdfParseException("Expected an object generation.", numberToken.Offset, null);
         }
 
-        if (!tokenizer.TryReadToken(out PdfToken objToken) || objToken.Kind != PdfTokenKind.Object)
+        if (!tokenizer.TryReadToken(out PdfToken objToken, false, _governor) || objToken.Kind != PdfTokenKind.Object)
         {
             throw new QpdfParseException("Expected 'obj'.", numberToken.Offset, null);
         }
 
         int number = ParseObjectNumber(numberToken);
         int generation = ParseGeneration(generationToken);
-        QpdfObject value = ParseValue(tokenizer, depth);
-        if (!tokenizer.TryReadToken(out PdfToken endToken) || endToken.Kind != PdfTokenKind.EndObject)
+        QpdfObject value;
+        try
         {
-            throw new QpdfParseException("Expected 'endobj'.", numberToken.Offset, number);
+            value = ParseValue(tokenizer, depth);
+        }
+        catch (RepairAbort) when (TolerateObjectErrors)
+        {
+            ObjectAborted = true;
+            return (number, generation, PdfNull.Instance);
+        }
+
+        long beforeEnd = tokenizer.Position;
+        if (!tokenizer.TryReadToken(out PdfToken endToken, TolerateObjectErrors, _governor)
+            || endToken.Kind != PdfTokenKind.EndObject)
+        {
+            if (!TolerateObjectErrors)
+            {
+                throw new QpdfParseException("Expected 'endobj'.", numberToken.Offset, number);
+            }
+
+            tokenizer.SetPosition(beforeEnd);
+            WarnRepair("Missing endobj after the object value.", beforeEnd);
         }
 
         return (number, generation, value);
@@ -121,12 +277,29 @@ internal sealed class PdfParser
     private QpdfObject ParseIntegerOrReference(PdfTokenizer tokenizer, PdfToken first)
     {
         long saved = tokenizer.Position;
-        if (tokenizer.TryReadToken(out PdfToken second) && second.Kind == PdfTokenKind.Integer
-            && tokenizer.TryReadToken(out PdfToken third) && third.Kind == PdfTokenKind.Reference)
+        bool reference = false;
+        PdfToken second = default;
+        try
         {
-            int number = ParseObjectNumber(first);
-            int generation = ParseGeneration(second);
-            return new PdfReference(number, generation);
+            reference = tokenizer.TryReadToken(out second, TolerateObjectErrors, _governor)
+                && second.Kind == PdfTokenKind.Integer
+                && tokenizer.TryReadToken(out PdfToken third, TolerateObjectErrors, _governor)
+                && third.Kind == PdfTokenKind.Reference;
+        }
+        catch (QpdfParseException)
+        {
+            // Lookahead must not turn a valid integer into the following token's
+            // error. Leave that token for the owning container to read once.
+        }
+
+        if (reference)
+        {
+            if (TolerateObjectErrors)
+            {
+                _goodTokens = Math.Min(5, _goodTokens + 2);
+            }
+
+            return new PdfReference(ParseObjectNumber(first), ParseGeneration(second));
         }
 
         tokenizer.SetPosition(saved);
@@ -219,9 +392,40 @@ internal sealed class PdfParser
 
     private QpdfObject ParseName(PdfToken token)
     {
-        byte[] raw = UnescapeName(token.Data, token.Offset);
-        _governor.ReserveMemory(raw.Length);
-        return new PdfName(raw);
+        // Unescaping may overlap a full-size array, trimmed result and immutable
+        // object's private copy. Admit the conservative overlap before any copy.
+        long admitted = checked((token.Data.Length * 3L) + 128L);
+        _governor.ReserveMemory(admitted);
+        try
+        {
+            byte[] raw = UnescapeName(token.Data, token.Offset);
+            PdfName name = new(raw);
+            _governor.ReleaseMemory(admitted - checked(raw.Length + 64L));
+            return name;
+        }
+        catch
+        {
+            _governor.ReleaseMemory(admitted);
+            throw;
+        }
+    }
+
+    private QpdfObject ParseByteString(PdfToken token, bool hex)
+    {
+        long admitted = checked((token.Data.Length * 3L) + 128L);
+        _governor.ReserveMemory(admitted);
+        try
+        {
+            byte[] raw = hex ? DecodeHex(token.Data, token.Offset) : UnescapeLiteral(token.Data, token.Offset);
+            PdfByteString value = new(raw, hex);
+            _governor.ReleaseMemory(admitted - checked(raw.Length + 64L));
+            return value;
+        }
+        catch
+        {
+            _governor.ReleaseMemory(admitted);
+            throw;
+        }
     }
 
     private QpdfObject ParseArray(PdfTokenizer tokenizer, int depth)
@@ -230,9 +434,9 @@ internal sealed class PdfParser
         List<QpdfObject> items = new();
         while (true)
         {
-            if (!tokenizer.TryReadToken(out PdfToken token))
+            if (!TryReadValueToken(tokenizer, out PdfToken token))
             {
-                throw new QpdfParseException("Unterminated array.", tokenizer.Position, null);
+                UnterminatedContainer("array", tokenizer.Position);
             }
 
             if (token.Kind == PdfTokenKind.ArrayClose)
@@ -240,14 +444,13 @@ internal sealed class PdfParser
                 return new PdfArray(items);
             }
 
-            tokenizer.SetPosition(token.Offset);
-            _governor.ReserveMemory(16L);
             if (items.Count >= _limits.MaxContainerSize)
             {
                 throw new QpdfParseException($"Array holds more than {_limits.MaxContainerSize} top-level items.", token.Offset, null);
             }
 
-            items.Add(ParseValue(tokenizer, depth + 1));
+            _governor.ReserveMemory(16L);
+            items.Add(ParseToken(tokenizer, token, depth + 1));
         }
     }
 
@@ -255,11 +458,12 @@ internal sealed class PdfParser
     {
         _governor.ReserveMemory(64L);
         Dictionary<PdfName, QpdfObject> entries = new();
+        List<QpdfObject>? missingKeys = null;
         while (true)
         {
-            if (!tokenizer.TryReadToken(out PdfToken token))
+            if (!TryReadValueToken(tokenizer, out PdfToken token))
             {
-                throw new QpdfParseException("Unterminated dictionary.", tokenizer.Position, null);
+                UnterminatedContainer("dictionary", tokenizer.Position);
             }
 
             if (token.Kind == PdfTokenKind.DictionaryClose)
@@ -267,44 +471,133 @@ internal sealed class PdfParser
                 break;
             }
 
-            if (token.Kind != PdfTokenKind.Name)
-            {
-                throw new QpdfParseException($"Dictionary key must be a name, not {token.Kind}.", token.Offset, null);
-            }
-
-            PdfName key = (PdfName)ParseName(token);
-            if (entries.Count >= _limits.MaxContainerSize)
+            if (entries.Count + (long)(missingKeys?.Count ?? 0) >= _limits.MaxContainerSize)
             {
                 throw new QpdfParseException($"Dictionary holds more than {_limits.MaxContainerSize} top-level entries.", token.Offset, null);
             }
 
-            QpdfObject value = ParseValue(tokenizer, depth + 1);
+            if (token.Kind != PdfTokenKind.Name)
+            {
+                if (!TolerateObjectErrors)
+                {
+                    throw new QpdfParseException($"Dictionary key must be a name, not {token.Kind}.", token.Offset, null);
+                }
+
+                if (missingKeys is null)
+                {
+                    _governor.ReserveMemory(32L);
+                    missingKeys = new List<QpdfObject>();
+                }
+
+                _governor.ReserveMemory(16L);
+                missingKeys.Add(ParseToken(tokenizer, token, depth + 1));
+                continue;
+            }
+
+            PdfName key = (PdfName)ParseName(token);
+            if (!TryReadValueToken(tokenizer, out PdfToken valueToken))
+            {
+                UnterminatedContainer("dictionary", tokenizer.Position);
+            }
+
+            bool missingValue = valueToken.Kind == PdfTokenKind.DictionaryClose;
+            QpdfObject value;
+            if (missingValue && TolerateObjectErrors)
+            {
+                WarnRepair("Dictionary key has no value; treating value as null.", valueToken.Offset);
+                value = PdfNull.Instance;
+            }
+            else
+            {
+                value = ParseToken(tokenizer, valueToken, depth + 1);
+            }
+
             if (entries.ContainsKey(key))
             {
-                _diagnostics.Add(
-                    QpdfDiagnosticCode.DuplicateKey,
-                    QpdfDiagnosticSeverity.Warning,
-                    $"Duplicate dictionary key '{key.DisplayText}' keeps the last value.");
+                if (!SuppressRepairDiagnostics)
+                {
+                    _diagnostics.Add(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning,
+                        $"Duplicate dictionary key '{key.DisplayText}' keeps the last value.");
+                }
+                if (TolerateObjectErrors)
+                {
+                    CountToleratedError(token.Offset);
+                }
+            }
+            else
+            {
+                _governor.ReserveMemory(32L);
             }
 
             entries[key] = value;
-            _governor.ReserveMemory(32L);
+            if (missingValue)
+            {
+                break;
+            }
+        }
+
+        if (missingKeys is not null)
+        {
+            long fakeIndex = 0L;
+            foreach (QpdfObject value in missingKeys)
+            {
+                PdfName key = FreshFakeKey(entries, ref fakeIndex);
+                WarnRepair("Inserted a missing dictionary key.", offset);
+                _governor.ReserveMemory(32L);
+                entries.Add(key, value);
+            }
+
+            _governor.ReleaseMemory(checked(32L + (missingKeys.Count * 16L)));
         }
 
         PdfDictionary dictionary = new(entries);
-        if (!tokenizer.TryReadToken(out PdfToken next))
+        long beforeNext = tokenizer.Position;
+        bool nextIsStream = false;
+        try
         {
-            return dictionary;
+            nextIsStream = tokenizer.TryReadToken(out PdfToken next, TolerateObjectErrors, _governor)
+                && next.Kind == PdfTokenKind.Stream;
+            if (nextIsStream)
+            {
+                return ParseStream(tokenizer, dictionary, next.Offset);
+            }
+        }
+        catch (QpdfParseException) when (!nextIsStream)
+        {
+            // Following lexical damage belongs to the outer container.
         }
 
-        if (next.Kind != PdfTokenKind.Stream)
-        {
-            tokenizer.SetPosition(next.Offset);
-            return dictionary;
-        }
-
-        return ParseStream(tokenizer, dictionary, next.Offset);
+        tokenizer.SetPosition(beforeNext);
+        return dictionary;
     }
+
+    private PdfName FreshFakeKey(Dictionary<PdfName, QpdfObject> entries, ref long index)
+    {
+        Span<byte> text = stackalloc byte[32];
+        "QPDFFake"u8.CopyTo(text);
+        while (true)
+        {
+            _governor.ChargeWork(1L);
+            index = checked(index + 1L);
+            if (!Utf8Formatter.TryFormat(index, text[8..], out int count))
+            {
+                throw new QpdfParseException("Dictionary repair key exceeds its supported length.", null, null);
+            }
+
+            long memory = count + 8L + 64L;
+            long scratch = count + 8L + 32L;
+            _governor.ReserveMemory(checked(memory + scratch));
+            PdfName candidate = new(text[..(count + 8)].ToArray());
+            _governor.ReleaseMemory(scratch);
+            if (!entries.ContainsKey(candidate))
+            {
+                return candidate;
+            }
+
+            _governor.ReleaseMemory(memory);
+        }
+    }
+
     private QpdfObject ParseStream(PdfTokenizer tokenizer, PdfDictionary dictionary, long offset)
     {
         long length = ResolveStreamLength(dictionary, offset);
@@ -394,7 +687,7 @@ internal sealed class PdfParser
         throw new QpdfParseException("Stream /Length must be an integer or an indirect reference.", offset, null);
     }
 
-    private static byte[] UnescapeName(ReadOnlyMemory<byte> raw, long offset)
+    private byte[] UnescapeName(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
         byte[] result = new byte[span.Length];
@@ -403,16 +696,18 @@ internal sealed class PdfParser
         {
             if (span[i] == (byte)'#')
             {
-                if (i + 2 >= span.Length)
-                {
-                    throw new QpdfParseException("Truncated '#' escape in name.", offset, null);
-                }
-
-                int hi = HexValue(span[i + 1]);
-                int lo = HexValue(span[i + 2]);
+                int hi = i + 1 < span.Length ? HexValue(span[i + 1]) : -1;
+                int lo = i + 2 < span.Length ? HexValue(span[i + 2]) : -1;
                 if (hi < 0 || lo < 0)
                 {
-                    throw new QpdfParseException("Invalid '#' escape in name.", offset, null);
+                    if (!TolerateObjectErrors)
+                    {
+                        throw new QpdfParseException("Invalid or truncated '#' escape in name.", offset, null);
+                    }
+
+                    WarnRepair("Invalid name escape retained literally.", offset);
+                    result[outCount++] = span[i];
+                    continue;
                 }
 
                 result[outCount] = (byte)((hi << 4) | lo);
@@ -608,4 +903,3 @@ internal sealed class PdfParser
         return new string(chars);
     }
 }
-

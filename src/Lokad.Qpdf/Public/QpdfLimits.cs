@@ -58,7 +58,7 @@ public sealed record QpdfLimits
     /// <summary>Maximum cross-reference sections followed per file.</summary>
     public long MaxRevisions { get; init; } = 64L;
 
-    /// <summary>Maximum errors tolerated while parsing a damaged object; 0 removes the threshold.</summary>
+    /// <summary>Per-object repair error threshold: reaching it replaces the object with null; 0 removes the numeric threshold within host ceilings.</summary>
     public long MaxParserErrors { get; init; } = 15L;
 
     /// <summary>Gets the default budgets.</summary>

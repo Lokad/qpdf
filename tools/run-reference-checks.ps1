@@ -73,3 +73,6 @@ Write-Output "Reference lane passed: oracle and independent readers agree on val
 
 Write-Output "--- differential: library vs oracle outputs ---"
 & (Join-Path $repoRoot 'tools/run-differential-checks.ps1') -QpdfExe $QpdfExe -Configuration $Configuration
+
+Write-Output "--- parser: per-object budgets and repaired values ---"
+& (Join-Path $repoRoot 'tools/run-parser-checks.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll

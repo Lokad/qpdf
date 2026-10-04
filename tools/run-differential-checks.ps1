@@ -1386,7 +1386,7 @@ else {
   Write-Output "[recovery/suppress] exit parity (2/2)"
   if ((Test-Path "$case/lib-s.pdf") -or (Test-Path "$case/ora-s.pdf")) { Write-Output "[recovery/suppress] FAIL: output published despite strict failure"; $script:failures++ }
   else { Write-Output "[recovery/suppress] nothing published on either side" }
-# Error storm: three malformed indirect objects need three tolerated errors.
+# Error storm: independently malformed objects must not consume a scan-wide parser error budget.
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/e.pdf" -Force
 $eraw0 = [IO.File]::ReadAllBytes("$case/inputs/e.pdf")
 $eneedle = [Text.Encoding]::ASCII.GetBytes("startxref`n398")
@@ -1406,9 +1406,9 @@ $ems.Write($eraw, 0, $eraw.Length)
 $ems.Write($estorm, 0, $estorm.Length)
 [IO.File]::WriteAllBytes("$case/inputs/e.pdf", $ems.ToArray())
 $m2 = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/e2.pdf=$case/lib-e2.pdf", '--', 'inputs/e.pdf', '--parser-max-errors=2', '--pages', '.', '1', '--', "outputs/e2.pdf") 'errors-tight'
-if ($m2 -ne 2) { Write-Output "[recovery/errors-tight] FAIL: exit managed=$m2, expected 2"; $script:failures++ }
-elseif (Test-Path "$case/lib-e2.pdf") { Write-Output "[recovery/errors-tight] FAIL: output published despite exhausted error budget"; $script:failures++ }
-else { Write-Output "[recovery/errors-tight] budget exceeded without output" }
+$o2 = Invoke-Oracle $case @('--global', '--parser-max-errors=2', '--', 'inputs/e.pdf', '--pages', '.', '1', '--', "$case/ora-e2.pdf")
+if ($m2 -ne 3 -or $o2 -ne 3) { Write-Output "[recovery/errors-tight] FAIL: exits managed=$m2 oracle=$o2, expected 3/3"; $script:failures++ }
+else { Assert-Trio 'recovery/errors-tight' "$case/lib-e2.pdf" "$case/ora-e2.pdf" 1 }
 $m5 = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/e5.pdf=$case/lib-e5.pdf", '--', 'inputs/e.pdf', '--parser-max-errors=5', '--pages', '.', '1', '--', "outputs/e5.pdf") 'errors-loose'
 if ($m5 -ne 3) { Write-Output "[recovery/errors-loose] FAIL: exit managed=$m5, expected 3"; $script:failures++ }
 elseif (-not (Test-Path "$case/lib-e5.pdf")) { Write-Output "[recovery/errors-loose] FAIL: no output published within budget"; $script:failures++ }
@@ -1418,10 +1418,8 @@ else {
   if ($libN -ne 1 -or $libP -ne 1) { Write-Output "[recovery/errors-loose] FAIL: page counts lib=$libN/$libP, expected 1"; $script:failures++ }
   else { Write-Output "[recovery/errors-loose] repaired page counts agree (1)" }
 }
-# Large-storm legs: twenty malformed objects exceed the default budget of 15.
-# Finite budgets diverge here by counting unit (managed counts failed candidates,
-# the oracle counts errors within objects), so the agreeing legs below use matching
-# explicit zero and --no-default-limits budgets, plus a finite budget on the small storm.
+# Twenty malformed objects exercise per-object reset under default, finite,
+# explicit zero and --no-default-limits controls.
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/e20.pdf" -Force
 $eraw20 = [IO.File]::ReadAllBytes("$case/inputs/e20.pdf")
 $eneedle20 = [Text.Encoding]::ASCII.GetBytes("startxref`n398")
@@ -1442,6 +1440,10 @@ $m5o = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs
 $o5o = Invoke-Oracle $case @('--global', '--parser-max-errors=5', '--', 'inputs/e.pdf', '--pages', '.', '1', '--', "$case/ora-e5o.pdf")
 if ($m5o -ne 3 -or $o5o -ne 3) { Write-Output "[recovery/errors-budget-oracle] FAIL: exits managed=$m5o oracle=$o5o, expected 3/3"; $script:failures++ }
 else { Assert-Trio 'recovery/errors-budget-oracle' "$case/lib-e5o.pdf" "$case/ora-e5o.pdf" 1 }
+$md = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/ed.pdf=$case/lib-ed.pdf", '--', 'inputs/e20.pdf', '--pages', '.', '1', '--', 'outputs/ed.pdf') 'errors-default'
+$od = Invoke-Oracle $case @('inputs/e20.pdf', '--pages', '.', '1', '--', "$case/ora-ed.pdf")
+if ($md -ne 3 -or $od -ne 3) { Write-Output "[recovery/errors-default] FAIL: exits managed=$md oracle=$od, expected 3/3"; $script:failures++ }
+else { Assert-Trio 'recovery/errors-default' "$case/lib-ed.pdf" "$case/ora-ed.pdf" 1 }
 $m0 = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/e0.pdf=$case/lib-e0.pdf", '--', 'inputs/e20.pdf', '--parser-max-errors=0', '--pages', '.', '1', '--', 'outputs/e0.pdf') 'errors-zero'
 $o0 = Invoke-Oracle $case @('--global', '--parser-max-errors=0', '--', 'inputs/e20.pdf', '--pages', '.', '1', '--', "$case/ora-e0.pdf")
 if ($m0 -ne 3 -or $o0 -ne 3) { Write-Output "[recovery/errors-zero] FAIL: exits managed=$m0 oracle=$o0, expected 3/3"; $script:failures++ }

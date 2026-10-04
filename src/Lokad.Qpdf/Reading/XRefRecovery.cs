@@ -7,8 +7,8 @@ namespace Lokad.Qpdf.Reading;
 /// <summary>
 /// Bounded cross-reference repair, separate from strict resolution so heuristics
 /// can never weaken the strict contract. Scans for indirect object headers,
-/// trial-parses each candidate, keeps the last valid occurrence, aborts after
-/// MaxParserErrors failed trial parses (0 removes the interim threshold), and fills
+/// trial-parses each candidate with per-object error tolerance, keeps the last valid
+/// occurrence, bounds scan work through the host governor, and fills
 /// unscanned gaps as free. The tail trailer wins when its root resolves;
 /// otherwise the last scanned catalog wins.
 /// </summary>
@@ -45,7 +45,7 @@ internal static class XRefRecovery
         limits.Validate();
         long maxId = data.Length / 3L;
         Dictionary<int, XrefEntry> entries = new();
-        QpdfLimits damaged = limits with { MaxContainerSize = limits.MaxContainerSizeDamaged };
+        QpdfLimits damaged = limits with { MaxContainerSize = Math.Min(limits.MaxContainerSize, limits.MaxContainerSizeDamaged) };
         int? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries);
         if (entries.Count == 0)
         {
@@ -152,9 +152,11 @@ internal static class XRefRecovery
         Dictionary<int, XrefEntry> entries)
     {
         int? lastCatalog = null;
-        long errors = 0L;
         ReadOnlySpan<byte> span = data.Span;
         PdfParser parser = new(limits, governor, diagnostics, null);
+        parser.TolerateObjectErrors = true;
+        parser.SanityChecks = true;
+        parser.SuppressRepairDiagnostics = true;
         long chargedThrough = 0L;
         int position = 0;
         while (position < span.Length)
@@ -162,6 +164,7 @@ internal static class XRefRecovery
             if (position - chargedThrough >= ScanWindowBytes)
             {
                 governor.ChargeWork(1L);
+                governor.CheckCancellation();
                 chargedThrough = position;
             }
 
@@ -188,7 +191,7 @@ internal static class XRefRecovery
             }
 
             int afterNumber = position;
-            position = SkipWhitespace(span, position);
+            position = SkipWhitespace(span, position, governor);
             if (position == afterNumber || position >= span.Length || !IsDigit(span[position]))
             {
                 position = numberStart + 1;
@@ -211,7 +214,7 @@ internal static class XRefRecovery
             }
 
             int afterGeneration = position;
-            position = SkipWhitespace(span, position);
+            position = SkipWhitespace(span, position, governor);
             if (position == afterGeneration || position + 3 > span.Length
                 || span[position] != (byte)'o' || span[position + 1] != (byte)'b' || span[position + 2] != (byte)'j')
             {
@@ -226,16 +229,7 @@ internal static class XRefRecovery
             }
 
             governor.ChargeWork(1L);
-            QpdfObject? value = TryParseObject(data, limits, governor, diagnostics, parser, numberStart, (int)number, (int)generation, out bool errored);
-            if (errored)
-            {
-                errors += 1L;
-                // Interim counting unit: failed trial parses across the scan. Per-object
-                // error budgets (with tolerant trial parsing) remain follow-up work;
-                // a zero budget already removes this interim threshold like upstream.
-                if (limits.MaxParserErrors != 0L && errors > limits.MaxParserErrors)
-                    throw new QpdfParseException($"Bounded repair exceeded the maximum of {limits.MaxParserErrors} parsable errors at object {number}.", null, null);
-            }
+            QpdfObject? value = TryParseObject(data, parser, numberStart, (int)number, (int)generation);
 
             if (value is not null)
             {
@@ -257,14 +251,10 @@ internal static class XRefRecovery
 
     private static QpdfObject? TryParseObject(
         ReadOnlyMemory<byte> data,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         PdfParser parser,
         int offset,
         int number,
-        int generation,
-        out bool errored)
+        int generation)
     {
         try
         {
@@ -273,16 +263,13 @@ internal static class XRefRecovery
             (int foundNumber, int foundGeneration, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
             if (foundNumber == number && foundGeneration == generation)
             {
-                errored = false;
                 return value;
             }
 
-            errored = false;
             return null;
         }
-        catch (QpdfException)
+        catch (QpdfParseException)
         {
-            errored = true;
             return null;
         }
     }
@@ -304,6 +291,12 @@ internal static class XRefRecovery
         int last = -1;
         for (int i = scanStart; i + 7 <= span.Length; i++)
         {
+            if ((i - scanStart) % ScanWindowBytes == 0)
+            {
+                governor.ChargeWork(1L);
+                governor.CheckCancellation();
+            }
+
             if (span[i] == (byte)'t' && span[i + 1] == (byte)'r' && span[i + 2] == (byte)'a'
                 && span[i + 3] == (byte)'i' && span[i + 4] == (byte)'l' && span[i + 5] == (byte)'e'
                 && span[i + 6] == (byte)'r')
@@ -348,16 +341,24 @@ internal static class XRefRecovery
             tailDictionary = trailer;
             return true;
         }
-        catch (QpdfException)
+        catch (QpdfParseException)
         {
             return false;
         }
     }
 
-    private static int SkipWhitespace(ReadOnlySpan<byte> span, int position)
+    private static int SkipWhitespace(ReadOnlySpan<byte> span, int position, ResourceGovernor governor)
     {
+        int checkedThrough = position;
         while (position < span.Length)
         {
+            if (position - checkedThrough >= ScanWindowBytes)
+            {
+                governor.ChargeWork(1L);
+                governor.CheckCancellation();
+                checkedThrough = position;
+            }
+
             byte current = span[position];
             if (current != (byte)' ' && current != (byte)'\t' && current != (byte)'\n'
                 && current != (byte)'\r' && current != (byte)'\f' && current != 0)

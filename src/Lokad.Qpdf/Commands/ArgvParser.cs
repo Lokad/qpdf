@@ -38,6 +38,19 @@ internal static class ArgvParser
 
         argv = StripGlobalBlocks(argv);
         GlobalOptions globals = ExtractGlobalOptions(ref argv);
+        return ParseCore(argv, globals) with
+        {
+            MaxStreamFilters = globals.MaxStreamFilters,
+            ParserMaxNesting = globals.ParserMaxNesting,
+            MaxContainerSize = globals.MaxContainerSize,
+            MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+            ParserMaxErrors = globals.ParserMaxErrors,
+            NoDefaultLimits = globals.NoDefaultLimits,
+        };
+    }
+
+    private static JobPlan ParseCore(IReadOnlyList<string> argv, GlobalOptions globals)
+    {
         QpdfRecoveryMode recovery = globals.Recovery;
         int checkAt = FindFlag(argv, "--check");
         int checkLinearizationAt = FindFlag(argv, "--check-linearization");

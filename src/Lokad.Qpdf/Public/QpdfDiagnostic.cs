@@ -87,6 +87,8 @@ public enum QpdfDiagnosticCode
 
     /// <summary>A form-tree finding kept as a warning; processing continues.</summary>
     FormStructureWarning = 22,
+    /// <summary>Object syntax was repaired, or a damaged object was replaced with null.</summary>
+    RepairedObject = 23,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>
@@ -110,4 +112,3 @@ public sealed record QpdfDiagnostic
         Message = message ?? throw new ArgumentNullException(nameof(message));
     }
 }
-

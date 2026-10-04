@@ -5058,7 +5058,13 @@ public static class Qpdf
 
         if (plan.ParserMaxErrors is long parserMaxErrors)
         {
-            RequireParserCeiling(nameof(QpdfLimits.MaxParserErrors), parserMaxErrors, host.MaxParserErrors, hostExplicit);
+            // Zero means unlimited semantic errors, not a tighter numeric cap.
+            if (hostExplicit && host.MaxParserErrors != 0L
+                && (parserMaxErrors == 0L || parserMaxErrors > host.MaxParserErrors))
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxParserErrors),
+                    parserMaxErrors == 0L ? long.MaxValue : parserMaxErrors, host.MaxParserErrors);
+            }
             limits = limits with { MaxParserErrors = parserMaxErrors };
         }
 

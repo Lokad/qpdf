@@ -290,7 +290,6 @@ public sealed class GlobalLimitsTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxNesting\": 499}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"global\": {\"parserMaxNesting\": 499}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxNesting\": 500}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxNesting\": -1}}")]
@@ -718,7 +717,6 @@ public sealed class GlobalLimitsTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxContainerSize\": 100}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"global\": {\"parserMaxContainerSizeDamaged\": 100}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxContainerSize\": -1}}")]
     public async Task BadNestedContainerKeysFail(string job)
@@ -861,4 +859,19 @@ public sealed class GlobalLimitsTests
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
+
+    [Fact]
+    public async Task InspectionGlobalControlsApplyWithArgvJobParity()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDeepPage(300));
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--show-npages", "--parser-max-nesting=499", "--parser-max-container-size=1000"]), CancellationToken.None);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"inputs/a.pdf","showNpages":true,"global":{"parserMaxNesting":499,"parserMaxContainerSize":1000}}""", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.Equal(argv.Diagnostics.Select(d => d.Message), job.Diagnostics.Select(d => d.Message));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
 }

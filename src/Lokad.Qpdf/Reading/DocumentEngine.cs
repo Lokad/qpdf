@@ -20,7 +20,7 @@ internal sealed class DocumentEngine : IIndirectResolver
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
-    private readonly PdfParser _parser;
+    private readonly QpdfRecoveryMode _recovery;
     private readonly Dictionary<int, QpdfObject> _cache = new();
     private readonly HashSet<int> _decodingStreams = new();
     private readonly HashSet<int> _loading = new();
@@ -30,14 +30,15 @@ internal sealed class DocumentEngine : IIndirectResolver
         XRefTable table,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics)
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery)
     {
         _data = data;
         _table = table;
         _limits = limits ?? throw new ArgumentNullException(nameof(limits));
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
-        _parser = new PdfParser(limits, governor, diagnostics, this);
+        _recovery = recovery;
         limits.Validate();
     }
 
@@ -143,7 +144,27 @@ internal sealed class DocumentEngine : IIndirectResolver
             _governor.ChargeWork(1L);
             PdfTokenizer tokenizer = new(_data);
             tokenizer.SetPosition(entry.First);
-            (int foundNumber, int foundGeneration, QpdfObject value) = _parser.ParseIndirectObject(tokenizer, 0);
+            _governor.ReserveMemory(128L);
+            int foundNumber;
+            int foundGeneration;
+            QpdfObject value;
+            try
+            {
+                bool reconstructed = _table.XrefOffset < 0L;
+                QpdfLimits parserLimits = reconstructed
+                    ? _limits with { MaxContainerSize = Math.Min(_limits.MaxContainerSize, _limits.MaxContainerSizeDamaged) }
+                    : _limits;
+                PdfParser parser = new(parserLimits, _governor, _diagnostics, this)
+                {
+                    TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
+                    SanityChecks = reconstructed,
+                };
+                (foundNumber, foundGeneration, value) = parser.ParseIndirectObject(tokenizer, 0);
+            }
+            finally
+            {
+                _governor.ReleaseMemory(128L);
+            }
             if (foundNumber != number || foundGeneration != entry.Second)
             {
                 throw new QpdfParseException($"Object header contradicts its xref entry for object {number}.", entry.First, number);
@@ -250,11 +271,23 @@ internal sealed class DocumentEngine : IIndirectResolver
                 int start = first + pairs[i].Offset;
                 int end = i + 1 < pairs.Count ? first + pairs[i + 1].Offset : decoded.Length;
                 PdfTokenizer tokenizer = new(decoded.AsMemory(start, end - start));
-                QpdfObject value = _parser.ParseValue(tokenizer, 0);
-                tokenizer.SkipWhitespaceAndComments();
-                if (tokenizer.TryReadToken(out PdfToken _))
+                _governor.ReserveMemory(128L);
+                QpdfObject value;
+                try
                 {
-                    throw new QpdfParseException($"Object stream {streamNumber} entry {pairs[i].Number} has trailing bytes.", null, pairs[i].Number);
+                    PdfParser parser = new(_limits, _governor, _diagnostics, this)
+                    {
+                        TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
+                    };
+                    value = parser.ParseObjectValue(tokenizer, 0);
+                    if (!parser.ObjectAborted && tokenizer.TryReadToken(out PdfToken _, false, _governor))
+                    {
+                        throw new QpdfParseException($"Object stream {streamNumber} entry {pairs[i].Number} has trailing bytes.", null, pairs[i].Number);
+                    }
+                }
+                finally
+                {
+                    _governor.ReleaseMemory(128L);
                 }
 
                 if (_table.Entries.TryGetValue(pairs[i].Number, out XrefEntry target)
