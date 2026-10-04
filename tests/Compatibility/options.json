@@ -4266,7 +4266,7 @@
       ],
       "milestone": "M8",
       "status": "partial",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [
         "Four-component CMYK images are never eligible for recompression: the approved codec cannot decode their raw samples (work item 133 decision), so no encode path can exist. Permanent."
       ],
