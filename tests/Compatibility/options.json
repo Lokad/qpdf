@@ -6220,7 +6220,7 @@
       "parameter": null,
       "choices": [],
       "jobJsonPaths": [
-        "warningExit-0"
+        "warningExit0"
       ],
       "scope": "required",
       "choiceScopes": {},

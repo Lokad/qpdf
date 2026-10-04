@@ -153,6 +153,34 @@ public sealed class CompatibilityInventoryTests
         }
     }
 
+    [Fact]
+    public void JobJsonPathsUseCamelCaseKeys()
+    {
+        using var inventory = ReadInventory();
+        var bad = new List<string>();
+        foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            foreach (var path in entry.GetProperty("jobJsonPaths").EnumerateArray())
+            {
+                string? value = path.GetString();
+                if (string.IsNullOrEmpty(value))
+                {
+                    continue;
+                }
+
+                foreach (string segment in value.Split('.'))
+                {
+                    if (segment.Contains('-', StringComparison.Ordinal))
+                    {
+                        bad.Add(entry.GetProperty("context").GetString() + "/" + entry.GetProperty("flag").GetString() + ": " + value);
+                    }
+                }
+            }
+        }
+
+        Assert.True(bad.Count == 0, "Non-camelCase job keys: " + string.Join("; ", bad));
+    }
+
     private static JsonDocument ReadInventory() => JsonDocument.Parse(
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Compatibility", "options.json")));
 }
