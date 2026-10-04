@@ -402,4 +402,17 @@ public sealed class RecoveryTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/fixed.pdf"), out byte[] _));
     }
+    [Fact]
+    public async Task DamagedEncryptedStillRejects()
+    {
+        byte[] encrypted = await FixtureBytes("encrypted-decl.pdf");
+        InMemoryQpdfHost control = HostWith("inputs/a.pdf", encrypted);
+        QpdfExecutionResult original = await Qpdf.ExecuteAsync(control, new QpdfCommandInvocation(["inputs/a.pdf", "--show-npages"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, original.Status);
+        byte[] damaged = WithBrokenStartXref(encrypted);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", damaged);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-npages"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
 }

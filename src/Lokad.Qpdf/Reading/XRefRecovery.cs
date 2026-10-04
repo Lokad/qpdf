@@ -64,7 +64,8 @@ internal static class XRefRecovery
         int size = scannedMax + 1;
         string rootSource = "a scanned catalog";
         QpdfObject? root = null;
-        if (TryReadTailTrailer(data, damaged, governor, diagnostics, out int tailSize, out QpdfObject? tailRoot) && tailSize >= 1)
+        PdfDictionary? tailDictionary = null;
+        if (TryReadTailTrailer(data, damaged, governor, diagnostics, out int tailSize, out QpdfObject? tailRoot, out tailDictionary) && tailSize >= 1)
         {
             if (tailSize <= scannedMax + 1)
             {
@@ -116,6 +117,24 @@ internal static class XRefRecovery
             [PdfName.FromAscii("Size")] = new PdfInteger(size.ToString(), size),
             [PdfName.FromAscii("Root")] = root,
         };
+        if (tailDictionary is not null)
+        {
+            PdfName encryptKey = PdfName.FromAscii("Encrypt");
+            if (tailDictionary.TryGet(encryptKey, out QpdfObject? encryptValue) && encryptValue is not null && encryptValue is not PdfNull)
+            {
+                trailerEntries[encryptKey] = encryptValue;
+            }
+            PdfName infoKey = PdfName.FromAscii("Info");
+            if (tailDictionary.TryGet(infoKey, out QpdfObject? infoValue) && infoValue is not null && infoValue is not PdfNull)
+            {
+                trailerEntries[infoKey] = infoValue;
+            }
+            PdfName idKey = PdfName.FromAscii("ID");
+            if (tailDictionary.TryGet(idKey, out QpdfObject? idValue) && idValue is not null && idValue is not PdfNull)
+            {
+                trailerEntries[idKey] = idValue;
+            }
+        }
         PdfDictionary trailer = new(trailerEntries);
         diagnostics.Add(
             QpdfDiagnosticCode.RecoveryEngaged,
@@ -273,10 +292,12 @@ internal static class XRefRecovery
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         out int size,
-        out QpdfObject? root)
+        out QpdfObject? root,
+        out PdfDictionary? tailDictionary)
     {
         size = 0;
         root = null;
+        tailDictionary = null;
         ReadOnlySpan<byte> span = data.Span;
         int scanStart = span.Length > TailScanBytes ? span.Length - TailScanBytes : 0;
         int last = -1;
@@ -323,6 +344,7 @@ internal static class XRefRecovery
 
             size = (int)sizeInteger.Value;
             root = rootRaw;
+            tailDictionary = trailer;
             return true;
         }
         catch (QpdfException)
