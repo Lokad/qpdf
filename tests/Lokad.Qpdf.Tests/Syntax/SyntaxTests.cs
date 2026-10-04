@@ -2,6 +2,8 @@ using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Filters;
+using Lokad.Qpdf.Json;
 
 namespace Lokad.Qpdf.Tests.Syntax;
 
@@ -291,5 +293,24 @@ public sealed class ObjectModelTests
         Assert.Equal(new PdfInteger("1", 1L), value);
         Assert.False(dictionary.TryGet(new PdfName([(byte)'B']), out QpdfObject _));
     }
-}
+    [Fact]
+    public void EscapedHashUnescapesExactlyOnceForJson()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
+        PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("/#2341")), 0));
+        Assert.Equal("#41", Encoding.ASCII.GetString(name.RawBytes));
+        StringBuilder json = new();
+        PdfJsonWriter.AppendName(json, name, 2);
+        Assert.Equal("\"/#41\"", json.ToString());
+    }
 
+    [Fact]
+    public void EscapedFilterNameDoesNotMatchKnownFilter()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
+        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("<< /Filter /#2346lateDecode >>")), 0));
+        Assert.NotEqual("FlateDecode", Assert.Single(FilterChain.Resolve(dictionary)).Name);
+    }
+}

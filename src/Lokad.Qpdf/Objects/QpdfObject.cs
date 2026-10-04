@@ -208,18 +208,6 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
             for (int i = 0; i < _raw.Length; i++)
             {
                 byte b = _raw[i];
-                if (b == (byte)'#' && i + 2 < _raw.Length)
-                {
-                    int hi = HexValue(_raw[i + 1]);
-                    int lo = HexValue(_raw[i + 2]);
-                    if (hi >= 0 && lo >= 0)
-                    {
-                        byte decoded = (byte)((hi << 4) | lo);
-                        builder.Append(ToDisplay(decoded));
-                        i += 2;
-                        continue;
-                    }
-                }
 
                 builder.Append(ToDisplay(b));
             }

@@ -114,10 +114,10 @@ internal static class PdfJsonWriter
 
     internal static byte[] SlashForm(PdfName name)
     {
-        byte[] resolved = ResolveNameBytes(name.RawBytes);
-        byte[] slash = new byte[resolved.Length + 1];
+        byte[] raw = name.RawBytes;
+        byte[] slash = new byte[raw.Length + 1];
         slash[0] = 47;
-        Buffer.BlockCopy(resolved, 0, slash, 1, resolved.Length);
+        Buffer.BlockCopy(raw, 0, slash, 1, raw.Length);
         return slash;
     }
     internal static (bool Valid, bool Plain) AnalyzeName(byte[] slashForm)
@@ -464,10 +464,10 @@ internal static class PdfJsonWriter
         {
             if (dictionary.TryGet(key, out QpdfObject? found) && found is not null && found is not PdfNull)
             {
-                byte[] resolved = ResolveNameBytes(key.RawBytes);
-                byte[] slash = new byte[resolved.Length + 1];
+                byte[] raw = key.RawBytes;
+                byte[] slash = new byte[raw.Length + 1];
                 slash[0] = 47;
-                Buffer.BlockCopy(resolved, 0, slash, 1, resolved.Length);
+                Buffer.BlockCopy(raw, 0, slash, 1, raw.Length);
                 entries.Add(new KeyValuePair<byte[], QpdfObject>(slash, found));
             }
         }
