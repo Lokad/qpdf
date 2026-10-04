@@ -371,6 +371,8 @@ public sealed class DctDecodeTests
         byte[] decoded = DctFilter.Decode(jpeg, roomy, governor);
         Assert.Equal(frame, decoded.Length);
         Assert.Equal(frame + JpegCodec.CodecWorkingSetBytes, governor.Snapshot().PeakMemoryBytes);
+        Assert.True(governor.Snapshot().LiveMemoryBytes >= decoded.Length);
+        GC.KeepAlive(decoded);
     }
     [Fact]
     public async Task SpecializedLevelKeepsDctOpaqueSilently()

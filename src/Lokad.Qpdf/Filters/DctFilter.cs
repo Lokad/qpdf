@@ -66,6 +66,7 @@ internal static class DctFilter
 
         governor.ChargeWork(pixels);
         governor.ReserveMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
+        bool success = false;
         try
         {
             byte[] decoded = components == 1
@@ -77,12 +78,27 @@ internal static class DctFilter
             }
 
             governor.ChargeDecodedBytes(decoded.Length);
+            if ((long)decoded.Length == expected)
+            {
+                governor.ReleaseMemory(JpegCodec.CodecWorkingSetBytes);
+            }
+            else
+            {
+                governor.ReleaseMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
+                governor.ReserveMemory(decoded.Length);
+            }
+
+            success = true;
             return decoded;
         }
         finally
         {
-            governor.ReleaseMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
+            if (!success)
+            {
+                governor.ReleaseMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
+            }
         }
+
     }
 
     internal static bool TryParseFrame(byte[] input, out int width, out int height, out int components)

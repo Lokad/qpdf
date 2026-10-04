@@ -112,6 +112,7 @@ internal static class JpegCodec
         int mapped = MapQuality(quality);
         governor.ChargeWork(pixels);
         governor.ReserveMemory(checked(expected + CodecWorkingSetBytes));
+        bool success = false;
         try
         {
             using Image<TPixel> image = LoadPixels<TPixel>(raw, width, height);
@@ -131,11 +132,18 @@ internal static class JpegCodec
 
             byte[] encoded = buffer.ToArray();
             governor.ChargeDecodedBytes(encoded.Length);
+            governor.ReserveMemory(encoded.Length);
+            governor.ReleaseMemory(checked(expected + CodecWorkingSetBytes));
+
+            success = true;
             return encoded;
         }
         finally
         {
-            governor.ReleaseMemory(checked(expected + CodecWorkingSetBytes));
+            if (!success)
+            {
+                governor.ReleaseMemory(checked(expected + CodecWorkingSetBytes));
+            }
         }
     }
 
