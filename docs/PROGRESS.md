@@ -2,12 +2,12 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 178; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 7 crypto-grammar rows (3 --password contexts, --show-crypto, --bits/--owner-password/--user-password) are now reviewed: scope correctly excluded-crypto per the permanent passwords/crypto exclusion, upstream forms match, nested/encrypt job paths parent-covered, CryptoOptions set still pinned by test, rejection evidence with no output. defaultReview stands at 114 reviewed and 43 pending (42 crypto plus partial --optimize-images); flip only in verified batches, never bulk. Next is item 179 in the crypto backlog.
+M11 completion audit through item 179; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 4 40-bit-encryption crypto rows (--annotate/--extract=[y|n], --modify/--print=opt) are now reviewed: exclusion scope correct, upstream forms match, encrypt-nested job paths parent-covered, argv/job rejection evidence with no output. defaultReview stands at 118 reviewed and 39 pending (38 crypto plus partial --optimize-images); flip only in verified batches, never bulk. Next is item 180 in the crypto backlog.
 
 ## Remaining work
 
 - Held-open partials: containment-only limits, no-Zopfli build profile, CMYK four-component images; plus the tested direct-node promotion difference.
-- defaultReview backlog (42 crypto plus partial --optimize-images) verified per entry around capability fixes.
+- defaultReview backlog (38 crypto plus partial --optimize-images) verified per entry around capability fixes.
 - M11 exit needs section 13 gates green and no silent skips.
 
 ## Verification
