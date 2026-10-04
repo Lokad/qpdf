@@ -2,12 +2,12 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 177; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. Full reference+differential lanes re-ran green at the audit milestone (log external/diff/w177-lane.log): reference oracle/reader agreement plus the whole differential case list with zero FAIL, including forms-check 3/3, parent-held 3/3, global/warnings/identity trios and linearize families. All complete non-crypto rows reviewed (107 reviewed); 50 pending are 49 crypto plus partial --optimize-images. Next is item 178: crypto-grammar review batches around the exclusion evidence.
+M11 completion audit through item 178; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 7 crypto-grammar rows (3 --password contexts, --show-crypto, --bits/--owner-password/--user-password) are now reviewed: scope correctly excluded-crypto per the permanent passwords/crypto exclusion, upstream forms match, nested/encrypt job paths parent-covered, CryptoOptions set still pinned by test, rejection evidence with no output. defaultReview stands at 114 reviewed and 43 pending (42 crypto plus partial --optimize-images); flip only in verified batches, never bulk. Next is item 179 in the crypto backlog.
 
 ## Remaining work
 
 - Held-open partials: containment-only limits, no-Zopfli build profile, CMYK four-component images; plus the tested direct-node promotion difference.
-- defaultReview backlog (49 crypto plus partial --optimize-images) verified per entry around capability fixes.
+- defaultReview backlog (42 crypto plus partial --optimize-images) verified per entry around capability fixes.
 - M11 exit needs section 13 gates green and no silent skips.
 
 ## Verification
