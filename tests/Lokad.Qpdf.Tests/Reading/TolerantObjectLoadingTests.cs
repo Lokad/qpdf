@@ -188,6 +188,58 @@ public sealed class TolerantObjectLoadingTests
         Assert.Equal(0L, job.OpenLeaseCount);
     }
 
+    public static IEnumerable<object[]> RealPublicCases()
+    {
+        (string Text, ulong Bits)[] cases =
+        [
+            ("0." + new string('0', 2048) + "1", 0UL),
+            (new string('0', 2048) + "0.5", BitConverter.DoubleToUInt64Bits(0.5)),
+            ("-" + new string('0', 2048) + ".0000", 1UL << 63),
+            ("1.00000000000000011102230246251565404236316680908203125" + new string('0', 2048), BitConverter.DoubleToUInt64Bits(1.0)),
+            ("1.00000000000000011102230246251565404236316680908203125" + new string('0', 2048) + "1", BitConverter.DoubleToUInt64Bits(1.0) + 1UL),
+        ];
+        foreach ((string text, ulong bits) in cases)
+        {
+            foreach (bool broken in new[] { false, true }) { yield return [text, bits, broken]; }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(RealPublicCases))]
+    public async Task LongRealTextAndValueSurvivePublicRewrite(string text, ulong expectedBits, bool broken)
+    {
+        byte[] bytes = Pdf(["[ " + text + " 2 ]"], broken);
+        InMemoryQpdfHost argv = Host(bytes);
+        InMemoryQpdfHost job = Host(bytes);
+        QpdfExitCode expectedExit = broken ? QpdfExitCode.Warning : QpdfExitCode.Success;
+        QpdfExecutionResult inspection = await Qpdf.ExecuteAsync(argv,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=5"]), CancellationToken.None);
+        Assert.Equal(expectedExit, inspection.ExitCode);
+        Assert.Contains(inspection.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == "[ " + text + " 2 ]");
+
+        QpdfExecutionResult a = await Qpdf.ExecuteAsync(argv,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        QpdfExecutionResult b = await Qpdf.ExecuteJobAsync(job,
+            """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}]}""", CancellationToken.None);
+        Assert.Equal(expectedExit, a.ExitCode);
+        Assert.Equal(expectedExit, b.ExitCode);
+        Assert.True(argv.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] aBytes));
+        Assert.True(job.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] bBytes));
+        Assert.Equal(aBytes, bBytes);
+        argv.AddInput(QpdfPath.From("inputs/reopened.pdf"), aBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument output = await QpdfDocument.OpenAsync(argv, QpdfPath.From("inputs/reopened.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = Assert.IsType<PdfDictionary>(output.GetObject(3));
+            Assert.True(page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+            PdfReference reference = Assert.IsType<PdfReference>(audit);
+            PdfReal value = Assert.IsType<PdfReal>(Assert.IsType<PdfArray>(output.GetObject(reference.ObjectNumber))[0]);
+            Assert.Equal(text, value.Text);
+            Assert.Equal(expectedBits, BitConverter.DoubleToUInt64Bits(value.Value));
+        }
+        Assert.Equal(0L, argv.OpenLeaseCount);
+        Assert.Equal(0L, job.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task ManyDamagedObjectsDoNotShareAnErrorBudget()
     {

@@ -102,6 +102,29 @@ internal static class Program
         Check(parserHost.OpenLeaseCount == 0L, "parser smoke leases closed");
         Console.WriteLine("PASS valid-xref object syntax repair and public diagnostic");
 
+        string longReal = "1.00000000000000011102230246251565404236316680908203125" + new string('0', 2048) + "1";
+        InMemoryQpdfHost realHost = NewHost("inputs/real.pdf", TwoPagePdf(longReal));
+        await using (QpdfDocument realInput = await QpdfDocument.OpenAsync(realHost, QpdfPath.From("inputs/real.pdf"), CancellationToken.None))
+        {
+            Check(realInput.GetObject(8) is PdfReal real && real.Text == longReal
+                && BitConverter.DoubleToUInt64Bits(real.Value) == BitConverter.DoubleToUInt64Bits(1.0) + 1UL, "long real text and rounding");
+        }
+        QpdfExecutionResult realRewrite = await Qpdf.ExecuteAsync(realHost,
+            new QpdfCommandInvocation(["inputs/real.pdf", "--pages", ".", "1", "--", "outputs/real.pdf"]), CancellationToken.None);
+        Check(realRewrite.ExitCode == QpdfExitCode.Success, "long real rewrite");
+        realHost.AddInput(QpdfPath.From("inputs/real-reread.pdf"), Published(realHost, "outputs/real.pdf"), QpdfInputOwnership.Copy);
+        await using (QpdfDocument reread = await QpdfDocument.OpenAsync(realHost, QpdfPath.From("inputs/real-reread.pdf"), CancellationToken.None))
+        {
+            Check(reread.GetObject(3) is PdfDictionary, "long real page");
+            PdfDictionary realPage = (PdfDictionary)reread.GetObject(3);
+            Check(realPage.TryGet(new PdfName("Audit"u8.ToArray()), out QpdfObject audit), "long real retained page value");
+            QpdfObject value = audit is PdfReference reference ? reread.GetObject(reference.ObjectNumber) : audit;
+            Check(value is PdfReal real && real.Text == longReal
+                && BitConverter.DoubleToUInt64Bits(real.Value) == BitConverter.DoubleToUInt64Bits(1.0) + 1UL, "rewritten long real text and rounding");
+        }
+        Check(realHost.OpenLeaseCount == 0L, "long real smoke leases closed");
+        Console.WriteLine("PASS long real text, exact rounding and rewrite");
+
 
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
@@ -434,6 +457,11 @@ internal static class Program
 
     private static byte[] TwoPagePdf()
     {
+        return TwoPagePdf(null);
+    }
+
+    private static byte[] TwoPagePdf(string? realText)
+    {
         Encoding ascii = Encoding.ASCII;
         byte[] first = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (First) Tj ET");
         byte[] second = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (Second) Tj ET");
@@ -455,25 +483,28 @@ internal static class Program
 
         AddObject(1, ascii.GetBytes("<< /Type /Catalog /Pages 2 0 R >>"));
         AddObject(2, ascii.GetBytes("<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>"));
-        AddObject(3, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
+        string audit = realText is null ? "" : " /Audit 8 0 R";
+        AddObject(3, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >>" + audit + " >>"));
         AddObject(4, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
         AddObject(5, Concat(ascii.GetBytes("<< /Length " + first.Length + " >>\nstream\n"), first, ascii.GetBytes("\nendstream")));
         AddObject(6, Concat(ascii.GetBytes("<< /Length " + second.Length + " >>\nstream\n"), second, ascii.GetBytes("\nendstream")));
         AddObject(7, ascii.GetBytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
+        if (realText is not null) { AddObject(8, ascii.GetBytes(realText)); }
         int xref = 0;
         foreach (byte[] part in parts)
         {
             xref += part.Length;
         }
 
-        parts.Add(ascii.GetBytes("xref\n0 8\n"));
+        int size = realText is null ? 8 : 9;
+        parts.Add(ascii.GetBytes("xref\n0 " + size + "\n"));
         parts.Add(ascii.GetBytes("0000000000 65535 f \n"));
-        for (int n = 1; n <= 7; n++)
+        for (int n = 1; n < size; n++)
         {
             parts.Add(ascii.GetBytes(offsets[n].ToString("D10") + " 00000 n \n"));
         }
 
-        parts.Add(ascii.GetBytes("trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n"));
+        parts.Add(ascii.GetBytes("trailer\n<< /Size " + size + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n"));
         using MemoryStream output = new();
         foreach (byte[] part in parts)
         {

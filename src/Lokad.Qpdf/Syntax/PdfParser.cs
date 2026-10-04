@@ -1,6 +1,5 @@
 using System.Buffers.Text;
 using System.Globalization;
-using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -21,8 +20,6 @@ internal interface IIndirectResolver
 /// </summary>
 internal sealed class PdfParser
 {
-    private const int MaxNumberTextLength = 1024;
-
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
@@ -362,7 +359,15 @@ internal sealed class PdfParser
         // governed even for arbitrarily many leading zeros; admit the UTF-16
         // string and scalar before materializing them.
         _governor.ReserveMemory(checked((token.Data.Length * 2L) + 64L));
-        return new PdfInteger(Encoding.ASCII.GetString(token.Data.Span), value);
+        try
+        {
+            return new PdfInteger(CopyNumericText(token.Data), value);
+        }
+        catch
+        {
+            _governor.ReleaseMemory(checked((token.Data.Length * 2L) + 64L));
+            throw;
+        }
     }
 
     private long ParseIntegerText(PdfToken token)
@@ -407,21 +412,20 @@ internal sealed class PdfParser
             : (long)magnitude;
     }
 
-    private static PdfReal ParseReal(PdfToken token)
+    private PdfReal ParseReal(PdfToken token)
     {
-        ReadOnlySpan<byte> span = token.Data.Span;
-        if (span.Length > MaxNumberTextLength)
+        long retained = checked((token.Data.Length * 2L) + 64L);
+        _governor.ReserveMemory(retained);
+        try
         {
-            throw new QpdfParseException($"Numeric token exceeds {MaxNumberTextLength} characters.", token.Offset, null);
+            double value = PdfRealConversion.Convert(token.Data.Span, token.Offset, _governor);
+            return new PdfReal(CopyNumericText(token.Data), value);
         }
-
-        string text = ToAscii(span, token.Offset);
-        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+        catch
         {
-            throw new QpdfParseException($"Malformed real number '{text}'.", token.Offset, null);
+            _governor.ReleaseMemory(retained);
+            throw;
         }
-
-        return new PdfReal(text, value);
     }
 
     private QpdfObject ParseName(PdfToken token)
@@ -916,24 +920,23 @@ internal sealed class PdfParser
         return -1;
     }
 
-    private static string ToAscii(ReadOnlySpan<byte> span, long offset)
+    private string CopyNumericText(ReadOnlyMemory<byte> data)
     {
-        if (span.Length > MaxNumberTextLength)
+        // The tokenizer established ASCII numeric syntax. Copy directly into
+        // the admitted string, without a second full-size character array.
+        return string.Create(data.Length, (Data: data, Governor: _governor), static (chars, state) =>
         {
-            throw new QpdfParseException($"Numeric token exceeds {MaxNumberTextLength} characters.", offset, null);
-        }
-
-        char[] chars = new char[span.Length];
-        for (int i = 0; i < span.Length; i++)
-        {
-            if (span[i] >= 0x80)
+            ReadOnlySpan<byte> bytes = state.Data.Span;
+            for (int i = 0; i < chars.Length; i++)
             {
-                throw new QpdfParseException("Non-ASCII byte in numeric token.", offset, null);
+                if ((i & 4095) == 0)
+                {
+                    state.Governor.ChargeWork(1L);
+                    state.Governor.CheckCancellation();
+                }
+
+                chars[i] = (char)bytes[i];
             }
-
-            chars[i] = (char)span[i];
-        }
-
-        return new string(chars);
+        });
     }
 }

@@ -108,6 +108,24 @@ foreach ($spec in $numericSpecs) {
   $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Broken = $true }
 }
 
+$midpointOne = '1.00000000000000011102230246251565404236316680908203125'
+$tinyDigits = [Numerics.BigInteger]::Pow(5, 1075).ToString([Globalization.CultureInfo]::InvariantCulture)
+$tinyMidpoint = '0.' + ('0' * (1075 - $tinyDigits.Length)) + $tinyDigits
+$realSpecs = @(
+  @{ Name = 'long-real'; Text = '0.' + ('0' * 2048) + '1' },
+  @{ Name = 'padded-real'; Text = ('0' * 2048) + '0.5' },
+  @{ Name = 'negative-real-zero'; Text = '-' + ('0' * 2048) + '.0000' },
+  @{ Name = 'long-real-digits'; Text = '0.' + ('1234567890' * 256) },
+  @{ Name = 'large-real'; Text = ('9' * 400) + '.0' },
+  @{ Name = 'real-midpoint'; Text = $midpointOne + ('0' * 2048) },
+  @{ Name = 'real-midpoint-above'; Text = $midpointOne + ('0' * 2048) + '1' },
+  @{ Name = 'real-underflow-midpoint'; Text = $tinyMidpoint + ('0' * 2048) }
+)
+foreach ($spec in $realSpecs) {
+  $specs += @{ Name = $spec.Name; Body = '[ ' + $spec.Text + ' 2 ]'; Clean = $true }
+  $specs += @{ Name = $spec.Name + '-broken'; Body = '[ ' + $spec.Text + ' 2 ]'; Broken = $true }
+}
+
 foreach ($spec in $specs) {
   Write-Input $spec.Name $spec.Body ([bool]$spec.Broken)
   foreach ($budget in @(0, 1, 2, 3, 6, 15)) {
@@ -191,6 +209,36 @@ foreach ($spec in $numericRewrites) {
     }
     $rewriteObservations.Add(@{ Case = $inputName; Budget = 2; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Audit = $spec.Json })
     Write-Output "[parser/$tag] numeric values survive rewrite; oracle check and independent page counts pass"
+  }
+}
+
+foreach ($spec in $realSpecs) {
+  foreach ($broken in @($false, $true)) {
+    $inputName = $spec.Name + $(if ($broken) { '-broken' } else { '' })
+    $tag = "rewrite-$inputName-2"
+    $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+    $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+    $managed = Invoke-Managed $tag @("inputs/$inputName.pdf", '--parser-max-errors=2',
+      '--pages', '.', '1', '--', 'outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+    & $QpdfExe '--global' '--parser-max-errors=2' '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
+    $oracleExit = $LASTEXITCODE
+    $expectedExit = if ($broken) { 3 } else { 0 }
+    if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Real rewrite exits differ ($tag)." }
+    foreach ($file in @($managedFile, $oracleFile)) {
+      $null = Read-RewrittenJson $tag $file
+      $pageLines = @(& $QpdfExe '--show-pages' $file 2> (Join-Path $runRoot "$tag-page-stderr.log")) -join "`n"
+      $page = [regex]::Match($pageLines, '(?m)^page 1: (\d+) (\d+) R\s*$')
+      if ($LASTEXITCODE -ne 0 -or -not $page.Success) { throw "Real rewrite page cannot be located ($tag)." }
+      $pageId = $page.Groups[1].Value + ',' + $page.Groups[2].Value
+      $pageValue = @(& $QpdfExe "--show-object=$pageId" $file 2> (Join-Path $runRoot "$tag-page-stderr.log")) -join "`n"
+      $audit = [regex]::Match($pageValue, '/Audit (\d+) (\d+) R')
+      if ($LASTEXITCODE -ne 0 -or -not $audit.Success) { throw "Real rewrite audit value cannot be located ($tag)." }
+      $auditId = $audit.Groups[1].Value + ',' + $audit.Groups[2].Value
+      $actual = (@(& $QpdfExe "--show-object=$auditId" $file 2> (Join-Path $runRoot "$tag-audit-stderr.log")) -join "`n").Trim()
+      if ($LASTEXITCODE -ne 0 -or $actual -cne ('[ ' + $spec.Text + ' 2 ]')) { throw "Real text changed during rewrite ($tag)." }
+    }
+    $rewriteObservations.Add(@{ Case = $inputName; Budget = 2; ManagedExit = $managed.Exit; OracleExit = $oracleExit; RealText = $spec.Text })
+    Write-Output "[parser/$tag] exact real text survives rewrite; oracle check and independent page counts pass"
   }
 }
 

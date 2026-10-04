@@ -1739,12 +1739,13 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets, valid/rebuilt-xref repair and integer/reference conversion outcomes are implemented for the verified damage matrix; complete long real tokens, lexical damage, damaged-container transitions, orphan-key/error interactions and nested-load evidence before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair, integer/reference conversion outcomes and governed long real parsing are implemented for the verified damage matrix; complete lexical damage, damaged-container transitions, orphan-key/error interactions and nested-load evidence before closing the entry."
       ],
       "evidence": {
         "positive": [
           "TolerantParserTests.RepairsMatchPinnedObjectValues",
           "NumericParserTests.IntegerAndReferenceRepairsMatchPinnedValues",
+          "RealParserTests.LongDecimalsRoundAtExactBinaryMidpoints",
           "TolerantObjectLoadingTests.ActualLoadsRepairBothValidAndBrokenXrefs",
           "RecoveryTests.ErrorsBudgetDoesNotCountFailedCandidatesAcrossTheScan",
           "RecoveryTests.ErrorsZeroRemovesThreshold",
@@ -1761,6 +1762,7 @@
         "interaction": [
           "TolerantObjectLoadingTests.RewrittenRepairedValuesRemainReadableWithArgvJobParity",
           "TolerantObjectLoadingTests.NumericValuesSurvivePublicInspectionAndRewrite",
+          "TolerantObjectLoadingTests.LongRealTextAndValueSurvivePublicRewrite",
           "TolerantObjectLoadingTests.ManyDamagedObjectsDoNotShareAnErrorBudget",
           "TolerantObjectLoadingTests.NoDefaultLimitsLiftsOnlyUnspecifiedErrorThreshold",
           "TolerantParserTests.CompressedMembersHaveIndependentBudgetsAndReadableValues",
@@ -1774,6 +1776,10 @@
           "NumericParserTests.LongIntegerTextIsAdmittedBeforeAllocation",
           "NumericParserTests.IntegerConversionChargesWorkAfterTokenScanning",
           "NumericParserTests.NumericRepairDoesNotSwallowDiagnosticBudgetFailure",
+          "RealParserTests.RealTextAdmissionPrecedesMaterialization",
+          "RealParserTests.RetainedTextDoesNotNeedAnotherFullSizeCharacterArray",
+          "RealParserTests.ExhaustedConversionWorkReleasesWorkingAndTextAdmissions",
+          "RealParserTests.CopyingNumericTextIsGovernedAfterConversion",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
         ],
         "oracle": [
