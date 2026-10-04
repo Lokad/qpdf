@@ -50,6 +50,10 @@ dotnet run -c Release --project tools/QpdfProbe -- probe-oracle --qpdf-exe <path
 dotnet run -c Release --project tools/QpdfProbe -- compare --qpdf-exe <path-to-qpdf-12.4.2> --input tests/Fixtures/minimal-1page.pdf --expected-npages 1
 dotnet run -c Release --project tools/QpdfProbe -- probe-jpeg
 dotnet run -c Release --project tools/QpdfProbe -- probe-flate
+dotnet run -c Release --project tools/QpdfProbe -- emit --workdir <case> --out <logical>=<physical> -- <argv...>
+dotnet run -c Release --project tools/QpdfProbe -- emit-job --workdir <case> --job <job.json> --out <logical>=<physical>
+dotnet run -c Release --project tools/QpdfProbe -- fix-qdf --workdir <case> --in <logical-input> --out <logical>=<physical>
+dotnet run -c Release --project tools/QpdfProbe -- zlib-flate --workdir <case> --in <logical-input> --out <logical>=<physical> --mode <compress|uncompress> [--level 1..9]
 ```
 
 `probe-oracle` runs `qpdf --version` (must contain 12.4.2), `qpdf --show-npages`
@@ -59,7 +63,7 @@ and expected page counts to agree; a mismatch exits 2. `probe-jpeg` exercises
 grayscale/RGB round-trips, quality endpoints (`1..100`, qpdf `0 -> 1`),
 the CMYK/YCCK raw-sample gap, dimension bounds and cancellation.
 `probe-flate` exercises zlib round-trips, qpdf `1..9` to BCL level buckets,
-truncation/corruption behavior, expansion limits and cancellation. Missing
+truncation/corruption behavior, expansion limits and cancellation. mit and mit-job run the managed argv and job-JSON routes over workdir inputs for the differential lane; ix-qdf and zlib-flate exercise the QDF-repair and raw-flate companions. Missing
 executables or inputs are explicit failures, never silent skips. Ordinary
 `dotnet test` covers these contracts with synthetic fixtures and a fake oracle;
 it never requires a real qpdf binary.
@@ -102,6 +106,7 @@ smoke on Windows and Linux after pack.
 
 ## Next tooling
 
-M1 paths are complete. M2 begins strict-reader breadth (filters, xref and
-object streams, incremental and hybrid structures); the M0 codec decisions
-constrain M6/M8 integration.
+All operation paths are implemented with the M11 compatibility audit in
+progress (see docs/PROGRESS.md). Tooling changes follow the same rules:
+no new runtime dependencies, no upstream checkouts or executables for
+ordinary builds and tests, and probe commands documented alongside use.
