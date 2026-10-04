@@ -15,6 +15,8 @@ internal static class DocumentCheck
 {
     private const int MaxObjectFailures = 16;
     private const int MaxStreamFailures = 8;
+    private const int MaxFormWarnings = 8;
+    private const int MaxFormDepth = 32;
 
     internal static List<QpdfCheckOutcome> Run(
         QpdfDocument document,
@@ -66,6 +68,7 @@ internal static class DocumentCheck
         outcomes.Add(CheckObjectGraph(engine, governor, streams, cancellationToken));
         outcomes.Add(CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken));
         outcomes.Add(CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken));
+        outcomes.Add(CheckFormTree(document, governor, diagnostics, cancellationToken));
         outcomes.Add(LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken));
         foreach (QpdfCheckOutcome outcome in outcomes)
         {
@@ -387,6 +390,319 @@ internal static class DocumentCheck
         return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Passed, string.Concat(examined.ToString(System.Globalization.CultureInfo.InvariantCulture), " content streams tokenized, ", skipped.ToString(System.Globalization.CultureInfo.InvariantCulture), " skipped."));
     }
 
+    private sealed class FormCheckState
+    {
+        public int Nodes { get; set; }
+
+        public int Warnings { get; set; }
+
+        public bool Truncated { get; set; }
+
+        public HashSet<int> Visited { get; } = new();
+
+        public HashSet<int> ReachedWidgets { get; } = new();
+    }
+
+    /// <summary>
+    /// Warn-only form-tree validation, mirroring the reference checker's three
+    /// field findings: kids whose /Parent back-link does not name the node
+    /// reached through /AcroForm, page widgets no field registration reaches,
+    /// and field-like direct objects met while traversing /AcroForm (warned
+    /// and ignored like the reference). Findings warn (exit 3 through the
+    /// shared exit mapping) and never fail the check; the copy path keeps
+    /// preserving these shapes verbatim, so this stage corrects nothing.
+    /// Unresolvable references stop only their own branch silently: no oracle
+    /// evidence pins a warning for them, and damaged trees stay lenient
+    /// elsewhere.
+    /// </summary>
+    private static QpdfCheckOutcome CheckFormTree(
+        QpdfDocument document,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        DocumentEngine engine = document.Engine;
+        IIndirectResolver resolver = (IIndirectResolver)engine;
+        if (!TryGetCheckForm(engine, resolver, out PdfDictionary? form) || form is null)
+        {
+            return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, "No interactive form.");
+        }
+
+        if (!TryResolveCheckArray(form, PdfName.FromAscii("Fields"), resolver, out PdfArray? fields) || fields is null)
+        {
+            return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, "Interactive form carries no field registrations.");
+        }
+
+        FormCheckState state = new();
+        try
+        {
+            for (int i = 0; i < fields.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (fields[i] is PdfReference topReference)
+                {
+                    if (resolver.TryResolve(topReference, out QpdfObject? top) && top is PdfDictionary topDictionary)
+                    {
+                        WalkFieldNode(topDictionary, topReference.ObjectNumber, 0, resolver, governor, diagnostics, state, cancellationToken);
+                    }
+                }
+                else if (fields[i] is PdfDictionary topDirect)
+                {
+                    WalkDirectNode(topDirect, 0, resolver, governor, diagnostics, state, cancellationToken);
+                }
+            }
+
+            CollectUnreachedWidgets(document, resolver, governor, diagnostics, state, cancellationToken);
+        }
+        catch (QpdfLimitException ex)
+        {
+            return new QpdfCheckOutcome("forms", QpdfCheckStatus.Failed, $"Form traversal exceeded its budget: {ex.Message}");
+        }
+
+        string detail = $"{state.Nodes} field nodes traversed, {state.ReachedWidgets.Count} widgets reached.";
+        if (state.Warnings > 0)
+        {
+            detail += $" {state.Warnings} warnings recorded.";
+        }
+
+        if (state.Truncated)
+        {
+            detail += " Further findings are not recorded.";
+        }
+
+        return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, detail);
+    }
+
+    private static void WalkFieldNode(
+        PdfDictionary node,
+        int? nodeId,
+        int depth,
+        IIndirectResolver resolver,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        FormCheckState state,
+        CancellationToken cancellationToken)
+    {
+        if (depth > MaxFormDepth)
+        {
+            return;
+        }
+
+        if (nodeId.HasValue && !state.Visited.Add(nodeId.Value))
+        {
+            return;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.ChargeWork(1L);
+        state.Nodes += 1;
+        if (nodeId.HasValue && IsCheckWidget(node))
+        {
+            state.ReachedWidgets.Add(nodeId.Value);
+        }
+
+        if (!TryResolveCheckArray(node, PdfName.FromAscii("Kids"), resolver, out PdfArray? kids) || kids is null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < kids.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (kids[i] is PdfReference kidReference)
+            {
+                if (resolver.TryResolve(kidReference, out QpdfObject? kid) && kid is PdfDictionary kidDictionary)
+                {
+                    if (nodeId.HasValue)
+                    {
+                        CheckParentLink(kidDictionary, kidReference.ObjectNumber, nodeId.Value, diagnostics, state);
+                    }
+
+                    WalkFieldNode(kidDictionary, kidReference.ObjectNumber, depth + 1, resolver, governor, diagnostics, state, cancellationToken);
+                }
+            }
+            else if (kids[i] is PdfDictionary kidDirect)
+            {
+                WalkDirectNode(kidDirect, depth + 1, resolver, governor, diagnostics, state, cancellationToken);
+            }
+        }
+    }
+
+    private static void WalkDirectNode(
+        PdfDictionary node,
+        int depth,
+        IIndirectResolver resolver,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        FormCheckState state,
+        CancellationToken cancellationToken)
+    {
+        if (IsFieldLike(node))
+        {
+            AddFormWarning(diagnostics, state, "Encountered a direct object as a field or annotation while traversing /AcroForm; ignoring.");
+            return;
+        }
+
+        WalkFieldNode(node, null, depth, resolver, governor, diagnostics, state, cancellationToken);
+    }
+
+    private static bool IsFieldLike(PdfDictionary node)
+    {
+        return node.TryGet(PdfName.FromAscii("T"), out QpdfObject? title) && title is not null && title is not PdfNull
+            || node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kids) && kids is not null && kids is not PdfNull
+            || node.TryGet(PdfName.FromAscii("FT"), out QpdfObject? fieldType) && fieldType is not null && fieldType is not PdfNull;
+    }
+
+    private static void CheckParentLink(
+        PdfDictionary kid,
+        int kidNumber,
+        int parentNumber,
+        DiagnosticBag diagnostics,
+        FormCheckState state)
+    {
+        bool valid = kid.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? parentRaw)
+            && parentRaw is PdfReference parentReference
+            && parentReference.ObjectNumber == parentNumber;
+        if (valid)
+        {
+            return;
+        }
+
+        AddFormWarning(diagnostics, state, $"Field node {kidNumber} has an invalid /Parent entry while traversing /AcroForm.");
+    }
+
+    private static void CollectUnreachedWidgets(
+        QpdfDocument document,
+        IIndirectResolver resolver,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        FormCheckState state,
+        CancellationToken cancellationToken)
+    {
+        foreach (PageLocation location in document.PageReferences)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
+            {
+                continue;
+            }
+
+            QpdfObject annotsTarget = annotsRaw is PdfReference annotsReference
+                && resolver.TryResolve(annotsReference, out QpdfObject? resolved)
+                ? resolved ?? annotsRaw
+                : annotsRaw;
+            if (annotsTarget is not PdfArray annots)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < annots.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (annots[i] is not PdfReference itemReference)
+                {
+                    continue;
+                }
+
+                if (state.ReachedWidgets.Contains(itemReference.ObjectNumber))
+                {
+                    continue;
+                }
+
+                if (!resolver.TryResolve(itemReference, out QpdfObject? target) || target is not PdfDictionary annot || !IsCheckWidget(annot))
+                {
+                    continue;
+                }
+
+                AddFormWarning(diagnostics, state, $"Widget annotation {itemReference.ObjectNumber} is not reachable from /AcroForm.");
+            }
+        }
+    }
+
+    private static void AddFormWarning(DiagnosticBag diagnostics, FormCheckState state, string message)
+    {
+        state.Warnings += 1;
+        if (state.Warnings > MaxFormWarnings)
+        {
+            state.Truncated = true;
+            return;
+        }
+
+        diagnostics.Add(QpdfDiagnosticCode.FormStructureWarning, QpdfDiagnosticSeverity.Warning, message);
+    }
+
+    private static bool TryGetCheckForm(DocumentEngine engine, IIndirectResolver resolver, out PdfDictionary? form)
+    {
+        form = null;
+        if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) || root is null || root is PdfNull)
+        {
+            return false;
+        }
+
+        PdfDictionary? catalog = root is PdfReference rootReference
+            && resolver.TryResolve(rootReference, out QpdfObject? resolved)
+            ? resolved as PdfDictionary
+            : root as PdfDictionary;
+        if (catalog is null)
+        {
+            return false;
+        }
+
+        if (!catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return false;
+        }
+
+        if (raw is PdfReference formReference)
+        {
+            if (resolver.TryResolve(formReference, out QpdfObject? target) && target is PdfDictionary dictionary)
+            {
+                form = dictionary;
+                return true;
+            }
+
+            return false;
+        }
+
+        form = raw as PdfDictionary;
+        return form is not null;
+    }
+
+    private static bool TryResolveCheckArray(PdfDictionary node, PdfName key, IIndirectResolver resolver, out PdfArray? array)
+    {
+        array = null;
+        if (!node.TryGet(key, out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return false;
+        }
+
+        if (raw is PdfArray direct)
+        {
+            array = direct;
+            return true;
+        }
+
+        if (raw is PdfReference reference
+            && resolver.TryResolve(reference, out QpdfObject? resolved)
+            && resolved is PdfArray indirect)
+        {
+            array = indirect;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsCheckWidget(PdfDictionary dictionary)
+    {
+        return dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype)
+            && subtype is PdfName name
+            && name.DisplayText == "Widget";
+    }
     private static byte[]? DecodeCheckStream(
         PdfStream stream,
         IIndirectResolver resolver,

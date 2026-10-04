@@ -157,7 +157,7 @@ public sealed class CheckTests
         QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
         Assert.Equal(2, result.PageCount);
         Assert.Equal("1.4", result.Version.ToString());
-        Assert.Equal(8, result.Checks.Count);
+        Assert.Equal(9, result.Checks.Count);
         Assert.Equal(QpdfCheckStatus.Passed, SingleOutcome(result, "header").Status);
         Assert.Equal(QpdfCheckStatus.Passed, SingleOutcome(result, "cross-reference").Status);
         Assert.Equal(QpdfCheckStatus.Passed, SingleOutcome(result, "trailer").Status);
@@ -170,6 +170,9 @@ public sealed class CheckTests
         Assert.Equal(QpdfCheckStatus.Passed, pageContent.Status);
         Assert.Contains("tokenized", pageContent.Detail, StringComparison.Ordinal);
         Assert.Equal(QpdfCheckStatus.Passed, SingleOutcome(result, "linearization").Status);
+        QpdfCheckOutcome forms = SingleOutcome(result, "forms");
+        Assert.Equal(QpdfCheckStatus.Passed, forms.Status);
+        Assert.Contains("No interactive form", forms.Detail, StringComparison.Ordinal);
         Assert.True(result.Passed);
         Assert.False(result.HasSkipped);
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped);
@@ -358,6 +361,135 @@ public sealed class CheckTests
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
     }
 
+    private static List<(int, string, byte[]?)> FormPage(
+        string annots,
+        string acroFields,
+        string fieldDict,
+        string widgetInForm,
+        string? widgetOrphan)
+    {
+        List<(int, string, byte[]?)> objects = new()
+        {
+            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields " + acroFields + " >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots " + annots + " >>", null),
+            (4, fieldDict, null),
+            (5, widgetInForm, null),
+        };
+        if (widgetOrphan is not null)
+        {
+            objects.Add((6, widgetOrphan, null));
+        }
+
+        return objects;
+    }
+
+    [Fact]
+    public async Task UnreachableWidgetWarnsOnCheck()
+    {
+        List<(int, string, byte[]?)> objects = FormPage(
+            "[5 0 R 6 0 R]",
+            "[4 0 R]",
+            "<< /FT /Tx /T (F) /Kids [5 0 R] >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /Parent 4 0 R /T (F) >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /T (G) /FT /Tx >>");
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/unreach.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/unreach.pdf"), CancellationToken.None);
+        QpdfCheckOutcome forms = SingleOutcome(result, "forms");
+        Assert.Equal(QpdfCheckStatus.Passed, forms.Status);
+        Assert.Contains("field nodes traversed", forms.Detail, StringComparison.Ordinal);
+        Assert.Contains("1 warnings recorded", forms.Detail, StringComparison.Ordinal);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.FormStructureWarning);
+        Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
+        Assert.Contains("not reachable from /AcroForm", warning.Message, StringComparison.Ordinal);
+        Assert.True(result.Passed);
+    }
+
+    [Fact]
+    public async Task ArgvCheckExitsWarningOnUnreachableWidget()
+    {
+        List<(int, string, byte[]?)> objects = FormPage(
+            "[5 0 R 6 0 R]",
+            "[4 0 R]",
+            "<< /FT /Tx /T (F) /Kids [5 0 R] >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /Parent 4 0 R /T (F) >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /T (G) /FT /Tx >>");
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/unreach.pdf", bytes);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/unreach.pdf", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task MalformedParentLinkWarnsOnCheck()
+    {
+        List<(int, string, byte[]?)> objects = FormPage(
+            "[5 0 R]",
+            "[4 0 R]",
+            "<< /FT /Tx /T (F) /Kids [5 0 R] >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /T (F) >>",
+            null);
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/malparent.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/malparent.pdf"), CancellationToken.None);
+        QpdfCheckOutcome forms = SingleOutcome(result, "forms");
+        Assert.Equal(QpdfCheckStatus.Passed, forms.Status);
+        Assert.Contains("1 warnings recorded", forms.Detail, StringComparison.Ordinal);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.FormStructureWarning);
+        Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
+        Assert.Contains("invalid /Parent", warning.Message, StringComparison.Ordinal);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/malparent.pdf", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
+        Assert.Equal(QpdfExitCode.Warning, argv.ExitCode);
+    }
+
+    [Fact]
+    public async Task WellFormedParentStaysSilentOnCheck()
+    {
+        List<(int, string, byte[]?)> objects = FormPage(
+            "[5 0 R]",
+            "[4 0 R]",
+            "<< /FT /Tx /T (F) /Kids [5 0 R] >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /Parent 4 0 R /T (F) >>",
+            null);
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/cleanform.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/cleanform.pdf"), CancellationToken.None);
+        QpdfCheckOutcome forms = SingleOutcome(result, "forms");
+        Assert.Equal(QpdfCheckStatus.Passed, forms.Status);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.FormStructureWarning);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/cleanform.pdf", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+    }
+    [Fact]
+    public async Task DirectFieldNodeWarnsAndStaysIgnoredOnCheck()
+    {
+        List<(int, string, byte[]?)> objects = FormPage(
+            "[5 0 R]",
+            "[4 0 R]",
+            "<< /FT /Tx /T (F) /Kids [<< /FT /Tx /T (D) >> 5 0 R] >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 100 20] /Parent 4 0 R /T (F) >>",
+            null);
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/directform.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/directform.pdf"), CancellationToken.None);
+        QpdfCheckOutcome forms = SingleOutcome(result, "forms");
+        Assert.Equal(QpdfCheckStatus.Passed, forms.Status);
+        Assert.Contains("1 warnings recorded", forms.Detail, StringComparison.Ordinal);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.FormStructureWarning);
+        Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
+        Assert.Contains("direct object as a field or annotation", warning.Message, StringComparison.Ordinal);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/directform.pdf", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
+        Assert.Equal(QpdfExitCode.Warning, argv.ExitCode);
+    }
     private static int FindMarker(byte[] haystack, byte[] needle)
     {
         for (int i = 0; i + needle.Length <= haystack.Length; i++)

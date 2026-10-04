@@ -84,6 +84,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>Write progress note.</summary>
     ProgressReport = 21,
+
+    /// <summary>A form-tree finding kept as a warning; processing continues.</summary>
+    FormStructureWarning = 22,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>
