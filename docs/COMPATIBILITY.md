@@ -90,6 +90,14 @@ with exact sample hashes, filter removal and oracle/independent-reader trios.
 Binary payload/text helpers search PDF delimiters with ordinal comparisons;
 culture-sensitive matching can stall on large control-byte sample payloads.
 
+`tools/verify-package-consumer.ps1` runs the public consumer against exactly the
+supplied packed artifact in a new consumer/feed/cache directory. Only the local
+artifact's hash changes in a copied lock; all reviewed versions, constraints
+and external hashes remain locked from the first restore. The consumed DLL
+must match the packaged DLL. `tools/test-package-consumer.ps1` proves wrong
+artifact versions and external hash mismatches reject before smoke execution;
+the tracked consumer lock remains unchanged.
+
 ## Codec feasibility probes (work item 03)
 
 `QpdfProbe probe-jpeg` exercises the pinned ImageSharp `3.1.12` JPEG codec

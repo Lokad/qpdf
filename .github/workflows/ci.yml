@@ -35,7 +35,9 @@ jobs:
       - name: Inspect package boundary
         shell: pwsh
         run: ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
-      - name: Restore package consumer
-        run: dotnet restore tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj --locked-mode
-      - name: Run package consumer smoke
-        run: dotnet run --project tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj -c Release --no-restore
+      - name: Verify fresh artifact consumer
+        shell: pwsh
+        run: ./tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
+      - name: Test consumer verification rejections
+        shell: pwsh
+        run: ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg

@@ -2,8 +2,9 @@
   <!--
     Clean package consumer: restores the PACKED Lokad.qpdf NuGet (never a
     project reference) and exercises only the public embedding surface.
-    Excluded from the solution; runs after pack. Bump the central
-    Lokad.qpdf version together with src/Lokad.Qpdf releases.
+    Excluded from the solution; the verifier copies this project and its lock
+    into a fresh run after pack, binding only the rebuilt local artifact hash.
+    Bump the central Lokad.qpdf version together with src/Lokad.Qpdf releases.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

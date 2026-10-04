@@ -109,13 +109,30 @@ host. It needs no upstream checkout, reference executable, or renderer.
 
 ```sh
 dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
-dotnet restore tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj --locked-mode
-dotnet run --project tests/Lokad.Qpdf.PackageConsumer/Lokad.Qpdf.PackageConsumer.csproj -c Release --no-restore
+pwsh -File tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
+pwsh -File tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
 ```
 
 The consumer pins the built package version centrally; bump it together
-with `src/Lokad.Qpdf` releases. Its lock file is committed. CI runs the
-smoke on Windows and Linux after pack.
+with `src/Lokad.Qpdf` releases. Its committed lock is the reviewed dependency
+graph and external content-hash seed. Rebuilding the same unsigned alpha
+changes its local artifact hash, so the verifier changes only that hash in a
+copied lock before its first locked restore. It never reevaluates dependencies
+or edits the tracked lock. A wrong version still fails explicitly.
+
+Every run copies the consumer into a unique `artifacts/package-consumer/`
+directory, copies exactly the supplied artifact into a new feed, and uses a
+fresh package cache. Source mapping restricts `Lokad.qpdf` to that feed and
+ImageSharp to NuGet. This matters because NuGet skips source lookup for a
+package already in its global cache; mapping alone does not prove freshness
+([NuGet source mapping](https://learn.microsoft.com/en-us/nuget/consume-packages/package-source-mapping)).
+The verifier builds without restoring, compares the consumer DLL's SHA-256
+with the supplied package's DLL, then runs all public smoke scenarios.
+
+The negative integration script uses copied locks to prove a wrong local
+version and a corrupt external hash both reject before consumer execution.
+CI runs the verifier and negative cases on Windows and Linux after pack;
+evidence remains under `artifacts/`. Neither lane needs `external/`.
 
 ## Next tooling
 
