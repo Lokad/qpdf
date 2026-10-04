@@ -2093,9 +2093,7 @@
       "argumentKind": "bare",
       "parameter": null,
       "choices": [],
-      "jobJsonPaths": [
-        "check"
-      ],
+      "jobJsonPaths": [],
       "scope": "required",
       "choiceScopes": {},
       "manualForms": [
@@ -2113,20 +2111,25 @@
           "CheckTests.ValidDocumentReportsExpectedOutcomes",
           "CheckTests.ArgvCheckSucceedsWithoutOutput",
           "CheckTests.UnavailableFilterSkipsStreamsWithWarning",
-          "CheckTests.TrueCmykSkipsStreamsWithWarning"
+          "CheckTests.TrueCmykSkipsStreamsWithWarning",
+          "CheckTests.UnreachableWidgetWarnsOnCheck",
+          "CheckTests.WellFormedParentStaysSilentOnCheck",
+          "CheckTests.DirectFieldNodeWarnsAndStaysIgnoredOnCheck"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"
         ],
         "interaction": [
-          "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"
+          "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
+          "CheckTests.WarningModifiersApplyToFormFindings"
         ],
         "resource": [
           "CheckTests.CheckFailsOnExhaustedInputBudget"
         ],
         "oracle": [
           "diff:linearized",
-          "diff:cmyk"
+          "diff:cmyk",
+          "diff:forms-check"
         ]
       }
     },
