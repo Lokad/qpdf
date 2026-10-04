@@ -1,10 +1,7 @@
 # Changelog
 
-## 0.1.0-alpha.1 — scaffold
+## 0.1.0-alpha.1 — non-cryptographic subset, M11 audit in progress
 
-- Establish the .NET 10 solution, central/locked dependencies and dependency rules.
-- Add Release-only packaging, portable symbols and Windows/Linux scaffold CI.
-- Record the pinned qpdf reference and initial option/context inventory.
-- Document scope, implementation progression and local commit discipline.
-
-No PDF operations are implemented. This version is not a functional qpdf replacement.
+- Implements qpdf 12.4.2 non-cryptographic structural operations in managed C#: strict reading with bounded recovery, page selection and merge, writer controls, content transforms, overlays, appearances, JPEG processing, QDF, and linearization, through typed, argv, and job JSON routes.
+- 153 of 157 option/context entries complete with oracle-differential evidence; 4 stay partial behind explicit gaps (containment-only limits, the no-Zopfli build profile, and four-component CMYK image samples). Crypto operations are excluded and fail explicitly.
+- See docs/SUPPORTED-PROFILE.md, docs/COMPATIBILITY.md, and docs/PROGRESS.md for the exact profile, per-option evidence, and audit status.
