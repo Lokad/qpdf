@@ -3257,8 +3257,11 @@
         "interaction": [
           "ImageOptimizeTests.JobMalformedFails"
         ],
-        "resource": [
-          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+      "resource": [
+        "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+        "JpegEncodeTests.EncodedOutputLimitReleasesAllWorkingOwners",
+        "JpegEncodeTests.TightMemoryAdmissionPrecedesFrameAllocation",
+        "JpegEncodeTests.EncodingLeavesOnlyTheReturnedBytesCharged"
         ],
         "oracle": [
           "diff:optimize"

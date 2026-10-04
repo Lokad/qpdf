@@ -133,7 +133,13 @@ separate reservation, so simultaneously live pixel and sample frames both count.
 Metadata decoding is disabled. Tight-budget failures release codec owners and
 preserve an existing output target. The fixed 64 KiB allowance covers other
 codec/configuration state; it does not replace the allocator's buffer charges.
-Encoding buffer admission and cancellation during codec work remain open.
+Encoding also uses the per-job allocator and a seekable governed output stream.
+Every growing capacity and returned copy is admitted while its previous owner
+is still charged; failures dispose the working owners. Encoded bytes are not
+counted as decoded stream bytes. Both codec directions receive the caller's
+cancellation token through the pinned token-bearing APIs, with row copying and
+stream writes checking it as well. Progressive-input evidence, the remaining
+codec-state allowance, and measured cancellation latency still need auditing.
 
 `QpdfProbe probe-flate` exercises the governed BCL Flate pipeline.
 

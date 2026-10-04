@@ -12,8 +12,8 @@ namespace Lokad.Qpdf.Filters;
 /// failure. Four-component CMYK/YCCK samples cannot round-trip through the
 /// approved public pixel API (decoding yields color-converted RGB), so those
 /// streams are never silently reduced: they fail as unsupported and stay
-/// opaque. Codec-buffer admission and sample-row copying check cancellation;
-/// cancellation during codec CPU work remains a separate audit obligation.
+/// opaque. The codec receives the caller's cancellation token, and buffer
+/// admission and sample-row copying also check cancellation.
 /// Frame dimensions are read before pixel allocation.
 /// Returned samples are admitted separately from the codec's pixel, coefficient
 /// and stream buffers, which use a governed per-job allocator. A fixed allowance
@@ -256,7 +256,11 @@ internal static class DctFilter
                 SkipMetadata = true,
                 MaxFrames = 1,
             };
-            return Image.Load<TPixel>(options, input);
+            using MemoryStream source = new(input, writable: false);
+            // A seekable in-memory source avoids asynchronous host I/O while the
+            // token-bearing codec API observes cancellation within decoding.
+            return Image.LoadAsync<TPixel>(options, source, governor.CancellationToken)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is not QpdfLimitException && ex is not OperationCanceledException)
         {

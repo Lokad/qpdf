@@ -2,11 +2,11 @@
 
 ## Current checkpoint
 
-JPEG decoding now admits ImageSharp pixel/coefficient/stream owners through a per-job managed allocator, separately from returned samples; failed budgets dispose codec owners and preserve staged targets. Isolated Release snapshot: 1960/1960 tests green, pinned reference and full differential lanes green, package/symbol boundary verified. Fresh-package consumer passed after reevaluating only the rebuilt local package hash in that snapshot; the checked-in consumer hash still needs a reliable fresh-artifact policy.
+JPEG decoding and encoding now admit ImageSharp pixel/coefficient/stream owners through a per-job managed allocator. Encoded output admits capacity growth and returned copies while preceding owners remain charged; encoded bytes no longer inflate decoded-byte counters. Both codec calls receive the caller's token. Isolated Release snapshot: 1970/1970 tests green, pinned reference and full differential lanes green, package/symbol boundary verified. Fresh-package consumer passed after reevaluating only the rebuilt local package hash in that snapshot; the checked-in consumer hash still needs a reliable fresh-artifact policy.
 
 ## Remaining work
 
-- JPEG encode admission, Flate capacities/copies, and cancellation during codec/CPU work remain open; the old fixed codec reserve was insufficient for simultaneous owners.
+- JPEG codec-state allowance and progressive-input evidence, Flate capacities/copies, and measured cancellation during codec/CPU work remain open; passing a token does not establish cancellation latency.
 - Consumer verification must use the freshly packed artifact: the current checked-in local-package hash rejects changed package bytes in a fresh cache, while a global cached alpha can hide that mismatch. Keep approved external dependency hashes locked.
 - Parser semantics remainder: per-object error budgets with tolerant trial parsing (interim still counts failed repair candidates; tight-budget legs stay managed-only with oracle succeeding per object); valid-xref repairable-syntax inputs participate only as a documented strict delta.
 - Pending tolerant-parser edits currently fail to build at a missing BeginTolerantObject call; isolate unrelated corrections until those edits are completed and verified.

@@ -32,6 +32,8 @@ internal sealed class ResourceGovernor
         _cancellationToken = cancellationToken;
     }
 
+    internal CancellationToken CancellationToken => _cancellationToken;
+
     internal void ReserveMemory(long bytes)
     {
         if (bytes < 0)

@@ -2,6 +2,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using Lokad.Qpdf.Runtime;
+using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Filters;
 
@@ -12,8 +13,8 @@ namespace Lokad.Qpdf.Filters;
 /// defaults. Grayscale encodes with an explicit luminance color type so the
 /// output keeps a single component. Only single- and three-component raw
 /// samples encode; anything else fails explicitly instead of silently
-/// reducing fidelity. Cancellation is checked before pixel work so a cancelled
-/// job fails fast instead of running the synchronous codec to completion.
+/// reducing fidelity. The caller's token reaches codec work; pixel copies and
+/// buffer admission also check cancellation.
 /// </summary>
 internal static class JpegCodec
 {
@@ -28,7 +29,7 @@ internal static class JpegCodec
     /// </summary>
     internal const long CodecWorkingSetBytes = 65536L;
 
-    internal const long SampleArrayOverheadBytes = 32L;
+    internal const long SampleArrayOverheadBytes = GovernedBufferStream.ArrayOverheadBytes;
 
     internal static Configuration CreateConfiguration(ResourceGovernor governor)
     {
@@ -119,48 +120,61 @@ internal static class JpegCodec
 
         int mapped = MapQuality(quality);
         governor.ChargeWork(pixels);
-        governor.ReserveMemory(checked(expected + CodecWorkingSetBytes));
-        bool success = false;
+        governor.ReserveMemory(CodecWorkingSetBytes);
         try
         {
-            using Image<TPixel> image = LoadPixels<TPixel>(raw, width, height);
+            using Image<TPixel> image = LoadPixels<TPixel>(raw, width, height, governor);
             JpegEncoder encoder = luminance
                 ? new JpegEncoder { Quality = mapped, ColorType = JpegEncodingColor.Luminance }
                 : new JpegEncoder { Quality = mapped };
 
-            using MemoryStream buffer = new();
+            using GovernedBufferStream buffer = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
             try
             {
-                image.Save(buffer, encoder);
+                // All streams are in-memory and complete their async writes synchronously.
+                // The codec's token-bearing API also checks cancellation during encoding.
+                image.SaveAsync(buffer, encoder, governor.CancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception ex) when (ex is not QpdfLimitException && ex is not OperationCanceledException)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Raw samples cannot be JPEG-encoded.", ex);
             }
 
-            byte[] encoded = buffer.ToArray();
-            governor.ChargeDecodedBytes(encoded.Length);
-            governor.ReserveMemory(encoded.Length);
-            governor.ReleaseMemory(checked(expected + CodecWorkingSetBytes));
-
-            success = true;
-            return encoded;
+            return buffer.ToArray();
         }
         finally
         {
-            if (!success)
-            {
-                governor.ReleaseMemory(checked(expected + CodecWorkingSetBytes));
-            }
+            governor.ReleaseMemory(CodecWorkingSetBytes);
         }
     }
 
-    private static Image<TPixel> LoadPixels<TPixel>(byte[] raw, int width, int height)
+    private static Image<TPixel> LoadPixels<TPixel>(byte[] raw, int width, int height, ResourceGovernor governor)
         where TPixel : unmanaged, IPixel<TPixel>
     {
         try
         {
-            return Image.LoadPixelData<TPixel>(raw, width, height);
+            Image<TPixel> image = new(CreateConfiguration(governor), width, height);
+            try
+            {
+                image.ProcessPixelRows(accessor =>
+                {
+                    int position = 0;
+                    for (int y = 0; y < height; y++)
+                    {
+                        governor.CheckCancellation();
+                        Span<byte> row = MemoryMarshal.AsBytes(accessor.GetRowSpan(y));
+                        governor.ChargeWork(row.Length);
+                        raw.AsSpan(position, row.Length).CopyTo(row);
+                        position += row.Length;
+                    }
+                });
+                return image;
+            }
+            catch
+            {
+                image.Dispose();
+                throw;
+            }
         }
         catch (Exception ex) when (ex is not QpdfLimitException && ex is not OperationCanceledException)
         {
