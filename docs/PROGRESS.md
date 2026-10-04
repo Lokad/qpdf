@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 168; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 3 linearization defaultReview rows (--check-linearization, --linearize, --linearize-pass1=file) are now reviewed against pinned upstream cli.rst: bare check/writer forms plus pass1 =/space file form, camelCase job keys with combination rejections and budget pins, oracle linearize/streams/pass1 comparisons green. defaultReview stands at 83 reviewed and 74 pending (49 crypto plus 25 other); flip only in verified batches, never bulk. Next is item 169 in the remaining backlog.
+M11 completion audit through item 169; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 4 page-assembly defaultReview rows (--pages block, --collate[=n[,m,...]], --empty, --split-pages[=n]) are now reviewed against pinned upstream cli.rst: block grammar with -- terminator, collate/split optional group defaults, empty zero-page base, camelCase job keys with argv/job/typed parity and budget pins, oracle select/merge/collate/split lanes green. defaultReview stands at 87 reviewed and 70 pending (49 crypto plus 21 other); flip only in verified batches, never bulk. Next is item 170 in the remaining backlog.
 
 ## Remaining work
 
