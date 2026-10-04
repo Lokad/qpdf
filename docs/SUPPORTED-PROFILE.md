@@ -101,15 +101,15 @@ echoing values.
 
 ## Inspection profile
 
-- `Qpdf.CheckAsync` reports eight declared checks: header, cross-reference,
+- `Qpdf.CheckAsync` reports nine declared checks: header, cross-reference,
   trailer, page tree, object-graph traversal, decode-level-gated stream
-  decoding, page content, and linearization.
+  decoding, page content, form-tree validation, and linearization.
 - Skipped stages stay visible with reasons and never pass silently; failures
   carry capped per-object detail. Page content tokenizes content streams
   (decode-level gated) instead of skipping; linearization
   passes when absent and validates dictionaries, hint streams, and
   bit-level hint tables when present; unavailable
-  filters skip streams with a warning at level `all`.
+  filters skip streams with a warning at level `all`. Form-tree validation warns without failing on page widgets no field registration reaches, kids whose /Parent back-link does not name the traversed node, and field-like direct objects met while traversing.
 - `input --check` publishes no files and maps diagnostics to exit 0/2/3.
   Inspection never claims conformance, safe content, or rendering correctness.
 - `input --json[=1|2|latest] [--json-key=]... -- output` writes document JSON
