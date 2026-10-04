@@ -234,5 +234,43 @@ public sealed class ProbeCliTests
             }
         }
     }
-}
 
+    [Fact]
+    public void ProbeEmitFailsExplicitlyOnMissingWorkdir()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), "lokad-qpdf-no-such-workdir");
+        (int exit, _, string stderr) = RunProbe("emit", "--workdir", missing, "--", "inputs/a.pdf", "--check");
+        Assert.Equal(1, exit);
+        Assert.Contains("Workdir not found", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProbeEmitJobFailsExplicitlyOnMissingWorkdir()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), "lokad-qpdf-no-such-workdir");
+        string job = Path.Combine(Path.GetTempPath(), "lokad-qpdf-empty-job.json");
+        File.WriteAllText(job, "{}");
+        (int exit, _, string stderr) = RunProbe("emit-job", "--workdir", missing, "--job", job);
+        Assert.Equal(1, exit);
+        Assert.Contains("Workdir not found", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProbeFixQdfFailsExplicitlyOnMissingWorkdir()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), "lokad-qpdf-no-such-workdir");
+        string physical = Path.Combine(Path.GetTempPath(), "lokad-qpdf-no-such-output.pdf");
+        (int exit, _, string stderr) = RunProbe("fix-qdf", "--workdir", missing, "--in", "inputs/a.pdf", "--out", "outputs/b.pdf=" + physical);
+        Assert.Equal(1, exit);
+        Assert.Contains("Workdir not found", stderr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProbeZlibFlateFailsExplicitlyOnMissingWorkdir()
+    {
+        string missing = Path.Combine(Path.GetTempPath(), "lokad-qpdf-no-such-workdir");
+        string physical = Path.Combine(Path.GetTempPath(), "lokad-qpdf-no-such-output.bin");
+        (int exit, _, string stderr) = RunProbe("zlib-flate", "--workdir", missing, "--in", "inputs/a.bin", "--out", "outputs/b.bin=" + physical, "--mode", "compress");
+        Assert.Equal(1, exit);
+        Assert.Contains("Workdir not found", stderr, StringComparison.Ordinal);
+    }}
