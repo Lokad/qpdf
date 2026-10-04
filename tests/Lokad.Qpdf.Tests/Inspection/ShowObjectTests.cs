@@ -116,14 +116,14 @@ public sealed class ShowObjectTests
     }
 
     [Fact]
-    public async Task RejectsNonZeroGeneration()
+    public async Task AbsentGenerationShowsNull()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=3,1"]), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+        // The reference resolves object-generation pairs exactly: a pair that was
+        // never defined displays null with a success exit instead of failing.
+        Assert.Equal(["null"], ObjectLines(result));
     }
 
     [Fact]
@@ -404,5 +404,177 @@ public sealed class ShowObjectTests
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin"]), new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] _));
+    }
+    [Fact]
+    public async Task SameGenRevisionShowsLatest()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildSameGenUpdate());
+        QpdfExecutionResult bare = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4"]), CancellationToken.None);
+        Assert.Equal(
+            ["Object is stream.  Dictionary:", "<< /Length 13 >>"],
+            ObjectLines(bare));
+        QpdfExecutionResult explicitGen = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4,0"]), CancellationToken.None);
+        Assert.Equal(
+            ["Object is stream.  Dictionary:", "<< /Length 13 >>"],
+            ObjectLines(explicitGen));
+        QpdfExecutionResult raw = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, raw.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] published));
+        Assert.Equal(Encoding.ASCII.GetBytes("BT (V2) Tj ET"), published);
+    }
+    [Fact]
+    public async Task FreeReuseResolvesPairs()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildFreeReuse());
+        QpdfExecutionResult bare = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4"]), CancellationToken.None);
+        Assert.Equal(["null"], ObjectLines(bare));
+        QpdfExecutionResult freed = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4,0"]), CancellationToken.None);
+        Assert.Equal(["null"], ObjectLines(freed));
+        QpdfExecutionResult live = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4,1"]), CancellationToken.None);
+        Assert.Equal(
+            ["Object is stream.  Dictionary:", "<< /Length 13 >>"],
+            ObjectLines(live));
+        QpdfExecutionResult raw = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=4,1", "--raw-stream-data", "--", "outputs/r.bin"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, raw.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/r.bin"), out byte[] published));
+        Assert.Equal(Encoding.ASCII.GetBytes("BT (V2) Tj ET"), published);
+    }
+    private static byte[] BuildSameGenUpdate()
+    {
+        byte[] first = Encoding.ASCII.GetBytes("BT (V1) Tj ET");
+        byte[] second = Encoding.ASCII.GetBytes("BT (V2) Tj ET");
+        (byte[] Base, long Xref) baseDocument = AssembleClassic(first);
+        return AppendRevision(baseDocument.Base, baseDocument.Xref, 4, 0, "<< /Length " + second.Length.ToString() + " >>", second).Bytes;
+    }
+
+    private static byte[] BuildFreeReuse()
+    {
+        byte[] first = Encoding.ASCII.GetBytes("BT (V1) Tj ET");
+        byte[] second = Encoding.ASCII.GetBytes("BT (V2) Tj ET");
+        (byte[] Base, long Xref) baseDocument = AssembleClassic(first);
+        (byte[] Bytes, long Xref) freed = AppendRevision(baseDocument.Base, baseDocument.Xref, 4, 1, null, null);
+        return AppendRevision(freed.Bytes, freed.Xref, 4, 1, "<< /Length " + second.Length.ToString() + " >>", second).Bytes;
+    }
+    private static (byte[] Base, long Xref) AssembleClassic(byte[] contents)
+    {
+        List<string> bodies = new()
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>",
+            "<< /Length " + contents.Length.ToString() + " >>",
+        };
+        List<byte[]> parts = new();
+        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
+        parts.Add(header);
+        List<long> offsets = new();
+        long position = header.Length;
+        for (int i = 0; i < bodies.Count; i++)
+        {
+            int number = i + 1;
+            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
+            offsets.Add(position);
+            if (number == 4)
+            {
+                byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
+                byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
+                position += open.Length + streamOpen.Length + contents.Length + streamClose.Length;
+                byte[] payload = new byte[open.Length + streamOpen.Length + contents.Length + streamClose.Length];
+                int at = 0;
+                Buffer.BlockCopy(open, 0, payload, at, open.Length);
+                at += open.Length;
+                Buffer.BlockCopy(streamOpen, 0, payload, at, streamOpen.Length);
+                at += streamOpen.Length;
+                Buffer.BlockCopy(contents, 0, payload, at, contents.Length);
+                at += contents.Length;
+                Buffer.BlockCopy(streamClose, 0, payload, at, streamClose.Length);
+                parts.Add(payload);
+                continue;
+            }
+
+            byte[] close = Encoding.ASCII.GetBytes("endobj\n");
+            position += open.Length + close.Length;
+            byte[] plain = new byte[open.Length + close.Length];
+            Buffer.BlockCopy(open, 0, plain, 0, open.Length);
+            Buffer.BlockCopy(close, 0, plain, open.Length, close.Length);
+            parts.Add(plain);
+        }
+
+        int size = bodies.Count + 1;
+        StringBuilder xref = new();
+        xref.Append("xref\n0 " + size.ToString() + "\n");
+        xref.Append("0000000000 65535 f \n");
+        foreach (long offset in offsets)
+        {
+            xref.Append(offset.ToString("D10") + " 00000 n \n");
+        }
+
+        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
+        long xrefPosition = position;
+        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
+        parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
+        int total = 0;
+        foreach (byte[] part in parts)
+        {
+            total += part.Length;
+        }
+
+        byte[] output = new byte[total];
+        int cursor = 0;
+        foreach (byte[] part in parts)
+        {
+            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
+            cursor += part.Length;
+        }
+
+        return (output, xrefPosition);
+    }
+
+    private static (byte[] Bytes, long Xref) AppendRevision(byte[] prior, long prevXref, int number, int generation, string? dict, byte[]? streamData)
+    {
+        List<byte> output = new(prior);
+        string entry;
+        if (dict is null)
+        {
+            entry = "0000000000 " + generation.ToString("D5") + " f ";
+        }
+        else
+        {
+            long offset = output.Count;
+            StringBuilder body = new();
+            body.Append(number.ToString() + " " + generation.ToString() + " obj\n" + dict + "\n");
+            if (streamData is not null)
+            {
+                body.Append("stream\n");
+            }
+
+            output.AddRange(Encoding.ASCII.GetBytes(body.ToString()));
+            if (streamData is not null)
+            {
+                output.AddRange(streamData);
+                output.AddRange(Encoding.ASCII.GetBytes("\nendstream\nendobj\n"));
+            }
+            else
+            {
+                output.AddRange(Encoding.ASCII.GetBytes("endobj\n"));
+            }
+
+            entry = offset.ToString("D10") + " " + generation.ToString("D5") + " n ";
+        }
+
+        long xrefPosition = output.Count;
+        StringBuilder xref = new();
+        xref.Append("xref\n" + number.ToString() + " 1\n" + entry + "\n");
+        xref.Append("trailer\n<< /Size 5 /Root 1 0 R /Prev " + prevXref.ToString() + " >>\n");
+        xref.Append("startxref\n" + xrefPosition.ToString() + "\n%%EOF\n");
+        output.AddRange(Encoding.ASCII.GetBytes(xref.ToString()));
+        return (output.ToArray(), xrefPosition);
     }
 }

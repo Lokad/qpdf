@@ -53,6 +53,28 @@ public sealed class ShowPagesTests
         Assert.Equal(["page 1: 3 0 R", "  content:", "    4 0 R"], lines);
     }
 
+    private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
+        return host;
+    }
+
+    [Fact]
+    public async Task FreedContentsReferenceListsEmpty()
+    {
+        // The page still references the freed 4 0 R pair: like the reference,
+        // selection drops the dead pair instead of resurrecting the reused object.
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "incr-freereuse-1page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost check = HostWith("inputs/b.pdf", pdf);
+        QpdfExecutionResult shown = await Qpdf.ExecuteAsync(
+            check, new QpdfCommandInvocation(["inputs/b.pdf", "--show-pages"]), CancellationToken.None);
+        Assert.Equal(["page 1: 3 0 R", "  content:"], PageLines(shown));
+    }
     [Theory]
     [InlineData("inputs/a.pdf", "--show-pages", "--pages", ".", "1", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-pages", "--check")]

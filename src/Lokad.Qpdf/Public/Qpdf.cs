@@ -5151,17 +5151,9 @@ public static class Qpdf
                 {
                     target = document.Engine.Trailer;
                 }
-                else
+                else if (((IIndirectResolver)document.Engine).TryResolve(new PdfReference(number, generation), out QpdfObject? resolved))
                 {
-                    if (generation != 0)
-                    {
-                        throw new QpdfParseException($"Object {number} generation {generation} is outside the generation-0 display profile.", null, number);
-                    }
-
-                    if (document.Engine.XRefEntries.ContainsKey(number))
-                    {
-                        target = document.Engine.Load(number);
-                    }
+                    target = resolved;
                 }
 
                 bool wantsStreamData = showObject.RawStreamData || showObject.FilteredStreamData;

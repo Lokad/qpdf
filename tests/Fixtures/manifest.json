@@ -376,6 +376,24 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with an Adobe YCCK DCT image. The oracle converts to CMYK samples with exit 0 while managed output stays opaque with a warning; the cmyk differential consumes it."
+    },
+    {
+      "file": "incr-samegen-1page.pdf",
+      "sha256": "bda1cb2e283ef44a021ef23d610f9df7aab9c84a1870074f6b37dda2252b8859",
+      "bytes": 601,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with an incremental same-generation update of the contents stream. Generation selectors resolve to the newest revision on both sides; the show-object differential consumes it."
+    },
+    {
+      "file": "incr-freereuse-1page.pdf",
+      "sha256": "9316800975ad1a2e87a3a491a8101c64f4c658946df63b5363eda6e743aa954d",
+      "bytes": 694,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page where the contents stream was freed and re-added with generation 1. Bare and stale selectors display null while the live pair displays on both sides; the show-object differential consumes it."
     }
   ]
 }

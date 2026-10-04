@@ -58,12 +58,6 @@ internal sealed class DocumentEngine : IIndirectResolver
             throw new ArgumentNullException(nameof(reference));
         }
 
-        if (_cache.TryGetValue(reference.ObjectNumber, out QpdfObject? cached))
-        {
-            value = cached;
-            return true;
-        }
-
         if (reference.ObjectNumber == 0 && !_table.Entries.ContainsKey(0))
         {
             value = PdfNull.Instance;
@@ -79,6 +73,22 @@ internal sealed class DocumentEngine : IIndirectResolver
         if (entry.Kind == XrefEntryKind.Free)
         {
             value = PdfNull.Instance;
+            return true;
+        }
+
+        // Object-generation pairs resolve exactly like the reference: a stale
+        // generation (freed or superseded) is a dead pair and resolves to null
+        // instead of the newest object with that number. Compressed members are
+        // always generation 0.
+        if (entry.Kind == XrefEntryKind.Compressed ? reference.Generation != 0 : entry.Second != reference.Generation)
+        {
+            value = PdfNull.Instance;
+            return true;
+        }
+
+        if (_cache.TryGetValue(reference.ObjectNumber, out QpdfObject? cached))
+        {
+            value = cached;
             return true;
         }
 

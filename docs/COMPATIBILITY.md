@@ -298,7 +298,10 @@ the same explicit combination failures; the differential lane compares dumps lin
 `qpdf input --show-object={trailer|obj[,gen]}` (plus job key `showObject`) renders one object
 definition in canonical single-line layout (sorted keys, oracle-identical spacing) across argv
 and job paths, resolving compressed members and reporting `null` for missing objects like the
-reference; streams show their dictionary only, and non-zero generations fail explicitly.
+reference; streams show their dictionary only. Object-generation selectors resolve exact
+pairs against the newest entry per number exactly like the reference: bare selectors
+address generation 0, freed or never-defined pairs display `null` with a success exit,
+and superseded same-generation revisions stay unaddressable on both sides.
 `--show-object={trailer|obj[,gen]}` with `--raw-stream-data` (plus job key `rawStreamData`)
 or `--filtered-stream-data` (plus job key `filteredStreamData`, decoded as `--decode-level=all`)
 publishes exact stream bytes to a required output file (byte-identical with the reference,
@@ -308,7 +311,7 @@ combinations fail explicitly (where upstream silently ignores the modifier outsi
 and allows the normalization combination). The differential lane compares payloads byte for
 byte on plain and compressed streams plus line-for-line trailer and missing dumps; the plain
 show-object lane still compares definitions line for line on plain, stream, trailer, missing,
-and compressed objects.
+and compressed objects, plus same-generation, absent-generation, freed, and live-pair selectors over incremental fixtures.
 
 `qpdf input --show-xref` (plus job key `showXref`) lists every live cross-reference entry
 (`n/gen: uncompressed; offset`, `n/0: compressed; stream, index`, free entries skipped)
@@ -333,7 +336,7 @@ object identity: separate copiers share one destination numbering sequence and o
 governor, so equal object numbers across documents never collide while widgets
 keep their within-source field links. Every page keeps its own resources, so
 same-named resources and fields stay inert without content rewriting. Merged forms concatenate per-source field registrations with per-source-snapshot `+N` collision renaming for named field nodes, keep the first default-resources dictionary, OR the NeedAppearances flags, and embed the combined form directly in the catalog where upstream writes an indirect object. Output takes the highest source
-version and carries per-page source mapping plus per-source page counts. Direct-node promotion, first-wins resources and nonzero-generation inspection stay explicitly open; four-component CMYK/YCCK decoding stays opaque by decision (see below).
+version and carries per-page source mapping plus per-source page counts. Direct-node promotion and first-wins resources stay explicitly open; four-component CMYK/YCCK decoding stays opaque by decision (see below). Generation handling is complete: selectors and reference resolution match the reference pair-exact behavior above.
 
 ## Split publication and replacement (work item 21)
 
