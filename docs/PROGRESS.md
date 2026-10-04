@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 183; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. Section 13 release-gate audit: package lane re-verified fresh (pack current, verify-package approves single ImageSharp [3.1.12] dependency and member allow-list, consumer smoke passes all checks); checklist holds via standing pins (containment, dependency, API-docs, public-docs, inventory-reconciliation tests green; lanes green at item 177 with zero FAIL). The 4 partials stay as declared permanent differences with subset labeling, not completable gaps. defaultReview 156 reviewed / 1 pending (partial --optimize-images held with the CMYK gap). Next is item 184: remaining verification or release-action follow-ups.
+M11 completion audit through item 184; full AGENTS.md gate chain green in one pass (locked restore, Release build with 0 warnings/errors, 1906/1906 tests, pack, package-verify, consumer smoke). Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. defaultReview 156 reviewed / 1 pending (partial --optimize-images held with the CMYK gap). Lanes green at item 177 (zero FAIL); package lane green at items 183-184. Next is item 185: release-action follow-ups, which stay separate explicit actions.
 
 ## Remaining work
 
@@ -11,9 +11,9 @@ M11 completion audit through item 183; suite 1906/1906 green. Inventory 157 entr
 
 ## Verification
 
-- Offline lane: restore, build, and test the solution in Release with locked mode (1906 green).
+- Offline lane: restore, build, and test the solution in Release with locked mode (1906 green, item 184 end-to-end).
 - Reference lanes re-ran green at item 177 (log external/diff/w177-lane.log, zero FAIL); they must fail loudly when tools are missing, never skip. Ordinary tests never require external. Lane probes live in ignored external/diff/.
-- Package lane: pack, verify-package.ps1, consumer restore plus run (all green at item 183).
+- Package lane: pack, verify-package.ps1, consumer restore plus run (green at items 183-184).
 - Editing notes: repo files use LF, so normalize edited files back to LF. Builds often exceed the tool window, so run log-file builds in the background and poll. Before lanes, verify the probe directory Lokad.Qpdf.dll hash matches the fresh library build.
 
 ## Reference pin
