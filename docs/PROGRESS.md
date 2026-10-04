@@ -2,12 +2,12 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 180; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 11 128-bit-encryption crypto rows are now reviewed: exclusion scope correct, all upstream forms match, encrypt-nested job paths parent-covered, argv/job rejection evidence with no output. defaultReview stands at 129 reviewed and 28 pending (27 crypto plus partial --optimize-images); flip only in verified batches, never bulk. Next is item 181 in the crypto backlog.
+M11 completion audit through item 181; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 11 256-bit-encryption crypto rows are now reviewed: exclusion scope correct, all upstream forms match, encrypt-nested job paths parent-covered, argv/job rejection evidence with no output. defaultReview stands at 140 reviewed and 17 pending (16 main-crypto plus partial --optimize-images); flip only in verified batches, never bulk. Next is item 182: main-context crypto rows.
 
 ## Remaining work
 
 - Held-open partials: containment-only limits, no-Zopfli build profile, CMYK four-component images; plus the tested direct-node promotion difference.
-- defaultReview backlog (27 crypto plus partial --optimize-images) verified per entry around capability fixes.
+- defaultReview backlog (16 main-crypto plus partial --optimize-images) verified per entry around capability fixes.
 - M11 exit needs section 13 gates green and no silent skips.
 
 ## Verification
