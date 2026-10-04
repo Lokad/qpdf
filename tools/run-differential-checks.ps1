@@ -80,17 +80,17 @@ function Get-StreamPayloads {
   $text = [Text.Encoding]::Latin1.GetString($bytes)
   $payloads = @()
   $pos = 0
-  while (($pos = $text.IndexOf("endstream", $pos)) -ge 0) {
-    $spos = $text.LastIndexOf("stream", $pos - 1)
+  while (($pos = $text.IndexOf("endstream", $pos, [StringComparison]::Ordinal)) -ge 0) {
+    $spos = $text.LastIndexOf("stream", $pos - 1, [StringComparison]::Ordinal)
     $ds = $spos + 6
     if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 13) { $ds++; if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ } }
     elseif ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ }
     $de = $pos
     while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
     if ($de -le $ds) { $pos += 9; continue }
-    $dpos = $text.LastIndexOf("<<", $spos)
+    $dpos = $text.LastIndexOf("<<", $spos, [StringComparison]::Ordinal)
     $dict = $text.Substring($dpos, $spos - $dpos)
-    $raw = $null
+    [byte[]] $raw = $null
     $lm = [regex]::Match($dict, '/Length\s+(\d+)')
     $indirect = [regex]::IsMatch($dict, '/Length\s+\d+\s+\d+\s+R')
     if ($lm.Success -and (-not $indirect)) {
@@ -123,17 +123,17 @@ function Get-DecodedText {
   $text = [Text.Encoding]::Latin1.GetString($bytes)
   $out = @()
   $pos = 0
-  while (($pos = $text.IndexOf("endstream", $pos)) -ge 0) {
-    $spos = $text.LastIndexOf("stream", $pos - 1)
+  while (($pos = $text.IndexOf("endstream", $pos, [StringComparison]::Ordinal)) -ge 0) {
+    $spos = $text.LastIndexOf("stream", $pos - 1, [StringComparison]::Ordinal)
     $ds = $spos + 6
     if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 13) { $ds++; if ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ } }
     elseif ($ds -lt $bytes.Length -and $bytes[$ds] -eq 10) { $ds++ }
     $de = $pos
     while ($de -gt $ds -and ($bytes[$de - 1] -eq 13 -or $bytes[$de - 1] -eq 10)) { $de-- }
     if ($de -le $ds) { $pos += 9; continue }
-    $dpos = $text.LastIndexOf("<<", $spos)
+    $dpos = $text.LastIndexOf("<<", $spos, [StringComparison]::Ordinal)
     $dict = $text.Substring($dpos, $spos - $dpos)
-    $raw = $bytes[$ds..($de - 1)]
+    [byte[]] $raw = $bytes[$ds..($de - 1)]
     if ($dict.Contains("/FlateDecode")) {
       $ms = [IO.MemoryStream]::new($raw)
       $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
@@ -2265,6 +2265,32 @@ $managedClean = Invoke-ManagedCheck $case "inputs/clean.pdf" "forms-clean"
 $oracleClean = Invoke-OracleCheck "$case/inputs/clean.pdf"
 if ($managedClean -ne 0 -or $oracleClean -ne 0) { Write-Output "[forms-check/clean] FAIL: exits managed=$managedClean oracle=$oracleClean, expected 0/0"; $script:failures++ }
 else { Write-Output "[forms-check/clean] exit parity (0/0, well-formed parents stay silent)" }
+# --- case: progressive-jpeg (exact grayscale/RGB samples and decoded outputs) ---
+$progressiveFixtures = (Get-Content "$fixtureDir/manifest.json" -Raw | ConvertFrom-Json).fixtures |
+  Where-Object { $_.file.StartsWith('images-progressive-') }
+if (@($progressiveFixtures).Count -ne 4) { throw 'Expected four authored progressive JPEG fixtures.' }
+foreach ($fixture in $progressiveFixtures) {
+  $label = $fixture.file.Replace('images-', '').Replace('.pdf', '')
+  $case = New-Case $label
+  Copy-Item "$fixtureDir/$($fixture.file)" "$case/inputs/a.pdf"
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--',
+    'inputs/a.pdf', '--pages', '.', '1', '--decode-level=all', '--stream-data=uncompress', '--', 'outputs/a.pdf')
+  if ($code -ne 0) { throw "$label`: managed decode failed ($code)" }
+  $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', '--decode-level=all', '--stream-data=uncompress', "$case/ora.pdf")
+  if ($code -ne 0) { throw "$label`: oracle decode failed ($code)" }
+  Assert-Trio $label "$case/lib.pdf" "$case/ora.pdf" 1
+  foreach ($file in @("$case/lib.pdf", "$case/ora.pdf")) {
+    $payloads = (Get-StreamPayloads $file) -split ','
+    if (-not ($payloads -contains $fixture.decodedSamplesSha256.ToUpperInvariant())) {
+      throw "$label`: output samples differ from the authored exact sample hash."
+    }
+    if ([IO.File]::ReadAllText($file).Contains('/DCTDecode')) {
+      throw "$label`: decoded output still has DCTDecode."
+    }
+  }
+  Write-Output "[$label] exact $($fixture.decodedSamplesBytes)-byte samples match on both sides"
+}
+
 # --- case: cmyk (managed vs oracle four-component JPEG boundary) ---
 $case = New-Case 'cmyk'
 Copy-Item "$fixtureDir/images-cmyk-1page.pdf" "$case/inputs/a.pdf"
@@ -2595,4 +2621,4 @@ elseif ($libShow -ne $oraShow) { Write-Output '[extends] FAIL: object-6 dumps di
 elseif ($libShow -notmatch '/BaseFont') { Write-Output '[extends] FAIL: object-6 is not the font dict'; $script:failures++ }
 else { Write-Output '[extends] trio ok with matching font object 6' }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-images (page-image descriptors agree), json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 3/3 unreachable warnings), generate-radio (radio sync warns 3/3 with states kept), generate-unreachable (unreachable-form selection drops and skips silently with 0/0 exits, whole-file warns and regenerates with 3/3 exits), cmyk (four-component check/decode exits 0/3 with recorded oracle samples and opaque managed output), incr (freed-pair selection drops dead contents on both sides), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, forms-check (--check exits warn 3/3 on unreachable widgets and direct objects while clean forms stay 0/0), overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines, linearize-thumbs and extends."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-images (page-image descriptors agree), json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 3/3 unreachable warnings), generate-radio (radio sync warns 3/3 with states kept), generate-unreachable (unreachable-form selection drops and skips silently with 0/0 exits, whole-file warns and regenerates with 3/3 exits), progressive-jpeg (four authored grayscale/RGB fixtures with exact decoded samples agree), cmyk (four-component check/decode exits 0/3 with recorded oracle samples and opaque managed output), incr (freed-pair selection drops dead contents on both sides), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, forms-check (--check exits warn 3/3 on unreachable widgets and direct objects while clean forms stay 0/0), overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines, linearize-thumbs and extends."

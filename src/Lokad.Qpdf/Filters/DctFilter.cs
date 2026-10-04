@@ -6,7 +6,7 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>
-/// Governed DCTDecode (JPEG) through the pinned ImageSharp codec. Baseline
+/// Governed DCTDecode (JPEG) through the pinned ImageSharp codec.
 /// 1- and 3-component images decode to raw sample bytes at
 /// <c>--decode-level=all</c>; anything else stays opaque with an explicit
 /// failure. Four-component CMYK/YCCK samples cannot round-trip through the

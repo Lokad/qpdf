@@ -394,6 +394,62 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page where the contents stream was freed and re-added with generation 1. Bare and stale selectors display null while the live pair displays on both sides; the show-object differential consumes it."
+    },
+    {
+      "file": "images-progressive-gray-1page.pdf",
+      "sha256": "0a2f492b2c2b5bb5555fea6baf6c43f4cd76d673d37e21c555cc44343aa29921",
+      "bytes": 835,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored 13x9, 1-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
+      "imageWidth": 13,
+      "imageHeight": 9,
+      "imageComponents": 1,
+      "decodedSamplesBytes": 117,
+      "decodedSamplesSha256": "485acd0c007c8a9e44503c25a17d228cb45ce823cfbc9f892b4871b7dea5b305"
+    },
+    {
+      "file": "images-progressive-rgb-1page.pdf",
+      "sha256": "3174e74dd9d923b0651476833affd4f3040709894ce2b1f66278f8fe769b5678",
+      "bytes": 871,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored 17x11, 3-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
+      "imageWidth": 17,
+      "imageHeight": 11,
+      "imageComponents": 3,
+      "decodedSamplesBytes": 561,
+      "decodedSamplesSha256": "a61b0b528aae2ed9031b69dbbe0855a78e8f8076ef13057ac28dbb3c59556d7a"
+    },
+    {
+      "file": "images-progressive-gray-large-1page.pdf",
+      "sha256": "ab5d77d87313b715c68a289381c4b955f4e3d487520851da14d38b28feba532c",
+      "bytes": 4946,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored 1024x1024, 1-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
+      "imageWidth": 1024,
+      "imageHeight": 1024,
+      "imageComponents": 1,
+      "decodedSamplesBytes": 1048576,
+      "decodedSamplesSha256": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+    },
+    {
+      "file": "images-progressive-rgb-large-1page.pdf",
+      "sha256": "ea67b333ee0304a0b264b136ef75ec4acba4374f090feddf9a8032c98af30545",
+      "bytes": 3945,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "Authored 512x512, 3-component progressive JPEG image with separate DC/AC scans; exact decoded samples are uniformly 128.",
+      "imageWidth": 512,
+      "imageHeight": 512,
+      "imageComponents": 3,
+      "decodedSamplesBytes": 786432,
+      "decodedSamplesSha256": "fd92de53403dba9b673df2cba7ee3de7c7c4ca5ef4b8e1f7f2e8c0d72ed1e193"
     }
   ]
 }

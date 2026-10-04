@@ -68,6 +68,10 @@
     <None Include="../Fixtures/generate-unreachable-1page.pdf" Link="Fixtures/generate-unreachable-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/images-cmyk-1page.pdf" Link="Fixtures/images-cmyk-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/images-ycck-1page.pdf" Link="Fixtures/images-ycck-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-progressive-gray-1page.pdf" Link="Fixtures/images-progressive-gray-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-progressive-rgb-1page.pdf" Link="Fixtures/images-progressive-rgb-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-progressive-gray-large-1page.pdf" Link="Fixtures/images-progressive-gray-large-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-progressive-rgb-large-1page.pdf" Link="Fixtures/images-progressive-rgb-large-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/incr-samegen-1page.pdf" Link="Fixtures/incr-samegen-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/incr-freereuse-1page.pdf" Link="Fixtures/incr-freereuse-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-1page.pdf" Link="Fixtures/overlay-widget-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

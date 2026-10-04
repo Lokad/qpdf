@@ -44,7 +44,7 @@ while codec allocation/cancellation auditing remains open (see below).
 `tools/QpdfProbe` is the development-only differential runner. It invokes the
 pinned qpdf 12.4.2 executable (`--version`, `--show-npages`, `--check`) and the
 pinned independent reader (PdfPig `[0.1.16]`, never a runtime dependency).
-`tests/Fixtures/manifest.json` records 43 synthetic fixtures (single- and multi-page
+`tests/Fixtures/manifest.json` records 47 synthetic fixtures (single- and multi-page
 selections, outlines, thumbnails, images, overlays, labels, and orphans, plus truncated
 negative fixtures) with SHA-256, byte counts and expected page counts. Ordinary tests use these
 fixtures and a fake oracle; they never require `external/` or a real qpdf
@@ -85,6 +85,11 @@ concatenate per-source field registrations with per-source-snapshot `+N` collisi
 for named field nodes (including direct-dictionary nodes renamed in place with upward rebuilds), keep the first default-resources
 dictionary, and embed the combined form directly in the catalog where
 upstream writes an indirect object. Direct-dictionary kids stay embedded where the reference promotes them to indirect objects (rename outcomes agree on surviving shapes), and field-like direct objects met while traversing now warn and stay ignored under `--check` on both sides (exit 3, forms-check lane case); page-unreachable form trees drop on explicit selection and merge paths exactly as the reference drops them, while whole-file rewrites keep them verbatim on both sides. `--check` additionally warns with exit 3 on page widgets no field registration reaches and on kids whose /Parent back-link does not name the traversed node, matching the reference; the copy path keeps preserving those shapes verbatim (tested difference). Damaged structure with unresolvable references drops leniently instead of failing, while the reference keeps the damaged tree; well-formed outlines/structure preserve with dangling destinations pruned to null where the reference keeps references to null objects. Catalog extras that reference page-tree or catalog nodes drop their key where the reference remaps them onto the rebuilt nodes.
+The `progressive-jpeg` cases compare four authored grayscale/RGB image rewrites
+with exact sample hashes, filter removal and oracle/independent-reader trios.
+Binary payload/text helpers search PDF delimiters with ordinal comparisons;
+culture-sensitive matching can stall on large control-byte sample payloads.
+
 ## Codec feasibility probes (work item 03)
 
 `QpdfProbe probe-jpeg` exercises the pinned ImageSharp `3.1.12` JPEG codec
@@ -140,8 +145,14 @@ counted as decoded stream bytes. Both codec directions receive the caller's
 cancellation token through the pinned token-bearing APIs, with row copying and
 stream writes checking it as well. Aggregate decoded bytes are admitted from
 the frame header before another pixel/sample frame is allocated.
-Progressive-input evidence, the remaining
-codec-state allowance, and measured cancellation latency still need auditing.
+Four authored progressive grayscale/RGB fixtures exercise separate DC/AC scans,
+non-multiple-of-eight edges, and larger coefficient owners. All sample bytes
+are exactly 128; the pinned oracle and managed public rewrites agree byte-for-
+byte, and tight coefficient budgets dispose owners. These fixtures are rebuilt
+by `tools/build-progressive-fixtures.py` and indexed in the fixture manifest;
+they do not establish a general tolerance for textured/progressive images.
+The remaining codec-state allowance, independent retention and measured
+cancellation latency still need auditing.
 
 `QpdfProbe probe-flate` exercises the governed BCL Flate pipeline.
 
@@ -845,7 +856,7 @@ DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 ad
 
 ## Inline optimization and codec hardening (work item 34)
 
-Image optimization covers externalized inline images under the same shrink-only rules, and the filter layer gained adversarial cases: truncated JPEGs and two-component frames stay opaque with a warning, chained Flate+DCT decodes with --recompress-flate, dimension mismatches skip silently, and encode budgets fail explicitly. Attachment extraction now decodes DCT streams, and the streams check passes valid JPEGs at decode level all. Progressive JPEG has no encoder in the pinned codec so no round-trip fixture exists; four-component CMYK/YCCK stays opaque by the recorded decision (genuine four-component inputs covered by unit tests and the `cmyk` differential).
+Image optimization covers externalized inline images under the same shrink-only rules, and the filter layer gained adversarial cases: truncated JPEGs and two-component frames stay opaque with a warning, chained Flate+DCT decodes with --recompress-flate, dimension mismatches skip silently, and encode budgets fail explicitly. Attachment extraction now decodes DCT streams, and the streams check passes valid JPEGs at decode level all. Authored progressive JPEG fixtures now verify decoded samples and allocation ownership; the pinned encoder still does not emit progressive JPEG. Four-component CMYK/YCCK stays opaque by the recorded decision (genuine four-component inputs covered by unit tests and the `cmyk` differential).
 
 ## QDF editable view (work item 35)
 

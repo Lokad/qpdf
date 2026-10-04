@@ -23,7 +23,7 @@ public sealed class FixtureManifestTests
     {
         using JsonDocument manifest = ReadManifest();
         JsonElement fixtures = manifest.RootElement.GetProperty("fixtures");
-        Assert.Equal(43, fixtures.GetArrayLength());
+        Assert.Equal(47, fixtures.GetArrayLength());
 
         foreach (JsonElement entry in fixtures.EnumerateArray())
         {
@@ -69,6 +69,10 @@ public sealed class FixtureManifestTests
     [InlineData("generate-unreachable-1page.pdf", 1)]
     [InlineData("images-cmyk-1page.pdf", 1)]
     [InlineData("images-ycck-1page.pdf", 1)]
+    [InlineData("images-progressive-gray-1page.pdf", 1)]
+    [InlineData("images-progressive-rgb-1page.pdf", 1)]
+    [InlineData("images-progressive-gray-large-1page.pdf", 1)]
+    [InlineData("images-progressive-rgb-large-1page.pdf", 1)]
     [InlineData("incr-samegen-1page.pdf", 1)]
     [InlineData("incr-freereuse-1page.pdf", 1)]
     [InlineData("overlay-annot-1page.pdf", 1)]
@@ -125,4 +129,3 @@ public sealed class FixtureManifestTests
         }
     }
 }
-
