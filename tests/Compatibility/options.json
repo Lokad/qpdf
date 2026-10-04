@@ -3162,9 +3162,7 @@
       "argumentKind": "file_parameter",
       "parameter": "file",
       "choices": [],
-      "jobJsonPaths": [
-        "jobJsonFile"
-      ],
+      "jobJsonPaths": [],
       "scope": "required",
       "choiceScopes": {},
       "manualForms": [

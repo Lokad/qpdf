@@ -181,6 +181,47 @@ public sealed class CompatibilityInventoryTests
         Assert.True(bad.Count == 0, "Non-camelCase job keys: " + string.Join("; ", bad));
     }
 
+    [Fact]
+    public void JobJsonPathsMatchParserKeys()
+    {
+        string? directory = AppContext.BaseDirectory;
+        string parser = string.Empty;
+        for (int i = 0; i < 8 && directory is not null; i++)
+        {
+            string candidate = Path.Combine(directory, "src", "Lokad.Qpdf", "Jobs", "JobJsonParser.cs");
+            if (File.Exists(candidate))
+            {
+                parser = File.ReadAllText(candidate);
+                break;
+            }
+
+            directory = Path.GetDirectoryName(directory);
+        }
+
+        Assert.NotEqual(string.Empty, parser);
+        using var inventory = ReadInventory();
+        var bad = new List<string>();
+        foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            foreach (var path in entry.GetProperty("jobJsonPaths").EnumerateArray())
+            {
+                string? value = path.GetString();
+                if (string.IsNullOrEmpty(value) || value.StartsWith("encrypt.", StringComparison.Ordinal) || value.Contains("[]", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string leaf = value.Contains('.', StringComparison.Ordinal) ? value.Substring(value.LastIndexOf('.') + 1) : value;
+                if (!parser.Contains("case \"" + leaf + "\":", StringComparison.Ordinal))
+                {
+                    bad.Add(entry.GetProperty("context").GetString() + "/" + entry.GetProperty("flag").GetString() + ": " + value);
+                }
+            }
+        }
+
+        Assert.True(bad.Count == 0, "Job paths without a parser key: " + string.Join("; ", bad));
+    }
+
     private static JsonDocument ReadInventory() => JsonDocument.Parse(
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Compatibility", "options.json")));
 }
