@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 162; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 pages defaultReview rows (--file=file, --range=numeric-range) are now reviewed against pinned upstream cli.rst: = and space named forms plus positional file/range with argv/job parity, omitted range selects all pages, []-element job schemas covered by parent entries, differential merge case green. defaultReview stands at 64 reviewed and 93 pending (49 crypto plus 44 other); flip only in verified batches, never bulk. Next is item 163 in the remaining backlog.
+M11 completion audit through item 163; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 warning-modifier defaultReview rows (--warning-exit-0, --no-warn) are now reviewed against pinned upstream cli.rst: exit-0 maps warnings to exit 0, no-warn drops messages keeping exit 3, combined they ignore warnings; both ride the shared plan across argv/job keys warningExit0/noWarn with duplicates rejected and form-warning interaction pinned. defaultReview stands at 66 reviewed and 91 pending (49 crypto plus 42 other); flip only in verified batches, never bulk. Next is item 164 in the remaining backlog.
 
 ## Remaining work
 
