@@ -184,6 +184,31 @@ public sealed class ZlibFlateTests
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompressionBudgetFailurePreservesPublishedTarget(bool outputLimit)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.bin", BinaryPayload());
+        QpdfPath target = QpdfPath.From("outputs/b.bin");
+        await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(target, CancellationToken.None))
+        {
+            await transaction.WriteAsync(new byte[] { 7, 8, 9 }, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+
+        QpdfLimits limits = outputLimit
+            ? QpdfLimits.Default with { MaxOutputBytes = 16L }
+            : QpdfLimits.Default with { MaxMemoryBytes = 65536L };
+        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"), target,
+            new QpdfZlibFlateOptions(QpdfZlibFlateMode.Compress, null), limits, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.True(host.TryGetOutput(target, out byte[] output));
+        Assert.Equal(new byte[] { 7, 8, 9 }, output);
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task CancelledTokenReportsCanceled()
     {

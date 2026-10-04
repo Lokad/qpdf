@@ -155,10 +155,30 @@ codec-state allowance, and measured cancellation latency still need auditing.
   bytes); callers must validate expected stream length rather than assuming
   the codec rejects every truncation. Expansion limits are enforced by a
   bounded copy loop (8 KiB buffer, checked total) because the output cap does
-  not itself cap codec allocations. Cancellation flows through the async
-  read/write overloads.
+  not itself cap codec allocations. Codec input/output chunks check cancellation.
 
-ImageSharp stays behind the future JPEG adapter and out of the public API;
+Flate encoding and inflation now reserve codec state before construction and
+use the governed output stream for admitted capacities, growth overlap and
+returned copies. Inflation charges its 8 KiB scratch array separately, validates
+Adler-32 over the working span before allocating the returned copy, and releases
+working owners on failure. A borrowed input stream caps each refill at 8 KiB
+and charges work even for compressed blocks that produce no output; encoding
+also supplies at most 8 KiB per codec call. Empty compression validates levels
+and admits its eight-byte framing before allocation.
+
+The state allowances are conservative admission models: 512 KiB for deflate
+and 128 KiB for inflate, including the BCL pooled buffer and wrapper state.
+[zlib's memory model](https://zlib.net/zlib_tech.html) gives approximately 268 KiB
+for default compression and 40 KiB for inflation;
+[the .NET 10 stream implementation](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.IO.Compression/src/System/IO/Compression/DeflateZLib/DeflateStream.cs)
+uses an additional 8 KiB pooled buffer. The allowances add headroom; their
+adequacy across supported runtime/platform implementations still needs
+independent measurement. Returned pool buffers can remain retained by the BCL
+after a job. Predictor allocations, aggregate decode admission and measured
+cancellation/retention remain audit work; these changes do not establish a
+process-memory ceiling.
+
+ImageSharp stays behind the JPEG adapter and out of the public API;
 no Drawing, SkiaSharp, native libjpeg or alternative codec is introduced.
 The pin remains exactly `3.1.12` in central versions, lock files and the
 package dependency group.

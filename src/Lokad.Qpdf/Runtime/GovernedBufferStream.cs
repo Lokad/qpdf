@@ -29,6 +29,16 @@ internal sealed class GovernedBufferStream : Stream
     public override bool CanSeek => !_disposed;
     public override bool CanWrite => !_disposed;
 
+    internal ReadOnlySpan<byte> WrittenSpan
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _governor.CheckCancellation();
+            return _buffer.AsSpan(0, _length);
+        }
+    }
+
     public override long Length
     {
         get

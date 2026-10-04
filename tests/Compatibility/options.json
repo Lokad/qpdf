@@ -2340,7 +2340,8 @@
           "ObjectStreamTests.GenerateWithCompressFlatesContainers"
         ],
         "resource": [
-          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
+          "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation"
         ],
         "oracle": [
           "diff:compress"
@@ -2382,7 +2383,10 @@
           "ObjectStreamTests.CompressLevelsApplyToContainers"
         ],
         "resource": [
-          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
+          "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation",
+          "FlateMemoryTests.OnlyReturnedArrayRemainsCharged",
+          "FlateMemoryTests.ReturnedCopyNeedsMemoryWhileWorkingCapacityIsLive"
         ],
         "oracle": [
           "diff:compress"
@@ -2525,7 +2529,10 @@
         "DctDecodeTests.DecodeBudgetFailurePreservesPublishedTarget",
         "JpegMemoryAllocatorTests.TightBudgetRejectsBeforeCreatingTheRequestedArray",
           "DctDecodeTests.CancelledDecodeFailsFast",
-          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
+          "FlateMemoryTests.TightBudgetRejectsBeforeCodecAndOutputAllocation",
+          "FlateMemoryTests.BadChecksumReleasesAllWorkingMemory",
+          "FlateMemoryTests.CompressedBlocksWithoutOutputConsumeWork"
         ],
         "oracle": [
           "diff:uncompress-payloads",
@@ -4884,7 +4891,8 @@
           "CompressionTests.JobJsonParityHolds"
         ],
         "resource": [
-          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.CompressYieldsToExhaustedBudget",
+          "FlateMemoryTests.ReturnedCopyNeedsMemoryWhileWorkingCapacityIsLive"
         ],
         "oracle": [
           "diff:compress"
