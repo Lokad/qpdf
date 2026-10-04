@@ -1549,7 +1549,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -1594,7 +1594,7 @@
       ],
       "milestone": "M4",
       "status": "partial",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [
         "Rejection-only; default limits can never be disabled (containment). No accepting behavior exists."
       ],
@@ -1632,7 +1632,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -1679,7 +1679,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -1726,7 +1726,7 @@
       ],
       "milestone": "M4",
       "status": "partial",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [
         "Rejection-only; the strict parser tolerates no errors and unbounded tolerance contradicts containment."
       ],
@@ -1763,7 +1763,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
