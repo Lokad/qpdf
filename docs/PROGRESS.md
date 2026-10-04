@@ -2,11 +2,14 @@
 
 ## Current checkpoint
 
-Containment, reader, lease, input-admission, and parser-limit mechanics done (explicit host ceilings, upstream-scoped --no-default-limits, 0 removes the threshold; governed leases/reads/disposal; job-JSON and base64 admission; /Extends reads). Suite 1955/1955 green.
+JPEG decoding now admits ImageSharp pixel/coefficient/stream owners through a per-job managed allocator, separately from returned samples; failed budgets dispose codec owners and preserve staged targets. Isolated Release snapshot: 1960/1960 tests green, pinned reference and full differential lanes green, package/symbol boundary verified. Fresh-package consumer passed after reevaluating only the rebuilt local package hash in that snapshot; the checked-in consumer hash still needs a reliable fresh-artifact policy.
 
 ## Remaining work
 
+- JPEG encode admission, Flate capacities/copies, and cancellation during codec/CPU work remain open; the old fixed codec reserve was insufficient for simultaneous owners.
+- Consumer verification must use the freshly packed artifact: the current checked-in local-package hash rejects changed package bytes in a fresh cache, while a global cached alpha can hide that mismatch. Keep approved external dependency hashes locked.
 - Parser semantics remainder: per-object error budgets with tolerant trial parsing (interim still counts failed repair candidates; tight-budget legs stay managed-only with oracle succeeding per object); valid-xref repairable-syntax inputs participate only as a documented strict delta.
+- Pending tolerant-parser edits currently fail to build at a missing BeginTolerantObject call; isolate unrelated corrections until those edits are completed and verified.
 - Benchmarks: fix counters/memory ownership before treating peaks as evidence; independent allocation/retention plus mid-operation cancellation; record reproducible results and fix demonstrated problems.
 - M11 open with three truthful partials (no-Zopfli profile, CMYK images, parser-max-errors per-object budgets); push/tag/publication are separate actions, not implementation blockers.
 - Stale drman.log (151 bytes) left alone; never ships.

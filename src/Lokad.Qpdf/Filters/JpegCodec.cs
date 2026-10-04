@@ -22,15 +22,23 @@ internal static class JpegCodec
     internal const int DefaultQuality = 75;
 
     /// <summary>
-    /// Conservative working-set reservation held while the ImageSharp codec
-    /// runs, in addition to the frame itself. Allocation probes across 64 to
-    /// 1024 pixel frames show fixed codec overhead peaking near 26 KiB above
-    /// the frame bytes, so 64 KiB bounds it with margin; the reserve is
-    /// released when the call returns. The synchronous codec itself takes no token,
-    /// so callers check cancellation at entry and, while decoding, once per output
-    /// row; the working-set reserve keeps the remaining uninterruptible work bounded.
+    /// Allowance for codec/configuration state outside ImageSharp's allocator.
+    /// Pixel, coefficient and stream buffers must be charged separately through
+    /// the per-job allocator; this allowance does not replace their ownership.
     /// </summary>
     internal const long CodecWorkingSetBytes = 65536L;
+
+    internal const long SampleArrayOverheadBytes = 32L;
+
+    internal static Configuration CreateConfiguration(ResourceGovernor governor)
+    {
+        return new Configuration(new JpegConfigurationModule())
+        {
+            MemoryAllocator = new JpegMemoryAllocator(governor),
+            MaxDegreeOfParallelism = 1,
+            StreamProcessingBufferSize = 8192,
+        };
+    }
 
     internal static int MapQuality(int qpdfQuality)
     {

@@ -157,7 +157,7 @@ public sealed class CodecProbeTests
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
         Assert.Throws<QpdfLimitException>(
             () => DctFilter.Decode(bytes, tight, new ResourceGovernor(tight, CancellationToken.None)));
-        QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = frame + JpegCodec.CodecWorkingSetBytes + 1024L };
+        QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 256L * 1024L };
         byte[] decoded = DctFilter.Decode(bytes, roomy, new ResourceGovernor(roomy, CancellationToken.None));
         Assert.Equal(frame, decoded.Length);
     }
@@ -429,7 +429,6 @@ public sealed class CodecProbeTests
         Assert.Contains("flate:", stdout, StringComparison.Ordinal);
     }
 }
-
 
 
 

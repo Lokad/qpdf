@@ -37,7 +37,7 @@ appropriate comparisons. Compressed output need not be byte-identical.
 JPEG component/color invariants and narrowly defined sample tolerances are established
 against the approved codec: governed 1- and 3-component DCT decoding plus shrink-only
 optimization shipped in M8; four-component CMYK/YCCK samples stay opaque by decision
-and codec allocation/cancellation is proven bounded (see below).
+while codec allocation/cancellation auditing remains open (see below).
 
 ## Validation runners and fixtures
 
@@ -125,9 +125,15 @@ with an explicit warning on every path: `--check` skips these streams with exit 
 where the reference exits 0, and `--optimize-images` keeps its partial entry for
 the missing encode path. The boundary is pinned by the `cmyk` differential
 (recorded oracle samples, opaque managed output, 0/3 exits) and unit tests over
-genuine four-component inputs. Cancellation is checked at codec entry and once
-per decoded row, and the 64 KiB working-set reserve is proven to scale (a 1 MP
-frame peaks at exactly frame + reserve).
+genuine four-component inputs. JPEG decoding now uses a per-job managed,
+non-pooling ImageSharp allocator: pixel, coefficient and stream buffer owners
+reserve their typed capacities before allocation, including a conservative
+array/owner allowance, and release them at disposal. Returned samples have a
+separate reservation, so simultaneously live pixel and sample frames both count.
+Metadata decoding is disabled. Tight-budget failures release codec owners and
+preserve an existing output target. The fixed 64 KiB allowance covers other
+codec/configuration state; it does not replace the allocator's buffer charges.
+Encoding buffer admission and cancellation during codec work remain open.
 
 `QpdfProbe probe-flate` exercises the governed BCL Flate pipeline.
 
@@ -893,4 +899,3 @@ checks. Keep those entries partial until their dependencies are validated.
 Each implementation step includes limits, cancellation and failure behavior.
 Milestones need reproducible evidence, not just accepted option names. A known
 gap can permit independent later work, but cannot be declared complete.
-

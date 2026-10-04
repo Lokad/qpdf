@@ -360,19 +360,53 @@ public sealed class DctDecodeTests
         Assert.Throws<OperationCanceledException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default, governor));
     }
     [Fact]
-    public void LargeFrameReservesBoundedWorkingSet()
+    public void LargeFrameChargesConcurrentCodecAndSampleOwners()
     {
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         long frame = 1024L * 1024L;
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
         Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight, new ResourceGovernor(tight, CancellationToken.None)));
-        QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = frame + JpegCodec.CodecWorkingSetBytes + 4096L };
+        QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 8L * frame };
         ResourceGovernor governor = new(roomy, CancellationToken.None);
         byte[] decoded = DctFilter.Decode(jpeg, roomy, governor);
         Assert.Equal(frame, decoded.Length);
-        Assert.Equal(frame + JpegCodec.CodecWorkingSetBytes, governor.Snapshot().PeakMemoryBytes);
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= decoded.Length);
+        Assert.True(governor.Snapshot().PeakMemoryBytes >= 2L * frame);
+        Assert.Equal(frame + JpegCodec.SampleArrayOverheadBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(decoded);
+    }
+
+    [Fact]
+    public void ConcurrentFrameBudgetRejectsAndReleasesCodecOwners()
+    {
+        byte[] jpeg = EncodeGrayJpeg(1024, 1024);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1536L * 1024L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, limits, governor));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
+    }
+
+    [Fact]
+    public async Task DecodeBudgetFailurePreservesPublishedTarget()
+    {
+        byte[] jpeg = EncodeGrayJpeg(1024, 1024);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
+        QpdfPath output = QpdfPath.From("outputs/a.pdf");
+        await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(output, CancellationToken.None))
+        {
+            await transaction.WriteAsync(new byte[] { 7, 8, 9 }, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1536L * 1024L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.True(host.TryGetOutput(output, out byte[] bytes));
+        Assert.Equal(new byte[] { 7, 8, 9 }, bytes);
+        Assert.Equal(0, host.OpenLeaseCount);
     }
     [Fact]
     public async Task SpecializedLevelKeepsDctOpaqueSilently()

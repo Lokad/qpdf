@@ -2520,7 +2520,10 @@
         ],
         "resource": [
           "DctDecodeTests.OversizedFrameFailsBeforeAllocation",
-          "DctDecodeTests.LargeFrameReservesBoundedWorkingSet",
+        "DctDecodeTests.LargeFrameChargesConcurrentCodecAndSampleOwners",
+        "DctDecodeTests.ConcurrentFrameBudgetRejectsAndReleasesCodecOwners",
+        "DctDecodeTests.DecodeBudgetFailurePreservesPublishedTarget",
+        "JpegMemoryAllocatorTests.TightBudgetRejectsBeforeCreatingTheRequestedArray",
           "DctDecodeTests.CancelledDecodeFailsFast",
           "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
         ],

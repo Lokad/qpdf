@@ -1,4 +1,5 @@
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using Lokad.Qpdf.Runtime;
 
@@ -11,12 +12,12 @@ namespace Lokad.Qpdf.Filters;
 /// failure. Four-component CMYK/YCCK samples cannot round-trip through the
 /// approved public pixel API (decoding yields color-converted RGB), so those
 /// streams are never silently reduced: they fail as unsupported and stay
-/// opaque. Cancellation is checked before header work and once per output row
-/// while copying samples, so a cancelled job fails fast instead of running the
-/// synchronous codec to completion. Frame dimensions are read from the JPEG header before any pixel
-/// buffer is allocated, and both work and memory budgets are charged up
-/// front, plus <see cref="JpegCodec.CodecWorkingSetBytes"/> for the codec
-/// working set, released when decoding returns. Decode parameters are
+/// opaque. Codec-buffer admission and sample-row copying check cancellation;
+/// cancellation during codec CPU work remains a separate audit obligation.
+/// Frame dimensions are read before pixel allocation.
+/// Returned samples are admitted separately from the codec's pixel, coefficient
+/// and stream buffers, which use a governed per-job allocator. A fixed allowance
+/// covers other codec state. Decode parameters are
 /// ignored because JPEG frames are self-describing.
 /// </summary>
 internal static class DctFilter
@@ -59,34 +60,24 @@ internal static class DctFilter
 
         long pixels = (long)width * height;
         long expected = pixels * (components == 1 ? 1L : 3L);
-        if (expected > limits.MaxDecodedBytes)
+        long maximum = Math.Min(limits.MaxDecodedBytes, Array.MaxLength);
+        if (expected > maximum)
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), expected, limits.MaxDecodedBytes);
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), expected, maximum);
         }
 
         governor.ChargeWork(pixels);
-        governor.ReserveMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
+        long reserved = checked(expected + JpegCodec.SampleArrayOverheadBytes + JpegCodec.CodecWorkingSetBytes);
+        governor.ReserveMemory(reserved);
         bool success = false;
         try
         {
             byte[] decoded = components == 1
-                ? DecodeGray(input, governor)
-                : DecodeRgb(input, governor);
-            if ((long)decoded.Length > limits.MaxDecodedBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), decoded.Length, limits.MaxDecodedBytes);
-            }
+                ? DecodeGray(input, width, height, governor)
+                : DecodeRgb(input, width, height, governor);
 
             governor.ChargeDecodedBytes(decoded.Length);
-            if ((long)decoded.Length == expected)
-            {
-                governor.ReleaseMemory(JpegCodec.CodecWorkingSetBytes);
-            }
-            else
-            {
-                governor.ReleaseMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
-                governor.ReserveMemory(decoded.Length);
-            }
+            governor.ReleaseMemory(JpegCodec.CodecWorkingSetBytes);
 
             success = true;
             return decoded;
@@ -95,7 +86,7 @@ internal static class DctFilter
         {
             if (!success)
             {
-                governor.ReleaseMemory(checked(expected + JpegCodec.CodecWorkingSetBytes));
+                governor.ReleaseMemory(reserved);
             }
         }
 
@@ -195,17 +186,17 @@ internal static class DctFilter
         }
     }
 
-    private static byte[] DecodeGray(byte[] input, ResourceGovernor governor)
+    private static byte[] DecodeGray(byte[] input, int width, int height, ResourceGovernor governor)
     {
         if (governor is null)
         {
             throw new ArgumentNullException(nameof(governor));
         }
 
-        using Image<L8> image = Load<L8>(input);
-        if (image.Width <= 0 || image.Height <= 0)
+        using Image<L8> image = Load<L8>(input, governor);
+        if (image.Width != width || image.Height != height)
         {
-            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG frame dimensions are not positive.");
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Decoded JPEG dimensions differ from the admitted frame.");
         }
 
         byte[] output = new byte[checked(image.Width * image.Height)];
@@ -223,17 +214,17 @@ internal static class DctFilter
         return output;
     }
 
-    private static byte[] DecodeRgb(byte[] input, ResourceGovernor governor)
+    private static byte[] DecodeRgb(byte[] input, int width, int height, ResourceGovernor governor)
     {
         if (governor is null)
         {
             throw new ArgumentNullException(nameof(governor));
         }
 
-        using Image<Rgb24> image = Load<Rgb24>(input);
-        if (image.Width <= 0 || image.Height <= 0)
+        using Image<Rgb24> image = Load<Rgb24>(input, governor);
+        if (image.Width != width || image.Height != height)
         {
-            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG frame dimensions are not positive.");
+            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Decoded JPEG dimensions differ from the admitted frame.");
         }
 
         byte[] output = new byte[checked(checked(image.Width * image.Height) * 3)];
@@ -254,12 +245,18 @@ internal static class DctFilter
         return output;
     }
 
-    private static Image<TPixel> Load<TPixel>(byte[] input)
+    private static Image<TPixel> Load<TPixel>(byte[] input, ResourceGovernor governor)
         where TPixel : unmanaged, IPixel<TPixel>
     {
         try
         {
-            return Image.Load<TPixel>(input);
+            DecoderOptions options = new()
+            {
+                Configuration = JpegCodec.CreateConfiguration(governor),
+                SkipMetadata = true,
+                MaxFrames = 1,
+            };
+            return Image.Load<TPixel>(options, input);
         }
         catch (Exception ex) when (ex is not QpdfLimitException && ex is not OperationCanceledException)
         {
