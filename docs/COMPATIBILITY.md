@@ -4,9 +4,10 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-**Implemented PDF operations: the audited non-cryptographic subset.** 153 inventory entries
-are complete and 4 stay partial behind explicitly held-open gaps (containment-only
-limits, the no-Zopfli build profile, and four-component CMYK image samples); excluded crypto
+**Implemented PDF operations: the audited non-cryptographic subset.** 155 inventory entries
+are complete and 2 stay partial behind explicitly held-open gaps (the no-Zopfli build
+profile and four-component CMYK image samples, accepted as tested compatibility exceptions
+with truthful partial labeling); excluded crypto
 operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and
@@ -435,7 +436,7 @@ warning exit parity with the oracle (plain 3/3, flagged 0/0, suppressed-message 
 `--help` and `--version` return identity text as info diagnostics with exit 0, as does the
 new `--copyright` notice (Lokad/MIT/12.4.2-target); valued identity forms fail explicitly, and
 identity requests bypass exhausted output budgets. `--completion-bash` and `--completion-zsh` emit static subset completion scripts (no shell execution or environment lookup), `--job-json-help` prints the supported job-key subset, and `--json-help[=1|2|latest]` describes the matching inspection version; the differential lane checks exit-0 identity parity with shared markers on both sides. `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with identical outputs (host lease policy stays authoritative); the differential lane runs hinted merges with trios green on both sides. All other operations stay
-explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides. `--global [options] --` limit blocks behave identically on both sides; bare limit flags outside the block are accepted here as a narrow-profile leniency while the reference rejects them, and the differential lane runs blocked selections (filters, nesting at 100 and at the upstream default 499, and loose container caps) with trios green on both sides. Over-limit filter chains stay opaque with a warning (exit 3) on both sides. The default nesting cap is tighter (256 vs 499) for stack safety with agreement at 499; tight container caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3), with agreement at loose caps.
+explicitly unsupported. The differential lane checks error exit-class parity with the oracle: out-of-range page ranges, missing inputs, and unknown flags all exit 2 on both sides. `--global [options] --` limit blocks behave identically on both sides; bare limit flags outside the block are accepted here as a narrow-profile leniency while the reference rejects them, and the differential lane runs blocked selections (filters, nesting at 100 and at the upstream default 499, and loose container caps) with trios green on both sides. Over-limit filter chains stay opaque with a warning (exit 3) on both sides. Invocation parser knobs tighten behavior within host ceilings they can never raise: a value above a host-customized ceiling fails with BudgetExceeded, while untouched host ceilings still carry library defaults (agreement at 499 for nesting). `--no-default-limits` (bare argv, `--global` block, job `noDefaultLimits`) lifts compatible parser defaults, filter and container counts, when the host left them at defaults; explicit values, host-customized ceilings, nesting, and the error budget always stand, and valued, duplicate, and import combinations fail explicitly. The differential lane decodes a 30-filter chain identically on both sides under `--no-default-limits` (oracle inside its `--global` block, managed bare by narrow-profile leniency). `--parser-max-errors=n` (default 15; zero rejected as unbounded) bounds failed trial parses during repair, naming the offending object when the budget is exceeded; strict parsing still fails on the first malformed token. The differential lane exercises budgeted repair legs (tight budget fails without output, loose budget warns with agreeing page counts). The default nesting cap is tighter (256 vs 499) for stack safety with agreement at 499; tight container caps fail fast (exit 2) while the oracle warns and skips the oversized object during recovery (exit 3), with agreement at loose caps.
 
 Output-neutral diagnostics (work item 81): `--progress` reports counted-byte
 milestones (25/50/75/100%) while the reference streams object-based
@@ -453,7 +454,8 @@ top-level JSON keys for the schema check).
 
 Strict parsing runs first; only its failure engages bounded repair, which scans
 for object headers, trial-parses each candidate, keeps the last valid
-occurrence, and fills unscanned gaps as free. Streams with indirect lengths are
+occurrence, aborts after MaxParserErrors failed trial parses (default 15), and fills
+unscanned gaps as free. Streams with indirect lengths are
 skipped by the scanner. The tail trailer wins when its root resolves, otherwise
 the last scanned catalog wins; files without a catalog fail. Repaired output is
 rewritten, never the original bytes. The CLI repairs by default and emits a

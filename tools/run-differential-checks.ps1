@@ -1386,6 +1386,38 @@ else {
   Write-Output "[recovery/suppress] exit parity (2/2)"
   if ((Test-Path "$case/lib-s.pdf") -or (Test-Path "$case/ora-s.pdf")) { Write-Output "[recovery/suppress] FAIL: output published despite strict failure"; $script:failures++ }
   else { Write-Output "[recovery/suppress] nothing published on either side" }
+# Error storm: three malformed indirect objects need three tolerated errors.
+Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/e.pdf" -Force
+$eraw0 = [IO.File]::ReadAllBytes("$case/inputs/e.pdf")
+$eneedle = [Text.Encoding]::ASCII.GetBytes("startxref`n398")
+$eat = -1
+for ($ei = 0; $ei + $eneedle.Length -le $eraw0.Length; $ei++) {
+  $efound = $true
+  for ($ek = 0; $ek -lt $eneedle.Length; $ek++) { if ($eraw0[$ei + $ek] -ne $eneedle[$ek]) { $efound = $false; break } }
+  if ($efound) { $eat = $ei; break }
+}
+if ($eat -lt 0) { throw "recovery/errors setup: startxref needle missing" }
+[Text.Encoding]::ASCII.GetBytes("999").CopyTo($eraw0, $eat + 10)
+[IO.File]::WriteAllBytes("$case/inputs/e.pdf", $eraw0)
+$estorm = [Text.Encoding]::ASCII.GetBytes("6 0 obj`n<< /Broken 0`n7 0 obj`n<< /Broken 1`n8 0 obj`n<< /Broken 2`n")
+$eraw = [IO.File]::ReadAllBytes("$case/inputs/e.pdf")
+$ems = [IO.MemoryStream]::new()
+$ems.Write($eraw, 0, $eraw.Length)
+$ems.Write($estorm, 0, $estorm.Length)
+[IO.File]::WriteAllBytes("$case/inputs/e.pdf", $ems.ToArray())
+$m2 = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/e2.pdf=$case/lib-e2.pdf", '--', 'inputs/e.pdf', '--parser-max-errors=2', '--pages', '.', '1', '--', "outputs/e2.pdf") 'errors-tight'
+if ($m2 -ne 2) { Write-Output "[recovery/errors-tight] FAIL: exit managed=$m2, expected 2"; $script:failures++ }
+elseif (Test-Path "$case/lib-e2.pdf") { Write-Output "[recovery/errors-tight] FAIL: output published despite exhausted error budget"; $script:failures++ }
+else { Write-Output "[recovery/errors-tight] budget exceeded without output" }
+$m5 = Invoke-RecoveryExit $case @('emit', '--workdir', $case, '--out', "outputs/e5.pdf=$case/lib-e5.pdf", '--', 'inputs/e.pdf', '--parser-max-errors=5', '--pages', '.', '1', '--', "outputs/e5.pdf") 'errors-loose'
+if ($m5 -ne 3) { Write-Output "[recovery/errors-loose] FAIL: exit managed=$m5, expected 3"; $script:failures++ }
+elseif (-not (Test-Path "$case/lib-e5.pdf")) { Write-Output "[recovery/errors-loose] FAIL: no output published within budget"; $script:failures++ }
+else {
+  $libN = Get-OracleNpages "$case/lib-e5.pdf"
+  $libP = Get-PigNpages "$case/lib-e5.pdf"
+  if ($libN -ne 1 -or $libP -ne 1) { Write-Output "[recovery/errors-loose] FAIL: page counts lib=$libN/$libP, expected 1"; $script:failures++ }
+  else { Write-Output "[recovery/errors-loose] repaired page counts agree (1)" }
+}
 }
 
 # --- case: linearized (managed --check vs oracle --check) ---
@@ -1496,6 +1528,66 @@ foreach ($sub in @(@('filters', @('--max-stream-filters=25')), @('nesting', @('-
   Assert-Trio "global-$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 2
 }
 Write-Output "[global] block parity done"
+# Over-limit filter chain: default caps keep it opaque, --no-default-limits decodes it on both sides.
+$rawText = "BT /F1 24 Tf 100 700 Td (Hello) Tj ET"
+$payload = [Text.Encoding]::ASCII.GetBytes($rawText)
+for ($i = 0; $i -lt 30; $i++) {
+  $ms = [IO.MemoryStream]::new()
+  $zs = [IO.Compression.ZLibStream]::new($ms, [IO.Compression.CompressionMode]::Compress)
+  $zs.Write($payload, 0, $payload.Length)
+  $zs.Dispose()
+  $payload = $ms.ToArray()
+  $ms.Dispose()
+}
+$filters = ((1..30 | ForEach-Object { '/FlateDecode' }) -join ' ')
+$chainDict = "<< /Length $($payload.Length) /Filter [ $filters ] >>"
+$chainObjs = @(
+  "<< /Type /Catalog /Pages 2 0 R >>",
+  "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+  "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>",
+  $chainDict
+)
+$enc = [Text.Encoding]::ASCII
+$chainParts = New-Object "System.Collections.Generic.List[byte[]]"
+$chainParts.Add($enc.GetBytes("%PDF-1.4`n"))
+$chainOffsets = @()
+$chainPos = $chainParts[0].Length
+for ($n = 1; $n -le $chainObjs.Count; $n++) {
+  $open = $enc.GetBytes("$n 0 obj`n" + $chainObjs[$n - 1] + "`n")
+  if ($n -eq 4) {
+    $chainOffsets += $chainPos
+    $chainParts.Add($open)
+    $chainPos += $open.Length
+    $chainParts.Add($enc.GetBytes("stream`n"))
+    $chainPos += 7
+    $chainParts.Add($payload)
+    $chainPos += $payload.Length
+    $chainParts.Add($enc.GetBytes("`nendstream`nendobj`n"))
+    $chainPos += 18
+  } else {
+    $chainOffsets += $chainPos
+    $chainParts.Add($open)
+    $chainPos += $open.Length
+    $chainParts.Add($enc.GetBytes("endobj`n"))
+    $chainPos += 7
+  }
+}
+$chainXref = "xref`n0 5`n0000000000 65535 f `n"
+foreach ($o in $chainOffsets) { $chainXref += $o.ToString("D10") + " 00000 n `n" }
+$chainXrefAt = $chainPos
+$chainParts.Add($enc.GetBytes($chainXref))
+$chainPos += ($enc.GetBytes($chainXref)).Length
+$chainParts.Add($enc.GetBytes("trailer`n<< /Size 5 /Root 1 0 R >>`nstartxref`n$chainXrefAt`n%%EOF`n"))
+$chainOut = [IO.MemoryStream]::new()
+foreach ($p in $chainParts) { $chainOut.Write($p, 0, $p.Length) }
+[IO.File]::WriteAllBytes("$case/inputs/chain.pdf", $chainOut.ToArray())
+$mcode = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ndl.pdf=$case/lib-ndl.pdf", '--', 'inputs/chain.pdf', '--stream-data=uncompress', '--no-default-limits', '--pages', '.', '1', '--', "outputs/ndl.pdf")
+$ocode = Invoke-Oracle $case @('--stream-data=uncompress', '--global', '--no-default-limits', '--', 'inputs/chain.pdf', '--pages', '.', '1', '--', "$case/ora-ndl.pdf")
+if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[global-ndl] FAIL: exits managed=$mcode oracle=$ocode, expected 0/0"; $script:failures++ }
+else {
+  Assert-Trio 'global-ndl' "$case/lib-ndl.pdf" "$case/ora-ndl.pdf" 1
+  if ((Get-StreamPayloads "$case/lib-ndl.pdf") -ne (Get-StreamPayloads "$case/ora-ndl.pdf")) { Write-Output "[global-ndl] FAIL: decoded stream payloads differ"; $script:failures++ } else { Write-Output "[global-ndl] payloads match" }
+}
 
 # --- case: warnings (warning exit-code parity) ---
 $case = New-Case 'warnings'

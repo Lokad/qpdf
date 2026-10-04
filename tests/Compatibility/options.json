@@ -1595,11 +1595,9 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Rejection-only; default limits can never be disabled (containment). No accepting behavior exists."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "GlobalLimitsTests.NoDefaultLimitsAccepted",
@@ -1619,7 +1617,9 @@
           "GlobalLimitsTests.NoDefaultLimitsRespectsTightHost",
           "GlobalLimitsTests.NoDefaultLimitsKeepsNestingCap"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:global"
+        ]
       }
     },
     {
@@ -1736,11 +1736,9 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Rejection-only; the strict parser tolerates no errors and unbounded tolerance contradicts containment."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "RecoveryTests.ErrorsBudgetBoundsRepair",
@@ -1761,7 +1759,9 @@
           "RecoveryTests.ErrorsBudgetTightHostStillBounds",
           "GlobalLimitsTests.ParserMaxErrorsValidationRejectsNonPositive"
         ],
-        "oracle": []
+        "oracle": [
+          "diff:recovery"
+        ]
       }
     },
     {
