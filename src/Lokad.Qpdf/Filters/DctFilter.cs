@@ -11,7 +11,9 @@ namespace Lokad.Qpdf.Filters;
 /// failure. Four-component CMYK/YCCK samples cannot round-trip through the
 /// approved public pixel API (decoding yields color-converted RGB), so those
 /// streams are never silently reduced: they fail as unsupported and stay
-/// opaque. Frame dimensions are read from the JPEG header before any pixel
+/// opaque. Cancellation is checked before header work and once per output row
+/// while copying samples, so a cancelled job fails fast instead of running the
+/// synchronous codec to completion. Frame dimensions are read from the JPEG header before any pixel
 /// buffer is allocated, and both work and memory budgets are charged up
 /// front, plus <see cref="JpegCodec.CodecWorkingSetBytes"/> for the codec
 /// working set, released when decoding returns. Decode parameters are
@@ -39,6 +41,7 @@ internal static class DctFilter
         }
 
         limits.Validate();
+        governor.CheckCancellation();
         if (input.Length == 0)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG input holds no bytes.");
@@ -66,8 +69,8 @@ internal static class DctFilter
         try
         {
             byte[] decoded = components == 1
-                ? DecodeGray(input)
-                : DecodeRgb(input);
+                ? DecodeGray(input, governor)
+                : DecodeRgb(input, governor);
             if ((long)decoded.Length > limits.MaxDecodedBytes)
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), decoded.Length, limits.MaxDecodedBytes);
@@ -176,8 +179,13 @@ internal static class DctFilter
         }
     }
 
-    private static byte[] DecodeGray(byte[] input)
+    private static byte[] DecodeGray(byte[] input, ResourceGovernor governor)
     {
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
         using Image<L8> image = Load<L8>(input);
         if (image.Width <= 0 || image.Height <= 0)
         {
@@ -188,6 +196,7 @@ internal static class DctFilter
         int at = 0;
         for (int y = 0; y < image.Height; y++)
         {
+            governor.CheckCancellation();
             for (int x = 0; x < image.Width; x++)
             {
                 output[at] = image[x, y].PackedValue;
@@ -198,8 +207,13 @@ internal static class DctFilter
         return output;
     }
 
-    private static byte[] DecodeRgb(byte[] input)
+    private static byte[] DecodeRgb(byte[] input, ResourceGovernor governor)
     {
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
         using Image<Rgb24> image = Load<Rgb24>(input);
         if (image.Width <= 0 || image.Height <= 0)
         {
@@ -210,6 +224,7 @@ internal static class DctFilter
         int at = 0;
         for (int y = 0; y < image.Height; y++)
         {
+            governor.CheckCancellation();
             for (int x = 0; x < image.Width; x++)
             {
                 Rgb24 pixel = image[x, y];

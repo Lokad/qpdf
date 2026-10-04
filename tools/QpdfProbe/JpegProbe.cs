@@ -7,8 +7,9 @@ namespace Lokad.Qpdf.Probe;
 // Bounds and maps the pinned ImageSharp 3.1.12 JPEG codec for PDF DCT use.
 // Grayscale and RGB round-trips are feasible; four-component CMYK/YCCK raw
 // samples are not preserved through the public pixel API (decoded pixels are
-// color-converted). qpdf --jpeg-quality 0..100 maps to ImageSharp 1..100 with
-// 0 clamped to 1. Full JPEG integration remains M8.
+// color-converted, and no CMYK pixel type exists). qpdf --jpeg-quality 0..100 maps
+// to ImageSharp 1..100 with 0 clamped to 1. Four-component opacity is a final
+// decision (work item 133); see docs/COMPATIBILITY.md.
 internal static class JpegProbe
 {
     internal const int ProbeWidth = 8;
@@ -212,7 +213,7 @@ internal static class JpegProbe
             throw new ProbeException("CMYK-labeled JPEG round-trip changed dimensions.", 1);
         }
 
-        Console.WriteLine("jpeg: four-component gap: CMYK/YCCK encode labels exist but decode yields color-converted RGB pixels; raw component samples are not preserved (M8 gap)");
+        Console.WriteLine("jpeg: four-component decision: CMYK/YCCK encode labels exist but no CMYK pixel type or raw-component decoder surface exists, so four-component samples stay opaque by decision (work item 133)");
     }
 
     private static void CheckOversizedRejected()

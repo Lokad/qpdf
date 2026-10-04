@@ -358,6 +358,24 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a widget unreachable from the form field registration (with a stale appearance and NeedAppearances). Selection must drop the emptied form and skip generation silently while whole-file output warns and regenerates; the generate-unreachable differential consumes it."
+    },
+    {
+      "file": "images-cmyk-1page.pdf",
+      "sha256": "4145be7ebd287a4bf19be26e62dab43794ad6586c050c4651346c5ce2d52ca4c",
+      "bytes": 989,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a true four-component CMYK DCT image (deterministic DC-only samples). The oracle decodes exact raw samples with exit 0 while managed output stays opaque with a warning; the cmyk differential consumes it."
+    },
+    {
+      "file": "images-ycck-1page.pdf",
+      "sha256": "9f1189c3034d42ac06f35549db45d120df6ad34cc571b6ae6611a5951b4ef571",
+      "bytes": 1005,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with an Adobe YCCK DCT image. The oracle converts to CMYK samples with exit 0 while managed output stays opaque with a warning; the cmyk differential consumes it."
     }
   ]
 }

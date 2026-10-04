@@ -66,6 +66,8 @@
     <None Include="../Fixtures/flatten-dr-1page.pdf" Link="Fixtures/flatten-dr-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/generate-radio-1page.pdf" Link="Fixtures/generate-radio-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/generate-unreachable-1page.pdf" Link="Fixtures/generate-unreachable-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-cmyk-1page.pdf" Link="Fixtures/images-cmyk-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/images-ycck-1page.pdf" Link="Fixtures/images-ycck-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-1page.pdf" Link="Fixtures/overlay-widget-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dest-1page.pdf" Link="Fixtures/overlay-widget-dest-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dr-1page.pdf" Link="Fixtures/overlay-widget-dr-1page.pdf" CopyToOutputDirectory="PreserveNewest" />

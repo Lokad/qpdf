@@ -300,6 +300,78 @@ public sealed class DctDecodeTests
         Assert.Equal(patched, stream.Data);
     }
 
+
+    [Fact]
+    public async Task TrueCmykJpegStaysOpaque()
+    {
+        // A genuine four-component JPEG with known samples (8x8, DC-only blocks):
+        // the approved codec has no CMYK pixel type, so decode must fail explicitly
+        // instead of reducing to color-converted RGB.
+        byte[] jpeg = CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
+        Assert.True(DctFilter.TryParseFrame(jpeg, out int width, out int height, out int components));
+        Assert.Equal(4, components);
+        Assert.Equal(8, width);
+        Assert.Equal(8, height);
+        QpdfFilterException failure = Assert.Throws<QpdfFilterException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default, new ResourceGovernor(QpdfLimits.Default, CancellationToken.None)));
+        Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, failure.Reason);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
+        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
+        PdfName name = Assert.IsType<PdfName>(raw);
+        Assert.Equal("DCTDecode", name.DisplayText);
+        Assert.Equal(jpeg, stream.Data);
+    }
+    [Fact]
+    public async Task YcckJpegStaysOpaque()
+    {
+        // Same boundary for Adobe YCCK input: the oracle converts to CMYK on decode,
+        // which the approved codec cannot reproduce, so it stays opaque as well.
+        byte[] jpeg = CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, 2);
+        Assert.True(DctFilter.TryParseFrame(jpeg, out int width, out int height, out int components));
+        Assert.Equal(4, components);
+        Assert.Equal(8, width);
+        Assert.Equal(8, height);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
+        List<string> argv = new() { "inputs/a.pdf", "--decode-level=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject raw));
+        PdfName name = Assert.IsType<PdfName>(raw);
+        Assert.Equal("DCTDecode", name.DisplayText);
+        Assert.Equal(jpeg, stream.Data);
+    }
+    [Fact]
+    public void CancelledDecodeFailsFast()
+    {
+        byte[] jpeg = EncodeGrayJpeg(8, 8);
+        using CancellationTokenSource source = new();
+        source.Cancel();
+        ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
+        Assert.Throws<OperationCanceledException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default, governor));
+    }
+    [Fact]
+    public void LargeFrameReservesBoundedWorkingSet()
+    {
+        byte[] jpeg = EncodeGrayJpeg(1024, 1024);
+        long frame = 1024L * 1024L;
+        QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
+        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight, new ResourceGovernor(tight, CancellationToken.None)));
+        QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = frame + JpegCodec.CodecWorkingSetBytes + 4096L };
+        ResourceGovernor governor = new(roomy, CancellationToken.None);
+        byte[] decoded = DctFilter.Decode(jpeg, roomy, governor);
+        Assert.Equal(frame, decoded.Length);
+        Assert.Equal(frame + JpegCodec.CodecWorkingSetBytes, governor.Snapshot().PeakMemoryBytes);
+    }
     [Fact]
     public async Task SpecializedLevelKeepsDctOpaqueSilently()
     {

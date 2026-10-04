@@ -176,6 +176,16 @@ public sealed class CodecProbeTests
     }
 
     [Fact]
+    public void CancelledEncodeFailsFast()
+    {
+        byte[] raw = new byte[8 * 8 * 3];
+        using CancellationTokenSource source = new();
+        source.Cancel();
+        ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
+        Assert.Throws<OperationCanceledException>(() => JpegCodec.EncodeRgb(raw, 8, 8, 75, QpdfLimits.Default, governor));
+    }
+
+    [Fact]
     public void JpegOversizedDimensionsAreRejectedBeforeAllocation()
     {
         long pixels = (long)100000 * 100000;

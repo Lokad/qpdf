@@ -2122,6 +2122,38 @@ foreach ($pair in @(('lib', "$case/lib-wholegen.pdf"), ('ora', "$case/ora-wholeg
   if (-not $decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/wholegen] FAIL: $($pair[0]) appearance lacks generated value"; $script:failures++ }
 }
 Write-Output "[generate-unreachable/wholegen] warn-and-generate assertions done"
+# --- case: cmyk (managed vs oracle four-component JPEG boundary) ---
+$case = New-Case 'cmyk'
+Copy-Item "$fixtureDir/images-cmyk-1page.pdf" "$case/inputs/a.pdf"
+Copy-Item "$fixtureDir/images-ycck-1page.pdf" "$case/inputs/b.pdf"
+$code = Invoke-Oracle $case @('--check', 'inputs/a.pdf')
+if ($code -ne 0) { Write-Output "[cmyk/check] FAIL: oracle check exit $code, expected 0"; $script:failures++ }
+else { Write-Output "[cmyk/check] oracle passes valid CMYK silently" }
+$managedCheckExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--', 'inputs/a.pdf', '--check') "cmyk-check"
+if ($managedCheckExit -ne 3) { Write-Output "[cmyk/check] FAIL: managed check exit $managedCheckExit, expected 3 (declared skip)"; $script:failures++ }
+else { Write-Output "[cmyk/check] exit parity (0/3, declared four-component skip)" }
+$expectedPlain = New-Object byte[] 256
+for ($i = 0; $i -lt 64; $i++) { $expectedPlain[$i*4] = 138; $expectedPlain[$i*4+1] = 108; $expectedPlain[$i*4+2] = 158; $expectedPlain[$i*4+3] = 88 }
+$expectedPlainHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($expectedPlain))
+$expectedYcck = New-Object byte[] 256
+for ($i = 0; $i -lt 64; $i++) { $expectedYcck[$i*4] = 75; $expectedYcck[$i*4+1] = 132; $expectedYcck[$i*4+2] = 152; $expectedYcck[$i*4+3] = 88 }
+$expectedYcckHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($expectedYcck))
+foreach ($sub in @(('plain', 'inputs/a.pdf', $expectedPlainHash), ('ycck', 'inputs/b.pdf', $expectedYcckHash))) {
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$($sub[0]).pdf=$case/lib-$($sub[0]).pdf", '--', $sub[1], '--pages', '.', '1', '--decode-level=all', '--', "outputs/$($sub[0]).pdf")
+  if ($code -ne 0) { throw "cmyk/$($sub[0]): emit failed ($code)" }
+  $managedDecExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m-$($sub[0]).pdf=$case/lib-m-$($sub[0]).pdf", '--', $sub[1], '--pages', '.', '1', '--decode-level=all', '--', "outputs/m-$($sub[0]).pdf") "cmyk-decode-$($sub[0])"
+  $code = Invoke-Oracle $case @('--decode-level=all', $sub[1], '--pages', '.', '1', '--', "$case/ora-$($sub[0]).pdf")
+  if ($code -ne 0) { throw "cmyk/$($sub[0]): oracle failed ($code)" }
+  if ($managedDecExit -ne 3) { Write-Output "[cmyk/$($sub[0])] FAIL: managed decode exit $managedDecExit, expected 3 (opaque with warning)"; $script:failures++ }
+  else { Write-Output "[cmyk/$($sub[0])] exit parity (0/3, oracle decodes while managed stays opaque)" }
+  $oraPayloads = (Get-StreamPayloads "$case/ora-$($sub[0]).pdf") -split ','
+  if (-not ($oraPayloads -contains $sub[2])) { Write-Output "[cmyk/$($sub[0])] FAIL: oracle decoded samples differ from recorded values"; $script:failures++ }
+  else { Write-Output "[cmyk/$($sub[0])] oracle samples match recorded values" }
+  $libRaw = [IO.File]::ReadAllText("$case/lib-$($sub[0]).pdf")
+  if (-not $libRaw.Contains('/DCTDecode')) { Write-Output "[cmyk/$($sub[0])] FAIL: managed output lost /DCTDecode"; $script:failures++ }
+  else { Write-Output "[cmyk/$($sub[0])] managed output stays opaque" }
+}
+Write-Output "[cmyk] boundary assertions done"
 
 # --- case: direct-rename (managed vs oracle direct-kid collision renaming) ---
 $case = New-Case 'direct-rename'
@@ -2389,4 +2421,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 3/3 unreachable warnings), generate-radio (radio sync warns 3/3 with states kept), generate-unreachable (unreachable-form selection drops and skips silently with 0/0 exits, whole-file warns and regenerates with 3/3 exits), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 3/3 unreachable warnings), generate-radio (radio sync warns 3/3 with states kept), generate-unreachable (unreachable-form selection drops and skips silently with 0/0 exits, whole-file warns and regenerates with 3/3 exits), cmyk (four-component check/decode exits 0/3 with recorded oracle samples and opaque managed output), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

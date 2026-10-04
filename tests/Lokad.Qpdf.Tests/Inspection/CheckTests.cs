@@ -222,6 +222,25 @@ public sealed class CheckTests
     }
 
     [Fact]
+    public async Task TrueCmykSkipsStreamsWithWarning()
+    {
+        // A genuine four-component JPEG (known DC-only samples): the streams check
+        // skips DCTDecode for it exactly like the labeled variant, since no CMYK
+        // pixel path exists in the approved codec.
+        byte[] jpeg = Lokad.Qpdf.Tests.Filters.CmykJpegBuilder.Build(new[] { 10, -20, 30, -40 }, null);
+        List<(int, string, byte[]?)> objects = SinglePage("<< /Length 37 >>", HelloContents());
+        objects.Add((6, "<< /Filter /DCTDecode /Length " + jpeg.Length.ToString() + " >>", jpeg));
+        byte[] bytes = Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("inputs/dct.pdf", bytes);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/dct.pdf"), CancellationToken.None);
+        QpdfCheckOutcome streams = SingleOutcome(result, "streams");
+        Assert.Equal(QpdfCheckStatus.Skipped, streams.Status);
+        Assert.Contains("DCTDecode", streams.Detail, StringComparison.Ordinal);
+        Assert.True(result.Passed);
+        Assert.True(result.HasSkipped);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckSkipped && diagnostic.Severity == QpdfDiagnosticSeverity.Warning);
+    }
+    [Fact]
     public async Task ValidDctPassesStreamsCheck()
     {
         byte[] jpeg;

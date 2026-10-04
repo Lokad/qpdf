@@ -2111,7 +2111,9 @@
       "evidence": {
         "positive": [
           "CheckTests.ValidDocumentReportsExpectedOutcomes",
-          "CheckTests.ArgvCheckSucceedsWithoutOutput"
+          "CheckTests.ArgvCheckSucceedsWithoutOutput",
+          "CheckTests.UnavailableFilterSkipsStreamsWithWarning",
+          "CheckTests.TrueCmykSkipsStreamsWithWarning"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms"
@@ -2123,7 +2125,8 @@
           "CheckTests.CheckFailsOnExhaustedInputBudget"
         ],
         "oracle": [
-          "diff:linearized"
+          "diff:linearized",
+          "diff:cmyk"
         ]
       }
     },
@@ -2471,6 +2474,8 @@
         "negative": [
           "DctDecodeTests.FourComponentFrameStaysOpaque",
           "DctDecodeTests.CmykLabeledJpegStaysOpaque",
+          "DctDecodeTests.TrueCmykJpegStaysOpaque",
+          "DctDecodeTests.YcckJpegStaysOpaque",
           "DctDecodeTests.SpecializedLevelKeepsDctOpaqueSilently",
           "DctDecodeTests.TruncatedJpegAtAllWarnsAndStaysOpaque",
           "DctDecodeTests.TwoComponentFrameStaysOpaque"
@@ -2483,11 +2488,14 @@
         ],
         "resource": [
           "DctDecodeTests.OversizedFrameFailsBeforeAllocation",
+          "DctDecodeTests.LargeFrameReservesBoundedWorkingSet",
+          "DctDecodeTests.CancelledDecodeFailsFast",
           "ResourceEnforcementTests.CompressYieldsToExhaustedBudget"
         ],
         "oracle": [
           "diff:uncompress-payloads",
-          "diff:compress"
+          "diff:compress",
+          "diff:cmyk"
         ]
       }
     },

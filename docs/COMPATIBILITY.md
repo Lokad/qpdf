@@ -33,8 +33,8 @@ data, page sequence, sharing, lossless stream bytes and exit classes need
 appropriate comparisons. Compressed output need not be byte-identical.
 JPEG component/color invariants and narrowly defined sample tolerances are established
 against the approved codec: governed 1- and 3-component DCT decoding plus shrink-only
-optimization shipped in M8 with four-component CMYK/YCCK samples and codec
-allocation/cancellation accounting held open (see below).
+optimization shipped in M8; four-component CMYK/YCCK samples stay opaque by decision
+and codec allocation/cancellation is proven bounded (see below).
 
 ## Validation runners and fixtures
 
@@ -106,6 +106,25 @@ streams and prompt disposal; global defaults are never mutated.
   pixel budget before any image is allocated; codec-internal buffers remain
   ImageSharp-owned and must be budgeted conservatively in M8.
   Cancellation flows through `LoadAsync`/`SaveAsync` overloads.
+Decision (work item 133): four-component opacity is final, not held open.
+Probed against the pinned 3.1.12 assembly itself, the public API offers no
+raw-sample path: no CMYK pixel type exists (`Cmyk32` does not compile), the
+decoder exposes no component selector or no-conversion option, and the
+`Cmyk`/`Ycck` encoder labels only tag RGB-derived output. A hand-built baseline
+4-component JPEG with known DC-only samples pins the exact boundary from the
+oracle side: plain input decodes to exactly 128 + DC per component (exit 0),
+Adobe YCCK input converts to CMYK samples (exit 0), and both shapes fail
+explicitly before any pixel work on the managed side. The alternatives all
+violate standing rules: another JPEG package or native libjpeg binding (banned
+dependencies), a hand-written DCT decoder (banned second codec), and lossy RGB
+reduction (banned silent fidelity loss). Four-component DCT therefore stays opaque
+with an explicit warning on every path: `--check` skips these streams with exit 3
+where the reference exits 0, and `--optimize-images` keeps its partial entry for
+the missing encode path. The boundary is pinned by the `cmyk` differential
+(recorded oracle samples, opaque managed output, 0/3 exits) and unit tests over
+genuine four-component inputs. Cancellation is checked at codec entry and once
+per decoded row, and the 64 KiB working-set reserve is proven to scale (a 1 MP
+frame peaks at exactly frame + reserve).
 
 `QpdfProbe probe-flate` exercises the governed BCL Flate pipeline.
 
@@ -314,7 +333,7 @@ object identity: separate copiers share one destination numbering sequence and o
 governor, so equal object numbers across documents never collide while widgets
 keep their within-source field links. Every page keeps its own resources, so
 same-named resources and fields stay inert without content rewriting. Merged forms concatenate per-source field registrations with per-source-snapshot `+N` collision renaming for named field nodes, keep the first default-resources dictionary, OR the NeedAppearances flags, and embed the combined form directly in the catalog where upstream writes an indirect object. Output takes the highest source
-version and carries per-page source mapping plus per-source page counts. Direct-node promotion, first-wins resources, page-unreachable tree pruning, nonzero-generation inspection and CMYK/YCCK decoding stay explicitly open.
+version and carries per-page source mapping plus per-source page counts. Direct-node promotion, first-wins resources and nonzero-generation inspection stay explicitly open; four-component CMYK/YCCK decoding stays opaque by decision (see below).
 
 ## Split publication and replacement (work item 21)
 
@@ -751,7 +770,7 @@ both sides drop the dictionary with trios green. `--remove-structure` (plus job 
 
 ## Governed JPEG decoding (work item 32)
 
-DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 adapter: frame dimensions and component counts are read from the JPEG header before any pixel buffer is allocated, work and memory budgets are charged up front, and 1-component (grayscale) and 3-component images decode to raw sample bytes with the filter removed. Intentional differences: four-component CMYK/YCCK JPEGs stay opaque with an `UnsupportedFeature` warning because the approved public pixel API only yields color-converted RGB and cannot preserve raw component samples; lower decode levels keep DCT streams opaque silently; corrupt JPEG data warns and stays opaque. Content and overlay paths still gate on `specialized` and never decode images implicitly.
+DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 adapter: frame dimensions and component counts are read from the JPEG header before any pixel buffer is allocated, work and memory budgets are charged up front, and 1-component (grayscale) and 3-component images decode to raw sample bytes with the filter removed. Intentional differences: four-component CMYK/YCCK JPEGs stay opaque with an `UnsupportedFeature` warning (final decision recorded under codec feasibility above: the pinned assembly offers no CMYK pixel type or raw-component decoder surface; the `cmyk` differential pins oracle-0/managed-3 exits with recorded oracle samples); lower decode levels keep DCT streams opaque silently; corrupt JPEG data warns and stays opaque. Content and overlay paths still gate on `specialized` and never decode images implicitly.
 
 ## Image optimization (work item 33)
 
@@ -759,7 +778,7 @@ DCTDecode executes at decode level `all` through a governed ImageSharp 3.1.12 ad
 
 ## Inline optimization and codec hardening (work item 34)
 
-Image optimization covers externalized inline images under the same shrink-only rules, and the filter layer gained adversarial cases: truncated JPEGs and two-component frames stay opaque with a warning, chained Flate+DCT decodes with --recompress-flate, dimension mismatches skip silently, and encode budgets fail explicitly. Attachment extraction now decodes DCT streams, and the streams check passes valid JPEGs at decode level all. Progressive JPEG has no encoder in the pinned codec so no round-trip fixture exists; four-component CMYK remains the visible decoder and encoder gap.
+Image optimization covers externalized inline images under the same shrink-only rules, and the filter layer gained adversarial cases: truncated JPEGs and two-component frames stay opaque with a warning, chained Flate+DCT decodes with --recompress-flate, dimension mismatches skip silently, and encode budgets fail explicitly. Attachment extraction now decodes DCT streams, and the streams check passes valid JPEGs at decode level all. Progressive JPEG has no encoder in the pinned codec so no round-trip fixture exists; four-component CMYK/YCCK stays opaque by the recorded decision (genuine four-component inputs covered by unit tests and the `cmyk` differential).
 
 ## QDF editable view (work item 35)
 

@@ -12,7 +12,8 @@ namespace Lokad.Qpdf.Filters;
 /// defaults. Grayscale encodes with an explicit luminance color type so the
 /// output keeps a single component. Only single- and three-component raw
 /// samples encode; anything else fails explicitly instead of silently
-/// reducing fidelity.
+/// reducing fidelity. Cancellation is checked before pixel work so a cancelled
+/// job fails fast instead of running the synchronous codec to completion.
 /// </summary>
 internal static class JpegCodec
 {
@@ -25,9 +26,9 @@ internal static class JpegCodec
     /// runs, in addition to the frame itself. Allocation probes across 64 to
     /// 1024 pixel frames show fixed codec overhead peaking near 26 KiB above
     /// the frame bytes, so 64 KiB bounds it with margin; the reserve is
-    /// released when the call returns. Mid-call cancellation is not
-    /// available from the synchronous codec, so cancellation is honored
-    /// between codec calls through the governor instead.
+    /// released when the call returns. The synchronous codec itself takes no token,
+    /// so callers check cancellation at entry and, while decoding, once per output
+    /// row; the working-set reserve keeps the remaining uninterruptible work bounded.
     /// </summary>
     internal const long CodecWorkingSetBytes = 65536L;
 
@@ -90,6 +91,7 @@ internal static class JpegCodec
         }
 
         limits.Validate();
+        governor.CheckCancellation();
         if (width <= 0 || height <= 0)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "JPEG frame dimensions are not positive.");
