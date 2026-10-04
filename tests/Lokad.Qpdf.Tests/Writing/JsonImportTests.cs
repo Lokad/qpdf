@@ -1,7 +1,10 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Lokad.Qpdf.Json;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -789,5 +792,31 @@ public sealed class JsonImportTests
             null!, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("inputs/u.json"), QpdfPath.From("outputs/a.pdf"), CancellationToken.None).AsTask());
         await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.UpdatePdfFromJsonAsync(
             host, QpdfPath.From("inputs/a.pdf"), QpdfPath.From("inputs/u.json"), QpdfPath.From("outputs/a.pdf"), null!, CancellationToken.None).AsTask());
+    }
+    [Fact]
+    public async Task InlineDataAdmittedBeforeDecoding()
+    {
+        InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
+        string json = await ExportAsync(exportHost, "--json", "--json-stream-data=inline");
+        string big = Convert.ToBase64String(new byte[30000]);
+        string changed = MutateObjects(json, objects =>
+        {
+            objects["obj:4 0 R"]!["stream"]!["data"] = big;
+        });
+        using (JsonDocument admitted = JsonDocument.Parse(changed))
+        {
+            InMemoryQpdfHost host = new();
+            QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 35000L };
+            ResourceGovernor governor = new(limits, CancellationToken.None);
+            await Assert.ThrowsAsync<QpdfLimitException>(() => JsonImport.BuildCreateModelAsync(host, admitted, limits, governor, CancellationToken.None).AsTask());
+        }
+        using (JsonDocument document = JsonDocument.Parse(changed))
+        {
+            InMemoryQpdfHost host = new();
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+            ImportedModel model = await JsonImport.BuildCreateModelAsync(host, document, QpdfLimits.Default, governor, CancellationToken.None);
+            PdfStream stream = Assert.IsType<PdfStream>(model.Objects[4]);
+            Assert.Equal(30000, stream.Data.Length);
+        }
     }
 }

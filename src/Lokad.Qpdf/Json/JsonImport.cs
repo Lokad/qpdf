@@ -605,16 +605,21 @@ internal static class JsonImport
                             throw new QpdfParseException("qpdf JSON stream data must be a string.", 0L, null);
                         }
 
+                        // Admit the decoded payload before constructing it: base64
+                        // expands four source chars to at most three bytes, so the text
+                        // length bounds the allocation.
+                        governor.ReserveMemory(text.Length);
+
                         try
                         {
                             inlineData = Convert.FromBase64String(text);
                         }
                         catch (FormatException ex)
                         {
+                            governor.ReleaseMemory(text.Length);
                             throw new QpdfParseException("qpdf JSON stream data must be base64.", 0L, null, ex);
                         }
-
-                        governor.ReserveMemory(inlineData.Length);
+                        governor.ReleaseMemory(text.Length - inlineData.Length);
                         continue;
                     }
 

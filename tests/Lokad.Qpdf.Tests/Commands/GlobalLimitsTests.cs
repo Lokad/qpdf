@@ -818,4 +818,21 @@ public sealed class GlobalLimitsTests
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
+    [Fact]
+    public async Task JobJsonMemoryAdmittedBeforeParsing()
+    {
+        InMemoryQpdfHost host = new();
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, "{\"empty\": true, \"showNpages\": true}", new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+    }
+
+    [Fact]
+    public async Task JobJsonWorkChargedToGovernor()
+    {
+        InMemoryQpdfHost host = new();
+        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, "{\"empty\": true, \"showNpages\": true}", new QpdfExecutionOptions(limits), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+    }
 }

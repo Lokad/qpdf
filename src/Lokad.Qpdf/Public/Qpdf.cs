@@ -4844,7 +4844,7 @@ public static class Qpdf
             JobPlan jobPlan;
             try
             {
-                jobPlan = JobJsonParser.Parse(jobJson, options.Limits);
+                jobPlan = JobJsonParser.Parse(jobJson, options.Limits, governor);
             }
             catch (QpdfException ex)
             {
@@ -4946,7 +4946,7 @@ public static class Qpdf
         JobPlan plan;
         try
         {
-            plan = JobJsonParser.Parse(jobJson, options.Limits);
+            plan = JobJsonParser.Parse(jobJson, options.Limits, governor);
         }
         catch (QpdfException ex)
         {

@@ -427,8 +427,11 @@ stay open behind source-tree merging.
 Response files expand once through the host with one argument per line, UTF-8
 checked, budgeted per line, and leases closed; `@-` has no stdin descriptor and
 fails explicitly, missing files stay literal like the reference parser, and
-nested `@` tokens never re-expand. `--job-json-file` reads the identical job
-schema through the host with plan parity. `--warning-exit-0` maps warnings to
+nested `@` tokens never re-expand. Response payloads are admitted against the memory
+budget before any byte is fetched. `--job-json-file` reads the identical job
+schema through the host with plan parity. Job-JSON parsing itself runs under the job
+governor: input bytes are work-charged and the transient document model is
+memory-admitted before construction and released with the plan. `--warning-exit-0` maps warnings to
 exit 0, `--no-warn` drops warning messages while keeping exit 3 (both mirror the
 reference manual), and both ride the shared plan across argv and job JSON (`warningExit0`,
 `noWarn`, plus `suppressRecovery` mapping to strict recovery). The differential lane checks
@@ -710,7 +713,8 @@ with recomputed lengths, and objects are renumbered densely with dangling
 references nulled. Import validates structure strictly (required qpdf pair,
 versions, object keys, value/stream exclusivity, payload presence, base64 and
 hex grammars, name escapes) while ignoring unknown keys for forward
-compatibility. Intentional differences: JSON input requires a declared output
+compatibility. Inline base64 payloads are memory-admitted against the text-length
+bound before decoding. Intentional differences: JSON input requires a declared output
 file; object generations must be 0; stream and metadata writer options cannot
 combine; PDF update from JSON is a supported companion path (work item 27b).
 

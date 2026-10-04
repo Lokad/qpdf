@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Lokad.Qpdf.Commands;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Jobs;
 
@@ -12,7 +13,7 @@ internal static class JobJsonParser
 {
     private const int MaxDepth = 32;
 
-    internal static JobPlan Parse(string jobJson, QpdfLimits limits)
+    internal static JobPlan Parse(string jobJson, QpdfLimits limits, ResourceGovernor governor)
     {
         if (jobJson is null)
         {
@@ -24,6 +25,11 @@ internal static class JobJsonParser
             throw new ArgumentNullException(nameof(limits));
         }
 
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
         limits.Validate();
         long byteCount = System.Text.Encoding.UTF8.GetByteCount(jobJson);
         if (byteCount > limits.MaxInputBytes)
@@ -31,6 +37,18 @@ internal static class JobJsonParser
             throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), byteCount, limits.MaxInputBytes);
         }
 
+        governor.CheckCancellation();
+        governor.ChargeWork(checked(byteCount + 1L));
+
+        // Admit the transient document model before constructing it: the parsed
+        // document retains roughly the input size plus object overhead.
+        long modelBudget = checked(byteCount * 2L + 1024L);
+        if (modelBudget > limits.MaxMemoryBytes)
+        {
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), modelBudget, limits.MaxMemoryBytes);
+        }
+
+        governor.ReserveMemory(modelBudget);
         JsonDocumentOptions options = new()
         {
             MaxDepth = MaxDepth,
@@ -44,9 +62,12 @@ internal static class JobJsonParser
         }
         catch (JsonException ex)
         {
+            governor.ReleaseMemory(modelBudget);
             throw new QpdfParseException($"Invalid job JSON: {ex.Message}.", ex.BytePositionInLine, null, ex);
         }
 
+        try
+        {
         using (document)
         {
             if (document.RootElement.ValueKind != JsonValueKind.Object)
@@ -1774,6 +1795,11 @@ internal static class JobJsonParser
                     IgnoreXrefStreams = ignoreXrefStreams,
                     NoWarn = noWarn,
             };
+        }
+        }
+        finally
+        {
+            governor.ReleaseMemory(modelBudget);
         }
     }
 
