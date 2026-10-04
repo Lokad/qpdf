@@ -782,6 +782,39 @@ public sealed class AcroFormPreservationTests
     }
 
     [Fact]
+    public async Task MalformedParentLinkStaysPreservedSilently()
+    {
+        // The reference corrects a /Kids entry without a matching /Parent back-link and warns
+        // (exit 3); the shared copy engine preserves the stored links silently (deferred).
+        byte[] contents = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+        byte[] fixture = BuildFormPdf(
+            " /AcroForm << /Fields [5 0 R] >>",
+            " /Annots [6 0 R]",
+            contents,
+            new List<(string Dict, byte[]? StreamData)>()
+            {
+                ("<< /FT /Tx /T (Parent1) /Kids [6 0 R] >>", null),
+                ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /T (Kid) /V (K) /AP << /N 7 0 R >> >>", null),
+                ("<< /Length 10 >>", Encoding.ASCII.GetBytes("BT (K) Tj ")),
+                ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            });
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), fixture, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        PdfDictionary form = RequireForm(RequireCatalog(output));
+        PdfDictionary field = Assert.Single(ResolveFields(output, form));
+        Assert.Equal("Parent1", FieldText(field, "T"));
+        Assert.True(field.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw));
+        PdfReference kid = Assert.IsType<PdfReference>(Assert.Single(Assert.IsType<PdfArray>(kidsRaw).Items));
+        PdfDictionary widget = Assert.IsType<PdfDictionary>(output.GetObject(kid.ObjectNumber));
+        Assert.False(widget.TryGet(PdfName.FromAscii("Parent"), out QpdfObject? _));
+    }
+
+    [Fact]
     public async Task FormCopyYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-2page.pdf");

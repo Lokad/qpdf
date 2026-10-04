@@ -2933,11 +2933,9 @@
         }
       ],
       "milestone": "M7",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "pending",
-      "remainingGaps": [
-        "On page-selection, the reference drops forms whose widgets are unreachable from AcroForm traversal while managed selection preserves and generates them; whole-file behavior agrees."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
@@ -2954,7 +2952,12 @@
           "GenerateAppearancesTests.FieldDefaultResourcesIsIgnored",
           "GenerateAppearancesTests.MergeUsesPrimaryDefaultResourcesEncoding",
           "GenerateAppearancesTests.RadioButtonWarnsAndKeeps",
-          "GenerateAppearancesTests.UnreachableWidgetPreservedAndGeneratedOnSelection",
+          "GenerateAppearancesTests.UnreachableWidgetDroppedOnSelection",
+          "GenerateAppearancesTests.UnreachableWidgetWarnsAndGeneratesOnWholeFile",
+          "GenerateAppearancesTests.FormlessSelectionKeepsEmptyFormAndSkipsGeneration",
+          "GenerateAppearancesTests.FormlessWholeFileSkipsSilently",
+          "GenerateAppearancesTests.DirectWidgetSelectionSkipsSilently",
+          "GenerateAppearancesTests.DirectWidgetWholeFileWarnsAndGenerates",
           "GenerateAppearancesTests.QuaddingIsIgnoredLikeReference"
         ],
         "negative": [
@@ -2976,7 +2979,8 @@
           "diff:dr-encoding",
           "diff:dr-merge",
           "diff:parent-held",
-          "diff:generate-radio"
+          "diff:generate-radio",
+          "diff:generate-unreachable"
         ]
       }
     },

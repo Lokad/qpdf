@@ -125,6 +125,102 @@ public static class Qpdf
         return await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, specifications, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Collects the destination widget identifiers that stay reachable from the copied form
+    /// registrations for appearance generation, mirroring the reference field traversal: only
+    /// widgets in a surviving field subtree keep generation, with memberless fields counting
+    /// only on whole-file paths. Returns null when no output registration list survives, in
+    /// which case every widget stays untouched like the reference.
+    /// </summary>
+    private static HashSet<int>? CollectGenerateReached(IReadOnlyList<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> parts, HashSet<int> survivors, bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        if (parts is null)
+        {
+            throw new ArgumentNullException(nameof(parts));
+        }
+
+        if (survivors is null)
+        {
+            throw new ArgumentNullException(nameof(survivors));
+        }
+
+        if (limits is null)
+        {
+            throw new ArgumentNullException(nameof(limits));
+        }
+
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        limits.Validate();
+        bool anyFields = false;
+        HashSet<int> reached = new();
+        foreach ((IReadOnlyDictionary<int, QpdfObject> pool, Content.CopiedForm? part) in parts)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (part is null || !part.HasFields || pool is null)
+            {
+                continue;
+            }
+
+            (List<PdfReference> kept, HashSet<int> closure) = Content.AcroFormCopy.CollectKeptClosure(pool, part.Fields, survivors, pruneUnreachableFields, limits, governor, cancellationToken);
+            if (kept.Count == 0)
+            {
+                continue;
+            }
+
+            anyFields = true;
+            foreach (int id in closure)
+            {
+                reached.Add(id);
+            }
+        }
+
+        return anyFields ? reached : null;
+    }
+
+    /// <summary>
+    /// Drops a generated /NeedAppearances flag from an assembled form, mirroring the reference
+    /// clearing the condition once appearance generation has run.
+    /// </summary>
+    private static PdfDictionary? ClearNeedAppearances(PdfDictionary? form, ResourceGovernor governor)
+    {
+        if (governor is null)
+        {
+            throw new ArgumentNullException(nameof(governor));
+        }
+
+        if (form is null)
+        {
+            return null;
+        }
+
+        PdfName key = PdfName.FromAscii("NeedAppearances");
+        if (!form.TryGet(key, out QpdfObject? current) || current is null || current is PdfNull)
+        {
+            return form;
+        }
+
+        Dictionary<PdfName, QpdfObject> entries = new();
+        foreach (PdfName name in form.Keys)
+        {
+            if (name.DisplayText == "NeedAppearances")
+            {
+                continue;
+            }
+
+            if (form.TryGet(name, out QpdfObject? value) && value is not null)
+            {
+                entries[name] = value;
+            }
+        }
+
+        governor.ReserveMemory(64L);
+        return new PdfDictionary(entries);
+    }
+
     private static void ApplySourceContentTransforms(
         GraphCopier copier,
         IReadOnlyList<int> pageIds,
@@ -274,9 +370,22 @@ public static class Qpdf
 
         int flattenAllocator = overlayApplied.NextId;
         bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
-        if (generateAppearances && needAppearances)
+        bool singleGenerated = generateAppearances && needAppearances;
+        if (singleGenerated)
         {
-            flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+            Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, diagnostics, cancellationToken);
+            HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken);
+            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = new(1 + overlayApplied.FieldImports.Count)
+            {
+                (copier.CopiedObjects, gateForm),
+            };
+            foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+            {
+                gateParts.Add((import.Copier.CopiedObjects, import.Part));
+            }
+
+            HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
+            flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
             needAppearances = false;
         }
         if (flattenAnnotations is not null)
@@ -349,6 +458,7 @@ public static class Qpdf
                 document.Engine,
                 copier,
                 KeptLocations(document, requested),
+                true,
                 overlayOccurrences,
                 singlePool,
                 overlayApplied.FieldImports,
@@ -356,6 +466,11 @@ public static class Qpdf
                 governor,
                 diagnostics,
                 cancellationToken);
+        if (singleGenerated)
+        {
+            singleAcroForm = ClearNeedAppearances(singleAcroForm, governor);
+        }
+
         PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras);
         PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
         {
@@ -449,7 +564,7 @@ public static class Qpdf
 
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -515,7 +630,7 @@ public static class Qpdf
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, null, specifications, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, specifications, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     /// <summary>
@@ -599,7 +714,7 @@ public static class Qpdf
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
-        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+        return (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
     }
 
     private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> SelectPagesCoreAsync(
@@ -607,6 +722,7 @@ public static class Qpdf
         IReadOnlyList<PdfPageSource> sources,
         QpdfPath outputPath,
         QpdfPath primaryInput,
+        bool pruneUnreachableFields,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         PdfPageCollation? collation,
@@ -659,6 +775,7 @@ public static class Qpdf
         List<HashSet<int>> sourceCompressed = new(sources.Count);
         HashSet<int> allPreserved = new();
         List<Content.CopiedForm?> multiForms = new(sources.Count);
+        List<Content.CopiedForm?> gateForms = new(sources.Count);
         List<Content.SourceLabels?> multiLabels = new(sources.Count);
         QpdfObject? verbatimCopied = null;
         bool needSourceLabels = !removeLabels && (labels.Count == 0 || splitPages.HasValue);
@@ -743,11 +860,15 @@ public static class Qpdf
                     document.Engine,
                     copier,
                     KeptLocations(document, requested),
+                    pruneUnreachableFields,
                     limits,
                     governor,
                     diagnostics,
                     cancellationToken);
             multiForms.Add(sourceForm);
+            gateForms.Add(removeAcroform
+                ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, diagnostics, cancellationToken)
+                : sourceForm);
             if (needSourceLabels)
             {
                 multiLabels.Add(Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken));
@@ -842,7 +963,8 @@ public static class Qpdf
         Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, overlayOccurrences, underlays, overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, cancellationToken, nextId).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
-        if (generateAppearances && needAppearances)
+        bool multiGenerated = generateAppearances && needAppearances;
+        if (multiGenerated)
         {
             Dictionary<GraphCopier, PdfDictionary?> multiFormResources = new();
             for (int s = 0; s < copiers.Count && s < multiForms.Count; s++)
@@ -853,7 +975,19 @@ public static class Qpdf
                 }
             }
 
-            multiFlattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken);
+            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> multiGateParts = new(copiers.Count + overlayApplied.FieldImports.Count);
+            for (int s = 0; s < copiers.Count && s < gateForms.Count; s++)
+            {
+                multiGateParts.Add((copiers[s].CopiedObjects, gateForms[s]));
+            }
+            foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+            {
+                multiGateParts.Add((import.Copier.CopiedObjects, import.Part));
+            }
+
+            HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, cancellationToken);
+            multiFlattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
             needAppearances = false;
         }
         if (flattenAnnotations is not null)
@@ -1073,9 +1207,15 @@ public static class Qpdf
                 multiCombined,
                 pool,
                 Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken),
+                pruneUnreachableFields,
                 limits,
                 governor,
                 cancellationToken);
+        if (multiGenerated)
+        {
+            multiAcroForm = ClearNeedAppearances(multiAcroForm, governor);
+        }
+
         List<QpdfPath> outputPaths = new();
         if (!splitPages.HasValue)
         {
@@ -1144,7 +1284,11 @@ public static class Qpdf
                 }
 
                 HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(groupOccurrences, governor, cancellationToken);
-                groupAcroForm = Content.AcroFormCopy.BuildCatalogForm(multiCombined, pool, groupAnnots, limits, governor, cancellationToken);
+                groupAcroForm = Content.AcroFormCopy.BuildCatalogForm(multiCombined, pool, groupAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
+                if (multiGenerated)
+                {
+                    groupAcroForm = ClearNeedAppearances(groupAcroForm, governor);
+                }
             }
 
             PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last);
@@ -3428,6 +3572,7 @@ public static class Qpdf
             solo,
             plan.Output,
             plan.Input,
+            false,
             limits,
             plan.Recovery,
             null,
@@ -5339,6 +5484,7 @@ public static class Qpdf
                         resolved,
                         merge.Output,
                         merge.Input,
+                        true,
                         limits,
                         merge.Recovery,
                         merge.Collation,
@@ -5413,6 +5559,7 @@ public static class Qpdf
                         solo,
                         target,
                         selection.Input,
+                        true,
                         limits,
                         selection.Recovery,
                         null,

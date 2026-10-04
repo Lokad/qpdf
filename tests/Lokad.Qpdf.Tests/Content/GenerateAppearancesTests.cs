@@ -165,7 +165,7 @@ return Assert.Single(result.Diagnostics);
 }
 
 [Fact]
-public async Task UnreachableWidgetPreservedAndGeneratedOnSelection()
+public async Task UnreachableWidgetDroppedOnSelection()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 byte[] fixture = BuildPdf(" /AcroForm << /Fields [7 0 R] /NeedAppearances true /DR << /Font << /F1 6 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
@@ -178,12 +178,164 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [7 0 R] /NeedAppearances true /
 (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
-byte[] bytes = await AppearanceBytesAsync(pdf, 0);
-Assert.Contains("(Hello) Tj", Encoding.ASCII.GetString(bytes));
 using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement objects = catalog.RootElement.GetProperty("qpdf")[1];
 JsonElement root = objects.GetProperty("obj:1 0 R").GetProperty("value");
-Assert.True(root.TryGetProperty("/AcroForm", out JsonElement _));
+Assert.False(root.TryGetProperty("/AcroForm", out JsonElement _));
+using JsonDocument selectionPages = await InspectAsync(pdf, "--json", "--json-key=pages");
+using JsonDocument selectionFull = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement selectionObjects = selectionFull.RootElement.GetProperty("qpdf")[1];
+JsonElement selectionPage = selectionPages.RootElement.GetProperty("pages")[0];
+JsonElement selectionAnnots = selectionObjects.GetProperty(PageObjectKey(selectionPage)).GetProperty("value").GetProperty("/Annots");
+if (selectionAnnots.ValueKind == JsonValueKind.String)
+{
+string[] linked = (selectionAnnots.GetString() ?? string.Empty).Split((char)32);
+selectionAnnots = selectionObjects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+JsonElement selectionEntry = selectionAnnots.EnumerateArray().First();
+JsonElement selectionAnnot = selectionEntry.ValueKind == JsonValueKind.String
+? selectionObjects.GetProperty(StreamKey(selectionEntry.GetString() ?? string.Empty)).GetProperty("value")
+: selectionEntry;
+Assert.False(selectionAnnot.TryGetProperty("/AP", out JsonElement _));
+}
+[Fact]
+public async Task UnreachableWidgetWarnsAndGeneratesOnWholeFile()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [8 0 R] /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Loose) /V (Hello) /DA (/F1 12 Tf 0 g) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /F1 7 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+("<< /FT /Tx /T (Other) /V (World) >>", null),
+});
+InMemoryQpdfHost wholeResultHost = HostWith("inputs/a.pdf", fixture);
+string wholeResultJob = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "generateAppearances": true}""";
+QpdfExecutionResult wholeResult = await Qpdf.ExecuteJobAsync(wholeResultHost, wholeResultJob, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Warning, wholeResult.ExitCode);
+Assert.True(wholeResultHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+QpdfDiagnostic wholeWarning = Assert.Single(wholeResult.Diagnostics);
+Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, wholeWarning.Code);
+Assert.Equal(QpdfDiagnosticSeverity.Warning, wholeWarning.Severity);
+using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement objects = catalog.RootElement.GetProperty("qpdf")[1];
+JsonElement root = objects.GetProperty("obj:1 0 R").GetProperty("value");
+Assert.True(root.TryGetProperty("/AcroForm", out JsonElement form));
+if (form.ValueKind == JsonValueKind.String)
+{
+string[] linked = (form.GetString() ?? string.Empty).Split((char)32);
+form = objects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+Assert.True(form.TryGetProperty("/Fields", out JsonElement _));
+Assert.False(form.TryGetProperty("/NeedAppearances", out JsonElement _));
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+Assert.Contains("(Hello) Tj", Encoding.ASCII.GetString(bytes));
+}
+[Fact]
+public async Task FormlessSelectionKeepsEmptyFormAndSkipsGeneration()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Self) /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+});
+(QpdfExecutionResult formlessResult, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
+Assert.Equal(QpdfExitCode.Success, formlessResult.ExitCode);
+Assert.Empty(formlessResult.Diagnostics);
+using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement objects = catalog.RootElement.GetProperty("qpdf")[1];
+JsonElement root = objects.GetProperty("obj:1 0 R").GetProperty("value");
+Assert.True(root.TryGetProperty("/AcroForm", out JsonElement form));
+if (form.ValueKind == JsonValueKind.String)
+{
+string[] linked = (form.GetString() ?? string.Empty).Split((char)32);
+form = objects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+Assert.False(form.TryGetProperty("/Fields", out JsonElement _));
+Assert.False(form.TryGetProperty("/NeedAppearances", out JsonElement _));
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+Assert.DoesNotContain("(Hello) Tj", Encoding.ASCII.GetString(bytes));
+}
+[Fact]
+public async Task FormlessWholeFileSkipsSilently()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Self) /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
+("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+});
+InMemoryQpdfHost formlessWholeResultHost = HostWith("inputs/a.pdf", fixture);
+string formlessWholeResultJob = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "generateAppearances": true}""";
+QpdfExecutionResult formlessWholeResult = await Qpdf.ExecuteJobAsync(formlessWholeResultHost, formlessWholeResultJob, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, formlessWholeResult.ExitCode);
+Assert.True(formlessWholeResultHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+Assert.Empty(formlessWholeResult.Diagnostics);
+byte[] bytes = await AppearanceBytesAsync(pdf, 0);
+Assert.DoesNotContain("(Hello) Tj", Encoding.ASCII.GetString(bytes));
+}
+[Fact]
+public async Task DirectWidgetSelectionSkipsSilently()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (Direct) /V (Dval) /DA (/Helv 12 Tf) >>]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Mapped) /V (Mval) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length ", stale.Length.ToString(), " >>"), stale),
+});
+(QpdfExecutionResult directResult, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
+Assert.Equal(QpdfExitCode.Success, directResult.ExitCode);
+Assert.Empty(directResult.Diagnostics);
+byte[] mapped = await AppearanceBytesAsync(pdf, 0);
+Assert.Contains("(Mval) Tj", Encoding.ASCII.GetString(mapped));
+using JsonDocument directPages = await InspectAsync(pdf, "--json", "--json-key=pages");
+using JsonDocument directFull = await InspectAsync(pdf, "--json", "--json-key=qpdf");
+JsonElement directObjects = directFull.RootElement.GetProperty("qpdf")[1];
+JsonElement directPage = directPages.RootElement.GetProperty("pages")[0];
+JsonElement directAnnots = directObjects.GetProperty(PageObjectKey(directPage)).GetProperty("value").GetProperty("/Annots");
+if (directAnnots.ValueKind == JsonValueKind.String)
+{
+string[] linked = (directAnnots.GetString() ?? string.Empty).Split((char)32);
+directAnnots = directObjects.GetProperty(string.Concat("obj:", linked[0], SP(), linked[1], " R")).GetProperty("value");
+}
+JsonElement directEntry = directAnnots.EnumerateArray().Skip(1).First();
+Assert.Equal(JsonValueKind.Object, directEntry.ValueKind);
+Assert.False(directEntry.TryGetProperty("/AP", out JsonElement _));
+}
+[Fact]
+public async Task DirectWidgetWholeFileWarnsAndGenerates()
+{
+byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
+byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R << /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /FT /Tx /T (Direct) /V (Dval) /DA (/Helv 12 Tf) >>]", new List<(string Dict, byte[]? StreamData)>
+{
+(string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
+("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Mapped) /V (Mval) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
+(string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length ", stale.Length.ToString(), " >>"), stale),
+});
+InMemoryQpdfHost directWholeResultHost = HostWith("inputs/a.pdf", fixture);
+string directWholeResultJob = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "generateAppearances": true}""";
+QpdfExecutionResult directWholeResult = await Qpdf.ExecuteJobAsync(directWholeResultHost, directWholeResultJob, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Warning, directWholeResult.ExitCode);
+Assert.True(directWholeResultHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+QpdfDiagnostic directWarning = Assert.Single(directWholeResult.Diagnostics);
+Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, directWarning.Code);
+Assert.Equal(QpdfDiagnosticSeverity.Warning, directWarning.Severity);
+byte[] mapped = await AppearanceBytesAsync(pdf, 0);
+Assert.Contains("(Mval) Tj", Encoding.ASCII.GetString(mapped));
+byte[] direct = await AppearanceBytesAsync(pdf, 1);
+Assert.Contains("(Dval) Tj", Encoding.ASCII.GetString(direct));
 }
 [Theory]
 [InlineData(0)]
@@ -194,7 +346,7 @@ public async Task QuaddingIsIgnoredLikeReference(int quadding)
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] appearance = stale;
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /Q ", quadding.ToString(), " /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>"), null),
@@ -213,7 +365,7 @@ public async Task TextFieldAppearanceRegeneratesValue()
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] appearance = stale;
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -232,7 +384,7 @@ Assert.Contains("1 5.2 Td", text);
 public async Task MissingAppearanceIsCreated()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) >>", null),
@@ -250,7 +402,7 @@ byte[] off = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re S");
 byte[] on = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re f");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string state = @checked ? "/Yes" : "/Off";
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (string.Concat("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Btn /V ", value, " /AS ", initial, " /AP << /N << /Off 6 0 R /Yes 7 0 R >> >> >>"), null),
@@ -362,7 +514,7 @@ byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 byte[] value = new byte[] { 254, 255, 0, 99, 0, 97, 0, 102, 0, 233 };
 string hex = BitConverter.ToString(value).Replace("-", string.Empty);
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <", hex, "> /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -381,7 +533,7 @@ byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string hex = "FEFF00630061006600E9";
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <", hex, "> /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -397,7 +549,7 @@ public async Task AcroFormDefaultResourcesEncodingKeepsAccents()
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -415,7 +567,7 @@ public async Task FieldDefaultResourcesIsIgnored()
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /DR << /Font << /F1 7 0 R >> >> /AP << /N 6 0 R >> >>");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -435,7 +587,7 @@ public async Task MergesAcroFormFontIntoAppearanceResources()
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -490,7 +642,14 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length ", stale.Length.ToString(), " >>"), stale),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+InMemoryQpdfHost parentResultHost = HostWith("inputs/a.pdf", fixture);
+string parentResultJob = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "generateAppearances": true}""";
+QpdfExecutionResult parentResult = await Qpdf.ExecuteJobAsync(parentResultHost, parentResultJob, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Warning, parentResult.ExitCode);
+Assert.True(parentResultHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+QpdfDiagnostic parentWarning = Assert.Single(parentResult.Diagnostics);
+Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, parentWarning.Code);
+Assert.Equal(QpdfDiagnosticSeverity.Warning, parentWarning.Severity);
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(bytes);
 Assert.Contains("(Hello) Tj", text);
@@ -502,7 +661,7 @@ public async Task MergeUsesPrimaryDefaultResourcesEncoding()
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
 string annotDict = string.Concat("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V <96> /DA (/F1 12 Tf) /AP << /N 6 0 R >> >>");
-byte[] formed = BuildPdf(" /AcroForm << /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
+byte[] formed = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /F1 7 0 R >> >> >>", " /Contents 4 0 R /Annots [5 0 R] /Resources << /Font << /Helv 8 0 R >> >>", new List<(string Dict, byte[]? StreamData)>()
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 (annotDict, null),
@@ -529,7 +688,7 @@ public async Task ListBoxHighlightsSelectedRow()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 500 300 620] /FT /Ch /V (B) /DA (/Helv 12 Tf) /Opt [(A) (B) (C)] /AP << /N 6 0 R >> >>", null),
@@ -547,7 +706,7 @@ Assert.Contains("(C) Tj", text);
 public async Task SignatureFieldIsSkipped()
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [0 0 100 50] /FT /Sig /AP << /N 6 0 R >> >>", null),
@@ -562,7 +721,7 @@ public async Task PushbuttonWarnsAndKeeps()
 {
 byte[] on = Encoding.ASCII.GetBytes("0 w 0 0 10 10 re f");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Btn /Ff 65536 /V /Off /AP << /N << /Off 6 0 R >> >> >>", null),
@@ -607,7 +766,7 @@ public async Task JobRoundTripMatchesArgv()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -639,7 +798,7 @@ public async Task WholeFileJobGenerates()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -658,7 +817,7 @@ public async Task MergeThenGenerateAppliesToFinalPages()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
@@ -680,7 +839,7 @@ public async Task GenerateThenFlattenStampsFreshAppearance()
 {
 byte[] stale = Encoding.ASCII.GetBytes("q BT ET Q");
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
+byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >>", " /Contents 4 0 R /Annots [5 0 R]", new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),

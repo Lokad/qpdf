@@ -2031,7 +2031,7 @@ $code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whol
 if ($code -ne 0) { throw "parent-held: emit-job failed ($code)" }
 $code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--', "$case/ora.pdf")
 if ($code -ne 3) { Write-Output "[parent-held] FAIL: oracle generate exit $code, expected 3 (unreachable-widget warning)"; $script:failures++ }
-else { Write-Output "[parent-held] exit parity (0/3, managed silent where oracle warns unreachable)" }
+else { Write-Output "[parent-held] exit parity (3/3, both sides warn unreachable)" }
 if ((Get-OracleNpages "$case/lib.pdf") -ne 1 -or (Get-OracleNpages "$case/ora.pdf") -ne 1 -or (Get-PigNpages "$case/lib.pdf") -ne 1 -or (Get-PigNpages "$case/ora.pdf") -ne 1) { Write-Output "[parent-held] FAIL: page counts differ from 1"; $script:failures++ }
 else { Write-Output "[parent-held] page counts agree (1 everywhere)" }
 $libText = [Text.Encoding]::Latin1.GetString((Get-AllStreamBytes "$case/lib.pdf"))
@@ -2061,6 +2061,67 @@ if ($libField.value -ne '/Choice1' -or $oraField.value -ne '/Choice1') { Write-O
 elseif ($libField.annotation.appearancestate -ne '/Off' -or $oraField.annotation.appearancestate -ne '/Off') { Write-Output "[generate-radio] FAIL: state lib=$($libField.annotation.appearancestate) ora=$($oraField.annotation.appearancestate), expected /Off"; $script:failures++ }
 else { Write-Output "[generate-radio] radio states agree (value /Choice1, state /Off, both kept)" }
 Write-Output "[generate-radio] assertions done"
+# --- case: generate-unreachable (managed vs oracle unreachable-form selection alignment) ---
+$case = New-Case 'generate-unreachable'
+Copy-Item "$fixtureDir/generate-unreachable-1page.pdf" "$case/inputs/a.pdf"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-sel.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--', 'outputs/s.pdf')
+if ($code -ne 0) { throw "generate-unreachable/sel: emit failed ($code)" }
+$code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-sel.pdf")
+if ($code -ne 0) { throw "generate-unreachable/sel: oracle failed ($code)" }
+Assert-Trio 'generate-unreachable-sel' "$case/lib-sel.pdf" "$case/ora-sel.pdf" 1
+foreach ($pair in @(('lib', "$case/lib-sel.pdf"), ('ora', "$case/ora-sel.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/sel] FAIL: /AcroForm remains in $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[generate-unreachable/sel] dropped-form assertions done"
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/g.pdf=$case/lib-selgen.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/g.pdf')
+if ($code -ne 0) { throw "generate-unreachable/selgen: emit failed ($code)" }
+$managedSelgenExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/m.pdf') "gen-unreachable-selgen"
+$code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-selgen.pdf")
+if ($code -ne 0) { throw "generate-unreachable/selgen: oracle failed ($code)" }
+if ($managedSelgenExit -ne 0) { Write-Output "[generate-unreachable/selgen] FAIL: managed exit $managedSelgenExit, expected 0 (silent skip)"; $script:failures++ }
+else { Write-Output "[generate-unreachable/selgen] exit parity (0/0, both sides skip silently)" }
+Assert-Trio 'generate-unreachable-selgen' "$case/lib-selgen.pdf" "$case/ora-selgen.pdf" 1
+foreach ($pair in @(('lib', "$case/lib-selgen.pdf"), ('ora', "$case/ora-selgen.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if ($rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/selgen] FAIL: /AcroForm remains in $($pair[0]) output"; $script:failures++ }
+  $decoded = Get-DecodedText $pair[1]
+  if ($decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/selgen] FAIL: stale appearance regenerated in $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[generate-unreachable/selgen] skip assertions done"
+Set-Content "$case/whole-job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/w.pdf", "removePageLabels": true}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/whole-job.json", '--out', "outputs/w.pdf=$case/lib-whole.pdf")
+if ($code -ne 0) { throw "generate-unreachable/whole: emit-job failed ($code)" }
+$code = Invoke-Oracle $case @('--remove-page-labels', 'inputs/a.pdf', '--', "$case/ora-whole.pdf")
+if ($code -ne 0) { throw "generate-unreachable/whole: oracle failed ($code)" }
+if ((Get-OracleNpages "$case/lib-whole.pdf") -ne 1 -or (Get-OracleNpages "$case/ora-whole.pdf") -ne 1 -or (Get-PigNpages "$case/lib-whole.pdf") -ne 1 -or (Get-PigNpages "$case/ora-whole.pdf") -ne 1) { Write-Output "[generate-unreachable/whole] FAIL: page counts differ from 1"; $script:failures++ }
+else { Write-Output "[generate-unreachable/whole] page counts agree (1 everywhere)" }
+foreach ($pair in @(('lib', "$case/lib-whole.pdf"), ('ora', "$case/ora-whole.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if (-not $rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/whole] FAIL: /AcroForm missing from $($pair[0]) output"; $script:failures++ }
+  if (-not $rawText.Contains('/NeedAppearances')) { Write-Output "[generate-unreachable/whole] FAIL: /NeedAppearances missing from $($pair[0]) output"; $script:failures++ }
+  $decoded = Get-DecodedText $pair[1]
+  if ($decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/whole] FAIL: unexpected generation in $($pair[0]) output"; $script:failures++ }
+}
+Write-Output "[generate-unreachable/whole] preserve assertions done"
+Set-Content "$case/wholegen-job.json" '{"inputFile": "inputs/a.pdf", "outputFile": "outputs/g.pdf", "generateAppearances": true}'
+$code = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/wholegen-job.json", '--out', "outputs/g.pdf=$case/lib-wholegen.pdf")
+if ($code -ne 0) { throw "generate-unreachable/wholegen: emit-job failed ($code)" }
+$managedWholegenExit = Invoke-ManagedExit $case @('emit-job', '--workdir', $case, '--job', "$case/wholegen-job.json", '--out', "outputs/m.pdf=$case/lib-mg.pdf") "gen-unreachable-wholegen"
+$code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--', "$case/ora-wholegen.pdf")
+if ($code -ne 3) { Write-Output "[generate-unreachable/wholegen] FAIL: oracle generate exit $code, expected 3 (unreachable-widget warning)"; $script:failures++ }
+elseif ($managedWholegenExit -ne 3) { Write-Output "[generate-unreachable/wholegen] FAIL: managed generate exit $managedWholegenExit, expected 3 (unreachable-widget warning)"; $script:failures++ }
+else { Write-Output "[generate-unreachable/wholegen] exit parity (3/3, both sides warn unreachable)" }
+if ((Get-OracleNpages "$case/lib-wholegen.pdf") -ne 1 -or (Get-OracleNpages "$case/ora-wholegen.pdf") -ne 1 -or (Get-PigNpages "$case/lib-wholegen.pdf") -ne 1 -or (Get-PigNpages "$case/ora-wholegen.pdf") -ne 1) { Write-Output "[generate-unreachable/wholegen] FAIL: page counts differ from 1"; $script:failures++ }
+else { Write-Output "[generate-unreachable/wholegen] page counts agree (1 everywhere)" }
+foreach ($pair in @(('lib', "$case/lib-wholegen.pdf"), ('ora', "$case/ora-wholegen.pdf"))) {
+  $rawText = [IO.File]::ReadAllText($pair[1])
+  if (-not $rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/wholegen] FAIL: /AcroForm missing from $($pair[0]) output"; $script:failures++ }
+  if ($rawText.Contains('/NeedAppearances')) { Write-Output "[generate-unreachable/wholegen] FAIL: /NeedAppearances remains in $($pair[0]) output"; $script:failures++ }
+  $decoded = Get-DecodedText $pair[1]
+  if (-not $decoded.Contains('(Hello)')) { Write-Output "[generate-unreachable/wholegen] FAIL: $($pair[0]) appearance lacks generated value"; $script:failures++ }
+}
+Write-Output "[generate-unreachable/wholegen] warn-and-generate assertions done"
 
 # --- case: direct-rename (managed vs oracle direct-kid collision renaming) ---
 $case = New-Case 'direct-rename'
@@ -2328,4 +2389,4 @@ foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", 
   else { Write-Output "[linearize-streams/$name] streamed writer outputs validate on both sides" }
 }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
-Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 0/3 exit difference), generate-radio (radio sync warns 3/3 with states kept), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."
+Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 3/3 unreachable warnings), generate-radio (radio sync warns 3/3 with states kept), generate-unreachable (unreachable-form selection drops and skips silently with 0/0 exits, whole-file warns and regenerates with 3/3 exits), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines and linearize-thumbs."

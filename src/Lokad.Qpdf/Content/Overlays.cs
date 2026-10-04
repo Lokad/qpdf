@@ -1679,7 +1679,7 @@ internal static class Overlays
 
             placementDr ??= CopyOverlayImportDR(sourceForm, sourceEngine, destCopier, memo, limits, governor, cancellationToken, ref allocator, ref nullId);
             Dictionary<PdfName, QpdfObject> extras = new();
-            CopiedForm part = new([fieldRef], sourceForm.NeedAppearances, sourceForm.NeedAppearances, placementDr, false, [], extras);
+            CopiedForm part = new([fieldRef], true, sourceForm.NeedAppearances, sourceForm.NeedAppearances, placementDr, false, [], extras);
             imports.Add(new AcroFormCopy.OverlayFieldImport(destCopier, part, sourceForm.DefaultAppearance, sourceForm.Quadding));
         }
 

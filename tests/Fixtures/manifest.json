@@ -349,6 +349,15 @@
       "headerVersion": "1.4",
       "valid": true,
       "description": "One page with a radio button whose value and appearance state disagree. Both sides must keep both states and warn about radio synchronization; the generate-radio differential consumes it."
+    },
+    {
+      "file": "generate-unreachable-1page.pdf",
+      "sha256": "4f622f3e5df6a796f0400a4f60b41323dcc49ae6863ec87d04a31949c9e2baee",
+      "bytes": 1038,
+      "expectedNpages": 1,
+      "headerVersion": "1.4",
+      "valid": true,
+      "description": "One page with a widget unreachable from the form field registration (with a stale appearance and NeedAppearances). Selection must drop the emptied form and skip generation silently while whole-file output warns and regenerates; the generate-unreachable differential consumes it."
     }
   ]
 }

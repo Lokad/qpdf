@@ -14,6 +14,7 @@ namespace Lokad.Qpdf.Content;
 /// </summary>
 internal sealed record CopiedForm(
     IReadOnlyList<PdfReference> Fields,
+    bool HasFields,
     bool HasNeedAppearances,
     bool NeedAppearances,
     QpdfObject? DefaultResources,
@@ -26,9 +27,10 @@ internal sealed record CopiedForm(
 /// selection and rewrite paths carry the input catalog's form dictionary
 /// (field registration, values, parent links and default resources) into the
 /// fresh output catalog; only the explicit <c>--remove-acroform</c> prune drops
-/// it. Top-level fields whose widgets all fall outside the kept pages are
-/// pruned, matching the upstream reference: a field stays when at least one
-/// widget in its subtree survives, and widget-free registrations stay verbatim.
+/// it. Explicit selections and merges prune unreachable form trees, matching the
+/// upstream reference: a field stays when at least one widget in its subtree
+/// survives, memberless tops drop, and an emptied form drops entirely. Whole-file
+/// rewrites keep widget-free registrations verbatim.
 /// Merges concatenate per-source registrations with upstream per-source-snapshot
 /// `+N` collision renaming, keep the first default-resources dictionary, and OR the
 /// NeedAppearances flags.
@@ -39,6 +41,7 @@ internal static class AcroFormCopy
         DocumentEngine engine,
         GraphCopier copier,
         IReadOnlyList<PageLocation> keptPages,
+        bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -83,7 +86,8 @@ internal static class AcroFormCopy
 
         IIndirectResolver resolver = (IIndirectResolver)engine;
         HashSet<int> keptWidgets = CollectKeptWidgets(resolver, keptPages, limits, governor, cancellationToken);
-        List<QpdfObject> keptEntries = FilterTopEntries(resolver, source, keptWidgets, limits, governor, cancellationToken);
+        bool hasFields = IsFieldArrayPresent(resolver, source);
+        List<QpdfObject> keptEntries = FilterTopEntries(resolver, source, keptWidgets, pruneUnreachableFields, limits, governor, cancellationToken);
         List<PdfReference> copiedFields = new(keptEntries.Count);
         foreach (QpdfObject entry in keptEntries)
         {
@@ -152,13 +156,14 @@ internal static class AcroFormCopy
             extras[key] = copied;
         }
 
-        return new CopiedForm(copiedFields, hasNeed, need, resources, hasOrder, order, extras);
+        return new CopiedForm(copiedFields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
     }
 
     internal static PdfDictionary? BuildSingle(
         DocumentEngine engine,
         GraphCopier copier,
         IReadOnlyList<PageLocation> keptPages,
+        bool pruneUnreachableFields,
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         Dictionary<int, QpdfObject> pool,
         IReadOnlyList<OverlayFieldImport> overlayImports,
@@ -212,7 +217,13 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(overlayImports));
         }
 
-        CopiedForm? part = TryCopySourceForm(engine, copier, keptPages, limits, governor, diagnostics, cancellationToken);
+        CopiedForm? part = TryCopySourceForm(engine, copier, keptPages, pruneUnreachableFields, limits, governor, diagnostics, cancellationToken);
+        foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            pool.TryAdd(entry.Key, entry.Value);
+        }
         if (part is null && overlayImports.Count == 0)
         {
             return null;
@@ -274,7 +285,7 @@ internal static class AcroFormCopy
         }
 
         HashSet<int> survivors = CollectAnnotRefs(occurrences, governor, cancellationToken);
-        return BuildCatalogForm(combined, pool, survivors, limits, governor, cancellationToken);
+        return BuildCatalogForm(combined, pool, survivors, pruneUnreachableFields, limits, governor, cancellationToken);
     }
 
     internal static CopiedForm? Combine(IReadOnlyList<CopiedForm> parts)
@@ -301,6 +312,7 @@ internal static class AcroFormCopy
         }
 
         List<PdfReference> fields = new();
+        bool hasFields = false;
         bool hasNeed = false;
         bool need = false;
         QpdfObject? resources = null;
@@ -310,6 +322,10 @@ internal static class AcroFormCopy
         foreach (CopiedForm part in present)
         {
             fields.AddRange(part.Fields);
+            if (part.HasFields)
+            {
+                hasFields = true;
+            }
             if (part.HasNeedAppearances)
             {
                 hasNeed = true;
@@ -336,7 +352,7 @@ internal static class AcroFormCopy
             }
         }
 
-        return new CopiedForm(fields, hasNeed, need, resources, hasOrder, order, extras);
+        return new CopiedForm(fields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
     }
 
     /// <summary>
@@ -1090,6 +1106,7 @@ internal static class AcroFormCopy
         PdfReference unionRef = new(unionId, 0);
         CopiedForm updated = new(
             combined.Fields,
+            combined.HasFields,
             combined.HasNeedAppearances,
             combined.NeedAppearances,
             unionRef,
@@ -1838,6 +1855,7 @@ internal static class AcroFormCopy
         CopiedForm combined,
         IReadOnlyDictionary<int, QpdfObject> pool,
         HashSet<int> survivingAnnots,
+        bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -1870,10 +1888,15 @@ internal static class AcroFormCopy
         limits.Validate();
         if (combined.Fields.Count == 0)
         {
-            return Assemble(combined, [], []);
+            if (!combined.HasFields)
+            {
+                return Assemble(combined, [], []);
+            }
+
+            return pruneUnreachableFields ? null : Assemble(combined, [], []);
         }
 
-        (List<PdfReference> kept, HashSet<int> closure) = PruneFields(pool, combined.Fields, survivingAnnots, limits, governor, cancellationToken);
+        (List<PdfReference> kept, HashSet<int> closure) = CollectKeptClosure(pool, combined.Fields, survivingAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
         if (kept.Count == 0)
         {
             return null;
@@ -1950,7 +1973,10 @@ internal static class AcroFormCopy
     private static PdfDictionary Assemble(CopiedForm combined, IReadOnlyList<PdfReference> fields, IReadOnlyList<QpdfObject> order)
     {
         Dictionary<PdfName, QpdfObject> entries = new();
-        entries[PdfName.FromAscii("Fields")] = new PdfArray([.. fields]);
+        if (combined.HasFields)
+        {
+            entries[PdfName.FromAscii("Fields")] = new PdfArray([.. fields]);
+        }
         if (combined.HasNeedAppearances)
         {
             entries[PdfName.FromAscii("NeedAppearances")] = new PdfBoolean(combined.NeedAppearances);
@@ -1977,10 +2003,18 @@ internal static class AcroFormCopy
         return new PdfDictionary(entries);
     }
 
-    private static (List<PdfReference> Kept, HashSet<int> Closure) PruneFields(
+    /// <summary>
+    /// Applies the shared keep-decision over destination-pool field registrations:
+    /// a field survives when at least one widget in its subtree is among the surviving
+    /// annotations, while memberless fields survive only on whole-file paths. Returns the
+    /// surviving references plus the closure of surviving field and member identifiers, which
+    /// also drives appearance-generation reachability for the same output.
+    /// </summary>
+    internal static (List<PdfReference> Kept, HashSet<int> Closure) CollectKeptClosure(
         IReadOnlyDictionary<int, QpdfObject> pool,
         IReadOnlyList<PdfReference> fields,
         HashSet<int> survivingAnnots,
+        bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -1997,7 +2031,7 @@ internal static class AcroFormCopy
             }
 
             HashSet<int> members = WalkPoolMembers(pool, field.ObjectNumber, limits, governor, cancellationToken);
-            if (members.Count == 0)
+            if (members.Count == 0 && !pruneUnreachableFields)
             {
                 kept.Add(field);
                 closure.Add(field.ObjectNumber);
@@ -2190,10 +2224,44 @@ internal static class AcroFormCopy
         return found;
     }
 
+    /// <summary>
+    /// Reports whether the source catalog form carries a /Fields array, either
+    /// directly or through an indirect reference. The reference drops an emptied
+    /// registration list on selection but keeps a registration-free form verbatim,
+    /// so callers must distinguish a missing array from an emptied one.
+    /// </summary>
+    private static bool IsFieldArrayPresent(IIndirectResolver resolver, PdfDictionary source)
+    {
+        if (resolver is null)
+        {
+            throw new ArgumentNullException(nameof(resolver));
+        }
+
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (!source.TryGet(PdfName.FromAscii("Fields"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        {
+            return false;
+        }
+
+        if (raw is PdfArray)
+        {
+            return true;
+        }
+
+        return raw is PdfReference reference
+            && resolver.TryResolve(reference, out QpdfObject? resolved)
+            && resolved is PdfArray;
+    }
+
     private static List<QpdfObject> FilterTopEntries(
         IIndirectResolver resolver,
         PdfDictionary source,
         HashSet<int> keptWidgets,
+        bool pruneUnreachableFields,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -2240,6 +2308,11 @@ internal static class AcroFormCopy
             }
 
             HashSet<int> members = WalkSourceMembers(resolver, field, reference.ObjectNumber, limits, governor, cancellationToken);
+            if (members.Count == 0 && pruneUnreachableFields)
+            {
+                continue;
+            }
+
             if (members.Count == 0)
             {
                 kept.Add(entry);

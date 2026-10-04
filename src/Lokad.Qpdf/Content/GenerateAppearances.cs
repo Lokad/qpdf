@@ -23,6 +23,8 @@ internal static class GenerateAppearances
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
+        HashSet<int>? reachedAnnots,
+        bool warnUnreachable,
         int allocator)
     {
         if (occurrences is null)
@@ -103,6 +105,12 @@ internal static class GenerateAppearances
                     continue;
                 }
 
+                if (!IsReached(annotId, reachedAnnots, warnUnreachable, diagnostics))
+                {
+                    entries.Add(item);
+                    continue;
+                }
+
                 FieldContext field = ResolveField(copier, annot, annotId, resolver);
                 if (field.Type == "Btn")
                 {
@@ -158,6 +166,32 @@ internal static class GenerateAppearances
 
         return allocator;
     }
+    /// <summary>
+    /// Reports whether a widget keeps generation under the shared reachability rule:
+    /// a null set means the output form carries no field registrations, so every widget
+    /// stays untouched like the reference; otherwise only reached widgets generate, with
+    /// whole-file paths warning once per unreached widget and selection paths skipping silently.
+    /// </summary>
+    private static bool IsReached(int? annotId, HashSet<int>? reachedAnnots, bool warnUnreachable, DiagnosticBag diagnostics)
+    {
+        if (reachedAnnots is null)
+        {
+            return false;
+        }
+
+        if (annotId.HasValue && reachedAnnots.Contains(annotId.Value))
+        {
+            return true;
+        }
+
+        if (warnUnreachable)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "A widget annotation is not reachable from the document form; generating its appearance.");
+        }
+
+        return warnUnreachable;
+    }
+
     private sealed record FieldContext(
         string Type,
         long Flags,
