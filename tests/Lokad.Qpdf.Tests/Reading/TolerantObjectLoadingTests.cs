@@ -109,6 +109,85 @@ public sealed class TolerantObjectLoadingTests
         Assert.Equal(0L, job.OpenLeaseCount);
     }
 
+    public static IEnumerable<object?[]> NumericPublicCases()
+    {
+        (string Body, string Display, long? First)[] cases =
+        [
+            ("[ -9223372036854775808 2 ]", "[ -9223372036854775808 2 ]", long.MinValue),
+            ("[ " + new string('0', 2048) + "1 2 ]", "[ 1 2 ]", 1L),
+            ("[ 9223372036854775808 2 ]", "null", null),
+            ("[ -9223372036854775809 2 ]", "null", null),
+            ("[ 2147483648 0 R 2 ]", "null", null),
+            ("[ 1 65536 R 2 ]", "[ null 2 ]", null),
+        ];
+        foreach ((string body, string display, long? first) in cases)
+        {
+            foreach (bool broken in new[] { false, true })
+            {
+                yield return [body, display, first, broken];
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(NumericPublicCases))]
+    public async Task NumericValuesSurvivePublicInspectionAndRewrite(string body, string display, long? first, bool broken)
+    {
+        InMemoryQpdfHost argv = Host(Pdf([body], broken));
+        InMemoryQpdfHost job = Host(Pdf([body], broken));
+        QpdfExitCode expectedExit = broken || first is null ? QpdfExitCode.Warning : QpdfExitCode.Success;
+        QpdfExecutionResult inspection = await Qpdf.ExecuteAsync(argv,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=2", "--show-object=5"]), CancellationToken.None);
+        QpdfExecutionResult jobInspection = await Qpdf.ExecuteJobAsync(job,
+            """{"inputFile":"inputs/a.pdf","showObject":"5","global":{"parserMaxErrors":2}}""", CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, inspection.Status);
+        Assert.Equal(expectedExit, inspection.ExitCode);
+        Assert.Equal(expectedExit, jobInspection.ExitCode);
+        Assert.Contains(inspection.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == display);
+        Assert.Contains(jobInspection.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == display);
+
+        QpdfExecutionResult a = await Qpdf.ExecuteAsync(argv,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        QpdfExecutionResult b = await Qpdf.ExecuteJobAsync(job,
+            """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}],"global":{"parserMaxErrors":2}}""", CancellationToken.None);
+        Assert.Equal(expectedExit, a.ExitCode);
+        Assert.Equal(expectedExit, b.ExitCode);
+        Assert.True(argv.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] aBytes));
+        Assert.True(job.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] bBytes));
+        Assert.Equal(aBytes, bBytes);
+        argv.AddInput(QpdfPath.From("inputs/reopened.pdf"), aBytes, QpdfInputOwnership.Copy);
+        await using (QpdfDocument output = await QpdfDocument.OpenAsync(argv, QpdfPath.From("inputs/reopened.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = Assert.IsType<PdfDictionary>(output.GetObject(3));
+            QpdfObject value = page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit) ? audit : PdfNull.Instance;
+            if (value is PdfReference reference)
+            {
+                value = output.GetObject(reference.ObjectNumber);
+            }
+
+            if (display == "null")
+            {
+                Assert.IsType<PdfNull>(value);
+            }
+            else
+            {
+                PdfArray array = Assert.IsType<PdfArray>(value);
+                Assert.Equal(2, array.Count);
+                if (first is long number)
+                {
+                    Assert.Equal(number, Assert.IsType<PdfInteger>(array[0]).Value);
+                }
+                else
+                {
+                    Assert.IsType<PdfNull>(array[0]);
+                }
+            }
+        }
+
+        Assert.Equal(0L, argv.OpenLeaseCount);
+        Assert.Equal(0L, job.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task ManyDamagedObjectsDoNotShareAnErrorBudget()
     {

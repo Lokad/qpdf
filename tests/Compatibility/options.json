@@ -1739,11 +1739,12 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets and valid/rebuilt-xref repair are implemented for the verified damage matrix; complete lexical/numeric damage, damaged-container transitions, orphan-key/error interactions and nested-load evidence before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair and integer/reference conversion outcomes are implemented for the verified damage matrix; complete long real tokens, lexical damage, damaged-container transitions, orphan-key/error interactions and nested-load evidence before closing the entry."
       ],
       "evidence": {
         "positive": [
           "TolerantParserTests.RepairsMatchPinnedObjectValues",
+          "NumericParserTests.IntegerAndReferenceRepairsMatchPinnedValues",
           "TolerantObjectLoadingTests.ActualLoadsRepairBothValidAndBrokenXrefs",
           "RecoveryTests.ErrorsBudgetDoesNotCountFailedCandidatesAcrossTheScan",
           "RecoveryTests.ErrorsZeroRemovesThreshold",
@@ -1754,10 +1755,12 @@
           "GlobalLimitsTests.DuplicateParserMaxErrorsFails",
           "GlobalLimitsTests.BadParserMaxErrorsJobKeysFail",
           "TolerantObjectLoadingTests.StrictPublicPathsRejectValidXrefSyntaxDamage",
+          "NumericParserTests.StrictNumericDamageStillFails",
           "RecoveryTests.ErrorsBudgetStrictUnaffected"
         ],
         "interaction": [
           "TolerantObjectLoadingTests.RewrittenRepairedValuesRemainReadableWithArgvJobParity",
+          "TolerantObjectLoadingTests.NumericValuesSurvivePublicInspectionAndRewrite",
           "TolerantObjectLoadingTests.ManyDamagedObjectsDoNotShareAnErrorBudget",
           "TolerantObjectLoadingTests.NoDefaultLimitsLiftsOnlyUnspecifiedErrorThreshold",
           "TolerantParserTests.CompressedMembersHaveIndependentBudgetsAndReadableValues",
@@ -1768,6 +1771,9 @@
           "GlobalLimitsTests.FlagCannotRaiseExplicitDefaultHostBudget",
           "TolerantParserTests.LongDamagedWordsRemainSubjectToWorkBudget",
           "TolerantParserTests.DiagnosticBudgetFailuresPropagateDuringRepair",
+          "NumericParserTests.LongIntegerTextIsAdmittedBeforeAllocation",
+          "NumericParserTests.IntegerConversionChargesWorkAfterTokenScanning",
+          "NumericParserTests.NumericRepairDoesNotSwallowDiagnosticBudgetFailure",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
         ],
         "oracle": [

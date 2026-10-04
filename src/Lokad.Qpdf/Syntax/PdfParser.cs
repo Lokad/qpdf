@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using System.Globalization;
+using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -173,7 +174,17 @@ internal sealed class PdfParser
             case PdfTokenKind.False:
                 return PdfBoolean.False;
             case PdfTokenKind.Integer:
-                return ParseIntegerOrReference(tokenizer, token);
+                try
+                {
+                    return ParseIntegerOrReference(tokenizer, token);
+                }
+                catch (QpdfParseException) when (TolerateObjectErrors)
+                {
+                    // Numeric conversion failure invalidates the whole object in
+                    // the reference, independently of the semantic error budget.
+                    WarnRepair("Numeric conversion failed; treating object as null.", token.Offset);
+                    throw new RepairAbort();
+                }
             case PdfTokenKind.Real:
                 return ParseReal(token);
             case PdfTokenKind.Name:
@@ -297,6 +308,22 @@ internal sealed class PdfParser
             if (TolerateObjectErrors)
             {
                 _goodTokens = Math.Min(5, _goodTokens + 2);
+                long number = ParseIntegerText(first);
+                long generation = ParseIntegerText(second);
+                if (number < int.MinValue || number > int.MaxValue
+                    || generation < int.MinValue || generation > int.MaxValue)
+                {
+                    throw new QpdfParseException("Indirect reference exceeds the integer range.", first.Offset, null);
+                }
+
+                if (number < 1L || generation < 0L || generation >= 65535L)
+                {
+                    WarnRepair("Invalid indirect reference treated as null.", first.Offset);
+                    CountToleratedError(first.Offset);
+                    return PdfNull.Instance;
+                }
+
+                return new PdfReference((int)number, (int)generation);
             }
 
             return new PdfReference(ParseObjectNumber(first), ParseGeneration(second));
@@ -306,7 +333,7 @@ internal sealed class PdfParser
         return ParseInteger(first);
     }
 
-    private static int ParseObjectNumber(PdfToken token)
+    private int ParseObjectNumber(PdfToken token)
     {
         long value = ParseIntegerText(token);
         if (value < 0 || value > int.MaxValue)
@@ -317,7 +344,7 @@ internal sealed class PdfParser
         return (int)value;
     }
 
-    private static int ParseGeneration(PdfToken token)
+    private int ParseGeneration(PdfToken token)
     {
         long value = ParseIntegerText(token);
         if (value < 0 || value > 65535)
@@ -328,19 +355,19 @@ internal sealed class PdfParser
         return (int)value;
     }
 
-    private static PdfInteger ParseInteger(PdfToken token)
+    private PdfInteger ParseInteger(PdfToken token)
     {
-        return new PdfInteger(ToAscii(token.Data.Span, token.Offset), ParseIntegerText(token));
+        long value = ParseIntegerText(token);
+        // Keep the original token for lossless writing. The numeric scan is
+        // governed even for arbitrarily many leading zeros; admit the UTF-16
+        // string and scalar before materializing them.
+        _governor.ReserveMemory(checked((token.Data.Length * 2L) + 64L));
+        return new PdfInteger(Encoding.ASCII.GetString(token.Data.Span), value);
     }
 
-    private static long ParseIntegerText(PdfToken token)
+    private long ParseIntegerText(PdfToken token)
     {
         ReadOnlySpan<byte> span = token.Data.Span;
-        if (span.Length > MaxNumberTextLength)
-        {
-            throw new QpdfParseException($"Numeric token exceeds {MaxNumberTextLength} characters.", token.Offset, null);
-        }
-
         int i = 0;
         bool negative = false;
         if (span[0] == (byte)'+' || span[0] == (byte)'-')
@@ -349,28 +376,35 @@ internal sealed class PdfParser
             i = 1;
         }
 
-        long value = 0L;
-        try
+        // Accumulate magnitude against the sign-specific bound so the extra
+        // unit in the negative range (long.MinValue) remains representable.
+        ulong limit = negative ? 1UL << 63 : (ulong)long.MaxValue;
+        ulong magnitude = 0UL;
+        for (; i < span.Length; i++)
         {
-            checked
+            if ((i & 4095) == 0)
             {
-                for (; i < span.Length; i++)
-                {
-                    value = (value * 10L) + (span[i] - (byte)'0');
-                }
-
-                if (negative)
-                {
-                    value = -value;
-                }
+                _governor.ChargeWork(1L);
+                _governor.CheckCancellation();
             }
-        }
-        catch (OverflowException ex)
-        {
-            throw new QpdfParseException("Integer token overflows 64 bits.", token.Offset, null, ex);
+
+            uint digit = (uint)(span[i] - (byte)'0');
+            if (digit > 9U)
+            {
+                throw new QpdfParseException("Malformed integer token.", token.Offset, null);
+            }
+
+            if (magnitude > (limit - digit) / 10UL)
+            {
+                throw new QpdfParseException("Integer token overflows 64 bits.", token.Offset, null);
+            }
+
+            magnitude = (magnitude * 10UL) + digit;
         }
 
-        return value;
+        return negative
+            ? magnitude == 1UL << 63 ? long.MinValue : -(long)magnitude
+            : (long)magnitude;
     }
 
     private static PdfReal ParseReal(PdfToken token)

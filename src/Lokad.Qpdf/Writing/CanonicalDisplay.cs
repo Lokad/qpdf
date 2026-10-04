@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -69,7 +70,7 @@ internal static class CanonicalDisplay
 
         if (value is PdfInteger integer)
         {
-            builder.Append(integer.Text);
+            builder.Append(integer.Value.ToString(CultureInfo.InvariantCulture));
             return;
         }
 

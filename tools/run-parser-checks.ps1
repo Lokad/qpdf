@@ -16,6 +16,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $runRoot = Join-Path $repoRoot ('external/parser-checks/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path (Join-Path $runRoot 'inputs') -Force | Out-Null
 $observations = [Collections.Generic.List[object]]::new()
+$rewriteObservations = [Collections.Generic.List[object]]::new()
 
 function Write-Input {
   param([string] $Name, [string] $Body, [bool] $BrokenXref)
@@ -83,6 +84,30 @@ $specs = @(
   @{ Name = 'broken-word'; Body = '[ 1 @ 2 ]'; Broken = $true }
 )
 
+$numericSpecs = @(
+  @{ Name = 'min-integer'; Body = '[ -9223372036854775808 2 ]'; Clean = $true },
+  @{ Name = 'max-integer'; Body = '[ 9223372036854775807 2 ]'; Clean = $true },
+  @{ Name = 'canonical-integers'; Body = '[ +001 -00 0001 ]'; Clean = $true },
+  @{ Name = 'long-integer'; Body = ('[ ' + ('0' * 2048) + '1 2 ]'); Clean = $true },
+  @{ Name = 'positive-overflow'; Body = '[ 9223372036854775808 2 ]' },
+  @{ Name = 'negative-overflow'; Body = '[ -9223372036854775809 2 ]' },
+  @{ Name = 'root-overflow'; Body = '9223372036854775808' },
+  @{ Name = 'long-overflow'; Body = ('[ ' + ('9' * 2048) + ' 2 ]') },
+  @{ Name = 'invalid-reference-number'; Body = '[ 2147483648 0 R 2 ]' },
+  @{ Name = 'number-int-underflow'; Body = '[ -2147483649 0 R 2 ]' },
+  @{ Name = 'generation-int-overflow'; Body = '[ 1 2147483648 R 2 ]' },
+  @{ Name = 'generation-long-overflow'; Body = '[ 1 9223372036854775808 R 2 ]' },
+  @{ Name = 'invalid-reference-generation'; Body = '[ 1 65536 R 2 ]' },
+  @{ Name = 'generation-65535'; Body = '[ 1 65535 R 2 ]' },
+  @{ Name = 'negative-generation'; Body = '[ 1 -1 R 2 ]' },
+  @{ Name = 'negative-reference'; Body = '[ -1 0 R 2 ]' },
+  @{ Name = 'zero-reference'; Body = '[ 0 0 R 2 ]' }
+)
+foreach ($spec in $numericSpecs) {
+  $specs += $spec
+  $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Broken = $true }
+}
+
 foreach ($spec in $specs) {
   Write-Input $spec.Name $spec.Body ([bool]$spec.Broken)
   foreach ($budget in @(0, 1, 2, 3, 6, 15)) {
@@ -95,11 +120,25 @@ foreach ($spec in $specs) {
     $oracleValue = ($oracleLines -join "`n").Trim()
     $oracleLines | Set-Content -LiteralPath (Join-Path $runRoot "$tag-oracle-stdout.log") -Encoding utf8NoBOM
     $observations.Add(@{ Case = $spec.Name; Budget = $budget; Managed = $managed; OracleExit = $oracleExit; OracleValue = $oracleValue })
-    if ($managed.Exit -ne 3 -or $oracleExit -ne 3 -or $managed.Value -cne $oracleValue) {
+    $expectedExit = if ($spec.Clean -and -not $spec.Broken) { 0 } else { 3 }
+    if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit -or $managed.Value -cne $oracleValue) {
       throw "Parser values or warning exits differ ($tag): managed='$($managed.Value)', oracle='$oracleValue'. See $runRoot."
     }
   }
-  Write-Output "[parser/$($spec.Name)] six budget values and warning exits agree"
+  Write-Output "[parser/$($spec.Name)] six budget values and exits agree"
+}
+
+function Read-RewrittenJson {
+  param([string] $Tag, [string] $File)
+  & $QpdfExe '--check' $File *> (Join-Path $runRoot "$Tag-$([IO.Path]::GetFileName($File))-check.log")
+  if ($LASTEXITCODE -ne 0) { throw "Repaired output fails oracle check ($File)." }
+  $validation = @(& dotnet $ProbeDll 'validate' '--input' $File 2>&1)
+  if ($LASTEXITCODE -ne 0 -or -not (($validation -join "`n") -match 'independent: npages=1')) {
+    throw "Independent reader rejected repaired output ($File)."
+  }
+  $json = @(& $QpdfExe '--json' '--json-key=qpdf' $File 2> (Join-Path $runRoot "$Tag-json-stderr.log")) -join "`n"
+  if ($LASTEXITCODE -ne 0) { throw "Repaired output JSON fails ($File)." }
+  return $json
 }
 
 foreach ($inputName in @('word', 'broken-word')) {
@@ -112,17 +151,46 @@ foreach ($inputName in @('word', 'broken-word')) {
     & $QpdfExe '--global' "--parser-max-errors=$budget" '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
     if ($LASTEXITCODE -ne 3 -or $managed.Exit -ne 3) { throw "Parser rewrite exits differ ($tag)." }
     foreach ($file in @($managedFile, $oracleFile)) {
-      & $QpdfExe '--check' $file *> (Join-Path $runRoot "$tag-$([IO.Path]::GetFileName($file))-check.log")
-      if ($LASTEXITCODE -ne 0) { throw "Repaired output fails oracle check ($file)." }
-      $validation = @(& dotnet $ProbeDll 'validate' '--input' $file 2>&1)
-      if ($LASTEXITCODE -ne 0 -or -not (($validation -join "`n") -match 'independent: npages=1')) {
-        throw "Independent reader rejected repaired output ($file)."
-      }
-      $json = @(& $QpdfExe '--json' '--json-key=qpdf' $file 2> (Join-Path $runRoot "$tag-json-stderr.log")) -join "`n"
-      if ($LASTEXITCODE -ne 0) { throw "Repaired output JSON fails ($file)." }
+      $json = Read-RewrittenJson $tag $file
       if ($json.Contains('u:@') -ne ($budget -ne 1 -and $inputName -eq 'word')) { throw "Repaired/null object value lost during rewrite ($file)." }
     }
+    $rewriteObservations.Add(@{ Case = $inputName; Budget = $budget; ManagedExit = $managed.Exit; OracleExit = 3 })
     Write-Output "[parser/$tag] repaired values survive rewrite; oracle check and independent page counts pass"
+  }
+}
+
+$numericRewrites = @(
+  @{ Name = 'min-integer'; Json = '[-9223372036854775808,2]'; Clean = $true },
+  @{ Name = 'long-integer'; Json = '[1,2]'; Clean = $true },
+  @{ Name = 'positive-overflow'; Json = 'null' },
+  @{ Name = 'negative-overflow'; Json = 'null' },
+  @{ Name = 'invalid-reference-number'; Json = 'null' },
+  @{ Name = 'invalid-reference-generation'; Json = '[null,2]' }
+)
+foreach ($spec in $numericRewrites) {
+  foreach ($broken in @($false, $true)) {
+    $inputName = $spec.Name + $(if ($broken) { '-broken' } else { '' })
+    $tag = "rewrite-$inputName-2"
+    $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+    $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+    $managed = Invoke-Managed $tag @("inputs/$inputName.pdf", '--parser-max-errors=2',
+      '--pages', '.', '1', '--', 'outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+    & $QpdfExe '--global' '--parser-max-errors=2' '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
+    $oracleExit = $LASTEXITCODE
+    $expectedExit = if ($spec.Clean -and -not $broken) { 0 } else { 3 }
+    if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Numeric rewrite exits differ ($tag)." }
+    foreach ($file in @($managedFile, $oracleFile)) {
+      $json = Read-RewrittenJson $tag $file | ConvertFrom-Json
+      $objects = $json.qpdf[1]
+      $pages = @($objects.PSObject.Properties | Where-Object { $_.Value.value.'/Type' -eq '/Page' })
+      if ($pages.Count -ne 1) { throw "Numeric rewrite has an unexpected page graph ($file)." }
+      $audit = $pages[0].Value.value.'/Audit'
+      if ($audit -is [string] -and $audit -match '^\d+ \d+ R$') { $audit = $objects.('obj:' + $audit).value }
+      $actual = ConvertTo-Json -InputObject $audit -Compress -Depth 4
+      if ($actual -cne $spec.Json) { throw "Numeric rewrite value differs ($tag): '$actual' expected '$($spec.Json)'." }
+    }
+    $rewriteObservations.Add(@{ Case = $inputName; Budget = 2; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Audit = $spec.Json })
+    Write-Output "[parser/$tag] numeric values survive rewrite; oracle check and independent page counts pass"
   }
 }
 
@@ -131,5 +199,6 @@ foreach ($inputName in @('word', 'broken-word')) {
   ProbeSHA256 = (Get-FileHash -LiteralPath $ProbeDll -Algorithm SHA256).Hash
   LibrarySHA256 = (Get-FileHash -LiteralPath (Join-Path (Split-Path $ProbeDll) 'Lokad.Qpdf.dll') -Algorithm SHA256).Hash
   Values = $observations
+  Rewrites = $rewriteObservations
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $runRoot 'results.json') -Encoding utf8NoBOM
-Write-Output "Parser lane passed: 102 exact object comparisons and six rewrite trios. Evidence: $runRoot"
+Write-Output "Parser lane passed: $($observations.Count) exact object comparisons and $($rewriteObservations.Count) rewrite trios. Evidence: $runRoot"
