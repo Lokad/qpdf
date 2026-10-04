@@ -500,6 +500,22 @@ public sealed class CheckTests
             host, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), source.Token);
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
     }
+    [Fact]
+    public async Task WarningModifiersApplyToFormFindings()
+    {
+        InMemoryQpdfHost zeroHost = await HostWithFixture("inputs/a.pdf", "parent-held-1page.pdf");
+        QpdfExecutionResult zero = await Qpdf.ExecuteAsync(
+            zeroHost, new QpdfCommandInvocation(["inputs/a.pdf", "--warning-exit-0", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, zero.Status);
+        Assert.Equal(QpdfExitCode.Success, zero.ExitCode);
+        Assert.Contains(zero.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.FormStructureWarning);
+        InMemoryQpdfHost quietHost = await HostWithFixture("inputs/a.pdf", "parent-held-1page.pdf");
+        QpdfExecutionResult quiet = await Qpdf.ExecuteAsync(
+            quietHost, new QpdfCommandInvocation(["inputs/a.pdf", "--no-warn", "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, quiet.Status);
+        Assert.Equal(QpdfExitCode.Warning, quiet.ExitCode);
+        Assert.DoesNotContain(quiet.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.FormStructureWarning);
+    }
     private static int FindMarker(byte[] haystack, byte[] needle)
     {
         for (int i = 0; i + needle.Length <= haystack.Length; i++)
