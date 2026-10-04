@@ -5063,6 +5063,12 @@ public static class Qpdf
             limits = limits with { MaxContainerSizeDamaged = maxContainerSizeDamaged };
         }
 
+        if (plan.ParserMaxErrors is long parserMaxErrors)
+        {
+            RequireHostCeiling(nameof(QpdfLimits.MaxParserErrors), parserMaxErrors, host.MaxParserErrors, QpdfLimits.Default.MaxParserErrors);
+            limits = limits with { MaxParserErrors = parserMaxErrors };
+        }
+
         if (plan.NoDefaultLimits)
         {
             // Compatible parser defaults (filter and container counts) lift when the

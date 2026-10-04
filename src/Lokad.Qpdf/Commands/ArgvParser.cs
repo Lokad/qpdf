@@ -940,6 +940,7 @@ internal static class ArgvParser
             NoDefaultLimits = globals.NoDefaultLimits,
             MaxContainerSize = globals.MaxContainerSize,
             MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+            ParserMaxErrors = globals.ParserMaxErrors,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -1147,7 +1148,7 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, bool RemoveStructure, List<int> Collate, List<OutputRotation> Rotations, bool NoDefaultLimits);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, bool RemoveStructure, List<int> Collate, List<OutputRotation> Rotations, bool NoDefaultLimits, long? ParserMaxErrors);
 
     private static bool IsGlobalOptionToken(string token)
     {
@@ -1319,6 +1320,8 @@ internal static class ArgvParser
         long? maxContainerSize = null;
         bool seenMaxContainerSizeDamaged = false;
         long? maxContainerSizeDamaged = null;
+        bool seenParserMaxErrors = false;
+        long? parserMaxErrors = null;
         bool seenWithImages = false;
         bool seenIgnoreXrefStreams = false;
         bool seenReportMemoryUsage = false;
@@ -1990,7 +1993,13 @@ internal static class ArgvParser
 
             if (argv[i] == "--parser-max-errors" || argv[i].StartsWith("--parser-max-errors=", StringComparison.Ordinal))
             {
-                throw new QpdfParseException("Option --parser-max-errors is not supported: the strict parser fails on the first malformed token.", i, null);
+                if (seenParserMaxErrors)
+                {
+                    throw new QpdfParseException("Duplicate --parser-max-errors is outside the narrow profile.", i, null);
+                }
+                seenParserMaxErrors = true;
+                parserMaxErrors = ParseParserMaxErrors(argv, ref i);
+                continue;
             }
 
             if (argv[i] == "--linearize")
@@ -2192,7 +2201,7 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits, parserMaxErrors);
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2398,6 +2407,49 @@ internal static class ArgvParser
             }
 
             count = checked(count * 10L + (digit - (char)48));
+        }
+
+        return count;
+    }
+
+    private static long ParseParserMaxErrors(IReadOnlyList<string> argv, ref int i)
+    {
+        string token = argv[i];
+        int equals = token.IndexOf((char)61);
+        string? value = null;
+        if (equals >= 0)
+        {
+            value = token.Substring(equals + 1);
+        }
+        else if (i + 1 < argv.Count)
+        {
+            string next = argv[i + 1];
+            if (next is not null && next != "--" && !(next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            {
+                value = next;
+                i += 1;
+            }
+        }
+
+        if (value is null || value.Length == 0 || value.Length > 10)
+        {
+            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a positive error count.", i, null);
+        }
+
+        long count = 0L;
+        foreach (char digit in value)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: expected a positive error count.", i, null);
+            }
+
+            count = checked(count * 10L + (digit - (char)48));
+        }
+
+        if (count == 0L)
+        {
+            throw new QpdfParseException($"Invalid --parser-max-errors value \u0027{value}\u0027: unbounded tolerance contradicts containment.", i, null);
         }
 
         return count;
@@ -2750,6 +2802,7 @@ internal static class ArgvParser
             NoDefaultLimits = globals.NoDefaultLimits,
             MaxContainerSize = globals.MaxContainerSize,
             MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+            ParserMaxErrors = globals.ParserMaxErrors,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -3006,6 +3059,7 @@ internal static class ArgvParser
             NoDefaultLimits = globals.NoDefaultLimits,
             MaxContainerSize = globals.MaxContainerSize,
             MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+            ParserMaxErrors = globals.ParserMaxErrors,
             StreamDataMode = seenStreamData ? streamData! : (minimalOutput ? "inline" : "none"),
             StreamPrefix = streamPrefix,
             Objects = objects,
@@ -3049,7 +3103,7 @@ internal static class ArgvParser
         }
 
         if (globals.ObjectStreams is not null || globals.StreamData is not null || globals.CompressStreams is not null
-            || globals.DecodeLevel is not null || globals.MaxStreamFilters is not null || globals.ParserMaxNesting is not null || globals.MaxContainerSize is not null || globals.MaxContainerSizeDamaged is not null || globals.NoDefaultLimits || globals.TestJsonSchema || globals.RecompressFlate || globals.CompressionLevel is not null
+            || globals.DecodeLevel is not null || globals.MaxStreamFilters is not null || globals.ParserMaxNesting is not null || globals.MaxContainerSize is not null || globals.MaxContainerSizeDamaged is not null || globals.NoDefaultLimits || globals.ParserMaxErrors is not null || globals.TestJsonSchema || globals.RecompressFlate || globals.CompressionLevel is not null
             || globals.RemoveInfo || globals.RemoveMetadata || globals.PreserveUnreferenced)
         {
             throw new QpdfParseException("Stream and metadata options cannot be combined with JSON import.", entryAt, null);
@@ -3833,6 +3887,7 @@ internal static class ArgvParser
             NoDefaultLimits = globals.NoDefaultLimits,
             MaxContainerSize = globals.MaxContainerSize,
             MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+            ParserMaxErrors = globals.ParserMaxErrors,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -3915,6 +3970,7 @@ internal static class ArgvParser
             NoDefaultLimits = globals.NoDefaultLimits,
             MaxContainerSize = globals.MaxContainerSize,
             MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+            ParserMaxErrors = globals.ParserMaxErrors,
             RecompressFlate = globals.RecompressFlate,
             CompressionLevel = globals.CompressionLevel,
             RemoveInfo = globals.RemoveInfo,
@@ -4043,6 +4099,7 @@ internal static class ArgvParser
                 NoDefaultLimits = globals.NoDefaultLimits,
                 MaxContainerSize = globals.MaxContainerSize,
                 MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+                ParserMaxErrors = globals.ParserMaxErrors,
                 RecompressFlate = globals.RecompressFlate,
                 CompressionLevel = globals.CompressionLevel,
                 RemoveInfo = globals.RemoveInfo,

@@ -122,6 +122,8 @@ internal static class JobJsonParser
             long? maxContainerSize = null;
             bool seenMaxContainerSize = false;
             long? maxContainerSizeDamaged = null;
+            long? parserMaxErrors = null;
+            bool seenParserMaxErrors = false;
             bool seenMaxContainerSizeDamaged = false;
             bool seenGlobal = false;
             bool recompressFlate = false;
@@ -476,7 +478,14 @@ internal static class JobJsonParser
                                     maxContainerSizeDamaged = RequireContainerSize(globalProperty.Value, "parserMaxContainerSizeDamaged");
                                     break;
                                 case "parserMaxErrors":
-                                    throw new QpdfParseException("Option parserMaxErrors is not supported: the strict parser fails on the first malformed token.", 0L, null);
+                                    if (seenParserMaxErrors)
+                                    {
+                                        throw new QpdfParseException("Duplicate job key \u0027global.parserMaxErrors\u0027.", 0L, null);
+                                    }
+
+                                    seenParserMaxErrors = true;
+                                    parserMaxErrors = RequireParserMaxErrors(globalProperty.Value);
+                                    break;
                                 default:
                                     throw new QpdfParseException("Unsupported job key \u0027global." + globalProperty.Name + "\u0027 in the narrow selection profile.", 0L, null);
                             }
@@ -1158,7 +1167,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1190,7 +1199,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1224,7 +1233,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1259,7 +1268,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1296,7 +1305,7 @@ internal static class JobJsonParser
                     || seenRotate || seenLabels || seenRemoveLabels
                     || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
                     || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenRecompressFlate || seenCompressionLevel
+                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenMaxStreamFilters || seenNoDefaultLimits || seenTestJsonSchema || seenParserMaxNesting || seenMaxContainerSize || seenMaxContainerSizeDamaged || seenParserMaxErrors || seenRecompressFlate || seenCompressionLevel
                     || seenRemoveInfo || seenRemoveMetadata
                     || seenCoalesceContents || seenNormalizeContent || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
                     || seenOverlay || seenUnderlay
@@ -1383,7 +1392,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || parserMaxErrors is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"jsonInput\".", 0L, null);
@@ -1428,7 +1437,7 @@ internal static class JobJsonParser
                 }
 
                 if (objectStreams is not null || streamData is not null || compressStreams is not null
-                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || recompressFlate || compressionLevel is not null
+                    || decodeLevel is not null || maxStreamFilters is not null || noDefaultLimits || testJsonSchema || parserMaxNesting is not null || maxContainerSize is not null || maxContainerSizeDamaged is not null || parserMaxErrors is not null || recompressFlate || compressionLevel is not null
                     || removeInfo || removeMetadata || preserveUnreferenced)
                 {
                     throw new QpdfParseException("Stream and metadata keys cannot be combined with \"updateFromJson\".", 0L, null);
@@ -1503,6 +1512,7 @@ internal static class JobJsonParser
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
                     IgnoreXrefStreams = ignoreXrefStreams,
                     StreamDataMode = jsonStreams,
                     StreamPrefix = jsonStreamPrefix,
@@ -1567,6 +1577,7 @@ internal static class JobJsonParser
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
@@ -1663,6 +1674,7 @@ internal static class JobJsonParser
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
@@ -1725,6 +1737,7 @@ internal static class JobJsonParser
                     ParserMaxNesting = parserMaxNesting,
                     MaxContainerSize = maxContainerSize,
                     MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     RemoveInfo = removeInfo,
@@ -2268,6 +2281,47 @@ internal static class JobJsonParser
             }
 
             count = checked(count * 10L + (digit - (char)48));
+        }
+
+        return count;
+    }
+    private static long RequireParserMaxErrors(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out long number))
+        {
+            if (number <= 0L)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
+            }
+
+            return number;
+        }
+
+        string? text = null;
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            text = element.GetString();
+        }
+
+        if (text is null || text.Length == 0 || text.Length > 10)
+        {
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
+        }
+
+        long count = 0L;
+        foreach (char digit in text)
+        {
+            if (digit < (char)48 || digit > (char)57)
+            {
+                throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
+            }
+
+            count = checked(count * 10L + (digit - (char)48));
+        }
+
+        if (count == 0L)
+        {
+            throw new QpdfParseException("Job " + (char)34 + "parserMaxErrors" + (char)34 + " must be a positive error count; unbounded tolerance contradicts containment.", 0L, null);
         }
 
         return count;

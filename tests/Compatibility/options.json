@@ -1742,15 +1742,24 @@
         "Rejection-only; the strict parser tolerates no errors and unbounded tolerance contradicts containment."
       ],
       "evidence": {
-        "positive": [],
+        "positive": [
+          "RecoveryTests.ErrorsBudgetBoundsRepair",
+          "RecoveryTests.ErrorsBudgetJobParityHolds"
+        ],
         "negative": [
-          "GlobalLimitsTests.BadContainerFlagsFail"
+          "GlobalLimitsTests.BadParserMaxErrorsValuesFail",
+          "GlobalLimitsTests.DuplicateParserMaxErrorsFails",
+          "GlobalLimitsTests.BadParserMaxErrorsJobKeysFail",
+          "RecoveryTests.ErrorsDefaultFailsLargeStorm",
+          "RecoveryTests.ErrorsBudgetStrictUnaffected"
         ],
         "interaction": [
-          "GlobalLimitsTests.BadNestedContainerKeysFail"
+          "RecoveryTests.ErrorsBudgetJobParityHolds"
         ],
         "resource": [
-          "GlobalLimitsTests.BadContainerFlagsFail"
+          "GlobalLimitsTests.ParserMaxErrorsRespectsTightHost",
+          "RecoveryTests.ErrorsBudgetTightHostStillBounds",
+          "GlobalLimitsTests.ParserMaxErrorsValidationRejectsNonPositive"
         ],
         "oracle": []
       }

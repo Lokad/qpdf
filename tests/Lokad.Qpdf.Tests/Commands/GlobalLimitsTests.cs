@@ -294,7 +294,6 @@ public sealed class GlobalLimitsTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"global\": {\"parserMaxNesting\": 499}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxNesting\": 500}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxNesting\": -1}}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxErrors\": 5}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"bogus\": 1}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": 5}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"maxStreamFilters\": 1}")]
@@ -627,12 +626,73 @@ public sealed class GlobalLimitsTests
     [InlineData("--parser-max-container-size-damaged=")]
     [InlineData("--parser-max-container-size-damaged=x")]
     [InlineData("--parser-max-errors")]
-    [InlineData("--parser-max-errors=5")]
     public async Task BadContainerFlagsFail(string flag)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", flag]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Fact]
+    public async Task ParserMaxErrorsDefaultIsFifteen()
+    {
+        Assert.Equal(15L, QpdfLimits.Default.MaxParserErrors);
+    }
+
+    [Fact]
+    public void ParserMaxErrorsValidationRejectsNonPositive()
+    {
+        QpdfLimits zero = QpdfLimits.Default with { MaxParserErrors = 0L };
+        Assert.Throws<ArgumentOutOfRangeException>(() => zero.Validate());
+        QpdfLimits negative = QpdfLimits.Default with { MaxParserErrors = -1L };
+        Assert.Throws<ArgumentOutOfRangeException>(() => negative.Validate());
+    }
+
+    [Theory]
+    [InlineData("--parser-max-errors")]
+    [InlineData("--parser-max-errors=")]
+    [InlineData("--parser-max-errors=x")]
+    [InlineData("--parser-max-errors=-1")]
+    [InlineData("--parser-max-errors=0")]
+    [InlineData("--parser-max-errors=12345678901")]
+    public async Task BadParserMaxErrorsValuesFail(string flag)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", flag]), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Fact]
+    public async Task DuplicateParserMaxErrorsFails()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-errors=5", "--parser-max-errors=5"]), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(argv).Code);
+        InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", BuildBigPage());
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxErrors\": 5, \"parserMaxErrors\": 6}}", CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(job).Code);
+    }
+
+    [Theory]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxErrors\": 0}}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxErrors\": -1}}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxErrors\": \"bogus\"}}")]
+    public async Task BadParserMaxErrorsJobKeysFail(string job)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task ParserMaxErrorsRespectsTightHost()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
+        QpdfLimits tight = QpdfLimits.Default with { MaxParserErrors = 1L };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-errors=5"]), new QpdfExecutionOptions(tight), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }
 
     [Fact]
@@ -663,7 +723,6 @@ public sealed class GlobalLimitsTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxContainerSize\": 100}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"global\": {\"parserMaxContainerSizeDamaged\": 100}}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxContainerSize\": -1}}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"parserMaxErrors\": 5}}")]
     public async Task BadNestedContainerKeysFail(string job)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());

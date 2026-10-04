@@ -46,6 +46,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public bool NoDefaultLimits { get; init; }
 
+    public long? ParserMaxErrors { get; init; }
+
     public long? ParserMaxNesting { get; init; }
 
     public long? MaxContainerSize { get; init; }

@@ -7,7 +7,8 @@ namespace Lokad.Qpdf.Reading;
 /// <summary>
 /// Bounded cross-reference repair, separate from strict resolution so heuristics
 /// can never weaken the strict contract. Scans for indirect object headers,
-/// trial-parses each candidate, keeps the last valid occurrence, and fills
+/// trial-parses each candidate, keeps the last valid occurrence, aborts after
+/// MaxParserErrors failed trial parses, and fills
 /// unscanned gaps as free. The tail trailer wins when its root resolves;
 /// otherwise the last scanned catalog wins.
 /// </summary>
@@ -132,6 +133,7 @@ internal static class XRefRecovery
         Dictionary<int, XrefEntry> entries)
     {
         int? lastCatalog = null;
+        long errors = 0L;
         ReadOnlySpan<byte> span = data.Span;
         PdfParser parser = new(limits, governor, diagnostics, null);
         long chargedThrough = 0L;
@@ -205,7 +207,16 @@ internal static class XRefRecovery
             }
 
             governor.ChargeWork(1L);
-            QpdfObject? value = TryParseObject(data, limits, governor, diagnostics, parser, numberStart, (int)number, (int)generation);
+            QpdfObject? value = TryParseObject(data, limits, governor, diagnostics, parser, numberStart, (int)number, (int)generation, out bool errored);
+            if (errored)
+            {
+                errors += 1L;
+                if (errors > limits.MaxParserErrors)
+                {
+                    throw new QpdfParseException($"Bounded repair exceeded the maximum of {limits.MaxParserErrors} parsable errors at object {number}.", null, null);
+                }
+            }
+
             if (value is not null)
             {
                 entries[(int)number] = XrefEntry.Uncompressed(numberStart, (int)generation);
@@ -232,7 +243,8 @@ internal static class XRefRecovery
         PdfParser parser,
         int offset,
         int number,
-        int generation)
+        int generation,
+        out bool errored)
     {
         try
         {
@@ -241,13 +253,16 @@ internal static class XRefRecovery
             (int foundNumber, int foundGeneration, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
             if (foundNumber == number && foundGeneration == generation)
             {
+                errored = false;
                 return value;
             }
 
+            errored = false;
             return null;
         }
         catch (QpdfException)
         {
+            errored = true;
             return null;
         }
     }
