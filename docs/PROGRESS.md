@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 159; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 6 global-limits defaultReview rows are now reviewed against pinned upstream cli.rst/job.yml (nesting 499, errors 15 with 0 unlimited, container 4294967295, damaged 5000, stream-filters 25; nesting not disabled by no-default-limits): ours matches except the recorded 256-vs-499 nesting default and strict-vs-recovery exits, with =n/space forms, global blocks, duplicates, and job parity covered in GlobalLimitsTests. defaultReview stands at 55 reviewed and 102 pending (49 crypto plus 53 other); flip only in verified batches, never bulk. Next is item 160 in the remaining backlog.
+M11 completion audit through item 160; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 4 help-identity defaultReview rows (--version, --copyright, --job-json-help, --json-help[=version] with choices 1/2/latest) are now reviewed against pinned upstream cli.rst (argv-only identity requests with empty job paths, valued forms rejected, budget-immune, differential identity case exits 0/0 with shared markers). defaultReview stands at 59 reviewed and 98 pending (49 crypto plus 49 other); flip only in verified batches, never bulk. Next is item 161 in the remaining backlog.
 
 ## Remaining work
 
