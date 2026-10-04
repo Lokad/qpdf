@@ -113,8 +113,7 @@ internal static class ResponseFileExpander
         }
 
         limits.Validate();
-        IQpdfInput input = await host.OpenInputAsync(path, cancellationToken).ConfigureAwait(false);
-        governor.NoteHostOperation();
+        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -127,9 +126,13 @@ internal static class ResponseFileExpander
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
             }
 
+            if (input.Length > limits.MaxMemoryBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), input.Length, limits.MaxMemoryBytes);
+            }
+
+            governor.ReserveMemory(input.Length);
             byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
-            governor.NoteHostOperation();
-            governor.ReserveMemory(bytes.Length);
             try
             {
                 return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);

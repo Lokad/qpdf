@@ -848,6 +848,14 @@ even when a caller disables qpdf-compatible default parser limits. A shared budg
 appearances) fails explicitly with `BudgetExceeded` and publishes nothing under exhausted budgets.
 Every public entry path constructs its governor with the caller's cancellation token,
 so interval checks and codec entry/row checks observe cancellation instead of running blind.
+Every input open and staged-output creation charges one host operation and one open handle
+before touching the host, so per-job handle budgets bind concurrent leases (including
+overlay second sources and linearize pass-one outputs) even against permissive hosts;
+reads through a governed lease charge one host operation per underlying host call, so
+one-byte short reads cannot bypass the budget; admission runs before acquisition and
+ownership starts at acquisition, so budget failures never leak leases; response inputs
+are admitted against the memory budget before any byte is fetched; duplicate opens of
+one path keep the publication conflict until the last lease closes.
 
 ## Progression and dependency gates
 

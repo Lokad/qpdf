@@ -10,7 +10,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
     private readonly QpdfLimits _limits;
     private readonly Dictionary<string, byte[]> _inputs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, byte[]> _outputs = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _openIdentities = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _openIdentities = new(StringComparer.Ordinal);
     private long _openLeases;
 
     /// <summary>Creates a host with default budgets.</summary>
@@ -89,7 +89,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         }
 
         _openLeases += 1L;
-        _openIdentities.Add(path.Value);
+        _openIdentities[path.Value] = _openIdentities.TryGetValue(path.Value, out int open) ? open + 1 : 1;
         IQpdfInput input = new InMemoryInput(this, path, stored);
         return ValueTask.FromResult(input);
     }
@@ -113,7 +113,17 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         _openLeases = Math.Max(0L, _openLeases - 1L);
         if (identity is not null)
         {
-            _openIdentities.Remove(identity);
+            if (_openIdentities.TryGetValue(identity, out int open))
+            {
+                if (open <= 1)
+                {
+                    _openIdentities.Remove(identity);
+                }
+                else
+                {
+                    _openIdentities[identity] = open - 1;
+                }
+            }
         }
     }
 
@@ -227,7 +237,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                 throw new InvalidOperationException("The transaction is already committed or discarded.");
             }
 
-            if (_host._openIdentities.Contains(Path.Value))
+            if (_host._openIdentities.ContainsKey(Path.Value))
             {
                 throw new QpdfHostException(Path, QpdfHostFailureReason.Conflict);
             }

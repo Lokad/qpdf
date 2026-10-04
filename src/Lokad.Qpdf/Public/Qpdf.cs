@@ -2270,8 +2270,7 @@ public static class Qpdf
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
         }
 
-        governor.NoteHostOperation();
-        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, cancellationToken).ConfigureAwait(false);
+        await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
@@ -2282,7 +2281,7 @@ public static class Qpdf
                 return;
             }
 
-            await using IQpdfOutputTransaction streamedPass1 = await host.CreateOutputAsync(linearizePass1.Value, cancellationToken).ConfigureAwait(false);
+            await using IQpdfOutputTransaction streamedPass1 = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink streamedPass1Sink = new(streamedPass1, governor);
             await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, streamedPass1Sink, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -2297,7 +2296,7 @@ public static class Qpdf
             return;
         }
 
-        await using IQpdfOutputTransaction pass1Transaction = await host.CreateOutputAsync(linearizePass1.Value, cancellationToken).ConfigureAwait(false);
+        await using IQpdfOutputTransaction pass1Transaction = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink pass1Sink = new(pass1Transaction, governor);
         await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, pass1Sink, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -2343,8 +2342,7 @@ public static class Qpdf
         }
 
         governor.ReserveMemory(counted);
-        governor.NoteHostOperation();
-        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, cancellationToken).ConfigureAwait(false);
+        await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
         IByteSink emit = sink;
         long written;
@@ -3460,8 +3458,7 @@ public static class Qpdf
         CancellationToken cancellationToken)
     {
         QpdfPath path = SelectionPlan.CheckedPath(file);
-        IQpdfInput input = await host.OpenInputAsync(path, cancellationToken).ConfigureAwait(false);
-        governor.NoteHostOperation();
+        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -3476,7 +3473,6 @@ public static class Qpdf
 
             governor.ReserveMemory(input.Length);
             byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
-            governor.NoteHostOperation();
             return bytes;
         }
         finally
@@ -4224,8 +4220,7 @@ public static class Qpdf
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
         }
 
-        governor.NoteHostOperation();
-        await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+        await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -4383,8 +4378,7 @@ public static class Qpdf
 
         if (outputPath.HasValue)
         {
-            governor.NoteHostOperation();
-            await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath.Value, cancellationToken).ConfigureAwait(false);
+            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath.Value, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink sink = new(transaction, governor);
             await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -4399,8 +4393,7 @@ public static class Qpdf
             }
 
             QpdfPath sidecarPath = QpdfPath.From(sidecar.Name);
-            governor.NoteHostOperation();
-            await using IQpdfOutputTransaction staging = await host.CreateOutputAsync(sidecarPath, cancellationToken).ConfigureAwait(false);
+            await using IQpdfOutputTransaction staging = await GovernedHost.CreateOutputAsync(host, sidecarPath, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink sidecarSink = new(staging, governor);
             await sidecarSink.AppendAsync(sidecar.Data, cancellationToken).ConfigureAwait(false);
             await staging.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -5239,8 +5232,7 @@ public static class Qpdf
                         throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), payload.Length, limits.MaxOutputBytes);
                     }
 
-                    governor.NoteHostOperation();
-                    await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(output, cancellationToken).ConfigureAwait(false);
+                    await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, output, governor, cancellationToken).ConfigureAwait(false);
                     TransactionSink sink = new(transaction, governor);
                     await sink.AppendAsync(payload, cancellationToken).ConfigureAwait(false);
                     await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -5885,8 +5877,7 @@ public static class Qpdf
         ResourceGovernor governor = new(limits, cancellationToken);
         try
         {
-            await using IQpdfInput input = await host.OpenInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
-            governor.NoteHostOperation();
+            await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
             byte[] bytes;
             try
             {
@@ -5902,15 +5893,13 @@ public static class Qpdf
 
                 governor.ReserveMemory(input.Length);
                 bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
-                governor.NoteHostOperation();
             }
             finally
             {
                 await input.DisposeAsync().ConfigureAwait(false);
             }
 
-            governor.NoteHostOperation();
-            await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink sink = new(transaction, governor);
             try
             {
@@ -5993,8 +5982,7 @@ public static class Qpdf
 
         try
         {
-            await using IQpdfInput input = await host.OpenInputAsync(inputPath, cancellationToken).ConfigureAwait(false);
-            governor.NoteHostOperation();
+            await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
             byte[] bytes;
             try
             {
@@ -6010,7 +5998,6 @@ public static class Qpdf
 
                 governor.ReserveMemory(input.Length);
                 bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
-                governor.NoteHostOperation();
             }
             finally
             {
@@ -6025,8 +6012,7 @@ public static class Qpdf
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output.Length, limits.MaxOutputBytes);
             }
 
-            governor.NoteHostOperation();
-            await using IQpdfOutputTransaction transaction = await host.CreateOutputAsync(outputPath, cancellationToken).ConfigureAwait(false);
+            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink sink = new(transaction, governor);
             await sink.AppendAsync(output, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -6046,7 +6032,9 @@ public static class Qpdf
     {
         try
         {
-            return FlateFilter.Decode(bytes, null, limits, governor);
+            byte[] decoded = FlateFilter.Decode(bytes, null, limits, governor);
+            governor.ChargeDecodedBytes(decoded.Length);
+            return decoded;
         }
         catch (QpdfFilterException ex)
         {

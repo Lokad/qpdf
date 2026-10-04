@@ -83,7 +83,6 @@ internal static class FlateFilter
             {
                 governor.CheckCancellation();
                 governor.ChargeWork(read);
-                governor.ChargeDecodedBytes(read);
                 total += read;
                 if (total > limits.MaxDecodedBytes)
                 {

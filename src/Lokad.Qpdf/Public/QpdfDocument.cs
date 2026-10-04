@@ -193,8 +193,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         QpdfRecoveryMode recovery,
         CancellationToken cancellationToken)
     {
-        IQpdfInput input = await host.OpenInputAsync(path, cancellationToken).ConfigureAwait(false);
-        governor.NoteHostOperation();
+        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -214,7 +213,6 @@ public sealed class QpdfDocument : IAsyncDisposable
 
             governor.ReserveMemory(input.Length);
             byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
-            governor.NoteHostOperation();
             cancellationToken.ThrowIfCancellationRequested();
             ReadOnlyMemory<byte> data = bytes;
             PdfVersion headerVersion = ParseHeader(data);
