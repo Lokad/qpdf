@@ -65,7 +65,7 @@ to run the reference and differential lanes.
 compares managed and oracle outputs operation by operation under ignored
 `external/diff/`: oracle `--check` must pass on both outputs, oracle and
 independent page counts must agree, plus per-case assertions. Current
-coverage, all passing with no engine discrepancies: select (first- and last-page trios), merge,
+coverage, all passing with no engine discrepancies (inventory diff labels may cite finer sub-assertions inside these coarser cases): select (first- and last-page trios), merge,
 uncompress (decoded stream payloads identical), normalize (normalized
 content payloads identical), coalesce (decoded payloads identical), compress (recompressed payloads identical), flatten-rotation
 (swapped MediaBox, dropped /Rotate, byte-identical wrap streams), prune (unreferenced
