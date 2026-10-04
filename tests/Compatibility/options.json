@@ -1560,7 +1560,8 @@
           "CompressionTests.InvalidValuesFail",
           "CompressionTests.DuplicateFlagsFail",
           "CompressionTests.MaxStreamFiltersRejectsRestrictedCombinations",
-          "CompressionTests.JobJsonInvalidValuesFail"
+          "CompressionTests.JobJsonInvalidValuesFail",
+          "GlobalLimitsTests.FlagCannotRaiseTighterFilterBudget"
         ],
         "interaction": [
           "CompressionTests.MaxStreamFiltersJobParityHolds",
@@ -1568,7 +1569,8 @@
         ],
         "resource": [
           "CompressionTests.HostStreamFilterBudgetKeepsOverLimitOpaque",
-          "CompressionTests.NegativeStreamFilterBudgetFailsValidation"
+          "CompressionTests.NegativeStreamFilterBudgetFailsValidation",
+          "GlobalLimitsTests.FlagCannotRaiseTighterFilterBudget"
         ],
         "oracle": [
           "diff:global"
@@ -1645,7 +1647,8 @@
           "GlobalLimitsTests.DamagedCapGovernsRepair",
           "GlobalLimitsTests.BadContainerFlagsFail",
           "GlobalLimitsTests.DuplicateContainerFlagsFail",
-          "GlobalLimitsTests.BadNestedContainerKeysFail"
+          "GlobalLimitsTests.BadNestedContainerKeysFail",
+          "GlobalLimitsTests.HostContainerBudgetInterplay"
         ],
         "interaction": [
           "GlobalLimitsTests.ContainerCapsJobParityHolds",
@@ -1653,7 +1656,8 @@
         ],
         "resource": [
           "GlobalLimitsTests.HostContainerBudgetInterplay",
-          "GlobalLimitsTests.NegativeContainerBudgetsFailValidation"
+          "GlobalLimitsTests.NegativeContainerBudgetsFailValidation",
+          "GlobalLimitsTests.FlagMayTightenBelowContainerCeiling"
         ],
         "oracle": [
           "diff:global"
@@ -1775,14 +1779,16 @@
           "GlobalLimitsTests.BadNestingValuesFail",
           "GlobalLimitsTests.DuplicateNestingFlagFails",
           "GlobalLimitsTests.CeilingMessageNamesTheMaximum",
-          "GlobalLimitsTests.BadNestedGlobalFails"
+          "GlobalLimitsTests.BadNestedGlobalFails",
+          "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget"
         ],
         "interaction": [
           "GlobalLimitsTests.NestedGlobalParityHolds",
           "GlobalLimitsTests.BadNestedGlobalFails"
         ],
         "resource": [
-          "GlobalLimitsTests.FlagOverridesTighterHostBudget"
+          "GlobalLimitsTests.FlagCannotRaiseTighterHostBudget",
+          "GlobalLimitsTests.FlagMayTightenBelowHostCeiling"
         ],
         "oracle": [
           "diff:global"

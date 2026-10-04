@@ -224,7 +224,7 @@ public sealed class GlobalLimitsTests
     }
 
     [Fact]
-    public async Task FlagOverridesTighterHostBudget()
+    public async Task FlagCannotRaiseTighterHostBudget()
     {
         byte[] input = BuildDeepPage(300);
         InMemoryQpdfHost plain = HostWith("inputs/a.pdf", input);
@@ -232,8 +232,28 @@ public sealed class GlobalLimitsTests
         QpdfExecutionResult denied = await Qpdf.ExecuteAsync(plain, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), new QpdfExecutionOptions(tight), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(denied).Code);
         InMemoryQpdfHost raised = HostWith("inputs/a.pdf", input);
-        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-nesting=499"]), new QpdfExecutionOptions(tight), CancellationToken.None);
+        QpdfExecutionResult capped = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-nesting=499"]), new QpdfExecutionOptions(tight), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(capped).Code);
+        Assert.False(raised.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task FlagMayTightenBelowHostCeiling()
+    {
+        byte[] input = BuildDeepPage(300);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        QpdfLimits loose = QpdfLimits.Default with { MaxNestingDepth = 600L };
+        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-nesting=499"]), new QpdfExecutionOptions(loose), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, allowed.ExitCode);
+    }
+
+    [Fact]
+    public async Task FlagCannotRaiseTighterFilterBudget()
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildBigPage());
+        QpdfLimits tight = QpdfLimits.Default with { MaxStreamFilters = 1L };
+        QpdfExecutionResult capped = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--max-stream-filters=25"]), new QpdfExecutionOptions(tight), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(capped).Code);
     }
 
     private static byte[] BuildBigPage()
@@ -464,7 +484,18 @@ public sealed class GlobalLimitsTests
         QpdfExecutionResult denied = await Qpdf.ExecuteAsync(plain, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), new QpdfExecutionOptions(tight), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(denied).Code);
         InMemoryQpdfHost raised = HostWith("inputs/a.pdf", input);
-        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size=1000"]), new QpdfExecutionOptions(tight), CancellationToken.None);
+        QpdfExecutionResult capped = await Qpdf.ExecuteAsync(raised, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size=1000"]), new QpdfExecutionOptions(tight), CancellationToken.None);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(capped).Code);
+        Assert.False(raised.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Fact]
+    public async Task FlagMayTightenBelowContainerCeiling()
+    {
+        byte[] input = BuildBigPage();
+        QpdfLimits loose = QpdfLimits.Default with { MaxContainerSize = 1000000L };
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);
+        QpdfExecutionResult allowed = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-container-size=1000"]), new QpdfExecutionOptions(loose), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, allowed.ExitCode);
     }
 

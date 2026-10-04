@@ -5036,6 +5036,48 @@ public static class Qpdf
         return infos;
     }
 
+    private static QpdfLimits ResolveParserLimits(JobPlan plan, QpdfLimits host)
+    {
+        QpdfLimits limits = host;
+        if (plan.MaxStreamFilters is long maxStreamFilters)
+        {
+            RequireHostCeiling(nameof(QpdfLimits.MaxStreamFilters), maxStreamFilters, host.MaxStreamFilters, QpdfLimits.Default.MaxStreamFilters);
+            limits = limits with { MaxStreamFilters = maxStreamFilters };
+        }
+
+        if (plan.ParserMaxNesting is long parserMaxNesting)
+        {
+            RequireHostCeiling(nameof(QpdfLimits.MaxNestingDepth), parserMaxNesting, host.MaxNestingDepth, QpdfLimits.Default.MaxNestingDepth);
+            limits = limits with { MaxNestingDepth = parserMaxNesting };
+        }
+
+        if (plan.MaxContainerSize is long maxContainerSize)
+        {
+            RequireHostCeiling(nameof(QpdfLimits.MaxContainerSize), maxContainerSize, host.MaxContainerSize, QpdfLimits.Default.MaxContainerSize);
+            limits = limits with { MaxContainerSize = maxContainerSize };
+        }
+
+        if (plan.MaxContainerSizeDamaged is long maxContainerSizeDamaged)
+        {
+            RequireHostCeiling(nameof(QpdfLimits.MaxContainerSizeDamaged), maxContainerSizeDamaged, host.MaxContainerSizeDamaged, QpdfLimits.Default.MaxContainerSizeDamaged);
+            limits = limits with { MaxContainerSizeDamaged = maxContainerSizeDamaged };
+        }
+
+        return limits;
+    }
+
+    private static void RequireHostCeiling(string name, long requested, long hostCeiling, long libraryDefault)
+    {
+        // Invocation parser knobs tighten behavior within the embedding host's
+        // hard ceilings; they never raise a ceiling the host customized.
+        // An untouched host ceiling still carries the library default, in which
+        // case invocation values within their own absolute bounds apply.
+        if (hostCeiling != libraryDefault && requested > hostCeiling)
+        {
+            throw new QpdfLimitException(name, requested, hostCeiling);
+        }
+    }
+
     private static async ValueTask<QpdfExecutionResult> RunPlanAsync(
         IQpdfHost host,
         JobPlan plan,
@@ -5044,24 +5086,17 @@ public static class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        if (plan.MaxStreamFilters is long maxStreamFilters)
+        try
         {
-            limits = limits with { MaxStreamFilters = maxStreamFilters };
+            limits = ResolveParserLimits(plan, limits);
         }
-
-        if (plan.ParserMaxNesting is long parserMaxNesting)
+        catch (QpdfException ex)
         {
-            limits = limits with { MaxNestingDepth = parserMaxNesting };
+            return ToFailedResult(ex);
         }
-
-        if (plan.MaxContainerSize is long maxContainerSize)
+        catch (OperationCanceledException)
         {
-            limits = limits with { MaxContainerSize = maxContainerSize };
-        }
-
-        if (plan.MaxContainerSizeDamaged is long maxContainerSizeDamaged)
-        {
-            limits = limits with { MaxContainerSizeDamaged = maxContainerSizeDamaged };
+            return QpdfExecutionResult.Canceled([], ZeroCounters());
         }
 
         if (plan.IgnoreXrefStreams)
