@@ -300,6 +300,12 @@ internal sealed class DocumentEngine : IIndirectResolver
     private List<(int Number, int Offset)> ReadObjStmPairs(byte[] decoded, int count, int streamNumber)
     {
         PdfTokenizer tokenizer = new(decoded);
+        if ((long)count * 4L > decoded.Length)
+        {
+            throw new QpdfParseException($"Object stream {streamNumber} declares {count} entries but holds {decoded.Length} bytes.", null, streamNumber);
+        }
+
+        _governor.ReserveMemory(checked((long)count * 8L + 64L));
         List<(int Number, int Offset)> pairs = new(count);
         for (int i = 0; i < count; i++)
         {
