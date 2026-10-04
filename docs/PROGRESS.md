@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 173; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 3 catalog-pruning defaultReview rows (--remove-acroform, --remove-structure, --preserve-unreferenced-resources) are now reviewed against pinned upstream cli.rst: bare forms with camelCase job keys, merge-drop and ignored-with-check interactions, last-wins and budget pins, oracle prune lanes green. defaultReview stands at 99 reviewed and 58 pending (49 crypto plus 9 other); flip only in verified batches, never bulk. Next is item 174 in the remaining backlog.
+M11 completion audit through item 174; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 content-transform defaultReview rows (--rotate=[+|-]angle[:page-range], --generate-appearances) are now reviewed against pinned upstream cli.rst: full shared range grammar with main/inside parity and typed agreement, limited appearance generation with declared skips, camelCase job keys and budget pins, oracle rotate/forms lanes green. defaultReview stands at 101 reviewed and 56 pending (49 crypto plus 7 other); flip only in verified batches, never bulk. Next is item 175 in the remaining backlog.
 
 ## Remaining work
 
