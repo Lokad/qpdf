@@ -2,12 +2,12 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 175; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 invocation defaultReview rows (--global [options] --, --job-json-file=file) are now reviewed against pinned upstream cli.rst: limit-block parity with bare-flag leniency, job file through host with inline parity and explicit errors, argv-only empty job path. defaultReview stands at 103 reviewed and 54 pending (49 crypto plus 5 other); flip only in verified batches, never bulk. Next is item 176 in the remaining backlog.
+M11 completion audit through item 176; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 4 reader/writer/output defaultReview rows (--ignore-xref-streams, --no-original-object-ids, --qdf, --replace-input) are now reviewed against pinned upstream cli.rst: bare forms with camelCase job keys, classic-table fallback, QDF editable view with suppressed-ID variant, in-place replace with output/split rejections and budget pins, oracle lanes green. All complete non-crypto rows are now reviewed; the sole non-crypto pending row is partial --optimize-images behind the CMYK-held-open gap. defaultReview stands at 107 reviewed and 50 pending (49 crypto plus 1 partial); crypto rows stay pending until the fuller grammar review. Next is item 177: batch the held-open partial and crypto backlog around capability fixes.
 
 ## Remaining work
 
 - Held-open partials: containment-only limits, no-Zopfli build profile, CMYK four-component images; plus the tested direct-node promotion difference.
-- defaultReview backlog verified per entry around capability fixes.
+- defaultReview backlog (49 crypto plus partial --optimize-images) verified per entry around capability fixes.
 - M11 exit needs full lanes per behavior change, section 13 gates green, and no silent skips.
 
 ## Verification

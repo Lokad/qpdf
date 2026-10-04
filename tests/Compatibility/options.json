@@ -3055,7 +3055,7 @@
       ],
       "milestone": "M4",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -3960,7 +3960,7 @@
       ],
       "milestone": "M9",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -4740,7 +4740,7 @@
       ],
       "milestone": "M9",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
@@ -5222,7 +5222,7 @@
       ],
       "milestone": "M5",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [
