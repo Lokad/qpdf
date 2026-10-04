@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 166; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 3 stream-inspection defaultReview rows (--raw-stream-data, --filtered-stream-data, --with-images) are now reviewed against pinned upstream cli.rst: bare forms with camelCase job keys, gated on --show-object/--show-pages with combination rejections and budget pins, oracle stream-data comparisons green. defaultReview stands at 78 reviewed and 79 pending (49 crypto plus 30 other); flip only in verified batches, never bulk. Next is item 167 in the remaining backlog.
+M11 completion audit through item 167; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 check/recovery defaultReview rows (--check, --suppress-recovery) are now reviewed against pinned upstream cli.rst: --check is argv-only partial validation (exit 0/2 with warn-only forms path and modifier interaction), --suppress-recovery fails on first error like strict via job key suppressRecovery. defaultReview stands at 80 reviewed and 77 pending (49 crypto plus 28 other); flip only in verified batches, never bulk. Next is item 168 in the remaining backlog.
 
 ## Remaining work
 
