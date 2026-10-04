@@ -30,17 +30,53 @@ public enum QpdfExitCode
 }
 
 /// <summary>A point-in-time snapshot of per-job resource counters.</summary>
-public sealed record QpdfExecutionCounters(
-    long LiveMemoryBytes,
-    long PeakMemoryBytes,
-    long TotalWork,
-    long TotalDecodedBytes,
-    long TotalOutputBytes,
-    long HostOperations,
-    long OpenHandles,
-    long DiagnosticCount);
+public sealed record QpdfExecutionCounters
+{
+    /// <summary>Creates a counter snapshot.</summary>
+    public QpdfExecutionCounters(
+        long liveMemoryBytes,
+        long peakMemoryBytes,
+        long totalWork,
+        long totalDecodedBytes,
+        long totalOutputBytes,
+        long hostOperations,
+        long openHandles,
+        long diagnosticCount)
+    {
+        LiveMemoryBytes = liveMemoryBytes;
+        PeakMemoryBytes = peakMemoryBytes;
+        TotalWork = totalWork;
+        TotalDecodedBytes = totalDecodedBytes;
+        TotalOutputBytes = totalOutputBytes;
+        HostOperations = hostOperations;
+        OpenHandles = openHandles;
+        DiagnosticCount = diagnosticCount;
+    }
 
-/// <summary>Explicit outcome of an executed operation.</summary>
+    /// <summary>Gets the currently retained managed bytes.</summary>
+    public long LiveMemoryBytes { get; }
+
+    /// <summary>Gets the high-water mark of retained managed bytes.</summary>
+    public long PeakMemoryBytes { get; }
+
+    /// <summary>Gets the charged units of bounded work.</summary>
+    public long TotalWork { get; }
+
+    /// <summary>Gets the decoded stream payload bytes.</summary>
+    public long TotalDecodedBytes { get; }
+
+    /// <summary>Gets the published output bytes.</summary>
+    public long TotalOutputBytes { get; }
+
+    /// <summary>Gets the host storage calls.</summary>
+    public long HostOperations { get; }
+
+    /// <summary>Gets the currently open host handles.</summary>
+    public long OpenHandles { get; }
+
+    /// <summary>Gets the recorded diagnostics.</summary>
+    public long DiagnosticCount { get; }
+}/// <summary>Explicit outcome of an executed operation.</summary>
 public sealed record QpdfExecutionResult
 {
     /// <summary>Gets the execution status.</summary>

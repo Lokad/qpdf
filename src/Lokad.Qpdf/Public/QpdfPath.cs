@@ -40,7 +40,7 @@ public readonly record struct QpdfPath
         return new QpdfPath(value);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the logical path text.</summary>
     public override string ToString()
     {
         return Value;

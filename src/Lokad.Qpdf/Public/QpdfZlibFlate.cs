@@ -15,4 +15,18 @@ public enum QpdfZlibFlateMode
 /// the governed buckets 1..9 (1 fastest, 9 smallest, default optimal);
 /// levels are only meaningful when compressing.
 /// </summary>
-public sealed record QpdfZlibFlateOptions(QpdfZlibFlateMode Mode, int? CompressionLevel);
+public sealed record QpdfZlibFlateOptions
+{
+    /// <summary>Creates zlib-flate options.</summary>
+    public QpdfZlibFlateOptions(QpdfZlibFlateMode mode, int? compressionLevel)
+    {
+        Mode = mode;
+        CompressionLevel = compressionLevel;
+    }
+
+    /// <summary>Gets the operation direction.</summary>
+    public QpdfZlibFlateMode Mode { get; }
+
+    /// <summary>Gets the governed level 1..9; meaningful only when compressing.</summary>
+    public int? CompressionLevel { get; }
+}

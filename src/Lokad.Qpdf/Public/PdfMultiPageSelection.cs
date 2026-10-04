@@ -19,7 +19,22 @@ public sealed record PdfPageSource
 }
 
 /// <summary>Maps one output page back to its source document and page.</summary>
-public sealed record PdfPageSelectionMapping(int SourceIndex, int SourcePage);
+/// <summary>Maps one output page back to its source document and page.</summary>
+public sealed record PdfPageSelectionMapping
+{
+    /// <summary>Creates a page mapping.</summary>
+    public PdfPageSelectionMapping(int sourceIndex, int sourcePage)
+    {
+        SourceIndex = sourceIndex;
+        SourcePage = sourcePage;
+    }
+
+    /// <summary>Gets the zero-based source document position.</summary>
+    public int SourceIndex { get; }
+
+    /// <summary>Gets the one-based source page number.</summary>
+    public int SourcePage { get; }
+}
 
 /// <summary>Outcome of a multi-source page selection.</summary>
 public sealed record PdfMultiPageSelectionResult

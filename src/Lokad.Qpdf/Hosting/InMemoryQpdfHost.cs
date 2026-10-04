@@ -74,7 +74,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         return false;
     }
 
-    /// <inheritdoc />
+    /// <summary>Opens the staged input, charging an open handle against the host budget.</summary>
     public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -94,7 +94,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         return ValueTask.FromResult(input);
     }
 
-    /// <inheritdoc />
+    /// <summary>Creates a staged output transaction, charging an open handle against the host budget.</summary>
     public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

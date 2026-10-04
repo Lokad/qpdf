@@ -256,7 +256,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         return _engine.Load(objectNumber);
     }
 
-    /// <inheritdoc />
+    /// <summary>Releases the held input; safe to call more than once.</summary>
     public async ValueTask DisposeAsync()
     {
         if (!_disposed)

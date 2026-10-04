@@ -15,19 +15,19 @@ public sealed class PdfNull : QpdfObject, IEquatable<PdfNull>
     {
     }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfNull.</summary>
     public bool Equals(PdfNull? other)
     {
         return other is not null;
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfNull);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         return 0;
@@ -52,19 +52,19 @@ public sealed class PdfBoolean : QpdfObject, IEquatable<PdfBoolean>
     /// <summary>Gets the value.</summary>
     public bool Value { get; }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfBoolean.</summary>
     public bool Equals(PdfBoolean? other)
     {
         return other is not null && Value == other.Value;
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfBoolean);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         return Value.GetHashCode();
@@ -90,19 +90,19 @@ public sealed class PdfInteger : QpdfObject, IEquatable<PdfInteger>
     /// <summary>Gets the parsed value.</summary>
     public long Value { get; }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfInteger.</summary>
     public bool Equals(PdfInteger? other)
     {
         return other is not null && Text == other.Text && Value == other.Value;
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfInteger);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         return HashCode.Combine(Text, Value);
@@ -129,19 +129,19 @@ public sealed class PdfReal : QpdfObject, IEquatable<PdfReal>
     /// <summary>Gets the parsed value.</summary>
     public double Value { get; }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfReal.</summary>
     public bool Equals(PdfReal? other)
     {
         return other is not null && Text == other.Text && Value.Equals(other.Value);
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfReal);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         return HashCode.Combine(Text, Value);
@@ -228,19 +228,19 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         }
     }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfName.</summary>
     public bool Equals(PdfName? other)
     {
         return other is not null && _raw.AsSpan().SequenceEqual(other._raw);
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfName);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         HashCode hash = new();
@@ -308,19 +308,19 @@ public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
     /// <summary>Gets a copy of the raw value bytes.</summary>
     public byte[] Value => (byte[])_value.Clone();
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfByteString.</summary>
     public bool Equals(PdfByteString? other)
     {
         return other is not null && Hex == other.Hex && _value.AsSpan().SequenceEqual(other._value);
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfByteString);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         HashCode hash = new();
@@ -362,19 +362,19 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
     /// <summary>Gets a copy of the items.</summary>
     public QpdfObject[] Items => [.. _items];
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfArray.</summary>
     public bool Equals(PdfArray? other)
     {
         return other is not null && _items.AsSpan().SequenceEqual(other._items);
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfArray);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         HashCode hash = new();
@@ -433,7 +433,7 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
         return false;
     }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfDictionary.</summary>
     public bool Equals(PdfDictionary? other)
     {
         if (other is null || _entries.Count != other._entries.Count)
@@ -457,13 +457,13 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
         return true;
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfDictionary);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         return _entries.Count;
@@ -486,19 +486,19 @@ public sealed class PdfReference : QpdfObject, IEquatable<PdfReference>
     /// <summary>Gets the generation.</summary>
     public int Generation { get; }
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfReference.</summary>
     public bool Equals(PdfReference? other)
     {
         return other is not null && ObjectNumber == other.ObjectNumber && Generation == other.Generation;
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfReference);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         return HashCode.Combine(ObjectNumber, Generation);
@@ -529,7 +529,7 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
     /// <summary>Gets a copy of the raw stream bytes.</summary>
     public byte[] Data => (byte[])_data.Clone();
 
-    /// <inheritdoc />
+    /// <summary>Indicates whether this instance equals another PdfStream.</summary>
     public bool Equals(PdfStream? other)
     {
         return other is not null
@@ -537,13 +537,13 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
             && _data.AsSpan().SequenceEqual(other._data);
     }
 
-    /// <inheritdoc />
+    /// <summary>Determines whether the specified object equals this instance.</summary>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PdfStream);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns the hash code for this instance.</summary>
     public override int GetHashCode()
     {
         HashCode hash = new();

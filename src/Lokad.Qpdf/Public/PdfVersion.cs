@@ -27,7 +27,7 @@ public sealed record PdfVersion
     /// <summary>Gets the minor component.</summary>
     public int Minor { get; }
 
-    /// <inheritdoc />
+    /// <summary>Returns the dotted major.minor text.</summary>
     public override string ToString()
     {
         return $"{Major}.{Minor}";
