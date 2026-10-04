@@ -202,11 +202,11 @@ internal sealed class DocumentEngine : IIndirectResolver
                 throw new QpdfParseException($"Object {streamNumber} must declare /Type /ObjStm.", null, streamNumber);
             }
 
-            PdfName extendsKey = PdfName.FromAscii("Extends");
-            if (dictionary.TryGet(extendsKey, out QpdfObject extends) && extends is not PdfNull)
-            {
-                throw new QpdfParseException("Chained /Extends object streams arrive in work item 10.", null, streamNumber);
-            }
+            // the header pairs carried by this stream, matched against the
+            // cross-reference table, matching the pinned reference, whose reader
+            // matching the pinned reference, whose reader carries no Extends handling
+            // (even a self-reference like the objstm-extends.pdf fixture resolves).
+            // The key itself stays opaque data for the copy engine to preserve.
 
             int count = ReadObjStmInt(dictionary, "N", 1, streamNumber);
             int first = ReadObjStmInt(dictionary, "First", 0, streamNumber);

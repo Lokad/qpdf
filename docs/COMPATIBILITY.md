@@ -228,9 +228,12 @@ ascending, in-bounds offsets and per-entry extents, caching only what
 the xref table points at the stream. Strict deltas versus warn-and-continue:
 corrupt headers, self-containment,
 low object numbers, non-ascending offsets, and trailing entry bytes all
-fail, where the reference warns and continues. `/Prev`, `/XRefStm`, and
-`/Extends` fail explicitly as work-item-10 scope, replacing silent
-staleness with errors. Selection output normalizes to classic xref;
+fail, where the reference warns and continues. `/Prev` and `/XRefStm`
+fail explicitly as work-item-10 scope, replacing silent staleness with
+errors. `/Extends` on object streams is read per the reference (whose reader
+carries no Extends handling): members resolve through the header pairs of the extending stream itself, so
+even the self-extending objstm-extends.pdf fixture returns
+its font object on both sides. Selection output normalizes to classic xref;
 object-stream preservation arrives with writer controls (M6).
 
 ## Incremental and hybrid chains (work item 10)

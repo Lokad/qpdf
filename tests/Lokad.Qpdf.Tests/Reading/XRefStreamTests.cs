@@ -139,13 +139,22 @@ public sealed class XRefStreamTests
     }
 
     [Fact]
-    public async Task RejectsExtendedObjectStreams()
+    public async Task ExtendedObjectStreamMemberReadsThroughOwnPairs()
     {
         (InMemoryQpdfHost host, byte[] _) = await LoadFixture("objstm-extends.pdf");
         await using QpdfDocument document = await QpdfDocument.OpenAsync(
             host, QpdfPath.From("inputs/objstm-extends.pdf"), CancellationToken.None);
-        QpdfParseException ex = Assert.Throws<QpdfParseException>(() => document.GetObject(6));
-        Assert.Contains("/Extends", ex.Message, StringComparison.Ordinal);
+        PdfDictionary font = Assert.IsType<PdfDictionary>(document.GetObject(6));
+        Assert.True(font.TryGet(PdfName.FromAscii("BaseFont"), out QpdfObject? baseFont));
+        Assert.Equal("Helvetica", Assert.IsType<PdfName>(baseFont).DisplayText);
+    }
+
+    [Fact]
+    public async Task ExtendedObjectStreamMemberShowsThroughArgv()
+    {
+        (InMemoryQpdfHost host, byte[] _) = await LoadFixture("objstm-extends.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/objstm-extends.pdf", "--show-object=6"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
     }
 
     [Fact]
