@@ -129,6 +129,30 @@ public sealed class CompatibilityInventoryTests
 
         Assert.Empty(missing);
     }
+    [Fact]
+    public void HeadlineCountsMatchTheProgressRecord()
+    {
+        using var inventory = ReadInventory();
+        var entries = inventory.RootElement.GetProperty("options").EnumerateArray().ToArray();
+        Assert.Equal(157, entries.Length);
+        Assert.Equal(153, entries.Count(entry => entry.GetProperty("status").GetString() == "complete"));
+        Assert.Equal(4, entries.Count(entry => entry.GetProperty("status").GetString() == "partial"));
+        Assert.Equal(49, entries.Count(entry => entry.GetProperty("scope").GetString() == "excluded-crypto"));
+    }
+
+    [Fact]
+    public void PartialEntriesKeepVisibleGaps()
+    {
+        using var inventory = ReadInventory();
+        foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            if (entry.GetProperty("status").GetString() != "partial")
+                continue;
+
+            Assert.NotEmpty(entry.GetProperty("remainingGaps").EnumerateArray());
+        }
+    }
+
     private static JsonDocument ReadInventory() => JsonDocument.Parse(
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Compatibility", "options.json")));
 }
