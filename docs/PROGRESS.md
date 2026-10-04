@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 164; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 5 inspection-dump defaultReview rows (--show-npages, --show-pages, --show-xref, --show-object=trailer|obj[,gen], --show-linearization) are now reviewed against pinned upstream cli.rst: bare forms (valued rejected) except show-object required parameter, camelCase job keys ride the shared plan with combination rejections and budget failures pinned, oracle show dumps compared against the reference. defaultReview stands at 71 reviewed and 86 pending (49 crypto plus 37 other); flip only in verified batches, never bulk. Next is item 165 in the remaining backlog.
+M11 completion audit through item 165; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 4 output-neutral diagnostic defaultReview rows (--progress, --verbose, --report-memory-usage, --test-json-schema) are now reviewed against pinned upstream cli.rst: bare forms with camelCase job keys on the shared plan, byte-identical progress/verbose output, exact governor-peak memory report, schema check gated on --json, oracle diagnostics parity. defaultReview stands at 75 reviewed and 82 pending (49 crypto plus 33 other); flip only in verified batches, never bulk. Next is item 166 in the remaining backlog.
 
 ## Remaining work
 
