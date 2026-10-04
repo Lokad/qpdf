@@ -129,7 +129,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -167,7 +167,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -205,7 +205,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -237,7 +237,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -275,7 +275,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -307,7 +307,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -345,7 +345,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -389,7 +389,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -427,7 +427,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -467,7 +467,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
@@ -505,7 +505,7 @@
       ],
       "milestone": "excluded",
       "status": "complete",
-      "defaultReview": "pending",
+      "defaultReview": "reviewed",
       "remainingGaps": [],
       "evidence": {
         "positive": [],
