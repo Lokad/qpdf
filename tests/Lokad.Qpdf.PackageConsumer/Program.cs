@@ -125,6 +125,25 @@ internal static class Program
         Check(realHost.OpenLeaseCount == 0L, "long real smoke leases closed");
         Console.WriteLine("PASS long real text, exact rounding and rewrite");
 
+        InMemoryQpdfHost lexicalHost = NewHost("inputs/lexical.pdf", TwoPagePdf("[ /A#00B (a\r\nb\rc\n) ]"));
+        QpdfExecutionResult lexicalRewrite = await Qpdf.ExecuteAsync(lexicalHost,
+            new QpdfCommandInvocation(["inputs/lexical.pdf", "--parser-max-errors=2", "--pages", ".", "1", "--", "outputs/lexical.pdf"]), CancellationToken.None);
+        Check(lexicalRewrite.ExitCode == QpdfExitCode.Warning, "lexical repair warning");
+        lexicalHost.AddInput(QpdfPath.From("inputs/lexical-reread.pdf"), Published(lexicalHost, "outputs/lexical.pdf"), QpdfInputOwnership.Copy);
+        await using (QpdfDocument reread = await QpdfDocument.OpenAsync(lexicalHost, QpdfPath.From("inputs/lexical-reread.pdf"), CancellationToken.None))
+        {
+            Check(reread.GetObject(3) is PdfDictionary, "lexical page");
+            PdfDictionary lexicalPage = (PdfDictionary)reread.GetObject(3);
+            Check(lexicalPage.TryGet(new PdfName("Audit"u8.ToArray()), out QpdfObject audit), "lexical page value");
+            QpdfObject value = audit is PdfReference reference ? reread.GetObject(reference.ObjectNumber) : audit;
+            Check(value is PdfArray, "repaired lexical array");
+            PdfArray array = (PdfArray)value;
+            Check(array.Count == 2 && array[0] is PdfNull && array[1] is PdfByteString text
+                && text.Value.AsSpan().SequenceEqual("a\nb\nc\n"u8), "NUL name repair and literal newline bytes");
+        }
+        Check(lexicalHost.OpenLeaseCount == 0L, "lexical smoke leases closed");
+        Console.WriteLine("PASS NUL name repair and literal newline rewrite");
+
 
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
@@ -460,7 +479,7 @@ internal static class Program
         return TwoPagePdf(null);
     }
 
-    private static byte[] TwoPagePdf(string? realText)
+    private static byte[] TwoPagePdf(string? auditBody)
     {
         Encoding ascii = Encoding.ASCII;
         byte[] first = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (First) Tj ET");
@@ -483,20 +502,20 @@ internal static class Program
 
         AddObject(1, ascii.GetBytes("<< /Type /Catalog /Pages 2 0 R >>"));
         AddObject(2, ascii.GetBytes("<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>"));
-        string audit = realText is null ? "" : " /Audit 8 0 R";
+        string audit = auditBody is null ? "" : " /Audit 8 0 R";
         AddObject(3, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >>" + audit + " >>"));
         AddObject(4, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
         AddObject(5, Concat(ascii.GetBytes("<< /Length " + first.Length + " >>\nstream\n"), first, ascii.GetBytes("\nendstream")));
         AddObject(6, Concat(ascii.GetBytes("<< /Length " + second.Length + " >>\nstream\n"), second, ascii.GetBytes("\nendstream")));
         AddObject(7, ascii.GetBytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
-        if (realText is not null) { AddObject(8, ascii.GetBytes(realText)); }
+        if (auditBody is not null) { AddObject(8, ascii.GetBytes(auditBody)); }
         int xref = 0;
         foreach (byte[] part in parts)
         {
             xref += part.Length;
         }
 
-        int size = realText is null ? 8 : 9;
+        int size = auditBody is null ? 8 : 9;
         parts.Add(ascii.GetBytes("xref\n0 " + size + "\n"));
         parts.Add(ascii.GetBytes("0000000000 65535 f \n"));
         for (int n = 1; n < size; n++)

@@ -126,6 +126,28 @@ foreach ($spec in $realSpecs) {
   $specs += @{ Name = $spec.Name + '-broken'; Body = '[ ' + $spec.Text + ' 2 ]'; Broken = $true }
 }
 
+$lexicalSpecs = @(
+  @{ Name = 'brace-word'; Body = '[ 1{2 3}4 ]' },
+  @{ Name = 'brace-keyword'; Body = '[ true{false}null ]' },
+  @{ Name = 'brace-name'; Body = '[ /A{2}/B ]' },
+  @{ Name = 'name-null'; Body = '[ /A#00B 2 ]' },
+  @{ Name = 'name-null-root'; Body = '/A#00B' },
+  @{ Name = 'name-null-key'; Body = '<< /A#00B 1 /C 2 >>' },
+  @{ Name = 'orphan-recovery'; Body = '<< 5 /A >>' },
+  @{ Name = 'orphan-collision-recovery'; Body = '<< 5 /QPDFFake1 3 /A 1 >>' },
+  @{ Name = 'name-escaped-hash'; Body = '[ /A#2300B 2 ]'; Clean = $true },
+  @{ Name = 'name-escaped-braces'; Body = '[ /A#7BB#7DC 2 ]'; Clean = $true },
+  @{ Name = 'hex-display'; Body = '[ <ABCD> <ff00> ]'; Clean = $true },
+  @{ Name = 'literal-newlines'; Body = "[ (a`r`nb`rc`nd) ]"; Clean = $true },
+  @{ Name = 'literal-lfcr'; Body = "[ (a`n`rb) ]"; Clean = $true },
+  @{ Name = 'literal-continuation'; Body = "[ (a\`r`nb\`rc\`nd) ]"; Clean = $true },
+  @{ Name = 'literal-escaped-cr'; Body = '[ (a\rb\n) ]'; Clean = $true }
+)
+foreach ($spec in $lexicalSpecs) {
+  $specs += $spec
+  $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Broken = $true }
+}
+
 foreach ($spec in $specs) {
   Write-Input $spec.Name $spec.Body ([bool]$spec.Broken)
   foreach ($budget in @(0, 1, 2, 3, 6, 15)) {
@@ -157,6 +179,24 @@ function Read-RewrittenJson {
   $json = @(& $QpdfExe '--json' '--json-key=qpdf' $File 2> (Join-Path $runRoot "$Tag-json-stderr.log")) -join "`n"
   if ($LASTEXITCODE -ne 0) { throw "Repaired output JSON fails ($File)." }
   return $json
+}
+
+function Read-RewrittenAudit {
+  param([string] $Tag, [string] $File)
+  $null = Read-RewrittenJson $Tag $File
+  $pageLines = @(& $QpdfExe '--show-pages' $File 2> (Join-Path $runRoot "$Tag-page-stderr.log")) -join "`n"
+  $page = [regex]::Match($pageLines, '(?m)^page 1: (\d+) (\d+) R\s*$')
+  if ($LASTEXITCODE -ne 0 -or -not $page.Success) { throw "Rewrite page cannot be located ($Tag)." }
+  $pageId = $page.Groups[1].Value + ',' + $page.Groups[2].Value
+  $pageValue = @(& $QpdfExe "--show-object=$pageId" $File 2> (Join-Path $runRoot "$Tag-page-stderr.log")) -join "`n"
+  if ($LASTEXITCODE -ne 0) { throw "Rewrite page value cannot be read ($Tag)." }
+  if ($pageValue -notmatch '/Audit\b' -or $pageValue -match '/Audit null(?:\s|>)') { return 'null' }
+  $audit = [regex]::Match($pageValue, '/Audit (\d+) (\d+) R')
+  if (-not $audit.Success) { throw "Rewrite audit value cannot be located ($Tag)." }
+  $auditId = $audit.Groups[1].Value + ',' + $audit.Groups[2].Value
+  $actual = (@(& $QpdfExe "--show-object=$auditId" $File 2> (Join-Path $runRoot "$Tag-audit-stderr.log")) -join "`n").Trim()
+  if ($LASTEXITCODE -ne 0) { throw "Rewrite audit value cannot be read ($Tag)." }
+  return $actual
 }
 
 foreach ($inputName in @('word', 'broken-word')) {
@@ -225,20 +265,33 @@ foreach ($spec in $realSpecs) {
     $expectedExit = if ($broken) { 3 } else { 0 }
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Real rewrite exits differ ($tag)." }
     foreach ($file in @($managedFile, $oracleFile)) {
-      $null = Read-RewrittenJson $tag $file
-      $pageLines = @(& $QpdfExe '--show-pages' $file 2> (Join-Path $runRoot "$tag-page-stderr.log")) -join "`n"
-      $page = [regex]::Match($pageLines, '(?m)^page 1: (\d+) (\d+) R\s*$')
-      if ($LASTEXITCODE -ne 0 -or -not $page.Success) { throw "Real rewrite page cannot be located ($tag)." }
-      $pageId = $page.Groups[1].Value + ',' + $page.Groups[2].Value
-      $pageValue = @(& $QpdfExe "--show-object=$pageId" $file 2> (Join-Path $runRoot "$tag-page-stderr.log")) -join "`n"
-      $audit = [regex]::Match($pageValue, '/Audit (\d+) (\d+) R')
-      if ($LASTEXITCODE -ne 0 -or -not $audit.Success) { throw "Real rewrite audit value cannot be located ($tag)." }
-      $auditId = $audit.Groups[1].Value + ',' + $audit.Groups[2].Value
-      $actual = (@(& $QpdfExe "--show-object=$auditId" $file 2> (Join-Path $runRoot "$tag-audit-stderr.log")) -join "`n").Trim()
-      if ($LASTEXITCODE -ne 0 -or $actual -cne ('[ ' + $spec.Text + ' 2 ]')) { throw "Real text changed during rewrite ($tag)." }
+      $actual = Read-RewrittenAudit $tag $file
+      if ($actual -cne ('[ ' + $spec.Text + ' 2 ]')) { throw "Real text changed during rewrite ($tag)." }
     }
     $rewriteObservations.Add(@{ Case = $inputName; Budget = 2; ManagedExit = $managed.Exit; OracleExit = $oracleExit; RealText = $spec.Text })
     Write-Output "[parser/$tag] exact real text survives rewrite; oracle check and independent page counts pass"
+  }
+}
+
+foreach ($spec in $lexicalSpecs) {
+  foreach ($broken in @($false, $true)) {
+    $inputName = $spec.Name + $(if ($broken) { '-broken' } else { '' })
+    $tag = "rewrite-$inputName-3"
+    $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+    $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+    $managed = Invoke-Managed $tag @("inputs/$inputName.pdf", '--parser-max-errors=3',
+      '--pages', '.', '1', '--', 'outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+    & $QpdfExe '--global' '--parser-max-errors=3' '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
+    $oracleExit = $LASTEXITCODE
+    $expectedExit = if ($spec.Clean -and -not $broken) { 0 } else { 3 }
+    if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Lexical rewrite exits differ ($tag)." }
+    $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq 3 })[0].OracleValue
+    foreach ($file in @($managedFile, $oracleFile)) {
+      $actual = Read-RewrittenAudit $tag $file
+      if ($actual -cne $expectedValue) { throw "Lexical value changed during rewrite ($tag)." }
+    }
+    $rewriteObservations.Add(@{ Case = $inputName; Budget = 3; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Value = $expectedValue })
+    Write-Output "[parser/$tag] lexical values survive rewrite; oracle check and independent page counts pass"
   }
 }
 

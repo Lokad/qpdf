@@ -246,6 +246,6 @@ internal static class CanonicalDisplay
 
     private static char HexDigit(int value)
     {
-        return (char)(value < 10 ? '0' + value : 'A' + value - 10);
+        return (char)(value < 10 ? '0' + value : 'a' + value - 10);
     }
 }

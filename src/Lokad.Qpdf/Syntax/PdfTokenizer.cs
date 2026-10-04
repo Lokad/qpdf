@@ -156,7 +156,7 @@ internal sealed class PdfTokenizer
 
         if (b == (byte)'/')
         {
-            token = ReadName();
+            token = ReadName(tolerateErrors);
             return true;
         }
 
@@ -235,6 +235,7 @@ internal sealed class PdfTokenizer
     {
         return b == (byte)'(' || b == (byte)')' || b == (byte)'<' || b == (byte)'>'
             || b == (byte)'[' || b == (byte)']' || b == (byte)'/' || b == (byte)'%'
+            || b == (byte)'{' || b == (byte)'}'
             || IsWhitespace(b);
     }
 
@@ -248,20 +249,31 @@ internal sealed class PdfTokenizer
         return (b >= (byte)'0' && b <= (byte)'9') || b == (byte)'+' || b == (byte)'-' || b == (byte)'.';
     }
 
-    private PdfToken ReadName()
+    private PdfToken ReadName(bool tolerateErrors)
     {
         long offset = _position;
         ReadOnlySpan<byte> span = _data.Span;
         int start = _position + 1;
         int i = start;
+        bool nulEscape = false;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
             ScanStep();
+            // Inspect original escapes exactly once. #2300 decodes to the
+            // characters "#00", which are valid name bytes rather than NUL.
+            nulEscape |= span[i] == (byte)'#' && span.Length - i >= 3
+                && span[i + 1] == (byte)'0' && span[i + 2] == (byte)'0';
             i += 1;
         }
 
         _position = i;
-        return new PdfToken(PdfTokenKind.Name, _data.Slice(start, i - start), offset);
+        if (nulEscape && !tolerateErrors)
+        {
+            throw new QpdfParseException("NUL escape is invalid in a name.", offset, null);
+        }
+
+        return new PdfToken(nulEscape ? PdfTokenKind.BadToken : PdfTokenKind.Name,
+            _data.Slice(start, i - start), offset);
     }
 
     private PdfToken ReadLiteralString(bool tolerateErrors)

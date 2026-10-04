@@ -576,13 +576,20 @@ internal sealed class PdfParser
 
         if (missingKeys is not null)
         {
-            long fakeIndex = 0L;
-            foreach (QpdfObject value in missingKeys)
+            if (SanityChecks)
             {
-                PdfName key = FreshFakeKey(entries, ref fakeIndex);
-                WarnRepair("Inserted a missing dictionary key.", offset);
-                _governor.ReserveMemory(32L);
-                entries.Add(key, value);
+                WarnRepair("Ignored orphan dictionary values during xref recovery.", offset);
+            }
+            else
+            {
+                long fakeIndex = 0L;
+                foreach (QpdfObject value in missingKeys)
+                {
+                    PdfName key = FreshFakeKey(entries, ref fakeIndex);
+                    WarnRepair("Inserted a missing dictionary key.", offset);
+                    _governor.ReserveMemory(32L);
+                    entries.Add(key, value);
+                }
             }
 
             _governor.ReleaseMemory(checked(32L + (missingKeys.Count * 16L)));
@@ -730,12 +737,14 @@ internal sealed class PdfParser
         ReadOnlySpan<byte> span = raw.Span;
         byte[] result = new byte[span.Length];
         int outCount = 0;
+        long nextWork = 0L;
         for (int i = 0; i < span.Length; i++)
         {
+            ChargeUnescapeWork(i, ref nextWork);
             if (span[i] == (byte)'#')
             {
-                int hi = i + 1 < span.Length ? HexValue(span[i + 1]) : -1;
-                int lo = i + 2 < span.Length ? HexValue(span[i + 2]) : -1;
+                int hi = span.Length - i >= 2 ? HexValue(span[i + 1]) : -1;
+                int lo = span.Length - i >= 3 ? HexValue(span[i + 2]) : -1;
                 if (hi < 0 || lo < 0)
                 {
                     if (!TolerateObjectErrors)
@@ -758,6 +767,7 @@ internal sealed class PdfParser
             outCount += 1;
         }
 
+        _governor.CheckCancellation();
         if (outCount == result.Length)
         {
             return result;
@@ -768,17 +778,25 @@ internal sealed class PdfParser
         return trimmed;
     }
 
-    private static byte[] UnescapeLiteral(ReadOnlyMemory<byte> raw, long offset)
+    private byte[] UnescapeLiteral(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
         byte[] result = new byte[span.Length];
         int outCount = 0;
+        long nextWork = 0L;
         for (int i = 0; i < span.Length; i++)
         {
+            ChargeUnescapeWork(i, ref nextWork);
             if (span[i] != (byte)'\\')
             {
-                result[outCount] = span[i];
+                // Raw CR and CRLF are a single PDF end-of-line marker. An
+                // escaped \r below is a literal carriage return instead.
+                result[outCount] = span[i] == (byte)'\r' ? (byte)'\n' : span[i];
                 outCount += 1;
+                if (span[i] == (byte)'\r' && i + 1 < span.Length && span[i + 1] == (byte)'\n')
+                {
+                    i += 1;
+                }
                 continue;
             }
 
@@ -855,6 +873,7 @@ internal sealed class PdfParser
             }
         }
 
+        _governor.CheckCancellation();
         if (outCount == result.Length)
         {
             return result;
@@ -863,6 +882,18 @@ internal sealed class PdfParser
         byte[] trimmed = new byte[outCount];
         Buffer.BlockCopy(result, 0, trimmed, 0, outCount);
         return trimmed;
+    }
+
+    private void ChargeUnescapeWork(int position, ref long nextWork)
+    {
+        // Escapes advance by varying numbers of bytes; equality/modulo checks
+        // can miss an interval when an escape steps across its boundary.
+        if (position >= nextWork)
+        {
+            _governor.ChargeWork(1L);
+            _governor.CheckCancellation();
+            nextWork = (long)position + 4096L;
+        }
     }
 
     private static byte[] DecodeHex(ReadOnlyMemory<byte> raw, long offset)

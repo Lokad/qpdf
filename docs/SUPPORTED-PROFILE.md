@@ -51,7 +51,16 @@ echoing values.
   tokens within host work/memory limits; writing preserves their source spelling
   and inspection normalizes it. Repair replaces an object with null on integer
   conversion overflow; invalid in-range references instead consume one parser
-  error and become null values. Real scalars retain their exact text, with bounded conversion and governed scanning/copying; long tokens, ties, underflow and overflow have public and exact-rational evidence.
+  error and become null values. Real scalars retain their exact text, with bounded
+  conversion and governed scanning/copying; long tokens, ties, underflow and
+  overflow have public and exact-rational evidence.
+- Braces delimit object tokens and repair to null, consuming an error inside
+  containers. Names decoding to NUL reject strictly and repair to null; escapes
+  decode once. Literal CR/CRLF normalize to LF, escaped line continuations drop,
+  and escaped `\r` remains CR. Name/literal unescaping checks work/cancellation;
+  inspection uses lowercase hex spelling without changing bytes. Reconstructed
+  xrefs ignore orphan dictionary values; valid xrefs insert fake keys. Other damaged
+  syntax and container transitions remain under audit.
 - Page streams travel opaquely and are never decoded: direct and indirect
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,
