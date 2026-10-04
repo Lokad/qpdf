@@ -2,7 +2,7 @@
 
 ## Current checkpoint
 
-M11 completion audit through item 167; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 2 check/recovery defaultReview rows (--check, --suppress-recovery) are now reviewed against pinned upstream cli.rst: --check is argv-only partial validation (exit 0/2 with warn-only forms path and modifier interaction), --suppress-recovery fails on first error like strict via job key suppressRecovery. defaultReview stands at 80 reviewed and 77 pending (49 crypto plus 28 other); flip only in verified batches, never bulk. Next is item 168 in the remaining backlog.
+M11 completion audit through item 168; suite 1906/1906 green. Inventory 157 entries (140 flags): 153 complete, 4 partial, 49 excluded-crypto. The 3 linearization defaultReview rows (--check-linearization, --linearize, --linearize-pass1=file) are now reviewed against pinned upstream cli.rst: bare check/writer forms plus pass1 =/space file form, camelCase job keys with combination rejections and budget pins, oracle linearize/streams/pass1 comparisons green. defaultReview stands at 83 reviewed and 74 pending (49 crypto plus 25 other); flip only in verified batches, never bulk. Next is item 169 in the remaining backlog.
 
 ## Remaining work
 
