@@ -161,6 +161,7 @@ public sealed class QpdfDocument : IAsyncDisposable
 
         limits.Validate();
         IQpdfInput input = new EmptyPdfInput(path);
+        DocumentEngine? engine = null;
         try
         {
             governor.ReserveMemory(EmptyPdfBytes.Length);
@@ -170,7 +171,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
-            DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery);
+            engine = new DocumentEngine(data, table, limits, governor, diagnostics, recovery);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
             PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
@@ -179,6 +180,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
         catch
         {
+            engine?.Dispose();
             await input.DisposeAsync().ConfigureAwait(false);
             throw;
         }
@@ -194,6 +196,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+        DocumentEngine? engine = null;
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -218,7 +221,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             XRefTable table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
-            DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery);
+            engine = new DocumentEngine(data, table, limits, governor, diagnostics, recovery);
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
             PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
@@ -227,6 +230,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
         catch
         {
+            engine?.Dispose();
             await input.DisposeAsync().ConfigureAwait(false);
             throw;
         }
@@ -254,13 +258,14 @@ public sealed class QpdfDocument : IAsyncDisposable
         return _engine.Load(objectNumber);
     }
 
-    /// <summary>Releases the held input; safe to call more than once.</summary>
+    /// <summary>Releases the input and reader cache storage; safe to call more than once.</summary>
     public async ValueTask DisposeAsync()
     {
         if (!_disposed)
         {
             _disposed = true;
-            await _input.DisposeAsync().ConfigureAwait(false);
+            try { await _input.DisposeAsync().ConfigureAwait(false); }
+            finally { _engine.Dispose(); }
         }
     }
     private static PdfVersion ParseHeader(ReadOnlyMemory<byte> data)
@@ -584,4 +589,3 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
     }
 }
-

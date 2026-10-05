@@ -13,17 +13,26 @@ namespace Lokad.Qpdf.Reading;
 /// decode their object stream once and cache every contained object whose
 /// xref entry points back at that stream.
 /// </summary>
-internal sealed class DocumentEngine : IIndirectResolver
+internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 {
+    // A cache receipt owns only this parsed subtree. Nested resolver loads have
+    // independent receipts. Reads protect values that may outlive replacement.
+    private readonly record struct CachedObject(QpdfObject Value, long ReservedBytes, bool Borrowed);
+
     private readonly ReadOnlyMemory<byte> _data;
     private readonly XRefTable _table;
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
     private readonly QpdfRecoveryMode _recovery;
-    private readonly Dictionary<int, QpdfObject> _cache = new();
-    private readonly HashSet<int> _decodingStreams = new();
-    private readonly HashSet<int> _loading = new();
+    private readonly ParserMemoryScope _metadata;
+    private Dictionary<int, CachedObject>? _cache;
+    private HashSet<int>? _decodingStreams;
+    private HashSet<int>? _loading;
+    private long _unborrowedBytes;
+    private Dictionary<int, CachedObject> Cache => _cache ?? throw new ObjectDisposedException(nameof(DocumentEngine));
+    private HashSet<int> Loading => _loading ?? throw new ObjectDisposedException(nameof(DocumentEngine));
+    private HashSet<int> DecodingStreams => _decodingStreams ?? throw new ObjectDisposedException(nameof(DocumentEngine));
 
     internal DocumentEngine(
         ReadOnlyMemory<byte> data,
@@ -40,6 +49,59 @@ internal sealed class DocumentEngine : IIndirectResolver
         _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
         _recovery = recovery;
         limits.Validate();
+        _metadata = ParserMemoryScope.Create(governor);
+        try
+        {
+            _cache = ParserContainers.CreateDictionary<int, CachedObject>(_metadata);
+            _loading = ParserContainers.CreateSet<int>(_metadata);
+            ParserContainers.EnsureSetCapacity(_metadata, _loading, sizeof(int));
+            _decodingStreams = ParserContainers.CreateSet<int>(_metadata);
+            ParserContainers.EnsureSetCapacity(_metadata, _decodingStreams, sizeof(int));
+        }
+        catch { _metadata.Dispose(); throw; }
+    }
+
+    private bool TryGetCached(int number, out QpdfObject value)
+    {
+        if (Cache.TryGetValue(number, out CachedObject cached))
+        {
+            if (!cached.Borrowed)
+            {
+                Cache[number] = cached with { Borrowed = true };
+                _unborrowedBytes = checked(_unborrowedBytes - cached.ReservedBytes);
+            }
+            value = cached.Value;
+            return true;
+        }
+        value = PdfNull.Instance;
+        return false;
+    }
+
+    private void StoreCached(int number, QpdfObject value, ParserMemoryScope parsed, bool borrowed)
+    {
+        _governor.CheckCancellation();
+        bool replacing = Cache.TryGetValue(number, out CachedObject previous);
+        if (!replacing) { ParserContainers.EnsureEntryCapacity(_metadata, Cache, 24L); }
+        _governor.CheckCancellation();
+        long discarded = replacing && !previous.Borrowed ? previous.ReservedBytes : 0L;
+        long nextUnborrowed = checked(_unborrowedBytes - discarded + (borrowed ? 0L : parsed.ReservedBytes));
+        Cache[number] = new CachedObject(value, parsed.ReservedBytes, borrowed);
+        parsed.Retain();
+        _unborrowedBytes = nextUnborrowed;
+        _governor.ReleaseMemory(discarded);
+    }
+
+    public void Dispose()
+    {
+        if (_cache is null) { return; }
+        // Drop backing storage before releasing metadata. Borrowed graphs have
+        // escaped this owner; their admission and bytes remain independent.
+        _cache = null;
+        _loading = null;
+        _decodingStreams = null;
+        _governor.ReleaseMemory(_unborrowedBytes);
+        _unborrowedBytes = 0L;
+        _metadata.Dispose();
     }
 
     internal PdfDictionary Trailer => _table.Trailer;
@@ -54,6 +116,7 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
     {
+        _ = Cache;
         if (reference is null)
         {
             throw new ArgumentNullException(nameof(reference));
@@ -87,7 +150,7 @@ internal sealed class DocumentEngine : IIndirectResolver
             return true;
         }
 
-        if (_cache.TryGetValue(reference.ObjectNumber, out QpdfObject? cached))
+        if (TryGetCached(reference.ObjectNumber, out QpdfObject cached))
         {
             value = cached;
             return true;
@@ -99,7 +162,7 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     internal QpdfObject Load(int number)
     {
-        if (_cache.TryGetValue(number, out QpdfObject? cached) && cached is not null)
+        if (TryGetCached(number, out QpdfObject cached))
         {
             return cached;
         }
@@ -124,12 +187,12 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     private QpdfObject Load(int number, XrefEntry entry)
     {
-        if (_loading.Count >= _limits.MaxNestingDepth)
+        if (Loading.Count >= _limits.MaxNestingDepth)
         {
             throw new QpdfParseException($"Object load depth exceeds {_limits.MaxNestingDepth}.", null, number);
         }
 
-        if (!_loading.Add(number))
+        if (!ParserContainers.AddSetItem(_metadata, Loading, number, sizeof(int)))
         {
             throw new QpdfParseException($"Object {number} is referenced cyclically during load.", null, number);
         }
@@ -171,25 +234,24 @@ internal sealed class DocumentEngine : IIndirectResolver
                 throw new QpdfParseException($"Object header contradicts its xref entry for object {number}.", entry.First, number);
             }
 
-            _cache[number] = value;
-            memory.Retain();
+            StoreCached(number, value, memory, true);
             return value;
         }
         finally
         {
-            _loading.Remove(number);
+            Loading.Remove(number);
         }
     }
 
     private QpdfObject LoadCompressed(int number, int streamNumber, int index)
     {
-        if (_cache.TryGetValue(number, out QpdfObject? cached) && cached is not null)
+        if (TryGetCached(number, out QpdfObject cached))
         {
             return cached;
         }
 
         DecodeObjStm(streamNumber);
-        if (_cache.TryGetValue(number, out QpdfObject? resolved) && resolved is not null)
+        if (TryGetCached(number, out QpdfObject resolved))
         {
             return resolved;
         }
@@ -199,7 +261,7 @@ internal sealed class DocumentEngine : IIndirectResolver
 
     private void DecodeObjStm(int streamNumber)
     {
-        if (!_decodingStreams.Add(streamNumber))
+        if (!ParserContainers.AddSetItem(_metadata, DecodingStreams, streamNumber, sizeof(int)))
         {
             throw new QpdfParseException($"Object stream cycle at object {streamNumber}.", null, streamNumber);
         }
@@ -247,7 +309,7 @@ internal sealed class DocumentEngine : IIndirectResolver
             for (int i = 0; i < pairs.Count; i++)
             {
                 _governor.ChargeWork(1L);
-                previouslyCached[i] = _cache.ContainsKey(pairs[i].Number);
+                previouslyCached[i] = Cache.ContainsKey(pairs[i].Number);
                 if (pairs[i].Offset <= lastOffset)
                 {
                     throw new QpdfParseException($"Object stream {streamNumber} offsets must ascend.", null, streamNumber);
@@ -303,14 +365,13 @@ internal sealed class DocumentEngine : IIndirectResolver
                     && target.First == streamNumber
                     && !previouslyCached[i])
                 {
-                    _cache[pairs[i].Number] = value;
-                    memory.Retain();
+                    StoreCached(pairs[i].Number, value, memory, false);
                 }
             }
         }
         finally
         {
-            _decodingStreams.Remove(streamNumber);
+            DecodingStreams.Remove(streamNumber);
         }
     }
 

@@ -366,6 +366,39 @@ internal static class Program
         }
         Check(largeTableHost.OpenLeaseCount == 0L, "generous table consumer leases closed");
         Console.WriteLine("PASS xref collection capacity under finite host memory (typed/argv/job)");
+        byte[] cacheInput = TwoPagePdfWithAuditObjects(Enumerable.Repeat("(" + new string('A', 32) + ")", 2000).ToArray());
+        InMemoryQpdfHost cacheHost = NewHost("inputs/cache.pdf", cacheInput);
+        QpdfLimits cacheLimits = QpdfLimits.Default with { MaxMemoryBytes = cacheInput.Length + 450000L };
+        QpdfDocument cacheDocument = await QpdfDocument.OpenAsync(cacheHost, QpdfPath.From("inputs/cache.pdf"), cacheLimits, CancellationToken.None);
+        PdfByteString cacheAlias = (PdfByteString)cacheDocument.GetObject(8);
+        bool cacheRejected = false;
+        try { for (int number = 9; number < 2008; number++) { cacheDocument.GetObject(number); } }
+        catch (QpdfLimitException ex) when (ex.LimitName == nameof(QpdfLimits.MaxMemoryBytes)) { cacheRejected = true; }
+        Check(cacheRejected && ReferenceEquals(cacheAlias, cacheDocument.GetObject(8)), "cache admission rejects growth while preserving the first object");
+        long cacheBeforeDisposal = cacheDocument.Counters.LiveMemoryBytes;
+        await cacheDocument.DisposeAsync();
+        long cacheAfterDisposal = cacheDocument.Counters.LiveMemoryBytes;
+        await cacheDocument.DisposeAsync();
+        Check(cacheAfterDisposal < cacheBeforeDisposal && cacheDocument.Counters.LiveMemoryBytes == cacheAfterDisposal,
+            "cache metadata is released once on disposal");
+        Check(cacheAlias.Value.SequenceEqual(Encoding.ASCII.GetBytes(new string('A', 32))) && cacheHost.OpenLeaseCount == 0L,
+            "returned cache bytes survive disposal and leases close");
+        foreach (bool useJob in new[] { false, true })
+        {
+            QpdfExecutionResult cacheResult = useJob
+                ? await Qpdf.ExecuteJobAsync(cacheHost, """{"inputFile":"inputs/cache.pdf","outputFile":"outputs/cache.json","json":"2","jsonKey":["qpdf"]}""", new QpdfExecutionOptions(cacheLimits), CancellationToken.None)
+                : await Qpdf.ExecuteAsync(cacheHost, new QpdfCommandInvocation(["inputs/cache.pdf", "--json=2", "--json-key=qpdf", "--", "outputs/cache.json"]), new QpdfExecutionOptions(cacheLimits), CancellationToken.None);
+            Check(cacheResult.Status == QpdfExecutionStatus.Failed && cacheResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.BudgetExceeded),
+                "argv/job cache traversal respects finite host memory");
+            Check(!cacheHost.TryGetOutput(QpdfPath.From("outputs/cache.json"), out _) && cacheHost.OpenLeaseCount == 0L,
+                "rejected cache traversal publishes nothing and closes leases");
+        }
+        await using (QpdfDocument generousCache = await QpdfDocument.OpenAsync(cacheHost, QpdfPath.From("inputs/cache.pdf"),
+            QpdfLimits.Default with { MaxMemoryBytes = 16 * 1024 * 1024L }, CancellationToken.None))
+        {
+            Check(((PdfByteString)generousCache.GetObject(2007)).Value.Length == 32, "generous cache reopening preserves the last object");
+        }
+        Console.WriteLine("PASS document cache admission and disposal (typed/argv/job)");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

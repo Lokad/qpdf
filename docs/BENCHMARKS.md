@@ -2,9 +2,13 @@
 
 Developer-only performance evidence for the managed qpdf implementation. The harness lives in `benchmarks/Lokad.Qpdf.Benchmarks`, is built with the solution, is never packed, and uses only synthetic inputs: no qpdf executable or upstream checkout is required.
 
-## Counter report (deterministic)
+## Historical counter report
 
-`--counter-report` runs representative operations and prints governor counters: work units, decoded bytes, peak/live retained memory, host operations, and diagnostics. Counters are deterministic for the pinned inputs; rerun the command to reproduce them. Recorded 2026-10-04 against the current sources:
+`--counter-report` runs representative operations and prints governor counters:
+work units, decoded bytes, charged peak/live memory, host operations and
+diagnostics. The following report was recorded **2026-10-04**; its exact source
+identity was not recorded here. Treat these values as a historical snapshot.
+Bind new runs to a commit/source tree, runtime, platform and terminal exit.
 
 ```
 [counter] show-npages-50 status=Completed exit=0 in=11321 out=-1 work=767 decoded=0 peakmem=37057 livemem=37057 hostops=2 diags=1
@@ -20,10 +24,21 @@ Developer-only performance evidence for the managed qpdf implementation. The har
 counter-report: 10 scenarios, 0 failures
 ```
 
-Reading: inspection decodes no payload bytes; work and retained memory scale with page and input counts (merge of 20 one-page inputs costs about twice the work of an 8-page shared merge); the 30-filter chain decodes to under 5 KiB for 10170 work units (per-chunk inflate work plus Adler verification, charged since the Flate work-accounting fix); decoded bytes are charged once per stage; host operations scale with open inputs; pre-canceled selection reports Canceled before charging work. No anomalies required code changes at this baseline.
+In this historical report, inspection decodes no payload bytes, the filter
+chain produces under 5 KiB, host operations scale with opened inputs and
+pre-canceled selection has zero work. These small scenarios did not expose the
+ownership and counter defects found later by targeted probes. Governor counters
+need independent cumulative-allocation, live/retained-storage and observed-work
+cancellation evidence; [progress](PROGRESS.md) records current corrections and
+remaining gaps.
 
 ## Timed benchmarks (local only)
 
 BenchmarkDotNet benchmarks over the same synthetic inputs (page selection, filter-chain decode, page-count inspection) run locally via `dotnet run -c Release --project benchmarks/Lokad.Qpdf.Benchmarks -- --filter <pattern>`. Timings and allocations are machine-specific: they are measured locally, never asserted, and never recorded here as gates.
 
-First timed run (`--job short`, 3/3 benchmarks green in 43 s) showed sub-millisecond means with per-operation managed allocations in the low hundreds of kilobytes and no generation-2 pressure: selection, decode, and inspection costs sit in the same order of magnitude. The deterministic counters bound a different quantity, retained governor-charged bytes, peaking under 46 KiB on the largest merge scenario; neither measure blows up on small inputs. No anomalies required code changes; rerun the command above to reproduce locally.
+The historical first timed run (`--job short`, 3/3 benchmarks green in 43 s)
+showed sub-millisecond means, allocations in the low hundreds of kilobytes and
+no generation-2 pressure on these small inputs. The reported governor peak was
+under 46 KiB. Those observations establish neither current admission completeness
+nor a process-memory or cancellation-latency bound. Rerun against identified
+sources and measure retained/pool state separately when assessing containment.

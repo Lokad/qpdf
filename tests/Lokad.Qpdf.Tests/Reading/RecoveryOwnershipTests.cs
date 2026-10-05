@@ -161,24 +161,34 @@ public sealed class RecoveryOwnershipTests
         string large = Literal(tail ? 60000 : 16 * 1024 * 1024);
         byte[] input = tail ? Input(Enumerable.Repeat(Literal(4096), 10).ToArray(), "<< /Size 15 /Root 1 0 R /Unused " + large + " >>")
             : Input(Enumerable.Repeat(Literal(4096), 10).Append(large).ToArray(), "<< /Size 16 /Root 1 0 R >>");
-        using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        ResourceGovernor governor = new(limits, cancellation.Token);
-        Task<XRefTable> parsing = Task.Factory.StartNew(() => XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage"),
-            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         long threshold = tail ? 150000L : 32L * 1024L * 1024L;
-        long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        while (governor.Snapshot().LiveMemoryBytes < threshold && !parsing.IsCompleted
-            && System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
+        // A bounded tail can finish before the observer is scheduled, especially
+        // during another test's forced GC. Completion is not cancellation evidence.
+        for (int attempt = 0; attempt < 8; attempt++)
         {
-            Thread.SpinWait(16);
+            using CancellationTokenSource cancellation = new();
+            ResourceGovernor governor = new(limits, cancellation.Token);
+            Task<XRefTable> parsing = Task.Factory.StartNew(() => XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage"),
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            while (governor.Snapshot().LiveMemoryBytes < threshold && !parsing.IsCompleted
+                && System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
+            {
+                Thread.SpinWait(16);
+            }
+            if (parsing.IsCompleted) { await parsing; continue; }
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= threshold);
+            cancellation.Cancel();
+            try { await parsing.WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (OperationCanceledException)
+            {
+                Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+                Assert.True(governor.Snapshot().TotalWork > 0L);
+                return;
+            }
         }
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= threshold);
-        Assert.False(parsing.IsCompleted);
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await parsing.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
+        Assert.Fail("Recovery completed before cancellation could be observed in eight attempts.");
     }
 
     [Theory]

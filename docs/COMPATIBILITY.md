@@ -12,11 +12,18 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and document/cache/loading collection admission and diagnostic owners still keep that entry partial.
+and input/table/returned-node and diagnostic ownership still keep that entry partial.
 Successful recovery trials and unselected trailer subtrees now release their admission;
 accepted trailer bytes/aliases survive. Strict/final xref acceptance and linearization
 trials have ownership regressions, with unfiltered/Flate structural scratch cleanup.
-Xref dictionaries, revision tracking and trailer lists now admit capacities and growth overlap before allocation; temporary maps release after scan/merge, with finite-ceiling and independent backing-storage regressions. Document/cache/loading collection capacities, other codecs and broader public repair/recovery nesting remain open.
+Xref/revision/trailer and cache/loading/decoding collections now admit wrappers,
+capacities and growth overlap before allocation. Temporary maps release after
+scan/merge; cache metadata releases on owner disposal. Unread object-stream
+replacement/disposal releases only its own subtree admission, preserving borrowed
+values and nested loads. Independent backing allocation, finite typed/argv/job
+traversal, prior targets, retries and observed-work cancellation have regressions.
+Input/table/returned-node and diagnostic lifetimes, other codecs and broader public
+repair/recovery nesting remain open.
 Header-rejected and unmatched/trailing compressed-member values now have public ownership regressions,
 including retained nested/cache aliases and cancellation; structural scratch evidence covers
 unfiltered and Flate object streams, while other codec owners remain open. Excluded crypto
@@ -27,6 +34,12 @@ package boundaries; operation coverage is carried by the per-entry unit, budget,
 and oracle-differential evidence reconciled below.
 
 ## Inventory
+
+The job-field mapping audit remains incomplete: qpdf 12.4.2 accepts the job JSON
+key `check` with an empty-string value, while the managed job parser rejects it.
+The inventory records this missing mapping as a supplemental requirement;
+the complete `--check` entry covers the argv route. Implement the shared job
+checker before claiming required JSON coverage.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,

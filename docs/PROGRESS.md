@@ -2,39 +2,103 @@
 
 ## Current checkpoint
 
-JPEG uses a per-job ImageSharp allocator, governed output, token-bearing calls and aggregate frame admission. Four authored progressive grayscale/RGB frames now have exact pinned-oracle samples, public rewrite and tight coefficient-budget disposal evidence. Flate admits state/scratch/capacities/copies and aggregate samples, charging direct/chain/companion/hint decoding once; PNG selectors are working bytes rather than samples. Shared predictors admit output/work, check within rows and release Flate intermediates; packed TIFF padding agrees with the oracle.
+Root Release checkpoint: **5846/5846 tests pass**, with no failures or skips.
+The full pinned reference lane passes with terminal exit 0 retained: **1846
+exact parser comparisons and 432 rewrite validations**. Fresh package/symbol
+verification passes **37 consumer smokes and two specific rejection cases**;
+supplied-artifact DLL identity and all five reviewed locks are checked. The
+19 inventory reconciliation tests pass against the final source inventory.
+This is local Windows evidence; final audited-commit release metadata and
+Windows/Linux reference CI remain open.
 
-Root Release checkpoint: 5829/5829 tests green, pinned full reference passed with terminal exit 0 retained, package/symbol boundary verified. The parser lane covers 1846 exact object comparisons and 432 rewrite validations. Its latest 56 lexical/container bodies cover binary/octal strings, display thresholds, malformed names, hex/EOF, mismatched terminators and root words through valid/rebuilt xrefs at six budgets. All new rewrites compare argv/job bytes and oracle/independent-reader outcomes; 28 malformed-name scenarios explicitly require warning exits on reopening. The prior 37-body dictionary guard matrix remains covered; its page-tree-reference case has inspection/offline copy-rejection evidence and stays excluded from rewrite validations. Fresh-artifact consumer verification passes 36 smokes and both specific rejection cases, with supplied-artifact DLL identity and all five reviewed locks unchanged.
+The latest reader correction admits cache/loading/decoding collection wrappers,
+actual capacities and growth overlap through shared parser helpers. Removed
+guard keys retain admitted backing storage. Cache entries carry subtree receipts:
+unread duplicate replacements and disposal release their own admission; borrowed
+values and nested loads retain theirs. Document disposal drops reader metadata,
+closes the input lease and preserves returned immutable bytes. **17 added cases
+pass; the preceding DLL fails all 17.** Coverage includes independent backing
+allocation, finite typed/argv/job traversal, generous controls, prior targets,
+retries, raw/Flate member replacement, unread/borrowed members and observed-work
+cancellation. The recovery-tail test retries completed-before-cancel attempts
+and still requires actual observed-work cancellation and zero residual admission.
+
+For the 45,211-byte/2,000-null-object probe, warmed cache loading now admits
+**102,520 additional bytes**, with **102,520 forced-GC retained bytes** and
+1,311,832 cumulative allocation. Cache capacity is 2,333; independently allocated
+backing storage is 102,784 bytes. Metadata weak references die after disposal,
+and admission returns to the still-rooted xref table's 103,472 bytes. A separately
+funded xref/component run rejects at a 100,000-byte cache ceiling after 631
+accepted objects; disposal releases all metadata admission. Eight cancellations
+after observed cache work take **0.0813–3.9998 ms** locally; accepted cache storage
+remains admitted until owner disposal. Source/host allocation is excluded; these
+results establish no whole-job/RSS or universal latency bound. Explicit capacity
+growth lowers retained storage while increasing cumulative allocation.
+
+Earlier verified corrections cover parser attempt/subtree/reader acceptance,
+successful recovery and linearization trials, selected trailer aliases, xref/
+revision/trailer capacities, canonical display and object-inspection counters.
+The authored numeric/lexical/container/dictionary matrices, null-reference and
+generation behavior, per-object repair, encrypted-trailer precedence and host
+limits remain covered. JPEG has a per-job allocator and four exact flat
+progressive grayscale/RGB fixtures; Flate/predictors admit state/output/scratch,
+charge row work and decoded samples once per stage. Those scopes remain partial.
 
 ## Remaining work
 
-- JPEG/Flate state-allowance and retention measurements, textured/progressive fidelity beyond the authored flat frames, other filters' ownership/admission, and measured cancellation during codec/CPU work remain open; passing a token does not establish cancellation latency.
-- Final package checks must use verify-package-consumer.ps1 and its negative integration cases; direct restores against a globally cached alpha do not establish freshness. Keep approved external dependency hashes locked.
-- Canonical display admits bounded character chunks, sort scratch and the final string before allocation; temporary owners release on every outcome, while diagnostics retain the same admitted string with one count/UTF-8 byte charge. Large key bytes are borrowed. Object-plan execution preserves observed failure/cancellation work and peaks and snapshots after input disposal; invocation/presentation counters and diagnostic entry/list capacities still need review. Under a 64 KiB ceiling, the 4 MiB binary component now rejects with 52,952 cumulative allocated bytes, charged peak 49,728 and zero residual admission. A generous-ceiling run allocated 33,636,624 bytes cumulatively; forced-GC retention/weak references independently confirmed string ownership and release. Eight cancellations after buffer work starts took 0.1176–6.8345 ms locally. Component evidence excludes source/value allocation and does not establish whole-job/RSS/retention or universal latency bounds.
-- Parser attempts now own their reservations separately from nested loads. Abort/failure/cancellation cleanup covers values, container capacities/copies, references and stream overlap; working containers release after copying. Forty-four added cases cover repeated repairs, retained aliases/cache values, strict/diagnostic/memory failure, argv/job bulk JSON under valid/rebuilt xrefs, complete-number recovery headers and partial failure, plus observed-work parser/public object/stream cancellation. Recovery rejects digit suffixes as object headers, preserving the catalog when object 51 is scanned. The baseline before that attempt-cleanup correction fails 42 cases (two existing public failure behaviors pass); all now pass.
-- The fixed 4 KiB/error probe now completes 50 null repairs under both 1 MiB and 100,000-byte ceilings with zero parser reservations and peak 12,512; 100 warnings remain. Warm cumulative allocation is 489,360 bytes and forced-GC retained heap 24,696, including diagnostics/framework state. A rejected 4 MiB second value allocates 9,944 bytes cumulatively and releases its attempt. Prior array cancellations after container work took 0.1768–6.1988 ms locally. Component evidence excludes source allocation and does not establish whole-job/RSS or universal latency bounds.
-- Successful parses now keep subtree reservation receipts. Duplicate assignment releases the overwritten value and incoming equal key; recovery sanity checks discard orphan owners while ordinary repair transfers them to generated keys. Seventy-eight added cases cover values/containers, missing duplicates, byte-equivalent keys, retained aliases, public valid/rebuilt-xref bulk loads, nested resolver caches, failure/cancellation and public dictionary copying. The prior DLL fails 58 and passes 20 preservation cases; all now pass. Adversarial nested-stream cases establish ownership containment, not additional oracle grammar coverage.
-- The corrected overwrite/control probe charges 341 live bytes in both cases (formerly 4,566/341); forced-GC retained heap is 536/320, including warning/framework state. Fifty surviving dictionaries under 100,000 bytes charge 17,050, peak 29,350, with 470,712 cumulative allocation and 23,464 retained heap; all results remain rooted. Eight cancellations after observed post-overwrite allocation took 0.1915–4.7773 ms locally, releasing the attempt. Source allocation is excluded; no whole-job/RSS or universal latency guarantee follows. Working dictionary receipts add temporary capacity, explicitly admitted and measured.
-- Reader ownership now extends through header identity, compressed-member trailing bytes and xref membership. Rejected values release their own admission while nested loads and cache entries accepted before a retry keep their identity. Object-stream pair storage and known Flate output reservations are temporary owners; unfiltered data borrows the immutable cached stream. Other codec ownership remains open. Forty added public cases pass; the preceding DLL fails 31 and passes nine preservation cases. Coverage includes finite-memory repetition, nested lengths, raw/member cache aliases, unmatched members, same-pass duplicate last-wins behavior, malformed object-stream headers, argv/job failure counters, prior targets and cancellation after allocation begins.
-- Fifty wrong-header rejections now complete at both ceilings with zero excess reservation, 464,000 cumulative allocated bytes and 496 forced-GC retained bytes. Eight cancellations after observed candidate allocation took 0.2085–6.0098 ms locally and released the attempt. Measurements exclude source/host allocation and establish no whole-job/RSS or universal latency bound.
-- Successful reconstruction candidates now release their parsed bodies after catalog/header selection. Root dictionary receipts keep only selected trailer value subtrees; generated trailer keys/scalars/storage are admitted. Strict xref acceptance owns parsed graphs and existing entry reservations through final validation, dropping unused hybrid dictionaries and encoded stream data. Unfiltered/Flate xref data and index/width scratch release on every outcome; fixed row fields use bounded stack storage, and oversized /Index counts remain parse failures without arithmetic wrapping. Linearization trials release discarded/consumed dictionary owners. Forty-five added cases pass; the preceding DLL fails 41 and passes four preservation cases. Catalog/trailer precedence, selected bytes/aliases, public argv/job finite-memory behavior, strict/final/hybrid xref rejection and observed-work failure/cancellation remain covered.
-- The fifty-trial string/control probe now charges 2,384 live bytes in both cases at 1 MiB and 100,000-byte ceilings (formerly 213,638/5,638). Cumulative allocation is 442,176/28,576; forced-GC retained heap is 5,088/5,016. Public argv/job complete with one page and a recovery warning; leases close. Four candidate cancellations took 0.1909–4.9143 ms and four bounded-tail cancellations took 0.1094–0.4343 ms locally after observed allocation; no trial/entry reservations survive. Source/host allocation is excluded; these component results establish no whole-job/RSS or universal latency bound.
-- Xref reconstruction and strict/stream/hybrid merging now admit dictionary wrappers, actual bucket/entry capacity and growth overlap through shared parser helpers. Temporary scan/section maps and the revision set release on success/failure/cancellation; retained entries and trailer-list storage survive acceptance. Copy/fill/merge/union loops charge work. Thirty-five added cases pass; the pinned preceding DLL fails 18 and passes 17 preservation cases. Coverage includes independent backing-storage allocation, finite component/typed/argv/job ceilings, prior targets/tables, raw/Flate/hybrid streams, empty/sparse/drop/duplicate/revision behavior and observed-work cancellation.
-- The 45,211-byte/2,004-entry probe now rejects under a 100,000-byte ceiling, releasing all attempt admission with peak 92,244 and 216,712 cumulative allocated bytes. At 1 MiB it succeeds with capacity 2,333, live 103,472/peak 444,000 admission, 103,864 forced-GC retained bytes and 1,371,104 cumulative allocation. Explicit capacity growth reduces retained storage but increases cumulative allocation against the preceding default-growth measurement; peaks include conservative preflight and overlapping maps. Eight cancellations after collection allocation took 0.0692–6.7802 ms locally with no residual admission. Source/host allocation is excluded; no whole-job/RSS or universal latency guarantee follows.
-- Next A04/A06 unit: document cache/loading collection ownership. Loading 2,000 null objects adds zero live admission but 113,024 forced-GC retained bytes and 935,064 cumulative allocation; the cache has capacity 4,049. The accepted table/engine/diagnostics stay rooted and the first load is warmed before measurement. Admit cache/guard capacities and overlap while preserving nested loads, accepted aliases, retries and outcome cleanup. This next-work evidence stays outside ordinary/reference counts. General diagnostics, document lifetimes and other codecs remain open. Failed argv/job xref admission still reports zero work/peak counters, and completed page-count snapshots retain one open handle after actual lease cleanup.
-- Parser stays partial for document/cache/loading collection admission, broader public repair/recovery nested loads and document/cache/diagnostic owners. The authored lexical/container and dictionary guard matrices agree. Inspection selects string representation from decoded bytes; stray hashes use distinct zero-byte name markers and warn once per token without consuming the error budget. Rewrites preserve malformed names and warn again; strict loading rejects them. Root words survive rebuilt-xref sanity checks. Preserve the prior null-reference/generation fixes, per-object state, encrypted-trailer precedence, host limits and cancellation regressions.
-- Numeric component evidence remains local/historical: eight cancellations after observed real-scan work took 0.084–1.8541 ms with working admission released; 1,000 warmed bounded conversions allocated zero heap bytes. Exact-rational midpoint tests prove the authored rounding matrix. These results do not close A03/A06 or establish whole-parser containment.
-- Benchmarks: fix counters/memory ownership before treating peaks as evidence; independent allocation/retention plus mid-operation cancellation; record reproducible results and fix demonstrated problems.
-- M11 open with three truthful partials (no-Zopfli profile, CMYK images, parser-max-errors per-object budgets); push/tag/publication are separate actions, not implementation blockers.
-- Stale drman.log (151 bytes) left alone; never ships.
+- **Next A07 compatibility correction: job JSON check.** The pinned oracle
+  accepts `check` with an empty-string value and runs its checker; the managed
+  job parser rejects it. The canonical inventory records this missing field as
+  a supplemental requirement outside its argv flag/context counts. Implement
+  the existing shared checker through the job route and prove interactions,
+  limits, cancellation, crypto rejection and no publication. Do not treat the
+  original memory fixture's argument rejection as cache-admission evidence.
+- **Next A04/A06 unit: input/table/returned-node lifetime ownership.** A strict
+  2,097,614-byte padded input leaves 2,101,210 live admitted bytes after public
+  document disposal. Forced GC confirms its runtime input copy and xref map
+  remain rooted by the disposed document; metadata is gone, leases/handle
+  counters are zero and returned bytes remain valid. Drop implementation
+  references and release only their actual owners, preserving escaped aliases,
+  nested loads and success/failure/cancellation cleanup. Diagnostics and broader
+  public repair/recovery nesting remain open. This probe is outside test/reference
+  counts.
+- **A06 counters:** failed argv/job xref admission still returns zero work/peak
+  after substantial work; completed page counting snapshots one open handle
+  although actual leases are zero. Object-inspection counters are corrected;
+  other outcomes/routes need reconciliation and independent measurements.
+- **A01/A02 codecs:** measure JPEG/Flate allowances, BCL/codec/pool retention,
+  repeated/concurrent/failed admission, other filters' intermediate owners,
+  and textured/progressive samples beyond the four authored flat frames.
+- **A03 cancellation:** measure termination during codec/CPU/host work after
+  observable progress, with bounded noninterruptible units, delayed hosts,
+  cleanup and preserved targets. Passing tokens is insufficient latency evidence.
+- **A05 independent validation:** automate pinned oracle/probe freshness and
+  isolated runs, add explicit reference CI and development-only visual evidence.
+  Missing tools must fail; ordinary tests work without external resources.
+- **A07 docs/package:** reconcile supported-profile contexts/defaults and public
+  ownership/threading/warning/cancellation/publication contracts, then freshly
+  pack/verify/consume final audited sources. Benchmark reports are historical;
+  governor counters alone cannot establish admission/retention completeness.
+- **M11 and both completion verdicts remain open.** Inventory: 140 flags,
+  157 contexts, 154 complete and three truthful partials: parser loading/
+  ownership, accepted CMYK opacity and accepted no-Zopfli profile. Pushing,
+  tagging and publication are separate actions.
 
-## Verification
+## Verification and resume
 
-- Offline lane: restore, build, and test the solution in Release with locked mode.
-- Reference lane needs QPDF_EXE pointing at pinned qpdf 12.4.2 under external/oracle; run-reference-checks.ps1 includes the full differential script and run-parser-checks.ps1. Missing tools fail loudly, never skip. Ordinary tests never require external. Lane probes live in ignored external/diff/.
-- Package lane: pack, verify-package.ps1, verify-package-consumer.ps1 plus test-package-consumer.ps1.
-- Editing notes: repo files use LF, so normalize edited files back to LF (the worktree mixes CRLF checkouts on this machine; verify with byte counts, never assume). PowerShell `+=` flattens byte arrays: accumulate bytes in List[byte[]]. Builds often exceed the tool window, so run log-file builds in the background and poll without overlapping test sessions. Before lanes, verify the probe directory Lokad.Qpdf.dll hash matches the fresh library build.
-
-## Reference pin
-
-- qpdf 12.4.2, ImageSharp 3.1.12 as the only runtime package, net10.0, nullable enabled, warnings as errors, no unsafe blocks, interop, subprocess bridges, or vendored code. Crypto operations excluded with negative rejection evidence.
+- Read AGENTS.md, COMPATIBILITY.md and ARCHITECTURE.md; confirm HEAD and pending
+  changes. Preserve unrelated drman.log. Keep local PLAN/evidence/build outputs
+  ignored and unshipped; do not force-add them.
+- Offline: locked restore, Release build/test. Package: pack, verify-package.ps1,
+  verify-package-consumer.ps1 and test-package-consumer.ps1. Use the supplied fresh
+  artifact and reviewed external hashes; a cached direct consumer restore adds
+  no freshness evidence. Intentional dependency changes require reviewed locks.
+- Reference: pinned qpdf 12.4.2 with run-reference-checks.ps1, which includes the
+  differential and parser lanes. Check oracle/probe/library identities, isolate
+  source/output/TEMP, and retain terminal exits. Poll the same live process;
+  observation timeouts do not justify restarting it.
+- Record sources/runtime/platform/commands/terminal exits and separate governor
+  counters from allocation, retained storage and local timing. Repo files use LF.
+  Target net10.0, nullable/warnings-as-errors/no unsafe; ImageSharp 3.1.12 is the
+  only runtime package. No native engine, interop, subprocess bridge or vendoring;
+  crypto is excluded with negative evidence.

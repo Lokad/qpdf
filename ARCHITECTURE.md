@@ -24,7 +24,18 @@ decompression, graphs and cancellation intervals. ImageSharp and BCL codecs
 need explicit allocation/input/output policies; managed code alone is not an
 exhaustion limit.
 
-The solution contains the packable library, the test suite, a dedicated public API consumer,
-and the development probe; benchmarks remain future work. Do not create duplicate engines or
-empty project layers solely to match the eventual architecture.
+Reader attempts and parsed subtrees carry independent reservation receipts;
+discarding an outer attempt preserves previously accepted nested loads. Xref
+and cache/guard collections admit their wrappers, capacities and growth overlap.
+Cache entries distinguish unread owned subtrees from borrowed values, so
+replacement and disposal release only the unread admission. Document disposal
+closes its input lease and drops cache metadata while returned immutable bytes
+remain usable. Input/table/returned-node and diagnostic lifetimes remain under
+audit; [progress](docs/PROGRESS.md) records the measured gaps.
+
+The solution contains the packable library, tests, public API consumer,
+development probe and synthetic benchmark harness. Benchmarks are development
+tools; resource claims require independent allocation/retention measurements
+bound to the tested source tree. Do not create duplicate engines or empty
+project layers solely to match the eventual architecture.
 

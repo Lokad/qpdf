@@ -81,7 +81,9 @@ internal static class ParserContainers
         // The pinned .NET 10 prime table fits this conservative allowance.
         // EnsureCapacity reports the actual storage; release excess admission.
         memory.Reserve(upper);
-        int capacity = entries.EnsureCapacity(required);
+        int capacity;
+        try { capacity = entries.EnsureCapacity(required); }
+        catch { memory.Release(upper); throw; }
         memory.Release(checked(upper - DictionaryArrays(capacity, valueBytes) + DictionaryArrays(previous, valueBytes)));
     }
 
@@ -94,15 +96,22 @@ internal static class ParserContainers
     internal static bool AddSetItem<T>(ParserMemoryScope memory, HashSet<T> items, T value, long itemBytes)
     {
         if (items.Contains(value)) { return false; }
+        EnsureSetCapacity(memory, items, itemBytes);
+        return items.Add(value);
+    }
+
+    internal static void EnsureSetCapacity<T>(ParserMemoryScope memory, HashSet<T> items, long itemBytes)
+    {
         int previous = items.EnsureCapacity(0);
         if (items.Count == previous)
         {
             long upper = SetArrays(PrimeCapacityAllowance(checked(items.Count + 1)), itemBytes);
             memory.Reserve(upper);
-            int capacity = items.EnsureCapacity(items.Count + 1);
+            int capacity;
+            try { capacity = items.EnsureCapacity(items.Count + 1); }
+            catch { memory.Release(upper); throw; }
             memory.Release(checked(upper - SetArrays(capacity, itemBytes) + SetArrays(previous, itemBytes)));
         }
-        return items.Add(value);
     }
 
     internal static PdfDictionary CopyDictionary(

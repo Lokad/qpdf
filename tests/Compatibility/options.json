@@ -99,6 +99,7 @@
     "page-range syntax"
   ],
   "supplementalRequirements": [
+    "Required job JSON check mapping remains missing: qpdf 12.4.2 accepts check with an empty-string value, but the managed job parser rejects it. The --check entry covers its argv route; implement the shared job checker and reconcile this target field before required-coverage completion.",
     "--json-key=encrypt is excluded",
     "fix-qdf companion",
     "zlib-flate companion"
@@ -1739,7 +1740,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Xref dictionaries, revision tracking and trailer lists now admit actual capacities/growth overlap, with temporary scan/section cleanup and independent allocation/public finite-ceiling regressions. Complete document/cache/loading collection admission, broader public repair/recovery nested loads, diagnostic/document lifetimes and failed/canceled counters before closing the entry."
+        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Xref/revision/trailer and cache/loading/decoding collections now admit wrappers, actual capacities and growth overlap. Cache metadata releases on owner disposal; unread member replacement/disposal releases only its own subtree while borrowed aliases survive. Independent backing allocation, finite typed/argv/job traversal, retries, prior targets and observed-work cancellation have regressions. Complete input/table/returned-node and diagnostic ownership, broader public repair/recovery nested loads and failed/canceled counters before closing the entry."
       ],
       "evidence": {
       "positive": [
@@ -1881,6 +1882,17 @@
         "XrefCollectionTests.CycleAndDuplicateFailuresReleaseAcceptedSectionStorage",
         "XrefCollectionTests.WorkFailureReleasesCollectionStorage",
         "XrefCollectionTests.CancellationAfterCollectionWorkReleasesAllTemporaryOwners",
+        "DocumentCacheTests.CacheAdmissionCoversIndependentBackingAllocation",
+        "DocumentCacheTests.ConstructorAdmissionFailsBeforeCollectionAllocation",
+        "DocumentCacheTests.CacheGrowthFailurePreservesAcceptedAliasesAndSupportsRetry",
+        "DocumentCacheTests.EngineDisposalDropsActualStorageAndReleasesAdmissionOnce",
+        "DocumentCacheTests.DocumentDisposalDropsMetadataButPreservesReturnedNodes",
+        "DocumentCacheTests.DuplicateCompressedMembersReleaseOnlyUnborrowedSubtrees",
+        "DocumentCacheTests.DisposalReleasesUnreadMembersAndPreservesBorrowedMembers",
+        "DocumentCacheTests.RemovedLoadingGuardKeysKeepTheirBackingCapacityAdmitted",
+        "DocumentCacheTests.PublicTraversalEnforcesCacheGrowthAdmission",
+        "DocumentCacheTests.TypedCacheGrowthFailsAfterSuccessfulOpeningAndKeepsPriorAlias",
+        "DocumentCacheTests.CancellationKeepsAcceptedCacheUntilOwnerDisposal",
           "RecoveryHeaderTests.MultidigitHeadersKeepCatalogIdentityOnPublicRecovery",
           "RecoveryHeaderTests.RecoveryEntriesUseCompleteHeadersRatherThanDigitSuffixes",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
