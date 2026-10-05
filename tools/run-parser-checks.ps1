@@ -148,9 +148,55 @@ foreach ($spec in $lexicalSpecs) {
   $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Broken = $true }
 }
 
+$dictionarySpecs = @(
+  @{ Name = 'array-orphan-gap'; Body = '<< [1 2] 3 @ /A 4 >>' },
+  @{ Name = 'duplicate-integer-next-array'; Body = '<< @ /A 1 /A 2 [ @ ] >>' },
+  @{ Name = 'duplicate-integer-next-error'; Body = '<< @ /A 1 /A 2 @ >>' },
+  @{ Name = 'duplicate-integer-next-dictionary'; Body = '<< @ /A 1 /A 2 << /B @ >> >>' },
+  @{ Name = 'error-then-duplicate'; Body = '<< @ /A 1 /A 2 >>' },
+  @{ Name = 'duplicate-reference-value'; Body = '<< @ /A 1 /A 2 0 R >>' },
+  @{ Name = 'duplicate-integer-delayed-error'; Body = '<< @ /A 1 /A 2 3 @ >>' },
+  @{ Name = 'duplicate-integer-orphan'; Body = '<< @ /A 1 /A 2 3 >>' },
+  @{ Name = 'duplicate-integer-orphans'; Body = '<< @ /A 1 /A 2 3 4 >>' },
+  @{ Name = 'duplicate-integer-next-reference'; Body = '<< @ /A 1 /A 2 3 4 R >>' },
+  @{ Name = 'duplicate-real-close'; Body = '<< @ /A 1 /A 2.0 >>' },
+  @{ Name = 'duplicate-null-value'; Body = '<< @ /A 1 /A null >>' },
+  @{ Name = 'duplicate-gap-below'; Body = '<< @ /A 1 /B @ /A 2 3 >>' },
+  @{ Name = 'duplicate-gap-at'; Body = '<< @ /A 1 /B @ /A 2 3 4 >>' },
+  @{ Name = 'duplicate-gap-reference-tail'; Body = '<< @ /A 1 /B @ /A 2 3 4 R @ >>' },
+  @{ Name = 'spaced-orphan-errors'; Body = '<< @ /A 1 /B 2 @ /C 3 /D 4 @ /E 5 >>' },
+  @{ Name = 'error-before-orphans'; Body = '<< @ 1 2 /A 3 >>' },
+  @{ Name = 'child-orphan-guard'; Body = '<< /A << 1 2 @ /B 3 >> /C 4 >>' },
+  @{ Name = 'fake-key-collision-error'; Body = '<< /QPDFFake1 9 1 2 @ /A 3 >>' },
+  @{ Name = 'one-orphan-error'; Body = '<< 1 @ /A 3 >>' },
+  @{ Name = 'orphan-error-storm'; Body = '<< 1 2 @ @ @ @ @ @ /A 3 >>' },
+  @{ Name = 'orphan-late-error'; Body = '<< 1 2 @ /A 3 >>' },
+  @{ Name = 'array-then-key-error'; Body = '<< 1 2 /A [ @ ] @ /B 4 >>' },
+  @{ Name = 'array-then-value-error'; Body = '<< 1 2 /A [ @ ] /B @ >>' },
+  @{ Name = 'orphan-value-gap'; Body = '<< 1 2 /A @ >>' },
+  @{ Name = 'child-dictionary-isolation'; Body = '<< 1 2 /A << /B @ /C @ >> >>' },
+  @{ Name = 'dictionary-then-key-error'; Body = '<< 1 2 /A << /B @ >> @ /C 4 >>' },
+  @{ Name = 'nested-guard-and-parent'; Body = '<< 1 2 /A << 1 @ /B 3 >> /C @ >>' },
+  @{ Name = 'orphan-duplicates'; Body = '<< 1 2 /A 3 /A 4 /A 5 >>' },
+  @{ Name = 'value-error-duplicate'; Body = '<< 1 2 /A 3 /B @ /B 4 >>' },
+  @{ Name = 'nul-key-after-orphans'; Body = '<< 1 2 /A#00B 3 /C 4 >>' },
+  @{ Name = 'fake-key-collision-duplicate'; Body = '<< 1 2 /QPDFFake1 9 /A 3 /A 4 >>' },
+  @{ Name = 'invalid-reference-followup'; Body = '<< 1 2 0 0 R @ /A 3 >>' },
+  @{ Name = 'invalid-reference-gap'; Body = '<< 1 2 0 0 R /A 3 >>' },
+  @{ Name = 'orphan-good-gap'; Body = '<< 1 2 3 @ /A 4 >>' },
+  @{ Name = 'null-orphan-error'; Body = '<< null null @ /A 3 >>' },
+  @{ Name = 'boolean-orphan-error'; Body = '<< true false @ /A 3 >>' }
+)
+foreach ($spec in $dictionarySpecs) {
+  $spec.Budgets = @(0, 1, 2, 3, 4, 5, 6, 15)
+  $specs += $spec
+  $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Broken = $true; Budgets = $spec.Budgets }
+}
+
 foreach ($spec in $specs) {
   Write-Input $spec.Name $spec.Body ([bool]$spec.Broken)
-  foreach ($budget in @(0, 1, 2, 3, 6, 15)) {
+  $budgets = if ($spec.Budgets) { $spec.Budgets } else { @(0, 1, 2, 3, 6, 15) }
+  foreach ($budget in $budgets) {
     $tag = "$($spec.Name)-$budget"
     $logical = "inputs/$($spec.Name).pdf"
     $managed = Invoke-Managed $tag @('--global', "--parser-max-errors=$budget", '--', $logical, '--show-object=5') @()
@@ -165,7 +211,7 @@ foreach ($spec in $specs) {
       throw "Parser values or warning exits differ ($tag): managed='$($managed.Value)', oracle='$oracleValue'. See $runRoot."
     }
   }
-  Write-Output "[parser/$($spec.Name)] six budget values and exits agree"
+  Write-Output "[parser/$($spec.Name)] $($budgets.Count) budget values and exits agree"
 }
 
 function Read-RewrittenJson {
@@ -292,6 +338,32 @@ foreach ($spec in $lexicalSpecs) {
     }
     $rewriteObservations.Add(@{ Case = $inputName; Budget = 3; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Value = $expectedValue })
     Write-Output "[parser/$tag] lexical values survive rewrite; oracle check and independent page counts pass"
+  }
+}
+
+foreach ($spec in $dictionarySpecs) {
+  foreach ($broken in @($false, $true)) {
+    # Inspection covers this reference value; page-tree/catalog imports are
+    # rejected by the documented contained-copy profile (offline negative test).
+    if ($spec.Name -eq 'duplicate-reference-value') { continue }
+    $inputName = $spec.Name + $(if ($broken) { '-broken' } else { '' })
+    foreach ($budget in @(0, 5)) {
+      $tag = "rewrite-$inputName-$budget"
+      $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+      $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+      $managed = Invoke-Managed $tag @("inputs/$inputName.pdf", "--parser-max-errors=$budget",
+        '--pages', '.', '1', '--', 'outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+      & $QpdfExe '--global' "--parser-max-errors=$budget" '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
+      $oracleExit = $LASTEXITCODE
+      if ($managed.Exit -ne 3 -or $oracleExit -ne 3) { throw "Dictionary rewrite exits differ ($tag)." }
+      $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq $budget })[0].OracleValue
+      foreach ($file in @($managedFile, $oracleFile)) {
+        $actual = Read-RewrittenAudit $tag $file
+        if ($actual -cne $expectedValue) { throw "Dictionary value changed during rewrite ($tag)." }
+      }
+      $rewriteObservations.Add(@{ Case = $inputName; Budget = $budget; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Value = $expectedValue })
+      Write-Output "[parser/$tag] dictionary guards survive rewrite; oracle check and independent page counts pass"
+    }
   }
 }
 

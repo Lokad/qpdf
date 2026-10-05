@@ -144,6 +144,41 @@ internal static class Program
         Check(lexicalHost.OpenLeaseCount == 0L, "lexical smoke leases closed");
         Console.WriteLine("PASS NUL name repair and literal newline rewrite");
 
+        foreach (long budget in new long[] { 0L, 3L })
+        {
+            string budgetText = budget.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            InMemoryQpdfHost dictionaryHost = NewHost("inputs/dictionary.pdf", TwoPagePdf("<< 1 2 @ /A 3 >>"));
+            QpdfExecutionResult inspection = await Qpdf.ExecuteAsync(dictionaryHost,
+                new QpdfCommandInvocation(["inputs/dictionary.pdf", "--parser-max-errors=" + budgetText, "--show-object=8"]), CancellationToken.None);
+            string expected = budget == 0L ? "null" : "<< /A 3 /QPDFFake1 1 /QPDFFake2 2 /QPDFFake3 (@) >>";
+            Check(inspection.ExitCode == QpdfExitCode.Warning && inspection.Diagnostics.Any(d =>
+                d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == expected), "dictionary guard inspection");
+            QpdfExecutionResult rewrite = await Qpdf.ExecuteJobAsync(dictionaryHost,
+                "{\"inputFile\":\"inputs/dictionary.pdf\",\"outputFile\":\"outputs/dictionary.pdf\",\"pages\":[{\"file\":\".\",\"range\":\"1\"}],\"global\":{\"parserMaxErrors\":" + budgetText + "}}", CancellationToken.None);
+            Check(rewrite.ExitCode == QpdfExitCode.Warning, "dictionary guard rewrite");
+            dictionaryHost.AddInput(QpdfPath.From("inputs/dictionary-reread.pdf"), Published(dictionaryHost, "outputs/dictionary.pdf"), QpdfInputOwnership.Copy);
+            await using (QpdfDocument reread = await QpdfDocument.OpenAsync(dictionaryHost, QpdfPath.From("inputs/dictionary-reread.pdf"), CancellationToken.None))
+            {
+                PdfDictionary page = (PdfDictionary)reread.GetObject(3);
+                QpdfObject value = page.TryGet(new PdfName("Audit"u8.ToArray()), out QpdfObject audit) ? audit : PdfNull.Instance;
+                if (value is PdfReference reference) { value = reread.GetObject(reference.ObjectNumber); }
+                if (budget == 0L)
+                {
+                    Check(value is PdfNull, "zero-budget orphan guard survives rewrite");
+                }
+                else
+                {
+                    Check(value is PdfDictionary, "repaired dictionary survives rewrite");
+                    PdfDictionary dictionary = (PdfDictionary)value;
+                    Check(dictionary.TryGet(new PdfName("A"u8.ToArray()), out QpdfObject a) && a is PdfInteger integer && integer.Value == 3L,
+                        "dictionary named value survives rewrite");
+                    Check(dictionary.TryGet(new PdfName("QPDFFake3"u8.ToArray()), out QpdfObject fake) && fake is PdfByteString text
+                        && text.Value.AsSpan().SequenceEqual("@"u8), "dictionary orphan bytes survive rewrite");
+                }
+            }
+            Check(dictionaryHost.OpenLeaseCount == 0L, "dictionary smoke leases closed");
+        }
+        Console.WriteLine("PASS dictionary orphan/error guards through argv, job and rewrite");
 
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(

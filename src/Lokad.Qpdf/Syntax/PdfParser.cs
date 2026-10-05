@@ -53,6 +53,12 @@ internal sealed class PdfParser
 
     private int _nearbyErrors;
     private int _goodTokens;
+    // Negative outside a dictionary. Nested containers save and restore this
+    // count so errors inspect only the container currently being parsed.
+    private long _dictionaryOrphans = -1L;
+    private long _lastCountedRepairToken = -1L;
+    private long _integerFollowingToken = -1L;
+    private long _integerSecondFollowingToken = -1L;
 
     internal void BeginTolerantObject()
     {
@@ -60,6 +66,10 @@ internal sealed class PdfParser
         ToleratedErrors = 0L;
         _nearbyErrors = 0;
         _goodTokens = 0;
+        _dictionaryOrphans = -1L;
+        _lastCountedRepairToken = -1L;
+        _integerFollowingToken = -1L;
+        _integerSecondFollowingToken = -1L;
     }
 
     private sealed class RepairAbort : Exception;
@@ -88,11 +98,21 @@ internal sealed class PdfParser
 
         // The incoming token was counted optimistically. Four intervening good
         // tokens break the proximity cluster; they do not reset the total budget.
-        _nearbyErrors = _goodTokens > 4 ? 1 : _nearbyErrors + 1;
+        bool separated = _goodTokens > 4;
         _goodTokens = 0;
-        if (_nearbyErrors > 5)
+        if (separated)
         {
-            WarnRepair("Too many errors in close proximity; treating object as null.", offset);
+            _nearbyErrors = 1;
+            return;
+        }
+
+        _nearbyErrors++;
+        // Zero disables the finite threshold, but remains zero for this
+        // additional orphan guard. The incoming value has not been added yet.
+        long remaining = _limits.MaxParserErrors == 0L ? 0L : _limits.MaxParserErrors - ToleratedErrors;
+        if (_nearbyErrors > 5 || _dictionaryOrphans > remaining)
+        {
+            WarnRepair("Too many nearby errors or orphan dictionary values; treating object as null.", offset);
             throw new RepairAbort();
         }
     }
@@ -101,12 +121,21 @@ internal sealed class PdfParser
     {
         _governor.ChargeWork(1L);
         bool found = tokenizer.TryReadToken(out token, TolerateObjectErrors, _governor);
-        if (found && TolerateObjectErrors)
+        if (found)
         {
-            _goodTokens = Math.Min(5, _goodTokens + 1);
+            CountRepairToken(token.Offset);
         }
 
         return found;
+    }
+
+    private void CountRepairToken(long offset)
+    {
+        if (TolerateObjectErrors && offset > _lastCountedRepairToken)
+        {
+            _lastCountedRepairToken = offset;
+            _goodTokens = Math.Min(5, _goodTokens + 1);
+        }
     }
 
     private void UnterminatedContainer(string kind, long offset)
@@ -152,6 +181,9 @@ internal sealed class PdfParser
             throw new QpdfParseException("Unexpected end of input while parsing a value.", tokenizer.Position, null);
         }
 
+        // The root token opens the object; only following tokens participate
+        // in the good-token gap used by container repair.
+        _goodTokens = 0;
         return ParseToken(tokenizer, token, depth);
     }
 
@@ -287,12 +319,20 @@ internal sealed class PdfParser
         long saved = tokenizer.Position;
         bool reference = false;
         PdfToken second = default;
+        PdfToken third = default;
+        _integerFollowingToken = -1L;
+        _integerSecondFollowingToken = -1L;
         try
         {
-            reference = tokenizer.TryReadToken(out second, TolerateObjectErrors, _governor)
-                && second.Kind == PdfTokenKind.Integer
-                && tokenizer.TryReadToken(out PdfToken third, TolerateObjectErrors, _governor)
-                && third.Kind == PdfTokenKind.Reference;
+            if (tokenizer.TryReadToken(out second, TolerateObjectErrors, _governor))
+            {
+                _integerFollowingToken = second.Offset;
+                if (second.Kind == PdfTokenKind.Integer && tokenizer.TryReadToken(out third, TolerateObjectErrors, _governor))
+                {
+                    _integerSecondFollowingToken = third.Offset;
+                    reference = third.Kind == PdfTokenKind.Reference;
+                }
+            }
         }
         catch (QpdfParseException)
         {
@@ -304,7 +344,8 @@ internal sealed class PdfParser
         {
             if (TolerateObjectErrors)
             {
-                _goodTokens = Math.Min(5, _goodTokens + 2);
+                CountRepairToken(second.Offset);
+                CountRepairToken(third.Offset);
                 long number = ParseIntegerText(first);
                 long generation = ParseIntegerText(second);
                 if (number < int.MinValue || number > int.MaxValue
@@ -468,6 +509,20 @@ internal sealed class PdfParser
 
     private QpdfObject ParseArray(PdfTokenizer tokenizer, int depth)
     {
+        long parentOrphans = _dictionaryOrphans;
+        _dictionaryOrphans = -1L;
+        try
+        {
+            return ParseArrayContents(tokenizer, depth);
+        }
+        finally
+        {
+            _dictionaryOrphans = parentOrphans;
+        }
+    }
+
+    private QpdfObject ParseArrayContents(PdfTokenizer tokenizer, int depth)
+    {
         _governor.ReserveMemory(32L);
         List<QpdfObject> items = new();
         while (true)
@@ -493,6 +548,20 @@ internal sealed class PdfParser
     }
 
     private QpdfObject ParseDictionaryOrStream(PdfTokenizer tokenizer, int depth, long offset)
+    {
+        long parentOrphans = _dictionaryOrphans;
+        _dictionaryOrphans = 0L;
+        try
+        {
+            return ParseDictionaryContentsOrStream(tokenizer, depth, offset);
+        }
+        finally
+        {
+            _dictionaryOrphans = parentOrphans;
+        }
+    }
+
+    private QpdfObject ParseDictionaryContentsOrStream(PdfTokenizer tokenizer, int depth, long offset)
     {
         _governor.ReserveMemory(64L);
         Dictionary<PdfName, QpdfObject> entries = new();
@@ -529,6 +598,7 @@ internal sealed class PdfParser
 
                 _governor.ReserveMemory(16L);
                 missingKeys.Add(ParseToken(tokenizer, token, depth + 1));
+                _dictionaryOrphans = missingKeys.Count;
                 continue;
             }
 
@@ -559,6 +629,14 @@ internal sealed class PdfParser
                 }
                 if (TolerateObjectErrors)
                 {
+                    if (value is PdfInteger)
+                    {
+                        // Scalar integers are disambiguated from references
+                        // using following tokens. Their duplicate is observed
+                        // after that lookahead; count it now, once per offset.
+                        CountRepairToken(_integerFollowingToken);
+                        CountRepairToken(_integerSecondFollowingToken);
+                    }
                     CountToleratedError(token.Offset);
                 }
             }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -16,6 +17,15 @@ internal static class CanonicalDisplay
         QpdfObject value,
         QpdfLimits limits,
         ResourceGovernor governor)
+    {
+        return Render(value, limits, governor, null);
+    }
+
+    internal static string Render(
+        QpdfObject value,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        IIndirectResolver? resolver)
     {
         if (value is null)
         {
@@ -34,7 +44,7 @@ internal static class CanonicalDisplay
 
         limits.Validate();
         StringBuilder builder = new();
-        AppendValue(value, builder, 0, limits, governor);
+        AppendValue(value, builder, 0, limits, governor, resolver);
         return builder.ToString();
     }
 
@@ -43,7 +53,8 @@ internal static class CanonicalDisplay
         StringBuilder builder,
         int depth,
         QpdfLimits limits,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        IIndirectResolver? resolver)
     {
         if (value is null)
         {
@@ -102,7 +113,7 @@ internal static class CanonicalDisplay
                     builder.Append(' ');
                 }
 
-                AppendValue(array[i], builder, depth + 1, limits, governor);
+                AppendValue(array[i], builder, depth + 1, limits, governor, resolver);
             }
 
             builder.Append(" ]");
@@ -139,10 +150,23 @@ internal static class CanonicalDisplay
                     continue;
                 }
 
+                // Null dictionary members are omitted, including references
+                // that the document resolves as null or absent. Keep live
+                // references in indirect form rather than expanding graphs.
+                if (member is PdfReference indirect && resolver is not null)
+                {
+                    governor.ChargeWork(1L);
+                    governor.CheckCancellation();
+                    if (!resolver.TryResolve(indirect, out QpdfObject? resolved) || resolved is null or PdfNull)
+                    {
+                        continue;
+                    }
+                }
+
                 builder.Append(' ');
                 AppendName(entry.Value, builder);
                 builder.Append(' ');
-                AppendValue(member, builder, depth + 1, limits, governor);
+                AppendValue(member, builder, depth + 1, limits, governor, resolver);
             }
 
             builder.Append(" >>");

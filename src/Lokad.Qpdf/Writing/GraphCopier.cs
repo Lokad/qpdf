@@ -471,11 +471,8 @@ internal sealed class GraphCopier
 
     private QpdfObject CopyReference(PdfReference reference, int depth)
     {
-        if (_mapping.TryGetValue(reference.ObjectNumber, out int mapped))
-        {
-            return new PdfReference(mapped, 0);
-        }
-
+        // Validate the source number/generation pair before using the
+        // number-based memo. A stale generation must not alias a live copy.
         if (!_resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
         {
             throw new QpdfParseException("Unresolvable reference during page copy.", null, reference.ObjectNumber);
@@ -484,6 +481,11 @@ internal sealed class GraphCopier
         if (resolved is PdfNull)
         {
             return PdfNull.Instance;
+        }
+
+        if (_mapping.TryGetValue(reference.ObjectNumber, out int mapped))
+        {
+            return new PdfReference(mapped, 0);
         }
 
         if (resolved is PdfDictionary dictionary)

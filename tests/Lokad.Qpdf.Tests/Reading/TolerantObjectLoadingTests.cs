@@ -226,6 +226,21 @@ public sealed class TolerantObjectLoadingTests
     [MemberData(nameof(LexicalPublicCases))]
     public async Task LexicalValuesSurvivePublicInspectionAndRewrite(string body, long budget, string display, bool warns, bool broken)
     {
+        await AssertPublicValueAndRewrite(body, budget, display, warns, broken, false);
+    }
+
+    public static IEnumerable<object[]> DictionaryPublicCases() => DictionaryRepairTests.OracleCases();
+
+    [Theory]
+    [MemberData(nameof(DictionaryPublicCases))]
+    public async Task DictionaryGuardsSurvivePublicInspectionAndRewrite(string name, string body, bool broken, long budget, string display)
+    {
+        Assert.NotEmpty(name);
+        await AssertPublicValueAndRewrite(body, budget, display, true, broken, name == "duplicate-reference-value" && display != "null");
+    }
+
+    private static async Task AssertPublicValueAndRewrite(string body, long budget, string display, bool warns, bool broken, bool rejectsPageTreeReference)
+    {
         InMemoryQpdfHost argv = Host(Pdf([body], broken));
         InMemoryQpdfHost job = Host(Pdf([body], broken));
         string budgetText = budget.ToString(CultureInfo.InvariantCulture);
@@ -243,6 +258,18 @@ public sealed class TolerantObjectLoadingTests
             new QpdfCommandInvocation(["inputs/a.pdf", "--parser-max-errors=" + budgetText, "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
         QpdfExecutionResult b = await Qpdf.ExecuteJobAsync(job,
             "{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/a.pdf\",\"pages\":[{\"file\":\".\",\"range\":\"1\"}],\"global\":{\"parserMaxErrors\":" + budgetText + "}}", CancellationToken.None);
+        if (rejectsPageTreeReference)
+        {
+            // This fixture points /A at the source page tree. The supported
+            // contained-copy policy rejects importing page-tree/catalog nodes.
+            Assert.Equal(QpdfExecutionStatus.Failed, a.Status);
+            Assert.Equal(QpdfExecutionStatus.Failed, b.Status);
+            Assert.False(argv.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+            Assert.False(job.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+            Assert.Equal(0L, argv.OpenLeaseCount);
+            Assert.Equal(0L, job.OpenLeaseCount);
+            return;
+        }
         Assert.Equal(expectedExit, a.ExitCode);
         Assert.Equal(expectedExit, b.ExitCode);
         Assert.True(argv.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] aBytes));
@@ -349,6 +376,9 @@ public sealed class TolerantObjectLoadingTests
     [InlineData("[ /A#00B 2 ]")]
     [InlineData("/A#00B")]
     [InlineData("<< /A#00B 1 /C 2 >>")]
+    [InlineData("<< 1 2 @ /A 3 >>")]
+    [InlineData("<< 1 2 /A [ @ ] @ /B 4 >>")]
+    [InlineData("<< /QPDFFake1 9 1 2 @ /A 3 >>")]
     public async Task StrictPublicPathsRejectValidXrefSyntaxDamage(string body)
     {
         InMemoryQpdfHost host = Host(Pdf([body], false));

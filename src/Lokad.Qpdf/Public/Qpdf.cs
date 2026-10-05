@@ -5258,11 +5258,11 @@ public static class Qpdf
                 else if (target is PdfStream stream)
                 {
                     diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "Object is stream.  Dictionary:");
-                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, CanonicalDisplay.Render(stream.Dictionary, limits, governor));
+                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, CanonicalDisplay.Render(stream.Dictionary, limits, governor, document.Engine));
                 }
                 else
                 {
-                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, CanonicalDisplay.Render(target, limits, governor));
+                    diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, CanonicalDisplay.Render(target, limits, governor, document.Engine));
                 }
 
                 return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);

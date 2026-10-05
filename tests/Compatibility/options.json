@@ -1739,14 +1739,15 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets, valid/rebuilt-xref repair, integer/reference and long-real conversion, brace delimiters, NUL-name rejection and literal newline normalization are implemented for the verified matrix; complete remaining lexical damage, damaged-container transitions, orphan-key/error interactions and nested-load evidence before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions and the authored orphan/error, duplicate-key and integer-lookahead guards are implemented for the verified matrix; complete remaining lexical damage, damaged-container transitions, nested-load evidence and trial/discarded-value ownership before closing the entry."
       ],
       "evidence": {
         "positive": [
           "TolerantParserTests.RepairsMatchPinnedObjectValues",
           "NumericParserTests.IntegerAndReferenceRepairsMatchPinnedValues",
           "RealParserTests.LongDecimalsRoundAtExactBinaryMidpoints",
-          "LexicalParserTests.LexicalRepairsMatchPinnedValues",
+        "LexicalParserTests.LexicalRepairsMatchPinnedValues",
+        "DictionaryRepairTests.OrphanErrorGuardsMatchPinnedValues",
           "LexicalParserTests.StrictLiteralStringsPreserveDecodedNewlineBytes",
           "LexicalParserTests.CanonicalHexSpellingPreservesStringBytes",
           "TolerantObjectLoadingTests.ActualLoadsRepairBothValidAndBrokenXrefs",
@@ -1767,7 +1768,9 @@
           "TolerantObjectLoadingTests.RewrittenRepairedValuesRemainReadableWithArgvJobParity",
           "TolerantObjectLoadingTests.NumericValuesSurvivePublicInspectionAndRewrite",
           "TolerantObjectLoadingTests.LongRealTextAndValueSurvivePublicRewrite",
-          "TolerantObjectLoadingTests.LexicalValuesSurvivePublicInspectionAndRewrite",
+        "TolerantObjectLoadingTests.LexicalValuesSurvivePublicInspectionAndRewrite",
+        "TolerantObjectLoadingTests.DictionaryGuardsSurvivePublicInspectionAndRewrite",
+        "DictionaryRepairTests.AbortedDictionaryDoesNotCarryOrphansIntoTheNextObject",
           "LexicalParserTests.EscapedHashIsNotDecodedTwiceIntoNul",
           "LexicalParserTests.EscapedBracesRemainNameBytes",
           "TolerantObjectLoadingTests.ManyDamagedObjectsDoNotShareAnErrorBudget",
@@ -1788,7 +1791,10 @@
           "RealParserTests.ExhaustedConversionWorkReleasesWorkingAndTextAdmissions",
           "RealParserTests.CopyingNumericTextIsGovernedAfterConversion",
           "LexicalParserTests.UnescapingChargesWorkAfterTokenScanningAndReleasesAdmission",
-          "LexicalParserTests.NulNameRepairDoesNotSwallowDiagnosticBudgetFailure",
+        "LexicalParserTests.NulNameRepairDoesNotSwallowDiagnosticBudgetFailure",
+        "DictionaryRepairTests.DictionaryRepairDoesNotSwallowHostLimits",
+        "CanonicalDisplayTests.NullReferenceFilteringHonorsWorkBudget",
+        "CanonicalDisplayTests.NullReferenceFilteringObservesCancellationAfterLookupStarts",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
         ],
         "oracle": [
