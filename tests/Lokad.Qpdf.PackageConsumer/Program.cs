@@ -340,6 +340,32 @@ internal static class Program
             Check(recoveredResult.Counters.TotalWork > 0L && recoveredHost.OpenLeaseCount == 0L, "recovery consumer records work and closes leases");
         }
         Console.WriteLine("PASS successful recovery trial cleanup under finite host memory (argv/job)");
+        byte[] largeTableInput = TwoPagePdfWithAuditObjects(Enumerable.Repeat("null", 2000).ToArray());
+        InMemoryQpdfHost largeTableHost = NewHost("inputs/table.pdf", largeTableInput);
+        QpdfLimits tableLimits = QpdfLimits.Default with { MaxMemoryBytes = largeTableInput.Length + 100000L };
+        bool tableRejected = false;
+        try
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(largeTableHost, QpdfPath.From("inputs/table.pdf"), tableLimits, CancellationToken.None);
+        }
+        catch (QpdfLimitException ex) when (ex.LimitName == nameof(QpdfLimits.MaxMemoryBytes)) { tableRejected = true; }
+        Check(tableRejected && largeTableHost.OpenLeaseCount == 0L, "typed table admission rejects before allocation and closes leases");
+        foreach (bool useJob in new[] { false, true })
+        {
+            QpdfExecutionResult tableResult = useJob
+                ? await Qpdf.ExecuteJobAsync(largeTableHost, """{"inputFile":"inputs/table.pdf","showNpages":""}""", new QpdfExecutionOptions(tableLimits), CancellationToken.None)
+                : await Qpdf.ExecuteAsync(largeTableHost, new QpdfCommandInvocation(["inputs/table.pdf", "--show-npages"]), new QpdfExecutionOptions(tableLimits), CancellationToken.None);
+            Check(tableResult.Status == QpdfExecutionStatus.Failed && tableResult.ExitCode == QpdfExitCode.Error
+                && tableResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.BudgetExceeded), "argv/job table admission respects finite host memory");
+            Check(largeTableHost.OpenLeaseCount == 0L, "table admission consumer leases closed");
+        }
+        await using (QpdfDocument tableDocument = await QpdfDocument.OpenAsync(largeTableHost, QpdfPath.From("inputs/table.pdf"),
+            QpdfLimits.Default with { MaxMemoryBytes = 1048576L }, CancellationToken.None))
+        {
+            Check(tableDocument.PageCount == 2, "generous table admission preserves page count");
+        }
+        Check(largeTableHost.OpenLeaseCount == 0L, "generous table consumer leases closed");
+        Console.WriteLine("PASS xref collection capacity under finite host memory (typed/argv/job)");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

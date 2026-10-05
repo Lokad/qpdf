@@ -1739,7 +1739,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Complete actual xref collection capacity/overlap admission, broader public repair/recovery nested loads, diagnostic/document/cache lifetimes and failed/canceled counters before closing the entry."
+        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Xref dictionaries, revision tracking and trailer lists now admit actual capacities/growth overlap, with temporary scan/section cleanup and independent allocation/public finite-ceiling regressions. Complete document/cache/loading collection admission, broader public repair/recovery nested loads, diagnostic/document lifetimes and failed/canceled counters before closing the entry."
       ],
       "evidence": {
       "positive": [
@@ -1866,6 +1866,21 @@
           "RecoveryOwnershipTests.AcceptedXrefFragmentsReleaseEncodedAndDecodedData",
           "RecoveryOwnershipTests.RejectedLargeXrefIndexCountsRemainParseFailuresAndReleaseOwnership",
           "RecoveryOwnershipTests.HybridXrefDiscardsItsUnusedDictionaryValues",
+        "XrefCollectionTests.RetainedAdmissionCoversIndependentlyAllocatedBackingStorage",
+        "XrefCollectionTests.FiniteCeilingRejectsLargeTablesAndReleasesFailedOwnership",
+        "XrefCollectionTests.PublicCeilingRejectsLargeRecoveryBeforePublication",
+        "XrefCollectionTests.RepeatedRevisionsReleaseSectionMapsAndVisitedStorage",
+        "XrefCollectionTests.RepeatedRecoveryHeadersAndDroppedEntriesKeepOnlyFinalStorage",
+        "XrefCollectionTests.GrowthFailurePreservesPreviouslyAcceptedTable",
+        "XrefCollectionTests.SparseRecoveryAdmitsFilledFreeSlots",
+        "XrefCollectionTests.TruncatedTailSizeReleasesTheCompleteScanMap",
+        "XrefCollectionTests.MissingCatalogOrEmptyScanReleasesStorage",
+        "XrefCollectionTests.GenerousPublicArgvAndJobBudgetsKeepPageCounts",
+        "XrefCollectionTests.TypedStrictOpeningEnforcesCollectionAdmission",
+        "XrefCollectionTests.RevisionLimitFailureReleasesMapsAndVisitedSet",
+        "XrefCollectionTests.CycleAndDuplicateFailuresReleaseAcceptedSectionStorage",
+        "XrefCollectionTests.WorkFailureReleasesCollectionStorage",
+        "XrefCollectionTests.CancellationAfterCollectionWorkReleasesAllTemporaryOwners",
           "RecoveryHeaderTests.MultidigitHeadersKeepCatalogIdentityOnPublicRecovery",
           "RecoveryHeaderTests.RecoveryEntriesUseCompleteHeadersRatherThanDigitSuffixes",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"

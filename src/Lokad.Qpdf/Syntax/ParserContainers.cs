@@ -12,7 +12,7 @@ internal static class ParserContainers
     internal static List<ParsedValue> CreateOwnedList(ParserMemoryScope memory)
         => CreateList<ParsedValue>(memory);
 
-    private static List<T> CreateList<T>(ParserMemoryScope memory)
+    internal static List<T> CreateList<T>(ParserMemoryScope memory)
     {
         memory.Reserve(32L);
         return new List<T>();
@@ -24,7 +24,7 @@ internal static class ParserContainers
     internal static void AddOwnedItem(ParserMemoryScope memory, List<ParsedValue> items, ParsedValue value)
         => AddItem(memory, items, value, 16L);
 
-    private static void AddItem<T>(ParserMemoryScope memory, List<T> items, T value, long itemBytes)
+    internal static void AddItem<T>(ParserMemoryScope memory, List<T> items, T value, long itemBytes)
     {
         if (items.Count == items.Capacity)
         {
@@ -60,22 +60,49 @@ internal static class ParserContainers
     }
 
     internal static Dictionary<PdfName, ParsedValue> CreateDictionary(ParserMemoryScope memory)
+        => CreateDictionary<PdfName, ParsedValue>(memory);
+
+    internal static Dictionary<TKey, TValue> CreateDictionary<TKey, TValue>(ParserMemoryScope memory) where TKey : notnull
     {
         memory.Reserve(96L);
-        return new Dictionary<PdfName, ParsedValue>();
+        return new Dictionary<TKey, TValue>();
     }
 
     internal static void EnsureEntryCapacity(ParserMemoryScope memory, Dictionary<PdfName, ParsedValue> entries)
+        => EnsureEntryCapacity(memory, entries, 16L);
+
+    internal static void EnsureEntryCapacity<TKey, TValue>(
+        ParserMemoryScope memory, Dictionary<TKey, TValue> entries, long valueBytes) where TKey : notnull
     {
         int previous = entries.EnsureCapacity(0);
         if (entries.Count < previous) { return; }
         int required = checked(entries.Count + 1);
-        long upper = DictionaryArrays(PrimeCapacityAllowance(required), 16L);
+        long upper = DictionaryArrays(PrimeCapacityAllowance(required), valueBytes);
         // The pinned .NET 10 prime table fits this conservative allowance.
         // EnsureCapacity reports the actual storage; release excess admission.
         memory.Reserve(upper);
         int capacity = entries.EnsureCapacity(required);
-        memory.Release(checked(upper - DictionaryArrays(capacity, 16L) + DictionaryArrays(previous, 16L)));
+        memory.Release(checked(upper - DictionaryArrays(capacity, valueBytes) + DictionaryArrays(previous, valueBytes)));
+    }
+
+    internal static HashSet<T> CreateSet<T>(ParserMemoryScope memory)
+    {
+        memory.Reserve(96L);
+        return new HashSet<T>();
+    }
+
+    internal static bool AddSetItem<T>(ParserMemoryScope memory, HashSet<T> items, T value, long itemBytes)
+    {
+        if (items.Contains(value)) { return false; }
+        int previous = items.EnsureCapacity(0);
+        if (items.Count == previous)
+        {
+            long upper = SetArrays(PrimeCapacityAllowance(checked(items.Count + 1)), itemBytes);
+            memory.Reserve(upper);
+            int capacity = items.EnsureCapacity(items.Count + 1);
+            memory.Release(checked(upper - SetArrays(capacity, itemBytes) + SetArrays(previous, itemBytes)));
+        }
+        return items.Add(value);
     }
 
     internal static PdfDictionary CopyDictionary(
@@ -99,5 +126,10 @@ internal static class ParserContainers
 
     private static int PrimeCapacityAllowance(int required) => (int)Math.Min(Array.MaxLength, required * 3L);
 
+    // One pointer-width key slot also covers a padded int key before a 24-byte
+    // xref value on the supported 64-bit runtimes. Wrappers/arrays include
+    // conservative header allowances; actual prime capacities are reconciled.
     private static long DictionaryArrays(int capacity, long valueBytes) => capacity == 0 ? 0L : checked(64L + (12L + IntPtr.Size + valueBytes) * capacity);
+
+    private static long SetArrays(int capacity, long itemBytes) => capacity == 0 ? 0L : checked(64L + (12L + itemBytes) * capacity);
 }

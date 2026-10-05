@@ -44,10 +44,11 @@ internal static class XRefRecovery
 
         limits.Validate();
         using ParserMemoryScope results = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope scan = ParserMemoryScope.Create(governor);
         long maxId = data.Length / 3L;
-        Dictionary<int, XrefEntry> entries = new();
+        Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(scan);
         QpdfLimits damaged = limits with { MaxContainerSize = Math.Min(limits.MaxContainerSize, limits.MaxContainerSizeDamaged) };
-        int? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, results);
+        int? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, scan);
         if (entries.Count == 0)
         {
             throw new QpdfParseException($"Bounded repair found no objects after strict parsing failed: {strictReason}", null, null);
@@ -56,6 +57,7 @@ internal static class XRefRecovery
         int scannedMax = 0;
         foreach (int number in entries.Keys)
         {
+            governor.ChargeWork(1L);
             if (number > scannedMax)
             {
                 scannedMax = number;
@@ -99,23 +101,24 @@ internal static class XRefRecovery
             root = new PdfReference(lastCatalog.Value, 0);
         }
 
-        Dictionary<int, XrefEntry> repaired = new();
+        Dictionary<int, XrefEntry> repaired = ParserContainers.CreateDictionary<int, XrefEntry>(results);
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
             governor.ChargeWork(1L);
             if (entry.Key >= 1 && entry.Key < size)
             {
+                ParserContainers.EnsureEntryCapacity(results, repaired, 24L);
                 repaired[entry.Key] = entry.Value;
             }
-            else { results.Release(32L); }
         }
+        scan.Discard();
 
         for (int number = 1; number < size; number++)
         {
             governor.ChargeWork(1L);
             if (!repaired.ContainsKey(number))
             {
-                results.Reserve(32L);
+                ParserContainers.EnsureEntryCapacity(results, repaired, 24L);
                 repaired[number] = XrefEntry.Free(0L, 0);
             }
         }
@@ -166,8 +169,10 @@ internal static class XRefRecovery
             QpdfDiagnosticCode.RecoveryEngaged,
             QpdfDiagnosticSeverity.Warning,
             $"Bounded repair rebuilt {repaired.Count} cross-reference entries from {rootSource} after strict parsing failed: {strictReason}");
-        results.Reserve(144L); // Table, one-element trailer list and its backing array.
-        XRefTable table = new(-1L, repaired, trailer, new List<PdfDictionary> { trailer });
+        List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(results);
+        ParserContainers.AddItem(results, trailers, trailer, IntPtr.Size);
+        results.Reserve(48L);
+        XRefTable table = new(-1L, repaired, trailer, trailers);
         results.Retain();
         return table;
     }
@@ -277,7 +282,7 @@ internal static class XRefRecovery
 
             if (value is not null)
             {
-                if (!entries.ContainsKey((int)number)) { results.Reserve(32L); }
+                if (!entries.ContainsKey((int)number)) { ParserContainers.EnsureEntryCapacity(results, entries, 24L); }
                 entries[(int)number] = XrefEntry.Uncompressed(numberStart, (int)generation);
                 if (value is PdfDictionary dictionary
                     && dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject raw)
