@@ -25,6 +25,8 @@ internal sealed class PdfParser
     private readonly DiagnosticBag _diagnostics;
     private readonly IIndirectResolver? _resolver;
     private ParserMemoryScope? _memory;
+    private int _dictionaryReceiptDepth = -1;
+    private IReadOnlyDictionary<PdfName, ParsedValue>? _dictionaryReceipts;
     private ParserMemoryScope Memory => _memory ?? throw new InvalidOperationException("Parser allocation has no attempt owner.");
     private static readonly PdfName LengthKey = PdfName.FromAscii("Length");
 
@@ -201,6 +203,24 @@ internal sealed class PdfParser
             return ParseValueCore(tokenizer, depth);
         }
         finally { _memory = parent; }
+    }
+
+    internal ParsedDictionaryValue ParseDictionaryValue(PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
+    {
+        int parentDepth = _dictionaryReceiptDepth;
+        IReadOnlyDictionary<PdfName, ParsedValue>? parentReceipts = _dictionaryReceipts;
+        _dictionaryReceiptDepth = depth;
+        _dictionaryReceipts = null;
+        try
+        {
+            QpdfObject value = ParseValue(tokenizer, depth, memory);
+            return new ParsedDictionaryValue(value, _dictionaryReceipts);
+        }
+        finally
+        {
+            _dictionaryReceiptDepth = parentDepth;
+            _dictionaryReceipts = parentReceipts;
+        }
     }
 
     private void ReserveMemory(long bytes)
@@ -775,7 +795,9 @@ internal sealed class PdfParser
 
         _governor.ChargeWork(entries.Count);
         _governor.CheckCancellation();
-        PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, _governor, entries);
+        bool preserveReceipts = depth == _dictionaryReceiptDepth;
+        PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, _governor, entries, preserveReceipts);
+        if (preserveReceipts) { _dictionaryReceipts = entries; }
         long beforeNext = tokenizer.Position;
         bool nextIsStream = false;
         try

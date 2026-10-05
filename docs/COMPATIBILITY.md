@@ -12,7 +12,11 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and ownership of successful recovery/trailer/linearization trials still keep that entry partial.
+and xref collection admission plus document/cache/diagnostic owners still keep that entry partial.
+Successful recovery trials and unselected trailer subtrees now release their admission;
+accepted trailer bytes/aliases survive. Strict/final xref acceptance and linearization
+trials have ownership regressions, with unfiltered/Flate structural scratch cleanup.
+Collection capacities, other codecs and broader public repair/recovery nesting remain open.
 Header-rejected and unmatched/trailing compressed-member values now have public ownership regressions,
 including retained nested/cache aliases and cancellation; structural scratch evidence covers
 unfiltered and Flate object streams, while other codec owners remain open. Excluded crypto

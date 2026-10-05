@@ -151,7 +151,8 @@ internal static class LinearizationCheck
         ReadOnlyMemory<byte> data,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ParserMemoryScope memory)
     {
         int length = Math.Min(ScanBytes, data.Length);
         PdfTokenizer tokenizer = new(data.Slice(0, length));
@@ -159,6 +160,7 @@ internal static class LinearizationCheck
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
         for (int i = 0; i < ScanTokens; i++)
         {
+            using ParserMemoryScope trial = ParserMemoryScope.Create(governor);
             cancellationToken.ThrowIfCancellationRequested();
             long position = 0;
             try
@@ -175,7 +177,7 @@ internal static class LinearizationCheck
 
                 position = token.Offset;
                 tokenizer.SetPosition(position);
-                (int number, int _, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
+                (int number, int _, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0, trial);
                 if (value is PdfDictionary dictionary
                     && dictionary.TryGet(PdfName.FromAscii("Linearized"), out QpdfObject raw)
                     && IsOne(raw))
@@ -184,6 +186,7 @@ internal static class LinearizationCheck
                         && size is PdfInteger total
                         && total.Value == data.Length)
                     {
+                        trial.TransferTo(memory);
                         return (dictionary, number);
                     }
 
@@ -320,7 +323,8 @@ internal static class LinearizationCheck
             throw new ArgumentNullException(nameof(governor));
         }
 
-        (PdfDictionary? lindict, int lindictNumber) = FindDictionary(engine.Data, limits, governor, cancellationToken);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        (PdfDictionary? lindict, int lindictNumber) = FindDictionary(engine.Data, limits, governor, cancellationToken, memory);
         if (lindict is null)
         {
             return null;

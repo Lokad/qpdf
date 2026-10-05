@@ -43,10 +43,11 @@ internal static class XRefRecovery
         }
 
         limits.Validate();
+        using ParserMemoryScope results = ParserMemoryScope.Create(governor);
         long maxId = data.Length / 3L;
         Dictionary<int, XrefEntry> entries = new();
         QpdfLimits damaged = limits with { MaxContainerSize = Math.Min(limits.MaxContainerSize, limits.MaxContainerSizeDamaged) };
-        int? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries);
+        int? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, results);
         if (entries.Count == 0)
         {
             throw new QpdfParseException($"Bounded repair found no objects after strict parsing failed: {strictReason}", null, null);
@@ -65,7 +66,10 @@ internal static class XRefRecovery
         string rootSource = "a scanned catalog";
         QpdfObject? root = null;
         PdfDictionary? tailDictionary = null;
-        if (TryReadTailTrailer(data, damaged, governor, diagnostics, out int tailSize, out QpdfObject? tailRoot, out tailDictionary) && tailSize >= 1)
+        using ParserMemoryScope tailMemory = ParserMemoryScope.Create(governor);
+        IReadOnlyDictionary<PdfName, ParsedValue>? tailMembers;
+        if (TryReadTailTrailer(data, damaged, governor, diagnostics, tailMemory,
+            out int tailSize, out QpdfObject? tailRoot, out tailDictionary, out tailMembers) && tailSize >= 1)
         {
             if (tailSize <= scannedMax + 1)
             {
@@ -91,56 +95,92 @@ internal static class XRefRecovery
                 throw new QpdfParseException($"Bounded repair found no catalog after strict parsing failed: {strictReason}", null, null);
             }
 
+            results.Reserve(64L);
             root = new PdfReference(lastCatalog.Value, 0);
         }
 
         Dictionary<int, XrefEntry> repaired = new();
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
+            governor.ChargeWork(1L);
             if (entry.Key >= 1 && entry.Key < size)
             {
                 repaired[entry.Key] = entry.Value;
             }
+            else { results.Release(32L); }
         }
 
         for (int number = 1; number < size; number++)
         {
+            governor.ChargeWork(1L);
             if (!repaired.ContainsKey(number))
             {
+                results.Reserve(32L);
                 repaired[number] = XrefEntry.Free(0L, 0);
-                governor.ReserveMemory(32L);
             }
         }
 
-        Dictionary<PdfName, QpdfObject> trailerEntries = new()
-        {
-            [PdfName.FromAscii("Size")] = new PdfInteger(size.ToString(), size),
-            [PdfName.FromAscii("Root")] = root,
-        };
+        Dictionary<PdfName, ParsedValue> trailerEntries = ParserContainers.CreateDictionary(results);
+        results.Reserve(84L); // At most ten decimal digits and the scalar/string overhead.
+        string sizeText = size.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        PdfInteger sizeValue = new(sizeText, size);
+        results.Release(20L - sizeText.Length * 2L);
+        AddTrailerEntry(trailerEntries, results, "Size", sizeValue);
+        AddTrailerEntry(trailerEntries, results, "Root", root);
         if (tailDictionary is not null)
         {
             PdfName encryptKey = PdfName.FromAscii("Encrypt");
             if (tailDictionary.TryGet(encryptKey, out QpdfObject? encryptValue) && encryptValue is not null && encryptValue is not PdfNull)
             {
-                trailerEntries[encryptKey] = encryptValue;
+                AddTrailerEntry(trailerEntries, results, "Encrypt", encryptValue);
             }
             PdfName infoKey = PdfName.FromAscii("Info");
             if (tailDictionary.TryGet(infoKey, out QpdfObject? infoValue) && infoValue is not null && infoValue is not PdfNull)
             {
-                trailerEntries[infoKey] = infoValue;
+                AddTrailerEntry(trailerEntries, results, "Info", infoValue);
             }
             PdfName idKey = PdfName.FromAscii("ID");
             if (tailDictionary.TryGet(idKey, out QpdfObject? idValue) && idValue is not null && idValue is not PdfNull)
             {
-                trailerEntries[idKey] = idValue;
+                AddTrailerEntry(trailerEntries, results, "ID", idValue);
             }
         }
-        PdfDictionary trailer = new(trailerEntries);
+        long retainedTailBytes = 0L;
+        if (tailMembers is not null)
+        {
+            foreach (KeyValuePair<PdfName, ParsedValue> entry in trailerEntries)
+            {
+                governor.ChargeWork(1L);
+                if (tailMembers.TryGetValue(entry.Key, out ParsedValue member) && ReferenceEquals(member.Value, entry.Value.Value))
+                {
+                    retainedTailBytes = checked(retainedTailBytes + member.ReservedBytes);
+                }
+            }
+        }
+        // Only selected values survive; all parsed keys, container storage,
+        // receipt metadata and unselected values cease to belong to the result.
+        tailMemory.Release(checked(tailMemory.ReservedBytes - retainedTailBytes));
+        tailMemory.TransferTo(results);
+        PdfDictionary trailer = ParserContainers.CopyDictionary(results, governor, trailerEntries, false);
         diagnostics.Add(
             QpdfDiagnosticCode.RecoveryEngaged,
             QpdfDiagnosticSeverity.Warning,
             $"Bounded repair rebuilt {repaired.Count} cross-reference entries from {rootSource} after strict parsing failed: {strictReason}");
-        return new XRefTable(-1L, repaired, trailer, new List<PdfDictionary> { trailer });
+        results.Reserve(144L); // Table, one-element trailer list and its backing array.
+        XRefTable table = new(-1L, repaired, trailer, new List<PdfDictionary> { trailer });
+        results.Retain();
+        return table;
+    }
+
+    private static void AddTrailerEntry(
+        Dictionary<PdfName, ParsedValue> entries, ParserMemoryScope memory, string key, QpdfObject value)
+    {
+        long scratch = 32L + key.Length;
+        memory.Reserve(checked(64L + key.Length + scratch));
+        PdfName name = PdfName.FromAscii(key);
+        memory.Release(scratch);
+        ParserContainers.EnsureEntryCapacity(memory, entries);
+        entries.Add(name, new ParsedValue(value, 0L));
     }
 
     private static int? ScanObjects(
@@ -149,7 +189,8 @@ internal static class XRefRecovery
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         long maxId,
-        Dictionary<int, XrefEntry> entries)
+        Dictionary<int, XrefEntry> entries,
+        ParserMemoryScope results)
     {
         int? lastCatalog = null;
         ReadOnlySpan<byte> span = data.Span;
@@ -231,15 +272,16 @@ internal static class XRefRecovery
             }
 
             governor.ChargeWork(1L);
-            QpdfObject? value = TryParseObject(data, parser, numberStart, (int)number, (int)generation);
+            using ParserMemoryScope trial = ParserMemoryScope.Create(governor);
+            QpdfObject? value = TryParseObject(data, parser, numberStart, (int)number, (int)generation, trial);
 
             if (value is not null)
             {
+                if (!entries.ContainsKey((int)number)) { results.Reserve(32L); }
                 entries[(int)number] = XrefEntry.Uncompressed(numberStart, (int)generation);
-                governor.ReserveMemory(32L);
                 if (value is PdfDictionary dictionary
                     && dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject raw)
-                    && raw is PdfName name && name.DisplayText == "Catalog")
+                    && raw is PdfName name && name.RawSpan.SequenceEqual("Catalog"u8))
                 {
                     lastCatalog = (int)number;
                 }
@@ -256,13 +298,14 @@ internal static class XRefRecovery
         PdfParser parser,
         int offset,
         int number,
-        int generation)
+        int generation,
+        ParserMemoryScope trial)
     {
         try
         {
             PdfTokenizer tokenizer = new(data);
             tokenizer.SetPosition(offset);
-            (int foundNumber, int foundGeneration, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0);
+            (int foundNumber, int foundGeneration, QpdfObject value) = parser.ParseIndirectObject(tokenizer, 0, trial);
             if (foundNumber == number && foundGeneration == generation)
             {
                 return value;
@@ -281,13 +324,16 @@ internal static class XRefRecovery
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        ParserMemoryScope memory,
         out int size,
         out QpdfObject? root,
-        out PdfDictionary? tailDictionary)
+        out PdfDictionary? tailDictionary,
+        out IReadOnlyDictionary<PdfName, ParsedValue>? members)
     {
         size = 0;
         root = null;
         tailDictionary = null;
+        members = null;
         ReadOnlySpan<byte> span = data.Span;
         int scanStart = span.Length > TailScanBytes ? span.Length - TailScanBytes : 0;
         int last = -1;
@@ -322,7 +368,8 @@ internal static class XRefRecovery
             }
 
             PdfParser parser = new(limits, governor, diagnostics, null);
-            if (parser.ParseValue(tokenizer, 0) is not PdfDictionary trailer)
+            ParsedDictionaryValue parsed = parser.ParseDictionaryValue(tokenizer, 0, memory);
+            if (parsed.Value is not PdfDictionary trailer)
             {
                 return false;
             }
@@ -341,6 +388,7 @@ internal static class XRefRecovery
             size = (int)sizeInteger.Value;
             root = rootRaw;
             tailDictionary = trailer;
+            members = parsed.Members;
             return true;
         }
         catch (QpdfParseException)

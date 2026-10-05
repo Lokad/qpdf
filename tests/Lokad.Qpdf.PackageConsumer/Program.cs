@@ -323,6 +323,23 @@ internal static class Program
         }
         Check(mismatchedHost.OpenLeaseCount == 0L, "wrong-header consumer leases closed");
         Console.WriteLine("PASS repeated rejected object headers under finite host memory (typed)");
+        string recoveredText = Encoding.ASCII.GetString(TwoPagePdfWithAuditObjects(Enumerable.Repeat("(" + new string('A', 4096) + ")", 50).ToArray()));
+        int recoveredStart = recoveredText.LastIndexOf("startxref\n", StringComparison.Ordinal) + "startxref\n".Length;
+        byte[] recoveredInput = Encoding.ASCII.GetBytes(recoveredText[..recoveredStart] + "0\n%%EOF\n");
+        foreach (bool useJob in new[] { false, true })
+        {
+            InMemoryQpdfHost recoveredHost = NewHost("inputs/recovered.pdf", recoveredInput);
+            QpdfExecutionOptions recoveredOptions = new(QpdfLimits.Default with { MaxMemoryBytes = recoveredInput.Length + 60000L });
+            QpdfExecutionResult recoveredResult = useJob
+                ? await Qpdf.ExecuteJobAsync(recoveredHost, """{"inputFile":"inputs/recovered.pdf","showNpages":""}""", recoveredOptions, CancellationToken.None)
+                : await Qpdf.ExecuteAsync(recoveredHost, new QpdfCommandInvocation(["inputs/recovered.pdf", "--show-npages"]), recoveredOptions, CancellationToken.None);
+            Check(recoveredResult.Status == QpdfExecutionStatus.Completed && recoveredResult.ExitCode == QpdfExitCode.Warning,
+                "fifty successful recovery trials fit finite host memory");
+            Check(recoveredResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.RecoveryEngaged)
+                && recoveredResult.Diagnostics.Any(d => d.Message == "inputs/recovered.pdf: 2"), "reconstruction preserves page count and warning");
+            Check(recoveredResult.Counters.TotalWork > 0L && recoveredHost.OpenLeaseCount == 0L, "recovery consumer records work and closes leases");
+        }
+        Console.WriteLine("PASS successful recovery trial cleanup under finite host memory (argv/job)");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

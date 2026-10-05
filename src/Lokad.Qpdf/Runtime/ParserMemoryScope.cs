@@ -58,6 +58,15 @@ internal sealed class ParserMemoryScope : IDisposable
 
     internal void Discard() { Release(_reservedBytes); }
 
+    internal void TransferTo(ParserMemoryScope target)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        target.CheckOwner(_governor);
+        if (ReferenceEquals(this, target)) { throw new InvalidOperationException("An owner cannot transfer to itself."); }
+        target.AdoptReserved(_reservedBytes);
+        _reservedBytes = 0L;
+    }
+
     // A decoder has already admitted this allocation through the same governor.
     internal void AdoptReserved(long bytes)
     {

@@ -6,3 +6,7 @@ namespace Lokad.Qpdf.Syntax;
 // These receipts stay within one attempt. Resolver loads have separate scopes;
 // borrowing a previously loaded value never adds its admission to this receipt.
 internal readonly record struct ParsedValue(QpdfObject Value, long ReservedBytes);
+
+/// <summary>Root dictionary receipts held within the caller's parse owner until selection.</summary>
+internal readonly record struct ParsedDictionaryValue(
+    QpdfObject Value, IReadOnlyDictionary<PdfName, ParsedValue>? Members);

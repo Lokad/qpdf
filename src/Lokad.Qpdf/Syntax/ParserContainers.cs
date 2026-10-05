@@ -78,7 +78,8 @@ internal static class ParserContainers
         memory.Release(checked(upper - DictionaryArrays(capacity, 16L) + DictionaryArrays(previous, 16L)));
     }
 
-    internal static PdfDictionary CopyDictionary(ParserMemoryScope memory, ResourceGovernor governor, Dictionary<PdfName, ParsedValue> entries)
+    internal static PdfDictionary CopyDictionary(
+        ParserMemoryScope memory, ResourceGovernor governor, Dictionary<PdfName, ParsedValue> entries, bool preserveReceipts)
     {
         long upper = DictionaryArrays(PrimeCapacityAllowance(entries.Count), IntPtr.Size);
         memory.Reserve(128L + upper);
@@ -89,8 +90,8 @@ internal static class ParserContainers
             kept.Add(entry.Key, entry.Value.Value);
         }
         PdfDictionary value = PdfDictionary.FromOwnedEntries(kept);
-        memory.Release(checked(upper - DictionaryArrays(value.StorageCapacity, IntPtr.Size)
-            + 96L + DictionaryArrays(entries.EnsureCapacity(0), 16L)));
+        long temporary = preserveReceipts ? 0L : checked(96L + DictionaryArrays(entries.EnsureCapacity(0), 16L));
+        memory.Release(checked(upper - DictionaryArrays(value.StorageCapacity, IntPtr.Size) + temporary));
         return value;
     }
 
