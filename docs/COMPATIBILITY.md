@@ -12,7 +12,7 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and display/trial/discarded-value ownership still keep that entry partial; excluded crypto
+and ownership of successful trials/discarded values still keep that entry partial; excluded crypto
 operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and
@@ -124,6 +124,22 @@ Local component measurements observe cancellation after scan work starts and
 zero warmed-up heap allocation in the bounded conversion unit. This does not
 close the broader lifetime, stack-state or cancellation audit. Other
 syntax/loading and temporary ownership audit remains open.
+
+Each parser attempt now owns its reservations independently of nested resolver
+loads. Aborted repairs, syntax/resource/diagnostic failures and cancellation
+release that attempt's values and temporary containers while preserving cached
+nested values, accumulated work, diagnostic counts and peaks. Container
+capacities and immutable copies, references and stream-copy overlap are
+admitted before allocation; working container storage releases after copying.
+Recovery candidates start at the beginning of their numeric header, so digit
+suffixes cannot create false xref entries for other object numbers. Public
+regressions cover fifty null repairs under finite argv/job memory with
+valid/rebuilt xrefs, fresh indirect-length cache retention, repeated failed loads and cancellation
+after observed container work. Successful overwritten/orphan values and
+successful recovery trials still need ownership reconciliation. General
+container/BCL cancellation, diagnostic memory and document/cache disposal
+remain part of the broader audit; these corrections do not establish a
+whole-job or process-memory guarantee.
 
 Braces delimit adjacent numbers, words and names; repair replaces each brace
 with null and counts a container error. A name containing an original `#00`

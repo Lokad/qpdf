@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -246,6 +247,33 @@ internal static class Program
         Check(displayHost.OpenLeaseCount == 0L, "display consumer leases closed");
         Console.WriteLine("PASS display admission, diagnostic byte limits and observed failure counters");
 
+        byte[] abandonedInput = TwoPagePdfWithAuditObjects(Enumerable.Repeat("[ (" + new string('A', 4096) + ") @ ]", 50).ToArray());
+        QpdfLimits abandonedLimits = QpdfLimits.Default with { MaxMemoryBytes = abandonedInput.Length + 60000L, MaxParserErrors = 1L };
+        foreach (bool useJob in new[] { false, true })
+        {
+            InMemoryQpdfHost abandonedHost = NewHost("inputs/abandoned.pdf", abandonedInput);
+            await using (QpdfDocument control = await QpdfDocument.OpenAsync(abandonedHost, QpdfPath.From("inputs/abandoned.pdf"), abandonedLimits, CancellationToken.None))
+            {
+                Check(control.PageCount == 2, "discarded-value source fits the host memory ceiling");
+            }
+            QpdfExecutionOptions abandonedOptions = new(abandonedLimits);
+            QpdfExecutionResult abandonedResult = useJob
+                ? await Qpdf.ExecuteJobAsync(abandonedHost,
+                    """{"inputFile":"inputs/abandoned.pdf","outputFile":"outputs/abandoned.json","json":"2","jsonKey":["qpdf"],"global":{"parserMaxErrors":1}}""", abandonedOptions, CancellationToken.None)
+                : await Qpdf.ExecuteAsync(abandonedHost,
+                    new QpdfCommandInvocation(["inputs/abandoned.pdf", "--json=2", "--json-key=qpdf", "--parser-max-errors=1", "--", "outputs/abandoned.json"]), abandonedOptions, CancellationToken.None);
+            Check(abandonedResult.Status == QpdfExecutionStatus.Completed && abandonedResult.ExitCode == QpdfExitCode.Warning,
+                "fifty abandoned repairs fit finite host memory through argv/job");
+            Check(abandonedResult.Diagnostics.Count(d => d.Code == QpdfDiagnosticCode.RepairedObject) == 100, "all repairs retain their diagnostics");
+            using JsonDocument repairedJson = JsonDocument.Parse(Published(abandonedHost, "outputs/abandoned.json"));
+            JsonElement repairedObjects = repairedJson.RootElement.GetProperty("qpdf")[1];
+            for (int number = 8; number < 58; number++)
+            {
+                Check(repairedObjects.GetProperty($"obj:{number} 0 R").GetProperty("value").ValueKind == JsonValueKind.Null, "aborted object is null in output");
+            }
+            Check(abandonedHost.OpenLeaseCount == 0L, "abandoned-repair consumer leases closed");
+        }
+        Console.WriteLine("PASS repeated aborted parser values under finite host memory (argv/job)");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),
@@ -582,6 +610,11 @@ internal static class Program
 
     private static byte[] TwoPagePdf(string? auditBody)
     {
+        return TwoPagePdfWithAuditObjects(auditBody is null ? [] : [auditBody]);
+    }
+
+    private static byte[] TwoPagePdfWithAuditObjects(IReadOnlyList<string> auditBodies)
+    {
         Encoding ascii = Encoding.ASCII;
         byte[] first = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (First) Tj ET");
         byte[] second = ascii.GetBytes("BT /F1 24 Tf 100 700 Td (Second) Tj ET");
@@ -603,20 +636,20 @@ internal static class Program
 
         AddObject(1, ascii.GetBytes("<< /Type /Catalog /Pages 2 0 R >>"));
         AddObject(2, ascii.GetBytes("<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>"));
-        string audit = auditBody is null ? "" : " /Audit 8 0 R";
+        string audit = auditBodies.Count == 0 ? "" : " /Audit 8 0 R";
         AddObject(3, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 7 0 R >> >>" + audit + " >>"));
         AddObject(4, ascii.GetBytes("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> >>"));
         AddObject(5, Concat(ascii.GetBytes("<< /Length " + first.Length + " >>\nstream\n"), first, ascii.GetBytes("\nendstream")));
         AddObject(6, Concat(ascii.GetBytes("<< /Length " + second.Length + " >>\nstream\n"), second, ascii.GetBytes("\nendstream")));
         AddObject(7, ascii.GetBytes("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"));
-        if (auditBody is not null) { AddObject(8, ascii.GetBytes(auditBody)); }
+        for (int i = 0; i < auditBodies.Count; i++) { AddObject(8 + i, ascii.GetBytes(auditBodies[i])); }
         int xref = 0;
         foreach (byte[] part in parts)
         {
             xref += part.Length;
         }
 
-        int size = auditBody is null ? 8 : 9;
+        int size = 8 + auditBodies.Count;
         parts.Add(ascii.GetBytes("xref\n0 " + size + "\n"));
         parts.Add(ascii.GetBytes("0000000000 65535 f \n"));
         for (int n = 1; n < size; n++)

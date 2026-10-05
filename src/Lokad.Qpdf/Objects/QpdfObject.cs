@@ -414,6 +414,8 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
 
     internal Dictionary<PdfName, QpdfObject>.Enumerator GetEntryEnumerator() => _entries.GetEnumerator();
 
+    internal int StorageCapacity => _entries.EnsureCapacity(0);
+
     /// <summary>Looks up a key by raw name bytes.</summary>
     public bool TryGet(PdfName key, out QpdfObject value)
     {

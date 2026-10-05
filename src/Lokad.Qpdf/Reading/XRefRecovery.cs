@@ -168,7 +168,9 @@ internal static class XRefRecovery
                 chargedThrough = position;
             }
 
-            if (!IsDigit(span[position]))
+            // A candidate must start at the beginning of its number. Otherwise
+            // object 51 also creates a false object 1 at its second digit.
+            if (!IsDigit(span[position]) || (position > 0 && IsDigit(span[position - 1])))
             {
                 position += 1;
                 continue;

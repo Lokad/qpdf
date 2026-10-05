@@ -24,6 +24,9 @@ internal sealed class PdfParser
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
     private readonly IIndirectResolver? _resolver;
+    private ParserMemoryScope? _memory;
+    private ParserMemoryScope Memory => _memory ?? throw new InvalidOperationException("Parser allocation has no attempt owner.");
+    private static readonly PdfName LengthKey = PdfName.FromAscii("Length");
 
     internal PdfParser(QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
@@ -152,19 +155,54 @@ internal sealed class PdfParser
     /// <summary>Parses one object-stream member with independent error state.</summary>
     internal QpdfObject ParseObjectValue(PdfTokenizer tokenizer, int depth)
     {
+        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        ParserMemoryScope? parent = _memory;
+        _memory = memory;
         BeginTolerantObject();
         try
         {
-            return ParseValue(tokenizer, depth);
+            try
+            {
+                QpdfObject value = ParseValueCore(tokenizer, depth);
+                memory.Retain();
+                return value;
+            }
+            catch (RepairAbort) when (TolerateObjectErrors)
+            {
+                ObjectAborted = true;
+                return PdfNull.Instance;
+            }
         }
-        catch (RepairAbort) when (TolerateObjectErrors)
-        {
-            ObjectAborted = true;
-            return PdfNull.Instance;
-        }
+        finally { _memory = parent; }
     }
 
     internal QpdfObject ParseValue(PdfTokenizer tokenizer, int depth)
+    {
+        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        ParserMemoryScope? parent = _memory;
+        _memory = memory;
+        try
+        {
+            QpdfObject value = ParseValueCore(tokenizer, depth);
+            memory.Retain();
+            return value;
+        }
+        finally { _memory = parent; }
+    }
+
+    private void ReserveMemory(long bytes)
+    {
+        if (_memory is null) { throw new InvalidOperationException("Parser allocation has no attempt owner."); }
+        _memory.Reserve(bytes);
+    }
+
+    private void ReleaseMemory(long bytes)
+    {
+        if (_memory is null) { throw new InvalidOperationException("Parser release has no attempt owner."); }
+        _memory.Release(bytes);
+    }
+
+    private QpdfObject ParseValueCore(PdfTokenizer tokenizer, int depth)
     {
         if (tokenizer is null)
         {
@@ -256,14 +294,28 @@ internal sealed class PdfParser
                     return PdfNull.Instance;
                 }
 
-                _governor.ReserveMemory(checked((token.Data.Length * 2L) + 96L));
+                ReserveMemory(checked((token.Data.Length * 2L) + 96L));
                 PdfByteString repaired = new(token.Data.ToArray(), hex: false);
-                _governor.ReleaseMemory(checked(token.Data.Length + 32L));
+                ReleaseMemory(checked(token.Data.Length + 32L));
                 return repaired;
         }
     }
 
     internal (int Number, int Generation, QpdfObject Value) ParseIndirectObject(PdfTokenizer tokenizer, int depth)
+    {
+        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        ParserMemoryScope? parent = _memory;
+        _memory = memory;
+        try
+        {
+            (int number, int generation, QpdfObject value) = ParseIndirectObjectCore(tokenizer, depth);
+            if (!ObjectAborted) { memory.Retain(); }
+            return (number, generation, value);
+        }
+        finally { _memory = parent; }
+    }
+
+    private (int Number, int Generation, QpdfObject Value) ParseIndirectObjectCore(PdfTokenizer tokenizer, int depth)
     {
         if (tokenizer is null)
         {
@@ -291,7 +343,7 @@ internal sealed class PdfParser
         QpdfObject value;
         try
         {
-            value = ParseValue(tokenizer, depth);
+            value = ParseValueCore(tokenizer, depth);
         }
         catch (RepairAbort) when (TolerateObjectErrors)
         {
@@ -362,10 +414,14 @@ internal sealed class PdfParser
                     return PdfNull.Instance;
                 }
 
+                ReserveMemory(32L);
                 return new PdfReference((int)number, (int)generation);
             }
 
-            return new PdfReference(ParseObjectNumber(first), ParseGeneration(second));
+            int objectNumber = ParseObjectNumber(first);
+            int objectGeneration = ParseGeneration(second);
+            ReserveMemory(32L);
+            return new PdfReference(objectNumber, objectGeneration);
         }
 
         tokenizer.SetPosition(saved);
@@ -400,14 +456,14 @@ internal sealed class PdfParser
         // Keep the original token for lossless writing. The numeric scan is
         // governed even for arbitrarily many leading zeros; admit the UTF-16
         // string and scalar before materializing them.
-        _governor.ReserveMemory(checked((token.Data.Length * 2L) + 64L));
+        ReserveMemory(checked((token.Data.Length * 2L) + 64L));
         try
         {
             return new PdfInteger(CopyNumericText(token.Data), value);
         }
         catch
         {
-            _governor.ReleaseMemory(checked((token.Data.Length * 2L) + 64L));
+            ReleaseMemory(checked((token.Data.Length * 2L) + 64L));
             throw;
         }
     }
@@ -457,7 +513,7 @@ internal sealed class PdfParser
     private PdfReal ParseReal(PdfToken token)
     {
         long retained = checked((token.Data.Length * 2L) + 64L);
-        _governor.ReserveMemory(retained);
+        ReserveMemory(retained);
         try
         {
             double value = PdfRealConversion.Convert(token.Data.Span, token.Offset, _governor);
@@ -465,7 +521,7 @@ internal sealed class PdfParser
         }
         catch
         {
-            _governor.ReleaseMemory(retained);
+            ReleaseMemory(retained);
             throw;
         }
     }
@@ -475,17 +531,17 @@ internal sealed class PdfParser
         // Unescaping may overlap a full-size array, trimmed result and immutable
         // object's private copy. Admit the conservative overlap before any copy.
         long admitted = checked((token.Data.Length * 3L) + 128L);
-        _governor.ReserveMemory(admitted);
+        ReserveMemory(admitted);
         try
         {
             byte[] raw = UnescapeName(token.Data, token.Offset);
             PdfName name = new(raw);
-            _governor.ReleaseMemory(admitted - checked(raw.Length + 64L));
+            ReleaseMemory(admitted - checked(raw.Length + 64L));
             return name;
         }
         catch
         {
-            _governor.ReleaseMemory(admitted);
+            ReleaseMemory(admitted);
             throw;
         }
     }
@@ -493,17 +549,17 @@ internal sealed class PdfParser
     private QpdfObject ParseByteString(PdfToken token, bool hex)
     {
         long admitted = checked((token.Data.Length * 3L) + 128L);
-        _governor.ReserveMemory(admitted);
+        ReserveMemory(admitted);
         try
         {
             byte[] raw = hex ? DecodeHex(token.Data, token.Offset) : UnescapeLiteral(token.Data, token.Offset);
             PdfByteString value = new(raw, hex);
-            _governor.ReleaseMemory(admitted - checked(raw.Length + 64L));
+            ReleaseMemory(admitted - checked(raw.Length + 64L));
             return value;
         }
         catch
         {
-            _governor.ReleaseMemory(admitted);
+            ReleaseMemory(admitted);
             throw;
         }
     }
@@ -524,8 +580,7 @@ internal sealed class PdfParser
 
     private QpdfObject ParseArrayContents(PdfTokenizer tokenizer, int depth)
     {
-        _governor.ReserveMemory(32L);
-        List<QpdfObject> items = new();
+        List<QpdfObject> items = ParserContainers.CreateList(Memory);
         while (true)
         {
             if (!TryReadValueToken(tokenizer, out PdfToken token))
@@ -535,7 +590,9 @@ internal sealed class PdfParser
 
             if (token.Kind == PdfTokenKind.ArrayClose)
             {
-                return new PdfArray(items);
+                _governor.ChargeWork(items.Count);
+                _governor.CheckCancellation();
+                return ParserContainers.CopyArray(Memory, items);
             }
 
             if (items.Count >= _limits.MaxContainerSize)
@@ -543,8 +600,7 @@ internal sealed class PdfParser
                 throw new QpdfParseException($"Array holds more than {_limits.MaxContainerSize} top-level items.", token.Offset, null);
             }
 
-            _governor.ReserveMemory(16L);
-            items.Add(ParseToken(tokenizer, token, depth + 1));
+            ParserContainers.AddItem(Memory, items, ParseToken(tokenizer, token, depth + 1));
         }
     }
 
@@ -564,8 +620,7 @@ internal sealed class PdfParser
 
     private QpdfObject ParseDictionaryContentsOrStream(PdfTokenizer tokenizer, int depth, long offset)
     {
-        _governor.ReserveMemory(64L);
-        Dictionary<PdfName, QpdfObject> entries = new();
+        Dictionary<PdfName, QpdfObject> entries = ParserContainers.CreateDictionary(Memory);
         List<QpdfObject>? missingKeys = null;
         while (true)
         {
@@ -593,12 +648,10 @@ internal sealed class PdfParser
 
                 if (missingKeys is null)
                 {
-                    _governor.ReserveMemory(32L);
-                    missingKeys = new List<QpdfObject>();
+                    missingKeys = ParserContainers.CreateList(Memory);
                 }
 
-                _governor.ReserveMemory(16L);
-                missingKeys.Add(ParseToken(tokenizer, token, depth + 1));
+                ParserContainers.AddItem(Memory, missingKeys, ParseToken(tokenizer, token, depth + 1));
                 _dictionaryOrphans = missingKeys.Count;
                 continue;
             }
@@ -643,7 +696,7 @@ internal sealed class PdfParser
             }
             else
             {
-                _governor.ReserveMemory(32L);
+                ParserContainers.EnsureEntryCapacity(Memory, entries);
             }
 
             entries[key] = value;
@@ -666,15 +719,17 @@ internal sealed class PdfParser
                 {
                     PdfName key = FreshFakeKey(entries, ref fakeIndex);
                     WarnRepair("Inserted a missing dictionary key.", offset);
-                    _governor.ReserveMemory(32L);
+                    ParserContainers.EnsureEntryCapacity(Memory, entries);
                     entries.Add(key, value);
                 }
             }
 
-            _governor.ReleaseMemory(checked(32L + (missingKeys.Count * 16L)));
+            ParserContainers.ReleaseList(Memory, missingKeys);
         }
 
-        PdfDictionary dictionary = new(entries);
+        _governor.ChargeWork(entries.Count);
+        _governor.CheckCancellation();
+        PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, entries);
         long beforeNext = tokenizer.Position;
         bool nextIsStream = false;
         try
@@ -710,15 +765,15 @@ internal sealed class PdfParser
 
             long memory = count + 8L + 64L;
             long scratch = count + 8L + 32L;
-            _governor.ReserveMemory(checked(memory + scratch));
+            ReserveMemory(checked(memory + scratch));
             PdfName candidate = new(text[..(count + 8)].ToArray());
-            _governor.ReleaseMemory(scratch);
+            ReleaseMemory(scratch);
             if (!entries.ContainsKey(candidate))
             {
                 return candidate;
             }
 
-            _governor.ReleaseMemory(memory);
+            ReleaseMemory(memory);
         }
     }
 
@@ -757,23 +812,29 @@ internal sealed class PdfParser
             }
         }
 
-        _governor.ReserveMemory(length);
+        ReserveMemory(checked(length * 2L + 96L));
         byte[] bytes = new byte[(int)length];
-        data.Slice((int)cursor, (int)length).CopyTo(bytes);
+        for (int start = 0; start < bytes.Length; start += Math.Min(4096, bytes.Length - start))
+        {
+            int count = Math.Min(4096, bytes.Length - start);
+            _governor.ChargeWork(count);
+            _governor.CheckCancellation();
+            data.Slice((int)cursor + start, count).CopyTo(bytes.AsMemory(start, count));
+        }
         tokenizer.SetPosition(cursor + length);
-        tokenizer.SkipWhitespaceAndComments();
-        if (!tokenizer.TryReadToken(out PdfToken end) || end.Kind != PdfTokenKind.EndStream)
+        if (!tokenizer.TryReadToken(out PdfToken end, false, _governor) || end.Kind != PdfTokenKind.EndStream)
         {
             throw new QpdfParseException("Expected 'endstream' after stream data.", offset, null);
         }
 
-        return new PdfStream(dictionary, bytes);
+        PdfStream stream = new(dictionary, bytes);
+        ReleaseMemory(checked(length + 32L));
+        return stream;
     }
 
     private long ResolveStreamLength(PdfDictionary dictionary, long offset)
     {
-        PdfName lengthKey = new([(byte)'L', (byte)'e', (byte)'n', (byte)'g', (byte)'t', (byte)'h']);
-        if (!dictionary.TryGet(lengthKey, out QpdfObject raw))
+        if (!dictionary.TryGet(LengthKey, out QpdfObject raw))
         {
             throw new QpdfParseException("Stream dictionary has no /Length.", offset, null);
         }
