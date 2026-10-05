@@ -303,6 +303,26 @@ internal static class Program
             Check(overwrittenHost.OpenLeaseCount == 0L, "successful-discard consumer leases closed");
         }
         Console.WriteLine("PASS repeated successful parser discards under finite host memory (argv/job)");
+        byte[] mismatchedInput = Encoding.ASCII.GetBytes(Encoding.ASCII.GetString(TwoPagePdf("(" + new string('A', 4096) + ")"))
+            .Replace("8 0 obj\n", "9 0 obj\n", StringComparison.Ordinal));
+        InMemoryQpdfHost mismatchedHost = NewHost("inputs/mismatched.pdf", mismatchedInput);
+        QpdfLimits mismatchedLimits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(mismatchedHost, QpdfPath.From("inputs/mismatched.pdf"), mismatchedLimits, CancellationToken.None))
+        {
+            Check(document.PageCount == 2, "wrong-header source fits the host memory ceiling");
+            long baseline = document.Counters.LiveMemoryBytes;
+            for (int attempt = 0; attempt < 50; attempt++)
+            {
+                try { document.GetObject(8); throw new InvalidOperationException("Wrong object header accepted."); }
+                catch (QpdfParseException error)
+                {
+                    Check(error.Message.Contains("header contradicts", StringComparison.Ordinal), "wrong-header rejection is preserved");
+                }
+                Check(document.Counters.LiveMemoryBytes == baseline, "rejected object releases only its parser admission");
+            }
+        }
+        Check(mismatchedHost.OpenLeaseCount == 0L, "wrong-header consumer leases closed");
+        Console.WriteLine("PASS repeated rejected object headers under finite host memory (typed)");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

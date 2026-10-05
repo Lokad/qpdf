@@ -1739,7 +1739,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix, dictionary guards, governed display and attempt/subtree-owned parser cleanup are implemented. Aborted containers, capacity/copy admission, successful duplicate/orphan cleanup, nested-length cache retention, finite-memory argv/job bulk loads with valid/rebuilt xrefs, complete-number recovery headers and observed-work cancellation have regressions. Complete ownership of successful recovery trials and caller-rejected parsed values, broader nested public loads (indirect lengths and compressed members), diagnostic/document/cache lifetimes and failed/canceled counters before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix, dictionary guards, governed display and attempt/subtree-owned parser cleanup are implemented. Header rejection, unmatched/trailing compressed members, prior raw/member cache identity, nested-length retention, finite-memory public repetition and observed-work cancellation have regressions. Object-stream scratch ownership covers unfiltered and Flate data; other codecs remain open. Complete successful recovery/trailer/linearization trials and remaining xref acceptance, broader public repair/recovery nested loads, diagnostic/document/cache lifetimes and failed/canceled counters before closing the entry."
       ],
       "evidence": {
       "positive": [
@@ -1843,6 +1843,17 @@
           "ParserDiscardTests.DiscardedNestedStreamPreservesFreshResolverCache",
           "ParserDiscardTests.FailureAfterDiscardPreservesPreviouslyRetainedValues",
           "ParserDiscardTests.CancellationAfterOverwriteReleasesItsAttempt",
+          "ReaderAcceptanceTests.RepeatedRejectedHeadersReleaseOnlyTheirValues",
+          "ReaderAcceptanceTests.RejectedHeaderPreservesFreshNestedLengthCache",
+          "ReaderAcceptanceTests.AcceptedValueAfterRejectedHeaderKeepsItsAlias",
+          "ReaderAcceptanceTests.SyntaxFailureStillPrecedesHeaderIdentityValidation",
+          "ReaderAcceptanceTests.PublicHeaderFailurePreservesTargetsAndObservedWork",
+          "ReaderAcceptanceTests.RejectedCompressedMembersReleaseValuesAndKeepPriorCache",
+          "ReaderAcceptanceTests.UnmatchedMembersDoNotRetainParsedCopies",
+          "ReaderAcceptanceTests.DuplicateMembersWithinOnePassKeepTheExistingLastWinsPolicy",
+          "ReaderAcceptanceTests.InvalidObjectStreamHeadersReleaseTheirScratch",
+          "ReaderAcceptanceTests.CancellationDuringHeaderCandidatePreservesEarlierCache",
+          "ReaderAcceptanceTests.CancellationDuringCompressedRetryKeepsPriorAcceptedCache",
           "RecoveryHeaderTests.MultidigitHeadersKeepCatalogIdentityOnPublicRecovery",
           "RecoveryHeaderTests.RecoveryEntriesUseCompleteHeadersRatherThanDigitSuffixes",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"

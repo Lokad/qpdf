@@ -536,6 +536,8 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
     /// <summary>Gets a copy of the raw stream bytes.</summary>
     public byte[] Data => (byte[])_data.Clone();
 
+    internal ReadOnlyMemory<byte> RawMemory => _data;
+
     /// <summary>Indicates whether this instance equals another PdfStream.</summary>
     public bool Equals(PdfStream? other)
     {

@@ -85,6 +85,16 @@ internal static class FilterChain
         QpdfLimits limits,
         ResourceGovernor governor)
     {
+        return Decode(input, stages, limits, governor, null);
+    }
+
+    internal static byte[] Decode(
+        byte[] input,
+        IReadOnlyList<FilterStage> stages,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        ParserMemoryScope? memory)
+    {
         if (input is null)
         {
             throw new ArgumentNullException(nameof(input));
@@ -106,13 +116,15 @@ internal static class FilterChain
         }
 
         limits.Validate();
+        memory?.CheckOwner(governor);
         if (stages.Count > limits.MaxStreamFilters)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.TooManyFilters, null, $"{stages.Count} filters exceed the maximum of {limits.MaxStreamFilters}");
         }
         if (stages.Count == 0)
         {
-            governor.ReserveMemory(input.Length);
+            if (memory is null) { governor.ReserveMemory(input.Length); }
+            else { memory.Reserve(input.Length); }
             byte[] passthrough = new byte[input.Length];
             Buffer.BlockCopy(input, 0, passthrough, 0, input.Length);
             return passthrough;
@@ -122,6 +134,12 @@ internal static class FilterChain
         for (int i = 0; i < stages.Count; i++)
         {
             current = DecodeStage(current, stages[i], limits, governor);
+            // Flate's returned array has an explicit retained reservation.
+            // Other codecs still need their own allocation/ownership audit.
+            if (stages[i].Name == FlateFilter.FilterName && current.Length != 0)
+            {
+                memory?.AdoptReserved(checked((long)current.Length + GovernedBufferStream.ArrayOverheadBytes));
+            }
         }
 
         return current;

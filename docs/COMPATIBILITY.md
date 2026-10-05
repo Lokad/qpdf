@@ -12,7 +12,10 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and ownership of successful trials/caller-rejected values still keep that entry partial; excluded crypto
+and ownership of successful recovery/trailer/linearization trials still keep that entry partial.
+Header-rejected and unmatched/trailing compressed-member values now have public ownership regressions,
+including retained nested/cache aliases and cancellation; structural scratch evidence covers
+unfiltered and Flate object streams, while other codec owners remain open. Excluded crypto
 operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and

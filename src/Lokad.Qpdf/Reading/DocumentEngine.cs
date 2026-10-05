@@ -142,6 +142,7 @@ internal sealed class DocumentEngine : IIndirectResolver
             }
 
             _governor.ChargeWork(1L);
+            using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
             PdfTokenizer tokenizer = new(_data);
             tokenizer.SetPosition(entry.First);
             _governor.ReserveMemory(128L);
@@ -159,7 +160,7 @@ internal sealed class DocumentEngine : IIndirectResolver
                     TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
                     SanityChecks = reconstructed,
                 };
-                (foundNumber, foundGeneration, value) = parser.ParseIndirectObject(tokenizer, 0);
+                (foundNumber, foundGeneration, value) = parser.ParseIndirectObject(tokenizer, 0, memory);
             }
             finally
             {
@@ -171,6 +172,7 @@ internal sealed class DocumentEngine : IIndirectResolver
             }
 
             _cache[number] = value;
+            memory.Retain();
             return value;
         }
         finally
@@ -210,7 +212,7 @@ internal sealed class DocumentEngine : IIndirectResolver
                 throw new QpdfParseException($"Object stream {streamNumber} is not a direct object.", null, streamNumber);
             }
 
-            QpdfObject raw = Load(streamNumber, entry);
+            QpdfObject raw = Load(streamNumber);
             if (raw is not PdfStream stream)
             {
                 throw new QpdfParseException($"Object {streamNumber} is not a stream.", null, streamNumber);
@@ -231,16 +233,21 @@ internal sealed class DocumentEngine : IIndirectResolver
 
             int count = ReadObjStmInt(dictionary, "N", 1, streamNumber);
             int first = ReadObjStmInt(dictionary, "First", 0, streamNumber);
-            byte[] decoded = DecodeStreamData(stream, streamNumber);
+            using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
+            ReadOnlyMemory<byte> decoded = DecodeStreamData(stream, streamNumber, scratch);
             if (first >= decoded.Length && count > 0)
             {
                 throw new QpdfParseException($"Object stream {streamNumber} has invalid /First entry.", null, streamNumber);
             }
 
-            List<(int Number, int Offset)> pairs = ReadObjStmPairs(decoded, count, streamNumber);
+            List<(int Number, int Offset)> pairs = ReadObjStmPairs(decoded, count, streamNumber, scratch);
+            scratch.Reserve(checked((long)pairs.Count + 32L));
+            bool[] previouslyCached = new bool[pairs.Count];
             long lastOffset = -1L;
             for (int i = 0; i < pairs.Count; i++)
             {
+                _governor.ChargeWork(1L);
+                previouslyCached[i] = _cache.ContainsKey(pairs[i].Number);
                 if (pairs[i].Offset <= lastOffset)
                 {
                     throw new QpdfParseException($"Object stream {streamNumber} offsets must ascend.", null, streamNumber);
@@ -270,7 +277,8 @@ internal sealed class DocumentEngine : IIndirectResolver
             {
                 int start = first + pairs[i].Offset;
                 int end = i + 1 < pairs.Count ? first + pairs[i + 1].Offset : decoded.Length;
-                PdfTokenizer tokenizer = new(decoded.AsMemory(start, end - start));
+                PdfTokenizer tokenizer = new(decoded.Slice(start, end - start));
+                using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
                 _governor.ReserveMemory(128L);
                 QpdfObject value;
                 try
@@ -279,7 +287,7 @@ internal sealed class DocumentEngine : IIndirectResolver
                     {
                         TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
                     };
-                    value = parser.ParseObjectValue(tokenizer, 0);
+                    value = parser.ParseObjectValue(tokenizer, 0, memory);
                     if (!parser.ObjectAborted && tokenizer.TryReadToken(out PdfToken _, false, _governor))
                     {
                         throw new QpdfParseException($"Object stream {streamNumber} entry {pairs[i].Number} has trailing bytes.", null, pairs[i].Number);
@@ -292,9 +300,11 @@ internal sealed class DocumentEngine : IIndirectResolver
 
                 if (_table.Entries.TryGetValue(pairs[i].Number, out XrefEntry target)
                     && target.Kind == XrefEntryKind.Compressed
-                    && target.First == streamNumber)
+                    && target.First == streamNumber
+                    && !previouslyCached[i])
                 {
                     _cache[pairs[i].Number] = value;
+                    memory.Retain();
                 }
             }
         }
@@ -320,7 +330,7 @@ internal sealed class DocumentEngine : IIndirectResolver
         return (int)integer.Value;
     }
 
-    private byte[] DecodeStreamData(PdfStream stream, int streamNumber)
+    private ReadOnlyMemory<byte> DecodeStreamData(PdfStream stream, int streamNumber, ParserMemoryScope scratch)
     {
         IReadOnlyList<FilterStage> stages;
         try
@@ -332,10 +342,13 @@ internal sealed class DocumentEngine : IIndirectResolver
             throw new QpdfParseException($"Object stream {streamNumber} declares invalid filters: {ex.Message}", null, streamNumber);
         }
 
-        return FilterChain.Decode(stream.Data, stages, _limits, _governor);
+        if (stages.Count == 0) { return stream.RawMemory; }
+        scratch.Reserve(checked((long)stream.RawMemory.Length + 32L));
+        return FilterChain.Decode(stream.Data, stages, _limits, _governor, scratch);
     }
 
-    private List<(int Number, int Offset)> ReadObjStmPairs(byte[] decoded, int count, int streamNumber)
+    private List<(int Number, int Offset)> ReadObjStmPairs(
+        ReadOnlyMemory<byte> decoded, int count, int streamNumber, ParserMemoryScope scratch)
     {
         PdfTokenizer tokenizer = new(decoded);
         if ((long)count * 4L > decoded.Length)
@@ -343,13 +356,13 @@ internal sealed class DocumentEngine : IIndirectResolver
             throw new QpdfParseException($"Object stream {streamNumber} declares {count} entries but holds {decoded.Length} bytes.", null, streamNumber);
         }
 
-        _governor.ReserveMemory(checked((long)count * 8L + 64L));
+        scratch.Reserve(checked((long)count * 8L + 64L));
         List<(int Number, int Offset)> pairs = new(count);
         for (int i = 0; i < count; i++)
         {
             _governor.ChargeWork(1L);
-            if (!tokenizer.TryReadToken(out PdfToken numberToken) || numberToken.Kind != PdfTokenKind.Integer
-                || !tokenizer.TryReadToken(out PdfToken offsetToken) || offsetToken.Kind != PdfTokenKind.Integer)
+            if (!tokenizer.TryReadToken(out PdfToken numberToken, false, _governor) || numberToken.Kind != PdfTokenKind.Integer
+                || !tokenizer.TryReadToken(out PdfToken offsetToken, false, _governor) || offsetToken.Kind != PdfTokenKind.Integer)
             {
                 throw new QpdfParseException($"Object stream {streamNumber} header expects integers.", null, streamNumber);
             }
@@ -367,15 +380,18 @@ internal sealed class DocumentEngine : IIndirectResolver
         return pairs;
     }
 
-    private static int ParseHeaderInt(PdfToken token, int streamNumber)
+    private int ParseHeaderInt(PdfToken token, int streamNumber)
     {
         long value = 0L;
         try
         {
             checked
             {
-                foreach (byte b in token.Data.Span)
+                ReadOnlySpan<byte> bytes = token.Data.Span;
+                for (int i = 0; i < bytes.Length; i++)
                 {
+                    if ((i & 255) == 0) { _governor.ChargeWork(1L); }
+                    byte b = bytes[i];
                     if (b < (byte)'0' || b > (byte)'9')
                     {
                         throw new QpdfParseException($"Object stream {streamNumber} header expects integers.", null, streamNumber);

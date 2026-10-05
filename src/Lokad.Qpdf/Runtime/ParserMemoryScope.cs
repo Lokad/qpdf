@@ -41,7 +41,30 @@ internal sealed class ParserMemoryScope : IDisposable
 
     // Successful values retain their admission for the document/job lifetime.
     // Only this attempt's temporary wrapper is released on disposal.
-    internal void Retain() { _reservedBytes = 0L; }
+    internal void Retain()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _reservedBytes = 0L;
+    }
+
+    internal void CheckOwner(ResourceGovernor governor)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!ReferenceEquals(_governor, governor))
+        {
+            throw new InvalidOperationException("Parser ownership belongs to a different governor.");
+        }
+    }
+
+    internal void Discard() { Release(_reservedBytes); }
+
+    // A decoder has already admitted this allocation through the same governor.
+    internal void AdoptReserved(long bytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentOutOfRangeException.ThrowIfNegative(bytes);
+        _reservedBytes = checked(_reservedBytes + bytes);
+    }
 
     public void Dispose()
     {

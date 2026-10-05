@@ -156,6 +156,14 @@ internal sealed class PdfParser
     internal QpdfObject ParseObjectValue(PdfTokenizer tokenizer, int depth)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        QpdfObject value = ParseObjectValue(tokenizer, depth, memory);
+        memory.Retain();
+        return value;
+    }
+
+    internal QpdfObject ParseObjectValue(PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
+    {
+        memory.CheckOwner(_governor);
         ParserMemoryScope? parent = _memory;
         _memory = memory;
         BeginTolerantObject();
@@ -163,13 +171,12 @@ internal sealed class PdfParser
         {
             try
             {
-                QpdfObject value = ParseValueCore(tokenizer, depth);
-                memory.Retain();
-                return value;
+                return ParseValueCore(tokenizer, depth);
             }
             catch (RepairAbort) when (TolerateObjectErrors)
             {
                 ObjectAborted = true;
+                memory.Discard();
                 return PdfNull.Instance;
             }
         }
@@ -179,13 +186,19 @@ internal sealed class PdfParser
     internal QpdfObject ParseValue(PdfTokenizer tokenizer, int depth)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        QpdfObject value = ParseValue(tokenizer, depth, memory);
+        memory.Retain();
+        return value;
+    }
+
+    internal QpdfObject ParseValue(PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
+    {
+        memory.CheckOwner(_governor);
         ParserMemoryScope? parent = _memory;
         _memory = memory;
         try
         {
-            QpdfObject value = ParseValueCore(tokenizer, depth);
-            memory.Retain();
-            return value;
+            return ParseValueCore(tokenizer, depth);
         }
         finally { _memory = parent; }
     }
@@ -313,12 +326,21 @@ internal sealed class PdfParser
     internal (int Number, int Generation, QpdfObject Value) ParseIndirectObject(PdfTokenizer tokenizer, int depth)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        (int number, int generation, QpdfObject value) = ParseIndirectObject(tokenizer, depth, memory);
+        memory.Retain();
+        return (number, generation, value);
+    }
+
+    internal (int Number, int Generation, QpdfObject Value) ParseIndirectObject(
+        PdfTokenizer tokenizer, int depth, ParserMemoryScope memory)
+    {
+        memory.CheckOwner(_governor);
         ParserMemoryScope? parent = _memory;
         _memory = memory;
         try
         {
             (int number, int generation, QpdfObject value) = ParseIndirectObjectCore(tokenizer, depth);
-            if (!ObjectAborted) { memory.Retain(); }
+            if (ObjectAborted) { memory.Discard(); }
             return (number, generation, value);
         }
         finally { _memory = parent; }
