@@ -7,12 +7,24 @@ namespace Lokad.Qpdf.Syntax;
 internal static class ParserContainers
 {
     internal static List<QpdfObject> CreateList(ParserMemoryScope memory)
+        => CreateList<QpdfObject>(memory);
+
+    internal static List<ParsedValue> CreateOwnedList(ParserMemoryScope memory)
+        => CreateList<ParsedValue>(memory);
+
+    private static List<T> CreateList<T>(ParserMemoryScope memory)
     {
         memory.Reserve(32L);
-        return new List<QpdfObject>();
+        return new List<T>();
     }
 
     internal static void AddItem(ParserMemoryScope memory, List<QpdfObject> items, QpdfObject value)
+        => AddItem(memory, items, value, IntPtr.Size);
+
+    internal static void AddOwnedItem(ParserMemoryScope memory, List<ParsedValue> items, ParsedValue value)
+        => AddItem(memory, items, value, 16L);
+
+    private static void AddItem<T>(ParserMemoryScope memory, List<T> items, T value, long itemBytes)
     {
         if (items.Count == items.Capacity)
         {
@@ -21,8 +33,8 @@ internal static class ParserContainers
             {
                 throw new QpdfParseException("Array exceeds the supported capacity.", null, null);
             }
-            long previous = ArrayBytes(items.Capacity);
-            memory.Reserve(ArrayBytes(capacity));
+            long previous = ArrayBytes(items.Capacity, itemBytes);
+            memory.Reserve(ArrayBytes(capacity, itemBytes));
             items.Capacity = capacity;
             memory.Release(previous);
         }
@@ -39,40 +51,52 @@ internal static class ParserContainers
 
     internal static void ReleaseList(ParserMemoryScope memory, List<QpdfObject> items)
     {
-        memory.Release(32L + ArrayBytes(items.Capacity));
+        memory.Release(32L + ArrayBytes(items.Capacity, IntPtr.Size));
     }
 
-    internal static Dictionary<PdfName, QpdfObject> CreateDictionary(ParserMemoryScope memory)
+    internal static void ReleaseOwnedList(ParserMemoryScope memory, List<ParsedValue> items)
+    {
+        memory.Release(32L + ArrayBytes(items.Capacity, 16L));
+    }
+
+    internal static Dictionary<PdfName, ParsedValue> CreateDictionary(ParserMemoryScope memory)
     {
         memory.Reserve(96L);
-        return new Dictionary<PdfName, QpdfObject>();
+        return new Dictionary<PdfName, ParsedValue>();
     }
 
-    internal static void EnsureEntryCapacity(ParserMemoryScope memory, Dictionary<PdfName, QpdfObject> entries)
+    internal static void EnsureEntryCapacity(ParserMemoryScope memory, Dictionary<PdfName, ParsedValue> entries)
     {
         int previous = entries.EnsureCapacity(0);
         if (entries.Count < previous) { return; }
         int required = checked(entries.Count + 1);
-        long upper = DictionaryArrays(PrimeCapacityAllowance(required));
+        long upper = DictionaryArrays(PrimeCapacityAllowance(required), 16L);
         // The pinned .NET 10 prime table fits this conservative allowance.
         // EnsureCapacity reports the actual storage; release excess admission.
         memory.Reserve(upper);
         int capacity = entries.EnsureCapacity(required);
-        memory.Release(checked(upper - DictionaryArrays(capacity) + DictionaryArrays(previous)));
+        memory.Release(checked(upper - DictionaryArrays(capacity, 16L) + DictionaryArrays(previous, 16L)));
     }
 
-    internal static PdfDictionary CopyDictionary(ParserMemoryScope memory, Dictionary<PdfName, QpdfObject> entries)
+    internal static PdfDictionary CopyDictionary(ParserMemoryScope memory, ResourceGovernor governor, Dictionary<PdfName, ParsedValue> entries)
     {
-        long upper = DictionaryArrays(PrimeCapacityAllowance(entries.Count));
+        long upper = DictionaryArrays(PrimeCapacityAllowance(entries.Count), IntPtr.Size);
         memory.Reserve(128L + upper);
-        PdfDictionary value = new(entries);
-        memory.Release(checked(upper - DictionaryArrays(value.StorageCapacity) + 96L + DictionaryArrays(entries.EnsureCapacity(0))));
+        Dictionary<PdfName, QpdfObject> kept = new(entries.Count);
+        foreach (KeyValuePair<PdfName, ParsedValue> entry in entries)
+        {
+            governor.CheckCancellation();
+            kept.Add(entry.Key, entry.Value.Value);
+        }
+        PdfDictionary value = PdfDictionary.FromOwnedEntries(kept);
+        memory.Release(checked(upper - DictionaryArrays(value.StorageCapacity, IntPtr.Size)
+            + 96L + DictionaryArrays(entries.EnsureCapacity(0), 16L)));
         return value;
     }
 
-    private static long ArrayBytes(int capacity) => capacity == 0 ? 0L : 32L + IntPtr.Size * (long)capacity;
+    private static long ArrayBytes(int capacity, long itemBytes) => capacity == 0 ? 0L : 32L + itemBytes * capacity;
 
     private static int PrimeCapacityAllowance(int required) => (int)Math.Min(Array.MaxLength, required * 3L);
 
-    private static long DictionaryArrays(int capacity) => capacity == 0 ? 0L : checked(64L + (12L + 2L * IntPtr.Size) * capacity);
+    private static long DictionaryArrays(int capacity, long valueBytes) => capacity == 0 ? 0L : checked(64L + (12L + IntPtr.Size + valueBytes) * capacity);
 }

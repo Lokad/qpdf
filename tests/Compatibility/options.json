@@ -1739,7 +1739,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix, dictionary guards, governed display and attempt-owned parser cleanup are implemented. Aborted containers, capacity/copy admission, fresh nested-length cache retention, finite-memory argv/job bulk loads with valid/rebuilt xrefs, complete-number recovery headers and observed-work cancellation have regressions. Complete ownership of discarded values in successful parses and successful recovery trials, broader nested public loads (indirect lengths and compressed members), diagnostic/document/cache lifetimes and failed/canceled counters before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix, dictionary guards, governed display and attempt/subtree-owned parser cleanup are implemented. Aborted containers, capacity/copy admission, successful duplicate/orphan cleanup, nested-length cache retention, finite-memory argv/job bulk loads with valid/rebuilt xrefs, complete-number recovery headers and observed-work cancellation have regressions. Complete ownership of successful recovery trials and caller-rejected parsed values, broader nested public loads (indirect lengths and compressed members), diagnostic/document/cache lifetimes and failed/canceled counters before closing the entry."
       ],
       "evidence": {
       "positive": [
@@ -1832,6 +1832,17 @@
           "ParserOwnershipTests.CanceledPublicStreamLoadPreservesFreshNestedLengthReservation",
           "ParserOwnershipTests.CancellationAfterContainerWorkReleasesAbandonedAttempt",
           "ParserOwnershipTests.PublicJsonLoadsManyNullRepairsWithinFiniteHostMemory",
+          "ParserDiscardTests.SuccessfulOverwritesRetainOnlyTheSurvivingGraph",
+          "ParserDiscardTests.SuccessfulRecoveryDiscardsOnlyOrphanValues",
+          "ParserDiscardTests.OrdinaryRepairTransfersOrphansToTheirGeneratedKeys",
+          "ParserDiscardTests.EquivalentDuplicateNamesDoNotRetainTheSecondKey",
+          "ParserDiscardTests.MissingDuplicateValueReleasesItsPredecessor",
+          "ParserDiscardTests.RepeatedSuccessfulDiscardsPreservePreviousValueAliases",
+          "ParserDiscardTests.PublicBulkSuccessfulDiscardsFitFiniteMemory",
+          "ParserDiscardTests.SuccessfulStreamKeepsFreshNestedLengthWhileDiscardingDictionaryValues",
+          "ParserDiscardTests.DiscardedNestedStreamPreservesFreshResolverCache",
+          "ParserDiscardTests.FailureAfterDiscardPreservesPreviouslyRetainedValues",
+          "ParserDiscardTests.CancellationAfterOverwriteReleasesItsAttempt",
           "RecoveryHeaderTests.MultidigitHeadersKeepCatalogIdentityOnPublicRecovery",
           "RecoveryHeaderTests.RecoveryEntriesUseCompleteHeadersRatherThanDigitSuffixes",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"

@@ -301,6 +301,15 @@ internal sealed class PdfParser
         }
     }
 
+    private ParsedValue ParseOwnedToken(PdfTokenizer tokenizer, PdfToken token, int depth)
+    {
+        // Measure only this attempt's contribution, never the global governor.
+        // A nested resolver/cache load retains a separate scope's reservations.
+        long before = Memory.ReservedBytes;
+        QpdfObject value = ParseToken(tokenizer, token, depth);
+        return new ParsedValue(value, checked(Memory.ReservedBytes - before));
+    }
+
     internal (int Number, int Generation, QpdfObject Value) ParseIndirectObject(PdfTokenizer tokenizer, int depth)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
@@ -620,8 +629,8 @@ internal sealed class PdfParser
 
     private QpdfObject ParseDictionaryContentsOrStream(PdfTokenizer tokenizer, int depth, long offset)
     {
-        Dictionary<PdfName, QpdfObject> entries = ParserContainers.CreateDictionary(Memory);
-        List<QpdfObject>? missingKeys = null;
+        Dictionary<PdfName, ParsedValue> entries = ParserContainers.CreateDictionary(Memory);
+        List<ParsedValue>? missingKeys = null;
         while (true)
         {
             if (!TryReadValueToken(tokenizer, out PdfToken token))
@@ -648,33 +657,36 @@ internal sealed class PdfParser
 
                 if (missingKeys is null)
                 {
-                    missingKeys = ParserContainers.CreateList(Memory);
+                    missingKeys = ParserContainers.CreateOwnedList(Memory);
                 }
 
-                ParserContainers.AddItem(Memory, missingKeys, ParseToken(tokenizer, token, depth + 1));
+                ParserContainers.AddOwnedItem(Memory, missingKeys, ParseOwnedToken(tokenizer, token, depth + 1));
                 _dictionaryOrphans = missingKeys.Count;
                 continue;
             }
 
+            long beforeKey = Memory.ReservedBytes;
             PdfName key = (PdfName)ParseName(token);
+            long keyBytes = checked(Memory.ReservedBytes - beforeKey);
             if (!TryReadValueToken(tokenizer, out PdfToken valueToken))
             {
                 UnterminatedContainer("dictionary", tokenizer.Position);
             }
 
             bool missingValue = valueToken.Kind == PdfTokenKind.DictionaryClose;
-            QpdfObject value;
+            ParsedValue value;
             if (missingValue && TolerateObjectErrors)
             {
                 WarnRepair("Dictionary key has no value; treating value as null.", valueToken.Offset);
-                value = PdfNull.Instance;
+                value = new ParsedValue(PdfNull.Instance, 0L);
             }
             else
             {
-                value = ParseToken(tokenizer, valueToken, depth + 1);
+                value = ParseOwnedToken(tokenizer, valueToken, depth + 1);
             }
 
-            if (entries.ContainsKey(key))
+            long discardedBytes = 0L;
+            if (entries.TryGetValue(key, out ParsedValue previous))
             {
                 if (!SuppressRepairDiagnostics)
                 {
@@ -683,7 +695,7 @@ internal sealed class PdfParser
                 }
                 if (TolerateObjectErrors)
                 {
-                    if (value is PdfInteger)
+                    if (value.Value is PdfInteger)
                     {
                         // Scalar integers are disambiguated from references
                         // using following tokens. Their duplicate is observed
@@ -693,6 +705,10 @@ internal sealed class PdfParser
                     }
                     CountToleratedError(token.Offset);
                 }
+                // Dictionary assignment keeps the first equal key instance.
+                // This newly parsed key and the old value cease to be retained.
+                discardedBytes = checked(keyBytes + previous.ReservedBytes);
+                previous = default;
             }
             else
             {
@@ -700,6 +716,7 @@ internal sealed class PdfParser
             }
 
             entries[key] = value;
+            ReleaseMemory(discardedBytes);
             if (missingValue)
             {
                 break;
@@ -711,11 +728,18 @@ internal sealed class PdfParser
             if (SanityChecks)
             {
                 WarnRepair("Ignored orphan dictionary values during xref recovery.", offset);
+                for (int i = 0; i < missingKeys.Count; i++)
+                {
+                    _governor.ChargeWork(1L);
+                    long reserved = missingKeys[i].ReservedBytes;
+                    missingKeys[i] = default;
+                    ReleaseMemory(reserved);
+                }
             }
             else
             {
                 long fakeIndex = 0L;
-                foreach (QpdfObject value in missingKeys)
+                foreach (ParsedValue value in missingKeys)
                 {
                     PdfName key = FreshFakeKey(entries, ref fakeIndex);
                     WarnRepair("Inserted a missing dictionary key.", offset);
@@ -724,12 +748,12 @@ internal sealed class PdfParser
                 }
             }
 
-            ParserContainers.ReleaseList(Memory, missingKeys);
+            ParserContainers.ReleaseOwnedList(Memory, missingKeys);
         }
 
         _governor.ChargeWork(entries.Count);
         _governor.CheckCancellation();
-        PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, entries);
+        PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, _governor, entries);
         long beforeNext = tokenizer.Position;
         bool nextIsStream = false;
         try
@@ -750,7 +774,7 @@ internal sealed class PdfParser
         return dictionary;
     }
 
-    private PdfName FreshFakeKey(Dictionary<PdfName, QpdfObject> entries, ref long index)
+    private PdfName FreshFakeKey(Dictionary<PdfName, ParsedValue> entries, ref long index)
     {
         Span<byte> text = stackalloc byte[32];
         "QPDFFake"u8.CopyTo(text);

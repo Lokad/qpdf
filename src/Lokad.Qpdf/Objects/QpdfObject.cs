@@ -394,6 +394,12 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
 {
     private readonly Dictionary<PdfName, QpdfObject> _entries;
 
+    private PdfDictionary(Dictionary<PdfName, QpdfObject> ownedEntries) { _entries = ownedEntries; }
+
+    // The parser has admitted and populated this private dictionary. No caller
+    // may retain mutable access after transfer; public construction still copies.
+    internal static PdfDictionary FromOwnedEntries(Dictionary<PdfName, QpdfObject> entries) => new(entries);
+
     /// <summary>Creates a dictionary, copying the entries.</summary>
     /// <exception cref="ArgumentNullException">The entries are null.</exception>
     public PdfDictionary(IReadOnlyDictionary<PdfName, QpdfObject> entries)

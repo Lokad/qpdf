@@ -8,6 +8,8 @@ internal sealed class ParserMemoryScope : IDisposable
     private long _reservedBytes;
     private bool _disposed;
 
+    internal long ReservedBytes => _reservedBytes;
+
     private ParserMemoryScope(ResourceGovernor governor) { _governor = governor; }
 
     internal static ParserMemoryScope Create(ResourceGovernor governor)

@@ -274,6 +274,35 @@ internal static class Program
             Check(abandonedHost.OpenLeaseCount == 0L, "abandoned-repair consumer leases closed");
         }
         Console.WriteLine("PASS repeated aborted parser values under finite host memory (argv/job)");
+
+        byte[] overwrittenInput = TwoPagePdfWithAuditObjects(Enumerable.Repeat("<< /A (" + new string('A', 4096) + ") /A null >>", 50).ToArray());
+        QpdfLimits overwrittenLimits = QpdfLimits.Default with { MaxMemoryBytes = overwrittenInput.Length + 60000L, MaxParserErrors = 0L };
+        foreach (bool useJob in new[] { false, true })
+        {
+            InMemoryQpdfHost overwrittenHost = NewHost("inputs/overwritten.pdf", overwrittenInput);
+            await using (QpdfDocument control = await QpdfDocument.OpenAsync(overwrittenHost, QpdfPath.From("inputs/overwritten.pdf"), overwrittenLimits, CancellationToken.None))
+            {
+                Check(control.PageCount == 2, "successful-discard source fits the host memory ceiling");
+            }
+            QpdfExecutionOptions overwrittenOptions = new(overwrittenLimits);
+            QpdfExecutionResult overwrittenResult = useJob
+                ? await Qpdf.ExecuteJobAsync(overwrittenHost,
+                    """{"inputFile":"inputs/overwritten.pdf","outputFile":"outputs/overwritten.json","json":"2","jsonKey":["qpdf"],"global":{"parserMaxErrors":0}}""", overwrittenOptions, CancellationToken.None)
+                : await Qpdf.ExecuteAsync(overwrittenHost,
+                    new QpdfCommandInvocation(["inputs/overwritten.pdf", "--json=2", "--json-key=qpdf", "--parser-max-errors=0", "--", "outputs/overwritten.json"]), overwrittenOptions, CancellationToken.None);
+            Check(overwrittenResult.Status == QpdfExecutionStatus.Completed && overwrittenResult.ExitCode == QpdfExitCode.Warning,
+                "fifty successful discards fit finite host memory through argv/job");
+            Check(overwrittenResult.Diagnostics.Count(d => d.Code == QpdfDiagnosticCode.DuplicateKey) == 50, "successful overwrites retain duplicate warnings");
+            using JsonDocument overwrittenJson = JsonDocument.Parse(Published(overwrittenHost, "outputs/overwritten.json"));
+            JsonElement overwrittenObjects = overwrittenJson.RootElement.GetProperty("qpdf")[1];
+            for (int number = 8; number < 58; number++)
+            {
+                JsonElement dictionary = overwrittenObjects.GetProperty($"obj:{number} 0 R").GetProperty("value");
+                Check(dictionary.ValueKind == JsonValueKind.Object && !dictionary.EnumerateObject().Any(), "surviving null entries retain canonical JSON omission");
+            }
+            Check(overwrittenHost.OpenLeaseCount == 0L, "successful-discard consumer leases closed");
+        }
+        Console.WriteLine("PASS repeated successful parser discards under finite host memory (argv/job)");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

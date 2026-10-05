@@ -12,7 +12,7 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and ownership of successful trials/discarded values still keep that entry partial; excluded crypto
+and ownership of successful trials/caller-rejected values still keep that entry partial; excluded crypto
 operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and
@@ -135,8 +135,17 @@ Recovery candidates start at the beginning of their numeric header, so digit
 suffixes cannot create false xref entries for other object numbers. Public
 regressions cover fifty null repairs under finite argv/job memory with
 valid/rebuilt xrefs, fresh indirect-length cache retention, repeated failed loads and cancellation
-after observed container work. Successful overwritten/orphan values and
-successful recovery trials still need ownership reconciliation. General
+after observed container work. Per-value receipts now distinguish a subtree's
+own admission from nested resolver/cache loads. Successful duplicate assignment
+releases the overwritten subtree and the second equal key; recovery sanity
+checks release dropped orphans, while ordinary repair transfers them to fake
+keys. Immutable dictionaries retain only surviving entries. Regressions cover
+byte/name/numeric/reference/container values, missing duplicate values,
+retained aliases and nested resolver caches, finite-memory argv/job bulk loads,
+failure and cancellation after overwrite work. Adversarial nested-stream
+cache tests establish ownership containment, without extending the oracle
+grammar claim. Successful recovery trials and caller-rejected parsed values
+still need ownership reconciliation. General
 container/BCL cancellation, diagnostic memory and document/cache disposal
 remain part of the broader audit; these corrections do not establish a
 whole-job or process-memory guarantee.

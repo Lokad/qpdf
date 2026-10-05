@@ -294,6 +294,11 @@ admitted before allocation. Working containers release after materialization.
 Recovery uses complete numeric headers rather than digit suffixes. Finite-memory argv/job JSON inspections with valid/rebuilt xrefs can load repeated repaired nulls
 without accumulating abandoned reservations; strict failure and observed-work
 cancellation retain nested cached values and clean up attempt storage.
-Ownership of overwritten/orphan values in successful parses, successful
-recovery trials, broader cache/diagnostic lifetimes and cancellation within
+Successful parses release overwritten values and incoming equal keys; recovery
+sanity checks release dropped orphans, while ordinary repair retains them under
+generated keys. Subtree receipts preserve independently loaded resolver/cache
+values. Finite-memory public bulk loads, retained aliases and post-overwrite
+failure/cancellation have regressions; public dictionary construction still
+copies caller storage. Ownership of successful recovery trials and
+caller-rejected values, broader cache/diagnostic lifetimes and cancellation within
 BCL container operations remain open audit work.
