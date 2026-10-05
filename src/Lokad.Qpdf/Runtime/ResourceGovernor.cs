@@ -168,6 +168,14 @@ internal sealed class ResourceGovernor
 
     internal void ReserveDiagnostic(long messageBytes)
     {
+        CheckDiagnostic(messageBytes);
+        _diagnosticCount = checked(_diagnosticCount + 1L);
+        _diagnosticBytes = checked(_diagnosticBytes + messageBytes);
+    }
+
+    /// <summary>Checks a prospective message without charging it a second time.</summary>
+    internal void CheckDiagnostic(long messageBytes)
+    {
         if (messageBytes < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(messageBytes), "Reservation must not be negative.");
@@ -186,9 +194,6 @@ internal sealed class ResourceGovernor
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnosticBytes), nextBytes, _limits.MaxDiagnosticBytes);
             }
-
-            _diagnosticCount = nextCount;
-            _diagnosticBytes = nextBytes;
         }
     }
 

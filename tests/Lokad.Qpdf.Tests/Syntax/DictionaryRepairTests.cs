@@ -349,7 +349,7 @@ public sealed class DictionaryRepairTests
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true, SanityChecks = sanity };
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0);
-        Assert.Equal(expected, CanonicalDisplay.Render(value, limits, governor, new FixtureResolver()));
+        using (var display = CanonicalDisplay.Render(value, limits, governor, new FixtureResolver())) { Assert.Equal(expected, display.Value); }
         Assert.NotEmpty(diagnostics.Entries);
     }
 
@@ -364,7 +364,7 @@ public sealed class DictionaryRepairTests
         QpdfObject next = parser.ParseObjectValue(new PdfTokenizer("[ @ ]"u8.ToArray()), 0);
         Assert.False(parser.ObjectAborted);
         Assert.Equal(1L, parser.ToleratedErrors);
-        Assert.Equal("[ (@) ]", CanonicalDisplay.Render(next, limits, governor));
+        using (var display = CanonicalDisplay.Render(next, limits, governor)) { Assert.Equal("[ (@) ]", display.Value); }
     }
 
     [Theory]

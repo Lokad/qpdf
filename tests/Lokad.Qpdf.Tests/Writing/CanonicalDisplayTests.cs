@@ -83,21 +83,25 @@ public sealed class CanonicalDisplayTests
         Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
     }
 
-    [Fact]
-    public async Task LongStringDisplayObservesCancellationAfterWorkStarts()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LongStringDisplayObservesCancellationAfterBufferWorkStarts(bool binary)
     {
         using CancellationTokenSource cancellation = new();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         byte[] raw = new byte[16 * 1024 * 1024];
-        Array.Fill(raw, (byte)'A');
+        if (!binary) { Array.Fill(raw, (byte)'A'); }
         PdfByteString value = new(raw, false);
-        Task<string> display = Task.Factory.StartNew(() =>
+        Task<GovernedText> display = Task.Factory.StartNew(() =>
             CanonicalDisplay.Render(value, QpdfLimits.Default, governor),
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().TotalWork >= 4096L || display.IsCompleted, TimeSpan.FromSeconds(10));
+        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().PeakMemoryBytes >= 8192L || display.IsCompleted, TimeSpan.FromSeconds(10));
         cancellation.Cancel();
         Assert.True(observed);
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await display.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.True(governor.Snapshot().TotalWork >= 4096L);
+        Assert.True(governor.Snapshot().PeakMemoryBytes >= 8192L);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }

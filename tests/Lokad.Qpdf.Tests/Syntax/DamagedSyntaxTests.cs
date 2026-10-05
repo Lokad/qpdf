@@ -300,7 +300,7 @@ public sealed class DamagedSyntaxTests
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true, SanityChecks = sanity };
         (_, _, QpdfObject value) = parser.ParseIndirectObject(
             new PdfTokenizer(Encoding.Latin1.GetBytes("5 0 obj\n" + body + "\nendobj\n")), 0);
-        Assert.Equal(expected, CanonicalDisplay.Render(value, limits, governor));
+        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.Equal(warns, diagnostics.Entries.Count != 0);
     }
 

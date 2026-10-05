@@ -61,7 +61,7 @@ public sealed class TolerantParserTests
             new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0);
         Assert.Equal(5, number);
         Assert.Equal(0, generation);
-        Assert.Equal(expected, CanonicalDisplay.Render(value, limits, governor));
+        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.NotEmpty(bag.Entries);
         Assert.All(bag.Entries, d => Assert.Equal(QpdfDiagnosticSeverity.Warning, d.Severity));
     }

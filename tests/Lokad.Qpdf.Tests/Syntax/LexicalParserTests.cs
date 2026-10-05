@@ -53,7 +53,7 @@ public sealed class LexicalParserTests
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true, SanityChecks = sanity };
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0);
-        Assert.Equal(expected, CanonicalDisplay.Render(value, limits, governor));
+        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.Equal(warns, diagnostics.Entries.Count != 0);
     }
 
@@ -111,7 +111,7 @@ public sealed class LexicalParserTests
         PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer("[ <ABCD> <ff00> ]"u8.ToArray()), 0));
         Assert.Equal(new byte[] { 0xAB, 0xCD }, Assert.IsType<PdfByteString>(value[0]).Value);
         Assert.Equal(new byte[] { 0xFF, 0x00 }, Assert.IsType<PdfByteString>(value[1]).Value);
-        Assert.Equal("[ <abcd> <ff00> ]", CanonicalDisplay.Render(value, QpdfLimits.Default, governor));
+        using (var display = CanonicalDisplay.Render(value, QpdfLimits.Default, governor)) { Assert.Equal("[ <abcd> <ff00> ]", display.Value); }
     }
 
     [Theory]

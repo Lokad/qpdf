@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -14,7 +12,7 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal static class CanonicalDisplay
 {
-    internal static string Render(
+    internal static GovernedText Render(
         QpdfObject value,
         QpdfLimits limits,
         ResourceGovernor governor)
@@ -22,11 +20,32 @@ internal static class CanonicalDisplay
         return Render(value, limits, governor, null);
     }
 
-    internal static string Render(
+    internal static GovernedText Render(
         QpdfObject value,
         QpdfLimits limits,
         ResourceGovernor governor,
         IIndirectResolver? resolver)
+    {
+        return RenderCore(value, limits, governor, resolver, false);
+    }
+
+    internal static void AddDiagnostic(
+        QpdfObject value,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        IIndirectResolver? resolver,
+        DiagnosticBag diagnostics)
+    {
+        using GovernedText text = RenderCore(value, limits, governor, resolver, true);
+        diagnostics.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text);
+    }
+
+    private static GovernedText RenderCore(
+        QpdfObject value,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        IIndirectResolver? resolver,
+        bool diagnostic)
     {
         if (value is null)
         {
@@ -44,14 +63,14 @@ internal static class CanonicalDisplay
         }
 
         limits.Validate();
-        StringBuilder builder = new();
+        using DisplayBuffer builder = DisplayBuffer.Create(governor, diagnostic);
         AppendValue(value, builder, 0, limits, governor, resolver);
-        return builder.ToString();
+        return builder.Finish();
     }
 
     private static void AppendValue(
         QpdfObject value,
-        StringBuilder builder,
+        DisplayBuffer builder,
         int depth,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -82,13 +101,13 @@ internal static class CanonicalDisplay
 
         if (value is PdfInteger integer)
         {
-            builder.Append(integer.Value.ToString(CultureInfo.InvariantCulture));
+            builder.AppendInteger(integer.Value);
             return;
         }
 
         if (value is PdfReal real)
         {
-            builder.Append(real.Text);
+            builder.AppendText(real.Text);
             return;
         }
 
@@ -123,62 +142,57 @@ internal static class CanonicalDisplay
 
         if (value is PdfDictionary dictionary)
         {
-            List<PdfName> names = new(dictionary.Keys);
-            List<KeyValuePair<byte[], PdfName>> keys = new(names.Count);
-            foreach (PdfName key in names)
+            long reserved = dictionary.Count == 0 ? 0L : checked(32L + 2L * IntPtr.Size * dictionary.Count);
+            governor.CheckCancellation();
+            governor.ReserveMemory(reserved);
+            try
             {
-                keys.Add(new KeyValuePair<byte[], PdfName>(key.RawBytes, key));
-            }
-
-            keys.Sort(static (left, right) =>
-            {
-                int shared = Math.Min(left.Key.Length, right.Key.Length);
-                for (int i = 0; i < shared; i++)
-                {
-                    if (left.Key[i] != right.Key[i])
-                    {
-                        return left.Key[i].CompareTo(right.Key[i]);
-                    }
-                }
-
-                return left.Key.Length.CompareTo(right.Key.Length);
-            });
-            builder.Append("<<");
-            foreach (KeyValuePair<byte[], PdfName> entry in keys)
-            {
-                if (!dictionary.TryGet(entry.Value, out QpdfObject? member) || member is null or PdfNull)
-                {
-                    continue;
-                }
-
-                // Null dictionary members are omitted, including references
-                // that the document resolves as null or absent. Keep live
-                // references in indirect form rather than expanding graphs.
-                if (member is PdfReference indirect && resolver is not null)
+                KeyValuePair<PdfName, QpdfObject>[] keys = dictionary.Count == 0
+                    ? Array.Empty<KeyValuePair<PdfName, QpdfObject>>()
+                    : new KeyValuePair<PdfName, QpdfObject>[dictionary.Count];
+                using Dictionary<PdfName, QpdfObject>.Enumerator entries = dictionary.GetEntryEnumerator();
+                int index = 0;
+                while (entries.MoveNext())
                 {
                     governor.ChargeWork(1L);
                     governor.CheckCancellation();
-                    if (!resolver.TryResolve(indirect, out QpdfObject? resolved) || resolved is null or PdfNull)
+                    keys[index++] = entries.Current;
+                }
+                SortKeys(keys, governor);
+                builder.Append("<<");
+                foreach (KeyValuePair<PdfName, QpdfObject> entry in keys)
+                {
+                    QpdfObject member = entry.Value;
+                    if (member is null or PdfNull)
                     {
                         continue;
                     }
+                    // Test reference nullness without expanding live graphs.
+                    if (member is PdfReference indirect && resolver is not null)
+                    {
+                        governor.ChargeWork(1L);
+                        governor.CheckCancellation();
+                        if (!resolver.TryResolve(indirect, out QpdfObject? resolved) || resolved is null or PdfNull)
+                        {
+                            continue;
+                        }
+                    }
+                    builder.Append(' ');
+                    AppendName(entry.Key, builder, governor);
+                    builder.Append(' ');
+                    AppendValue(member, builder, depth + 1, limits, governor, resolver);
                 }
-
-                builder.Append(' ');
-                AppendName(entry.Value, builder, governor);
-                builder.Append(' ');
-                AppendValue(member, builder, depth + 1, limits, governor, resolver);
+                builder.Append(" >>");
             }
-
-            builder.Append(" >>");
+            finally { governor.ReleaseMemory(reserved); }
             return;
         }
 
         if (value is PdfReference reference)
         {
-            builder.Append(reference.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.AppendInteger(reference.ObjectNumber);
             builder.Append(' ');
-            builder.Append(reference.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.AppendInteger(reference.Generation);
             builder.Append(" R");
             return;
         }
@@ -187,7 +201,7 @@ internal static class CanonicalDisplay
     }
 
 
-    private static void AppendName(PdfName name, StringBuilder builder, ResourceGovernor governor)
+    private static void AppendName(PdfName name, DisplayBuffer builder, ResourceGovernor governor)
     {
         ReadOnlySpan<byte> raw = name.RawSpan;
         governor.CheckCancellation();
@@ -225,7 +239,7 @@ internal static class CanonicalDisplay
             && b != (byte)'}' && b != (byte)'/' && b != (byte)'%';
     }
 
-    private static void AppendString(PdfByteString text, StringBuilder builder, ResourceGovernor governor)
+    private static void AppendString(PdfByteString text, DisplayBuffer builder, ResourceGovernor governor)
     {
         ReadOnlySpan<byte> raw = text.ValueSpan;
         if (PdfJsonWriter.UseHexString(raw, governor))
@@ -302,5 +316,45 @@ internal static class CanonicalDisplay
     private static char HexDigit(int value)
     {
         return (char)(value < 10 ? '0' + value : 'a' + value - 10);
+    }
+
+    // In-place heapsort has bounded stack and scratch. Compare immutable raw
+    // spans instead of private key copies; even long common prefixes charge
+    // work and check cancellation without Array.Sort exception wrapping.
+    private static void SortKeys(KeyValuePair<PdfName, QpdfObject>[] keys, ResourceGovernor governor)
+    {
+        for (int root = keys.Length / 2 - 1; root >= 0; root--) { SiftDown(keys, root, keys.Length, governor); }
+        for (int end = keys.Length - 1; end > 0; end--)
+        {
+            (keys[0], keys[end]) = (keys[end], keys[0]);
+            SiftDown(keys, 0, end, governor);
+        }
+    }
+
+    private static void SiftDown(KeyValuePair<PdfName, QpdfObject>[] keys, int root, int count, ResourceGovernor governor)
+    {
+        while (root < count / 2)
+        {
+            int child = checked(2 * root + 1);
+            if (child + 1 < count && CompareKeys(keys[child].Key, keys[child + 1].Key, governor) < 0) { child++; }
+            if (CompareKeys(keys[root].Key, keys[child].Key, governor) >= 0) { return; }
+            (keys[root], keys[child]) = (keys[child], keys[root]);
+            root = child;
+        }
+    }
+
+    private static int CompareKeys(PdfName left, PdfName right, ResourceGovernor governor)
+    {
+        governor.ChargeWork(1L);
+        governor.CheckCancellation();
+        ReadOnlySpan<byte> a = left.RawSpan;
+        ReadOnlySpan<byte> b = right.RawSpan;
+        int shared = Math.Min(a.Length, b.Length);
+        for (int i = 0; i < shared; i++)
+        {
+            ChargeBytes(i, shared, governor);
+            if (a[i] != b[i]) { return a[i].CompareTo(b[i]); }
+        }
+        return a.Length.CompareTo(b.Length);
     }
 }

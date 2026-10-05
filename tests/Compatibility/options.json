@@ -1739,7 +1739,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix and dictionary guards are implemented with exact-byte inspection and rewrite evidence; complete broader nested loads (indirect lengths, recovery trials and compressed members through public routes), display-buffer admission and trial/discarded-value ownership before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix, dictionary guards and governed canonical display are implemented; complete broader nested loads (indirect lengths, recovery trials and compressed members through public routes) and trial/discarded-value ownership before closing the entry. Broader diagnostic, document/cache and failed/canceled counter ownership still needs review."
       ],
       "evidence": {
       "positive": [
@@ -1804,7 +1804,23 @@
         "CanonicalDisplayTests.BinaryStringClassificationHonorsWorkBudget",
         "CanonicalDisplayTests.HexFormattingHonorsWorkBudgetAfterClassification",
         "CanonicalDisplayTests.NameFormattingHonorsWorkBudget",
-        "CanonicalDisplayTests.LongStringDisplayObservesCancellationAfterWorkStarts",
+        "CanonicalDisplayTests.LongStringDisplayObservesCancellationAfterBufferWorkStarts",
+        "CanonicalDisplayMemoryTests.LargeValuesFailBeforeUnboundedDisplayAllocation",
+        "CanonicalDisplayMemoryTests.OmittedDictionaryValuesDoNotCloneLongKeyBytes",
+        "CanonicalDisplayMemoryTests.GrowthAndFinalCopyAdmitOverlappingOwners",
+        "CanonicalDisplayMemoryTests.DisposingTextReleasesItsReservationOnce",
+        "CanonicalDisplayMemoryTests.DiagnosticTransferRetainsTheSameStringAndChargesOnce",
+        "CanonicalDisplayMemoryTests.DiagnosticPreflightUsesEncodedBytes",
+        "CanonicalDisplayMemoryTests.ExhaustedDiagnosticCountRejectsBeforeDisplayWork",
+        "CanonicalDisplayMemoryTests.TextPreflightHandlesUtf16WithoutAllocatingEncodedCopies",
+        "CanonicalDisplayMemoryTests.DiagnosticBytePreflightBoundsActualAllocation",
+        "CanonicalDisplayMemoryTests.LongCommonPrefixSortingHonorsWorkAndReleasesScratch",
+        "CanonicalDisplayMemoryTests.OwnedTextCannotMoveToAnotherJobsDiagnostics",
+        "CanonicalDisplayMemoryTests.LargeDisplaysFitLinearWorkCeilings",
+        "CanonicalDisplayMemoryTests.DiagnosticRejectionLeavesTextWithItsOriginalOwner",
+        "CanonicalDisplayMemoryTests.LongKeySortingCancelsAfterWorkStartsAndReleasesScratch",
+        "DisplayLimitsTests.PublicInspectionHonorsHostLimitsAndPreservesCounters",
+        "DisplayLimitsTests.SuccessfulInspectionCountsRetainedTextAfterInputDisposal",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
         ],
         "oracle": [

@@ -10,7 +10,7 @@ namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class TolerantObjectLoadingTests
 {
-    private static byte[] Pdf(string[] bodies, bool brokenXref)
+    internal static byte[] Pdf(string[] bodies, bool brokenXref)
     {
         List<string> objects =
         [
@@ -312,7 +312,7 @@ public sealed class TolerantObjectLoadingTests
             {
                 if (value is PdfReference reference) { value = output.GetObject(reference.ObjectNumber); }
                 ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-                Assert.Equal(display, CanonicalDisplay.Render(value, QpdfLimits.Default, governor));
+                using (var rendered = CanonicalDisplay.Render(value, QpdfLimits.Default, governor)) { Assert.Equal(display, rendered.Value); }
             }
         }
         if (malformedObject is int objectNumber)

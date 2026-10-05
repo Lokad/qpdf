@@ -155,7 +155,7 @@ controls force hex, as does a non-ASCII proportion above one fifth. Remaining
 nonprintable literal bytes use three-digit octal escapes. The writer retains
 the source literal/hex choice and decoded bytes. Classification and formatting
 have byte-based work/cancellation checks, including cancellation after observed
-work, without a whole-display memory or universal latency claim.
+buffer work, without a universal latency claim.
 
 Stray name hashes retain their spelling with an unbudgeted warning once per
 token. Raw names use a zero-byte repair marker, matching the reference's JSON
@@ -165,12 +165,18 @@ strict loading rejects it. Those cases require warning exit 3 explicitly in
 the reference lane; ordinary repaired outputs require clean exit 0. Public
 argv/job rewrites agree byte for byte, with independent page-count checks on
 all outputs. Root unknown words remain strings even under rebuilt-xref sanity
-checks. Broader nested loads, display-buffer admission and temporary parsed-value
-ownership remain open. An independent component measurement over a 4 MiB
-binary value allocated 33,637,808 bytes cumulatively while the governor reported
-zero memory peak under a 64 KiB ceiling. Input/value allocation was excluded;
-this identifies missing display admission without claiming a whole public-job
-peak, retention measurement or RSS bound.
+checks. Canonical display now admits its bounded character chunks, capacity overlap,
+dictionary sort scratch and immutable result before allocation. Sorting borrows
+immutable keys instead of cloning raw bytes. Temporary owners release on
+success/failure/cancellation; the exact result string transfers its reservation
+to the diagnostic that retains it. Inspection preflights diagnostic count and
+UTF-8 bytes while formatting, charges each final diagnostic once, and snapshots
+work/peaks after disposing input handles during object-plan execution on success/failure/cancellation. Invocation/presentation counters and diagnostic entry/list capacities remain open.
+Broader nested loads, document/cache ownership, other diagnostic paths and
+temporary parsed-value ownership remain open. The preceding component finding
+(33,637,808 cumulative bytes for a 4 MiB binary value with governor peak zero
+under a 64 KiB ceiling) motivated this correction. Input/value allocation was
+excluded; component allocation is not whole-job peak memory or an RSS bound.
 
 ## Codec feasibility probes (work item 03)
 

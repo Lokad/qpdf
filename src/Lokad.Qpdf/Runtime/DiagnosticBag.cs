@@ -29,4 +29,12 @@ internal sealed class DiagnosticBag
     }
 
     internal IReadOnlyList<QpdfDiagnostic> Entries => _entries;
+
+    internal void AddOwned(QpdfDiagnosticCode code, QpdfDiagnosticSeverity severity, GovernedText message)
+    {
+        message.CheckOwner(_governor);
+        _governor.ReserveDiagnostic(message.Utf8Bytes);
+        _entries.Add(new QpdfDiagnostic(code, severity, message.Value));
+        message.TransferToDiagnostic(_governor);
+    }
 }

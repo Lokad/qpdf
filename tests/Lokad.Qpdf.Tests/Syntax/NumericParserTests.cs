@@ -59,7 +59,7 @@ public sealed class NumericParserTests
         (PdfParser parser, ResourceGovernor governor, DiagnosticBag bag) = Create(limits, true);
         parser.SanityChecks = sanity;
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer(Encoding.ASCII.GetBytes("5 0 obj " + body + " endobj")), 0);
-        Assert.Equal(expected, CanonicalDisplay.Render(value, limits, governor));
+        using (var display = CanonicalDisplay.Render(value, limits, governor)) { Assert.Equal(expected, display.Value); }
         Assert.Equal(warning, bag.Entries.Any());
         Assert.All(bag.Entries, d => Assert.Equal(QpdfDiagnosticCode.RepairedObject, d.Code));
     }

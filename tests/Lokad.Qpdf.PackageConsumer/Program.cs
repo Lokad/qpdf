@@ -228,6 +228,24 @@ internal static class Program
         Check(nameHost.OpenLeaseCount == 0L, "name smoke leases closed");
         Console.WriteLine("PASS malformed name identity, rewrite warnings and strict rejection");
 
+        InMemoryQpdfHost displayHost = NewHost("inputs/display.pdf", TwoPagePdf("<41414141ff>"));
+        QpdfExecutionResult admittedDisplay = await Qpdf.ExecuteJobAsync(displayHost,
+            """{"inputFile":"inputs/display.pdf","showObject":"8"}""",
+            new QpdfExecutionOptions(QpdfLimits.Default with { MaxDiagnostics = 1L, MaxDiagnosticBytes = 8L }), CancellationToken.None);
+        Check(admittedDisplay.ExitCode == QpdfExitCode.Success && admittedDisplay.Diagnostics.Count == 1
+            && admittedDisplay.Diagnostics[0].Message == "(AAAA\u00ff)", "display UTF-8 byte boundary and single diagnostic charge");
+        Check(admittedDisplay.Counters.OpenHandles == 0L && admittedDisplay.Counters.PeakMemoryBytes > admittedDisplay.Counters.LiveMemoryBytes,
+            "display snapshot after cleanup with retained result");
+        QpdfExecutionResult rejectedDisplay = await Qpdf.ExecuteAsync(displayHost,
+            new QpdfCommandInvocation(["inputs/display.pdf", "--show-object=8"]),
+            new QpdfExecutionOptions(QpdfLimits.Default with { MaxDiagnosticBytes = 7L }), CancellationToken.None);
+        Check(rejectedDisplay.Status == QpdfExecutionStatus.Failed && rejectedDisplay.Diagnostics.Count == 1
+            && rejectedDisplay.Diagnostics[0].Code == QpdfDiagnosticCode.BudgetExceeded
+            && rejectedDisplay.Counters.TotalWork > 0L && rejectedDisplay.Counters.PeakMemoryBytes > 0L
+            && rejectedDisplay.Counters.OpenHandles == 0L, "display byte rejection preserves observed counters and releases handles");
+        Check(displayHost.OpenLeaseCount == 0L, "display consumer leases closed");
+        Console.WriteLine("PASS display admission, diagnostic byte limits and observed failure counters");
+
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),
