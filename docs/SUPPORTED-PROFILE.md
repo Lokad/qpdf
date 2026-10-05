@@ -55,12 +55,20 @@ echoing values.
   conversion and governed scanning/copying; long tokens, ties, underflow and
   overflow have public and exact-rational evidence.
 - Braces delimit object tokens and repair to null, consuming an error inside
-  containers. Names decoding to NUL reject strictly and repair to null; escapes
-  decode once. Literal CR/CRLF normalize to LF, escaped line continuations drop,
-  and escaped `\r` remains CR. Name/literal unescaping checks work/cancellation;
-  inspection uses lowercase hex spelling without changing bytes. Reconstructed
-  xrefs ignore orphan dictionary values; valid xrefs insert fake keys. Other damaged
-  syntax and container transitions remain under audit.
+  containers. Original `#00` name escapes reject strictly and repair to null;
+  escapes decode once. Invalid/truncated hash escapes instead retain their
+  spelling with an unbudgeted warning and a zero-byte raw-name repair marker,
+  distinct from an escaped hash. Rewrites preserve that damage and warn on
+  reopening; strict loading continues to reject it.
+- Literal CR/CRLF normalize to LF, escaped line continuations drop, and escaped
+  `\r` remains CR. Octal escapes preserve their decoded bytes. Inspection chooses
+  literal or lowercase hex strings from decoded contents, independently of
+  source spelling, and uses octal escapes for nonprintable literal bytes.
+  Name/literal unescaping and display scans check work/cancellation. Authored
+  invalid-hex, EOF, mismatched-terminator and root-word cases agree through
+  valid/rebuilt xrefs. Reconstructed xrefs ignore orphan dictionary values;
+  valid xrefs insert fake keys. Broader nested loads, display-buffer admission
+  and temporary parsed-value ownership remain under audit.
 - Page streams travel opaquely and are never decoded: direct and indirect
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,

@@ -243,7 +243,8 @@ internal sealed class PdfParser
                     throw new RepairAbort();
                 }
 
-                bool word = !SanityChecks && token.Kind is not (PdfTokenKind.ArrayClose or PdfTokenKind.DictionaryClose or PdfTokenKind.BadToken);
+                bool word = (depth == 0 || !SanityChecks)
+                    && token.Kind is not (PdfTokenKind.ArrayClose or PdfTokenKind.DictionaryClose or PdfTokenKind.BadToken);
                 WarnRepair(word ? "Unknown token treated as string." : "Unexpected token treated as null.", token.Offset);
                 if (depth > 0)
                 {
@@ -816,6 +817,7 @@ internal sealed class PdfParser
         byte[] result = new byte[span.Length];
         int outCount = 0;
         long nextWork = 0L;
+        bool warned = false;
         for (int i = 0; i < span.Length; i++)
         {
             ChargeUnescapeWork(i, ref nextWork);
@@ -830,8 +832,15 @@ internal sealed class PdfParser
                         throw new QpdfParseException("Invalid or truncated '#' escape in name.", offset, null);
                     }
 
-                    WarnRepair("Invalid name escape retained literally.", offset);
-                    result[outCount++] = span[i];
+                    // An invalid hash must remain distinguishable from #23.
+                    // Zero cannot be decoded from a valid name token: #00 is
+                    // rejected by the tokenizer before reaching this routine.
+                    if (!warned)
+                    {
+                        WarnRepair("Invalid name escape retained with a repair marker.", offset);
+                        warned = true;
+                    }
+                    result[outCount++] = 0;
                     continue;
                 }
 

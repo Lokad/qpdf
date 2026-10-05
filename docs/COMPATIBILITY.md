@@ -10,9 +10,9 @@ image samples (accepted as tested compatibility exceptions with truthful partial
 plus `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
 scope, host-ceiling enforcement and per-object repair are implemented for the verified
 damage matrix, including full-range integers, long real tokens, numeric conversion
-failures and the authored brace/NUL-name/literal-newline and dictionary-error guard cases. Remaining lexical
-damage, damaged-container transitions, broader orphan/container interactions and full
-nested-load evidence still keep that entry partial; excluded crypto
+failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
+malformed-name and binary-string/container cases. Broader nested-load evidence
+and display/trial/discarded-value ownership still keep that entry partial; excluded crypto
 operations carry
 negative rejection evidence. The scaffold, runner, and codec-probe tests establish
 inventory consistency, fixture/independent-reader contracts, codec feasibility, and
@@ -123,7 +123,7 @@ the conversion's 8 KiB working allowance is released on success or failure.
 Local component measurements observe cancellation after scan work starts and
 zero warmed-up heap allocation in the bounded conversion unit. This does not
 close the broader lifetime, stack-state or cancellation audit. Other
-lexical/container damage remains open.
+syntax/loading and temporary ownership audit remains open.
 
 Braces delimit adjacent numbers, words and names; repair replaces each brace
 with null and counts a container error. A name containing an original `#00`
@@ -140,8 +140,37 @@ traversed, including escapes that cross an interval boundary. Scalar unescape
 work failures release their admission. Inspection uses lowercase hexadecimal
 spelling for names and hex strings; decoded bytes are unchanged. The authored
 matrix has exact values/exits, public argv/job inspection and rewrite parity,
-strict public rejection and fresh packed-consumer evidence. Broader container
-transitions and temporary parsed-value ownership remain open.
+strict public rejection and fresh packed-consumer evidence.
+
+The byte-preserving lexical/container corpus adds 56 independently authored
+bodies through valid/rebuilt xrefs at six budgets (0, 1, 2, 3, 6, 15). It covers
+literal nesting and octal widths, raw/escaped high bytes, odd/invalid hex,
+string/container EOF, mismatched terminators, reserved/ambiguous words and
+malformed name escapes. Exact stdout/stderr bytes are retained in the reference
+lane; UTF-8 replacement characters cannot establish non-UTF8 PDF byte values.
+
+Inspection chooses hex or literal strings from decoded contents rather than
+their source `Hex` flag. Named control escapes remain literal; other low
+controls force hex, as does a non-ASCII proportion above one fifth. Remaining
+nonprintable literal bytes use three-digit octal escapes. The writer retains
+the source literal/hex choice and decoded bytes. Classification and formatting
+have byte-based work/cancellation checks, including cancellation after observed
+work, without a whole-display memory or universal latency claim.
+
+Stray name hashes retain their spelling with an unbudgeted warning once per
+token. Raw names use a zero-byte repair marker, matching the reference's JSON
+name identity and distinguishing `/A#2` from `/A#232`. The writer preserves the
+malformed spelling: both outputs warn on oracle check/JSON/reinspection and
+strict loading rejects it. Those cases require warning exit 3 explicitly in
+the reference lane; ordinary repaired outputs require clean exit 0. Public
+argv/job rewrites agree byte for byte, with independent page-count checks on
+all outputs. Root unknown words remain strings even under rebuilt-xref sanity
+checks. Broader nested loads, display-buffer admission and temporary parsed-value
+ownership remain open. An independent component measurement over a 4 MiB
+binary value allocated 33,637,808 bytes cumulatively while the governor reported
+zero memory peak under a 64 KiB ceiling. Input/value allocation was excluded;
+this identifies missing display admission without claiming a whole public-job
+peak, retention measurement or RSS bound.
 
 ## Codec feasibility probes (work item 03)
 

@@ -180,6 +180,54 @@ internal static class Program
         }
         Console.WriteLine("PASS dictionary orphan/error guards through argv, job and rewrite");
 
+        InMemoryQpdfHost binaryHost = NewHost("inputs/binary.pdf", TwoPagePdf("[ (\\000\\001\\037\\177\\200\\377) <414243> ]"));
+        QpdfExecutionResult binaryInspection = await Qpdf.ExecuteAsync(binaryHost,
+            new QpdfCommandInvocation(["inputs/binary.pdf", "--show-object=8"]), CancellationToken.None);
+        Check(binaryInspection.ExitCode == QpdfExitCode.Success && binaryInspection.Diagnostics.Any(d =>
+            d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == "[ <00011f7f80ff> (ABC) ]"), "decoded-byte string inspection");
+        QpdfExecutionResult binaryRewrite = await Qpdf.ExecuteJobAsync(binaryHost,
+            """{"inputFile":"inputs/binary.pdf","outputFile":"outputs/binary.pdf","pages":[{"file":".","range":"1"}]}""", CancellationToken.None);
+        Check(binaryRewrite.ExitCode == QpdfExitCode.Success, "binary rewrite");
+        binaryHost.AddInput(QpdfPath.From("inputs/binary-reread.pdf"), Published(binaryHost, "outputs/binary.pdf"), QpdfInputOwnership.Copy);
+        await using (QpdfDocument reread = await QpdfDocument.OpenAsync(binaryHost, QpdfPath.From("inputs/binary-reread.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = (PdfDictionary)reread.GetObject(3);
+            Check(page.TryGet(new PdfName("Audit"u8.ToArray()), out QpdfObject audit), "binary audit");
+            QpdfObject value = audit is PdfReference reference ? reread.GetObject(reference.ObjectNumber) : audit;
+            Check(value is PdfArray, "binary array");
+            PdfArray array = (PdfArray)value;
+            Check(array[0] is PdfByteString bytes && bytes.Value.AsSpan().SequenceEqual(new byte[] { 0, 1, 31, 127, 128, 255 }), "binary octal bytes");
+            Check(array[1] is PdfByteString text && text.Hex && text.Value.AsSpan().SequenceEqual("ABC"u8), "hex source spelling preserved");
+        }
+        Check(binaryHost.OpenLeaseCount == 0L, "binary smoke leases closed");
+        Console.WriteLine("PASS decoded-byte string display and binary rewrite");
+
+        InMemoryQpdfHost nameHost = NewHost("inputs/names.pdf", TwoPagePdf("<< /A#2 1 /A#232 2 >>"));
+        QpdfExecutionResult nameInspection = await Qpdf.ExecuteJobAsync(nameHost,
+            """{"inputFile":"inputs/names.pdf","showObject":"8"}""", CancellationToken.None);
+        Check(nameInspection.ExitCode == QpdfExitCode.Warning && nameInspection.Diagnostics.Any(d =>
+            d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == "<< /A#2 1 /A#232 2 >>"), "stray/escaped hash identity");
+        QpdfExecutionResult nameRewrite = await Qpdf.ExecuteAsync(nameHost,
+            new QpdfCommandInvocation(["inputs/names.pdf", "--pages", ".", "1", "--", "outputs/names.pdf"]), CancellationToken.None);
+        Check(nameRewrite.ExitCode == QpdfExitCode.Warning, "stray hash rewrite warning");
+        nameHost.AddInput(QpdfPath.From("inputs/names-reread.pdf"), Published(nameHost, "outputs/names.pdf"), QpdfInputOwnership.Copy);
+        await using (QpdfDocument reread = await QpdfDocument.OpenAsync(nameHost, QpdfPath.From("inputs/names-reread.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = (PdfDictionary)reread.GetObject(3);
+            Check(page.TryGet(new PdfName("Audit"u8.ToArray()), out QpdfObject audit) && audit is PdfReference, "name audit reference");
+            PdfReference reference = (PdfReference)audit;
+            bool rejected = false;
+            try { reread.GetObject(reference.ObjectNumber); }
+            catch (QpdfParseException) { rejected = true; }
+            Check(rejected, "strict reopening still rejects stray hashes");
+            QpdfExecutionResult nameReopened = await Qpdf.ExecuteAsync(nameHost,
+                new QpdfCommandInvocation(["inputs/names-reread.pdf", "--show-object=" + reference.ObjectNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)]), CancellationToken.None);
+            Check(nameReopened.ExitCode == QpdfExitCode.Warning && nameReopened.Diagnostics.Any(d =>
+                d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == "<< /A#2 1 /A#232 2 >>"), "repaired name rewrite identity");
+        }
+        Check(nameHost.OpenLeaseCount == 0L, "name smoke leases closed");
+        Console.WriteLine("PASS malformed name identity, rewrite warnings and strict rejection");
+
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

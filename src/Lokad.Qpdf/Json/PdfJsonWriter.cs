@@ -56,7 +56,11 @@ internal static class PdfJsonWriter
             bool delimiter = b == 35 || b == 47 || b == 40 || b == 41
                 || b == 60 || b == 62 || b == 91 || b == 93
                 || b == 123 || b == 125 || b == 37;
-            if (b < 33 || b > 126 || delimiter)
+            if (b == 0)
+            {
+                builder.Append('#');
+            }
+            else if (b < 33 || b > 126 || delimiter)
             {
                 builder.Append((char)35);
                 builder.Append("0123456789abcdef"[b >> 4]);
@@ -206,20 +210,34 @@ internal static class PdfJsonWriter
 
     internal static bool UseHexString(byte[] value)
     {
+        return UseHexStringCore(value, null);
+    }
+
+    internal static bool UseHexString(ReadOnlySpan<byte> value, ResourceGovernor governor)
+    {
+        return UseHexStringCore(value, governor);
+    }
+
+    private static bool UseHexStringCore(ReadOnlySpan<byte> value, ResourceGovernor? governor)
+    {
+        governor?.CheckCancellation();
         int nonAscii = 0;
-        foreach (byte raw in value)
+        for (int i = 0; i < value.Length; i++)
         {
-            int ch = raw >= 128 ? raw - 256 : raw;
-            if (raw > 126) { nonAscii += 1; }
-            else if (raw >= 32) { continue; }
-            else if (ch < 0 || ch >= 24) { nonAscii += 1; }
-            else if (!(raw == 10 || raw == 13 || raw == 9 || raw == 8 || raw == 12))
+            if ((i & 255) == 0)
+            {
+                governor?.ChargeWork(Math.Min(256, value.Length - i));
+                governor?.CheckCancellation();
+            }
+            byte raw = value[i];
+            if (raw is >= 127 or >= 24 and < 32) { nonAscii += 1; }
+            else if (raw < 24 && raw is not (8 or 9 or 10 or 12 or 13))
             {
                 return true;
             }
         }
 
-        return 5 * nonAscii > value.Length;
+        return 5L * nonAscii > value.Length;
     }
     internal static string DecodeUtf16(byte[] value, bool little)
     {

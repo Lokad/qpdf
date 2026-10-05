@@ -151,7 +151,8 @@ public sealed class PdfReal : QpdfObject, IEquatable<PdfReal>
 
 /// <summary>
 /// PDF name with raw bytes preserved losslessly, including `#` escapes.
-/// Equality follows raw byte equality.
+/// Equality follows raw byte equality. Syntax repair represents a stray
+/// hash with a zero byte, distinct from a correctly escaped hash.
 /// </summary>
 public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 {
@@ -193,8 +194,14 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         return new PdfName(raw);
     }
 
-    /// <summary>Gets a copy of the raw name bytes (without the leading slash).</summary>
+    /// <summary>
+    /// Gets a copy of the raw name bytes (without the leading slash).
+    /// A zero byte in a repaired name represents an invalid hash escape;
+    /// serialization preserves that hash and reopening requires syntax repair.
+    /// </summary>
     public byte[] RawBytes => (byte[])_raw.Clone();
+
+    internal ReadOnlySpan<byte> RawSpan => _raw;
 
     /// <summary>
     /// Gets printable ASCII text with `#XX` escapes resolved where the result
@@ -295,6 +302,8 @@ public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
 
     /// <summary>Gets a copy of the raw value bytes.</summary>
     public byte[] Value => (byte[])_value.Clone();
+
+    internal ReadOnlySpan<byte> ValueSpan => _value;
 
     /// <summary>Indicates whether this instance equals another PdfByteString.</summary>
     public bool Equals(PdfByteString? other)

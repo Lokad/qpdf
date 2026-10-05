@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
@@ -93,13 +94,13 @@ internal static class CanonicalDisplay
 
         if (value is PdfName name)
         {
-            AppendName(name, builder);
+            AppendName(name, builder, governor);
             return;
         }
 
         if (value is PdfByteString text)
         {
-            AppendString(text, builder);
+            AppendString(text, builder, governor);
             return;
         }
 
@@ -164,7 +165,7 @@ internal static class CanonicalDisplay
                 }
 
                 builder.Append(' ');
-                AppendName(entry.Value, builder);
+                AppendName(entry.Value, builder, governor);
                 builder.Append(' ');
                 AppendValue(member, builder, depth + 1, limits, governor, resolver);
             }
@@ -186,13 +187,20 @@ internal static class CanonicalDisplay
     }
 
 
-    private static void AppendName(PdfName name, StringBuilder builder)
+    private static void AppendName(PdfName name, StringBuilder builder, ResourceGovernor governor)
     {
-        byte[] raw = name.RawBytes;
+        ReadOnlySpan<byte> raw = name.RawSpan;
+        governor.CheckCancellation();
         builder.Append('/');
-        foreach (byte b in raw)
+        for (int i = 0; i < raw.Length; i++)
         {
-            if (IsRegular(b))
+            ChargeBytes(i, raw.Length, governor);
+            byte b = raw[i];
+            if (b == 0)
+            {
+                builder.Append('#');
+            }
+            else if (IsRegular(b))
             {
                 builder.Append((char)b);
             }
@@ -217,14 +225,16 @@ internal static class CanonicalDisplay
             && b != (byte)'}' && b != (byte)'/' && b != (byte)'%';
     }
 
-    private static void AppendString(PdfByteString text, StringBuilder builder)
+    private static void AppendString(PdfByteString text, StringBuilder builder, ResourceGovernor governor)
     {
-        byte[] raw = text.Value;
-        if (text.Hex)
+        ReadOnlySpan<byte> raw = text.ValueSpan;
+        if (PdfJsonWriter.UseHexString(raw, governor))
         {
             builder.Append('<');
-            foreach (byte b in raw)
+            for (int i = 0; i < raw.Length; i++)
             {
+                ChargeBytes(i, raw.Length, governor);
+                byte b = raw[i];
                 builder.Append(HexDigit(b >> 4));
                 builder.Append(HexDigit(b & 0x0F));
             }
@@ -234,8 +244,10 @@ internal static class CanonicalDisplay
         }
 
         builder.Append('(');
-        foreach (byte b in raw)
+        for (int i = 0; i < raw.Length; i++)
         {
+            ChargeBytes(i, raw.Length, governor);
+            byte b = raw[i];
             switch (b)
             {
                 case (byte)'\n':
@@ -260,12 +272,31 @@ internal static class CanonicalDisplay
                     builder.Append((char)b);
                     break;
                 default:
-                    builder.Append((char)b);
+                    if (b is >= 32 and <= 126 or >= 160)
+                    {
+                        builder.Append((char)b);
+                    }
+                    else
+                    {
+                        builder.Append('\\');
+                        builder.Append((char)('0' + (b >> 6)));
+                        builder.Append((char)('0' + ((b >> 3) & 7)));
+                        builder.Append((char)('0' + (b & 7)));
+                    }
                     break;
             }
         }
 
         builder.Append(')');
+    }
+
+    private static void ChargeBytes(int position, int length, ResourceGovernor governor)
+    {
+        if ((position & 255) == 0)
+        {
+            governor.ChargeWork(Math.Min(256, length - position));
+            governor.CheckCancellation();
+        }
     }
 
     private static char HexDigit(int value)

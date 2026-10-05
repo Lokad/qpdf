@@ -33,7 +33,7 @@ function Write-Input {
     $offsets = [Collections.Generic.List[long]]::new()
     for ($i = 0; $i -lt $objects.Length; $i++) {
       $offsets.Add($bytes.Position)
-      $bytes.Write([Text.Encoding]::ASCII.GetBytes("$($i + 1) 0 obj`n$($objects[$i])`nendobj`n"))
+      $bytes.Write([Text.Encoding]::Latin1.GetBytes("$($i + 1) 0 obj`n$($objects[$i])`nendobj`n"))
     }
     $xref = $bytes.Position
     $bytes.Write([Text.Encoding]::ASCII.GetBytes("xref`n0 6`n0000000000 65535 f `n"))
@@ -48,10 +48,11 @@ function Write-Input {
 }
 
 function Invoke-Managed {
-  param([string] $Tag, [string[]] $Arguments, [string[]] $Mappings)
-  $probeArgs = @($ProbeDll, 'emit', '--workdir', $runRoot)
+  param([string] $Tag, [string[]] $Arguments, [string[]] $Mappings, [string] $JobFile)
+  $probeArgs = if ($JobFile) { @($ProbeDll, 'emit-job', '--workdir', $runRoot, '--job', $JobFile) }
+    else { @($ProbeDll, 'emit', '--workdir', $runRoot) }
   foreach ($mapping in $Mappings) { $probeArgs += @('--out', $mapping) }
-  $probeArgs += @('--') + $Arguments
+  if (-not $JobFile) { $probeArgs += @('--') + $Arguments }
   $lines = @(& dotnet @probeArgs 2>&1)
   $processExit = $LASTEXITCODE
   $lines | Set-Content -LiteralPath (Join-Path $runRoot "$Tag-managed.log") -Encoding utf8NoBOM
@@ -62,6 +63,39 @@ function Invoke-Managed {
   $listing = @($lines | Where-Object { $_ -match '^emit: diagnostic ObjectListing Info ' } |
     ForEach-Object { $_ -replace '^emit: diagnostic ObjectListing Info ', '' }) -join "`n"
   return @{ Exit = [int]$status.Groups[2].Value; Value = $listing.Trim() }
+}
+
+function Invoke-Oracle {
+  param([string] $Tag, [string[]] $Arguments)
+  $start = [Diagnostics.ProcessStartInfo]::new($QpdfExe)
+  $start.UseShellExecute = $false
+  $start.CreateNoWindow = $true
+  $start.RedirectStandardOutput = $true
+  $start.RedirectStandardError = $true
+  foreach ($argument in $Arguments) { $start.ArgumentList.Add($argument) }
+  $process = [Diagnostics.Process]::new()
+  $process.StartInfo = $start
+  $stdout = [IO.MemoryStream]::new()
+  $stderr = [IO.MemoryStream]::new()
+  try {
+    if (-not $process.Start()) { throw 'Oracle process did not start.' }
+    $outTask = $process.StandardOutput.BaseStream.CopyToAsync($stdout)
+    $errTask = $process.StandardError.BaseStream.CopyToAsync($stderr)
+    if (-not $process.WaitForExit(30000)) { throw "Oracle process still live: PID $($process.Id). See $runRoot." }
+    $null = $outTask.GetAwaiter().GetResult()
+    $null = $errTask.GetAwaiter().GetResult()
+    $outBytes = $stdout.ToArray()
+    $errBytes = $stderr.ToArray()
+    [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stdout.bin"), $outBytes)
+    [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stderr.bin"), $errBytes)
+    return @{
+      Exit = $process.ExitCode
+      Value = [Text.Encoding]::Latin1.GetString($outBytes).TrimEnd([char[]]@([char]13,[char]10))
+      StdoutBase64 = [Convert]::ToBase64String($outBytes)
+      StderrBase64 = [Convert]::ToBase64String($errBytes)
+    }
+  }
+  finally { $stdout.Dispose(); $stderr.Dispose(); $process.Dispose() }
 }
 
 $specs = @(
@@ -193,6 +227,69 @@ foreach ($spec in $dictionarySpecs) {
   $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Broken = $true; Budgets = $spec.Budgets }
 }
 
+$damagedSpecs = @(
+  @{ Name = 'damage-array-backslash-eof'; Body = '[ (abc\'; Clean = $false },
+  @{ Name = 'damage-array-dict-close'; Body = '[ << /A 1 ] 2 >> 3 ]'; Clean = $false },
+  @{ Name = 'damage-array-endobj'; Body = '[ 1 endobj 2 ]'; Clean = $false },
+  @{ Name = 'damage-array-endstream'; Body = '[ 1 endstream 2 ]'; Clean = $false },
+  @{ Name = 'damage-array-eof'; Body = '[ 1 2'; Clean = $false },
+  @{ Name = 'damage-array-hex-eof'; Body = '[ <ABC'; Clean = $false },
+  @{ Name = 'damage-array-literal-eof'; Body = '[ (abc'; Clean = $false },
+  @{ Name = 'damage-array-paren'; Body = '[ 1 ) 2 ]'; Clean = $false },
+  @{ Name = 'damage-array-stream'; Body = '[ 1 stream 2 ]'; Clean = $false },
+  @{ Name = 'damage-dict-array-close'; Body = '<< /A [ 1 >> /B 2 ] /C 3 >>'; Clean = $false },
+  @{ Name = 'damage-dict-eof'; Body = '<< /A 1'; Clean = $false },
+  @{ Name = 'damage-dict-hex-eof'; Body = '<< /A <ABC'; Clean = $false },
+  @{ Name = 'damage-dict-key-close'; Body = '<< /A 1 ] /B 2 >>'; Clean = $false },
+  @{ Name = 'damage-dict-literal-eof'; Body = '<< /A (abc'; Clean = $false },
+  @{ Name = 'damage-dict-name-short'; Body = '<< /A#2 1 /B 2 >>'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-dot-reals'; Body = '[ . +. -. ]'; Clean = $false },
+  @{ Name = 'damage-empty-name'; Body = '/'; Clean = $true },
+  @{ Name = 'damage-hex-first'; Body = '[ <GABC> 2 ]'; Clean = $false },
+  @{ Name = 'damage-hex-tail'; Body = '[ <A G 1> 2 ]'; Clean = $false },
+  @{ Name = 'damage-invalid-numbers'; Body = '[ 1..2 1.2.3 1e3 .5x 1-2 ++1 --1 +-1 ]'; Clean = $false },
+  @{ Name = 'damage-literal-byte-range'; Body = '[ (\000\001\037\177\200\377) ]'; Clean = $true },
+  @{ Name = 'damage-literal-escapes'; Body = '[ (a\q\8\777\12z\(b\)) ]'; Clean = $true },
+  @{ Name = 'damage-literal-nesting'; Body = '[ (a(b)c) (a\)b) (a\\b) ]'; Clean = $true },
+  @{ Name = 'damage-literal-raw-high'; Body = [Text.Encoding]::Latin1.GetString([Convert]::FromBase64String('WyAoYYD/YikgXQ==')); Clean = $true },
+  @{ Name = 'damage-name-escaped-high'; Body = '[ /A#80#FF ]'; Clean = $true },
+  @{ Name = 'damage-name-identity'; Body = '<< /A#2 1 /A#232 2 >>'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-name-incomplete'; Body = '[ /A#2 /B# /C#GG 2 ]'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-name-multiple-hashes'; Body = '/A#Q#G'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-name-raw-high'; Body = [Text.Encoding]::Latin1.GetString([Convert]::FromBase64String('WyAvQYD/IF0=')); Clean = $true },
+  @{ Name = 'damage-octal-widths'; Body = '[ (\7\11\112\1123\777\400) ]'; Clean = $true },
+  @{ Name = 'damage-odd-hex'; Body = '[ <A> <ABC> <0> ]'; Clean = $true },
+  @{ Name = 'damage-root-array-close'; Body = ']'; Clean = $false },
+  @{ Name = 'damage-root-backslash-eof'; Body = '(abc\'; Clean = $false },
+  @{ Name = 'damage-root-dict-close'; Body = '>>'; Clean = $false },
+  @{ Name = 'damage-root-dot'; Body = '.'; Clean = $false },
+  @{ Name = 'damage-root-hex-eof'; Body = '<ABC'; Clean = $false },
+  @{ Name = 'damage-root-hex-first'; Body = '<GABC>'; Clean = $false },
+  @{ Name = 'damage-root-hex-tail'; Body = '<A G 1>'; Clean = $false },
+  @{ Name = 'damage-root-literal-eof'; Body = '(abc'; Clean = $false },
+  @{ Name = 'damage-root-minus'; Body = '-'; Clean = $false },
+  @{ Name = 'damage-root-minus-dot'; Body = '-.'; Clean = $false },
+  @{ Name = 'damage-root-name-hash'; Body = '/A#'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-root-name-invalid'; Body = '/A#GG'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-root-name-short'; Body = '/A#2'; Clean = $false; MalformedName = $true },
+  @{ Name = 'damage-root-paren'; Body = ')'; Clean = $false },
+  @{ Name = 'damage-root-plus'; Body = '+'; Clean = $false },
+  @{ Name = 'damage-root-plus-dot'; Body = '+.'; Clean = $false },
+  @{ Name = 'damage-signs'; Body = '[ + - . +. -. .. ]'; Clean = $false },
+  @{ Name = 'display-del-byte'; Body = '[ (\177abcd) ]'; Clean = $true },
+  @{ Name = 'display-empty-hex'; Body = '[ <> ]'; Clean = $true },
+  @{ Name = 'display-escaped-controls'; Body = '[ (\010\011\012\014\015) ]'; Clean = $true },
+  @{ Name = 'display-hard-control'; Body = '[ (\007abcdefghij) ]'; Clean = $true },
+  @{ Name = 'display-low-high-byte'; Body = '[ (\030abcd) ]'; Clean = $true },
+  @{ Name = 'display-one-fifth'; Body = '[ (\200abcd) ]'; Clean = $true },
+  @{ Name = 'display-over-one-fifth'; Body = '[ (\200abc) ]'; Clean = $true },
+  @{ Name = 'display-printable-hex'; Body = '[ <414243> ]'; Clean = $true }
+)
+foreach ($spec in $damagedSpecs) {
+  $specs += $spec
+  $specs += @{ Name = $spec.Name + '-broken'; Body = $spec.Body; Clean = $spec.Clean; MalformedName = $spec.MalformedName; Broken = $true }
+}
+
 foreach ($spec in $specs) {
   Write-Input $spec.Name $spec.Body ([bool]$spec.Broken)
   $budgets = if ($spec.Budgets) { $spec.Budgets } else { @(0, 1, 2, 3, 6, 15) }
@@ -201,11 +298,10 @@ foreach ($spec in $specs) {
     $logical = "inputs/$($spec.Name).pdf"
     $managed = Invoke-Managed $tag @('--global', "--parser-max-errors=$budget", '--', $logical, '--show-object=5') @()
     $oracleArgs = @('--global', "--parser-max-errors=$budget", '--', (Join-Path $runRoot $logical), '--show-object=5')
-    $oracleLines = @(& $QpdfExe @oracleArgs 2> (Join-Path $runRoot "$tag-oracle-stderr.log"))
-    $oracleExit = $LASTEXITCODE
-    $oracleValue = ($oracleLines -join "`n").Trim()
-    $oracleLines | Set-Content -LiteralPath (Join-Path $runRoot "$tag-oracle-stdout.log") -Encoding utf8NoBOM
-    $observations.Add(@{ Case = $spec.Name; Budget = $budget; Managed = $managed; OracleExit = $oracleExit; OracleValue = $oracleValue })
+    $oracle = Invoke-Oracle "$tag-oracle" $oracleArgs
+    $oracleExit = $oracle.Exit
+    $oracleValue = $oracle.Value
+    $observations.Add(@{ Case = $spec.Name; Budget = $budget; Managed = $managed; OracleExit = $oracleExit; OracleValue = $oracleValue; OracleStdoutBase64 = $oracle.StdoutBase64; OracleStderrBase64 = $oracle.StderrBase64 })
     $expectedExit = if ($spec.Clean -and -not $spec.Broken) { 0 } else { 3 }
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit -or $managed.Value -cne $oracleValue) {
       throw "Parser values or warning exits differ ($tag): managed='$($managed.Value)', oracle='$oracleValue'. See $runRoot."
@@ -215,34 +311,35 @@ foreach ($spec in $specs) {
 }
 
 function Read-RewrittenJson {
-  param([string] $Tag, [string] $File)
+  param([string] $Tag, [string] $File, [int] $ExpectedExit)
   & $QpdfExe '--check' $File *> (Join-Path $runRoot "$Tag-$([IO.Path]::GetFileName($File))-check.log")
-  if ($LASTEXITCODE -ne 0) { throw "Repaired output fails oracle check ($File)." }
+  if ($LASTEXITCODE -ne $ExpectedExit) { throw "Repaired output oracle check exit differs ($File)." }
   $validation = @(& dotnet $ProbeDll 'validate' '--input' $File 2>&1)
   if ($LASTEXITCODE -ne 0 -or -not (($validation -join "`n") -match 'independent: npages=1')) {
     throw "Independent reader rejected repaired output ($File)."
   }
   $json = @(& $QpdfExe '--json' '--json-key=qpdf' $File 2> (Join-Path $runRoot "$Tag-json-stderr.log")) -join "`n"
-  if ($LASTEXITCODE -ne 0) { throw "Repaired output JSON fails ($File)." }
+  if ($LASTEXITCODE -ne $ExpectedExit) { throw "Repaired output JSON exit differs ($File)." }
   return $json
 }
 
 function Read-RewrittenAudit {
-  param([string] $Tag, [string] $File)
-  $null = Read-RewrittenJson $Tag $File
+  param([string] $Tag, [string] $File, [int] $ExpectedExit)
+  $fileTag = $Tag + '-' + [IO.Path]::GetFileNameWithoutExtension($File)
+  $null = Read-RewrittenJson $fileTag $File $ExpectedExit
   $pageLines = @(& $QpdfExe '--show-pages' $File 2> (Join-Path $runRoot "$Tag-page-stderr.log")) -join "`n"
   $page = [regex]::Match($pageLines, '(?m)^page 1: (\d+) (\d+) R\s*$')
   if ($LASTEXITCODE -ne 0 -or -not $page.Success) { throw "Rewrite page cannot be located ($Tag)." }
   $pageId = $page.Groups[1].Value + ',' + $page.Groups[2].Value
   $pageValue = @(& $QpdfExe "--show-object=$pageId" $File 2> (Join-Path $runRoot "$Tag-page-stderr.log")) -join "`n"
-  if ($LASTEXITCODE -ne 0) { throw "Rewrite page value cannot be read ($Tag)." }
+  if ($LASTEXITCODE -ne $ExpectedExit) { throw "Rewrite page value exit differs ($Tag)." }
   if ($pageValue -notmatch '/Audit\b' -or $pageValue -match '/Audit null(?:\s|>)') { return 'null' }
   $audit = [regex]::Match($pageValue, '/Audit (\d+) (\d+) R')
   if (-not $audit.Success) { throw "Rewrite audit value cannot be located ($Tag)." }
   $auditId = $audit.Groups[1].Value + ',' + $audit.Groups[2].Value
-  $actual = (@(& $QpdfExe "--show-object=$auditId" $File 2> (Join-Path $runRoot "$Tag-audit-stderr.log")) -join "`n").Trim()
-  if ($LASTEXITCODE -ne 0) { throw "Rewrite audit value cannot be read ($Tag)." }
-  return $actual
+  $actual = Invoke-Oracle "$fileTag-audit" @("--show-object=$auditId", $File)
+  if ($actual.Exit -ne $ExpectedExit) { throw "Rewrite audit exit differs ($Tag)." }
+  return $actual.Value
 }
 
 foreach ($inputName in @('word', 'broken-word')) {
@@ -255,7 +352,7 @@ foreach ($inputName in @('word', 'broken-word')) {
     & $QpdfExe '--global' "--parser-max-errors=$budget" '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
     if ($LASTEXITCODE -ne 3 -or $managed.Exit -ne 3) { throw "Parser rewrite exits differ ($tag)." }
     foreach ($file in @($managedFile, $oracleFile)) {
-      $json = Read-RewrittenJson $tag $file
+      $json = Read-RewrittenJson $tag $file 0
       if ($json.Contains('u:@') -ne ($budget -ne 1 -and $inputName -eq 'word')) { throw "Repaired/null object value lost during rewrite ($file)." }
     }
     $rewriteObservations.Add(@{ Case = $inputName; Budget = $budget; ManagedExit = $managed.Exit; OracleExit = 3 })
@@ -284,7 +381,7 @@ foreach ($spec in $numericRewrites) {
     $expectedExit = if ($spec.Clean -and -not $broken) { 0 } else { 3 }
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Numeric rewrite exits differ ($tag)." }
     foreach ($file in @($managedFile, $oracleFile)) {
-      $json = Read-RewrittenJson $tag $file | ConvertFrom-Json
+      $json = Read-RewrittenJson $tag $file 0 | ConvertFrom-Json
       $objects = $json.qpdf[1]
       $pages = @($objects.PSObject.Properties | Where-Object { $_.Value.value.'/Type' -eq '/Page' })
       if ($pages.Count -ne 1) { throw "Numeric rewrite has an unexpected page graph ($file)." }
@@ -311,7 +408,7 @@ foreach ($spec in $realSpecs) {
     $expectedExit = if ($broken) { 3 } else { 0 }
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Real rewrite exits differ ($tag)." }
     foreach ($file in @($managedFile, $oracleFile)) {
-      $actual = Read-RewrittenAudit $tag $file
+      $actual = Read-RewrittenAudit $tag $file 0
       if ($actual -cne ('[ ' + $spec.Text + ' 2 ]')) { throw "Real text changed during rewrite ($tag)." }
     }
     $rewriteObservations.Add(@{ Case = $inputName; Budget = 2; ManagedExit = $managed.Exit; OracleExit = $oracleExit; RealText = $spec.Text })
@@ -333,7 +430,7 @@ foreach ($spec in $lexicalSpecs) {
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Lexical rewrite exits differ ($tag)." }
     $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq 3 })[0].OracleValue
     foreach ($file in @($managedFile, $oracleFile)) {
-      $actual = Read-RewrittenAudit $tag $file
+      $actual = Read-RewrittenAudit $tag $file 0
       if ($actual -cne $expectedValue) { throw "Lexical value changed during rewrite ($tag)." }
     }
     $rewriteObservations.Add(@{ Case = $inputName; Budget = 3; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Value = $expectedValue })
@@ -358,7 +455,7 @@ foreach ($spec in $dictionarySpecs) {
       if ($managed.Exit -ne 3 -or $oracleExit -ne 3) { throw "Dictionary rewrite exits differ ($tag)." }
       $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq $budget })[0].OracleValue
       foreach ($file in @($managedFile, $oracleFile)) {
-        $actual = Read-RewrittenAudit $tag $file
+        $actual = Read-RewrittenAudit $tag $file 0
         if ($actual -cne $expectedValue) { throw "Dictionary value changed during rewrite ($tag)." }
       }
       $rewriteObservations.Add(@{ Case = $inputName; Budget = $budget; ManagedExit = $managed.Exit; OracleExit = $oracleExit; Value = $expectedValue })
@@ -367,6 +464,42 @@ foreach ($spec in $dictionarySpecs) {
   }
 }
 
+foreach ($spec in $damagedSpecs) {
+  foreach ($broken in @($false, $true)) {
+    $inputName = $spec.Name + $(if ($broken) { '-broken' } else { '' })
+    foreach ($budget in @(0, 6)) {
+      $tag = "rewrite-$inputName-$budget"
+      $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+      $jobFile = Join-Path $runRoot "$tag-job.pdf"
+      $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+      $managed = Invoke-Managed $tag @("inputs/$inputName.pdf", "--parser-max-errors=$budget",
+        '--pages', '.', '1', '--', 'outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+      $job = @{
+        inputFile = "inputs/$inputName.pdf"; outputFile = 'outputs/a.pdf'
+        pages = @(@{ file = '.'; range = '1' }); global = @{ parserMaxErrors = $budget }
+      } | ConvertTo-Json -Depth 4
+      [IO.File]::WriteAllText((Join-Path $runRoot "$tag-job.json"), $job, [Text.UTF8Encoding]::new($false))
+      $managedJob = Invoke-Managed "$tag-job" @() @("outputs/a.pdf=$jobFile") (Join-Path $runRoot "$tag-job.json")
+      $oracle = Invoke-Oracle "$tag-oracle-rewrite" @('--global', "--parser-max-errors=$budget", '--',
+        (Join-Path $runRoot "inputs/$inputName.pdf"), '--pages', '.', '1', '--', $oracleFile)
+      $expectedExit = if ($spec.Clean -and -not $broken) { 0 } else { 3 }
+      if ($managed.Exit -ne $expectedExit -or $managedJob.Exit -ne $expectedExit -or $oracle.Exit -ne $expectedExit) {
+        throw "Damaged-value rewrite exits differ ($tag)."
+      }
+      if ((Get-FileHash -LiteralPath $managedFile -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $jobFile -Algorithm SHA256).Hash) {
+        throw "Damaged-value argv/job bytes differ ($tag)."
+      }
+      $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq $budget })[0].OracleValue
+      $checkExit = if ($spec.MalformedName) { 3 } else { 0 }
+      foreach ($file in @($managedFile, $jobFile, $oracleFile)) {
+        $actual = Read-RewrittenAudit $tag $file $checkExit
+        if ($actual -cne $expectedValue) { throw "Damaged value changed during rewrite ($tag): '$actual' expected '$expectedValue'." }
+      }
+      $rewriteObservations.Add(@{ Case = $inputName; Budget = $budget; ManagedExit = $managed.Exit; JobExit = $managedJob.Exit; OracleExit = $oracle.Exit; ReopenedOracleExit = $checkExit; Value = $expectedValue })
+      Write-Output "[parser/$tag] exact values and argv/job bytes survive rewrite; oracle exit $checkExit and independent page counts pass"
+    }
+  }
+}
 @{
   OracleSHA256 = (Get-FileHash -LiteralPath $QpdfExe -Algorithm SHA256).Hash
   ProbeSHA256 = (Get-FileHash -LiteralPath $ProbeDll -Algorithm SHA256).Hash

@@ -21,7 +21,7 @@ public sealed class TolerantObjectLoadingTests
         ];
         objects.AddRange(bodies);
         using MemoryStream bytes = new();
-        void Write(string text) => bytes.Write(Encoding.ASCII.GetBytes(text));
+        void Write(string text) => bytes.Write(Encoding.Latin1.GetBytes(text));
         Write("%PDF-1.4\n");
         List<long> offsets = [0L];
         for (int i = 0; i < objects.Count; i++)
@@ -226,7 +226,7 @@ public sealed class TolerantObjectLoadingTests
     [MemberData(nameof(LexicalPublicCases))]
     public async Task LexicalValuesSurvivePublicInspectionAndRewrite(string body, long budget, string display, bool warns, bool broken)
     {
-        await AssertPublicValueAndRewrite(body, budget, display, warns, broken, false);
+        await AssertPublicValueAndRewrite(body, budget, display, warns, broken, false, false);
     }
 
     public static IEnumerable<object[]> DictionaryPublicCases() => DictionaryRepairTests.OracleCases();
@@ -236,10 +236,29 @@ public sealed class TolerantObjectLoadingTests
     public async Task DictionaryGuardsSurvivePublicInspectionAndRewrite(string name, string body, bool broken, long budget, string display)
     {
         Assert.NotEmpty(name);
-        await AssertPublicValueAndRewrite(body, budget, display, true, broken, name == "duplicate-reference-value" && display != "null");
+        await AssertPublicValueAndRewrite(body, budget, display, true, broken, name == "duplicate-reference-value" && display != "null", false);
     }
 
-    private static async Task AssertPublicValueAndRewrite(string body, long budget, string display, bool warns, bool broken, bool rejectsPageTreeReference)
+    public static IEnumerable<object[]> DamagedPublicCases() => DamagedSyntaxTests.OracleCases();
+
+    [Theory]
+    [MemberData(nameof(DamagedPublicCases))]
+    public async Task DamagedValuesSurvivePublicInspectionAndRewrite(string name, string body, bool broken, long budget, string display, bool warns)
+    {
+        await AssertPublicValueAndRewrite(body, budget, display, warns, broken, false, DamagedSyntaxTests.HasMalformedName(name));
+    }
+
+    public static IEnumerable<object[]> StrictDamagedPublicCases() => DamagedSyntaxTests.StrictDamageCases();
+
+    [Theory]
+    [MemberData(nameof(StrictDamagedPublicCases))]
+    public async Task StrictPublicPathsRejectDamagedTokensAndContainers(string name, string body)
+    {
+        Assert.NotEmpty(name);
+        await StrictPublicPathsRejectValidXrefSyntaxDamage(body);
+    }
+
+    private static async Task AssertPublicValueAndRewrite(string body, long budget, string display, bool warns, bool broken, bool rejectsPageTreeReference, bool preservesMalformedNames)
     {
         InMemoryQpdfHost argv = Host(Pdf([body], broken));
         InMemoryQpdfHost job = Host(Pdf([body], broken));
@@ -276,13 +295,32 @@ public sealed class TolerantObjectLoadingTests
         Assert.True(job.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] bBytes));
         Assert.Equal(aBytes, bBytes);
         argv.AddInput(QpdfPath.From("inputs/reopened.pdf"), aBytes, QpdfInputOwnership.Copy);
+        int? malformedObject = null;
         await using (QpdfDocument output = await QpdfDocument.OpenAsync(argv, QpdfPath.From("inputs/reopened.pdf"), CancellationToken.None))
         {
             PdfDictionary page = Assert.IsType<PdfDictionary>(output.GetObject(3));
             QpdfObject value = page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit) ? audit : PdfNull.Instance;
-            if (value is PdfReference reference) { value = output.GetObject(reference.ObjectNumber); }
-            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-            Assert.Equal(display, CanonicalDisplay.Render(value, QpdfLimits.Default, governor));
+            if (preservesMalformedNames)
+            {
+                // The oracle preserves stray hashes in its rewrite and warns
+                // again on reopening. Strict routes keep rejecting that syntax.
+                PdfReference reference = Assert.IsType<PdfReference>(value);
+                malformedObject = reference.ObjectNumber;
+                Assert.Throws<QpdfParseException>(() => output.GetObject(reference.ObjectNumber));
+            }
+            else
+            {
+                if (value is PdfReference reference) { value = output.GetObject(reference.ObjectNumber); }
+                ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+                Assert.Equal(display, CanonicalDisplay.Render(value, QpdfLimits.Default, governor));
+            }
+        }
+        if (malformedObject is int objectNumber)
+        {
+            QpdfExecutionResult reopened = await Qpdf.ExecuteAsync(argv,
+                new QpdfCommandInvocation(["inputs/reopened.pdf", "--show-object=" + objectNumber.ToString(CultureInfo.InvariantCulture)]), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Warning, reopened.ExitCode);
+            Assert.Contains(reopened.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Trim() == display);
         }
         Assert.Equal(0L, argv.OpenLeaseCount);
         Assert.Equal(0L, job.OpenLeaseCount);

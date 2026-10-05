@@ -1739,11 +1739,14 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions and the authored orphan/error, duplicate-key and integer-lookahead guards are implemented for the verified matrix; complete remaining lexical damage, damaged-container transitions, nested-load evidence and trial/discarded-value ownership before closing the entry."
+        "Per-object budgets, valid/rebuilt-xref repair, numeric/lexical conversions, the authored damaged-container matrix and dictionary guards are implemented with exact-byte inspection and rewrite evidence; complete broader nested loads (indirect lengths, recovery trials and compressed members through public routes), display-buffer admission and trial/discarded-value ownership before closing the entry."
       ],
       "evidence": {
-        "positive": [
-          "TolerantParserTests.RepairsMatchPinnedObjectValues",
+      "positive": [
+        "TolerantParserTests.RepairsMatchPinnedObjectValues",
+        "DamagedSyntaxTests.DamagedValuesMatchExactByteOracle",
+        "DamagedSyntaxTests.StrictLiteralDecodePreservesOctalBytes",
+        "DamagedSyntaxTests.StrayHashesHaveDistinctRawIdentityAndOneWarningPerToken",
           "NumericParserTests.IntegerAndReferenceRepairsMatchPinnedValues",
           "RealParserTests.LongDecimalsRoundAtExactBinaryMidpoints",
         "LexicalParserTests.LexicalRepairsMatchPinnedValues",
@@ -1761,7 +1764,9 @@
           "GlobalLimitsTests.BadParserMaxErrorsJobKeysFail",
           "TolerantObjectLoadingTests.StrictPublicPathsRejectValidXrefSyntaxDamage",
           "NumericParserTests.StrictNumericDamageStillFails",
-          "LexicalParserTests.StrictParsingRejectsLexicalDamage",
+        "LexicalParserTests.StrictParsingRejectsLexicalDamage",
+        "DamagedSyntaxTests.StrictParserRejectsDamagedTokensAndContainers",
+        "TolerantObjectLoadingTests.StrictPublicPathsRejectDamagedTokensAndContainers",
           "RecoveryTests.ErrorsBudgetStrictUnaffected"
         ],
         "interaction": [
@@ -1770,6 +1775,7 @@
           "TolerantObjectLoadingTests.LongRealTextAndValueSurvivePublicRewrite",
         "TolerantObjectLoadingTests.LexicalValuesSurvivePublicInspectionAndRewrite",
         "TolerantObjectLoadingTests.DictionaryGuardsSurvivePublicInspectionAndRewrite",
+        "TolerantObjectLoadingTests.DamagedValuesSurvivePublicInspectionAndRewrite",
         "DictionaryRepairTests.AbortedDictionaryDoesNotCarryOrphansIntoTheNextObject",
           "LexicalParserTests.EscapedHashIsNotDecodedTwiceIntoNul",
           "LexicalParserTests.EscapedBracesRemainNameBytes",
@@ -1795,6 +1801,10 @@
         "DictionaryRepairTests.DictionaryRepairDoesNotSwallowHostLimits",
         "CanonicalDisplayTests.NullReferenceFilteringHonorsWorkBudget",
         "CanonicalDisplayTests.NullReferenceFilteringObservesCancellationAfterLookupStarts",
+        "CanonicalDisplayTests.BinaryStringClassificationHonorsWorkBudget",
+        "CanonicalDisplayTests.HexFormattingHonorsWorkBudgetAfterClassification",
+        "CanonicalDisplayTests.NameFormattingHonorsWorkBudget",
+        "CanonicalDisplayTests.LongStringDisplayObservesCancellationAfterWorkStarts",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
         ],
         "oracle": [

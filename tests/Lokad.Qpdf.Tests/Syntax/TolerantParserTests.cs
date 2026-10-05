@@ -108,7 +108,7 @@ public sealed class TolerantParserTests
     {
         (PdfParser parser, _, _) = Create(QpdfLimits.Default with { MaxParserErrors = 1L });
         (_, _, QpdfObject value) = parser.ParseIndirectObject(new PdfTokenizer("5 0 obj [ /A#2G 1 ] endobj"u8.ToArray()), 0);
-        Assert.Equal("A#2G"u8.ToArray(), Assert.IsType<PdfName>(Assert.IsType<PdfArray>(value)[0]).RawBytes);
+        Assert.Equal(new byte[] { 65, 0, 50, 71 }, Assert.IsType<PdfName>(Assert.IsType<PdfArray>(value)[0]).RawBytes);
         Assert.Equal(0L, parser.ToleratedErrors);
     }
 

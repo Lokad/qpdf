@@ -716,6 +716,11 @@ internal sealed partial class PdfSerializer
         List<byte> output = new(raw.Length + 1) { (byte)'/' };
         foreach (byte b in raw)
         {
+            if (b == 0)
+            {
+                output.Add((byte)'#');
+                continue;
+            }
             if (IsRegular(b))
             {
                 output.Add(b);
