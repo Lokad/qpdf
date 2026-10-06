@@ -201,7 +201,6 @@ public sealed class AdapterTests
     [Theory]
     [InlineData("""{"outputFile": "o.pdf", "pages": [{"file": ".", "range": "1"}]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}]}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": []}""")]
 
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "o.pdf", "pages": [{"range": "1"}]}""")]

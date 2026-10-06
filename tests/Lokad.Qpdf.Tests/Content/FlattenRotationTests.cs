@@ -324,7 +324,7 @@ Assert.Equal(a, b);
 }
 [Theory]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "flattenRotation": "yes"}""")]
-[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "flattenRotation": true, "flattenRotation": true}""")]
+[InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}],"flattenRotation":true,"flattenRotation":[]}""")]
 public async Task JobMalformedFails(string jobJson)
 {
 byte[] fixture = ContentFixture(string.Empty);

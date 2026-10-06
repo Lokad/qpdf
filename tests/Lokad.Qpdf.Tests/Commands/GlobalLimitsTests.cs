@@ -336,7 +336,7 @@ public sealed class GlobalLimitsTests
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--no-default-limits", "--no-default-limits"]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(argv).Code);
         InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", BuildDeepPage(10));
-        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"global\": {\"noDefaultLimits\": true, \"noDefaultLimits\": false}}", CancellationToken.None);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/a.pdf\",\"pages\":[{\"file\":\".\",\"range\":\"1\"}],\"global\":{\"noDefaultLimits\":true,\"noDefaultLimits\":[]}}", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(job).Code);
     }
 
@@ -667,7 +667,7 @@ public sealed class GlobalLimitsTests
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--parser-max-errors=5", "--parser-max-errors=5"]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(argv).Code);
         InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", BuildBigPage());
-        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"global\": {\"parserMaxErrors\": 5, \"parserMaxErrors\": 6}}", CancellationToken.None);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(jobHost, "{\"inputFile\":\"inputs/a.pdf\",\"showNpages\":true,\"global\":{\"parserMaxErrors\":5,\"parserMaxErrors\":[]}}", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(job).Code);
     }
 

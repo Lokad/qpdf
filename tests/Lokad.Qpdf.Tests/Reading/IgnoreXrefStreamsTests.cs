@@ -115,7 +115,7 @@ public sealed class IgnoreXrefStreamsTests
 
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"ignoreXrefStreams\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"ignoreXrefStreams\": true, \"ignoreXrefStreams\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showNpages\":true,\"ignoreXrefStreams\":true,\"ignoreXrefStreams\":[]}")]
     public async Task JobRejectsMalformed(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "hybrid-xstm.pdf");

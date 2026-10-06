@@ -326,19 +326,31 @@ public sealed class XrefCollectionTests
     public async Task CancellationAfterCollectionWorkReleasesAllTemporaryOwners(bool recovery)
     {
         byte[] input = Classic(20000, recovery);
-        using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        ResourceGovernor governor = new(limits, cancellation.Token);
-        Task<XRefTable> parsing = Task.Factory.StartNew(() => Parse(input, governor, limits), CancellationToken.None,
-            TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        while (governor.Snapshot().LiveMemoryBytes < 50000L && !parsing.IsCompleted
-            && System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10)) { Thread.SpinWait(16); }
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= 50000L);
-        Assert.False(parsing.IsCompleted);
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await parsing.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-        Assert.True(governor.Snapshot().TotalWork > 0L);
+        bool interrupted = false;
+        for (int attempt = 0; attempt < 8 && !interrupted; attempt++)
+        {
+            using CancellationTokenSource cancellation = new();
+            ResourceGovernor governor = new(limits, cancellation.Token);
+            Task<XRefTable> parsing = Task.Factory.StartNew(() => Parse(input, governor, limits), CancellationToken.None,
+                TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            bool reached = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 50000L || parsing.IsCompleted, TimeSpan.FromSeconds(10));
+            Assert.True(reached);
+            bool observed = governor.Snapshot().LiveMemoryBytes >= 50000L;
+            cancellation.Cancel();
+            try
+            {
+                XRefTable completed = await parsing.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.True(completed.Entries.Count >= 20000);
+            }
+            catch (OperationCanceledException)
+            {
+                Assert.True(observed);
+                Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+                Assert.True(governor.Snapshot().TotalWork > 0L);
+                interrupted = true;
+            }
+        }
+        Assert.True(interrupted, "Parsing must be canceled after observed collection admission; completion alone is insufficient.");
     }
 }

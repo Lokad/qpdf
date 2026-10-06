@@ -257,7 +257,7 @@ public sealed class MergeCommandTests
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "collate": "-1"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": ".", "range": "1"}], "collate": "1,2"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "collate": "1,2,3"}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "collate": "1", "collate": "1"}""")]
+    [InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/m.pdf","pages":[{"file":".","range":"1"},{"file":".","range":"2"}],"collate":"1","collate":[]}""")]
     public async Task JobCollateMalformedFails(string job)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");

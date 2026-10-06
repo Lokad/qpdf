@@ -99,7 +99,7 @@
     "page-range syntax"
   ],
   "supplementalRequirements": [
-    "Required nested job JSON jobJsonFile mapping is absent from the managed root parser. Characterize native loading/precedence and implement bounded host-mediated nested jobs; root case-name coverage does not establish nested/default/interaction semantics.",
+    "Nested jobJsonFile loading is host-mediated and bounded; combined argv operation settings and repeated --job-json-file configuration still need native precedence/interaction coverage. Root handler names do not establish complete grammar/default/context coverage.",
     "Required checker interaction gaps remain visible in the partial --check entry; standalone and page-count/linearization job routes do not establish complete native combinations.",
     "--json-key=encrypt is excluded",
     "fix-qdf companion",
@@ -3367,7 +3367,9 @@
       "argumentKind": "file_parameter",
       "parameter": "file",
       "choices": [],
-      "jobJsonPaths": [],
+      "jobJsonPaths": [
+        "jobJsonFile"
+      ],
       "scope": "required",
       "choiceScopes": {},
       "manualForms": [
@@ -3377,24 +3379,43 @@
         }
       ],
       "milestone": "M4",
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Native mixed argv settings and multiple job-file arguments remain unsupported. Standalone joined/separate argv and nested JSON files use the shared operation parser; configuration ordering, complete grammar and remaining contexts still require auditing."
+      ],
       "evidence": {
         "positive": [
-          "InvocationTests.JobJsonFileMatchesInlineJob"
+          "InvocationTests.JobJsonFileMatchesInlineJob",
+          "NestedJobTests.NestedFilesShareTheChecker",
+          "NestedJobTests.OuterJobCompletesPartialChildAndRepeatsEmptyFlag",
+          "NestedJobTests.PlainJobUsesTheWholeFileWriter"
         ],
         "negative": [
-          "InvocationTests.JobJsonFileErrorsAreExplicit"
+          "InvocationTests.JobJsonFileErrorsAreExplicit",
+          "NestedJobTests.InvalidFileValuesRejectBeforeHostAccess",
+          "NestedJobTests.BadChildDoesNotAccessPdfOrPublish",
+          "NestedJobTests.RepeatedExclusiveDeclarationsRejectAfterLoading",
+          "NestedJobTests.CryptoDeclarationsRejectBeforePdfOrPasswordAccess"
         ],
         "interaction": [
-          "InvocationTests.JobJsonFileErrorsAreExplicit"
+          "InvocationTests.JobJsonFileErrorsAreExplicit",
+          "NestedJobTests.ScalarPrecedenceUsesNativeKeyOrder",
+          "NestedJobTests.RepeatedRotationRangesReplaceAndLabelsReset",
+          "NestedJobTests.DuplicateKeysWithinOneLayerUseTheLastValue"
         ],
         "resource": [
-          "InvocationTests.JobFileYieldsToExhaustedBudget"
+          "InvocationTests.JobFileYieldsToExhaustedBudget",
+          "NestedJobTests.CumulativeConfigurationBytesAreBounded",
+          "NestedJobTests.NestingLimitRejectsBeforeOpeningAnotherFile",
+          "NestedJobTests.LoadingBudgetsStopBeforePdfAccess",
+          "NestedJobTests.HostReadFailuresAndShortReadsCloseLeases",
+          "NestedJobTests.DifferentPathsWithTheSameIdentityFormACycle",
+          "NestedJobTests.CancellationAfterJobReadStartsPreservesPriorOutput"
         ],
         "oracle": [
-          "diff:job-file"
+          "diff:job-file",
+          "diff:nested-job"
         ]
       }
     },

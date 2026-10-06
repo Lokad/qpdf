@@ -113,7 +113,7 @@ public sealed class ShowPagesTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showPages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showPages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": true, \"showPages\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showPages\":true,\"showPages\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": true, \"showNpages\": true}")]
     public async Task JobShowPagesRejectsCombinations(string jobJson)
     {
@@ -237,7 +237,7 @@ public sealed class ShowPagesTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"withImages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"withImages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": true, \"withImages\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": true, \"withImages\": true, \"withImages\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showPages\":true,\"withImages\":true,\"withImages\":[]}")]
     public async Task JobWithImagesRejectsCombinations(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

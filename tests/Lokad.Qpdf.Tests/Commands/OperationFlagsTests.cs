@@ -87,7 +87,7 @@ public sealed class OperationFlagsTests
 
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}], \"keepFilesOpen\": \"maybe\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}], \"keepFilesOpen\": \"y\", \"keepFilesOpen\": \"n\"}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/a.pdf\",\"pages\":[{\"file\":\"inputs/a.pdf\",\"range\":\"1\"}],\"keepFilesOpen\":\"y\",\"keepFilesOpen\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}], \"keepFilesOpenThreshold\": -1}")]
     public async Task BadKeepOpenJobKeysFail(string jobJson)
     {
@@ -158,12 +158,16 @@ public sealed class OperationFlagsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.VerboseSummary).Message;
-        Assert.Equal(argvMessage, jobMessage);
+        Assert.Contains($"peak {job.Counters.PeakMemoryBytes} bytes.", jobMessage, StringComparison.Ordinal);
+        Assert.True(job.Counters.PeakMemoryBytes > argvResult.Counters.PeakMemoryBytes);
+        Assert.Equal(
+            System.Text.RegularExpressions.Regex.Replace(argvMessage, @"peak \d+ bytes", "peak bytes"),
+            System.Text.RegularExpressions.Regex.Replace(jobMessage, @"peak \d+ bytes", "peak bytes"));
     }
 
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"verbose\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"verbose\": true, \"verbose\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showNpages\":true,\"verbose\":true,\"verbose\":[]}")]
     public async Task BadVerboseJobKeysFail(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithTwoSources();

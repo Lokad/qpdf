@@ -146,7 +146,7 @@ public sealed class ShowObjectTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showObject\": \"3\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"nope\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showObject\": \"3\"}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"3\",\"showObject\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showNpages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showPages\": true}")]
     public async Task JobShowObjectRejectsCombinations(string jobJson)
@@ -387,7 +387,7 @@ public sealed class ShowObjectTests
 
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"4\", \"rawStreamData\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"4\", \"rawStreamData\": true, \"rawStreamData\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"4\",\"rawStreamData\":true,\"rawStreamData\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"rawStreamData\": true}")]
     public async Task JobStreamDataRejectsCombinations(string jobJson)
     {

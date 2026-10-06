@@ -102,7 +102,7 @@ public sealed class ProgressTests
 
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"progress\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"progress\": true, \"progress\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showNpages\":true,\"progress\":true,\"progress\":[]}")]
     public async Task BadProgressJobKeysFail(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithTwoSources();

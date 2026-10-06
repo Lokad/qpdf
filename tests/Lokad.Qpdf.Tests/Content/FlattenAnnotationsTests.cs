@@ -449,7 +449,7 @@ Assert.Equal(a, b);
 [Theory]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "flattenAnnotations": "sometimes"}""")]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "flattenAnnotations": true}""")]
-[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "flattenAnnotations": "all", "flattenAnnotations": "all"}""")]
+[InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}],"flattenAnnotations":"all","flattenAnnotations":[]}""")]
 public async Task JobMalformedFails(string jobJson)
 {
 byte[] fixture = TextFixture(string.Empty, new List<(string Dict, byte[]? StreamData)>());
@@ -493,4 +493,3 @@ byte[] content = await PageContentAsync(pdf);
 Assert.Contains("/Fxo1 Do", Encoding.ASCII.GetString(content));
 }
 }
-

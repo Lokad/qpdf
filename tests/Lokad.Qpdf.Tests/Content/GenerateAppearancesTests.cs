@@ -783,7 +783,7 @@ Assert.Equal(a, b);
 }
 [Theory]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "generateAppearances": "yes"}""")]
-[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "generateAppearances": true, "generateAppearances": true}""")]
+[InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}],"generateAppearances":true,"generateAppearances":[]}""")]
 public async Task JobMalformedFails(string jobJson)
 {
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[]? StreamData)>
@@ -894,4 +894,3 @@ string data = objects.GetProperty(formKey).GetProperty("stream").GetProperty("da
 return Convert.FromBase64String(data);
 }
 }
-

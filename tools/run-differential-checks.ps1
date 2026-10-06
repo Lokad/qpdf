@@ -1335,6 +1335,66 @@ if ($code -ne 0) { throw "job-file: oracle failed ($code)" }
 Copy-Item "$case/outputs/a.pdf" "$case/ora.pdf" -Force
 Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 
+# --- case: nested-job (partial configurations and native key/duplicate precedence) ---
+$nestedCases = @(
+  @{ Name='valid-direct'; Parent=@{ jobJsonFile='inputs/child.json' }; Child=@{ inputFile='inputs/a.pdf'; check=''; showNpages='' }; Exit=0; Route='direct'; Count=1 },
+  @{ Name='valid-joined'; Parent=@{ jobJsonFile='inputs/child.json' }; Child=@{ inputFile='inputs/a.pdf'; check=''; showNpages='' }; Exit=0; Route='joined'; Count=1 },
+  @{ Name='valid-separate'; Parent=@{ jobJsonFile='inputs/child.json' }; Child=@{ inputFile='inputs/a.pdf'; check=''; showNpages='' }; Exit=0; Route='separate'; Count=1 },
+  @{ Name='multi'; Parent=@{ jobJsonFile='inputs/middle.json' }; Child=@{ inputFile='inputs/a.pdf'; showNpages='' }; Exit=0; Route='direct'; Count=1; Middle=$true },
+  @{ Name='force-child'; Parent=@{ inputFile='inputs/a.pdf'; outputFile='outputs/a.pdf'; jobJsonFile='inputs/child.json'; forceVersion='1.6' }; Child=@{ forceVersion='1.5' }; Exit=0; Route='direct'; Write=$true; Version='1.5' },
+  @{ Name='min-parent'; Parent=@{ inputFile='inputs/a.pdf'; outputFile='outputs/a.pdf'; jobJsonFile='inputs/child.json'; minVersion='1.6' }; Child=@{ minVersion='1.5' }; Exit=0; Route='direct'; Write=$true; Version='1.6' },
+  @{ Name='input-collision'; Parent=@{ inputFile='inputs/a.pdf'; jobJsonFile='inputs/child.json'; showNpages='' }; Child=@{ inputFile='inputs/a.pdf' }; Exit=2; Route='direct' },
+  @{ Name='output-collision'; Parent=@{ inputFile='inputs/a.pdf'; outputFile='outputs/a.pdf'; jobJsonFile='inputs/child.json' }; Child=@{ outputFile='outputs/other.pdf' }; Exit=2; Route='direct' },
+  @{ Name='pages-collision'; Parent=@{ inputFile='inputs/a.pdf'; outputFile='outputs/a.pdf'; jobJsonFile='inputs/child.json'; pages=@(@{file='.';range='1'}) }; Child=@{ pages=@(@{file='.';range='1'}) }; Exit=2; Route='direct' },
+  @{ Name='missing'; Parent=@{ jobJsonFile='inputs/missing.json' }; Child=@{}; Exit=2; Route='direct' },
+  @{ Name='array'; Parent=@{ jobJsonFile=@('inputs/child.json') }; Child=@{}; Exit=2; Route='direct' },
+  @{ Name='unicode-path'; RawParent='{"jobJsonFile":"\ud800"}'; Child=@{}; Exit=2; Route='direct' },
+  @{ Name='unicode-key'; RawParent='{"\ud800":""}'; Child=@{}; Exit=2; Route='direct' },
+  @{ Name='nul-path'; RawParent='{"jobJsonFile":"\u0000"}'; Child=@{}; Exit=2; Route='direct' },
+  @{ Name='malformed'; Parent=@{ jobJsonFile='inputs/child.json' }; RawChild='{'; Exit=2; Route='direct' },
+  @{ Name='duplicate-child'; Parent=@{ jobJsonFile='inputs/child.json' }; RawChild='{"empty":"bad","empty":"","showNpages":""}'; Exit=0; Route='direct'; Count=0 },
+  @{ Name='duplicate-check-valid'; Parent=@{ jobJsonFile='inputs/child.json'; inputFile='inputs/a.pdf' }; RawChild='{"check":true,"check":"","showNpages":""}'; Exit=0; Route='direct'; Count=1 },
+  @{ Name='duplicate-check-invalid'; Parent=@{ jobJsonFile='inputs/child.json'; inputFile='inputs/a.pdf' }; RawChild='{"check":"","check":false}'; Exit=2; Route='direct' },
+  @{ Name='rotation-labels'; Parent=@{ inputFile='inputs/a.pdf'; outputFile='outputs/a.pdf'; jobJsonFile='inputs/child.json'; pages=@(@{file='.';range='1'}); rotate=@('+180:1'); setPageLabels=@('1:D/8/parent') }; Child=@{ rotate=@('+90:1'); setPageLabels=@('1:D/5/child') }; Exit=0; Route='direct'; Write=$true; Rotate=180; Label='parent' }
+)
+foreach ($item in $nestedCases) {
+  $case = New-Case "nested-job-$($item.Name)"
+  Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
+  New-Item -ItemType Directory -Path "$case/outputs" -Force | Out-Null
+  $child = if ($item.ContainsKey('RawChild')) { $item.RawChild } else { $item.Child | ConvertTo-Json -Depth 8 }
+  [IO.File]::WriteAllText("$case/inputs/child.json", $child, [Text.UTF8Encoding]::new($false))
+  if ($item.Middle) { [IO.File]::WriteAllText("$case/inputs/middle.json", '{"jobJsonFile":"inputs/child.json"}', [Text.UTF8Encoding]::new($false)) }
+  $parent = if ($item.ContainsKey('RawParent')) { $item.RawParent } else { $item.Parent | ConvertTo-Json -Depth 8 }
+  [IO.File]::WriteAllText("$case/inputs/parent.json", $parent, [Text.UTF8Encoding]::new($false))
+  $emit = if ($item.Route -eq 'direct') { @('emit-job', '--workdir', $case, '--job', "$case/inputs/parent.json") }
+    elseif ($item.Route -eq 'joined') { @('emit', '--workdir', $case, '--', '--job-json-file=inputs/parent.json') }
+    else { @('emit', '--workdir', $case, '--', '--job-json-file', 'inputs/parent.json') }
+  if ($item.Write) { $emit = @('emit-job', '--workdir', $case, '--job', "$case/inputs/parent.json", '--out', "outputs/a.pdf=$case/lib.pdf") }
+  $managed = @(& dotnet $probeDll @emit 2>&1 | ForEach-Object ToString)
+  $processExit = $LASTEXITCODE
+  $reported = [regex]::Match(($managed -join "`n"), 'emit: status=(Completed|Failed|Canceled) exit=(\d+)')
+  if (-not $reported.Success -or [int]$reported.Groups[2].Value -ne $item.Exit -or $processExit -ne $(if ($item.Exit -eq 0) { 0 } else { 2 })) {
+    throw "nested-job-$($item.Name): managed execution mismatch (process $processExit): $($managed -join ' ')"
+  }
+  $oracleExit = Invoke-Oracle $case @('--job-json-file=inputs/parent.json')
+  if ($oracleExit -ne $item.Exit) { throw "nested-job-$($item.Name): native exit $oracleExit expected $($item.Exit)" }
+  if ($item.ContainsKey('Count')) {
+    if (($managed -join "`n") -notmatch "PageCount Info .*: $($item.Count)(?:\r?\n|$)" -or
+        (Get-Content "$case/ora-stdout.txt" -Raw) -notmatch "(?m)^$($item.Count)\r?$" ) { throw "nested-job-$($item.Name): page count mismatch" }
+  }
+  if ($item.Write) {
+    Copy-Item "$case/outputs/a.pdf" "$case/ora.pdf"
+    Assert-Trio "nested-job-$($item.Name)" "$case/lib.pdf" "$case/ora.pdf" 1
+    foreach ($path in @("$case/lib.pdf", "$case/ora.pdf")) {
+      $text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($path))
+      if ($item.Version -and -not $text.StartsWith("%PDF-$($item.Version)", [StringComparison]::Ordinal)) { throw "nested-job-$($item.Name): version mismatch" }
+      if ($item.Rotate -and $text -notmatch "/Rotate $($item.Rotate)\b") { throw "nested-job-$($item.Name): rotation mismatch" }
+      if ($item.Label -and ($text -notmatch '\(parent\)' -or $text -match '\(child\)')) { throw "nested-job-$($item.Name): label replacement mismatch" }
+    }
+  } elseif (Test-Path "$case/outputs/a.pdf") { throw "nested-job-$($item.Name): unexpected output" }
+  Write-Output "[nested-job-$($item.Name)] native partial configuration semantics agree (exit $($item.Exit))"
+}
+
 # --- case: job-check (required job field, warning/error exits and combined inspections) ---
 $jobCheckCases = @(
   @{ Name = 'valid'; Fixture = 'minimal-1page.pdf'; Extra = @{}; Exit = 0 },

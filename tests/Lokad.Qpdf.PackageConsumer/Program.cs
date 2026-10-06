@@ -97,6 +97,19 @@ internal static class Program
         Check(strictJobCheck.Counters.TotalWork > 0 && strictJobCheck.Counters.OpenHandles == 0 && strictJobHost.OpenLeaseCount == 0, "failed job checker counters and cleanup");
         Console.WriteLine("PASS job checker, combined page count, damaged xref rejection and cleanup");
 
+        InMemoryQpdfHost nestedHost = NewHost("inputs/in.pdf", input);
+        nestedHost.AddInput(QpdfPath.From("inputs/child.json"), "{\"check\":\"\",\"showNpages\":\"\"}"u8.ToArray(), QpdfInputOwnership.Copy);
+        nestedHost.AddInput(QpdfPath.From("inputs/parent.json"), "{\"inputFile\":\"inputs/in.pdf\",\"jobJsonFile\":\"inputs/child.json\"}"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult nested = await Qpdf.ExecuteJobAsync(nestedHost, """{"jobJsonFile":"inputs/parent.json"}""", CancellationToken.None);
+        Check(nested.Status == QpdfExecutionStatus.Completed && nested.ExitCode == QpdfExitCode.Success, "nested checker execution");
+        Check(nested.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 2", StringComparison.Ordinal)), "nested checker page count");
+        QpdfExecutionResult nestedArgv = await Qpdf.ExecuteAsync(nestedHost, new QpdfCommandInvocation(["--job-json-file=inputs/parent.json"]), CancellationToken.None);
+        Check(nestedArgv.Status == QpdfExecutionStatus.Completed && nestedArgv.ExitCode == QpdfExitCode.Success, "joined job-file execution");
+        Check(nestedArgv.Counters.TotalWork > 0 && nestedArgv.Counters.OpenHandles == 0 && nestedHost.OpenLeaseCount == 0, "nested job cleanup");
+        QpdfExecutionResult lastKey = await Qpdf.ExecuteJobAsync(nestedHost, """{"inputFile":"inputs/in.pdf","check":true,"check":""}""", CancellationToken.None);
+        Check(lastKey.Status == QpdfExecutionStatus.Completed && lastKey.ExitCode == QpdfExitCode.Success, "duplicate job keys keep the final value");
+        Console.WriteLine("PASS nested job files, joined argv, duplicate-key precedence and cleanup");
+
         byte[] damaged = BreakStartXref(input);
         InMemoryQpdfHost repairHost = NewHost("inputs/damaged.pdf", damaged);
         QpdfExecutionResult repair = await Qpdf.ExecuteAsync(

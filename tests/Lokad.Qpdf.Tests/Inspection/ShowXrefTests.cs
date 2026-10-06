@@ -110,7 +110,7 @@ public sealed class ShowXrefTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showXref\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showXref\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showXref\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showXref\":true,\"showXref\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showNpages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showPages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showObject\": \"3\"}")]

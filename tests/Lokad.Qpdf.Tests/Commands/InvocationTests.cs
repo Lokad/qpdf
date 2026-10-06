@@ -204,7 +204,7 @@ public sealed class InvocationTests
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "warningExit0": "yes"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "noWarn": "yes"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "suppressRecovery": "yes"}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "warningExit0": true, "warningExit0": true}""")]
+    [InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","warningExit0":true,"warningExit0":[]}""")]
     public async Task JobWarningFlagsRejectMalformed(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

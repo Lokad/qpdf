@@ -656,7 +656,7 @@ public sealed class ContentTransformsTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"normalizeContent\": \"x\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"removeUnreferencedResources\": \"sometimes\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"coalesceContents\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"coalesceContents\": true, \"coalesceContents\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/a.pdf\",\"pages\":[{\"file\":\".\",\"range\":\"1\"}],\"coalesceContents\":true,\"coalesceContents\":[]}")]
     public async Task JobContentFlagsMalformedFail(string jobJson)
     {
         byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[]? StreamData)>

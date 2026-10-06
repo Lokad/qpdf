@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lokad.Qpdf.Jobs;
 
 namespace Lokad.Qpdf.Tests;
 
@@ -135,8 +136,8 @@ public sealed class CompatibilityInventoryTests
         using var inventory = ReadInventory();
         var entries = inventory.RootElement.GetProperty("options").EnumerateArray().ToArray();
         Assert.Equal(157, entries.Length);
-        Assert.Equal(153, entries.Count(entry => entry.GetProperty("status").GetString() == "complete"));
-        Assert.Equal(4, entries.Count(entry => entry.GetProperty("status").GetString() == "partial"));
+        Assert.Equal(152, entries.Count(entry => entry.GetProperty("status").GetString() == "complete"));
+        Assert.Equal(5, entries.Count(entry => entry.GetProperty("status").GetString() == "partial"));
         Assert.Equal(49, entries.Count(entry => entry.GetProperty("scope").GetString() == "excluded-crypto"));
     }
 
@@ -212,7 +213,8 @@ public sealed class CompatibilityInventoryTests
                 }
 
                 string leaf = value.Contains('.', StringComparison.Ordinal) ? value.Substring(value.LastIndexOf('.') + 1) : value;
-                if (!parser.Contains("case \"" + leaf + "\":", StringComparison.Ordinal))
+                if (!parser.Contains("case \"" + leaf + "\":", StringComparison.Ordinal)
+                    && !JobJsonParser.IsCryptoKey(leaf) && leaf != JobJsonLoader.FileKey)
                 {
                     bad.Add(entry.GetProperty("context").GetString() + "/" + entry.GetProperty("flag").GetString() + ": " + value);
                 }

@@ -4,8 +4,9 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-**Implemented PDF operations: the audited non-cryptographic subset.** 153 inventory entries
-are complete and 4 stay partial: `--check` still lacks required native inspection/
+**Implemented PDF operations: the audited non-cryptographic subset.** 152 inventory entries
+are complete and 5 stay partial: `--job-json-file` lacks native mixed-argv and
+multiple-file configuration; `--check` lacks required native inspection/
 selection/transformation combinations; the no-Zopfli build profile and four-component CMYK
 image samples retain their accepted compatibility exceptions with partial labeling;
 and `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
@@ -45,12 +46,19 @@ document reading retains its count-mismatch warning. Checker/page-count executio
 snapshots work, peaks and handles after input cleanup; broader diagnostic and
 invocation/presentation counters remain under audit.
 
-The job-field audit remains incomplete. The target's generated schema has 98
-root keys; `jobJsonFile` has no managed root handler or nested loader. Its required
-mapping/loading/precedence behavior is a canonical supplemental gap. Other root
-case names do not establish nested fields, grammar, defaults or interaction
-semantics. The `--check` entry records its additional required combinations as
-partial rather than treating them as accepted exceptions.
+`jobJsonFile` loads partial configurations through the invoking host. Direct JSON
+and standalone joined/separate argv job-file routes share the loader and operation
+parser. Native sorted-key traversal determines cross-file setter order; each JSON
+object uses its last value per key. Repeated input/output/page declarations across
+files reject. Cumulative configuration bytes, nesting, host operations/handles,
+work and a conservative DOM envelope obey host ceilings. Loaded configuration
+stays admitted through execution; cleanup precedes outcome snapshots. Pool/state
+retention and exact allocation accounting remain under audit.
+
+The target's 98 root keys now have parsing/loading or explicit crypto rejection
+routes. Names alone do not establish complete grammar, defaults or context
+coverage. Mixed argv configuration and additional checker combinations remain
+required gaps in their partial entries, rather than accepted exceptions.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,

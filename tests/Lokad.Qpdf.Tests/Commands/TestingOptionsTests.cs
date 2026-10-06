@@ -95,7 +95,9 @@ public sealed class TestingOptionsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.MemoryUsage).Message;
-        Assert.Equal(argvMessage, jobMessage);
+        Assert.Contains($"{argv.Counters.PeakMemoryBytes} bytes.", argvMessage, StringComparison.Ordinal);
+        Assert.Contains($"{job.Counters.PeakMemoryBytes} bytes.", jobMessage, StringComparison.Ordinal);
+        Assert.True(job.Counters.PeakMemoryBytes > argv.Counters.PeakMemoryBytes);
     }
 
     [Fact]
@@ -160,7 +162,7 @@ public sealed class TestingOptionsTests
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"testJsonSchema\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"jsonInput\": true, \"testJsonSchema\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"latest\", \"testJsonSchema\": \"yes\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.json\", \"json\": \"latest\", \"testJsonSchema\": true, \"testJsonSchema\": true}")]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"outputFile\":\"outputs/a.json\",\"json\":\"latest\",\"testJsonSchema\":true,\"testJsonSchema\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"reportMemoryUsage\": \"yes\"}")]
     public async Task BadTestingJobKeysFail(string jobJson)
     {

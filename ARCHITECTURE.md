@@ -7,6 +7,12 @@ qpdf job JSON, and typed operations including bounded page selection. The
 operation plan uses one binary reader, object graph, filter pipeline and
 writer. PDF object JSON and job JSON are different formats.
 
+Job files load partial configurations iteratively through the host, using stable
+input identities for cycle checks. Sorted-key prefixes and reverse suffixes share
+the existing operation parser and preserve native setter/duplicate semantics.
+Configuration storage stays admitted until execution finishes; input leases close
+between files. The loader bounds cumulative bytes, work, nesting and storage.
+
 Argv and job checker plans use the typed checker core, with optional page-count
 and linearization inspection. Page traversal and declared-count reporting are
 distinct; failed checking stops subsequent inspection. Checker/page-count results

@@ -15,8 +15,9 @@ Three routes converge on one selection plan executed by the shared engine:
   and host contracts.
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]range
   -- output` (repeated file/range groups with the full range grammar, collation,
-  rotation, labels, split, and empty-base forms), `input --check`, `--job-json-file`
-  file`, `@file` response files (one argument per line), `--help`/`--version`/`--job-json-help`/`--completion-bash`/`--completion-zsh`,
+  rotation, labels, split, and empty-base forms), `input --check`, standalone
+  `--job-json-file=file` (also the existing separate `--job-json-file file` form),
+  `@file` response files (one argument per line), `--help`/`--version`/`--job-json-help`/`--completion-bash`/`--completion-zsh`,
   content flags, overlay and underlay blocks, appearance flags, image optimization,
   QDF, linearization, JSON inspection and editing, attachment editing, writer controls,
   and the `--suppress-recovery`/`--warning-exit-0`/`--no-warn` modifiers.
@@ -30,8 +31,19 @@ with `showNpages`, `checkLinearization` and `showLinearization`. The `check` val
 must be an empty string; booleans fail. Failed checking stops following inspection.
 Checking uses page traversal quietly when `/Count` disagrees, while page-count
 inspection reports the declared count. Typed document reading still reports
-that disagreement. Other checker/inspection/selection combinations and nested
-`jobJsonFile` loading remain required compatibility work.
+that disagreement. Other checker/inspection/selection combinations remain
+required compatibility work.
+
+`{inputFile, outputFile}` rewrites the whole document through the shared writer.
+`jobJsonFile` names a partial configuration in the invoking host's path context,
+and nested files share native sorted-key setter order. JSON objects retain the
+last value per key; repeated input/output/page declarations across files reject.
+Configuration files together fit `MaxInputBytes`; host memory/work/nesting and
+operation/handle ceilings apply during loading. File identity cycles reject,
+crypto declarations reject before PDF/password access, and cancellation closes
+job input leases. Models remain admitted through execution and are disposed
+before result snapshots. Mixed argv settings and repeated argv job-file options
+remain required work; codec/pool/diagnostic ownership audits remain open.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —

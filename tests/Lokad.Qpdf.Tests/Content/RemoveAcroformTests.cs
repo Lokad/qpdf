@@ -100,7 +100,7 @@ public sealed class RemoveAcroformTests
 
     [Theory]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "removeAcroform": "yes"}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "removeAcroform": true, "removeAcroform": true}""")]
+    [InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","removeAcroform":true,"removeAcroform":[]}""")]
     public async Task JobRemoveAcroformRejectsMalformed(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");

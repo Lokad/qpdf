@@ -216,7 +216,7 @@ public sealed class SplitReplaceTests
 
     [Theory]
     [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": "yes"}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true, "replaceInput": true}""")]
+    [InlineData("""{"inputFile":"inputs/a.pdf","pages":[{"file":".","range":"1"}],"replaceInput":true,"replaceInput":[]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "replaceInput": true}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true, "empty": true}""")]
@@ -305,7 +305,7 @@ public sealed class SplitReplaceTests
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}], "splitPages": "0"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}], "splitPages": "-1"}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}], "splitPages": 1}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}], "splitPages": "1", "splitPages": "1"}""")]
+    [InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/s.pdf","pages":[{"file":".","range":"1"}],"splitPages":"1","splitPages":[]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}], "splitPages": "1", "replaceInput": true}""")]
     public async Task JobSplitMalformedFails(string job)
     {

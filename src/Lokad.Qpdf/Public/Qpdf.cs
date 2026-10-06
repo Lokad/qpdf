@@ -4848,31 +4848,22 @@ public static class Qpdf
                 return ToFailedResult(new QpdfParseException("Null argument.", 1, null));
             }
 
-            string jobJson;
+            JobJsonLoader.LoadedJob loaded;
             try
             {
-                jobJson = await ResponseFileExpander.ReadTextFileAsync(host, SelectionPlan.CheckedPath(jobPath), options.Limits, governor, cancellationToken).ConfigureAwait(false);
+                loaded = await JobJsonLoader.ParseFileAsync(host, SelectionPlan.CheckedPath(jobPath), options.Limits, governor, cancellationToken).ConfigureAwait(false);
             }
             catch (QpdfException ex)
             {
-                return ToFailedResult(ex);
+                QpdfExecutionResult failure = ToFailedResult(ex);
+                return new QpdfExecutionResult(failure.Status, failure.ExitCode, failure.Diagnostics, governor.Snapshot());
             }
             catch (OperationCanceledException)
             {
-                return QpdfExecutionResult.Canceled([], ZeroCounters());
+                return QpdfExecutionResult.Canceled([], governor.Snapshot());
             }
 
-            JobPlan jobPlan;
-            try
-            {
-                jobPlan = JobJsonParser.Parse(jobJson, options.Limits, governor);
-            }
-            catch (QpdfException ex)
-            {
-                return ToFailedResult(ex);
-            }
-
-            return await RunPlanAsync(host, jobPlan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            return await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         JobPlan plan;
@@ -4895,7 +4886,7 @@ public static class Qpdf
         int found = -1;
         for (int i = 0; i < argv.Count; i++)
         {
-            if (argv[i] == "--job-json-file")
+            if (argv[i] == "--job-json-file" || argv[i].StartsWith("--job-json-file=", StringComparison.Ordinal))
             {
                 if (found >= 0)
                 {
@@ -4904,6 +4895,10 @@ public static class Qpdf
                 }
 
                 found = i;
+                if (argv[i].StartsWith("--job-json-file=", StringComparison.Ordinal))
+                {
+                    jobPath = argv[i].Substring("--job-json-file=".Length);
+                }
             }
         }
 
@@ -4912,13 +4907,13 @@ public static class Qpdf
             return false;
         }
 
-        if (argv.Count != 2)
+        if (found != 0 || argv.Count != (jobPath is null ? 2 : 1))
         {
             error = new QpdfParseException("--job-json-file takes exactly one file and no other operation.", found, null);
             return true;
         }
 
-        jobPath = argv[1];
+        jobPath ??= argv[1];
         if (jobPath is null)
         {
             error = new QpdfParseException("Null argument.", 1, null);
@@ -4964,16 +4959,33 @@ public static class Qpdf
         options.Limits.Validate();
         ResourceGovernor governor = new(options.Limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
-        JobPlan plan;
+        JobJsonLoader.LoadedJob loaded;
         try
         {
-            plan = JobJsonParser.Parse(jobJson, options.Limits, governor);
+            loaded = await JobJsonLoader.ParseAsync(host, jobJson, options.Limits, governor, cancellationToken).ConfigureAwait(false);
         }
         catch (QpdfException ex)
         {
-            return ToFailedResult(ex);
+            QpdfExecutionResult failure = ToFailedResult(ex);
+            return new QpdfExecutionResult(failure.Status, failure.ExitCode, failure.Diagnostics, governor.Snapshot());
         }
-        return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        catch (OperationCanceledException)
+        {
+            return QpdfExecutionResult.Canceled([], governor.Snapshot());
+        }
+        return await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<QpdfExecutionResult> RunLoadedJobAsync(
+        IQpdfHost host, JobJsonLoader.LoadedJob loaded, QpdfExecutionOptions options,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    {
+        QpdfExecutionResult result;
+        using (loaded)
+        {
+            result = await RunPlanAsync(host, loaded.Plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        }
+        return new QpdfExecutionResult(result.Status, result.ExitCode, result.Diagnostics, governor.Snapshot());
     }
 
     private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(

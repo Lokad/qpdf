@@ -396,7 +396,7 @@ Assert.Equal(a, b);
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "externalizeInlineImages": "yes"}""")]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "iiMinBytes": -1}""")]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "iiMinBytes": "huge"}""")]
-[InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "externalizeInlineImages": true, "externalizeInlineImages": true}""")]
+[InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"}],"externalizeInlineImages":true,"externalizeInlineImages":[]}""")]
 public async Task JobMalformedFails(string jobJson)
 {
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", Filled(10, 65));

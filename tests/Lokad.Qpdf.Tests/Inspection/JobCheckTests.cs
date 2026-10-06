@@ -150,13 +150,15 @@ public sealed class JobCheckTests
     }
 
     [Theory]
-    [InlineData("\"check\":\"\",\"check\":\"\"")]
-    [InlineData("\"check\":\"\",\"check\":false")]
-    public async Task DuplicateCheckIsRejected(string properties)
+    [InlineData("\"check\":true,\"check\":\"\"", QpdfExecutionStatus.Completed)]
+    [InlineData("\"check\":\"\",\"check\":false", QpdfExecutionStatus.Failed)]
+    public async Task DuplicateCheckUsesTheLastValue(string properties, QpdfExecutionStatus expected)
     {
-        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(new InMemoryQpdfHost(), "{\"inputFile\":\"inputs/a.pdf\"," + properties + "}", CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
-        Assert.Contains("Duplicate", result.Diagnostics[0].Message, StringComparison.Ordinal);
+        InMemoryQpdfHost host = Host(Fixture("minimal-1page.pdf"));
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"inputs/a.pdf\"," + properties + "}", CancellationToken.None);
+        Assert.Equal(expected, result.Status);
+        if (expected == QpdfExecutionStatus.Failed) { Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code); }
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

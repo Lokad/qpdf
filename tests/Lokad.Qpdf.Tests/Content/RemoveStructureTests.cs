@@ -98,7 +98,7 @@ public sealed class RemoveStructureTests
 
     [Theory]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "removeStructure": "yes"}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "removeStructure": true, "removeStructure": true}""")]
+    [InlineData("""{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","removeStructure":true,"removeStructure":[]}""")]
     public async Task JobRemoveStructureRejectsMalformed(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "struct-1page.pdf");
