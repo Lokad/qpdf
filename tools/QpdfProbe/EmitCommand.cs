@@ -59,13 +59,14 @@ internal static class EmitCommand
         }
 
         QpdfExecutionResult result;
+        IQpdfHost executionHost = new InputAliases(host);
         if (jobJson is not null)
         {
-            result = Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None).GetAwaiter().GetResult();
+            result = Qpdf.ExecuteJobAsync(executionHost, jobJson, CancellationToken.None).GetAwaiter().GetResult();
         }
         else if (argv is not null)
         {
-            result = Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None).GetAwaiter().GetResult();
+            result = Qpdf.ExecuteAsync(executionHost, new QpdfCommandInvocation(argv), CancellationToken.None).GetAwaiter().GetResult();
         }
         else
         {
@@ -118,6 +119,21 @@ internal static class EmitCommand
         }
 
         return result.Status == QpdfExecutionStatus.Completed ? 0 : 2;
+    }
+
+    // Development host policy: ./ names share the canonical input lease identity.
+    // The library still receives the original filename key in its operation plan.
+    private sealed class InputAliases(InMemoryQpdfHost host) : IQpdfHost
+    {
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
+        {
+            string name = path.Value;
+            while (name.StartsWith("./", StringComparison.Ordinal)) { name = name[2..]; }
+            return host.OpenInputAsync(QpdfPath.From(name), cancellationToken);
+        }
+
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
+            => host.CreateOutputAsync(path, cancellationToken);
     }
 
     private static string GetOption(string[] args, string name)

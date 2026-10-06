@@ -117,13 +117,25 @@ public sealed class LinearizationInspectionTests
     [InlineData("inputs/a.pdf", "--check-linearization", "--linearize", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--check-linearization", "--qdf", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--json", "--check-linearization", "--", "outputs/a.json")]
-    [InlineData("inputs/a.pdf", "--check-linearization", "--list-attachments")]
-    [InlineData("inputs/a.pdf", "--check-linearization", "--check-linearization")]
     public async Task CheckLinearizationRejectsCombinations(params string[] argv)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("minimal-1page.pdf"));
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+    }
+
+    [Theory]
+    [InlineData("--check-linearization", "--list-attachments")]
+    [InlineData("--check-linearization", "--check-linearization")]
+    [InlineData("--show-linearization", "--show-linearization")]
+    public async Task RepeatedAndCombinedLinearizationInspectionPreservesTheReport(params string[] flags)
+    {
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("minimal-1page.pdf"));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", .. flags]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal("inputs/a.pdf is not linearized", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.LinearizationReport).Message);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
@@ -144,13 +156,22 @@ public sealed class LinearizationInspectionTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"checkLinearization\": \"\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"checkLinearization\": \"\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"linearize\": \"\", \"checkLinearization\": \"\"}")]
-    public async Task JobCheckLinearizationRejectsCombinations(string jobJson)
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"checkLinearization\": \"\"}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"checkLinearization\": \"\"}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"linearize\": \"\", \"checkLinearization\": \"\"}", true)]
+    public async Task JobCheckLinearizationValidatesCombinations(string jobJson, bool accepted)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("minimal-1page.pdf"));
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        if (accepted)
+        {
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.LinearizationReport
+                && d.Message == "inputs/a.pdf is not linearized");
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         SingleError(result);
     }
 
@@ -338,7 +359,6 @@ public sealed class LinearizationInspectionTests
     [InlineData("inputs/a.pdf", "--show-linearization", "--pages", ".", "1", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-linearization", "--linearize", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--json", "--show-linearization", "--", "outputs/a.json")]
-    [InlineData("inputs/a.pdf", "--show-linearization", "--show-linearization")]
     public async Task ShowLinearizationRejectsCombinations(params string[] argv)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("minimal-1page.pdf"));
@@ -367,12 +387,21 @@ public sealed class LinearizationInspectionTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showLinearization\": \"\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showLinearization\": \"\"}")]
-    public async Task JobShowLinearizationRejectsCombinations(string jobJson)
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showLinearization\": \"\"}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showLinearization\": \"\"}", true)]
+    public async Task JobShowLinearizationValidatesCombinations(string jobJson, bool accepted)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", await FixtureBytes("minimal-1page.pdf"));
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        if (accepted)
+        {
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.LinearizationReport
+                && d.Message == "inputs/a.pdf is not linearized");
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         SingleError(result);
     }
 

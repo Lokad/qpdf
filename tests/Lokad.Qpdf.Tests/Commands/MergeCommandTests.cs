@@ -189,14 +189,17 @@ public sealed class MergeCommandTests
     }
 
     [Fact]
-    public async Task ArgvCollateRequiresPages()
+    public async Task ArgvUnusedCollatePreservesInspectedCount()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--check"]),
+            new QpdfCommandInvocation(["--collate", "inputs/a.pdf", "--check", "--show-npages"]),
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 1", StringComparison.Ordinal));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

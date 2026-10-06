@@ -7,7 +7,9 @@ param(
   [Parameter(Mandatory = $false)]
   [string] $QpdfExe = $env:QPDF_EXE,
   [Parameter(Mandatory = $false)]
-  [string] $Configuration = 'Release'
+  [string] $Configuration = 'Release',
+  [Parameter(Mandatory = $false)]
+  [string] $WorkRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -72,7 +74,7 @@ if ($code -eq 0) {
 Write-Output "Reference lane passed: oracle and independent readers agree on valid fixtures and disagree explicitly on negative cases."
 
 Write-Output "--- differential: library vs oracle outputs ---"
-& (Join-Path $repoRoot 'tools/run-differential-checks.ps1') -QpdfExe $QpdfExe -Configuration $Configuration
+& (Join-Path $repoRoot 'tools/run-differential-checks.ps1') -QpdfExe $QpdfExe -Configuration $Configuration -WorkRoot $WorkRoot
 
 Write-Output "--- parser: per-object budgets and repaired values ---"
 & (Join-Path $repoRoot 'tools/run-parser-checks.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll

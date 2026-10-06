@@ -78,8 +78,6 @@ public sealed class ShowPagesTests
     [Theory]
     [InlineData("inputs/a.pdf", "--show-pages", "--pages", ".", "1", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-pages", "--check", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-pages", "--show-npages")]
-    [InlineData("inputs/a.pdf", "--show-npages", "--show-pages")]
     [InlineData("inputs/a.pdf", "--show-pages", "--linearize", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-pages", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-pages=x")]
@@ -92,6 +90,20 @@ public sealed class ShowPagesTests
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--show-pages", "--show-npages")]
+    [InlineData("--show-npages", "--show-pages")]
+    [InlineData("--show-pages", "--with-images", "--with-images")]
+    public async Task CombinedPageInspectionKeepsCountAndPageIdentity(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", .. flags]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 2: 4 0 R");
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
@@ -110,15 +122,23 @@ public sealed class ShowPagesTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showPages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showPages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": \"yes\"}")]
-    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showPages\":true,\"showPages\":[]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": true, \"showNpages\": true}")]
-    public async Task JobShowPagesRejectsCombinations(string jobJson)
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showPages\": true}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showPages\": true}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": \"yes\"}", false)]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showPages\":true,\"showPages\":[]}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showPages\": true, \"showNpages\": true}", true)]
+    public async Task JobShowPagesValidatesCombinations(string jobJson, bool accepted)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        if (accepted)
+        {
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 1: 3 0 R");
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
@@ -206,7 +226,6 @@ public sealed class ShowPagesTests
     [InlineData("inputs/a.pdf", "--show-npages", "--with-images")]
     [InlineData("inputs/a.pdf", "--show-pages", "--with-images=x")]
     [InlineData("inputs/a.pdf", "--show-pages", "--with-images=")]
-    [InlineData("inputs/a.pdf", "--show-pages", "--with-images", "--with-images")]
     public async Task RejectsImagesWithoutShowPages(params string[] argv)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

@@ -20,17 +20,23 @@ shared copier, so replacement can publish after those input leases close.
 
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and
-attachment listings, in native inspection order. Object and xref identities
-remain unchanged; serialization-only QDF/linearize settings do not rewrite them.
+attachment listings, in native inspection order. Serialization-only QDF/linearize
+settings do not rewrite inspected objects. Selection, collation and rotation use
+a scoped inspection graph over the original reader. Primary object generations
+and physical xrefs remain visible; duplicates/imports receive fresh identities,
+removed pages resolve to null, and inherited attributes materialize before
+checking. Source filename keys retain native alias semantics. The view shares
+inheritance/range/copy/collation/rotation helpers and detaches before its scoped
+admission releases. Page/content listings preserve reference generations.
 Page traversal and declared-count reporting are distinct; failed checking stops
 subsequent inspection. Fileless stream/attachment inspection returns caller-owned
 binary bytes separately from diagnostics, distinguishing absent and empty payloads.
 Failure or cancellation discards staged bytes. Filtered output uses shared governed
 normalization; command checking and split writing share admitted reachability
-traversal. Selection/transformation inspection combinations remain under
-implementation. Checker/page-count results
-snapshot the governor after input disposal. Broader invocation/presentation
-counters and diagnostic ownership remain under audit.
+traversal. Overlay/underlay and broader transformation/default/context audits
+remain open. Checker/page-count results snapshot the governor after input
+disposal. Broader invocation/presentation counters and diagnostic ownership
+remain under audit.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

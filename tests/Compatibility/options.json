@@ -100,7 +100,7 @@
   ],
   "supplementalRequirements": [
     "Nested and mixed job configuration is host-mediated and bounded with setter-order evidence. Root handler names do not establish complete grammar/default/context coverage.",
-    "Checker listing combinations use one shared document. Binary extraction and selection/transformation contexts remain required gaps in partial --check; pure inspection evidence does not establish those combinations.",
+    "Checker listings, binary extraction and selection/rotation use the shared reader with source-bound native effects. Overlay/other transformations and complete default/context auditing remain required gaps in partial --check.",
     "--json-key=encrypt is excluded",
     "fix-qdf companion",
     "zlib-flate companion"
@@ -2270,7 +2270,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Checker listings and fileless binary extraction share one document, with source-bound native bytes/default/order and full-reference evidence across argv/JSON/mixed routes. Required page-selection/transformation contexts and full target-field/default/precedence auditing remain open."
+        "Checker listings, binary extraction and selection/rotation have source-bound native effects, generations, sharing, physical-xref, failure-order and full-reference evidence across argv/JSON/mixed routes. Overlay/underlay and broader transformation/context/default/precedence auditing remain open, including direct roots, unusual Rotate values and compressed/linearized/form/resource/metadata/attachment contexts. Independent ownership/allocation and complete target-field auditing remain required."
       ],
       "evidence": {
         "positive": [
@@ -2289,7 +2289,13 @@
           "BinaryInspectionTests.FilelessInspectionReturnsExactCallerBytes",
           "BinaryInspectionTests.StreamDefaultsPreserveNativeInspectionAndWriterChoice",
           "BinaryInspectionTests.FilteredBytesHonorNormalizationAndQdfDefaults",
-          "BinaryInspectionTests.UnreferencedMalformedStreamsDoNotStopNativeCheckerExtraction"
+          "BinaryInspectionTests.UnreferencedMalformedStreamsDoNotStopNativeCheckerExtraction",
+          "CheckTransformationTests.SelectionAndRotationChangeActualCountsAndOriginalIdentities",
+          "CheckTransformationTests.NestedSelectionPreservesGenerationsAndInheritedAllocationOrder",
+          "CheckTransformationTests.SourceKeysCollationAndForeignSharingMatchNativeIdentities",
+          "CheckTransformationTests.ContentsArraysKeepEachStreamGeneration",
+          "CheckTransformationTests.RemovedPageObjectsResolveToNullAfterSelection",
+          "CheckTransformationTests.SelectedFilteredStreamReturnsTheOriginalPayload"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2298,7 +2304,8 @@
           "JobCheckTests.CryptoKeysRejectBeforeHostAccessWithoutEchoingValues",
           "JobCheckTests.EncryptedBytesRejectThroughTheCheckerRoute",
           "BinaryInspectionTests.CheckerOutputPathRejectsBeforePdfAccess",
-          "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput"
+          "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput",
+          "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2330,7 +2337,9 @@
           "BinaryInspectionTests.OutputCeilingBindsActualAggregateBytes",
           "BinaryInspectionTests.NormalizedOutputIsBoundedBeforePublication",
           "BinaryInspectionTests.CancellationAfterAnObservedReadReturnsNoBinaryPayload",
-          "BinaryInspectionTests.AttachmentFailureDiscardsAnEarlierBinaryPayload"
+          "BinaryInspectionTests.AttachmentFailureDiscardsAnEarlierBinaryPayload",
+          "CheckTransformationTests.TransformationCeilingsPreserveExistingTargets",
+          "CheckTransformationTests.CancellationDuringForeignReadDisposesThePreparedPrimaryView"
         ],
         "oracle": [
           "diff:linearized",
@@ -2338,7 +2347,8 @@
           "diff:forms-check",
           "diff:job-check",
           "diff:check-inspection",
-          "diff:binary-inspection"
+          "diff:binary-inspection",
+          "diff:check-transformations"
         ]
       }
     },
@@ -2377,7 +2387,7 @@
         ],
         "interaction": [
           "LinearizationInspectionTests.JobCheckLinearizationMatchesArgv",
-          "LinearizationInspectionTests.JobCheckLinearizationRejectsCombinations"
+          "LinearizationInspectionTests.JobCheckLinearizationValidatesCombinations"
         ],
         "resource": [
           "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget",
@@ -5634,7 +5644,7 @@
           "RotationTests.OutOfRangePositionsFailCleanly",
           "RotationTests.ArgvRotateInvalidSpecsFail",
           "RotationTests.ArgvRotateRangedOutOfRangeFails",
-          "RotationTests.ArgvRotateRequiresPages",
+          "RotationTests.ArgvRotateWithoutSelectionChangesInspectedPage",
           "RotationTests.TypedSingleRotationNullGuard",
           "RotationTests.TypedSingleRotationOutOfRangeFailsCleanly"
         ],
@@ -5853,7 +5863,7 @@
         ],
         "interaction": [
           "LinearizationInspectionTests.JobShowLinearizationMatchesArgv",
-          "LinearizationInspectionTests.JobShowLinearizationRejectsCombinations"
+          "LinearizationInspectionTests.JobShowLinearizationValidatesCombinations"
         ],
         "resource": [
           "LinearizationInspectionTests.LinearizationInspectionYieldsToExhaustedInputBudget",
@@ -5939,7 +5949,7 @@
           "ShowObjectTests.AbsentGenerationShowsNull",
           "ShowObjectTests.SameGenRevisionShowsLatest",
           "ShowObjectTests.FreeReuseResolvesPairs",
-          "ShowObjectTests.JobShowObjectRejectsCombinations"
+          "ShowObjectTests.JobShowObjectValidatesCombinations"
         ],
         "interaction": [
           "ShowObjectTests.JobShowObjectMatchesArgv"

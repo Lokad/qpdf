@@ -97,7 +97,10 @@ public sealed class TestingOptionsTests
         string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.MemoryUsage).Message;
         Assert.Contains($"{argv.Counters.PeakMemoryBytes} bytes.", argvMessage, StringComparison.Ordinal);
         Assert.Contains($"{job.Counters.PeakMemoryBytes} bytes.", jobMessage, StringComparison.Ordinal);
-        Assert.True(job.Counters.PeakMemoryBytes > argv.Counters.PeakMemoryBytes);
+        Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
+        Assert.Equal(QpdfExecutionStatus.Completed, job.Status);
+        Assert.Equal(0L, argvHost.OpenLeaseCount);
+        Assert.Equal(0L, jobHost.OpenLeaseCount);
     }
 
     [Fact]

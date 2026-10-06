@@ -372,15 +372,18 @@ public sealed class RotationTests
     }
 
     [Fact]
-    public async Task ArgvRotateRequiresPages()
+    public async Task ArgvRotateWithoutSelectionChangesInspectedPage()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["--rotate=+90", "inputs/a.pdf", "--check"]),
+            new QpdfCommandInvocation(["--rotate=+90", "inputs/a.pdf", "--check", "--show-object=3"]),
             CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing
+            && d.Message.Contains("/Rotate 90", StringComparison.Ordinal));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

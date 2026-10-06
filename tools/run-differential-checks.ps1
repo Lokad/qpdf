@@ -3,13 +3,15 @@
   Differential lane: run the managed library and the pinned oracle on the
   same operations, then validate both outputs with the oracle and the
   independent reader. Fails explicitly on any mismatch; never silently skips.
-  All generated files stay under external/diff (git-ignored).
+  Each run preserves its files in a fresh workspace under external/diff by default.
 #>
 param(
   [Parameter(Mandatory = $false)]
   [string] $QpdfExe = $env:QPDF_EXE,
   [Parameter(Mandatory = $false)]
-  [string] $Configuration = 'Release'
+  [string] $Configuration = 'Release',
+  [Parameter(Mandatory = $false)]
+  [string] $WorkRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,8 +26,13 @@ if (-not (Test-Path $probeDll)) {
   throw "QpdfProbe.dll not found. Run tools/run-reference-checks.ps1 first (it builds the probe)."
 }
 
-$diffRoot = Join-Path $repoRoot 'external/diff'
-New-Item -ItemType Directory -Path $diffRoot -Force | Out-Null
+if ([string]::IsNullOrWhiteSpace($WorkRoot)) {
+  $WorkRoot = Join-Path $repoRoot ('external/diff/' + [Guid]::NewGuid().ToString('N'))
+}
+$diffRoot = [IO.Path]::GetFullPath($WorkRoot)
+if (Test-Path -LiteralPath $diffRoot) { throw "Differential workspace already exists: $diffRoot" }
+New-Item -ItemType Directory -Path $diffRoot | Out-Null
+Write-Output "Differential artifacts: $diffRoot"
 $fixtureDir = Join-Path $repoRoot 'tests/Fixtures'
 $script:failures = 0
 
@@ -151,7 +158,7 @@ function New-Case {
   $d = [IO.Path]::GetFullPath((Join-Path $diffRoot $Name))
   $allowedRoot = [IO.Path]::GetFullPath($diffRoot).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
   if (-not $d.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Case path escapes differential workspace: $Name" }
-  if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
+  if (Test-Path -LiteralPath $d) { throw "Case output already exists: $d" }
   New-Item -ItemType Directory -Path "$d/inputs" -Force | Out-Null
   return $d
 }
@@ -1340,6 +1347,9 @@ Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 
 # --- case: check-inspection (shared checking and ordered original-identity listings) ---
 & (Join-Path $PSScriptRoot 'compare-check-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'check-inspections') -FixtureDirectory $fixtureDir
+
+# --- case: transformed inspection (selection/rotation identities and physical xrefs) ---
+& (Join-Path $PSScriptRoot 'compare-check-transformations.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'check-transformations') -FixtureDirectory $fixtureDir
 
 # --- case: binary-inspection (actual bytes, channels, defaults and staged failures) ---
 & (Join-Path $PSScriptRoot 'compare-binary-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'binary-inspections')

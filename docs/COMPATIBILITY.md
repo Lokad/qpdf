@@ -7,9 +7,10 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 **Implemented PDF operations: the audited non-cryptographic subset.** 152 inventory entries
 are complete and 5 stay partial: `--job-json-file` still needs complete grammar,
 defaults and interaction auditing after mixed-argv/multiple-file configuration;
-`--check` still needs required selection/transformation combinations and complete
-context/default auditing after binary-inspection verification; the no-Zopfli build profile and four-component CMYK
-image samples retain their accepted compatibility exceptions with partial labeling;
+`--check` still needs overlay/other transformation contexts and complete
+context/default auditing after selection/rotation verification; the no-Zopfli
+build profile and four-component CMYK image samples retain their accepted
+compatibility exceptions with partial labeling;
 and `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
 scope, host-ceiling enforcement and per-object repair are implemented for the verified
 damage matrix, including full-range integers, long real tokens, numeric conversion
@@ -73,8 +74,15 @@ host output ceiling and remains usable after execution cleanup.
 
 The target's 98 root keys now have parsing/loading or explicit crypto rejection
 routes. Names alone do not establish complete grammar, defaults or context
-coverage. Remaining job grammar/default/context auditing and additional checker
-binary/selection/transformation combinations are required gaps in their partial entries.
+coverage. Selection/rotation inspection now has source-bound effects and failure
+ordering across JSON, argv and mixed routes: selected count/order, duplicate/
+foreign sharing, original generations, inherited/null attributes, removed-page
+nulls, physical xrefs and exact filtered bytes. The native lane has 189 comparisons;
+public regressions cover finite ceilings, observed foreign-read cancellation and
+prior-target preservation. The full isolated reference and fresh packed consumer
+pass. Broader direct-root, unusual Rotate, compressed/linearized, unknown-key,
+form/resource/metadata/attachment and overlay/underlay contexts remain required.
+Job grammar/default/context auditing and checker obligations keep both entries partial.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,
@@ -124,7 +132,9 @@ to run the reference and differential lanes.
 
 `tools/run-differential-checks.ps1` (via `QpdfProbe emit`, public API only)
 compares managed and oracle outputs operation by operation under ignored
-`external/diff/`: oracle `--check` must pass on both outputs, oracle and
+a fresh `external/diff/` directory per run (or explicit fresh `-WorkRoot`).
+Existing workspaces reject and earlier artifacts stay intact. Oracle `--check`
+must pass on both outputs, oracle and
 independent page counts must agree, plus per-case assertions. Current
 coverage, all passing with no engine discrepancies (inventory diff labels may cite finer sub-assertions inside these coarser cases): select (first- and last-page trios), merge,
 uncompress (decoded stream payloads identical), normalize (normalized

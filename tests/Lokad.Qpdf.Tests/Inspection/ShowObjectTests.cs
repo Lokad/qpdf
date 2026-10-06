@@ -98,10 +98,7 @@ public sealed class ShowObjectTests
     [InlineData("inputs/a.pdf", "--show-object=nope", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-object=0", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-object=1,2,3", "--", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-object=3", "--show-object=4")]
     [InlineData("inputs/a.pdf", "--show-object=3", "--pages", ".", "1", "--", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-object=3", "--show-npages")]
-    [InlineData("inputs/a.pdf", "--show-object=3", "--show-pages")]
     [InlineData("inputs/a.pdf", "--show-object=3", "--check=1")]
     [InlineData("inputs/a.pdf", "--show-object=3", "--", "outputs/a.pdf")]
     public async Task RejectsMalformedAndCombinedForms(params string[] argv)
@@ -113,6 +110,21 @@ public sealed class ShowObjectTests
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--show-object=3", "--show-object=4")]
+    [InlineData("--show-object=3", "--show-npages")]
+    [InlineData("--show-object=3", "--show-pages")]
+    public async Task CombinedObjectInspectionHonorsTheLastSelector(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", .. flags]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string expected = flags[^1] == "--show-object=4" ? "/Contents 6 0 R" : "/Contents 5 0 R";
+        Assert.Contains(expected, Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
@@ -142,17 +154,26 @@ public sealed class ShowObjectTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showObject\": \"3\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showObject\": \"3\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": false}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"999999999999999999999999999\"}")]
-    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"3\",\"showObject\":[]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showNpages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showPages\": true}")]
-    public async Task JobShowObjectRejectsCombinations(string jobJson)
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showObject\": \"3\"}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showObject\": \"3\"}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": false}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"999999999999999999999999999\"}", false)]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"3\",\"showObject\":[]}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showNpages\": true}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showPages\": true}", true)]
+    public async Task JobShowObjectValidatesCombinations(string jobJson, bool accepted)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        if (accepted)
+        {
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing
+                && d.Message.Contains("/Type /Page", StringComparison.Ordinal));
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);

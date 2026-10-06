@@ -73,10 +73,6 @@ public sealed class ShowXrefTests
     [Theory]
     [InlineData("inputs/a.pdf", "--show-xref", "--pages", ".", "1", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-xref", "--check", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-xref", "--show-npages")]
-    [InlineData("inputs/a.pdf", "--show-xref", "--show-pages")]
-    [InlineData("inputs/a.pdf", "--show-xref", "--show-object=3")]
-    [InlineData("inputs/a.pdf", "--show-object=3", "--show-xref")]
     [InlineData("inputs/a.pdf", "--show-xref", "--linearize", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-xref", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-xref=x")]
@@ -89,6 +85,21 @@ public sealed class ShowXrefTests
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+    }
+
+    [Theory]
+    [InlineData("--show-xref", "--show-npages")]
+    [InlineData("--show-xref", "--show-pages")]
+    [InlineData("--show-xref", "--show-object=3")]
+    [InlineData("--show-object=3", "--show-xref")]
+    public async Task CombinedXrefInspectionKeepsPhysicalEntries(params string[] flags)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", .. flags]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message == "3/0: uncompressed; offset = 121");
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
@@ -107,17 +118,26 @@ public sealed class ShowXrefTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showXref\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showXref\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": \"yes\"}")]
-    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showXref\":true,\"showXref\":[]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showNpages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showPages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showObject\": \"3\"}")]
-    public async Task JobShowXrefRejectsCombinations(string jobJson)
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showXref\": true}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showXref\": true}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": \"yes\"}", false)]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showXref\":true,\"showXref\":[]}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showNpages\": true}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showPages\": true}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showXref\": true, \"showObject\": \"3\"}", true)]
+    public async Task JobShowXrefValidatesCombinations(string jobJson, bool accepted)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        if (accepted)
+        {
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.XrefListing
+                && d.Message.StartsWith("3/0: uncompressed; offset = ", StringComparison.Ordinal));
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);

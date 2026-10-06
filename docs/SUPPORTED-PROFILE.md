@@ -32,7 +32,12 @@ with count, linearization, xref, object, page/image and attachment listings. The
 must be an empty string; booleans fail. Failed checking stops following inspection.
 Checking uses page traversal quietly when `/Count` disagrees, while page-count
 inspection reports the declared count. Typed document reading still reports
-that disagreement. Other checker/inspection/selection combinations remain
+that disagreement. Fileless inspection also accepts page sources, collation and
+rotation, with or without checking, through JSON, argv and mixed job-file routes.
+Selection changes counts/order and materializes inheritance before inspection;
+primary generations stay intact, duplicates/imports get fresh identities, and
+physical xrefs remain unchanged. Rotation uses selected output-page positions.
+Overlay/underlay and broader transformation/default/context combinations remain
 required compatibility work.
 
 `{inputFile, outputFile}` rewrites the whole document through the shared writer.

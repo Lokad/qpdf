@@ -393,72 +393,9 @@ internal static class Overlays
     }
 
     private static QpdfObject? FindInherited(
-        DocumentEngine engine,
-        PageLocation location,
-        string key,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        PdfName name = PdfName.FromAscii(key);
-        if (location.Page.TryGet(name, out QpdfObject? present) && present is not null && present is not PdfNull)
-        {
-            return present;
-        }
-
-        HashSet<int> visited = new();
-        if (location.Source is not null)
-        {
-            visited.Add(location.Source.ObjectNumber);
-        }
-
-        PdfDictionary current = location.Page;
-        PdfName parentKey = PdfName.FromAscii("Parent");
-        int depth = 0;
-        while (current.TryGet(parentKey, out QpdfObject? parentRaw) && parentRaw is not null && parentRaw is not PdfNull)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            PdfDictionary? parent = null;
-            if (parentRaw is PdfReference parentReference)
-            {
-                if (!visited.Add(parentReference.ObjectNumber))
-                {
-                    throw new QpdfParseException("Page ancestry cycle in overlay file.", null, parentReference.ObjectNumber);
-                }
-
-                if (!((IIndirectResolver)engine).TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedParent)
-                {
-                    throw new QpdfParseException("Unresolvable page parent in overlay file.", null, parentReference.ObjectNumber);
-                }
-
-                parent = resolvedParent;
-            }
-            else if (parentRaw is PdfDictionary direct)
-            {
-                parent = direct;
-            }
-            else
-            {
-                throw new QpdfParseException("Page parent in overlay file must be a dictionary or a reference.", null, null);
-            }
-
-            depth += 1;
-            if (depth > limits.MaxNestingDepth)
-            {
-                throw new QpdfParseException("Page ancestry depth in overlay file exceeds the limit.", null, null);
-            }
-
-            if (parent.TryGet(name, out QpdfObject? inherited) && inherited is not null && inherited is not PdfNull)
-            {
-                return inherited;
-            }
-
-            current = parent;
-        }
-
-        return null;
-    }
+        DocumentEngine engine, PageLocation location, string key, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+        => PageInheritance.Find(engine, location, PdfName.FromAscii(key), limits, governor, cancellationToken);
 
     private static byte[]? CollectSourceContents(
         PageLocation location,

@@ -20,6 +20,8 @@ public static partial class Qpdf
             await using (QpdfDocument document = await OpenPlanInputAsync(host, plan.Input, plan.EmptyDocument,
                 limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false))
             {
+                using InspectionGraph? inspection = await PrepareInspectionGraphAsync(host, document, plan,
+                    limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 List<QpdfCheckOutcome> checks = plan.RunCheck
                     ? DocumentCheck.Run(document, new QpdfCheckOptions(), limits, governor, diagnostics, true, cancellationToken)
                     : [];
@@ -69,6 +71,11 @@ public static partial class Qpdf
         catch (QpdfException ex)
         {
             QpdfExecutionResult failure = ToFailedResult(ex);
+            if (ex is QpdfLimitException limit && (limit.LimitName == nameof(QpdfLimits.MaxDiagnostics)
+                || limit.LimitName == nameof(QpdfLimits.MaxDiagnosticBytes)))
+            {
+                return failure.WithCounters(governor.Snapshot());
+            }
             return new QpdfExecutionResult(failure.Status, failure.ExitCode,
                 [.. diagnostics.Entries, .. failure.Diagnostics], governor.Snapshot());
         }

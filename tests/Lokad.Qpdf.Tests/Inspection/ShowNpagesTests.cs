@@ -75,15 +75,23 @@ public sealed class ShowNpagesTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showNpages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showNpages\": true}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": \"yes\"}")]
-    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showNpages\":true,\"showNpages\":[]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"showPages\": true}")]
-    public async Task JobShowNpagesRejectsCombinations(string jobJson)
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showNpages\": true}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showNpages\": true}", true)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": \"yes\"}", false)]
+    [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showNpages\":true,\"showNpages\":[]}", false)]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"showPages\": true}", true)]
+    public async Task JobShowNpagesValidatesCombinations(string jobJson, bool accepted)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, jobJson, CancellationToken.None);
+        if (accepted)
+        {
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 1", StringComparison.Ordinal));
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);

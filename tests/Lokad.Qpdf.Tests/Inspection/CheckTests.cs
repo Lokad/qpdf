@@ -30,6 +30,10 @@ public sealed class CheckTests
     }
 
     internal static byte[] Assemble(List<(int Number, string Dict, byte[]? StreamData)> objects, int rootNumber)
+        => Assemble(objects, rootNumber, null);
+
+    internal static byte[] Assemble(List<(int Number, string Dict, byte[]? StreamData)> objects, int rootNumber,
+        IReadOnlyDictionary<int, int>? generations)
     {
         List<byte[]> parts = new();
         byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
@@ -38,7 +42,8 @@ public sealed class CheckTests
         long position = header.Length;
         foreach ((int number, string dict, byte[]? streamData) in objects)
         {
-            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + dict + "\n");
+            int generation = generations is not null && generations.TryGetValue(number, out int active) ? active : 0;
+            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " " + generation.ToString() + " obj\n" + dict + "\n");
             if (streamData is null)
             {
                 byte[] close = Encoding.ASCII.GetBytes("endobj\n");
@@ -87,7 +92,8 @@ public sealed class CheckTests
                 throw new Xunit.Sdk.XunitException("Builder is missing object " + number.ToString() + ".");
             }
 
-            xref.Append(offset.ToString("D10") + " 00000 n \n");
+            int generation = generations is not null && generations.TryGetValue(number, out int active) ? active : 0;
+            xref.Append(offset.ToString("D10") + " " + generation.ToString("D5") + " n \n");
         }
 
         xref.Append("trailer\n<< /Size " + size.ToString() + " /Root " + rootNumber.ToString() + " 0 R >>\n");

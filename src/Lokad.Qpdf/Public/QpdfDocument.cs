@@ -18,6 +18,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
     private readonly List<PageLocation> _pages;
+    private IReadOnlyList<PageLocation>? _inspectionPages;
     private bool _disposed;
 
     private QpdfDocument(
@@ -55,7 +56,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     public PdfVersion HeaderVersion { get; }
 
     /// <summary>Gets the page count from page-tree traversal.</summary>
-    public int PageCount => _pages.Count;
+    public int PageCount => PageReferences.Count;
 
     /// <summary>Gets a live snapshot of the job counters.</summary>
     public QpdfExecutionCounters Counters => _governor.Snapshot();
@@ -65,7 +66,9 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     internal DocumentEngine Engine => _engine;
 
-    internal IReadOnlyList<PageLocation> PageReferences => _pages;
+    internal IReadOnlyList<PageLocation> PageReferences => _inspectionPages ?? _pages;
+
+    internal void SetInspectionPages(IReadOnlyList<PageLocation>? pages) => _inspectionPages = pages;
 
     /// <summary>Opens a document with default budgets.</summary>
     public static ValueTask<QpdfDocument> OpenAsync(IQpdfHost host, QpdfPath path, CancellationToken cancellationToken)

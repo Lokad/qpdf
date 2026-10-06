@@ -29,6 +29,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     private Dictionary<int, CachedObject>? _cache;
     private HashSet<int>? _decodingStreams;
     private HashSet<int>? _loading;
+    private IReadOnlyDictionary<int, QpdfObject>? _inspectionObjects;
     private long _unborrowedBytes;
     private Dictionary<int, CachedObject> Cache => _cache ?? throw new ObjectDisposedException(nameof(DocumentEngine));
     private HashSet<int> Loading => _loading ?? throw new ObjectDisposedException(nameof(DocumentEngine));
@@ -99,6 +100,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         _cache = null;
         _loading = null;
         _decodingStreams = null;
+        _inspectionObjects = null;
         _governor.ReleaseMemory(_unborrowedBytes);
         _unborrowedBytes = 0L;
         _metadata.Dispose();
@@ -114,12 +116,30 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     internal ReadOnlyMemory<byte> Data => _data;
 
+    // Inspection edits share this resolver but never change physical xref offsets.
+    // Their scoped owner detaches the graph before releasing its storage.
+    internal void SetInspectionObjects(IReadOnlyDictionary<int, QpdfObject>? objects)
+    {
+        _ = Cache;
+        _inspectionObjects = objects;
+    }
+
+    internal IEnumerable<int> InspectionObjectNumbers => _inspectionObjects?.Keys ?? [];
+
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
     {
         _ = Cache;
         if (reference is null)
         {
             throw new ArgumentNullException(nameof(reference));
+        }
+
+        if (_inspectionObjects is not null && _inspectionObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? edited))
+        {
+            int generation = _table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry original)
+                && original.Kind == XrefEntryKind.Uncompressed ? original.Second : 0;
+            value = reference.Generation == generation ? edited : PdfNull.Instance;
+            return true;
         }
 
         if (reference.ObjectNumber == 0 && !_table.Entries.ContainsKey(0))
@@ -162,6 +182,8 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     internal QpdfObject Load(int number)
     {
+        _ = Cache;
+        if (_inspectionObjects is not null && _inspectionObjects.TryGetValue(number, out QpdfObject? edited)) { return edited; }
         if (TryGetCached(number, out QpdfObject cached))
         {
             return cached;

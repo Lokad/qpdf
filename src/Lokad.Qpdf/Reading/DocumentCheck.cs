@@ -97,7 +97,18 @@ internal static class DocumentCheck
         List<(int Number, PdfStream Stream)> streams,
         CancellationToken cancellationToken)
     {
-        List<int> numbers = new(engine.XRefEntries.Keys);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        List<int> numbers = ParserContainers.CreateList<int>(memory);
+        foreach (int number in engine.XRefEntries.Keys)
+        {
+            governor.ChargeWork(1L);
+            ParserContainers.AddItem(memory, numbers, number, sizeof(int));
+        }
+        foreach (int number in engine.InspectionObjectNumbers)
+        {
+            governor.ChargeWork(1L);
+            if (!engine.XRefEntries.ContainsKey(number)) { ParserContainers.AddItem(memory, numbers, number, sizeof(int)); }
+        }
         numbers.Sort();
         int resolved = 0;
         List<string> failures = new();

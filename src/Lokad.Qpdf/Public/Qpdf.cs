@@ -1440,6 +1440,11 @@ public static partial class Qpdf
         int total,
         ResourceGovernor governor,
         QpdfLimits limits)
+        => ResolveRotationFolds(rotations, total, governor, limits, null);
+
+    private static List<List<(PdfRotationMode Mode, int Angle)>> ResolveRotationFolds(
+        IReadOnlyList<OutputRotation> rotations, int total, ResourceGovernor governor,
+        QpdfLimits limits, ParserMemoryScope? ownership)
     {
         if (limits is null)
         {
@@ -1447,18 +1452,27 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        List<List<(PdfRotationMode Mode, int Angle)>> folds = new(total);
+        List<List<(PdfRotationMode Mode, int Angle)>> folds = ownership is null
+            ? new(total) : ParserContainers.CreateList<List<(PdfRotationMode Mode, int Angle)>>(ownership);
         for (int i = 0; i < total; i++)
         {
-            folds.Add(new List<(PdfRotationMode Mode, int Angle)>());
+            if (ownership is null) { folds.Add(new()); }
+            else
+            {
+                governor.ChargeWork(1L);
+                ParserContainers.AddItem(ownership, folds, ParserContainers.CreateList<(PdfRotationMode, int)>(ownership), IntPtr.Size);
+            }
         }
 
         foreach (OutputRotation specification in rotations)
         {
-            foreach (int position in specification.Expand(total, limits.MaxWork))
+            IReadOnlyList<int> positions = ownership is null ? specification.Expand(total, limits.MaxWork)
+                : Pages.PageRanges.Expand(specification.Range, total, limits.MaxWork, governor, ownership);
+            foreach (int position in positions)
             {
                 governor.ChargeWork(1L);
-                folds[position - 1].Add((specification.Mode, specification.Angle));
+                if (ownership is null) { folds[position - 1].Add((specification.Mode, specification.Angle)); }
+                else { ParserContainers.AddItem(ownership, folds[position - 1], (specification.Mode, specification.Angle), 8L); }
             }
         }
 
@@ -1469,7 +1483,14 @@ public static partial class Qpdf
         List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences,
         List<List<(PdfRotationMode Mode, int Angle)>> folds,
         ResourceGovernor governor)
+        => ApplyRotations(occurrences, folds, governor, null);
+
+    private static void ApplyRotations(
+        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences,
+        List<List<(PdfRotationMode Mode, int Angle)>> folds,
+        ResourceGovernor governor, ParserMemoryScope? ownership)
     {
+        ownership?.Reserve(128L);
         PdfName rotateKey = PdfName.FromAscii("Rotate");
         for (int i = 0; i < occurrences.Count; i++)
         {
@@ -1498,6 +1519,7 @@ public static partial class Qpdf
 
             foreach ((PdfRotationMode mode, int angle) in specifications)
             {
+                if (ownership is not null) { governor.ChargeWork(1L); }
                 current = mode switch
                 {
                     PdfRotationMode.Set => angle,
@@ -1507,20 +1529,32 @@ public static partial class Qpdf
                 };
             }
 
-            governor.ReserveMemory(64L);
-            Dictionary<PdfName, QpdfObject> entries = new();
+            if (ownership is null) { governor.ReserveMemory(64L); }
+            Dictionary<PdfName, QpdfObject> entries = ownership is null ? new()
+                : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
             foreach (PdfName key in occurrences[i].Page.Keys)
             {
                 if (occurrences[i].Page.TryGet(key, out QpdfObject value))
                 {
+                    if (ownership is not null)
+                    {
+                        governor.ChargeWork(1L);
+                        ParserContainers.EnsureEntryCapacity(ownership, entries, IntPtr.Size);
+                    }
                     entries[key] = value;
                 }
             }
 
+            if (ownership is not null)
+            {
+                ownership.Reserve(112L);
+                if (!entries.ContainsKey(rotateKey)) { ParserContainers.EnsureEntryCapacity(ownership, entries, IntPtr.Size); }
+            }
             entries[rotateKey] = new PdfInteger(
                 current.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 current);
-            occurrences[i].Copier.ReplaceCopiedObject(occurrences[i].Id, new PdfDictionary(entries));
+            occurrences[i].Copier.ReplaceCopiedObject(occurrences[i].Id, ownership is null
+                ? new PdfDictionary(entries) : PdfDictionary.FromOwnedEntries(entries));
         }
     }
 
@@ -1533,48 +1567,9 @@ public static partial class Qpdf
         List<List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)>> perSource,
         PdfPageCollation? collation)
     {
-        List<(int Source, int Slot)> order = new();
-        if (collation is not null && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != perSource.Count)
-        {
-            throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(collation));
-        }
-
-        if (collation is null)
-        {
-            for (int source = 0; source < perSource.Count; source++)
-            {
-                for (int slot = 0; slot < perSource[source].Count; slot++)
-                {
-                    order.Add((source, slot));
-                }
-            }
-
-            return order;
-        }
-
-        List<int> sizes = new(perSource.Count);
-        for (int source = 0; source < perSource.Count; source++)
-        {
-            sizes.Add(collation.GroupSizes.Count == 1 ? collation.GroupSizes[0] : collation.GroupSizes[source]);
-        }
-
-        int[] cursors = new int[perSource.Count];
-        bool progress = true;
-        while (progress)
-        {
-            progress = false;
-            for (int source = 0; source < perSource.Count; source++)
-            {
-                for (int j = 0; j < sizes[source] && cursors[source] < perSource[source].Count; j++)
-                {
-                    order.Add((source, cursors[source]));
-                    cursors[source] += 1;
-                    progress = true;
-                }
-            }
-        }
-
-        return order;
+        List<int> counts = new(perSource.Count);
+        foreach (var source in perSource) { counts.Add(source.Count); }
+        return CollatePageOrder(counts, collation, null, null);
     }
 
     private static PdfDictionary PagesNode(List<PdfReference> groupKids)
@@ -2091,22 +2086,26 @@ public static partial class Qpdf
         return new QpdfDiagnostic(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, $"JSON schema check passed for version {version}.");
     }
 
-    private static List<int> PageContentRefs(Objects.PdfDictionary page)
+    private static readonly PdfName InspectionContents = PdfName.FromAscii("Contents");
+
+    private static List<PdfReference> PageContentRefs(PdfDictionary page,
+        ResourceGovernor governor, ParserMemoryScope memory)
     {
-        List<int> refs = new();
-        if (page.TryGet(Objects.PdfName.FromAscii("Contents"), out QpdfObject? contents) && contents is not null)
+        List<PdfReference> refs = ParserContainers.CreateList<PdfReference>(memory);
+        if (page.TryGet(InspectionContents, out QpdfObject? contents) && contents is not null)
         {
-            if (contents is Objects.PdfReference single)
+            if (contents is PdfReference single)
             {
-                refs.Add(single.ObjectNumber);
+                ParserContainers.AddItem(memory, refs, single, IntPtr.Size);
             }
-            else if (contents is Objects.PdfArray array)
+            else if (contents is PdfArray array)
             {
-                foreach (QpdfObject item in array.Items)
+                for (int i = 0; i < array.Count; i++)
                 {
-                    if (item is Objects.PdfReference reference)
+                    governor.ChargeWork(1L);
+                    if (array[i] is PdfReference reference)
                     {
-                        refs.Add(reference.ObjectNumber);
+                        ParserContainers.AddItem(memory, refs, reference, IntPtr.Size);
                     }
                 }
             }
@@ -4481,121 +4480,34 @@ public static partial class Qpdf
         ShowLinearization(document, inputPath, limits, governor, diagnostics, cancellationToken);
     }
 
+    private static readonly PdfName[] WriterInherited =
+        [PdfName.FromAscii("Resources"), PdfName.FromAscii("MediaBox"), PdfName.FromAscii("CropBox"), PdfName.FromAscii("Rotate")];
+
     private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
-        DocumentEngine engine,
-        PageLocation location,
-        GraphCopier copier,
-        ResourceGovernor governor,
-        QpdfLimits limits,
-        CancellationToken cancellationToken)
+        DocumentEngine engine, PageLocation location, GraphCopier copier,
+        ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken)
+        => MaterializeAncestors(engine, location, copier, governor, limits, cancellationToken, null);
+
+    private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
+        DocumentEngine engine, PageLocation location, GraphCopier copier,
+        ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken,
+        ParserMemoryScope? ownership)
     {
-        string[] inheritable = ["Resources", "MediaBox", "CropBox", "Rotate"];
-        Dictionary<PdfName, QpdfObject> extra = new();
-        foreach (string name in inheritable)
+        Dictionary<PdfName, QpdfObject> extra = ownership is null ? new()
+            : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
+        foreach (PdfName key in WriterInherited)
         {
-            PdfName key = PdfName.FromAscii(name);
-            if (location.Page.TryGet(key, out QpdfObject present) && present is not PdfNull)
-            {
-                continue;
-            }
-
-            extra[key] = PdfNull.Instance;
+            governor.CheckCancellation();
+            if (location.Page.TryGet(key, out QpdfObject present)
+                && PageInheritance.Resolve(engine, present, limits, governor) is not PdfNull) { continue; }
+            QpdfObject? value = PageInheritance.Find(engine, location, key, limits, governor, cancellationToken);
+            if (value is null) { continue; }
+            QpdfObject copied = copier.CopyValue(value, 0);
+            if (copied is PdfNull) { continue; }
+            if (ownership is not null) { ParserContainers.EnsureEntryCapacity(ownership, extra, IntPtr.Size); }
+            extra[key] = copied;
         }
-
-        if (extra.Count == 0)
-        {
-            return extra;
-        }
-
-        HashSet<int> visited = new();
-        if (location.Source is not null)
-        {
-            visited.Add(location.Source.ObjectNumber);
-        }
-
-        PdfDictionary current = location.Page;
-        PdfName parentKey = PdfName.FromAscii("Parent");
-        int depth = 0;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!current.TryGet(parentKey, out QpdfObject parentRaw) || parentRaw is PdfNull)
-            {
-                break;
-            }
-
-            PdfDictionary parent;
-            if (parentRaw is PdfReference parentReference)
-            {
-                if (!visited.Add(parentReference.ObjectNumber))
-                {
-                    throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
-                }
-
-                if (!((IIndirectResolver)engine).TryResolve(parentReference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedParent)
-                {
-                    throw new QpdfParseException("Unresolvable page parent.", null, parentReference.ObjectNumber);
-                }
-
-                parent = resolvedParent;
-            }
-            else if (parentRaw is PdfDictionary direct)
-            {
-                parent = direct;
-            }
-            else
-            {
-                throw new QpdfParseException("Page /Parent must be a dictionary or a reference.", null, null);
-            }
-
-            depth += 1;
-            if (depth > limits.MaxNestingDepth)
-            {
-                throw new QpdfParseException($"Page ancestry depth exceeds {limits.MaxNestingDepth}.", null, null);
-            }
-
-            governor.ChargeWork(1L);
-            foreach (KeyValuePair<PdfName, QpdfObject> pending in extra)
-            {
-                if (pending.Value is not PdfNull)
-                {
-                    continue;
-                }
-
-                if (parent.TryGet(pending.Key, out QpdfObject inherited))
-                {
-                    extra[pending.Key] = copier.CopyValue(inherited, 0);
-                }
-            }
-
-            bool complete = true;
-            foreach (KeyValuePair<PdfName, QpdfObject> pending in extra)
-            {
-                if (pending.Value is PdfNull)
-                {
-                    complete = false;
-                    break;
-                }
-            }
-
-            if (complete)
-            {
-                break;
-            }
-
-            current = parent;
-        }
-
-        Dictionary<PdfName, QpdfObject> materialized = new();
-        foreach (KeyValuePair<PdfName, QpdfObject> pending in extra)
-        {
-            if (pending.Value is not PdfNull)
-            {
-                materialized[pending.Key] = pending.Value;
-            }
-        }
-
-        return materialized;
+        return extra;
     }
 
     private static void RequireMediaBox(PdfDictionary page)
@@ -4740,7 +4652,14 @@ public static partial class Qpdf
             || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
                 || token == "--raw-stream-data" || token.StartsWith("--raw-stream-data=", StringComparison.Ordinal)
                 || token == "--filtered-stream-data" || token.StartsWith("--filtered-stream-data=", StringComparison.Ordinal)
-                || token == "--show-attachment" || token.StartsWith("--show-attachment=", StringComparison.Ordinal)))
+                || token == "--show-attachment" || token.StartsWith("--show-attachment=", StringComparison.Ordinal)
+                || token == "--show-object" || token.StartsWith("--show-object=", StringComparison.Ordinal)
+                || token == "--show-npages" || token.StartsWith("--show-npages=", StringComparison.Ordinal)
+                || token == "--show-pages" || token.StartsWith("--show-pages=", StringComparison.Ordinal)
+                || token == "--show-xref" || token.StartsWith("--show-xref=", StringComparison.Ordinal)
+                || token == "--list-attachments" || token.StartsWith("--list-attachments=", StringComparison.Ordinal)
+                || token == "--check-linearization" || token.StartsWith("--check-linearization=", StringComparison.Ordinal)
+                || token == "--show-linearization" || token.StartsWith("--show-linearization=", StringComparison.Ordinal)))
         {
             JobJsonLoader.LoadedJob loaded;
             try

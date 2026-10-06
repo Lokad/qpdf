@@ -156,6 +156,26 @@ internal static class Program
         Check(combined.OutputBytes is null, "informational inspection has no binary payload");
         Console.WriteLine("PASS checking with count, page, object, xref, attachment and linearization inspections");
 
+        InMemoryQpdfHost selectedHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult selectedInspection = await Qpdf.ExecuteJobAsync(selectedHost,
+            """{"inputFile":"inputs/in.pdf","check":"","pages":[{"file":".","range":"2,1,1"}],"rotate":["+90:3"],"showNpages":"","showPages":"","showXref":"","showObject":"8"}""", CancellationToken.None);
+        Check(selectedInspection.Status == QpdfExecutionStatus.Completed && selectedInspection.ExitCode == QpdfExitCode.Success, "selected checker execution");
+        Check(selectedInspection.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 3", StringComparison.Ordinal)), "selected count");
+        Check(selectedInspection.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("page ", StringComparison.Ordinal))
+            .Select(d => d.Message).SequenceEqual(new[] { "page 1: 4 0 R", "page 2: 3 0 R", "page 3: 8 0 R" }), "selected order and duplicate identity");
+        Check(selectedInspection.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Contains("/Rotate 90", StringComparison.Ordinal)), "selected output-page rotation");
+        Check(!selectedInspection.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("8/", StringComparison.Ordinal)), "new objects stay outside physical xrefs");
+        Check(selectedInspection.Counters.OpenHandles == 0L && selectedHost.OpenLeaseCount == 0L && selectedInspection.OutputBytes is null, "selected inspection cleanup");
+        Console.WriteLine("PASS selected checking preserves original identities, duplicates, rotation and physical xrefs");
+
+        selectedHost.AddInput(QpdfPath.From("inputs/selection.json"), "{\"pages\":[{\"file\":\".\",\"range\":\"1\"}]}"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult selectedBytes = await Qpdf.ExecuteAsync(selectedHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--job-json-file=inputs/selection.json", "--show-object=5", "--filtered-stream-data"]), CancellationToken.None);
+        Check(selectedBytes.ExitCode == QpdfExitCode.Success && selectedBytes.OutputBytes.HasValue
+            && selectedBytes.OutputBytes.GetValueOrDefault().Span.SequenceEqual("BT /F1 24 Tf 100 700 Td (First) Tj ET"u8), "selected fileless stream bytes");
+        Check(selectedBytes.Counters.OpenHandles == 0L && selectedHost.OpenLeaseCount == 0L, "selected mixed stream cleanup");
+        Console.WriteLine("PASS mixed selected inspection returns the original filtered stream bytes");
+
         InMemoryQpdfHost streamHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult streamResult = await Qpdf.ExecuteAsync(streamHost,
             new QpdfCommandInvocation(["inputs/in.pdf", "--show-object=5", "--raw-stream-data"]), CancellationToken.None);

@@ -2,215 +2,145 @@
 
 ## Current checkpoint
 
-Fileless binary inspection has passed local verification. Locked restore,
-Release build and **6189/6189 offline tests** pass with no failures/skips;
-102 net new cases include exact/empty bytes, null informational results, caller
-lifetime, native defaults, output ceilings, six observed-read cancellations and
-checker failure order. The identical final assembly fails **101 / preserves 3
-of 104** selected cases against the preceding checker DLL, without loader
-failures. The native lane passes **108 comparisons / 3 independently checked
-rewrites** across argv/JSON/mixed routes, including warning policy, normalization,
-unreferenced malformed streams and staged failure differences. It is included
-in the full differential lane. Package/symbol checks, **44 fresh consumer smokes**
-and two specific rejection cases pass. The full pinned reference lane completed
-with terminal exit 0 on 325 implementation / 340 total frozen files:
-**1846 exact parser comparisons / 432 rewrite validations**, plus the complete
-differential lane including binary comparisons. Root/probe/packed/fresh-consumer
-library identities agree; all five locks are unchanged. This is local Windows
-evidence. Package metadata names the preceding commit; final release metadata,
-Windows/Linux reference CI, all audit gates and both verdicts remain open.
-The preceding checker checkpoint follows.
+Selection/rotation inspection has passed locked restore, Release build and
+**6334/6334 offline tests**, with no failures/skips and 145 net new cases.
+The identical final assembly fails **172 / preserves 26 of 198** selected cases
+against the preceding binary-inspection DLL, without loader failures. Exact
+native effects pass **189 comparisons** across JSON, argv and mixed routes;
+29 additional comparisons reconcile former rejection expectations and retain
+invalid controls. Package/symbol checks, **46 fresh consumer smokes** and two
+specific rejection cases pass; root/probe/packed/consumer identities agree and
+all five locks are unchanged.
 
-Successful fileless inspection returns caller-owned `OutputBytes`; null means
-no binary payload and a non-null empty value means an empty payload. Failed or
-canceled execution discards staged bytes, unlike an already-emitted native
-stdout prefix. Charged output counters include discarded staging. The command
-checker and split writer share admitted reachability traversal; the command
-checker decodes reachable streams, while typed checking retains its broader
-inventory. Filtered inspection shares governed normalization and QDF defaults;
-raw bytes remain unchanged. Empty literal temporaries release only actual
-admission. Constructed-document/input/table/returned-node/diagnostic lifetimes
-and measured CPU/codec cancellation remain separate A03/A04/A06 obligations.
+The full pinned reference completed with **terminal exit 0** on 329 implementation
+/ 344 total frozen files: **1846 exact parser comparisons / 432 rewrite validations**
+and the complete differential lane, including transformed inspections. A first
+attempt failed on stale shared outputs; the runner now uses fresh directories
+and rejects occupied roots. The isolated retry retained unchanged source and
+compiled identities. This is local Windows evidence; package metadata names
+the preceding commit. Final release metadata, reference CI, all audit gates and
+both verdicts remain open.
 
-Checker listing correction has passed local verification. Locked restore and
-Release build pass; **6087/6087 offline tests**
-pass with no failures/skips. Sixty focused native comparisons pass across direct
-JSON, ordinary argv and mixed file routes, preserving listing order, original
-identities, fatal/warning behavior and prior targets. The identical final assembly
-fails **76 / preserves 12 of 88** selected public cases against the preceding DLL;
-78 new cases cover effects, ceilings, observed read cancellation and selector
-prefix/generation semantics. Package/symbol verification, **42 fresh consumer
-smokes** and two specific rejection cases pass. The full pinned reference lane
-completed with terminal exit 0 on frozen runtime/test/tool/consumer sources:
-**1846 exact parser comparisons / 432 rewrite validations**, plus the complete
-differential lane. Root/probe/packed/fresh-consumer library identities agree;
-all five dependency locks are unchanged. This is local Windows evidence.
-Package metadata names the preceding commit; final audited release metadata
-and Windows/Linux reference CI remain open.
-Checking and subsequent listings share one document.
-An interrupted initial read before engine construction now releases its unowned
-input-copy admission. Constructed-engine/input/table/returned-node ownership
-remains A04/A06 work. Binary extraction and selection/transformation checker
-contexts remain required A07 work; no audit gate or completion verdict is closed.
+Selections, collation and output-position rotations now precede checking and
+inspection on a scoped graph view. Primary generations and physical xrefs stay
+visible; duplicate and foreign pages receive fresh identities, copied content
+sharing survives, omitted pages resolve to null, and inherited/null attributes
+materialize with native allocation order. Source names retain native identity
+semantics, including aliases. Page/content listings preserve their generations.
+The inspector shares the reader, inheritance, range, copier, collation and
+rotation helpers with existing operations. The graph detaches before its
+admission releases. Range failures, finite ceilings, cancellation after observed
+foreign reads and prior-output preservation have regressions. Typed selection,
+writer and overlay controls pass. Broader direct-root, unusual Rotate,
+compressed/linearized, unknown-key, form/resource/metadata/attachment and
+overlay/underlay checker contexts remain required.
 
-Previous mixed-configuration checkpoint follows; its results remain historical
-and separate from the checker-listing correction.
+The mixed range-bound test's host-operation assertion alone does not establish
+PDF-read/failure ordering. A small-input near-peak memory probe observed
+route/run variation; independent controller/DOM/BCL/copy allocation and cold
+state auditing remain A06 work. No whole-job/RSS or universal cancellation bound
+follows from the current counters and finite-ceiling tests.
 
-Mixed argv/job-file correction has passed local verification. That unit's completed
-offline run has **6009/6009 passing tests**, no failures/skips, including the
-added context/transform cases.
-The focused lane passes **45 comparisons / 23 independently checked rewrites**;
-the managed separate-parameter extension uses native joined syntax. The identical
-final test assembly fails **52 / preserves 12 of 64** selected public cases
-against the preceding DLL. Fresh package/symbol verification, **41 consumer
-smokes** and two specific rejections pass. The full pinned reference lane passed
-with terminal exit 0 on frozen runtime/test/tool/consumer sources and unchanged
-library/test identities: **1846 exact parser comparisons / 432 rewrite validations**,
-alongside the complete differential lane. This is local Windows evidence;
-package metadata names the preceding commit. Final audited release
-metadata and Windows/Linux reference CI remain open.
-JSON inspection without a file now returns `QpdfExecutionResult.OutputText`;
-the consumer checks actual text and rotation. Configuration ordering, independent
-include cycles, cumulative ceilings and cleanup share the existing engine.
-Whole-file selection closes its preliminary lease before shared copying; the
-handle regression retains an enforced finite ceiling and generous control.
-Xref backing measurement warms its representative constructor path; cold BCL
-state remains A06 work. Its cancellation fixture grows to 200,000 objects while
-still requiring actual interruption after observed admission and cleanup.
+## Established behavior and earlier evidence
 
-Previous committed nested-job correction: **5947/5947 tests pass**, no failures or
-skips. Package/symbol verification and a fresh isolated consumer pass **39
-smokes and two specific rejection cases**. Nineteen focused native nested-job
-cases agree, including three independently checked rewrites. The full pinned
-reference lane passed with terminal exit 0 on the frozen implementation:
-**1846 exact parser comparisons and 432 rewrite validations**, alongside the
-complete differential lane. Library and test identities stayed unchanged.
-This is local Windows evidence; final audited-commit release metadata and
-Windows/Linux reference CI remain open.
+Nested and mixed job configurations share host-mediated iterative loading,
+native setter order, last-value JSON keys, stable-identity cycle rejection and
+cumulative ceilings. Models remain admitted through execution; cleanup precedes
+job snapshots. Fileless JSON returns immutable `OutputText`.
 
-Nested `jobJsonFile` configurations now load iteratively through the host, with
-cumulative bytes/work/storage/depth limits and stable-identity cycle checks.
-Direct jobs and standalone joined/separate argv job-file forms share the parser
-and operation plans. Native sorted-key setter order and last-value-per-JSON-key
-semantics apply; repeated input/output/page declarations across files reject.
-Plain input/output jobs use the existing whole-file writer. Models remain
-admitted through execution; disposal precedes returned job outcome snapshots.
-Conservative DOM envelopes and BCL pool/state retention still need A06 auditing.
-Forty-seven added cases cover precedence, limits, host faults, aliases, crypto,
-observed host-read cancellation and independent model weak references. With the
-identical final test assembly, the preceding DLL fails **38 / passes 8 of 46**
-selected public cases; those eight are preservation controls. The xref collection
-cancellation observation race now retries at most eight times and still requires
-actual cancellation after observed admission and zero residual temporary storage.
+Checking and count/linearization/xref/object/page/attachment inspections use
+one document in native order. Failed checking stops later inspection; checking
+uses quiet traversal while count inspection reports `/Count`. Serialization
+settings alone do not rewrite the inspected graph. Successful fileless binary
+inspection returns caller-owned `OutputBytes`; null and empty payloads differ.
+Failure/cancellation discards staged bytes while counters include staging.
+Filtered output shares governed normalization/defaults. Command checking and
+split writing share admitted reachability; typed checking retains its broader
+inventory. An interrupted read before engine construction releases its unowned
+input-copy receipt; constructed-document ownership remains open.
 
-The preceding job `check` correction uses the shared checker and requires an empty-string
-value. Argv/job checking composes with page counting and linearization inspection;
-failed checking stops following inspection. Checking traverses pages quietly when
-declared counts disagree, and page-count inspection reports the declaration.
-Ordinary typed document reading keeps its count warning. Checker/page-count
-outcomes snapshot work/peaks/handles after cleanup; broader counters remain open.
-The new regressions cover checker failures, warning modifiers, public filter/
-memory limits, recovery, crypto rejection, prior outputs and observed host-read
-cancellation. An existing stream-cancellation observation race now retries at most
-eight attempts and still requires actual cancellation after observed admission.
-Its 56 new cases and one revised argv case passed; the preceding DLL failed 43
-and passed 14 of those 57 cases. Those results describe that earlier checkpoint.
-All five dependency locks remain unchanged in the nested-job correction.
+Earlier checkpoints retain their own source/artifact identities and local
+Windows evidence. Each passed its frozen full reference and package/consumer
+verification; package metadata named the preceding commit.
 
-The preceding reader correction admits cache/loading/decoding collection wrappers,
-actual capacities and growth overlap through shared parser helpers. Removed
-guard keys retain admitted backing storage. Cache entries carry subtree receipts:
-unread duplicate replacements and disposal release their own admission; borrowed
-values and nested loads retain theirs. Document disposal drops reader metadata,
-closes the input lease and preserves returned immutable bytes. **17 added cases
-pass; the preceding DLL fails all 17.** Coverage includes independent backing
-allocation, finite typed/argv/job traversal, generous controls, prior targets,
-retries, raw/Flate member replacement, unread/borrowed members and observed-work
-cancellation. The recovery-tail test retries completed-before-cancel attempts
-and still requires actual observed-work cancellation and zero residual admission.
+| Unit | Offline passes | Preceding-DLL failing / preserving | Focused native evidence | Fresh consumer smokes |
+| --- | --- | --- | --- | --- |
+| Binary inspection | 6189 | 101 / 3 of 104 | 108 comparisons / 3 rewrites | 44 |
+| Checker listings | 6087 | 76 / 12 of 88 | 60 comparisons | 42 |
+| Mixed configuration | 6009 | 52 / 12 of 64 | 45 comparisons / 23 rewrites | 41 |
+| Nested configuration | 5947 | 38 / 8 of 46 | 19 cases / 3 rewrites | 39 |
 
-For the 45,211-byte/2,000-null-object probe, warmed cache loading now admits
-**102,520 additional bytes**, with **102,520 forced-GC retained bytes** and
-1,311,832 cumulative allocation. Cache capacity is 2,333; independently allocated
-backing storage is 102,784 bytes. Metadata weak references die after disposal,
-and admission returns to the still-rooted xref table's 103,472 bytes. A separately
-funded xref/component run rejects at a 100,000-byte cache ceiling after 631
-accepted objects; disposal releases all metadata admission. Eight cancellations
-after observed cache work take **0.0813–3.9998 ms** locally; accepted cache storage
-remains admitted until owner disposal. Source/host allocation is excluded; these
-results establish no whole-job/RSS or universal latency bound. Explicit capacity
-growth lowers retained storage while increasing cumulative allocation.
+Parser corrections cover attempt/subtree/reader acceptance, successful recovery
+and linearization trials, selected trailer aliases, xref/revision/trailer
+capacities, canonical display, numeric/lexical/container/dictionary repair,
+null/generation behavior and encrypted-trailer precedence. Cache/loading/decoding
+metadata admits actual capacities and growth overlap. Unread replacement and
+disposal release only their subtree receipts, preserving borrowed/nested loads.
+The cache correction's 17 new cases fail on its preceding DLL.
 
-Earlier verified corrections cover parser attempt/subtree/reader acceptance,
-successful recovery and linearization trials, selected trailer aliases, xref/
-revision/trailer capacities, canonical display and object-inspection counters.
-The authored numeric/lexical/container/dictionary matrices, null-reference and
-generation behavior, per-object repair, encrypted-trailer precedence and host
-limits remain covered. JPEG has a per-job allocator and four exact flat
-progressive grayscale/RGB fixtures; Flate/predictors admit state/output/scratch,
-charge row work and decoded samples once per stage. Those scopes remain partial.
+For a 45,211-byte/2,000-null-object component, warmed cache loading admitted
+102,520 bytes and retained 102,520 forced-GC bytes; cumulative allocation was
+1,311,832. Capacity was 2,333, with 102,784 independently allocated backing bytes.
+Disposal killed metadata weak references and returned admission to the still
+rooted table's 103,472 bytes. A separately funded table run rejected a 100,000-byte
+cache ceiling after 631 objects. Eight observed-work cancellations took
+0.0813–3.9998 ms locally. Source/host allocation was excluded; these measurements
+establish no whole-job/RSS or universal latency bound.
 
 ## Remaining work
 
-- **Next A07 unit:** implement checker selection/transformation contexts with
-  actual effects and identities preserved. Binary inspection's current checkpoint
-  has complete local reference/package evidence; broader context/default auditing
-  remains required.
-  Native checking plus binary output has channel-dependent success/failure
-  ordering; matching an exit number alone does not prove that checking ran.
-  Complete job grammar/default/context audit stays open.
-  These are required gaps in partial `--job-json-file` / `--check` entries.
-  All 98 root keys have loading/parsing/rejection routes; names do not prove
-  complete grammar/default/interaction coverage.
-- **Next A04/A06 unit: input/table/returned-node lifetime ownership.** A strict
-  2,097,614-byte padded input leaves 2,101,210 live admitted bytes after public
-  document disposal. Forced GC confirms its runtime input copy and xref map
-  remain rooted by the disposed document; metadata is gone, leases/handle
-  counters are zero and returned bytes remain valid. Drop implementation
-  references and release only their actual owners, preserving escaped aliases,
-  nested loads and success/failure/cancellation cleanup. Diagnostics and broader
-  public repair/recovery nesting remain open. This probe is outside test/reference
-  counts.
-- **A06 counters:** job outcome snapshots now include loading/execution work,
-  peaks and closed handles after model cleanup; checker, page-count and object
-  execution retain their corrections. Other failed/canceled argv/typed routes and
-  invocation/presentation counters still need reconciliation, including
-  substantial xref work previously hidden by zero counters. Diagnostic entry/
-  list/message owners and independent measurements remain required.
-- **A01/A02 codecs:** measure JPEG/Flate allowances, BCL/codec/pool retention,
-  repeated/concurrent/failed admission, other filters' intermediate owners,
-  and textured/progressive samples beyond the four authored flat frames.
-- **A03 cancellation:** measure termination during codec/CPU/host work after
-  observable progress, with bounded noninterruptible units, delayed hosts,
-  cleanup and preserved targets. Passing tokens is insufficient latency evidence.
-- **A05 independent validation:** automate pinned oracle/probe freshness and
-  isolated runs, add explicit reference CI and development-only visual evidence.
-  Missing tools must fail; ordinary tests work without external resources.
-- **A07 docs/package:** reconcile supported-profile contexts/defaults and public
-  ownership/threading/warning/cancellation/publication contracts, then freshly
-  pack/verify/consume final audited sources. Benchmark reports are historical;
-  governor counters alone cannot establish admission/retention completeness.
-- **M11 and both completion verdicts remain open.** Inventory: 140 flags,
-  157 contexts, 152 complete and five truthful partials: job grammar/default/context
-  auditing, checker interactions, parser loading/ownership, accepted CMYK opacity and accepted
-  no-Zopfli profile. Pushing,
-  tagging and publication are separate actions.
+- **Next A04/A06 unit: input/table/returned-node lifetime ownership.** A fresh
+  independent probe on the selection DLL reproduces the gap: a strict
+  2,097,614-byte padded input leaves 2,101,210 admitted bytes after public disposal.
+  Forced GC retains its runtime input copy and xref map while the disposed
+  document, engine and returned node stay rooted. Metadata is gone, leases and
+  handles are zero, and returned bytes remain valid. Drop implementation
+  references and release only actual owners; preserve escaped aliases, nested
+  loads, generations and failure/cancellation cleanup. Diagnostics and broader
+  public repair/recovery nesting remain open. This is outside test/reference counts.
+- **A07 checker/job contexts:** overlay/underlay and remaining transformation,
+  default, precedence and target-field contexts still need actual effects and
+  failure-order evidence. `--check` and `--job-json-file` remain partial. All 98
+  root keys have loading/parsing/rejection routes; names do not prove grammar.
+- **A06 counters and measurement:** loading/checker/page-count/object snapshots
+  retain their corrections. Other failed/canceled typed/argv and invocation/
+  presentation paths need reconciliation. Independently measure diagnostic
+  entry/list/message owners, copies, capacities, growth overlap and retained pools.
+- **A01/A02 codecs:** measure JPEG/Flate allowances, codec/BCL retention,
+  repeated/concurrent/failed admission and other filters' intermediate owners.
+  JPEG has a per-job allocator and four exact flat progressive grayscale/RGB
+  fixtures; texture, edges and broader supported sample/frame contexts remain.
+  Flate/predictors admit state/output/scratch and charge rows/samples per stage.
+- **A03 cancellation:** measure termination after observable codec/CPU/host
+  work, including bounded noninterruptible units, delayed hosts, cleanup and
+  preserved targets. Token propagation alone does not prove latency.
+- **A05 independent validation:** differential runs now preserve fresh output
+  directories and reject occupied roots. Oracle/probe freshness, source/TEMP
+  isolation, explicit reference CI and development-only visual evidence remain.
+  Missing tools must fail; ordinary tests require no external resources.
+- **A07 package/docs:** complete the public ownership/threading/warning/
+  cancellation/publication and supported-default/context audits, then freshly
+  pack and consume final audited sources. Final release metadata and Windows/
+  Linux reference CI remain open; governor counters cannot validate themselves.
+- **All A01–A07, M11 and both verdicts remain open.** Inventory: 140 flags,
+  157 contexts, 152 complete and five partial entries: job grammar/context,
+  checker interactions, parser ownership/loading, accepted CMYK opacity and
+  accepted no-Zopfli profile. Local commits do not authorize publication.
 
 ## Verification and resume
 
-- Read AGENTS.md, COMPATIBILITY.md and ARCHITECTURE.md; confirm HEAD and pending
-  changes. Preserve unrelated drman.log. Keep local PLAN/evidence/build outputs
-  ignored and unshipped; do not force-add them.
-- Offline: locked restore, Release build/test. Package: pack, verify-package.ps1,
-  verify-package-consumer.ps1 and test-package-consumer.ps1. Use the supplied fresh
-  artifact and reviewed external hashes; a cached direct consumer restore adds
-  no freshness evidence. Intentional dependency changes require reviewed locks.
-- Reference: pinned qpdf 12.4.2 with run-reference-checks.ps1, which includes the
-  differential and parser lanes. Check oracle/probe/library identities, isolate
-  source/output/TEMP, and retain terminal exits. Poll the same live process;
-  observation timeouts do not justify restarting it.
-- Record sources/runtime/platform/commands/terminal exits and separate governor
-  counters from allocation, retained storage and local timing. Repo files use LF.
-  Target net10.0, nullable/warnings-as-errors/no unsafe; ImageSharp 3.1.12 is the
-  only runtime package. No native engine, interop, subprocess bridge or vendoring;
-  crypto is excluded with negative evidence.
+Read AGENTS.md, COMPATIBILITY.md and ARCHITECTURE.md; confirm HEAD/pending edits
+and preserve unrelated work. PLAN, external evidence and outputs stay ignored.
+Use locked restore and Release build/test, then pack, verify-package,
+verify-package-consumer and test-package-consumer on the supplied artifact.
+Consumer feeds/caches are fresh and external hashes remain locked.
+
+Run the pinned qpdf 12.4.2 reference runner, which includes differential/parser
+lanes. Check oracle/probe/library identities, isolate source/output/TEMP and
+retain actual terminal exits. Poll the same process; timeouts do not justify
+restarting. Default differential output is a unique ignored `external/diff/`
+directory; `-WorkRoot` selects a fresh explicit directory. Record sources,
+runtime/platform, commands and measurement methods. Repository files use LF;
+target net10.0 with nullable/warnings as errors/no unsafe. ImageSharp 3.1.12 is
+the only runtime dependency. No native engine/interop/runtime subprocess bridge,
+vendoring or crypto paths.

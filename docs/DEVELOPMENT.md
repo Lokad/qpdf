@@ -84,6 +84,9 @@ count must exit 2; truncated input must fail validation). A real 12.4.2
 executable is pinned at `external/oracle/msvc64/qpdf-12.4.2-msvc64/bin/qpdf.exe` (ignored by git; set `QPDF_EXE` to it).
 Checksum, version output and JPEG/Zopfli build features are recorded in `docs/COMPATIBILITY.md`.
 The differential lane (`tools/run-differential-checks.ps1`, via `QpdfProbe emit`) compares managed and oracle outputs operation by operation.
+Each run creates a fresh ignored directory under `external/diff/` and preserves
+its results. `-WorkRoot` on either runner selects an explicit fresh differential
+directory; an existing path rejects before overwriting earlier evidence.
 The reference runner also invokes `tools/run-parser-checks.ps1` with the built
 probe. Its authored valid/rebuilt-xref cases compare exact object values at six
 error limits and validate six rewrites with qpdf and PdfPig. Outputs/results

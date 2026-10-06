@@ -289,7 +289,7 @@ public static partial class Qpdf
                 throw new QpdfException("Page dictionary is not an indirect object.");
             }
 
-            diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"page {index}: {location.Source.ObjectNumber} 0 R");
+            diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"page {index}: {location.Source.ObjectNumber} {location.Source.Generation} R");
             if (plan.WithImages)
             {
                 List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken);
@@ -304,9 +304,11 @@ public static partial class Qpdf
             }
 
             diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
-            foreach (int content in PageContentRefs(location.Page))
+            using ParserMemoryScope contentMemory = ParserMemoryScope.Create(governor);
+            foreach (PdfReference content in PageContentRefs(location.Page, governor, contentMemory))
             {
-                diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    {content} 0 R");
+                governor.ChargeWork(1L);
+                diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    {content.ObjectNumber} {content.Generation} R");
             }
 
             index = checked(index + 1);

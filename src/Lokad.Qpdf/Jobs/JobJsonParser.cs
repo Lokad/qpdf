@@ -1184,11 +1184,11 @@ internal static class JobJsonParser
             }
 
             bool wantAttachments = listAttachments || showAttachment is not null;
-            if (check || (output is null && (showAttachment is not null
-                || (showObject is not null && (rawStreamData || filteredStreamData)))))
+            if (check || (output is null && (showAttachment is not null || showObject is not null
+                || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
-                if (hasPages || output is not null || seenReplaceInput || seenSplitPages || seenCollate
-                    || seenRotate || seenLabels || seenRemoveLabels || seenOverlay || seenUnderlay
+                if (output is not null || seenReplaceInput || seenSplitPages
+                    || seenLabels || seenRemoveLabels || seenOverlay || seenUnderlay
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
@@ -1196,13 +1196,35 @@ internal static class JobJsonParser
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
                     || seenTestJsonSchema)
                 {
-                    throw new QpdfParseException("Job inspection cannot be combined with output, page transformations or JSON inspection.", 0L, null);
+                    throw new QpdfParseException("Job inspection cannot be combined with output or these transformation/JSON settings.", 0L, null);
                 }
 
+                List<PdfPageSource> inspectionSources = new();
+                if (hasPages)
+                {
+                    foreach ((string file, string? range) in ParsePagesEntries(pages))
+                    {
+                        if (empty && file == ".") { throw new QpdfParseException("Cannot select from '.' with empty input.", 0L, null); }
+                        inspectionSources.Add(new PdfPageSource(SelectionPlan.CheckedPath(file), PdfPageSelectionOptions.FromRange(range)));
+                    }
+                }
+                PdfPageCollation? inspectionCollation = null;
+                if (seenCollate && hasPages)
+                {
+                    List<int> sizes = ArgvParser.ParseCollateValue(collate, 0L);
+                    if (sizes.Count != 1 && sizes.Count != inspectionSources.Count)
+                    {
+                        throw new QpdfParseException("Job collate must hold one value or one per pages entry.", 0L, null);
+                    }
+                    inspectionCollation = new PdfPageCollation(sizes);
+                }
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
                     EmptyDocument = checkEmpty,
+                    Sources = inspectionSources,
+                    Collation = inspectionCollation,
+                    Rotations = rotations,
                     RunCheck = check,
                     AttachmentKey = showAttachment,
                     RawStreamData = rawStreamData,
