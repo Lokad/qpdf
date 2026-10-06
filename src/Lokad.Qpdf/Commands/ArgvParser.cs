@@ -1,14 +1,14 @@
 namespace Lokad.Qpdf.Commands;
 
 /// <summary>
-/// Narrow argv parser for selection and inspection. Accepts the upstream
-/// spelling subset `qpdf input --pages [--file=]file [--range=]n -- output`
-/// (positional file/range forms included) and `qpdf input --check`;
-/// `--suppress-recovery` selects strict opening, otherwise damaged inputs
-/// repair within bounds; everything else fails explicitly.
+/// Argv parser for the shared operation plans: whole-file rewriting, selection,
+/// inspection, attachments and transformations. Bare input/output pairs use
+/// the same whole-file plan as job JSON, with an optional -- output separator.
+/// --suppress-recovery selects strict opening; otherwise damaged inputs repair
+/// within bounds. Unsupported arguments fail explicitly.
 /// Unknown `--*` tokens map to the documented crypto set (rejected as crypto)
 /// or to unsupported-option errors. Writer controls cover versions, IDs,
-/// and stream newlines; object-stream modes arrive later.
+/// streams, object streams, QDF and linearization.
 /// </summary>
 internal static class ArgvParser
 {
@@ -774,9 +774,14 @@ internal static class ArgvParser
             };
         }
 
-        if (pagesAt < 0 && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
+        if (pagesAt < 0 && !globals.ReplaceInput && !HasAttachmentEdit(argv, 0, argv.Count) && firstOverlayAt < 0)
         {
-            throw new QpdfParseException("No operation: the narrow profile requires --pages with one file and range, --check, --json, or attachment editing.", 0L, null);
+            int terminator = FindFlag(argv, "--");
+            int inputEnd = terminator >= 0 ? terminator : Math.Min(1, argv.Count);
+            string wholeInput = ParseInputArea(argv, inputEnd, "whole-file rewriting");
+            string wholeOutput = ParseOutputArea(argv, terminator >= 0 ? terminator : 0);
+            return NewWholeFilePlan(wholeInput, wholeOutput, recovery, globals, new List<OutputRotation>(),
+                new List<PageLabelSpec>(), AttachmentEdits.Empty, new List<OverlaySpec>(), new List<OverlaySpec>());
         }
 
         string input;

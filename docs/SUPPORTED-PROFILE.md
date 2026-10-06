@@ -27,6 +27,10 @@ Three routes converge on one selection plan executed by the shared engine:
   for collation, rotation, labels, split, content transforms, overlays, appearances,
   optimization, QDF, linearization, attachments, writer controls, and inspection.
 
+Bare argv input/output pairs rewrite the whole document through the same plan
+as `{inputFile, outputFile}` job JSON. The output may follow `--`; writer options,
+including linearization and object-stream modes, apply without `--pages`.
+
 Job inspection accepts `{inputFile, check:""}` without an output file, optionally
 with count, linearization, xref, object, page/image and attachment listings. The `check` value
 must be an empty string; booleans fail. Failed checking stops following inspection.
@@ -66,8 +70,11 @@ echoing values.
 - Chained cross references: classic tables and Flate- or LZW-compressed
   xref streams with exact entry sizing and coverage; `/Prev` chains and hybrid
   `/XRefStm` links merge latest-wins with cycle and revision budgets. Object streams
-  decode once with validated headers and extents. No `/Extends` links, recovery,
-  or object-stream preservation in output.
+  decode once with validated headers and extents. `/Extends` stays opaque;
+  members resolve through the current stream's header pairs, matching the
+  reference reader. Writer controls can preserve or generate object streams;
+  ordinary selection output normalizes to classic xrefs. Bounded CLI recovery
+  and strict typed opening remain separate policies.
 - `%PDF-` header at offset 0; versions 1.0-1.7 and 2.0 with catalog `/Version` override.
 - Unencrypted inputs; any effective `/Encrypt` declaration rejects
   structurally, including empty-password forms.

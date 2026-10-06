@@ -1,5 +1,22 @@
 # Progress
 
+## Committed argv correction: whole-file rewriting
+
+Bare argv input/output pairs now use the shared whole-file job plan, with an
+optional -- output separator. Writer options apply without --pages; missing,
+extra or absent positional inputs/outputs reject before input access and preserve
+prior targets. Linearization/object-stream modes agree with job JSON bytes.
+
+The isolated correction passes locked restore/Release build and **6451 offline
+cases**, zero failures/skips, including **11 new public controls**. Its **18 native
+writer cases / 36 pinned and independent output validations**, package/symbol
+checks, **50 fresh consumer smokes** and both specific rejection controls pass.
+The nested negative harness first hit a Windows path limit; the unchanged verifier
+then ran against the same artifact from a shorter root with identical external
+versions/constraints/hashes. This is local Windows/pre-commit package evidence;
+full final-source reference/metadata and all audit gates/verdicts remain open.
+Diagnostic/classifier ownership changes have a separate uncommitted checkpoint.
+
 ## Current checkpoint: returned-value ownership and scoped JSON
 
 Accepted parser/cache values transfer only their own receipts into a per-job
