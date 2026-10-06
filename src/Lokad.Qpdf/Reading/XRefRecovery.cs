@@ -26,6 +26,15 @@ internal static class XRefRecovery
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         string strictReason)
+        => Recover(data, limits, governor, diagnostics, strictReason, true);
+
+    internal static XRefTable Recover(
+        ReadOnlyMemory<byte> data,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        string strictReason,
+        bool valuesEscape)
     {
         if (limits is null)
         {
@@ -126,7 +135,20 @@ internal static class XRefRecovery
 
         Dictionary<PdfName, ParsedValue> trailerEntries = ParserContainers.CreateDictionary(values);
         values.Reserve(84L); // At most ten decimal digits and the scalar/string overhead.
-        string sizeText = size.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        int digits = 1;
+        for (int remaining = size; remaining >= 10; remaining /= 10) { digits++; }
+        governor.ChargeWork(digits);
+        governor.CheckCancellation();
+        // Own the numeric backing instead of borrowing the BCL's small-number
+        // string cache, whose lifetime does not follow this recovered trailer.
+        string sizeText = string.Create(digits, size, static (text, number) =>
+        {
+            for (int index = text.Length - 1; index >= 0; index--)
+            {
+                text[index] = (char)('0' + number % 10);
+                number /= 10;
+            }
+        });
         PdfInteger sizeValue = new(sizeText, size);
         values.Release(20L - sizeText.Length * 2L);
         AddTrailerEntry(trailerEntries, values, "Size", sizeValue);
@@ -172,7 +194,7 @@ internal static class XRefRecovery
             $"Bounded repair rebuilt {repaired.Count} cross-reference entries from {rootSource} after strict parsing failed: {strictReason}");
         List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(results);
         ParserContainers.AddItem(results, trailers, trailer, IntPtr.Size);
-        return XRefTable.CreateOwned(-1L, repaired, trailer, trailers, governor, results, values);
+        return XRefTable.CreateOwned(-1L, repaired, trailer, trailers, governor, results, values, valuesEscape);
     }
 
     private static void AddTrailerEntry(

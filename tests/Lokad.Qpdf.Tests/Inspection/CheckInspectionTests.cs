@@ -198,7 +198,8 @@ public sealed class CheckInspectionTests
         }
         QpdfLimits limits = budget switch
         {
-            "work" => QpdfLimits.Default with { MaxWork = control.Counters.TotalWork - 3L },
+            // Weak identity-index collisions vary between equivalent jobs.
+            "work" => QpdfLimits.Default with { MaxWork = control.Counters.TotalWork / 2L },
             "diagnostics" => QpdfLimits.Default with { MaxDiagnostics = 3L },
             _ => QpdfLimits.Default with { MaxDiagnosticBytes = 100L },
         };

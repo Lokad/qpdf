@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Objects;
+
 namespace Lokad.Qpdf.Runtime;
 
 /// <summary>
@@ -19,6 +21,7 @@ internal sealed class ResourceGovernor
     private long _diagnosticCount;
     private long _diagnosticBytes;
     private long _operationsSinceCheck;
+    private RetainedValueOwners? _valueOwners;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)
     {
@@ -34,6 +37,8 @@ internal sealed class ResourceGovernor
 
     internal CancellationToken CancellationToken => _cancellationToken;
 
+    private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L));
+
     internal void ReserveMemory(long bytes)
     {
         if (bytes < 0)
@@ -41,15 +46,16 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Reservation must not be negative.");
         }
 
+        ReconcileValueOwners();
         checked
         {
-            long next = _liveMemoryBytes + bytes;
+            long next = LiveMemoryBytes + bytes;
             if (next > _limits.MaxMemoryBytes)
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), next, _limits.MaxMemoryBytes);
             }
 
-            _liveMemoryBytes = next;
+            _liveMemoryBytes += bytes;
             if (next > _peakMemoryBytes)
             {
                 _peakMemoryBytes = next;
@@ -64,7 +70,40 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Release must not be negative.");
         }
 
-        _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - bytes);
+        _liveMemoryBytes = Math.Max(_valueOwners?.RetiredBytes ?? 0L, _liveMemoryBytes - bytes);
+    }
+
+    private void ReconcileValueOwners()
+    {
+        RetainedValueOwners? owners = _valueOwners;
+        if (owners is null || owners.Busy) { return; }
+        owners.Drain();
+        DisposeEmptyValueOwners(owners);
+    }
+
+    private void DisposeEmptyValueOwners(RetainedValueOwners owners)
+    {
+        if (!owners.Empty || owners.Busy) { return; }
+        // Fold the atomic retirement total before detaching its storage. The
+        // detached ledger has no live carrier or future collection notification.
+        _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - owners.RetiredBytes);
+        _valueOwners = null;
+        owners.DisposeEmpty();
+    }
+
+    internal long RetainValue(QpdfObject value, long reservedBytes)
+    {
+        if (reservedBytes == 0L) { return 0L; }
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.Retain(value, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+    }
+
+    internal long RetainValues(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.Retain(wrapper, wrapperBytes, roots, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
     }
 
     internal void ChargeWork(long units)
@@ -219,7 +258,7 @@ internal sealed class ResourceGovernor
     internal QpdfExecutionCounters Snapshot()
     {
         return new QpdfExecutionCounters(
-            _liveMemoryBytes,
+            LiveMemoryBytes,
             _peakMemoryBytes,
             _totalWork,
             _totalDecodedBytes,

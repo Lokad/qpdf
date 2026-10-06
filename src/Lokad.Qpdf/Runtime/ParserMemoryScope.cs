@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Objects;
+
 namespace Lokad.Qpdf.Runtime;
 
 /// <summary>Owns reservations made by one parser attempt, independently of resolver loads.</summary>
@@ -39,11 +41,27 @@ internal sealed class ParserMemoryScope : IDisposable
         _governor.ReleaseMemory(bytes);
     }
 
-    // Successful values retain their admission for the document/job lifetime.
-    // Only this attempt's temporary wrapper is released on disposal.
+    // Explicit container/cache owners adopt this receipt themselves. Parsed
+    // values instead transfer to their independently escaping storage below.
     internal void Retain()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _reservedBytes = 0L;
+    }
+
+    internal void Retain(QpdfObject value)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        long retained = _governor.RetainValue(value, _reservedBytes);
+        _governor.ReleaseMemory(_reservedBytes - retained);
+        _reservedBytes = 0L;
+    }
+
+    internal void Retain(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        long retained = _governor.RetainValues(wrapper, wrapperBytes, roots, _reservedBytes);
+        _governor.ReleaseMemory(_reservedBytes - retained);
         _reservedBytes = 0L;
     }
 

@@ -143,7 +143,9 @@ public sealed class RecoveryOwnershipTests
     {
         byte[] input = diagnostic ? Input([Literal(4096)], "<< /Size 6 /Root 1 0 R >>")
             : Input([], "<< /Size 5 /Root 1 0 R /Unused " + Literal(60000) + " >>");
-        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L, MaxDiagnostics = 1L };
+        // The 60 KiB owned literal now needs one buffer. Set its failing ceiling
+        // below the actual result rather than the former three-copy envelope.
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = diagnostic ? 100000L : 50000L, MaxDiagnostics = 1L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag diagnostics = new(governor);
         if (diagnostic) { diagnostics.Add(QpdfDiagnosticCode.RecoveryEngaged, QpdfDiagnosticSeverity.Warning, "prior"); }
@@ -162,30 +164,42 @@ public sealed class RecoveryOwnershipTests
         byte[] input = tail ? Input(Enumerable.Repeat(Literal(4096), 10).ToArray(), "<< /Size 15 /Root 1 0 R /Unused " + large + " >>")
             : Input(Enumerable.Repeat(Literal(4096), 10).Append(large).ToArray(), "<< /Size 16 /Root 1 0 R >>");
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        long threshold = tail ? 150000L : 32L * 1024L * 1024L;
+        long threshold = tail ? 50000L : 16L * 1024L * 1024L;
         // A bounded tail can finish before the observer is scheduled, especially
         // during another test's forced GC. Completion is not cancellation evidence.
         for (int attempt = 0; attempt < 8; attempt++)
         {
             using CancellationTokenSource cancellation = new();
             ResourceGovernor governor = new(limits, cancellation.Token);
+            using CancellationTokenSource observation = new();
+            TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task observer = Task.Factory.StartNew(() =>
+            {
+                ready.SetResult();
+                while (!observation.IsCancellationRequested)
+                {
+                    if (governor.Snapshot().LiveMemoryBytes >= threshold)
+                    {
+                        cancellation.Cancel();
+                        return;
+                    }
+                    Thread.SpinWait(16);
+                }
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            await ready.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Task<XRefTable> parsing = Task.Factory.StartNew(() => XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage"),
                 CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            long started = System.Diagnostics.Stopwatch.GetTimestamp();
-            while (governor.Snapshot().LiveMemoryBytes < threshold && !parsing.IsCompleted
-                && System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
-            {
-                Thread.SpinWait(16);
-            }
-            if (parsing.IsCompleted) { await parsing; continue; }
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= threshold);
-            cancellation.Cancel();
-            try { await parsing.WaitAsync(TimeSpan.FromSeconds(10)); }
+            try { (await parsing.WaitAsync(TimeSpan.FromSeconds(10))).Dispose(); }
             catch (OperationCanceledException)
             {
                 Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
                 Assert.True(governor.Snapshot().TotalWork > 0L);
                 return;
+            }
+            finally
+            {
+                observation.Cancel();
+                await observer.WaitAsync(TimeSpan.FromSeconds(10));
             }
         }
         Assert.Fail("Recovery completed before cancellation could be observed in eight attempts.");
@@ -251,6 +265,16 @@ public sealed class RecoveryOwnershipTests
         return source.ToArray();
     }
 
+    private static long ValueOwnershipMetadata(ResourceGovernor governor)
+    {
+        object? ledger = typeof(ResourceGovernor).GetField("_valueOwners",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(governor);
+        if (ledger is null) { return 0L; }
+        ParserMemoryScope storage = Assert.IsType<ParserMemoryScope>(ledger.GetType().GetField("_storage",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(ledger));
+        return storage.ReservedBytes;
+    }
+
     [Fact]
     public void AcceptedXrefFragmentsReleaseEncodedAndDecodedData()
     {
@@ -260,9 +284,14 @@ public sealed class RecoveryOwnershipTests
         XRefTable flate = XRefTable.Parse(XrefFragment(true, ""), QpdfLimits.Default, flateGovernor, new DiagnosticBag(flateGovernor), QpdfRecoveryMode.Strict);
         Assert.Equal(raw.Entries[1].First, flate.Entries[1].First);
         // Both dictionaries use three-digit /Length tokens and have equal storage.
-        // Only the retained FlateDecode name differs (64 + 11 bytes).
-        Assert.Equal(75L, flateGovernor.Snapshot().LiveMemoryBytes - rawGovernor.Snapshot().LiveMemoryBytes);
+        // Only the retained FlateDecode name differs (64 + 11 bytes). Its two
+        // carrier receipts also need metadata; separate that owned index from
+        // the parsed payload comparison without duplicating its pricing logic.
+        long rawPayload = rawGovernor.Snapshot().LiveMemoryBytes - ValueOwnershipMetadata(rawGovernor);
+        long flatePayload = flateGovernor.Snapshot().LiveMemoryBytes - ValueOwnershipMetadata(flateGovernor);
+        Assert.Equal(75L, flatePayload - rawPayload);
         Assert.Equal(6L, flateGovernor.Snapshot().TotalDecodedBytes);
+        GC.KeepAlive(raw); GC.KeepAlive(flate);
     }
 
     [Theory]

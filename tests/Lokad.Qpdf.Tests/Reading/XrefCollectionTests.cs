@@ -165,10 +165,16 @@ public sealed class XrefCollectionTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         XRefTable table = Parse(Revisions(500, 20), governor, QpdfLimits.Default);
         int capacity = Assert.IsType<Dictionary<int, XrefEntry>>(table.Entries).EnsureCapacity(0);
-        long retained = governor.Snapshot().LiveMemoryBytes;
         Assert.Equal(20, table.Trailers.Count);
-        Assert.True(retained < DictionaryAllocation(capacity) + table.Trailers.Count * 2048L,
-            $"Section maps survive acceptance: {retained} bytes.");
+        // Keep parsed trailer aliases alive while measuring only the exclusive
+        // containers. Their weak-ownership index is funded independently.
+        Lokad.Qpdf.Objects.PdfDictionary[] trailers = table.Trailers.ToArray();
+        long backing = DictionaryAllocation(capacity);
+        long retained = governor.Snapshot().LiveMemoryBytes;
+        table.Dispose();
+        long released = retained - governor.Snapshot().LiveMemoryBytes;
+        Assert.InRange(released, backing, backing + trailers.Length * 2048L);
+        GC.KeepAlive(trailers); GC.KeepAlive(table);
     }
 
     [Fact]

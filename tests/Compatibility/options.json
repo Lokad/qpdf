@@ -1741,7 +1741,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Xref/revision/trailer and cache/loading/decoding collections now admit wrappers, actual capacities and growth overlap. Cache metadata releases on owner disposal; unread member replacement/disposal releases only its own subtree while borrowed aliases survive. Independent backing allocation, finite typed/argv/job traversal, retries, prior targets and observed-work cancellation have regressions. Exclusive document input/xref/page-view storage now transfers and releases on disposal/failed opening, preserving returned aliases and caller-funded borrowing. Strict/recovered/stream/hybrid/incremental cases, repeated finite-budget documents, three-route multi-source effects, short reads, close faults, empty/finite opening, independent backing allocation and cancellation after observed page visits have regressions and source-bound reference/package evidence. Parsed values and wrappers remain conservatively admitted; independently escaping numeric text/key views require actual-storage owners. Complete parsed/returned-node, wrapper and diagnostic lifetimes, broader public repair/recovery nested loads and failed/canceled counters before closing the entry."
+        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Xref/revision/trailer and cache/loading/decoding collections now admit wrappers, actual capacities and growth overlap. Cache metadata releases on owner disposal; unread member replacement/disposal releases only its own subtree while borrowed aliases survive. Independent backing allocation, finite typed/argv/job traversal, retries, prior targets and observed-work cancellation have regressions. Exclusive document input/xref/page-view storage now transfers and releases on disposal/failed opening, preserving returned aliases and caller-funded borrowing. Strict/recovered/stream/hybrid/incremental cases, repeated finite-budget documents, three-route multi-source effects, short reads, close faults, empty/finite opening, independent backing allocation and cancellation after observed page visits have regressions and source-bound reference/package evidence. Accepted parser/cache values now transfer their own receipts to independently escaping wrappers and backing storage. Numeric text, key views, stream buffers and copier aliases have lifetime evidence; collected values release admission under repeated finite ceilings. Weak-ledger capacities/growth overlap, failed acceptance/growth and immutable byte-buffer transfer have regressions. JSON values remain scoped through serialization; input disposal precedes output creation, close faults preserve main/sidecar targets and raw/decoded copies survive cleanup under a one-handle ceiling. Original memory ceilings, JSON failed/canceled counters and source-bound reference/package evidence pass. Diagnostic record/list admission and owned-message retirement remain reproduced gaps. Cold/native state, broader public repair/recovery nesting and all-route failed/canceled counters still keep this entry partial."
       ],
       "evidence": {
         "positive": [
@@ -1906,10 +1906,25 @@
           "DocumentLifetimeTests.HostCloseFailureDoesNotPreventOwnedStorageCleanup",
           "DocumentLifetimeTests.EmptyDocumentOpeningUsesTheSameLimitsAndUntransferredReceiptCleanup",
           "DocumentLifetimeTests.FiniteOpeningFailuresReleasePendingInputAndTableContainers",
-          "DocumentLifetimeTests.CancellationAfterObservedPageVisitsReleasesExclusiveStorageAndPreservesAcceptedAdmission",
+          "DocumentLifetimeTests.CancellationAfterObservedPageVisitsReleasesExclusiveStorageAndAccountsAcceptedValues",
           "RecoveryHeaderTests.MultidigitHeadersKeepCatalogIdentityOnPublicRecovery",
           "RecoveryHeaderTests.RecoveryEntriesUseCompleteHeadersRatherThanDigitSuffixes",
-          "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget"
+          "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget",
+          "DocumentValueOwnerTests.ParsedByteStringsKeepOwnedBytesWhenInputAndPublicCopiesChange",
+          "DocumentValueOwnerTests.CollectedStandaloneValuesReleaseTheirAdmissionAcrossParserRoutes",
+          "DocumentValueOwnerTests.FailedParsingPreservesIndependentAcceptedNumericText",
+          "DocumentValueOwnerTests.FailedRetentionRollsBackOnlyItsNewCarriersAndCanRepeat",
+          "DocumentValueOwnerTests.WorkFailureDuringIndexGrowthPreservesAcceptedValues",
+          "DocumentValueOwnerTests.CollectedDocumentValuesDoNotExhaustAReusableFiniteGovernor",
+          "DocumentValueOwnerTests.AChildAliasDoesNotKeepDeadParentAndSiblingAdmission",
+          "DocumentValueOwnerTests.NumericTextFundingSurvivesItsWrapperAndRetiresWithTheString",
+          "DocumentValueOwnerTests.KeyViewFundingSurvivesItsWrapperAndRetiresWithTheBacking",
+          "DocumentValueOwnerTests.StreamDictionaryRawMemoryAndCallerCopyHaveIndependentOwners",
+          "DocumentValueOwnerTests.CopiedScalarAndKeyAliasesSurviveSourceContainersWithoutFundingTheirDeadSibling",
+          "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
+          "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
         ],
         "oracle": [
           "diff:recovery",
@@ -3582,7 +3597,11 @@
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
-          "MixedJobArgvTests.DirectJsonTextObeysOutputLimitsAndPreservesTargets"
+          "MixedJobArgvTests.DirectJsonTextObeysOutputLimitsAndPreservesTargets",
+          "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
+          "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
         ],
         "oracle": [
           "diff:json-pages",
@@ -3784,7 +3803,11 @@
           "JsonModesTests.TypedMinimalOmitsVersion"
         ],
         "resource": [
-          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
+          "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
+          "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
         ],
         "oracle": [
           "diff:json-output"
@@ -3835,7 +3858,9 @@
           "JsonModesTests.TypedModesRoundTrip"
         ],
         "resource": [
-          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
+          "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets"
         ],
         "oracle": [
           "diff:json-stream-data"
@@ -3876,7 +3901,9 @@
           "JsonModesTests.JobStreamModesRoundTrip"
         ],
         "resource": [
-          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
+          "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
+          "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets"
         ],
         "oracle": [
           "diff:json-prefix"

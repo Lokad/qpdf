@@ -159,7 +159,7 @@ internal sealed class PdfParser
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
         QpdfObject value = ParseObjectValue(tokenizer, depth, memory);
-        memory.Retain();
+        memory.Retain(value);
         return value;
     }
 
@@ -189,7 +189,7 @@ internal sealed class PdfParser
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
         QpdfObject value = ParseValue(tokenizer, depth, memory);
-        memory.Retain();
+        memory.Retain(value);
         return value;
     }
 
@@ -347,7 +347,7 @@ internal sealed class PdfParser
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
         (int number, int generation, QpdfObject value) = ParseIndirectObject(tokenizer, depth, memory);
-        memory.Retain();
+        memory.Retain(value);
         return (number, generation, value);
     }
 
@@ -599,18 +599,19 @@ internal sealed class PdfParser
 
     private QpdfObject ParseByteString(PdfToken token, bool hex)
     {
-        long admitted = checked((token.Data.Length * 3L) + 128L);
-        ReserveMemory(admitted);
+        long before = Memory.ReservedBytes;
+        ReserveMemory(32L);
         try
         {
+            // Each decoder admits its actual scratch/result and overlap before
+            // allocation. Transfer the fresh result without an immutable copy.
             byte[] raw = hex ? DecodeHex(token.Data, token.Offset) : UnescapeLiteral(token.Data, token.Offset);
-            PdfByteString value = new(raw, hex);
-            ReleaseMemory(admitted - checked(raw.Length + 64L));
+            PdfByteString value = PdfByteString.FromOwnedBytes(raw, hex);
             return value;
         }
         catch
         {
-            ReleaseMemory(admitted);
+            ReleaseMemory(checked(Memory.ReservedBytes - before));
             throw;
         }
     }
@@ -997,6 +998,7 @@ internal sealed class PdfParser
     private byte[] UnescapeLiteral(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
+        ReserveMemory(checked(32L + span.Length));
         byte[] result = new byte[span.Length];
         int outCount = 0;
         long nextWork = 0L;
@@ -1095,8 +1097,11 @@ internal sealed class PdfParser
             return result;
         }
 
+        ReserveMemory(checked(32L + outCount));
         byte[] trimmed = new byte[outCount];
         Buffer.BlockCopy(result, 0, trimmed, 0, outCount);
+        result = Array.Empty<byte>();
+        ReleaseMemory(checked(32L + span.Length));
         return trimmed;
     }
 
@@ -1112,13 +1117,16 @@ internal sealed class PdfParser
         }
     }
 
-    private static byte[] DecodeHex(ReadOnlyMemory<byte> raw, long offset)
+    private byte[] DecodeHex(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
+        ReserveMemory(checked(32L + span.Length));
         byte[] digits = new byte[span.Length];
         int count = 0;
+        long nextWork = 0L;
         for (int i = 0; i < span.Length; i++)
         {
+            ChargeUnescapeWork(i, ref nextWork);
             byte b = span[i];
             if (b == (byte)' ' || b == (byte)'\t' || b == (byte)'\n' || b == (byte)'\r' || b == (byte)'\f' || b == 0x00)
             {
@@ -1136,14 +1144,21 @@ internal sealed class PdfParser
         }
 
         int outCount = (count + 1) / 2;
+        _governor.CheckCancellation();
+        ReserveMemory(checked(32L + outCount));
         byte[] result = new byte[outCount];
+        nextWork = 0L;
         for (int i = 0; i < count; i += 2)
         {
+            ChargeUnescapeWork(i, ref nextWork);
             int hi = digits[i];
             int lo = i + 1 < count ? digits[i + 1] : 0;
             result[i / 2] = (byte)((hi << 4) | lo);
         }
 
+        digits = Array.Empty<byte>();
+        ReleaseMemory(checked(32L + span.Length));
+        _governor.CheckCancellation();
         return result;
     }
 

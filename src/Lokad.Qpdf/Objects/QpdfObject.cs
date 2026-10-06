@@ -203,6 +203,8 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
     internal ReadOnlySpan<byte> RawSpan => _raw;
 
+    internal object AllocationCarrier => _raw;
+
     /// <summary>
     /// Gets printable ASCII text with `#XX` escapes resolved where the result
     /// stays printable; other bytes surface as `#XX`. Never used for identity.
@@ -284,6 +286,14 @@ public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
 {
     private readonly byte[] _value;
 
+    private PdfByteString(bool hex, byte[] owned)
+    {
+        _value = owned ?? throw new ArgumentNullException(nameof(owned));
+        Hex = hex;
+    }
+
+    internal static PdfByteString FromOwnedBytes(byte[] value, bool hex) => new(hex, value);
+
     /// <summary>Creates a byte string, copying the value.</summary>
     /// <exception cref="ArgumentNullException">The value is null.</exception>
     public PdfByteString(byte[] value, bool hex)
@@ -304,6 +314,8 @@ public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
     public byte[] Value => (byte[])_value.Clone();
 
     internal ReadOnlySpan<byte> ValueSpan => _value;
+
+    internal object AllocationCarrier => _value;
 
     /// <summary>Indicates whether this instance equals another PdfByteString.</summary>
     public bool Equals(PdfByteString? other)
@@ -358,6 +370,10 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
 
     /// <summary>Gets a copy of the items.</summary>
     public QpdfObject[] Items => [.. _items];
+
+    internal object AllocationCarrier => _items;
+
+    internal bool HasSharedEmptyStorage => ReferenceEquals(_items, Array.Empty<QpdfObject>());
 
     /// <summary>Indicates whether this instance equals another PdfArray.</summary>
     public bool Equals(PdfArray? other)
@@ -421,6 +437,8 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
     internal Dictionary<PdfName, QpdfObject>.Enumerator GetEntryEnumerator() => _entries.GetEnumerator();
 
     internal int StorageCapacity => _entries.EnsureCapacity(0);
+
+    internal object AllocationCarrier => _entries;
 
     /// <summary>Looks up a key by raw name bytes.</summary>
     public bool TryGet(PdfName key, out QpdfObject value)
@@ -537,6 +555,8 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
     public byte[] Data => (byte[])_data.Clone();
 
     internal ReadOnlyMemory<byte> RawMemory => _data;
+
+    internal object AllocationCarrier => _data;
 
     /// <summary>Indicates whether this instance equals another PdfStream.</summary>
     public bool Equals(PdfStream? other)

@@ -1,0 +1,395 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Writing;
+
+namespace Lokad.Qpdf.Tests.Reading;
+
+public sealed class DocumentValueOwnerTests
+{
+    private static InMemoryQpdfHost Host(byte[] input)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("a.pdf"), input, QpdfInputOwnership.Copy);
+        return host;
+    }
+
+    private static ValueTask<QpdfDocument> Open(InMemoryQpdfHost host, ResourceGovernor governor, QpdfLimits limits, bool broken)
+        => QpdfDocument.OpenCore(host, QpdfPath.From("a.pdf"), limits, governor, new DiagnosticBag(governor),
+            broken ? QpdfRecoveryMode.BoundedRepair : QpdfRecoveryMode.Strict, CancellationToken.None);
+
+    private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+
+    private static object Field(object value, string name)
+        => value.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(value)
+            ?? throw new InvalidOperationException("Allocation carrier is unavailable.");
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference[] Roots(QpdfDocument document)
+        => [new(document.GetObject(1)), new(document.GetObject(2)), new(document.GetObject(3))];
+
+    [Theory]
+    [InlineData("(kept)")]
+    [InlineData("(k\\145pt)")]
+    [InlineData("<6B 65 70 74>")]
+    public void ParsedByteStringsKeepOwnedBytesWhenInputAndPublicCopiesChange(string body)
+    {
+        byte[] input = Encoding.ASCII.GetBytes(body);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
+        PdfByteString value = Assert.IsType<PdfByteString>(parser.ParseValue(new PdfTokenizer(input), 0));
+        Array.Fill(input, (byte)'X');
+        byte[] copy = value.Value;
+        Assert.Equal("kept"u8.ToArray(), copy);
+        Array.Fill(copy, (byte)'Y');
+        Assert.Equal("kept"u8.ToArray(), value.Value);
+        byte[] source = "kept"u8.ToArray();
+        PdfByteString constructed = new(source, false);
+        Array.Fill(source, (byte)'Z');
+        Assert.Equal("kept"u8.ToArray(), constructed.Value);
+    }
+
+    public static IEnumerable<object[]> StandaloneValues()
+    {
+        foreach (string body in new[] { "[]", "/", "()", "<>", "5", "5.0", "<< >>" })
+        {
+            foreach (string route in new[] { "value", "member", "indirect" }) { yield return [body, route]; }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference ParseAndDrop(PdfParser parser, string body, string route)
+    {
+        byte[] input = Encoding.ASCII.GetBytes(route == "indirect" ? "5 0 obj " + body + " endobj" : body);
+        PdfTokenizer tokenizer = new(input);
+        QpdfObject value = route switch
+        {
+            "member" => parser.ParseObjectValue(tokenizer, 0),
+            "indirect" => parser.ParseIndirectObject(tokenizer, 0).Value,
+            _ => parser.ParseValue(tokenizer, 0),
+        };
+        // Keep the caller's empty-items copy alive without retaining the parsed
+        // array. A globally shared backing must never anchor a job's ledger.
+        if (value is PdfArray array) { GC.KeepAlive(array.Items); }
+        return new WeakReference(value);
+    }
+
+    [Theory]
+    [MemberData(nameof(StandaloneValues))]
+    public void CollectedStandaloneValuesReleaseTheirAdmissionAcrossParserRoutes(string body, string route)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
+        WeakReference value = ParseAndDrop(parser, body, route);
+        Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
+        Collect();
+        Assert.False(value.IsAlive);
+        governor.ReserveMemory(0L);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        GC.KeepAlive(parser); GC.KeepAlive(governor);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static NumberAlias ParseNumericAlias(PdfParser parser, string token)
+    {
+        PdfInteger number = Assert.IsType<PdfInteger>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes(token)), 0));
+        return new NumberAlias(number.Text, new(number));
+    }
+
+    [Theory]
+    [InlineData("memory")]
+    [InlineData("syntax")]
+    [InlineData("cancellation")]
+    public void FailedParsingPreservesIndependentAcceptedNumericText(string kind)
+    {
+        using CancellationTokenSource cancellation = new();
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 300000L };
+        ResourceGovernor governor = new(limits, cancellation.Token);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        string token = new string('0', 100000) + "123";
+        NumberAlias alias = ParseNumericAlias(parser, token);
+        Collect();
+        Assert.False(alias.Wrapper.IsAlive);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        byte[] input = Encoding.ASCII.GetBytes(kind == "memory"
+            ? "[ (" + new string('X', 1048576) + ") ]" : "[ (discard) @ ]");
+        if (kind == "cancellation")
+        {
+            cancellation.Cancel();
+            Assert.Throws<OperationCanceledException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
+        }
+        else if (kind == "memory")
+        {
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
+            Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+        }
+        else { Assert.Throws<QpdfParseException>(() => parser.ParseValue(new PdfTokenizer(input), 0)); }
+        Assert.Equal(token, alias.Text);
+        Assert.True(alias.Backing.IsAlive);
+        Assert.InRange(governor.Snapshot().LiveMemoryBytes, token.Length * 2L, before);
+        GC.KeepAlive(alias); GC.KeepAlive(governor);
+    }
+
+    [Fact]
+    public void FailedRetentionRollsBackOnlyItsNewCarriersAndCanRepeat()
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        byte[] input = Encoding.ASCII.GetBytes("[ " + string.Concat(Enumerable.Repeat("(kept)", 128)) + " ]");
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
+            Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        }
+        PdfByteString result = Assert.IsType<PdfByteString>(parser.ParseValue(new PdfTokenizer("(retry)"u8.ToArray()), 0));
+        Assert.Equal("retry"u8.ToArray(), result.Value);
+        GC.KeepAlive(result);
+    }
+
+    [Theory]
+    [InlineData(64L)]
+    [InlineData(160L)]
+    [InlineData(184L)]
+    public void WorkFailureDuringIndexGrowthPreservesAcceptedValues(long remainingWork)
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000000L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        byte[] input = Encoding.ASCII.GetBytes("[ " + string.Concat(Enumerable.Repeat("(kept)", 31)) + " ]");
+        PdfArray accepted = Assert.IsType<PdfArray>(parser.ParseValue(new PdfTokenizer(input), 0));
+        long admitted = governor.Snapshot().LiveMemoryBytes;
+        // Simulate preceding job work. The next acceptance reaches a full
+        // ownership index with enough work for different growth boundaries.
+        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - remainingWork);
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+            parser.ParseValue(new PdfTokenizer("(next)"u8.ToArray()), 0));
+        Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
+        Assert.Contains("RetainedValueOwners.EnsureBucketCapacity", error.StackTrace ?? string.Empty);
+        Collect();
+        Assert.Equal(admitted, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(31, accepted.Count);
+        for (int index = 0; index < accepted.Count; index++)
+        {
+            Assert.Equal("kept"u8.ToArray(), Assert.IsType<PdfByteString>(accepted[index]).Value);
+        }
+        GC.KeepAlive(accepted);
+        GC.KeepAlive(governor);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CollectedDocumentValuesDoNotExhaustAReusableFiniteGovernor(bool broken)
+    {
+        byte[] input = TolerantObjectLoadingTests.Pdf(["(unread)"], broken);
+        InMemoryQpdfHost host = Host(input);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        List<QpdfDocument> disposed = [];
+        List<WeakReference[]> roots = [];
+        for (int index = 0; index < 32; index++)
+        {
+            QpdfDocument document = await Open(host, governor, limits, broken);
+            roots.Add(Roots(document));
+            await document.DisposeAsync();
+            disposed.Add(document);
+            Collect();
+            Assert.All(roots.SelectMany(group => group), owner => Assert.False(owner.IsAlive));
+            Assert.Equal(0L, host.OpenLeaseCount);
+            Assert.Equal(0L, governor.Snapshot().OpenHandles);
+        }
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, input.Length, limits.MaxMemoryBytes);
+        GC.KeepAlive(disposed);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (PdfByteString Child, WeakReference Parent, WeakReference Sibling) ChildOnly(QpdfDocument document)
+    {
+        PdfArray array = Assert.IsType<PdfArray>(document.GetObject(5));
+        return (Assert.IsType<PdfByteString>(array[0]), new(array), new(array[1]));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AChildAliasDoesNotKeepDeadParentAndSiblingAdmission(bool broken)
+    {
+        byte[] input = TolerantObjectLoadingTests.Pdf(["[ (kept) (" + new string('A', 1048576) + ") ]"], broken);
+        QpdfDocument document = await Open(Host(input), new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), QpdfLimits.Default, broken);
+        (PdfByteString child, WeakReference parent, WeakReference sibling) = ChildOnly(document);
+        await document.DisposeAsync();
+        Collect();
+        Assert.False(parent.IsAlive);
+        Assert.False(sibling.IsAlive);
+        Assert.Equal("kept"u8.ToArray(), child.Value);
+        Assert.InRange(document.Counters.LiveMemoryBytes, child.Value.Length, input.Length / 4L);
+        GC.KeepAlive(child); GC.KeepAlive(document);
+    }
+
+    private sealed class NumberAlias(string text, WeakReference wrapper)
+    {
+        internal string? Text = text;
+        internal WeakReference Wrapper = wrapper;
+        internal WeakReference Backing = new(text);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static NumberAlias NumberText(QpdfDocument document)
+    {
+        PdfInteger number = Assert.IsType<PdfInteger>(document.GetObject(5));
+        return new NumberAlias(number.Text, new(number));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void CheckAndClearNumber(NumberAlias alias, QpdfDocument document, string token)
+    {
+        Assert.False(alias.Wrapper.IsAlive);
+        Assert.Equal(token, alias.Text);
+        Assert.True(document.Counters.LiveMemoryBytes >= token.Length * 2L);
+        alias.Text = null;
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NumericTextFundingSurvivesItsWrapperAndRetiresWithTheString(bool broken)
+    {
+        string token = new string('0', 100000) + "123";
+        byte[] input = TolerantObjectLoadingTests.Pdf([token], broken);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        QpdfDocument document = await Open(Host(input), governor, QpdfLimits.Default, broken);
+        NumberAlias alias = NumberText(document);
+        await document.DisposeAsync();
+        Collect();
+        CheckAndClearNumber(alias, document, token);
+        Collect();
+        Assert.False(alias.Backing.IsAlive);
+        governor.ReserveMemory(0L);
+        Assert.True(document.Counters.LiveMemoryBytes < token.Length);
+        GC.KeepAlive(document);
+    }
+
+    private sealed class KeyAlias(IEnumerable<PdfName> keys, WeakReference wrapper, WeakReference backing)
+    {
+        internal IEnumerable<PdfName>? Keys = keys;
+        internal WeakReference Wrapper = wrapper;
+        internal WeakReference Backing = backing;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static KeyAlias KeyView(QpdfDocument document)
+    {
+        PdfDictionary dictionary = Assert.IsType<PdfDictionary>(document.GetObject(5));
+        return new KeyAlias(dictionary.Keys, new(dictionary), new(Field(dictionary, "_entries")));
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static long CheckAndClearKeys(KeyAlias alias, QpdfDocument document, bool populated)
+    {
+        Assert.False(alias.Wrapper.IsAlive);
+        Assert.True(alias.Backing.IsAlive);
+        Assert.NotNull(alias.Keys);
+        Assert.Equal(populated ? 1 : 0, alias.Keys.Count());
+        long before = document.Counters.LiveMemoryBytes;
+        Assert.True(before >= (populated ? 1048576L : 104L));
+        alias.Keys = null;
+        return before;
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task KeyViewFundingSurvivesItsWrapperAndRetiresWithTheBacking(bool broken, bool populated)
+    {
+        string body = populated ? "<< /A (" + new string('K', 1048576) + ") >>" : "<< >>";
+        byte[] input = TolerantObjectLoadingTests.Pdf([body], broken);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        QpdfDocument document = await Open(Host(input), governor, QpdfLimits.Default, broken);
+        KeyAlias alias = KeyView(document);
+        await document.DisposeAsync();
+        Collect();
+        long before = CheckAndClearKeys(alias, document, populated);
+        Collect();
+        Assert.False(alias.Backing.IsAlive);
+        governor.ReserveMemory(0L);
+        Assert.True(document.Counters.LiveMemoryBytes < before);
+        GC.KeepAlive(document);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (object Alias, WeakReference Stream, WeakReference Dictionary, WeakReference Data) StreamAlias(QpdfDocument document, string kind)
+    {
+        PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(5));
+        object alias = kind == "dictionary" ? stream.Dictionary : kind == "raw" ? (object)stream.RawMemory : stream.Data;
+        return (alias, new(stream), new(stream.Dictionary), new(Field(stream, "_data")));
+    }
+
+    [Theory]
+    [InlineData("dictionary")]
+    [InlineData("raw")]
+    [InlineData("copy")]
+    public async Task StreamDictionaryRawMemoryAndCallerCopyHaveIndependentOwners(string kind)
+    {
+        byte[] input = TolerantObjectLoadingTests.Pdf(["<< /Length 1048576 >>\nstream\n" + new string('P', 1048576) + "\nendstream"], false);
+        QpdfDocument document = await Open(Host(input), new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), QpdfLimits.Default, false);
+        (object alias, WeakReference stream, WeakReference dictionary, WeakReference data) = StreamAlias(document, kind);
+        await document.DisposeAsync();
+        Collect();
+        Assert.False(stream.IsAlive);
+        Assert.Equal(kind == "dictionary", dictionary.IsAlive);
+        Assert.Equal(kind == "raw", data.IsAlive);
+        if (kind == "raw")
+        {
+            Assert.True(document.Counters.LiveMemoryBytes >= 1048576L);
+            Assert.Equal((byte)'P', ((ReadOnlyMemory<byte>)alias).Span[100000]);
+        }
+        else
+        {
+            Assert.True(document.Counters.LiveMemoryBytes < input.Length / 4L);
+            if (alias is byte[] copy) { Assert.Equal((byte)'P', copy[100000]); }
+            else { Assert.Equal(1, Assert.IsType<PdfDictionary>(alias).Count); }
+        }
+        GC.KeepAlive(alias); GC.KeepAlive(document);
+    }
+
+    [Fact]
+    public async Task CopiedScalarAndKeyAliasesSurviveSourceContainersWithoutFundingTheirDeadSibling()
+    {
+        byte[] input = TolerantObjectLoadingTests.Pdf(["<< /Number 123 /Discard (" + new string('D', 1048576) + ") >>"], false);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        QpdfDocument document = await Open(Host(input), governor, QpdfLimits.Default, false);
+        (PdfInteger number, PdfName key, WeakReference parent, WeakReference discarded) = CopySmallPart(document, governor);
+        await document.DisposeAsync();
+        Collect();
+        Assert.False(parent.IsAlive);
+        Assert.False(discarded.IsAlive);
+        Assert.Equal("123", number.Text);
+        Assert.Equal("Number"u8.ToArray(), key.RawBytes);
+        Assert.InRange(governor.Snapshot().LiveMemoryBytes, 1L, input.Length / 4L);
+        GC.KeepAlive(document); GC.KeepAlive(number); GC.KeepAlive(key);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (PdfInteger Number, PdfName Key, WeakReference Parent, WeakReference Discarded) CopySmallPart(QpdfDocument document, ResourceGovernor governor)
+    {
+        PdfDictionary source = Assert.IsType<PdfDictionary>(document.Engine.Load(5));
+        PdfName key = source.Keys.Single(item => item.RawSpan.SequenceEqual("Number"u8));
+        Assert.True(source.TryGet(key, out QpdfObject value));
+        Assert.True(source.TryGet(PdfName.FromAscii("Discard"), out QpdfObject discarded));
+        GraphCopier copier = new(document.Engine, governor, QpdfLimits.Default, 20);
+        PdfDictionary small = new(new Dictionary<PdfName, QpdfObject> { [key] = value });
+        PdfDictionary copy = Assert.IsType<PdfDictionary>(copier.CopyValue(small, 0));
+        Assert.True(copy.TryGet(key, out QpdfObject copied));
+        Assert.Same(value, copied);
+        Assert.Same(key, copy.Keys.Single());
+        return (Assert.IsType<PdfInteger>(copied), copy.Keys.Single(), new(source), new(discarded));
+    }
+}

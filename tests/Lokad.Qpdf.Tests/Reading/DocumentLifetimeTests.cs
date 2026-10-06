@@ -403,7 +403,7 @@ public sealed class DocumentLifetimeTests
     }
 
     [Fact]
-    public async Task CancellationAfterObservedPageVisitsReleasesExclusiveStorageAndPreservesAcceptedAdmission()
+    public async Task CancellationAfterObservedPageVisitsReleasesExclusiveStorageAndAccountsAcceptedValues()
     {
         const int count = 200000;
         byte[] input = CheckTests.Assemble([
@@ -446,7 +446,11 @@ public sealed class DocumentLifetimeTests
             catch (OperationCanceledException)
             {
                 Assert.True(governor.Snapshot().TotalWork >= pageThreshold);
-                Assert.Equal(accepted, governor.Snapshot().LiveMemoryBytes);
+                // No value escapes this canceled opening. Collected carriers
+                // may retire while parsing/traversal runs, so the independently
+                // established accepted graph is an upper bound, not an exact
+                // total. Exclusive input/containers must add no residual charge.
+                Assert.InRange(governor.Snapshot().LiveMemoryBytes, 0L, accepted);
                 Assert.Equal(0L, governor.Snapshot().OpenHandles);
                 Assert.Equal(0L, host.OpenLeaseCount);
                 return;

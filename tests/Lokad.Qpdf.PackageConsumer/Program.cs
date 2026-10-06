@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf;
@@ -9,6 +10,16 @@ using Lokad.Qpdf.Objects;
 // reference executable, renderer, or native package is needed.
 internal static class Program
 {
+    private sealed record RetainedText(string Text, WeakReference Wrapper, WeakReference Sibling);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static RetainedText CaptureNumericText(QpdfDocument document)
+    {
+        PdfArray array = (PdfArray)document.GetObject(8);
+        PdfInteger number = (PdfInteger)array[0];
+        return new RetainedText(number.Text, new WeakReference(number), new WeakReference(array[1]));
+    }
+
     private static int Main()
     {
         try
@@ -535,6 +546,68 @@ internal static class Program
         Check(lifetimeAlias.Value.SequenceEqual("kept"u8.ToArray()) && lifetimeDocument.PageCount == 2
             && lifetimeHost.OpenLeaseCount == 0L, "returned bytes and page count survive document disposal");
         Console.WriteLine("PASS document input/table disposal with returned byte alias");
+        string retainedToken = new string('0', 100000) + "123";
+        byte[] valueOwnerInput = TwoPagePdfWithAuditObjects(["[ " + retainedToken + " (" + new string('A', 1048576) + ") ]"]);
+        InMemoryQpdfHost valueOwnerHost = NewHost("inputs/value-owner.pdf", valueOwnerInput);
+        QpdfDocument valueOwnerDocument = await QpdfDocument.OpenAsync(valueOwnerHost, QpdfPath.From("inputs/value-owner.pdf"),
+            QpdfLimits.Default, CancellationToken.None);
+        RetainedText retainedText = CaptureNumericText(valueOwnerDocument);
+        long valueOwnerBefore = valueOwnerDocument.Counters.LiveMemoryBytes;
+        await valueOwnerDocument.DisposeAsync();
+        GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+        Check(!retainedText.Wrapper.IsAlive && !retainedText.Sibling.IsAlive && retainedText.Text == retainedToken,
+            "numeric text survives independently of its wrapper and discarded sibling");
+        Check(valueOwnerDocument.Counters.LiveMemoryBytes >= retainedText.Text.Length * 2L
+            && valueOwnerDocument.Counters.LiveMemoryBytes < valueOwnerBefore - 1048576L
+            && valueOwnerHost.OpenLeaseCount == 0L, "live text stays funded while dead input/sibling admission retires");
+        Console.WriteLine("PASS independent numeric text ownership after document disposal");
+        GC.KeepAlive(retainedText);
+        foreach (string route in new[] { "typed", "argv", "job" })
+        {
+            InMemoryQpdfHost closeSource = NewHost("inputs/close.pdf", input);
+            QpdfPath closeMain = QpdfPath.From("outputs/close.json");
+            QpdfPath closeSidecar = QpdfPath.From("side-5");
+            foreach (QpdfPath path in new[] { closeMain, closeSidecar })
+            {
+                await using IQpdfOutputTransaction prior = await closeSource.CreateOutputAsync(path, CancellationToken.None);
+                await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
+                await prior.CommitAsync(CancellationToken.None);
+            }
+            CloseFaultHost closeHost = new(closeSource);
+            if (route == "typed")
+            {
+                bool failed = false;
+                try
+                {
+                    await Qpdf.GetDocumentJsonAsync(closeHost, QpdfPath.From("inputs/close.pdf"), closeMain,
+                        new QpdfJsonOptions(2, ["qpdf"], "file", "side", ["5"], false), CancellationToken.None);
+                }
+                catch (QpdfHostException) { failed = true; }
+                Check(failed, "typed JSON reports its input close fault");
+            }
+            else
+            {
+                QpdfExecutionResult closeResult = route == "job"
+                    ? await Qpdf.ExecuteJobAsync(closeHost,
+                        """{"inputFile":"inputs/close.pdf","outputFile":"outputs/close.json","json":"2","jsonKey":["qpdf"],"jsonStreamData":"file","jsonStreamPrefix":"side","jsonObject":["5"]}""",
+                        CancellationToken.None)
+                    : await Qpdf.ExecuteAsync(closeHost,
+                        new QpdfCommandInvocation(["inputs/close.pdf", "--json=2", "--json-key=qpdf", "--json-stream-data=file",
+                            "--json-stream-prefix=side", "--json-object=5", "--", "outputs/close.json"]), CancellationToken.None);
+                Check(closeResult.Status == QpdfExecutionStatus.Failed
+                    && closeResult.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.HostOperationFailed)
+                    && closeResult.Counters.TotalWork > 0L && closeResult.Counters.OpenHandles == 0L,
+                    "JSON close failure preserves observed counters");
+            }
+            Check(closeHost.InputCloses == 1 && closeHost.OutputCreates == 0 && closeSource.OpenLeaseCount == 0L,
+                "JSON closes its input before creating outputs");
+            foreach (QpdfPath path in new[] { closeMain, closeSidecar })
+            {
+                Check(closeSource.TryGetOutput(path, out byte[] bytes) && bytes.AsSpan().SequenceEqual("prior"u8),
+                    "JSON input close fault preserves main and sidecar targets");
+            }
+        }
+        Console.WriteLine("PASS JSON input close faults preserve main/sidecar targets (typed/argv/job)");
         InMemoryQpdfHost lifetimeMergeHost = NewHost("inputs/a.pdf", lifetimeInput);
         lifetimeMergeHost.AddInput(QpdfPath.From("inputs/b.pdf"), lifetimeInput, QpdfInputOwnership.Copy);
         lifetimeMergeHost.AddInput(QpdfPath.From("inputs/c.pdf"), lifetimeInput, QpdfInputOwnership.Copy);
@@ -992,6 +1065,37 @@ internal static class Program
         }
 
         return output.ToArray();
+    }
+
+    private sealed class CloseFaultHost(InMemoryQpdfHost source) : IQpdfHost
+    {
+        internal int InputCloses { get; private set; }
+        internal int OutputCreates { get; private set; }
+
+        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
+            => new ClosingInput(await source.OpenInputAsync(path, cancellationToken), this);
+
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
+        {
+            OutputCreates++;
+            return source.CreateOutputAsync(path, cancellationToken);
+        }
+
+        private sealed class ClosingInput(IQpdfInput inner, CloseFaultHost host) : IQpdfInput
+        {
+            public QpdfPath Path => inner.Path;
+            public string Identity => inner.Identity;
+            public long Length => inner.Length;
+            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+                => inner.ReadAsync(offset, count, cancellationToken);
+
+            public async ValueTask DisposeAsync()
+            {
+                host.InputCloses++;
+                await inner.DisposeAsync();
+                throw new QpdfHostException(Path, QpdfHostFailureReason.ReadFailed);
+            }
+        }
     }
 
     private static byte[] Concat(byte[] first, byte[] second, byte[] third)

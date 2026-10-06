@@ -16,7 +16,7 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and parsed/returned-node, wrapper and diagnostic ownership still keep that entry partial.
+and diagnostic ownership, cold/native state and broader loading/counters still keep that entry partial.
 Successful recovery trials and unselected trailer subtrees now release their admission;
 accepted trailer bytes/aliases survive. Strict/final xref acceptance and linearization
 trials have ownership regressions, with unfiltered/Flate structural scratch cleanup.
@@ -31,9 +31,22 @@ receipts and disposal/failure cleanup, with strict/recovered/stream/hybrid/
 incremental aliases, finite/repeated documents, short reads, host-close faults
 and cancellation after observed page visits. Caller-funded component engines
 preserve borrowing. Independent forced-GC probes keep disposed handles and
-returned aliases alive while exclusive storage dies. Parsed values and wrappers
-remain conservatively admitted; independent numeric-text/key-view lifetimes,
-diagnostics, other codecs and broader public repair/recovery nesting remain open.
+returned aliases alive while exclusive storage dies. Accepted parser/cache values
+now transfer their own receipts to independently escaping wrappers and backing
+storage. Numeric text, dictionary key views, stream dictionaries/buffers and
+copier aliases have lifetime regressions; collected values release admission
+under repeated finite-budget jobs. Failed acceptance/growth preserves prior
+aliases. Byte strings use an admitted fresh decoded buffer while public copies
+remain immutable. JSON keeps internal values scoped until serialization, then
+closes its reader before output creation. Typed/argv/job close faults preserve
+prior main/sidecar targets; raw/decoded sidecars survive reader cleanup and fit
+a one-handle ceiling. Tighter original memory ceilings and meaningful failed/
+canceled counters have regressions. This unit passes 6,440 offline tests, 189
+native comparisons, the full pinned differential/parser lane and 50 fresh packed
+consumer smokes plus both specific rejection controls. These are local Windows
+results with preceding-commit package metadata. Diagnostic record/list admission
+and owned-message retirement, cold/native state, other codecs, all-route counters
+and broader public repair/recovery nesting remain open.
 Header-rejected and unmatched/trailing compressed-member values now have public ownership regressions,
 including retained nested/cache aliases and cancellation; structural scratch evidence covers
 unfiltered and Flate object streams, while other codec owners remain open. Excluded crypto

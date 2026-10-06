@@ -65,11 +65,22 @@ component engines can instead borrow caller-funded data and tables. Disposal
 drops input/table/page-view/lease/cache references before releasing those owners,
 including failed construction and host-close faults. Page-list and traversal
 capacities are admitted. Returned immutable bytes, trailer/key aliases and
-historical page counts stay usable. Parsed values and wrappers remain
-conservatively admitted; numeric strings and dictionary key views can escape
-independently of their root wrapper. Their lifetimes, diagnostics, cold state
-and broader nested loading remain under audit; [progress](docs/PROGRESS.md)
-records the remaining measured gaps.
+historical page counts stay usable. Accepted parser/cache values transfer only
+their own receipts into a per-job weak ownership ledger. Wrappers and independently
+escaping numeric strings, dictionary backing/key views and stream buffers have
+separate receipts. Collection publishes atomic retirement notifications; the job
+thread performs governed index cleanup. Segmented weak tables, index capacities
+and growth overlap are admitted. Failed acceptance rolls back its new carriers
+without releasing previously accepted aliases. Byte-string parsing transfers its
+fresh decoded buffer; public construction and returned copies remain immutable.
+
+JSON serialization uses an exclusive internal reader because its outputs are
+text and copied sidecar bytes. It closes that reader before creating output
+transactions, preserving prior main/sidecar targets if input disposal fails.
+JSON success/failure/cancellation snapshots retain observed work, peaks and
+post-cleanup handles. Broader route/presentation counters, diagnostic record/list
+admission and owned-message retirement, cold/native state and nested loading
+remain under audit; [progress](docs/PROGRESS.md) records the measured gaps.
 
 The solution contains the packable library, tests, public API consumer,
 development probe and synthetic benchmark harness. Benchmarks are development

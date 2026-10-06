@@ -298,11 +298,11 @@ public sealed class ReaderAcceptanceTests
             PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
             long baseline = document.Counters.LiveMemoryBytes;
             Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(5), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= baseline + 32L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             Assert.True(observed);
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(document.Counters.PeakMemoryBytes >= baseline + 32L * 1024L * 1024L);
+            Assert.True(document.Counters.PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
             Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
             Assert.Equal("kept"u8.ToArray(), kept.Value);
         }
@@ -325,11 +325,11 @@ public sealed class ReaderAcceptanceTests
             PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
             long baseline = document.Counters.LiveMemoryBytes;
             Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(7), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= baseline + 32L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             Assert.True(observed);
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(document.Counters.PeakMemoryBytes >= baseline + 32L * 1024L * 1024L);
+            Assert.True(document.Counters.PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
             Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
             Assert.Equal("kept"u8.ToArray(), kept.Value);
         }

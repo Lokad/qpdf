@@ -330,7 +330,8 @@ public sealed class CheckTransformationTests
             await seed.CommitAsync(CancellationToken.None);
         }
         QpdfLimits limits = ceiling == "memory" ? generous with { MaxMemoryBytes = control.Counters.PeakMemoryBytes / 2L }
-            : generous with { MaxWork = control.Counters.TotalWork - 1L };
+            // Weak identity-index collisions vary between equivalent jobs.
+            : generous with { MaxWork = control.Counters.TotalWork / 2L };
         QpdfExecutionResult result = await Execute(host, route, properties, flags, limits);
         Assert.True(result.Status == QpdfExecutionStatus.Failed,
             $"Expected budget failure; got {result.Status}/{result.ExitCode}, control peak {control.Counters.PeakMemoryBytes}, "

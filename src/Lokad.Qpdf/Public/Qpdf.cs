@@ -3449,6 +3449,18 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
         CancellationToken cancellationToken)
+        => OpenPlanInputAsync(host, input, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, true);
+
+    private static ValueTask<QpdfDocument> OpenPlanInputAsync(
+        IQpdfHost host,
+        QpdfPath input,
+        bool emptyDocument,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken,
+        bool valuesEscape)
     {
         if (host is null)
         {
@@ -3473,10 +3485,10 @@ public static partial class Qpdf
         limits.Validate();
         if (emptyDocument)
         {
-            return QpdfDocument.OpenEmptyDocument(input, limits, governor, diagnostics, recovery, cancellationToken);
+            return QpdfDocument.OpenEmptyDocument(input, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape);
         }
 
-        return QpdfDocument.OpenCore(host, input, limits, governor, diagnostics, recovery, cancellationToken);
+        return QpdfDocument.OpenCore(host, input, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape);
     }
 
     private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> WholeFileCoreAsync(
@@ -4312,7 +4324,9 @@ public static partial class Qpdf
             prefix = outputPath.Value.Value;
         }
 
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        // JSON emits text and copied sidecar bytes. Its reader values remain
+        // exclusive to this document until serialization completes.
+        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
         Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
         List<Json.JsonSidecar> sidecars = new();
         string json = Json.DocumentJson.WriteDocument(document, request, sidecars, limits, governor, diagnostics, cancellationToken);
@@ -4322,6 +4336,9 @@ public static partial class Qpdf
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
         }
 
+        // No PDF value escapes serialization. Close the input before publishing
+        // so a host close fault preserves the existing main and sidecar targets.
+        await document.DisposeAsync().ConfigureAwait(false);
         if (outputPath.HasValue)
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath.Value, governor, cancellationToken).ConfigureAwait(false);
@@ -5052,11 +5069,11 @@ public static partial class Qpdf
             }
             catch (QpdfException ex)
             {
-                return ToFailedResult(ex);
+                return ToFailedResult(ex).WithCounters(governor.Snapshot());
             }
             catch (OperationCanceledException)
             {
-                return QpdfExecutionResult.Canceled([], ZeroCounters());
+                return QpdfExecutionResult.Canceled([], governor.Snapshot());
             }
         }
 

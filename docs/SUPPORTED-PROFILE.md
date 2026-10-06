@@ -96,8 +96,9 @@ echoing values.
   Name/literal unescaping and display scans check work/cancellation. Authored
   invalid-hex, EOF, mismatched-terminator and root-word cases agree through
   valid/rebuilt xrefs. Reconstructed xrefs ignore orphan dictionary values;
-  valid xrefs insert fake keys. Broader nested loads, display-buffer admission
-  and temporary parsed-value ownership remain under audit.
+  valid xrefs insert fake keys. Display buffers and parser attempts admit their
+  storage; broader nested loads, diagnostic ownership and cold/native state
+  remain under audit.
 - Page streams travel opaquely and are never decoded: direct and indirect
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,
@@ -335,9 +336,21 @@ Documents admit and transfer their input copy, xref containers and page-view
 storage to explicit owners. Disposal drops implementation references and
 releases exclusive storage on success/failure, including close faults; borrowed
 component inputs/tables keep their caller funding. Returned values, trailer/key
-aliases and page counts remain usable. Parsed values and wrappers remain
-conservatively admitted. Numeric text and dictionary key views can outlive the
-root PDF wrapper; complete value/diagnostic/cold-state ownership remains open.
+aliases and page counts remain usable. Accepted parser/cache values transfer
+their own receipts to independently escaping wrappers and backing storage.
+Numeric text and dictionary key views stay funded after their root wrapper
+collects; dead parents/siblings do not retain admission for a surviving child.
+Weak-ledger capacities and growth overlap are admitted; collection retires
+payload receipts, with bounded governed maintenance on the job thread.
+Failed acceptance preserves prior aliases. Byte-string parsing transfers its
+fresh admitted buffer; public construction and returned copies still clone.
+JSON uses an exclusive reader through serialization and closes it before output
+creation. Input-close faults preserve prior main/sidecar targets on all three
+routes; raw/decoded sidecar copies survive cleanup and fit one open handle.
+These cases do not establish every collision or group-publication contract.
+Ordinary diagnostic records/list capacities still lack memory admission, and
+owned diagnostic messages retain their charge after all aliases collect.
+Diagnostic/cold/native-state ownership and broader nested loading remain open.
 
 Object-plan execution snapshots observed work/peaks after input cleanup, including failure
 and cancellation. These component corrections do not establish whole-job
@@ -345,7 +358,8 @@ retention, general diagnostic ownership or universal cancellation latency.
 
 Parser attempts own their reservations separately from nested resolver/cache
 loads. Failed, aborted and canceled attempts release abandoned values and
-container storage; successful values retain admission. Lists/dictionaries,
+container storage; successful values retain admission for their actual carriers'
+lifetimes. Lists/dictionaries,
 immutable container copies, references and overlapping stream copies are
 admitted before allocation. Working containers release after materialization.
 Recovery uses complete numeric headers rather than digit suffixes. Finite-memory argv/job JSON inspections with valid/rebuilt xrefs can load repeated repaired nulls

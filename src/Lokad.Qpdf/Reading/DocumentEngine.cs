@@ -27,6 +27,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     private readonly QpdfRecoveryMode _recovery;
     private ParserMemoryScope? _metadata;
     private bool _ownsTable;
+    private bool _valuesEscape = true;
     private Dictionary<int, CachedObject>? _cache;
     private HashSet<int>? _decodingStreams;
     private HashSet<int>? _loading;
@@ -73,13 +74,24 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
         long reservedInput)
+        => CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, true);
+
+    internal static DocumentEngine CreateOwned(
+        ReadOnlyMemory<byte> data,
+        XRefTable table,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        long reservedInput,
+        bool valuesEscape)
     {
         table.CheckOwner(governor);
         if (reservedInput != checked(data.Length + GovernedBufferStream.ArrayOverheadBytes))
         {
             throw new InvalidOperationException("The document input receipt does not match its storage.");
         }
-        DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery);
+        DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery) { _valuesEscape = valuesEscape };
         try
         {
             engine.Metadata.AdoptReserved(reservedInput);
@@ -93,8 +105,10 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     {
         if (Cache.TryGetValue(number, out CachedObject cached))
         {
-            if (!cached.Borrowed)
+            if (!cached.Borrowed && _valuesEscape)
             {
+                long retained = _governor.RetainValue(cached.Value, cached.ReservedBytes);
+                _governor.ReleaseMemory(cached.ReservedBytes - retained);
                 Cache[number] = cached with { Borrowed = true };
                 _unborrowedBytes = checked(_unborrowedBytes - cached.ReservedBytes);
             }
@@ -107,14 +121,17 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     private void StoreCached(int number, QpdfObject value, ParserMemoryScope parsed, bool borrowed)
     {
+        borrowed = borrowed && _valuesEscape;
         _governor.CheckCancellation();
         bool replacing = Cache.TryGetValue(number, out CachedObject previous);
         if (!replacing) { ParserContainers.EnsureEntryCapacity(Metadata, Cache, 24L); }
         _governor.CheckCancellation();
         long discarded = replacing && !previous.Borrowed ? previous.ReservedBytes : 0L;
         long nextUnborrowed = checked(_unborrowedBytes - discarded + (borrowed ? 0L : parsed.ReservedBytes));
-        Cache[number] = new CachedObject(value, parsed.ReservedBytes, borrowed);
-        parsed.Retain();
+        long reservedBytes = parsed.ReservedBytes;
+        if (borrowed) { parsed.Retain(value); }
+        Cache[number] = new CachedObject(value, reservedBytes, borrowed);
+        if (!borrowed) { parsed.Retain(); }
         _unborrowedBytes = nextUnborrowed;
         _governor.ReleaseMemory(discarded);
     }

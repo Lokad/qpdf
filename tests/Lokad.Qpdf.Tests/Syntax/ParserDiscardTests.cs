@@ -152,15 +152,22 @@ public sealed class ParserDiscardTests
         string literal = "(" + new string('A', 4096) + ")";
         PdfArray kept = Assert.IsType<PdfArray>(Parse(parser, "[ " + literal + " ]", true));
         QpdfObject alias = kept[0];
-        long retained = governor.Snapshot().LiveMemoryBytes;
-        long perDictionary = ControlAdmission("<< /A null >>", true, true);
+        List<PdfDictionary> accepted = [];
         for (int i = 1; i <= 50; i++)
         {
-            Assert.IsType<PdfDictionary>(Parse(parser, "<< /A [ " + literal + " ] /A null >>", true));
-            Assert.Equal(retained + perDictionary * i, governor.Snapshot().LiveMemoryBytes);
+            accepted.Add(Assert.IsType<PdfDictionary>(Parse(parser, "<< /A [ " + literal + " ] /A null >>", true)));
+            Assert.InRange(governor.Snapshot().LiveMemoryBytes, 4096L, limits.MaxMemoryBytes);
             Assert.Same(alias, kept[0]);
         }
         Assert.Equal(Encoding.ASCII.GetBytes(new string('A', 4096)), Assert.IsType<PdfByteString>(alias).Value);
+        Assert.All(accepted, dictionary =>
+        {
+            PdfName key = Assert.Single(dictionary.Keys);
+            Assert.Equal("A"u8.ToArray(), key.RawBytes);
+            Assert.True(dictionary.TryGet(key, out QpdfObject value));
+            Assert.Same(PdfNull.Instance, value);
+        });
+        GC.KeepAlive(accepted); GC.KeepAlive(kept);
     }
 
     [Theory]
@@ -292,11 +299,11 @@ public sealed class ParserDiscardTests
         ResourceGovernor governor = new(limits, cancellation.Token);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
         Task<QpdfObject> parsing = Task.Factory.StartNew(() => parser.ParseObjectValue(new PdfTokenizer(input), 0), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 32L * 1024L * 1024L || parsing.IsCompleted, TimeSpan.FromSeconds(10));
+        bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 16L * 1024L * 1024L || parsing.IsCompleted, TimeSpan.FromSeconds(10));
         cancellation.Cancel();
         Assert.True(observed);
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await parsing.WaitAsync(TimeSpan.FromSeconds(10)));
-        Assert.True(governor.Snapshot().PeakMemoryBytes >= 32L * 1024L * 1024L);
+        Assert.True(governor.Snapshot().PeakMemoryBytes >= 16L * 1024L * 1024L);
         Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }

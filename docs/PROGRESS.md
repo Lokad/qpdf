@@ -1,6 +1,60 @@
 # Progress
 
-## Current checkpoint: exclusive document storage
+## Current checkpoint: returned-value ownership and scoped JSON
+
+Accepted parser/cache values transfer only their own receipts into a per-job
+weak ledger. Wrappers, numeric strings, dictionary backing/key views and stream
+buffers have independent lifetimes; dead parents/siblings release admission
+while returned aliases remain valid and funded. Ledger capacities/growth overlap
+are admitted, collection only publishes atomic retirement, and governed job-thread
+maintenance removes dead entries. Failed acceptance/growth preserves prior
+aliases. Byte-string parsing transfers its admitted fresh buffer; public
+construction and returned copies remain immutable.
+
+JSON keeps its internal reader exclusive through serialization and closes it
+before creating outputs. Typed/argv/job close faults preserve prior main/sidecar
+targets with zero output creations and leases. Raw/decoded sidecar copies survive
+cleanup and fit a single-handle ceiling. Original 32 KiB repeated-reader and
+input + 60,000 / 80,000 JSON ceilings remain unchanged. JSON success/failure/
+cancellation counters include actual work/peaks and post-cleanup handles.
+
+Locked restore/Release build pass with zero warnings/errors; **6440 offline
+tests** pass, zero failures/skips, including **71 new cases**. The identical final
+assembly fails **52 / preserves 19 of 71** on the preceding storage DLL. Separate
+intermediate-DLL JSON controls fail **16 / preserve 10**, and **9 / preserve 17
+of 26**, without loader failures or changed baseline identities. The current
+frozen full reference ends with **terminal exit 0**, **1846 exact parser
+comparisons / 432 rewrites** and the complete differential lane; focused native
+checks pass **189 comparisons**. Package/symbol checks, **50 fresh consumer
+smokes** and both specific negative controls pass. Five tracked locks remain
+unchanged. This is local Windows evidence with preceding-commit package metadata;
+final release metadata/reference CI and all gates/verdicts remain open.
+
+After six public documentation/inventory updates, **22** metadata/API/containment
+checks pass. The repacked artifact includes the reviewed changelog and passes
+package/symbol verification, 50 fresh consumer smokes and both specific rejection
+controls with unchanged library/test binaries and locks. Original frozen
+packages and earlier failures remain separate.
+
+Independent warmed probes on the tested DLL measure actual segment/receipt
+allocation at **376/48 bytes**, admitted as **384/56**. At 1,000 prepared values,
+ledger metadata admission is **270,416 bytes**, peak **270,464**, cumulative
+managed allocation **260,840**, and forced-GC heap delta **251,304**. Prepared
+payloads/governor/parser controls, cold/native pools and RSS are excluded.
+Admission counters remain distinct from allocation/retention observations;
+these measurements establish no whole-job or universal latency bound.
+
+Diagnostic admission/retirement is the next unit. The actual ordinary sink
+accepts 1,000 records under a 32 KiB memory ceiling while reporting zero memory;
+its record/list storage independently retains **40,216 bytes** after GC.
+The actual owned-message display path leaves **8,228 admitted bytes** after weak
+controls prove bag, record and message collection; a second discarded diagnostic
+rejects the shared 32 KiB governor at **33,288 requested bytes**. These separate
+component observations are outside test/reference counts. Message aliases must
+remain funded while alive; record/list admission, message retirement, cold/native
+state, broader public nesting and all-route counters remain open.
+
+## Previous checkpoint: exclusive document storage
 
 The exclusive-storage correction has completed local verification. Document
 opens transfer their input receipt and parsed xref containers to the engine;
@@ -29,12 +83,12 @@ smokes and both specific rejection controls with unchanged library and locks.
 This is Windows evidence with preceding-commit package metadata; all gates and
 both verdicts remain open.
 
-A separate current-DLL probe reproduces the next ownership gap: each disposal
+A separate probe on that checkpoint's DLL reproduced the next ownership gap: each disposal
 of a 458-byte input leaves another 3,012 admitted bytes. A shared 32 KiB ceiling
 rejects the tenth open after nine successes despite forced GC clearing all prior
 catalog/page roots. Handles/leases are zero. Numeric text can also outlive its
-integer wrapper. These observations are outside test/reference counts; retiring
-only root wrappers would release live aliases' funding.
+integer wrapper. These observations are outside that checkpoint's counts; the
+current correction funds independently escaping aliases.
 
 ## Previous checkpoint: selection/rotation
 
@@ -73,7 +127,7 @@ Failure/cancellation discards staged bytes while counters include staging.
 Filtered output shares governed normalization/defaults. Command checking and
 split writing share admitted reachability; typed checking retains its broader
 inventory. An interrupted read before engine construction releases its unowned
-input-copy receipt; parsed-value and wrapper ownership remains open.
+input-copy receipt. Diagnostic/cold/native-state ownership remains open.
 
 Earlier checkpoints retain their own source/artifact identities and local
 Windows evidence. Each passed its frozen full reference and package/consumer
@@ -105,13 +159,13 @@ establish no whole-job/RSS or universal latency bound.
 
 ## Remaining work
 
-- **A04/A06 document ownership:** retain the verified exclusive-storage checkpoint
-  and resolve parsed/returned-node and wrapper
-  receipts against actual retained storage. Independent aliases can retain
-  strings, byte backing and dictionary key views without their root wrapper.
-  Preserve borrowed storage, nested loads, generations and failure/cancellation
-  cleanup. Diagnostics and broader public repair/recovery nesting remain open;
-  the current independent probes are outside test/reference counts.
+- **A04/A06 diagnostic ownership:** admit records, list capacities/growth overlap
+  and formatted messages before allocation; retire only dead storage while
+  independent returned record/message aliases stay funded. Preserve earlier
+  parsed-value/borrowing/nested-load evidence, warning/exit semantics, finite
+  ceilings and failure/cancellation cleanup. Component gap probes remain
+  separate from ordinary/reference counts; cold/native state and broader public
+  repair/recovery nesting still need evidence.
 - **A07 checker/job contexts:** overlay/underlay and remaining transformation,
   default, precedence and target-field contexts still need actual effects and
   failure-order evidence. `--check` and `--job-json-file` remain partial. All 98

@@ -70,6 +70,7 @@ internal sealed class XRefTable : IDisposable
     private List<PdfDictionary>? _trailers;
     private readonly ResourceGovernor? _governor;
     private long _containerBytes;
+    private long _ownedValuesBytes;
 
     internal XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer, List<PdfDictionary> trailers)
         : this(xrefOffset, entries, trailer, trailers, null, 0L)
@@ -90,6 +91,11 @@ internal sealed class XRefTable : IDisposable
     internal static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
         PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
         ParserMemoryScope containers, ParserMemoryScope values)
+        => CreateOwned(xrefOffset, entries, trailer, trailers, governor, containers, values, true);
+
+    internal static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
+        PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
+        ParserMemoryScope containers, ParserMemoryScope values, bool valuesEscape)
     {
         containers.CheckOwner(governor);
         values.CheckOwner(governor);
@@ -97,8 +103,13 @@ internal sealed class XRefTable : IDisposable
         // aliases. Only the exclusive map/list receipt releases on disposal.
         values.Reserve(96L);
         XRefTable table = new(xrefOffset, entries, trailer, trailers, governor, containers.ReservedBytes);
+        if (valuesEscape) { values.Retain(table, 96L, trailers); }
+        else
+        {
+            table._ownedValuesBytes = values.ReservedBytes;
+            values.Retain();
+        }
         containers.Retain();
-        values.Retain();
         return table;
     }
 
@@ -115,7 +126,9 @@ internal sealed class XRefTable : IDisposable
         _trailer = null;
         _trailers = null;
         _governor?.ReleaseMemory(_containerBytes);
+        _governor?.ReleaseMemory(_ownedValuesBytes);
         _containerBytes = 0L;
+        _ownedValuesBytes = 0L;
     }
 
     internal long XrefOffset { get; }
@@ -132,6 +145,15 @@ internal sealed class XRefTable : IDisposable
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery)
+        => Parse(data, limits, governor, diagnostics, recovery, true);
+
+    internal static XRefTable Parse(
+        ReadOnlyMemory<byte> data,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        bool valuesEscape)
     {
         if (limits is null)
         {
@@ -156,7 +178,7 @@ internal sealed class XRefTable : IDisposable
 
         try
         {
-            return ParseStrict(data, limits, governor, diagnostics);
+            return ParseStrict(data, limits, governor, diagnostics, valuesEscape);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
@@ -165,7 +187,7 @@ internal sealed class XRefTable : IDisposable
                 throw;
             }
 
-            return XRefRecovery.Recover(data, limits, governor, diagnostics, ex.Message);
+            return XRefRecovery.Recover(data, limits, governor, diagnostics, ex.Message, valuesEscape);
         }
     }
 
@@ -173,7 +195,8 @@ internal sealed class XRefTable : IDisposable
         ReadOnlyMemory<byte> data,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics)
+        DiagnosticBag diagnostics,
+        bool valuesEscape)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using ParserMemoryScope values = ParserMemoryScope.Create(governor);
@@ -227,7 +250,7 @@ internal sealed class XRefTable : IDisposable
         }
 
         ValidateUnionCoverage(merged, effectiveSize.Value, governor);
-        return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values);
+        return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values, valuesEscape);
     }
 
     private static long? ProcessSection(

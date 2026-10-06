@@ -144,13 +144,23 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
     }
 
-    internal static async ValueTask<QpdfDocument> OpenEmptyDocument(
+    internal static ValueTask<QpdfDocument> OpenEmptyDocument(
         QpdfPath path,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
         CancellationToken cancellationToken)
+        => OpenEmptyDocument(path, limits, governor, diagnostics, recovery, cancellationToken, true);
+
+    internal static async ValueTask<QpdfDocument> OpenEmptyDocument(
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken,
+        bool valuesEscape)
     {
         if (limits is null)
         {
@@ -169,8 +179,18 @@ public sealed class QpdfDocument : IAsyncDisposable
 
         limits.Validate();
         IQpdfInput input = new EmptyPdfInput(path);
-        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape).ConfigureAwait(false);
     }
+
+    internal static ValueTask<QpdfDocument> OpenCore(
+        IQpdfHost host,
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken)
+        => OpenCore(host, path, limits, governor, diagnostics, recovery, cancellationToken, true);
 
     internal static async ValueTask<QpdfDocument> OpenCore(
         IQpdfHost host,
@@ -179,10 +199,11 @@ public sealed class QpdfDocument : IAsyncDisposable
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool valuesEscape)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape).ConfigureAwait(false);
     }
 
     private static async ValueTask<QpdfDocument> OpenInputDocument(
@@ -192,7 +213,8 @@ public sealed class QpdfDocument : IAsyncDisposable
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool valuesEscape)
     {
         DocumentEngine? engine = null;
         XRefTable? table = null;
@@ -226,8 +248,8 @@ public sealed class QpdfDocument : IAsyncDisposable
             data = bytes;
             PdfVersion headerVersion = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
-            table = XRefTable.Parse(data, limits, governor, diagnostics, recovery);
-            engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput);
+            table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
+            engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape);
             table = null;
             reservedInput = 0L;
             cancellationToken.ThrowIfCancellationRequested();
