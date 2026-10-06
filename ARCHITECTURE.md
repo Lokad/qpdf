@@ -59,13 +59,17 @@ Reader attempts and parsed subtrees carry independent reservation receipts;
 discarding an outer attempt preserves previously accepted nested loads. Xref
 and cache/guard collections admit their wrappers, capacities and growth overlap.
 Cache entries distinguish unread owned subtrees from borrowed values, so
-replacement and disposal release only the unread admission. Document disposal
-closes its input lease and drops cache metadata while returned immutable bytes
-remain usable. Input/table/returned-node and diagnostic lifetimes remain under
-audit; [progress](docs/PROGRESS.md) records the measured gaps.
-An initial read/header/table failure before engine construction releases its
-unowned input-copy receipt. Constructed-engine and successful-document ownership
-remain separate audit obligations.
+replacement and disposal release only the unread admission. Document opens
+transfer their input-copy and exclusive xref-container receipts to the engine;
+component engines can instead borrow caller-funded data and tables. Disposal
+drops input/table/page-view/lease/cache references before releasing those owners,
+including failed construction and host-close faults. Page-list and traversal
+capacities are admitted. Returned immutable bytes, trailer/key aliases and
+historical page counts stay usable. Parsed values and wrappers remain
+conservatively admitted; numeric strings and dictionary key views can escape
+independently of their root wrapper. Their lifetimes, diagnostics, cold state
+and broader nested loading remain under audit; [progress](docs/PROGRESS.md)
+records the remaining measured gaps.
 
 The solution contains the packable library, tests, public API consumer,
 development probe and synthetic benchmark harness. Benchmarks are development

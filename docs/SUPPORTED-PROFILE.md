@@ -331,6 +331,14 @@ scratch and its immutable result before allocation. It borrows immutable key
 bytes, releases temporary owners on all outcomes and transfers the final string
 reservation to the diagnostic that retains it. Diagnostic count and UTF-8 byte
 ceilings are checked during formatting, with one final diagnostic charge.
+Documents admit and transfer their input copy, xref containers and page-view
+storage to explicit owners. Disposal drops implementation references and
+releases exclusive storage on success/failure, including close faults; borrowed
+component inputs/tables keep their caller funding. Returned values, trailer/key
+aliases and page counts remain usable. Parsed values and wrappers remain
+conservatively admitted. Numeric text and dictionary key views can outlive the
+root PDF wrapper; complete value/diagnostic/cold-state ownership remains open.
+
 Object-plan execution snapshots observed work/peaks after input cleanup, including failure
 and cancellation. These component corrections do not establish whole-job
 retention, general diagnostic ownership or universal cancellation latency.

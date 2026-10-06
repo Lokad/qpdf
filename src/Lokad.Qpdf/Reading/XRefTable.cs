@@ -62,25 +62,69 @@ internal readonly struct XrefEntry
 /// Bounded repair lives in <see cref="XRefRecovery"/> and only runs when the
 /// caller selects it after strict parsing fails.
 /// </summary>
-internal sealed class XRefTable
+internal sealed class XRefTable : IDisposable
 {
     private const int TailScanBytes = 65536;
+    private Dictionary<int, XrefEntry>? _entries;
+    private PdfDictionary? _trailer;
+    private List<PdfDictionary>? _trailers;
+    private readonly ResourceGovernor? _governor;
+    private long _containerBytes;
 
     internal XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer, List<PdfDictionary> trailers)
+        : this(xrefOffset, entries, trailer, trailers, null, 0L)
+    {
+    }
+
+    private XRefTable(long xrefOffset, Dictionary<int, XrefEntry> entries, PdfDictionary trailer,
+        List<PdfDictionary> trailers, ResourceGovernor? governor, long containerBytes)
     {
         XrefOffset = xrefOffset;
-        Entries = entries;
-        Trailer = trailer;
-        Trailers = trailers;
+        _entries = entries;
+        _trailer = trailer;
+        _trailers = trailers;
+        _governor = governor;
+        _containerBytes = containerBytes;
+    }
+
+    internal static XRefTable CreateOwned(long xrefOffset, Dictionary<int, XrefEntry> entries,
+        PdfDictionary trailer, List<PdfDictionary> trailers, ResourceGovernor governor,
+        ParserMemoryScope containers, ParserMemoryScope values)
+    {
+        containers.CheckOwner(governor);
+        values.CheckOwner(governor);
+        // The table wrapper and parsed values may have independently retained
+        // aliases. Only the exclusive map/list receipt releases on disposal.
+        values.Reserve(96L);
+        XRefTable table = new(xrefOffset, entries, trailer, trailers, governor, containers.ReservedBytes);
+        containers.Retain();
+        values.Retain();
+        return table;
+    }
+
+    internal void CheckOwner(ResourceGovernor governor)
+    {
+        if (!ReferenceEquals(_governor, governor)) { throw new InvalidOperationException("Table storage belongs to a different owner."); }
+        _ = Entries;
+    }
+
+    public void Dispose()
+    {
+        if (_entries is null) { return; }
+        _entries = null;
+        _trailer = null;
+        _trailers = null;
+        _governor?.ReleaseMemory(_containerBytes);
+        _containerBytes = 0L;
     }
 
     internal long XrefOffset { get; }
 
-    internal IReadOnlyDictionary<int, XrefEntry> Entries { get; }
+    internal IReadOnlyDictionary<int, XrefEntry> Entries => _entries ?? throw new ObjectDisposedException(nameof(XRefTable));
 
-    internal PdfDictionary Trailer { get; }
+    internal PdfDictionary Trailer => _trailer ?? throw new ObjectDisposedException(nameof(XRefTable));
 
-    internal IReadOnlyList<PdfDictionary> Trailers { get; }
+    internal IReadOnlyList<PdfDictionary> Trailers => _trailers ?? throw new ObjectDisposedException(nameof(XRefTable));
 
     internal static XRefTable Parse(
         ReadOnlyMemory<byte> data,
@@ -132,6 +176,7 @@ internal sealed class XRefTable
         DiagnosticBag diagnostics)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope values = ParserMemoryScope.Create(governor);
         long startxrefPosition = FindStartXRef(data);
         PdfTokenizer tail = new(data);
         tail.SetPosition(startxrefPosition);
@@ -173,7 +218,7 @@ internal sealed class XRefTable
             }
 
             governor.ChargeWork(1L);
-            current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize, current.Value, memory);
+            current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize, current.Value, memory, values);
         }
 
         if (effectiveSize is null || trailers.Count == 0)
@@ -182,10 +227,7 @@ internal sealed class XRefTable
         }
 
         ValidateUnionCoverage(merged, effectiveSize.Value, governor);
-        memory.Reserve(48L);
-        XRefTable table = new(xrefOffset, merged, trailers[0], trailers);
-        memory.Retain();
-        return table;
+        return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values);
     }
 
     private static long? ProcessSection(
@@ -197,7 +239,8 @@ internal sealed class XRefTable
         List<PdfDictionary> trailers,
         ref int? effectiveSize,
         long current,
-        ParserMemoryScope memory)
+        ParserMemoryScope memory,
+        ParserMemoryScope values)
     {
         using ParserMemoryScope section = ParserMemoryScope.Create(governor);
         PdfTokenizer tokenizer = new(data);
@@ -210,7 +253,7 @@ internal sealed class XRefTable
         // Classic sections continue after the consumed keyword; streams rewind to re-read their header.
         if (head.Kind == PdfTokenKind.XRef)
         {
-            (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(data, limits, governor, diagnostics, tokenizer, current, memory, section);
+            (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(data, limits, governor, diagnostics, tokenizer, current, values, section);
             if (effectiveSize is null)
             {
                 effectiveSize = ReadSize(trailer);
@@ -222,7 +265,7 @@ internal sealed class XRefTable
             long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm", data, current);
             if (hybrid.HasValue)
             {
-                (Dictionary<int, XrefEntry> extra, PdfDictionary _) = ParseStreamSection(data, limits, governor, diagnostics, hybrid.Value, memory, section, false);
+                (Dictionary<int, XrefEntry> extra, PdfDictionary _) = ParseStreamSection(data, limits, governor, diagnostics, hybrid.Value, values, section, false);
                 MergeSection(merged, extra, effectiveSize.Value, data.Length, hybrid.Value, governor, memory);
             }
 
@@ -241,7 +284,7 @@ internal sealed class XRefTable
 
         if (head.Kind == PdfTokenKind.Integer)
         {
-            (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseStreamSection(data, limits, governor, diagnostics, current, memory, section, true);
+            (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseStreamSection(data, limits, governor, diagnostics, current, values, section, true);
             if (effectiveSize is null)
             {
                 effectiveSize = ReadSize(trailer);

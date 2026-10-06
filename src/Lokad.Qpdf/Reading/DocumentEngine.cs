@@ -19,13 +19,14 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     // independent receipts. Reads protect values that may outlive replacement.
     private readonly record struct CachedObject(QpdfObject Value, long ReservedBytes, bool Borrowed);
 
-    private readonly ReadOnlyMemory<byte> _data;
-    private readonly XRefTable _table;
+    private ReadOnlyMemory<byte> _data;
+    private XRefTable? _table;
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
     private readonly QpdfRecoveryMode _recovery;
-    private readonly ParserMemoryScope _metadata;
+    private ParserMemoryScope? _metadata;
+    private bool _ownsTable;
     private Dictionary<int, CachedObject>? _cache;
     private HashSet<int>? _decodingStreams;
     private HashSet<int>? _loading;
@@ -34,6 +35,8 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     private Dictionary<int, CachedObject> Cache => _cache ?? throw new ObjectDisposedException(nameof(DocumentEngine));
     private HashSet<int> Loading => _loading ?? throw new ObjectDisposedException(nameof(DocumentEngine));
     private HashSet<int> DecodingStreams => _decodingStreams ?? throw new ObjectDisposedException(nameof(DocumentEngine));
+    private XRefTable Table => _table ?? throw new ObjectDisposedException(nameof(DocumentEngine));
+    private ParserMemoryScope Metadata => _metadata ?? throw new ObjectDisposedException(nameof(DocumentEngine));
 
     internal DocumentEngine(
         ReadOnlyMemory<byte> data,
@@ -62,6 +65,30 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         catch { _metadata.Dispose(); throw; }
     }
 
+    internal static DocumentEngine CreateOwned(
+        ReadOnlyMemory<byte> data,
+        XRefTable table,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        long reservedInput)
+    {
+        table.CheckOwner(governor);
+        if (reservedInput != checked(data.Length + GovernedBufferStream.ArrayOverheadBytes))
+        {
+            throw new InvalidOperationException("The document input receipt does not match its storage.");
+        }
+        DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery);
+        try
+        {
+            engine.Metadata.AdoptReserved(reservedInput);
+            engine._ownsTable = true;
+            return engine;
+        }
+        catch { engine.Dispose(); throw; }
+    }
+
     private bool TryGetCached(int number, out QpdfObject value)
     {
         if (Cache.TryGetValue(number, out CachedObject cached))
@@ -82,7 +109,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     {
         _governor.CheckCancellation();
         bool replacing = Cache.TryGetValue(number, out CachedObject previous);
-        if (!replacing) { ParserContainers.EnsureEntryCapacity(_metadata, Cache, 24L); }
+        if (!replacing) { ParserContainers.EnsureEntryCapacity(Metadata, Cache, 24L); }
         _governor.CheckCancellation();
         long discarded = replacing && !previous.Borrowed ? previous.ReservedBytes : 0L;
         long nextUnborrowed = checked(_unborrowedBytes - discarded + (borrowed ? 0L : parsed.ReservedBytes));
@@ -101,18 +128,24 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         _loading = null;
         _decodingStreams = null;
         _inspectionObjects = null;
+        _data = default;
+        XRefTable? table = _table;
+        _table = null;
+        ParserMemoryScope? metadata = _metadata;
+        _metadata = null;
+        if (_ownsTable) { table?.Dispose(); }
         _governor.ReleaseMemory(_unborrowedBytes);
         _unborrowedBytes = 0L;
-        _metadata.Dispose();
+        metadata?.Dispose();
     }
 
-    internal PdfDictionary Trailer => _table.Trailer;
+    internal PdfDictionary Trailer => Table.Trailer;
 
-    internal IReadOnlyList<PdfDictionary> Trailers => _table.Trailers;
+    internal IReadOnlyList<PdfDictionary> Trailers => Table.Trailers;
 
     internal DiagnosticBag Diagnostics => _diagnostics;
 
-    internal IReadOnlyDictionary<int, XrefEntry> XRefEntries => _table.Entries;
+    internal IReadOnlyDictionary<int, XrefEntry> XRefEntries => Table.Entries;
 
     internal ReadOnlyMemory<byte> Data => _data;
 
@@ -136,19 +169,19 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
         if (_inspectionObjects is not null && _inspectionObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? edited))
         {
-            int generation = _table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry original)
+            int generation = Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry original)
                 && original.Kind == XrefEntryKind.Uncompressed ? original.Second : 0;
             value = reference.Generation == generation ? edited : PdfNull.Instance;
             return true;
         }
 
-        if (reference.ObjectNumber == 0 && !_table.Entries.ContainsKey(0))
+        if (reference.ObjectNumber == 0 && !Table.Entries.ContainsKey(0))
         {
             value = PdfNull.Instance;
             return true;
         }
 
-        if (!_table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry entry))
+        if (!Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry entry))
         {
             value = null;
             return false;
@@ -189,12 +222,12 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
             return cached;
         }
 
-        if (number == 0 && !_table.Entries.ContainsKey(0))
+        if (number == 0 && !Table.Entries.ContainsKey(0))
         {
             return PdfNull.Instance;
         }
 
-        if (!_table.Entries.TryGetValue(number, out XrefEntry entry))
+        if (!Table.Entries.TryGetValue(number, out XrefEntry entry))
         {
             throw new QpdfParseException($"Object {number} has no xref entry.", null, number);
         }
@@ -214,7 +247,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
             throw new QpdfParseException($"Object load depth exceeds {_limits.MaxNestingDepth}.", null, number);
         }
 
-        if (!ParserContainers.AddSetItem(_metadata, Loading, number, sizeof(int)))
+        if (!ParserContainers.AddSetItem(Metadata, Loading, number, sizeof(int)))
         {
             throw new QpdfParseException($"Object {number} is referenced cyclically during load.", null, number);
         }
@@ -236,7 +269,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
             QpdfObject value;
             try
             {
-                bool reconstructed = _table.XrefOffset < 0L;
+                bool reconstructed = Table.XrefOffset < 0L;
                 QpdfLimits parserLimits = reconstructed
                     ? _limits with { MaxContainerSize = Math.Min(_limits.MaxContainerSize, _limits.MaxContainerSizeDamaged) }
                     : _limits;
@@ -283,14 +316,14 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     private void DecodeObjStm(int streamNumber)
     {
-        if (!ParserContainers.AddSetItem(_metadata, DecodingStreams, streamNumber, sizeof(int)))
+        if (!ParserContainers.AddSetItem(Metadata, DecodingStreams, streamNumber, sizeof(int)))
         {
             throw new QpdfParseException($"Object stream cycle at object {streamNumber}.", null, streamNumber);
         }
 
         try
         {
-            if (!_table.Entries.TryGetValue(streamNumber, out XrefEntry entry)
+            if (!Table.Entries.TryGetValue(streamNumber, out XrefEntry entry)
                 || entry.Kind != XrefEntryKind.Uncompressed)
             {
                 throw new QpdfParseException($"Object stream {streamNumber} is not a direct object.", null, streamNumber);
@@ -382,7 +415,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
                     _governor.ReleaseMemory(128L);
                 }
 
-                if (_table.Entries.TryGetValue(pairs[i].Number, out XrefEntry target)
+                if (Table.Entries.TryGetValue(pairs[i].Number, out XrefEntry target)
                     && target.Kind == XrefEntryKind.Compressed
                     && target.First == streamNumber
                     && !previouslyCached[i])

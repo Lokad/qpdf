@@ -1,45 +1,61 @@
 # Progress
 
-## Current checkpoint
+## Current checkpoint: exclusive document storage
 
-Selection/rotation inspection has passed locked restore, Release build and
-**6334/6334 offline tests**, with no failures/skips and 145 net new cases.
-The identical final assembly fails **172 / preserves 26 of 198** selected cases
-against the preceding binary-inspection DLL, without loader failures. Exact
-native effects pass **189 comparisons** across JSON, argv and mixed routes;
-29 additional comparisons reconcile former rejection expectations and retain
-invalid controls. Package/symbol checks, **46 fresh consumer smokes** and two
-specific rejection cases pass; root/probe/packed/consumer identities agree and
-all five locks are unchanged.
+The exclusive-storage correction has completed local verification. Document
+opens transfer their input receipt and parsed xref containers to the engine;
+disposal drops input, table, page-view and lease references before releasing
+their owners. Page-list
+and traversal capacities are admitted. Caller-funded component engines keep
+borrowing semantics; returned bytes, trailer/key aliases and page counts survive.
 
-The full pinned reference completed with **terminal exit 0** on 329 implementation
-/ 344 total frozen files: **1846 exact parser comparisons / 432 rewrite validations**
-and the complete differential lane, including transformed inspections. A first
-attempt failed on stale shared outputs; the runner now uses fresh directories
-and rejects occupied roots. The isolated retry retained unchanged source and
-compiled identities. This is local Windows evidence; package metadata names
-the preceding commit. Final release metadata, reference CI, all audit gates and
+Locked restore and Release build pass; **6369 offline tests** pass without
+failures/skips, including 35 new lifetime cases. The identical assembly fails
+**28 / preserves 7 of 35** against the preceding DLL, without loader failures.
+Package/symbol checks, **48 fresh consumer smokes** and both specific negative
+consumer controls pass. Independent warmed strict/recovered probes keep disposed
+handles and returned aliases alive: exclusive weak references die. For the
+2,097,614-byte strict fixture, admitted bytes after disposal fall from 2,101,210
+to 3,080; retained heap delta falls from 2,100,336 to 472 bytes. Input/host/scaffold
+allocation is excluded; these observations prove no whole-job/RSS bound. Parsed
+values and wrappers remain conservatively admitted; diagnostic/cold-state owners
+and broader nested loading remain open. Full pinned-reference verification ends
+with **terminal exit 0**, including **1846 exact parser comparisons / 432 rewrite
+validations** and the complete differential lane. The focused native preservation
+lane passes 189 comparisons. Runtime sources/binaries/packages remain unchanged
+through the frozen run. After public reconciliation, 20 metadata/documentation
+checks pass; the repacked artifact passes package/symbol checks, 48 fresh consumer
+smokes and both specific rejection controls with unchanged library and locks.
+This is Windows evidence with preceding-commit package metadata; all gates and
 both verdicts remain open.
 
-Selections, collation and output-position rotations now precede checking and
-inspection on a scoped graph view. Primary generations and physical xrefs stay
-visible; duplicate and foreign pages receive fresh identities, copied content
-sharing survives, omitted pages resolve to null, and inherited/null attributes
-materialize with native allocation order. Source names retain native identity
-semantics, including aliases. Page/content listings preserve their generations.
-The inspector shares the reader, inheritance, range, copier, collation and
-rotation helpers with existing operations. The graph detaches before its
-admission releases. Range failures, finite ceilings, cancellation after observed
-foreign reads and prior-output preservation have regressions. Typed selection,
-writer and overlay controls pass. Broader direct-root, unusual Rotate,
-compressed/linearized, unknown-key, form/resource/metadata/attachment and
-overlay/underlay checker contexts remain required.
+A separate current-DLL probe reproduces the next ownership gap: each disposal
+of a 458-byte input leaves another 3,012 admitted bytes. A shared 32 KiB ceiling
+rejects the tenth open after nine successes despite forced GC clearing all prior
+catalog/page roots. Handles/leases are zero. Numeric text can also outlive its
+integer wrapper. These observations are outside test/reference counts; retiring
+only root wrappers would release live aliases' funding.
 
-The mixed range-bound test's host-operation assertion alone does not establish
-PDF-read/failure ordering. A small-input near-peak memory probe observed
-route/run variation; independent controller/DOM/BCL/copy allocation and cold
-state auditing remain A06 work. No whole-job/RSS or universal cancellation bound
-follows from the current counters and finite-ceiling tests.
+## Previous checkpoint: selection/rotation
+
+Selection/rotation inspection passed locked restore/Release and **6334 offline
+cases**, 145 net new; identical-assembly baseline **172 fail / 26 preserve of 198**
+without loader failures; 189 native effects plus 29 former-rejection comparisons;
+46 fresh consumer smokes, both negatives, 19 post-doc metadata checks and five
+unchanged locks. Its pinned full reference ended with exit 0: 1846 exact parser
+comparisons / 432 rewrites and the complete differential lane. A preceding stale-
+output failure remains separate; fresh output roots now reject occupied paths.
+
+Selections/collation/rotations precede checking on a scoped graph. Primary
+generations/physical xrefs remain; imports/duplicates receive fresh identities,
+sharing survives, omitted pages become null, and inherited/null attributes
+materialize in native order. Filename aliases and page/content generations have
+exact evidence. The view detaches before scoped admission releases. Finite
+ceilings, observed foreign-read cancellation, prior targets and typed/writer/
+overlay controls pass. Broader transformation/default/context obligations remain.
+A host-operation assertion alone does not prove PDF-read/failure ordering;
+near-peak small-input variation still requires controller/DOM/BCL/copy auditing.
+This is local Windows evidence with preceding-commit package metadata.
 
 ## Established behavior and earlier evidence
 
@@ -57,7 +73,7 @@ Failure/cancellation discards staged bytes while counters include staging.
 Filtered output shares governed normalization/defaults. Command checking and
 split writing share admitted reachability; typed checking retains its broader
 inventory. An interrupted read before engine construction releases its unowned
-input-copy receipt; constructed-document ownership remains open.
+input-copy receipt; parsed-value and wrapper ownership remains open.
 
 Earlier checkpoints retain their own source/artifact identities and local
 Windows evidence. Each passed its frozen full reference and package/consumer
@@ -89,15 +105,13 @@ establish no whole-job/RSS or universal latency bound.
 
 ## Remaining work
 
-- **Next A04/A06 unit: input/table/returned-node lifetime ownership.** A fresh
-  independent probe on the selection DLL reproduces the gap: a strict
-  2,097,614-byte padded input leaves 2,101,210 admitted bytes after public disposal.
-  Forced GC retains its runtime input copy and xref map while the disposed
-  document, engine and returned node stay rooted. Metadata is gone, leases and
-  handles are zero, and returned bytes remain valid. Drop implementation
-  references and release only actual owners; preserve escaped aliases, nested
-  loads, generations and failure/cancellation cleanup. Diagnostics and broader
-  public repair/recovery nesting remain open. This is outside test/reference counts.
+- **A04/A06 document ownership:** retain the verified exclusive-storage checkpoint
+  and resolve parsed/returned-node and wrapper
+  receipts against actual retained storage. Independent aliases can retain
+  strings, byte backing and dictionary key views without their root wrapper.
+  Preserve borrowed storage, nested loads, generations and failure/cancellation
+  cleanup. Diagnostics and broader public repair/recovery nesting remain open;
+  the current independent probes are outside test/reference counts.
 - **A07 checker/job contexts:** overlay/underlay and remaining transformation,
   default, precedence and target-field contexts still need actual effects and
   failure-order evidence. `--check` and `--job-json-file` remain partial. All 98

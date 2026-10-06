@@ -520,6 +520,33 @@ internal static class Program
             Check(((PdfByteString)generousCache.GetObject(2007)).Value.Length == 32, "generous cache reopening preserves the last object");
         }
         Console.WriteLine("PASS document cache admission and disposal (typed/argv/job)");
+        byte[] lifetimeInput = TwoPagePdfWithAuditObjects(["(kept)", "null %" + new string('A', 1048576) + "\n"]);
+        InMemoryQpdfHost lifetimeHost = NewHost("inputs/lifetime.pdf", lifetimeInput);
+        QpdfLimits lifetimeLimits = QpdfLimits.Default with { MaxMemoryBytes = 2097152L };
+        QpdfDocument lifetimeDocument = await QpdfDocument.OpenAsync(lifetimeHost, QpdfPath.From("inputs/lifetime.pdf"),
+            lifetimeLimits, CancellationToken.None);
+        PdfByteString lifetimeAlias = (PdfByteString)lifetimeDocument.GetObject(8);
+        long lifetimeBefore = lifetimeDocument.Counters.LiveMemoryBytes;
+        await lifetimeDocument.DisposeAsync();
+        long lifetimeAfter = lifetimeDocument.Counters.LiveMemoryBytes;
+        await lifetimeDocument.DisposeAsync();
+        Check(lifetimeBefore - lifetimeAfter >= lifetimeInput.Length && lifetimeAfter < lifetimeInput.Length
+            && lifetimeDocument.Counters.LiveMemoryBytes == lifetimeAfter, "exclusive document admission releases once");
+        Check(lifetimeAlias.Value.SequenceEqual("kept"u8.ToArray()) && lifetimeDocument.PageCount == 2
+            && lifetimeHost.OpenLeaseCount == 0L, "returned bytes and page count survive document disposal");
+        Console.WriteLine("PASS document input/table disposal with returned byte alias");
+        InMemoryQpdfHost lifetimeMergeHost = NewHost("inputs/a.pdf", lifetimeInput);
+        lifetimeMergeHost.AddInput(QpdfPath.From("inputs/b.pdf"), lifetimeInput, QpdfInputOwnership.Copy);
+        lifetimeMergeHost.AddInput(QpdfPath.From("inputs/c.pdf"), lifetimeInput, QpdfInputOwnership.Copy);
+        PdfMultiPageSelectionResult lifetimeMerge = await Qpdf.SelectPagesAsync(lifetimeMergeHost,
+            [new PdfPageSource(QpdfPath.From("inputs/a.pdf"), PdfPageSelectionOptions.FromPages([1])),
+             new PdfPageSource(QpdfPath.From("inputs/b.pdf"), PdfPageSelectionOptions.FromPages([2])),
+             new PdfPageSource(QpdfPath.From("inputs/c.pdf"), PdfPageSelectionOptions.FromPages([1]))],
+            QpdfPath.From("outputs/lifetime-merge.pdf"), lifetimeLimits, CancellationToken.None);
+        Check(lifetimeMerge.PageCount == 3 && lifetimeMergeHost.OpenLeaseCount == 0L,
+            "multi-source selection reuses finite input-copy admission");
+        await CheckMultiOutputAsync(lifetimeMergeHost, "outputs/lifetime-merge.pdf", ["First", "Second", "First"]);
+        Console.WriteLine("PASS three-source selection under finite document memory");
         InMemoryQpdfHost responseHost = NewHost("inputs/in.pdf", input);
         responseHost.AddInput(
             QpdfPath.From("args.txt"),

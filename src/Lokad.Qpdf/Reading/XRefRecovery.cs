@@ -44,6 +44,7 @@ internal static class XRefRecovery
 
         limits.Validate();
         using ParserMemoryScope results = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope values = ParserMemoryScope.Create(governor);
         using ParserMemoryScope scan = ParserMemoryScope.Create(governor);
         long maxId = data.Length / 3L;
         Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(scan);
@@ -97,7 +98,7 @@ internal static class XRefRecovery
                 throw new QpdfParseException($"Bounded repair found no catalog after strict parsing failed: {strictReason}", null, null);
             }
 
-            results.Reserve(64L);
+            values.Reserve(64L);
             root = new PdfReference(lastCatalog.Value, 0);
         }
 
@@ -123,29 +124,29 @@ internal static class XRefRecovery
             }
         }
 
-        Dictionary<PdfName, ParsedValue> trailerEntries = ParserContainers.CreateDictionary(results);
-        results.Reserve(84L); // At most ten decimal digits and the scalar/string overhead.
+        Dictionary<PdfName, ParsedValue> trailerEntries = ParserContainers.CreateDictionary(values);
+        values.Reserve(84L); // At most ten decimal digits and the scalar/string overhead.
         string sizeText = size.ToString(System.Globalization.CultureInfo.InvariantCulture);
         PdfInteger sizeValue = new(sizeText, size);
-        results.Release(20L - sizeText.Length * 2L);
-        AddTrailerEntry(trailerEntries, results, "Size", sizeValue);
-        AddTrailerEntry(trailerEntries, results, "Root", root);
+        values.Release(20L - sizeText.Length * 2L);
+        AddTrailerEntry(trailerEntries, values, "Size", sizeValue);
+        AddTrailerEntry(trailerEntries, values, "Root", root);
         if (tailDictionary is not null)
         {
             PdfName encryptKey = PdfName.FromAscii("Encrypt");
             if (tailDictionary.TryGet(encryptKey, out QpdfObject? encryptValue) && encryptValue is not null && encryptValue is not PdfNull)
             {
-                AddTrailerEntry(trailerEntries, results, "Encrypt", encryptValue);
+                AddTrailerEntry(trailerEntries, values, "Encrypt", encryptValue);
             }
             PdfName infoKey = PdfName.FromAscii("Info");
             if (tailDictionary.TryGet(infoKey, out QpdfObject? infoValue) && infoValue is not null && infoValue is not PdfNull)
             {
-                AddTrailerEntry(trailerEntries, results, "Info", infoValue);
+                AddTrailerEntry(trailerEntries, values, "Info", infoValue);
             }
             PdfName idKey = PdfName.FromAscii("ID");
             if (tailDictionary.TryGet(idKey, out QpdfObject? idValue) && idValue is not null && idValue is not PdfNull)
             {
-                AddTrailerEntry(trailerEntries, results, "ID", idValue);
+                AddTrailerEntry(trailerEntries, values, "ID", idValue);
             }
         }
         long retainedTailBytes = 0L;
@@ -163,18 +164,15 @@ internal static class XRefRecovery
         // Only selected values survive; all parsed keys, container storage,
         // receipt metadata and unselected values cease to belong to the result.
         tailMemory.Release(checked(tailMemory.ReservedBytes - retainedTailBytes));
-        tailMemory.TransferTo(results);
-        PdfDictionary trailer = ParserContainers.CopyDictionary(results, governor, trailerEntries, false);
+        tailMemory.TransferTo(values);
+        PdfDictionary trailer = ParserContainers.CopyDictionary(values, governor, trailerEntries, false);
         diagnostics.Add(
             QpdfDiagnosticCode.RecoveryEngaged,
             QpdfDiagnosticSeverity.Warning,
             $"Bounded repair rebuilt {repaired.Count} cross-reference entries from {rootSource} after strict parsing failed: {strictReason}");
         List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(results);
         ParserContainers.AddItem(results, trailers, trailer, IntPtr.Size);
-        results.Reserve(48L);
-        XRefTable table = new(-1L, repaired, trailer, trailers);
-        results.Retain();
-        return table;
+        return XRefTable.CreateOwned(-1L, repaired, trailer, trailers, governor, results, values);
     }
 
     private static void AddTrailerEntry(

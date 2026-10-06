@@ -16,7 +16,7 @@ scope, host-ceiling enforcement and per-object repair are implemented for the ve
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
 malformed-name and binary-string/container cases. Broader nested-load evidence
-and input/table/returned-node and diagnostic ownership still keep that entry partial.
+and parsed/returned-node, wrapper and diagnostic ownership still keep that entry partial.
 Successful recovery trials and unselected trailer subtrees now release their admission;
 accepted trailer bytes/aliases survive. Strict/final xref acceptance and linearization
 trials have ownership regressions, with unfiltered/Flate structural scratch cleanup.
@@ -26,8 +26,14 @@ scan/merge; cache metadata releases on owner disposal. Unread object-stream
 replacement/disposal releases only its own subtree admission, preserving borrowed
 values and nested loads. Independent backing allocation, finite typed/argv/job
 traversal, prior targets, retries and observed-work cancellation have regressions.
-Input/table/returned-node and diagnostic lifetimes, other codecs and broader public
-repair/recovery nesting remain open.
+Document input copies and exclusive xref/page-view containers now have owned
+receipts and disposal/failure cleanup, with strict/recovered/stream/hybrid/
+incremental aliases, finite/repeated documents, short reads, host-close faults
+and cancellation after observed page visits. Caller-funded component engines
+preserve borrowing. Independent forced-GC probes keep disposed handles and
+returned aliases alive while exclusive storage dies. Parsed values and wrappers
+remain conservatively admitted; independent numeric-text/key-view lifetimes,
+diagnostics, other codecs and broader public repair/recovery nesting remain open.
 Header-rejected and unmatched/trailing compressed-member values now have public ownership regressions,
 including retained nested/cache aliases and cancellation; structural scratch evidence covers
 unfiltered and Flate object streams, while other codec owners remain open. Excluded crypto
