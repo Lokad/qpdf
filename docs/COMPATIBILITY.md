@@ -4,10 +4,11 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-**Implemented PDF operations: the audited non-cryptographic subset.** 154 inventory entries
-are complete and 3 stay partial: the no-Zopfli build profile and four-component CMYK
-image samples (accepted as tested compatibility exceptions with truthful partial labeling),
-plus `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
+**Implemented PDF operations: the audited non-cryptographic subset.** 153 inventory entries
+are complete and 4 stay partial: `--check` still lacks required native inspection/
+selection/transformation combinations; the no-Zopfli build profile and four-component CMYK
+image samples retain their accepted compatibility exceptions with partial labeling;
+and `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
 scope, host-ceiling enforcement and per-object repair are implemented for the verified
 damage matrix, including full-range integers, long real tokens, numeric conversion
 failures and the authored brace/NUL-name/literal-newline, dictionary-error guard,
@@ -35,11 +36,21 @@ and oracle-differential evidence reconciled below.
 
 ## Inventory
 
-The job-field mapping audit remains incomplete: qpdf 12.4.2 accepts the job JSON
-key `check` with an empty-string value, while the managed job parser rejects it.
-The inventory records this missing mapping as a supplemental requirement;
-the complete `--check` entry covers the argv route. Implement the shared job
-checker before claiming required JSON coverage.
+The job `check` key now runs the shared checker with the native empty-string
+value; booleans reject. Argv/job checking composes with page counting and
+linearization inspection. Failed checking stops subsequent inspection. Checking
+traverses pages without warning about their declared count; page-count inspection
+reports the declared `/Count`, matching the native behavior. Ordinary typed
+document reading retains its count-mismatch warning. Checker/page-count execution
+snapshots work, peaks and handles after input cleanup; broader diagnostic and
+invocation/presentation counters remain under audit.
+
+The job-field audit remains incomplete. The target's generated schema has 98
+root keys; `jobJsonFile` has no managed root handler or nested loader. Its required
+mapping/loading/precedence behavior is a canonical supplemental gap. Other root
+case names do not establish nested fields, grammar, defaults or interaction
+semantics. The `--check` entry records its additional required combinations as
+partial rather than treating them as accepted exceptions.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,

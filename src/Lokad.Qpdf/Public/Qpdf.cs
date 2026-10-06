@@ -3740,7 +3740,7 @@ public static class Qpdf
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
         DiagnosticBag diagnostics = new(governor);
-        return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -4476,13 +4476,34 @@ public static class Qpdf
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         bool emptyDocument,
+        bool showNpages,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        List<QpdfCheckOutcome> checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, cancellationToken);
-        return new QpdfCheckResult(document.PageCount, document.Version, checks, [.. diagnostics.Entries], governor.Snapshot());
+        // Native checking traverses pages without warning about their declared count.
+        // The sink belongs to this job, including any following linearization inspection.
+        diagnostics.ReportPageCountMismatch = false;
+        List<QpdfCheckOutcome> checks;
+        int pageCount;
+        PdfVersion version;
+        await using (QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false))
+        {
+            checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, cancellationToken);
+            pageCount = document.PageCount;
+            version = document.Version;
+            if (showNpages && !checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
+            {
+                AddPageCountDiagnostic(document, inputPath, diagnostics);
+            }
+        }
+        return new QpdfCheckResult(pageCount, version, checks, [.. diagnostics.Entries], governor.Snapshot());
+    }
+
+    private static void AddPageCountDiagnostic(QpdfDocument document, QpdfPath input, DiagnosticBag diagnostics)
+    {
+        long count = document.ReadDeclaredPageCount();
+        diagnostics.Add(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, $"{input.Value}: {count.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
     }
 
     private static async ValueTask InspectLinearizationAsync(
@@ -5212,9 +5233,14 @@ public static class Qpdf
                     limits,
                     check.Recovery,
                     check.EmptyDocument,
+                    check.ShowNpages,
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
+                if (!inspected.Passed)
+                {
+                    return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                }
                 if (check.CheckLinearization)
                 {
                     await InspectLinearizationAsync(host, check.Input, limits, check.Recovery, check.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
@@ -5225,15 +5251,16 @@ public static class Qpdf
                     await ShowLinearizationAsync(host, check.Input, limits, check.Recovery, check.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
-                return CompleteWithPresentation(diagnostics.Entries, inspected.Counters, plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
             catch (QpdfException ex)
             {
-                return ToFailedResult(ex);
+                QpdfExecutionResult failure = ToFailedResult(ex);
+                return new QpdfExecutionResult(failure.Status, failure.ExitCode, failure.Diagnostics, governor.Snapshot());
             }
             catch (OperationCanceledException)
             {
-                return QpdfExecutionResult.Canceled([], ZeroCounters());
+                return QpdfExecutionResult.Canceled([], governor.Snapshot());
             }
         }
 
@@ -5344,18 +5371,21 @@ public static class Qpdf
         {
             try
             {
-                await using QpdfDocument document = await OpenPlanInputAsync(host, npages.Input, npages.EmptyDocument, limits, governor, diagnostics, npages.Recovery, cancellationToken).ConfigureAwait(false);
-                int count = document.PageCount;
-                diagnostics.Add(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, $"{npages.Input.Value}: {count}");
+                diagnostics.ReportPageCountMismatch = false;
+                await using (QpdfDocument document = await OpenPlanInputAsync(host, npages.Input, npages.EmptyDocument, limits, governor, diagnostics, npages.Recovery, cancellationToken).ConfigureAwait(false))
+                {
+                    AddPageCountDiagnostic(document, npages.Input, diagnostics);
+                }
                 return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
             catch (QpdfException ex)
             {
-                return ToFailedResult(ex);
+                QpdfExecutionResult failure = ToFailedResult(ex);
+                return new QpdfExecutionResult(failure.Status, failure.ExitCode, failure.Diagnostics, governor.Snapshot());
             }
             catch (OperationCanceledException)
             {
-                return QpdfExecutionResult.Canceled([], ZeroCounters());
+                return QpdfExecutionResult.Canceled([], governor.Snapshot());
             }
         }
 

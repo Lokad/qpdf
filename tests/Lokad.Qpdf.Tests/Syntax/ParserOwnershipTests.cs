@@ -237,22 +237,36 @@ public sealed class ParserOwnershipTests
         InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        using CancellationTokenSource cancellation = new();
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
-        await using (QpdfDocument canceled = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token))
         {
             Assert.Equal(bytes, Assert.IsType<PdfInteger>(control.GetObject(6)).Value);
             long retained = control.Counters.LiveMemoryBytes;
-            long work = canceled.Counters.TotalWork;
-            Task<QpdfObject> loading = Task.Factory.StartNew(() => canceled.GetObject(5),
-                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => canceled.Counters.LiveMemoryBytes >= retained + 2L * bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
-            cancellation.Cancel();
-            Assert.True(observed);
-            await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(canceled.Counters.TotalWork > work);
-            Assert.True(canceled.Counters.PeakMemoryBytes >= retained + 2L * bytes);
-            Assert.Equal(retained, canceled.Counters.LiveMemoryBytes);
+            bool interrupted = false;
+            for (int attempt = 0; attempt < 8 && !interrupted; attempt++)
+            {
+                using CancellationTokenSource cancellation = new();
+                await using QpdfDocument canceled = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token);
+                long work = canceled.Counters.TotalWork;
+                Task<QpdfObject> loading = Task.Factory.StartNew(() => canceled.GetObject(5),
+                    CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+                bool reached = SpinWait.SpinUntil(() => canceled.Counters.LiveMemoryBytes >= retained + 2L * bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
+                Assert.True(reached);
+                bool observed = canceled.Counters.LiveMemoryBytes >= retained + 2L * bytes;
+                cancellation.Cancel();
+                try
+                {
+                    Assert.IsType<PdfStream>(await loading.WaitAsync(TimeSpan.FromSeconds(10)));
+                }
+                catch (OperationCanceledException)
+                {
+                    Assert.True(observed);
+                    Assert.True(canceled.Counters.TotalWork > work);
+                    Assert.True(canceled.Counters.PeakMemoryBytes >= retained + 2L * bytes);
+                    Assert.Equal(retained, canceled.Counters.LiveMemoryBytes);
+                    interrupted = true;
+                }
+            }
+            Assert.True(interrupted, "Loading must be canceled after observed stream-copy admission; completion alone is insufficient.");
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }

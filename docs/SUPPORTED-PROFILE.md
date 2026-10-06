@@ -25,6 +25,14 @@ Three routes converge on one selection plan executed by the shared engine:
   for collation, rotation, labels, split, content transforms, overlays, appearances,
   optimization, QDF, linearization, attachments, writer controls, and inspection.
 
+Job inspection accepts `{inputFile, check:""}` without an output file, optionally
+with `showNpages`, `checkLinearization` and `showLinearization`. The `check` value
+must be an empty string; booleans fail. Failed checking stops following inspection.
+Checking uses page traversal quietly when `/Count` disagrees, while page-count
+inspection reports the declared count. Typed document reading still reports
+that disagreement. Other checker/inspection/selection combinations and nested
+`jobJsonFile` loading remain required compatibility work.
+
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —
 stdout binary forms,

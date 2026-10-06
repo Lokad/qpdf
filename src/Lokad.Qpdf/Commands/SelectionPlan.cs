@@ -278,6 +278,8 @@ internal sealed record ShowXrefPlan(QpdfPath Input, QpdfRecoveryMode Recovery) :
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
+    public bool ShowNpages { get; init; }
+
     public bool CheckLinearization { get; init; }
 
     public bool ShowLinearization { get; init; }

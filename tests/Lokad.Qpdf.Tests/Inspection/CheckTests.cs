@@ -29,7 +29,7 @@ public sealed class CheckTests
         return host;
     }
 
-    private static byte[] Assemble(List<(int Number, string Dict, byte[]? StreamData)> objects, int rootNumber)
+    internal static byte[] Assemble(List<(int Number, string Dict, byte[]? StreamData)> objects, int rootNumber)
     {
         List<byte[]> parts = new();
         byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
@@ -117,7 +117,7 @@ public sealed class CheckTests
         return Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (Hello) Tj ET");
     }
 
-    private static List<(int, string, byte[]?)> SinglePage(string contentsDict, byte[] contentsData)
+    internal static List<(int, string, byte[]?)> SinglePage(string contentsDict, byte[] contentsData)
     {
         return new List<(int, string, byte[]?)>
         {
@@ -322,7 +322,7 @@ public sealed class CheckTests
     }
 
     [Fact]
-    public async Task ArgvCheckWarnsOnCountMismatch()
+    public async Task ArgvCheckSilentlyUsesTraversalOnCountMismatch()
     {
         byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf"));
         byte[] marker = Encoding.ASCII.GetBytes("/Count 1");
@@ -333,8 +333,8 @@ public sealed class CheckTests
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host, new QpdfCommandInvocation(["inputs/mismatch.pdf", "--check"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCountMismatch);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCountMismatch);
     }
 
     [Fact]

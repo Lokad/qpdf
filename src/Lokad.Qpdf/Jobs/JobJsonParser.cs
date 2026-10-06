@@ -199,6 +199,8 @@ internal static class JobJsonParser
             bool seenLinearizePass1 = false;
             bool checkLinearization = false;
             bool seenCheckLinearization = false;
+            bool check = false;
+            bool seenCheck = false;
             bool showLinearization = false;
             bool seenShowLinearization = false;
             bool showNpages = false;
@@ -695,6 +697,20 @@ internal static class JobJsonParser
                         }
 
                         break;
+                    case "check":
+                        if (seenCheck)
+                        {
+                            throw new QpdfParseException("Duplicate job key check.", 0L, null);
+                        }
+
+                        seenCheck = true;
+                        if (property.Value.ValueKind != JsonValueKind.String || property.Value.GetString() != string.Empty)
+                        {
+                            throw new QpdfParseException("Job check must be an empty string.", 0L, null);
+                        }
+
+                        check = true;
+                        break;
                     case "checkLinearization":
                         if (seenCheckLinearization)
                         {
@@ -1139,7 +1155,7 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null);
             }
 
-            bool emptyInspection = showNpages || showPages || showObject is not null || showXref
+            bool emptyInspection = check || showNpages || showPages || showObject is not null || showXref
                 || listAttachments || showAttachment is not null
                 || checkLinearization || showLinearization
                 || seenJson || seenJsonOutput;
@@ -1154,6 +1170,65 @@ internal static class JobJsonParser
             }
 
             bool wantAttachments = listAttachments || showAttachment is not null;
+            if (check)
+            {
+                if (hasPages || output is not null || seenReplaceInput || seenSplitPages || seenCollate
+                    || seenRotate || seenLabels || seenRemoveLabels || seenOverlay || seenUnderlay
+                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
+                    || seenQdf || seenLinearize || seenLinearizePass1 || seenNoOriginalObjectIds
+                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
+                    || seenListAttachments || seenShowAttachment || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
+                    || seenShowPages || seenShowObject || seenShowXref
+                    || seenWithImages || seenRawStreamData || seenFilteredStreamData
+                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
+                    || seenTestJsonSchema)
+                {
+                    throw new QpdfParseException("Job check cannot be combined with output, page, transformation or other inspection keys except linearization inspection.", 0L, null);
+                }
+
+                (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
+                return new CheckPlan(checkInput, recovery)
+                {
+                    EmptyDocument = checkEmpty,
+                    ShowNpages = showNpages,
+                    CheckLinearization = checkLinearization,
+                    ShowLinearization = showLinearization,
+                    WarningExitZero = warningExit0,
+                    NoWarn = noWarn,
+                    Verbose = verbose,
+                    Progress = progress,
+                    ReportMemoryUsage = reportMemoryUsage,
+                    IgnoreXrefStreams = ignoreXrefStreams,
+                    MinVersion = minVersion,
+                    ForceVersion = forceVersion,
+                    DeterministicId = deterministicId,
+                    StaticId = staticId,
+                    NewlineBeforeEndstream = newlineBeforeEndstream,
+                    ObjectStreams = objectStreams,
+                    PreserveUnreferenced = preserveUnreferenced,
+                    StreamData = streamData,
+                    CompressStreams = compressStreams,
+                    DecodeLevel = decodeLevel,
+                    MaxStreamFilters = maxStreamFilters,
+                    ParserMaxNesting = parserMaxNesting,
+                    MaxContainerSize = maxContainerSize,
+                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
+                    ParserMaxErrors = parserMaxErrors,
+                    NoDefaultLimits = noDefaultLimits,
+                    RecompressFlate = recompressFlate,
+                    CompressionLevel = compressionLevel,
+                    RemoveInfo = removeInfo,
+                    RemoveAcroform = seenRemoveAcroform,
+                    RemoveStructure = seenRemoveStructure,
+                    RemoveMetadata = removeMetadata,
+                    CoalesceContents = coalesceContents,
+                    NormalizeContent = normalizeContent,
+                    RemoveUnreferencedResources = removeUnreferencedResources,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
+                };
+            }
+
             if (wantAttachments && hasPages)
             {
                 throw new QpdfParseException("Job attachment keys cannot be combined with \"pages\".", 0L, null);

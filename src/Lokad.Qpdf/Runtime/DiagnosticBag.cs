@@ -30,6 +30,8 @@ internal sealed class DiagnosticBag
 
     internal IReadOnlyList<QpdfDiagnostic> Entries => _entries;
 
+    internal bool ReportPageCountMismatch { get; set; } = true;
+
     internal void AddOwned(QpdfDiagnosticCode code, QpdfDiagnosticSeverity severity, GovernedText message)
     {
         message.CheckOwner(_governor);

@@ -181,7 +181,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --show-xref cannot be combined with JSON work.", showXrefAt, null);
             }
 
-            string xrefInput = ParseInspectionInput(argv, showXrefAt, -1, -1, "--show-xref");
+            string xrefInput = ParseInspectionInput(argv, showXrefAt, -1, -1, -1, "--show-xref");
             return new ShowXrefPlan(SelectionPlan.CheckedPath(xrefInput), recovery) with
             {
                 EmptyDocument = string.Equals(xrefInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
@@ -287,7 +287,7 @@ internal static class ArgvParser
             }
             else
             {
-                objectInput = ParseInspectionInput(argv, showObjectAt, -1, -1, "--show-object");
+                objectInput = ParseInspectionInput(argv, showObjectAt, -1, -1, -1, "--show-object");
             }
 
             return new ShowObjectPlan(SelectionPlan.CheckedPath(objectInput), recovery, showObjectSelector) with
@@ -347,7 +347,8 @@ internal static class ArgvParser
                 throw new QpdfParseException("Options --split-pages and --replace-input need a --pages selection.", showNpagesAt, null);
             }
 
-            if (checkAt >= 0 || checkLinearizationAt >= 0 || showLinearizationAt >= 0 || listAt >= 0 || showAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0 || showXrefAt >= 0)
+            if (listAt >= 0 || showAt >= 0 || showPagesAt >= 0 || showObjectAt >= 0 || showXrefAt >= 0
+                || (checkAt < 0 && (checkLinearizationAt >= 0 || showLinearizationAt >= 0)))
             {
                 throw new QpdfParseException("Option --show-npages cannot be combined with other inspection.", showNpagesAt, null);
             }
@@ -362,7 +363,19 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --show-npages cannot be combined with JSON work.", showNpagesAt, null);
             }
 
-            string npagesInput = ParseInspectionInput(argv, showNpagesAt, -1, -1, "--show-npages");
+            if (checkAt >= 0)
+            {
+                string combinedInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, showNpagesAt, "--check");
+                return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(combinedInput), recovery)
+                {
+                    EmptyDocument = string.Equals(combinedInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
+                    ShowNpages = true,
+                    CheckLinearization = checkLinearizationAt >= 0,
+                    ShowLinearization = showLinearizationAt >= 0,
+                }, globals);
+            }
+
+            string npagesInput = ParseInspectionInput(argv, showNpagesAt, -1, -1, -1, "--show-npages");
             return new ShowNpagesPlan(SelectionPlan.CheckedPath(npagesInput), recovery) with
             {
                 EmptyDocument = string.Equals(npagesInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
@@ -432,7 +445,7 @@ internal static class ArgvParser
                 throw new QpdfParseException("Option --show-pages cannot be combined with JSON work.", showPagesAt, null);
             }
 
-            string pagesInput = ParseInspectionInput(argv, showPagesAt, -1, -1, "--show-pages");
+            string pagesInput = ParseInspectionInput(argv, showPagesAt, -1, -1, -1, "--show-pages");
             return new ShowPagesPlan(SelectionPlan.CheckedPath(pagesInput), recovery) with
             {
                 EmptyDocument = string.Equals(pagesInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
@@ -687,7 +700,7 @@ internal static class ArgvParser
 
             if (checkAt >= 0)
             {
-                string checkInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, "--check");
+                string checkInput = ParseInspectionInput(argv, checkAt, checkLinearizationAt, showLinearizationAt, -1, "--check");
                 return WithCheckGlobals(new CheckPlan(SelectionPlan.CheckedPath(checkInput), recovery) with
                 {
                     EmptyDocument = string.Equals(checkInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
@@ -698,7 +711,7 @@ internal static class ArgvParser
                 };
             }
 
-            string soloInput = ParseInspectionInput(argv, -1, checkLinearizationAt, showLinearizationAt, linFlag);
+            string soloInput = ParseInspectionInput(argv, -1, checkLinearizationAt, showLinearizationAt, -1, linFlag);
             return new LinearizationPlan(SelectionPlan.CheckedPath(soloInput), recovery) with
             {
                 EmptyDocument = string.Equals(soloInput, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
@@ -2744,16 +2757,16 @@ internal static class ArgvParser
     }
 
     private static string ParseInspectionInput(
-        IReadOnlyList<string> argv, int checkAt, int checkLinearizationAt, int showLinearizationAt, string operation)
+        IReadOnlyList<string> argv, int checkAt, int checkLinearizationAt, int showLinearizationAt, int showNpagesAt, string operation)
     {
-        if (argv.Count < 2 || checkAt == 0 || checkLinearizationAt == 0 || showLinearizationAt == 0)
+        if (argv.Count < 2 || checkAt == 0 || checkLinearizationAt == 0 || showLinearizationAt == 0 || showNpagesAt == 0)
         {
             throw new QpdfParseException($"A positional input file is required before {operation}.", 0L, null);
         }
 
         for (int i = 1; i < argv.Count; i++)
         {
-            if (i == checkAt || i == checkLinearizationAt || i == showLinearizationAt)
+            if (i == checkAt || i == checkLinearizationAt || i == showLinearizationAt || i == showNpagesAt)
             {
                 continue;
             }

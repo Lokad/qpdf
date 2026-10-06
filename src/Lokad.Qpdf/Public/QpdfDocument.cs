@@ -427,6 +427,27 @@ public sealed class QpdfDocument : IAsyncDisposable
         QpdfLimits limits,
         CancellationToken cancellationToken)
     {
+        PdfDictionary pages = ReadPageRoot(engine);
+        List<PageLocation> collector = new();
+        WalkPages(engine, diagnostics, governor, limits, pages, null, new HashSet<int>(), collector, 0, cancellationToken);
+        return collector;
+    }
+
+    internal long ReadDeclaredPageCount()
+    {
+        _governor.CheckCancellation();
+        _governor.ChargeWork(4L);
+        PdfDictionary pages = ReadPageRoot(_engine);
+        if (pages.TryGet(PdfName.FromAscii("Count"), out QpdfObject count) && count is PdfInteger integer)
+        {
+            return integer.Value;
+        }
+        _diagnostics.Add(QpdfDiagnosticCode.PageCountMismatch, QpdfDiagnosticSeverity.Warning, "/Pages /Count is not an integer; reporting zero.");
+        return 0L;
+    }
+
+    private static PdfDictionary ReadPageRoot(DocumentEngine engine)
+    {
         PdfName rootKey = new([(byte)'R', (byte)'o', (byte)'o', (byte)'t']);
         if (!engine.Trailer.TryGet(rootKey, out QpdfObject rootRaw))
         {
@@ -456,9 +477,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             pages = ResolveDictionary(engine, pagesRaw, "page tree");
         }
 
-        List<PageLocation> collector = new();
-        WalkPages(engine, diagnostics, governor, limits, pages, null, new HashSet<int>(), collector, 0, cancellationToken);
-        return collector;
+        return pages;
     }
 
     private static PdfDictionary ResolveDictionary(DocumentEngine engine, QpdfObject raw, string role)
@@ -579,7 +598,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         if (node.TryGet(countKey, out QpdfObject countRaw) && countRaw is PdfInteger declared)
         {
             long total = collector.Count - before;
-            if (declared.Value != total)
+            if (declared.Value != total && diagnostics.ReportPageCountMismatch)
             {
                 diagnostics.Add(
                     QpdfDiagnosticCode.PageCountMismatch,

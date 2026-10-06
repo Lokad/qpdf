@@ -80,6 +80,23 @@ internal static class Program
         Check(check.Status == QpdfExecutionStatus.Completed && check.ExitCode == QpdfExitCode.Success, "check execution");
         Console.WriteLine("PASS argv inspection (--check)");
 
+        InMemoryQpdfHost jobCheckHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult jobCheck = await Qpdf.ExecuteJobAsync(
+            jobCheckHost,
+            """{"inputFile":"inputs/in.pdf","check":"","showNpages":""}""",
+            CancellationToken.None);
+        Check(jobCheck.Status == QpdfExecutionStatus.Completed && jobCheck.ExitCode == QpdfExitCode.Success, "job checker execution");
+        Check(jobCheck.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 2", StringComparison.Ordinal)), "job checker page count");
+        Check(jobCheck.Counters.TotalWork > 0 && jobCheck.Counters.OpenHandles == 0 && jobCheckHost.OpenLeaseCount == 0, "job checker counters and cleanup");
+        InMemoryQpdfHost strictJobHost = NewHost("inputs/in.pdf", BreakStartXref(input));
+        QpdfExecutionResult strictJobCheck = await Qpdf.ExecuteJobAsync(
+            strictJobHost,
+            """{"inputFile":"inputs/in.pdf","check":"","suppressRecovery":""}""",
+            CancellationToken.None);
+        Check(strictJobCheck.Status == QpdfExecutionStatus.Failed && strictJobCheck.ExitCode == QpdfExitCode.Error, "job checker damaged xref rejection");
+        Check(strictJobCheck.Counters.TotalWork > 0 && strictJobCheck.Counters.OpenHandles == 0 && strictJobHost.OpenLeaseCount == 0, "failed job checker counters and cleanup");
+        Console.WriteLine("PASS job checker, combined page count, damaged xref rejection and cleanup");
+
         byte[] damaged = BreakStartXref(input);
         InMemoryQpdfHost repairHost = NewHost("inputs/damaged.pdf", damaged);
         QpdfExecutionResult repair = await Qpdf.ExecuteAsync(

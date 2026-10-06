@@ -7,6 +7,12 @@ qpdf job JSON, and typed operations including bounded page selection. The
 operation plan uses one binary reader, object graph, filter pipeline and
 writer. PDF object JSON and job JSON are different formats.
 
+Argv and job checker plans use the typed checker core, with optional page-count
+and linearization inspection. Page traversal and declared-count reporting are
+distinct; failed checking stops subsequent inspection. Checker/page-count results
+snapshot the governor after input disposal. Broader invocation/presentation
+counters and diagnostic ownership remain under audit.
+
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.
 The library owns PDF semantics, explicit results and per-job memory/work limits.
@@ -38,4 +44,3 @@ development probe and synthetic benchmark harness. Benchmarks are development
 tools; resource claims require independent allocation/retention measurements
 bound to the tested source tree. Do not create duplicate engines or empty
 project layers solely to match the eventual architecture.
-

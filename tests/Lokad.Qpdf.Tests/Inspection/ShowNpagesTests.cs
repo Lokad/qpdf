@@ -42,7 +42,6 @@ public sealed class ShowNpagesTests
 
     [Theory]
     [InlineData("inputs/a.pdf", "--show-npages", "--pages", ".", "1", "--", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-npages", "--check")]
     [InlineData("inputs/a.pdf", "--show-npages", "--linearize", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-npages", "--json", "--json-key=pages", "--", "outputs/a.json")]
     [InlineData("inputs/a.pdf", "--show-npages", "--", "outputs/a.pdf")]

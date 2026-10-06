@@ -148,8 +148,10 @@ function Get-DecodedText {
 
 function New-Case {
   param([string]$Name)
-  $d = Join-Path $diffRoot $Name
-  if (Test-Path $d) { Remove-Item $d -Recurse -Force }
+  $d = [IO.Path]::GetFullPath((Join-Path $diffRoot $Name))
+  $allowedRoot = [IO.Path]::GetFullPath($diffRoot).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+  if (-not $d.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Case path escapes differential workspace: $Name" }
+  if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
   New-Item -ItemType Directory -Path "$d/inputs" -Force | Out-Null
   return $d
 }
@@ -1332,6 +1334,76 @@ $code = Invoke-Oracle $case @('--job-json-file=job.json')
 if ($code -ne 0) { throw "job-file: oracle failed ($code)" }
 Copy-Item "$case/outputs/a.pdf" "$case/ora.pdf" -Force
 Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
+
+# --- case: job-check (required job field, warning/error exits and combined inspections) ---
+$jobCheckCases = @(
+  @{ Name = 'valid'; Fixture = 'minimal-1page.pdf'; Extra = @{}; Exit = 0 },
+  @{ Name = 'count'; Fixture = 'minimal-2page.pdf'; Extra = @{ showNpages = '' }; Exit = 0; Count = 2 },
+  @{ Name = 'linearization'; Fixture = 'minimal-1page.pdf'; Extra = @{ showNpages = ''; checkLinearization = ''; showLinearization = '' }; Exit = 0; Count = 1 },
+  @{ Name = 'mismatch'; Fixture = 'minimal-1page.pdf'; Mutation = 'count'; Extra = @{ showNpages = '' }; Exit = 0; Count = 9 },
+  @{ Name = 'declared-count'; Fixture = 'minimal-1page.pdf'; Mutation = 'count'; InspectionOnly = $true; Extra = @{ showNpages = '' }; Exit = 0; Count = 9 },
+  @{ Name = 'warning-exit'; Fixture = 'minimal-1page.pdf'; Mutation = 'xref'; Extra = @{ warningExit0 = '' }; Exit = 0 },
+  @{ Name = 'no-warn'; Fixture = 'minimal-1page.pdf'; Mutation = 'xref'; Extra = @{ noWarn = '' }; Exit = 3 },
+  @{ Name = 'recovery'; Fixture = 'minimal-1page.pdf'; Mutation = 'xref'; Extra = @{}; Exit = 3 },
+  @{ Name = 'strict'; Fixture = 'minimal-1page.pdf'; Mutation = 'xref'; Extra = @{ suppressRecovery = '' }; Exit = 2 },
+  @{ Name = 'stream'; Fixture = 'minimal-1page.pdf'; Mutation = 'stream'; Extra = @{ showNpages = ''; showLinearization = '' }; Exit = 2 },
+  @{ Name = 'empty'; Extra = @{ empty = ''; showNpages = ''; showLinearization = '' }; Exit = 2 },
+  @{ Name = 'output'; Fixture = 'minimal-1page.pdf'; Extra = @{ outputFile = 'outputs/a.pdf' }; Exit = 2 },
+  @{ Name = 'true'; Fixture = 'minimal-1page.pdf'; Extra = @{ check = $true }; Exit = 2 },
+  @{ Name = 'false'; Fixture = 'minimal-1page.pdf'; Extra = @{ check = $false }; Exit = 2 }
+)
+foreach ($item in $jobCheckCases) {
+  $case = New-Case "job-check-$($item.Name)"
+  $job = [ordered]@{}
+  if (-not $item.InspectionOnly) { $job['check'] = '' }
+  if ($item.Fixture) {
+    $text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$fixtureDir/$($item.Fixture)"))
+    switch ($item.Mutation) {
+      'count' { $text = $text.Replace('/Count 1', '/Count 9') }
+      'xref' { $text = [regex]::Replace($text, '(?<=startxref\n)\d+', '999999999') }
+      'stream' {
+        $text = [regex]::Replace($text, '(?s)(stream\n)(.*?)(\nendstream)', [Text.RegularExpressions.MatchEvaluator]{
+          param($match)
+          return $match.Groups[1].Value + 'invalid-flate'.PadRight($match.Groups[2].Length, '!') + $match.Groups[3].Value
+        })
+        $text = $text.Replace('/Length 37', '/Filter /FlateDecode /Length 37')
+      }
+    }
+    [IO.File]::WriteAllBytes("$case/inputs/a.pdf", [Text.Encoding]::ASCII.GetBytes($text))
+    $job['inputFile'] = 'inputs/a.pdf'
+  }
+  foreach ($key in $item.Extra.Keys) { $job[$key] = $item.Extra[$key] }
+  [IO.File]::WriteAllText("$case/job.json", ($job | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
+  $managedOutput = @(& dotnet $probeDll emit-job --workdir $case --job "$case/job.json" 2>&1 | ForEach-Object { $_.ToString() })
+  $managedProcessExit = $LASTEXITCODE
+  $reported = [regex]::Match(($managedOutput -join "`n"), 'emit: status=(Completed|Failed|Canceled) exit=(\d+)')
+  if (-not $reported.Success) { throw "job-check-$($item.Name): missing managed execution result (process $managedProcessExit)" }
+  $managedExit = [int]$reported.Groups[2].Value
+  $expectedProcessExit = if ($reported.Groups[1].Value -eq 'Completed') { 0 } elseif ($reported.Groups[1].Value -eq 'Canceled') { 4 } else { 2 }
+  if ($managedProcessExit -ne $expectedProcessExit) { throw "job-check-$($item.Name): managed process/result disagreement" }
+  [IO.File]::WriteAllText("$case/managed.txt", ($managedOutput -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
+  $oracleExit = Invoke-Oracle $case @('--job-json-file=job.json')
+  if ($managedExit -ne $item.Exit -or $oracleExit -ne $item.Exit) {
+    throw "job-check-$($item.Name): expected $($item.Exit), managed $managedExit, oracle $oracleExit"
+  }
+  if ($item.ContainsKey('Count')) {
+    if (($managedOutput -join "`n") -notmatch "PageCount Info .*: $($item.Count)(?:\r?\n|$)" -or
+        (Get-Content "$case/ora-stdout.txt" -Raw) -notmatch "(?m)^$($item.Count)\r?$" ) {
+      throw "job-check-$($item.Name): combined page count differs"
+    }
+  }
+  if ($item.Name -eq 'linearization' -and (($managedOutput -join "`n") -notmatch 'LinearizationReport')) {
+    throw 'job-check-linearization: managed linearization inspection did not run'
+  }
+  if ($item.Name -eq 'stream' -and (($managedOutput -join "`n") -notmatch "CheckFailed Error Check 'streams' failed")) {
+    throw 'job-check-stream: managed stream checking did not report the damaged encoding'
+  }
+  if ($item.Name -in @('stream', 'empty') -and (($managedOutput -join "`n") -match 'PageCount Info|LinearizationReport')) {
+    throw "job-check-$($item.Name): inspection continued after checker failure"
+  }
+  if (Test-Path -LiteralPath "$case/outputs/a.pdf") { throw "job-check-$($item.Name): unexpectedly published output" }
+  Write-Output "[job-check-$($item.Name)] job checker outcomes agree (exit $($item.Exit))"
+}
 
 # --- case: replace (managed job vs oracle argv in-place replacement) ---
 $case = New-Case 'replace'
