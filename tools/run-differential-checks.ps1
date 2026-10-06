@@ -1338,6 +1338,9 @@ Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 # --- case: mixed-job (argv settings, repeated files, contexts and positional state) ---
 & (Join-Path $PSScriptRoot 'compare-mixed-jobs.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'mixed-jobs') -FixtureDirectory $fixtureDir
 
+# --- case: check-inspection (shared checking and ordered original-identity listings) ---
+& (Join-Path $PSScriptRoot 'compare-check-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'check-inspections') -FixtureDirectory $fixtureDir
+
 # --- case: nested-job (partial configurations and native key/duplicate precedence) ---
 $nestedCases = @(
   @{ Name='valid-direct'; Parent=@{ jobJsonFile='inputs/child.json' }; Child=@{ inputFile='inputs/a.pdf'; check=''; showNpages='' }; Exit=0; Route='direct'; Count=1 },

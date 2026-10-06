@@ -158,6 +158,15 @@ echoing values.
   filters skip streams with a warning at level `all`. Form-tree validation warns without failing on page widgets no field registration reaches, kids whose /Parent back-link does not name the traversed node, and field-like direct objects met while traversing.
 - `input --check` publishes no files and maps diagnostics to exit 0/2/3.
   Inspection never claims conformance, safe content, or rendering correctness.
+  Checking can share its opened document with count, linearization, xref,
+  object, page/image and attachment listings in native order. Failed checking
+  stops them. QDF/linearize flags do not serialize an inspection-only job.
+  Binary extraction and selection/transformation combinations remain required work.
+  Object selectors use bounded native signed-integer prefixes; nonpositive
+  numbers disable object listing, while unmatched/negative generations report null.
+  Generations persist across setters that omit one; overwritten JSON keys do not
+  execute. The existing main-context global-option extension rejects duplicates;
+  native `--global ... --` blocks retain repeated-setting semantics.
 - JSON inspection may omit the output file, with or without a final `--`.
   `QpdfExecutionResult.OutputText` then carries the JSON content; no ambient
   stdout is used. File-output operations leave that property null. Returned

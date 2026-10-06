@@ -133,7 +133,7 @@ public sealed class OperationFlagsTests
     [Theory]
     [InlineData("--verbose=x")]
     [InlineData("--verbose=")]
-    [InlineData("--verbose", "--verbose")]
+    [InlineData("--verbose", "--verbose=x")]
     public async Task BadVerboseFlagsFail(params string[] flags)
     {
         InMemoryQpdfHost host = await HostWithTwoSources();

@@ -18,9 +18,13 @@ state. JSON inspection without a file returns immutable execution output text.
 Whole-file selection closes its preliminary input before reopening through the
 shared copier, so replacement can publish after those input leases close.
 
-Argv and job checker plans use the typed checker core, with optional page-count
-and linearization inspection. Page traversal and declared-count reporting are
-distinct; failed checking stops subsequent inspection. Checker/page-count results
+Argv and job checker plans use the typed checker core and the same opened
+document for subsequent count, linearization, xref, object, page/image and
+attachment listings, in native inspection order. Object and xref identities
+remain unchanged; serialization-only QDF/linearize settings do not rewrite them.
+Page traversal and declared-count reporting are distinct; failed checking stops
+subsequent inspection. Binary extraction and selection/transformation combinations
+remain under implementation. Checker/page-count results
 snapshot the governor after input disposal. Broader invocation/presentation
 counters and diagnostic ownership remain under audit.
 
@@ -49,6 +53,9 @@ replacement and disposal release only the unread admission. Document disposal
 closes its input lease and drops cache metadata while returned immutable bytes
 remain usable. Input/table/returned-node and diagnostic lifetimes remain under
 audit; [progress](docs/PROGRESS.md) records the measured gaps.
+An initial read/header/table failure before engine construction releases its
+unowned input-copy receipt. Constructed-engine and successful-document ownership
+remain separate audit obligations.
 
 The solution contains the packable library, tests, public API consumer,
 development probe and synthetic benchmark harness. Benchmarks are development

@@ -102,7 +102,7 @@ public sealed class ShowObjectTests
     [InlineData("inputs/a.pdf", "--show-object=3", "--pages", ".", "1", "--", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-object=3", "--show-npages")]
     [InlineData("inputs/a.pdf", "--show-object=3", "--show-pages")]
-    [InlineData("inputs/a.pdf", "--show-object=3", "--check")]
+    [InlineData("inputs/a.pdf", "--show-object=3", "--check=1")]
     [InlineData("inputs/a.pdf", "--show-object=3", "--", "outputs/a.pdf")]
     public async Task RejectsMalformedAndCombinedForms(params string[] argv)
     {
@@ -144,8 +144,8 @@ public sealed class ShowObjectTests
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"o.pdf\", \"showObject\": \"3\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}], \"showObject\": \"3\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"nope\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": false}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"999999999999999999999999999\"}")]
     [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"3\",\"showObject\":[]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showNpages\": true}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"3\", \"showPages\": true}")]

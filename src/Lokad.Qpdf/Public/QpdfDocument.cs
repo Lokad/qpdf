@@ -197,6 +197,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         DocumentEngine? engine = null;
+        long reservedInput = 0L;
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -215,6 +216,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             }
 
             governor.ReserveMemory(input.Length);
+            reservedInput = input.Length;
             byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             ReadOnlyMemory<byte> data = bytes;
@@ -231,6 +233,10 @@ public sealed class QpdfDocument : IAsyncDisposable
         catch
         {
             engine?.Dispose();
+            // A failed read/header/table load has no engine owner or escaped
+            // input view. Release that allocation's receipt on this path.
+            // Constructed-engine and successful-document lifetimes remain distinct.
+            if (engine is null) { governor.ReleaseMemory(reservedInput); }
             await input.DisposeAsync().ConfigureAwait(false);
             throw;
         }

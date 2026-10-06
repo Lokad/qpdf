@@ -69,7 +69,7 @@ public sealed class ProgressTests
     [Theory]
     [InlineData("--progress=x")]
     [InlineData("--progress=")]
-    [InlineData("--progress", "--progress")]
+    [InlineData("--progress", "--progress=x")]
     public async Task BadProgressFlagsFail(params string[] flags)
     {
         InMemoryQpdfHost host = await HostWithTwoSources();

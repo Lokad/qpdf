@@ -445,7 +445,7 @@ public sealed class AttachmentTests
     [Theory]
     [InlineData("--list-attachments", "--", "outputs/x.pdf")]
     [InlineData("--pages", ".", "1", "--list-attachments", "--", "outputs/a.pdf")]
-    [InlineData("--check", "--list-attachments")]
+    [InlineData("--check", "--list-attachments", "outputs/a.pdf")]
     [InlineData("--show-attachment=notes.txt")]
     [InlineData("--show-attachment=")]
     [InlineData("--show-attachment")]

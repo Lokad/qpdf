@@ -144,6 +144,17 @@ internal static class Program
         Check(mixedJson.Counters.OpenHandles == 0 && mixedHost.OpenLeaseCount == 0, "mixed JSON cleanup");
         Console.WriteLine("PASS mixed JSON inspection returns text without an output file");
 
+        InMemoryQpdfHost inspectionHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult combined = await Qpdf.ExecuteAsync(inspectionHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--check", "--show-npages", "--show-pages", "--show-xref", "--show-object=1", "--list-attachments", "--show-linearization"]), CancellationToken.None);
+        Check(combined.Status == QpdfExecutionStatus.Completed && combined.ExitCode == QpdfExitCode.Success, "combined checker inspections");
+        Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageCount && d.Message.EndsWith(": 2", StringComparison.Ordinal)), "combined count");
+        Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message == "<< /Pages 2 0 R /Type /Catalog >>"), "original catalog identity");
+        Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 1: 3 0 R"), "original page identity");
+        Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("3/0: uncompressed; offset = ", StringComparison.Ordinal)), "original xref listing");
+        Check(combined.Counters.TotalWork > 0 && combined.Counters.OpenHandles == 0 && inspectionHost.OpenLeaseCount == 0, "combined inspection cleanup");
+        Console.WriteLine("PASS checking with count, page, object, xref, attachment and linearization inspections");
+
         byte[] damaged = BreakStartXref(input);
         InMemoryQpdfHost repairHost = NewHost("inputs/damaged.pdf", damaged);
         QpdfExecutionResult repair = await Qpdf.ExecuteAsync(

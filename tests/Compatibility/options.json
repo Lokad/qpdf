@@ -99,8 +99,8 @@
     "page-range syntax"
   ],
   "supplementalRequirements": [
-    "Nested jobJsonFile loading is host-mediated and bounded; combined argv operation settings and repeated --job-json-file configuration still need native precedence/interaction coverage. Root handler names do not establish complete grammar/default/context coverage.",
-    "Required checker interaction gaps remain visible in the partial --check entry; standalone and page-count/linearization job routes do not establish complete native combinations.",
+    "Nested and mixed job configuration is host-mediated and bounded with setter-order evidence. Root handler names do not establish complete grammar/default/context coverage.",
+    "Checker listing combinations use one shared document. Binary extraction and selection/transformation contexts remain required gaps in partial --check; pure inspection evidence does not establish those combinations.",
     "--json-key=encrypt is excluded",
     "fix-qdf companion",
     "zlib-flate companion"
@@ -2270,7 +2270,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Required native checker combinations with page/object/xref/attachment inspection and page-selection/transformation keys are not yet supported across argv/job routes. Full target-field/default/precedence auditing remains open."
+        "Checker page/object/xref/attachment listings share one document in native inspection order. Binary extraction and page-selection/transformation keys still need implementation and evidence across argv/job routes. Full target-field/default/precedence auditing remains open."
       ],
       "evidence": {
         "positive": [
@@ -2282,7 +2282,10 @@
           "CheckTests.WellFormedParentStaysSilentOnCheck",
           "CheckTests.DirectFieldNodeWarnsAndStaysIgnoredOnCheck",
           "JobCheckTests.JobRunsTheSharedChecker",
-          "JobCheckTests.EmptyJobRunsThePageTreeCheck"
+          "JobCheckTests.EmptyJobRunsThePageTreeCheck",
+          "CheckInspectionTests.CombinedInspectionsRunInNativeOrderOnOriginalIdentities",
+          "CheckInspectionTests.PageImageInspectionRunsAfterChecking",
+          "CheckInspectionTests.ExistingAttachmentsAreListedWithTheirOriginalStreamIdentity"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2299,19 +2302,32 @@
           "JobCheckTests.SuppressRecoveryControlsDamagedXrefOpening",
           "JobCheckTests.WarningModifiersPreserveCheckerFindings",
           "JobCheckTests.TypedCheckerSilentlyUsesTraversalAndSnapshotsAfterCleanup",
-          "JobCheckTests.PageCountReportsTheDeclarationWhileCheckingUsesTraversal"
+          "JobCheckTests.PageCountReportsTheDeclarationWhileCheckingUsesTraversal",
+          "CheckInspectionTests.DeclaredCountAndTraversedPagesStayDistinct",
+          "CheckInspectionTests.RecoveryWarningsPreserveCombinedInspectionAndWarningExitPolicy",
+          "CheckInspectionTests.FatalStreamCheckingStopsEveryFollowingInspection",
+          "CheckInspectionTests.SerializationControlsDoNotRewriteInspectedObjects",
+          "CheckInspectionTests.ObjectInspectionUsesNativeIntegerPrefixesAndDisabledSelectors",
+          "CheckInspectionTests.SelectorGenerationPersistsAcrossSettersButNotOverwrittenJsonKeys",
+          "CheckInspectionTests.RepeatedPresentationFlagsRetainNativeSetterSemantics",
+          "CheckInspectionTests.ExplicitGlobalBlocksKeepNativeRepeatedSettings"
         ],
         "resource": [
           "CheckTests.CheckFailsOnExhaustedInputBudget",
           "JobCheckTests.HostMemoryCeilingRejectsActualCacheGrowth",
           "JobCheckTests.GlobalFilterLimitControlsActualStreamChecking",
-          "JobCheckTests.CancellationAfterTheFirstHostReadClosesItsLease"
+          "JobCheckTests.CancellationAfterTheFirstHostReadClosesItsLease",
+          "CheckInspectionTests.InspectionCeilingsPreserveTargetsAndCloseTheInput",
+          "CheckInspectionTests.AllLinearizationAndListingStagesKeepOneInputLease",
+          "CheckInspectionTests.CancellationAfterAnObservedReadStopsTheCombinedJob",
+          "CheckInspectionTests.SelectorOverflowRejectsBeforePdfAccess"
         ],
         "oracle": [
           "diff:linearized",
           "diff:cmyk",
           "diff:forms-check",
-          "diff:job-check"
+          "diff:job-check",
+          "diff:check-inspection"
         ]
       }
     },
@@ -3993,11 +4009,11 @@
           "LinearizedWriterTests.OutlinesLinearizePassesOwnCheck",
           "LinearizedWriterTests.UseOutlinesRideFirstPage",
           "LinearizedWriterTests.ThumbnailsLinearizePassesOwnCheck",
-          "LinearizedWriterTests.ThumbnailsLinearizeJobSucceeds"
+          "LinearizedWriterTests.ThumbnailsLinearizeJobSucceeds",
+          "LinearizedWriterTests.CheckingWithLinearizeKeepsTheOriginalDocument"
         ],
         "negative": [
           "LinearizedWriterTests.JsonCannotCombine",
-          "LinearizedWriterTests.CheckCannotCombine",
           "LinearizedWriterTests.DirectOutlinesFailExplicitly",
           "LinearizedWriterTests.OutlineUnknownFirstObjectFailsCheck",
           "LinearizedWriterTests.OutlineOffsetMismatchFailsCheck"

@@ -72,7 +72,7 @@ public sealed class ShowXrefTests
 
     [Theory]
     [InlineData("inputs/a.pdf", "--show-xref", "--pages", ".", "1", "--", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-xref", "--check")]
+    [InlineData("inputs/a.pdf", "--show-xref", "--check", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-xref", "--show-npages")]
     [InlineData("inputs/a.pdf", "--show-xref", "--show-pages")]
     [InlineData("inputs/a.pdf", "--show-xref", "--show-object=3")]

@@ -227,6 +227,7 @@ internal static class JobJsonParser
             bool withImages = false;
             bool seenWithImages = false;
             string? showObject = null;
+            int showObjectGeneration = 0;
             bool seenShowObject = false;
             bool showXref = false;
             bool seenShowXref = false;
@@ -795,12 +796,11 @@ internal static class JobJsonParser
 
                         seenShowObject = true;
                         showObject = RequireString(property.Value, "showObject");
-                        if (showObject.Length == 0)
-                        {
-                                throw new QpdfParseException("Job showObject must not be empty.", 0L, null);
-                        }
-
-                        Commands.SelectionPlan.ParseObjectSelector(showObject);
+                        var selector = SelectionPlan.ParseInspectionSelector(showObject, showObjectGeneration);
+                        showObjectGeneration = selector.Generation;
+                        showObject = selector.Trailer ? "trailer"
+                            : selector.Number.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                                + selector.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture);
                         break;
                     case "showXref":
                         if (seenShowXref && !configurationLayers)
@@ -1185,15 +1185,14 @@ internal static class JobJsonParser
                 if (hasPages || output is not null || seenReplaceInput || seenSplitPages || seenCollate
                     || seenRotate || seenLabels || seenRemoveLabels || seenOverlay || seenUnderlay
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
-                    || seenQdf || seenLinearize || seenLinearizePass1 || seenNoOriginalObjectIds
+                    || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenListAttachments || seenShowAttachment || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
-                    || seenShowPages || seenShowObject || seenShowXref
-                    || seenWithImages || seenRawStreamData || seenFilteredStreamData
+                    || seenShowAttachment || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
+                    || seenRawStreamData || seenFilteredStreamData
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
                     || seenTestJsonSchema)
                 {
-                    throw new QpdfParseException("Job check cannot be combined with output, page, transformation or other inspection keys except linearization inspection.", 0L, null);
+                    throw new QpdfParseException("Job check cannot be combined with output, page transformations, binary extraction or JSON inspection.", 0L, null);
                 }
 
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
@@ -1201,6 +1200,14 @@ internal static class JobJsonParser
                 {
                     EmptyDocument = checkEmpty,
                     ShowNpages = showNpages,
+                    ShowPages = showPages,
+                    ShowXref = showXref,
+                    ObjectSelector = showObject,
+                    ListAttachments = listAttachments,
+                    WithImages = withImages,
+                    Qdf = qdf,
+                    Linearize = linearize,
+                    NoOriginalObjectIds = noOriginalObjectIds,
                     CheckLinearization = checkLinearization,
                     ShowLinearization = showLinearization,
                     WarningExitZero = warningExit0,

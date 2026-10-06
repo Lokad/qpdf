@@ -7,7 +7,7 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 **Implemented PDF operations: the audited non-cryptographic subset.** 152 inventory entries
 are complete and 5 stay partial: `--job-json-file` still needs complete grammar,
 defaults and interaction auditing after mixed-argv/multiple-file configuration;
-`--check` lacks required native inspection/
+`--check` lacks required binary extraction and
 selection/transformation combinations; the no-Zopfli build profile and four-component CMYK
 image samples retain their accepted compatibility exceptions with partial labeling;
 and `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
@@ -39,13 +39,19 @@ and oracle-differential evidence reconciled below.
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string
-value; booleans reject. Argv/job checking composes with page counting and
-linearization inspection. Failed checking stops subsequent inspection. Checking
+value; booleans reject. Argv/job checking composes with count, linearization, xref,
+object, page/image and attachment listings on one opened document in native
+inspection order. Failed checking stops subsequent inspection. Serialization-only
+QDF/linearize flags accept without rewriting inspected objects. Checking
 traverses pages without warning about their declared count; page-count inspection
 reports the declared `/Count`, matching the native behavior. Ordinary typed
 document reading retains its count-mismatch warning. Checker/page-count execution
 snapshots work, peaks and handles after input cleanup; broader diagnostic and
-invocation/presentation counters remain under audit.
+invocation/presentation counters remain under audit. Object inspection uses native
+bounded integer-prefix semantics: nonpositive object numbers disable that listing,
+negative/unmatched generations report null, and setter generations persist unless
+a following setter supplies another generation. Duplicate keys in one JSON object
+still use only their final value. Numeric overflow rejects before PDF access.
 
 `jobJsonFile` loads partial configurations through the invoking host. Direct JSON
 and mixed argv job-file routes share the loader and operation parser. Repeated
@@ -68,7 +74,7 @@ host output ceiling and remains usable after execution cleanup.
 The target's 98 root keys now have parsing/loading or explicit crypto rejection
 routes. Names alone do not establish complete grammar, defaults or context
 coverage. Remaining job grammar/default/context auditing and additional checker
-combinations are required gaps in their partial entries.
+binary/selection/transformation combinations are required gaps in their partial entries.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,

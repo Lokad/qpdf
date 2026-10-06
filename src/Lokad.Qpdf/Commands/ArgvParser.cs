@@ -95,7 +95,7 @@ internal static class ArgvParser
 
         if (showObjectSelector is not null)
         {
-            SelectionPlan.ParseObjectSelector(showObjectSelector);
+            SelectionPlan.ParseInspectionSelector(showObjectSelector, 0);
         }
         int showNpagesAt = FindFlag(argv, "--show-npages");
         int showXrefAt = FindFlag(argv, "--show-xref");

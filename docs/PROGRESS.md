@@ -2,7 +2,31 @@
 
 ## Current checkpoint
 
-Mixed argv/job-file correction has passed local verification. The latest completed
+Checker listing correction has passed local verification. Locked restore and
+Release build pass; **6087/6087 offline tests**
+pass with no failures/skips. Sixty focused native comparisons pass across direct
+JSON, ordinary argv and mixed file routes, preserving listing order, original
+identities, fatal/warning behavior and prior targets. The identical final assembly
+fails **76 / preserves 12 of 88** selected public cases against the preceding DLL;
+78 new cases cover effects, ceilings, observed read cancellation and selector
+prefix/generation semantics. Package/symbol verification, **42 fresh consumer
+smokes** and two specific rejection cases pass. The full pinned reference lane
+completed with terminal exit 0 on frozen runtime/test/tool/consumer sources:
+**1846 exact parser comparisons / 432 rewrite validations**, plus the complete
+differential lane. Root/probe/packed/fresh-consumer library identities agree;
+all five dependency locks are unchanged. This is local Windows evidence.
+Package metadata names the preceding commit; final audited release metadata
+and Windows/Linux reference CI remain open.
+Checking and subsequent listings share one document.
+An interrupted initial read before engine construction now releases its unowned
+input-copy admission. Constructed-engine/input/table/returned-node ownership
+remains A04/A06 work. Binary extraction and selection/transformation checker
+contexts remain required A07 work; no audit gate or completion verdict is closed.
+
+Previous mixed-configuration checkpoint follows; its results remain historical
+and separate from the checker-listing correction.
+
+Mixed argv/job-file correction has passed local verification. That unit's completed
 offline run has **6009/6009 passing tests**, no failures/skips, including the
 added context/transform cases.
 The focused lane passes **45 comparisons / 23 independently checked rewrites**;
@@ -98,10 +122,11 @@ charge row work and decoded samples once per stage. Those scopes remain partial.
 
 ## Remaining work
 
-- **Next A07 unit:** correct checker contexts after the verified mixed
-  configuration unit. Complete job grammar/default/context audit stays open.
-  Native accepts checking with page/object/xref/attachment
-  inspection and selection/transformation keys that the managed routes reject.
+- **Next A07 units:** implement fileless binary inspection and checker
+  selection/transformation contexts with actual effects and identities preserved.
+  Native checking plus binary output has channel-dependent success/failure
+  ordering; matching an exit number alone does not prove that checking ran.
+  Complete job grammar/default/context audit stays open.
   These are required gaps in partial `--job-json-file` / `--check` entries.
   All 98 root keys have loading/parsing/rejection routes; names do not prove
   complete grammar/default/interaction coverage.

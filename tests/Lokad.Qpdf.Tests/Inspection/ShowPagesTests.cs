@@ -77,7 +77,7 @@ public sealed class ShowPagesTests
     }
     [Theory]
     [InlineData("inputs/a.pdf", "--show-pages", "--pages", ".", "1", "--", "outputs/a.pdf")]
-    [InlineData("inputs/a.pdf", "--show-pages", "--check")]
+    [InlineData("inputs/a.pdf", "--show-pages", "--check", "outputs/a.pdf")]
     [InlineData("inputs/a.pdf", "--show-pages", "--show-npages")]
     [InlineData("inputs/a.pdf", "--show-npages", "--show-pages")]
     [InlineData("inputs/a.pdf", "--show-pages", "--linearize", "--", "outputs/a.pdf")]

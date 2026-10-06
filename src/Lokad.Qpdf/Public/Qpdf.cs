@@ -22,7 +22,7 @@ namespace Lokad.Qpdf;
 /// <see cref="QpdfExecutionStatus.Canceled"/> and never publish partial output,
 /// and failed calls leave existing targets untouched.
 /// </summary>
-public static class Qpdf
+public static partial class Qpdf
     // Command adapters: argv and job JSON converge on the typed selection plan.
 {
     /// <summary>
@@ -4520,20 +4520,7 @@ public static class Qpdf
         CancellationToken cancellationToken)
     {
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        LinearizationInspection inspection = LinearizationCheck.Inspect(document.Engine, document.PageCount, limits, governor, cancellationToken);
-        if (inspection.Status == LinearizationStatus.NotLinearized)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} is not linearized");
-            return;
-        }
-
-        if (inspection.Status == LinearizationStatus.Valid)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value}: no linearization errors");
-            return;
-        }
-
-        diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"Check 'linearization' failed: {inspection.Detail}");
+        InspectLinearization(document, inputPath, limits, governor, diagnostics, cancellationToken);
     }
 
     private static async ValueTask ShowLinearizationAsync(
@@ -4547,42 +4534,8 @@ public static class Qpdf
         CancellationToken cancellationToken)
     {
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        LinearizationData? data;
-        try
-        {
-            data = LinearizationCheck.TryReadData(document.Engine, document.PageCount, limits, governor, cancellationToken);
-        }
-        catch (QpdfException ex)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"{inputPath.Value}: error encountered while checking linearization data: {ex.Message}");
-            return;
-        }
-
-        if (data is null)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} is not linearized");
-            return;
-        }
-
-        ClassifiedGraph graph;
-        try
-        {
-            System.Collections.Generic.HashSet<int> excluded = new() { data.LindictObject, data.HintObject };
-            graph = LinearizationReport.ClassifyDocument(document.Engine, excluded, governor, cancellationToken);
-        }
-        catch (QpdfException ex)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ex.Message);
-            return;
-        }
-
-        foreach (string line in LinearizationReport.Build(inputPath.Value, data, graph))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, line);
-        }
+        ShowLinearization(document, inputPath, limits, governor, diagnostics, cancellationToken);
     }
-
 
     private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine,
@@ -4839,7 +4792,8 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
-        if (JobJsonLoader.HasJobFile(expanded))
+        if (JobJsonLoader.HasJobFile(expanded)
+            || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)))
         {
             JobJsonLoader.LoadedJob loaded;
             try
@@ -4948,67 +4902,7 @@ public static class Qpdf
         CancellationToken cancellationToken)
     {
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, cancellationToken);
-        List<QpdfAttachmentInfo> infos = new(found.Count);
-        foreach (EmbeddedAttachment attachment in found)
-        {
-            infos.Add(new QpdfAttachmentInfo(attachment.Key, attachment.FileName, attachment.Description, attachment.MimeType, attachment.CreationDate, attachment.ModDate, attachment.Checksum, attachment.StreamObjectNumber, attachment.Size));
-        }
-
-        if (infos.Count == 0)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} has no embedded files");
-            return infos;
-        }
-
-        foreach (QpdfAttachmentInfo info in infos)
-        {
-            int generation = 0;
-            if (info.StreamObjectNumber >= 0
-                && document.Engine.XRefEntries.TryGetValue(info.StreamObjectNumber, out XrefEntry entry)
-                && entry.Kind == XrefEntryKind.Uncompressed)
-            {
-                generation = entry.Second;
-            }
-
-            diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"{info.Key} -> {info.StreamObjectNumber},{generation}");
-            if (info.FileName.Length > 0)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  filename: {info.FileName}");
-            }
-
-            if (info.Description.Length > 0)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  description: {info.Description}");
-            }
-
-            if (info.MimeType.Length > 0)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  mime type: {info.MimeType}");
-            }
-
-            if (info.CreationDate.Length > 0)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  creation date: {info.CreationDate}");
-            }
-
-            if (info.ModDate.Length > 0)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  modification date: {info.ModDate}");
-            }
-
-            if (info.Checksum.Length > 0)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  checksum: {info.Checksum}");
-            }
-
-            if (info.Size >= 0L)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  size: {info.Size}");
-            }
-        }
-
-        return infos;
+        return ListAttachments(document, inputPath, limits, governor, diagnostics, cancellationToken);
     }
 
     private static QpdfLimits ResolveParserLimits(JobPlan plan, QpdfLimits host, bool hostExplicit)
@@ -5094,66 +4988,8 @@ public static class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        (bool trailer, int number, int generation) = SelectionPlan.ParseObjectSelector(showObject.Selector);
         await using QpdfDocument document = await OpenPlanInputAsync(host, showObject.Input, showObject.EmptyDocument, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
-        QpdfObject? target = null;
-        if (trailer)
-        {
-            target = document.Engine.Trailer;
-        }
-        else if (((IIndirectResolver)document.Engine).TryResolve(new PdfReference(number, generation), out QpdfObject? resolved))
-        {
-            target = resolved;
-        }
-
-        bool wantsStreamData = showObject.RawStreamData || showObject.FilteredStreamData;
-        if (target is PdfStream dataStream && wantsStreamData)
-        {
-            QpdfPath output = showObject.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
-            if (string.Equals(showObject.Input.Value, output.Value, StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
-            }
-
-            byte[] payload = dataStream.Data;
-            if (showObject.FilteredStreamData)
-            {
-                IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine);
-                payload = FilterChain.Decode(dataStream.Data, stages, limits, governor);
-            }
-
-            if (payload.Length > limits.MaxOutputBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), payload.Length, limits.MaxOutputBytes);
-            }
-
-            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, output, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink sink = new(transaction, governor);
-            await sink.AppendAsync(payload, cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        if (showObject.Output is not null)
-        {
-            throw new QpdfParseException("The output file is only used for stream data.", 0L, null);
-        }
-
-        if (target is null || target is PdfNull)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "null");
-        }
-        else if (target is PdfStream stream)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "Object is stream.  Dictionary:");
-            CanonicalDisplay.AddDiagnostic(stream.Dictionary, limits, governor, document.Engine, diagnostics);
-        }
-        else
-        {
-            CanonicalDisplay.AddDiagnostic(target, limits, governor, document.Engine, diagnostics);
-        }
-
-        return;
+        await ShowObjectAsync(host, document, showObject, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     private static async ValueTask<QpdfExecutionResult> RunPlanAsync(
@@ -5185,44 +5021,7 @@ public static class Qpdf
 
         if (plan is CheckPlan check)
         {
-            try
-            {
-                QpdfCheckResult inspected = await CheckCoreAsync(
-                    host,
-                    check.Input,
-                    new QpdfCheckOptions(),
-                    limits,
-                    check.Recovery,
-                    check.EmptyDocument,
-                    check.ShowNpages,
-                    governor,
-                    diagnostics,
-                    cancellationToken).ConfigureAwait(false);
-                if (!inspected.Passed)
-                {
-                    return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
-                }
-                if (check.CheckLinearization)
-                {
-                    await InspectLinearizationAsync(host, check.Input, limits, check.Recovery, check.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                }
-
-                if (check.ShowLinearization)
-                {
-                    await ShowLinearizationAsync(host, check.Input, limits, check.Recovery, check.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                }
-
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
-            }
-            catch (QpdfException ex)
-            {
-                QpdfExecutionResult failure = ToFailedResult(ex);
-                return new QpdfExecutionResult(failure.Status, failure.ExitCode, failure.Diagnostics, governor.Snapshot());
-            }
-            catch (OperationCanceledException)
-            {
-                return QpdfExecutionResult.Canceled([], governor.Snapshot());
-            }
+            return await RunCheckPlanAsync(host, check, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         if (plan is ShowXrefPlan showXref)
@@ -5230,23 +5029,7 @@ public static class Qpdf
             try
             {
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showXref.Input, showXref.EmptyDocument, limits, governor, diagnostics, showXref.Recovery, cancellationToken).ConfigureAwait(false);
-                List<int> numbers = new(document.Engine.XRefEntries.Keys);
-                numbers.Sort();
-                foreach (int number in numbers)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
-                    Reading.XrefEntry entry = document.Engine.XRefEntries[number];
-                    if (entry.Kind == Reading.XrefEntryKind.Free)
-                    {
-                        continue;
-                    }
-
-                    string line = entry.Kind == Reading.XrefEntryKind.Compressed
-                        ? $"{number}/0: compressed; stream = {entry.First}, index = {entry.Second}"
-                        : $"{number}/{entry.Second}: uncompressed; offset = {entry.First}";
-                    diagnostics.Add(QpdfDiagnosticCode.XrefListing, QpdfDiagnosticSeverity.Info, line);
-                }
+                ShowXref(document, plan, limits, governor, diagnostics, cancellationToken);
 
                 return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }
@@ -5283,38 +5066,7 @@ public static class Qpdf
             try
             {
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showPages.Input, showPages.EmptyDocument, limits, governor, diagnostics, showPages.Recovery, cancellationToken).ConfigureAwait(false);
-                int index = 1;
-                foreach (Reading.PageLocation location in document.PageReferences)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    governor.ChargeWork(1L);
-                    if (location.Source is null)
-                    {
-                        throw new QpdfException("Page dictionary is not an indirect object.");
-                    }
-
-                    diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"page {index}: {location.Source.ObjectNumber} 0 R");
-                    if (showPages.WithImages)
-                    {
-                        List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken);
-                        if (images.Count > 0)
-                        {
-                            diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  images:");
-                            foreach (PageImage image in images)
-                            {
-                                diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    /{image.Name}: {image.Number} {image.Generation} R, {image.Width} x {image.Height}");
-                            }
-                        }
-                    }
-
-                    diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
-                    foreach (int content in PageContentRefs(location.Page))
-                    {
-                        diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    {content} 0 R");
-                    }
-
-                    index = checked(index + 1);
-                }
+                ShowPages(document, plan, limits, governor, diagnostics, cancellationToken);
 
                 return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
             }

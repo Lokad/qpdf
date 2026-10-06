@@ -189,6 +189,34 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
         return (int)value;
     }
 
+    internal static (bool Trailer, int Number, int Generation) ParseInspectionSelector(string value, int previousGeneration)
+    {
+        if (value.Length > 32) { throw new QpdfParseException("Object selector exceeds its supported length.", 0L, null); }
+        if (value == "trailer") { return (true, 0, previousGeneration); }
+        int comma = value.IndexOf(',');
+        int generation = comma >= 0 && comma + 1 < value.Length
+            ? ReadIntegerPrefix(value.AsSpan(comma + 1)) : previousGeneration;
+        return (false, ReadIntegerPrefix(value.AsSpan()), generation);
+    }
+
+    private static int ReadIntegerPrefix(ReadOnlySpan<char> text)
+    {
+        int cursor = 0;
+        while (cursor < text.Length && text[cursor] is ' ' or '\t' or '\n' or '\r' or '\f' or '\v') { cursor++; }
+        bool negative = cursor < text.Length && text[cursor] == '-';
+        if (cursor < text.Length && text[cursor] is '+' or '-') { cursor++; }
+        long number = 0L;
+        while (cursor < text.Length && text[cursor] is >= '0' and <= '9')
+        {
+            number = number * 10L + text[cursor++] - '0';
+            if (number > int.MaxValue + (negative ? 1L : 0L))
+            {
+                throw new QpdfParseException("Object selector integer is outside the supported range.", 0L, null);
+            }
+        }
+        return (int)(negative ? -number : number);
+    }
+
     internal static (bool Trailer, int Number, int Generation) ParseObjectSelector(string value)
     {
         if (value is null || value.Length == 0 || value.Length > 32)
@@ -279,6 +307,14 @@ internal sealed record ShowXrefPlan(QpdfPath Input, QpdfRecoveryMode Recovery) :
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
     public bool ShowNpages { get; init; }
+
+    public bool ShowPages { get; init; }
+
+    public bool ShowXref { get; init; }
+
+    public string? ObjectSelector { get; init; }
+
+    public bool ListAttachments { get; init; }
 
     public bool CheckLinearization { get; init; }
 

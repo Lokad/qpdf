@@ -220,12 +220,16 @@ public sealed class LinearizedWriterTests
     }
 
     [Fact]
-    public async Task CheckCannotCombine()
+    public async Task CheckingWithLinearizeKeepsTheOriginalDocument()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--check", "--linearize" };
+        List<string> argv = new() { "inputs/a.pdf", "--check", "--linearize", "--show-linearization" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.LinearizationReport && d.Message.EndsWith("is not linearized", StringComparison.Ordinal));
+        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     private static async Task<List<string>> ShowAsync(InMemoryQpdfHost host, string input)

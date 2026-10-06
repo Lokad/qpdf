@@ -25,6 +25,7 @@ internal static class ArgvConfigurationReader
         bool gaveInput = false;
         bool gaveOutput = false;
         bool global = false;
+        HashSet<string> mainGlobals = new(StringComparer.Ordinal);
         int cursor = 0;
         while (cursor < argv.Count)
         {
@@ -45,6 +46,9 @@ internal static class ArgvConfigurationReader
             if (global && !IsGlobal(name)) { throw Invalid("Only global options may appear in --global.", cursor); }
             if (IsGlobal(name))
             {
+                // The existing main-context extension accepts each global
+                // setting once. Native --global blocks retain setter semantics.
+                if (!global && !mainGlobals.Add(name)) { throw Invalid("Duplicate global option outside --global.", cursor); }
                 object value = name == "no-default-limits" ? Bare(token, cursor) : Value(argv, ref cursor, null);
                 setting("global", new Dictionary<string, object> { [Key(name)] = value });
                 cursor++;
@@ -131,6 +135,11 @@ internal static class ArgvConfigurationReader
                 case "json-key":
                 case "remove-attachment":
                     setting(Key(name), new[] { Value(argv, ref cursor, null) });
+                    cursor++;
+                    continue;
+                case "show-object":
+                    int selectorEquals = token.IndexOf('=');
+                    setting("showObject", selectorEquals >= 0 ? token.Substring(selectorEquals + 1) : Value(argv, ref cursor, null));
                     cursor++;
                     continue;
                 case "collate":

@@ -68,7 +68,7 @@ public sealed class TestingOptionsTests
     [Theory]
     [InlineData("--report-memory-usage=x")]
     [InlineData("--report-memory-usage=")]
-    [InlineData("--report-memory-usage", "--report-memory-usage")]
+    [InlineData("--report-memory-usage", "--report-memory-usage=x")]
     [InlineData("--test-json-schema=x")]
     [InlineData("--test-json-schema=")]
     [InlineData("--test-json-schema", "--test-json-schema")]
