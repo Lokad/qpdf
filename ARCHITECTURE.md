@@ -12,6 +12,11 @@ input identities for cycle checks. Sorted-key prefixes and reverse suffixes shar
 the existing operation parser and preserve native setter/duplicate semantics.
 Configuration storage stays admitted until execution finishes; input leases close
 between files. The loader bounds cumulative bytes, work, nesting and storage.
+Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
+file chains retain native internal key order without changing argv positional
+state. JSON inspection without a file returns immutable execution output text.
+Whole-file selection closes its preliminary input before reopening through the
+shared copier, so replacement can publish after those input leases close.
 
 Argv and job checker plans use the typed checker core, with optional page-count
 and linearization inspection. Page traversal and declared-count reporting are

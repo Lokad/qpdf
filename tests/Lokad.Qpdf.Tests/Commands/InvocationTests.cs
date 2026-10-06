@@ -140,7 +140,8 @@ public sealed class InvocationTests
             host,
             new QpdfCommandInvocation(["--job-json-file", "job.json", "inputs/a.pdf", "--check"]),
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(combined).Code);
+        Assert.Equal(QpdfExecutionStatus.Completed, combined.Status);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

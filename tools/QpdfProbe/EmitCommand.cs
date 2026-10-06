@@ -73,6 +73,10 @@ internal static class EmitCommand
         }
 
         Console.WriteLine($"emit: status={result.Status} exit={(int)result.ExitCode}");
+        if (result.OutputText is not null)
+        {
+            Console.WriteLine("emit: text " + System.Text.Json.JsonSerializer.Serialize(result.OutputText));
+        }
         foreach (QpdfDiagnostic diagnostic in result.Diagnostics)
         {
             Console.WriteLine($"emit: diagnostic {diagnostic.Code} {diagnostic.Severity} {diagnostic.Message}");

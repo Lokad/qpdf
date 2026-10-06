@@ -242,16 +242,26 @@ public sealed class JsonInspectionTests
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
 
-    [Fact]
-    public async Task MissingOutputFails()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JsonWithoutFileReturnsText(bool terminator)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
+        string[] argv = terminator ? ["inputs/a.pdf", "--json", "--"] : ["inputs/a.pdf", "--json"];
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--json"]),
+            new QpdfCommandInvocation(argv),
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        using JsonDocument json = JsonDocument.Parse(ReadOutputText(result));
+        Assert.Equal(2, json.RootElement.GetProperty("version").GetInt32());
+        Assert.Equal(1, json.RootElement.GetProperty("pages").GetArrayLength());
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static string ReadOutputText(QpdfExecutionResult result) => Assert.IsType<string>(result.OutputText);
 
     [Fact]
     public async Task StrayKeyRequiresJson()

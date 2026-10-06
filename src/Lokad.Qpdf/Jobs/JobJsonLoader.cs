@@ -17,8 +17,9 @@ internal static class JobJsonLoader
         try
         {
             session.AddText(json);
-            await session.LoadChildrenAsync(cancellationToken).ConfigureAwait(false);
-            return new LoadedJob(session.ParsePlan(), session);
+            await session.LoadChildrenAsync(0, cancellationToken).ConfigureAwait(false);
+            session.AppendChainFields(0);
+            return new LoadedJob(session.ParsePlan(false), session);
         }
         catch { session.Dispose(); throw; }
     }
@@ -29,9 +30,25 @@ internal static class JobJsonLoader
         Session session = Session.Create(host, limits, governor);
         try
         {
-            await session.AddFileAsync(path, cancellationToken).ConfigureAwait(false);
-            await session.LoadChildrenAsync(cancellationToken).ConfigureAwait(false);
-            return new LoadedJob(session.ParsePlan(), session);
+            await session.LoadFileChainAsync(path.Value, cancellationToken).ConfigureAwait(false);
+            return new LoadedJob(session.ParsePlan(false), session);
+        }
+        catch { session.Dispose(); throw; }
+    }
+
+    internal static bool HasJobFile(IReadOnlyList<string> argv)
+        => argv.Any(token => token == "--job-json-file" || token.StartsWith("--job-json-file=", StringComparison.Ordinal));
+
+    internal static async ValueTask<LoadedJob> ParseArgvAsync(
+        IQpdfHost host, IReadOnlyList<string> argv, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        Session session = Session.Create(host, limits, governor);
+        try
+        {
+            session.AdmitArguments(argv);
+            await ArgvConfigurationReader.ReadAsync(argv, session.AddSetting,
+                name => session.LoadFileChainAsync(name, cancellationToken), governor).ConfigureAwait(false);
+            return new LoadedJob(session.ParsePlan(true), session);
         }
         catch { session.Dispose(); throw; }
     }
@@ -90,6 +107,35 @@ internal static class JobJsonLoader
 
         private List<JsonDocument> Documents => _documents ?? throw new ObjectDisposedException(nameof(Session));
 
+        internal void AdmitArguments(IReadOnlyList<string> argv)
+        {
+            long bytes = 0;
+            foreach (string token in argv)
+            {
+                _governor.CheckCancellation();
+                _governor.ChargeWork(token.Length + 1L);
+                bytes = checked(bytes + Encoding.UTF8.GetByteCount(token));
+                if (bytes > Math.Min(_limits.MaxInputBytes, int.MaxValue))
+                {
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), bytes, Math.Min(_limits.MaxInputBytes, int.MaxValue));
+                }
+            }
+            // Funds the syntax adapter, temporary collections and escaped JSON
+            // before constructing them. Each retained DOM gets its own admission.
+            long reservation = checked(bytes * 32L + argv.Count * 512L + 4096L);
+            _governor.ReserveMemory(reservation);
+            _reserved = checked(_reserved + reservation);
+        }
+
+        internal void AddSetting(string name, object value)
+        {
+            _governor.CheckCancellation();
+            string json = JsonSerializer.Serialize(new Dictionary<string, object> { [name] = value });
+            AddText(json);
+            List<JsonProperty> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
+            foreach (JsonProperty property in Documents[^1].RootElement.EnumerateObject()) { fields.Add(property); }
+        }
+
         internal void AddText(string text)
         {
             _governor.CheckCancellation();
@@ -103,12 +149,12 @@ internal static class JobJsonLoader
             AddDocument(() => JsonDocument.Parse(text, Options()));
         }
 
-        internal async ValueTask AddFileAsync(QpdfPath path, CancellationToken cancellationToken)
+        internal async ValueTask AddFileAsync(QpdfPath path, int depth, CancellationToken cancellationToken)
         {
             _governor.CheckCancellation();
-            if (Documents.Count >= _limits.MaxNestingDepth)
+            if (depth >= _limits.MaxNestingDepth)
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), Documents.Count + 1L, _limits.MaxNestingDepth);
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, _limits.MaxNestingDepth);
             }
             await using IQpdfInput input = await GovernedHost.OpenInputAsync(_host, path, _governor, cancellationToken).ConfigureAwait(false);
             HashSet<string> identities = _identities ?? throw new ObjectDisposedException(nameof(Session));
@@ -205,7 +251,18 @@ internal static class JobJsonLoader
             }
         }
 
-        internal async ValueTask LoadChildrenAsync(CancellationToken cancellationToken)
+        internal async ValueTask LoadFileChainAsync(string name, CancellationToken cancellationToken)
+        {
+            HashSet<string> identities = _identities ?? throw new ObjectDisposedException(nameof(Session));
+            identities.Clear();
+            int first = Documents.Count;
+            await AddFileAsync(SelectionPlan.CheckedPath(name), 0, cancellationToken).ConfigureAwait(false);
+            await LoadChildrenAsync(first, cancellationToken).ConfigureAwait(false);
+            AppendChainFields(first);
+            identities.Clear();
+        }
+
+        internal async ValueTask LoadChildrenAsync(int first, CancellationToken cancellationToken)
         {
             while (Documents[^1].RootElement.TryGetProperty(FileKey, out JsonElement child))
             {
@@ -215,18 +272,21 @@ internal static class JobJsonLoader
                     throw new QpdfParseException("Job jobJsonFile must be a nonempty string.", 0L, null);
                 }
                 string name = child.GetString() ?? throw new QpdfParseException("Job jobJsonFile must name a file.", 0L, null);
-                await AddFileAsync(SelectionPlan.CheckedPath(name), cancellationToken).ConfigureAwait(false);
+                await AddFileAsync(SelectionPlan.CheckedPath(name), Documents.Count - first, cancellationToken).ConfigureAwait(false);
             }
         }
 
-        internal JobPlan ParsePlan()
+        internal JobPlan ParsePlan(bool configurationLayers)
+            => JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
+                configurationLayers || Documents.Count > 1, _limits, _governor);
+
+        internal void AppendChainFields(int first)
         {
             List<JsonProperty> fields = _fields ?? throw new ObjectDisposedException(nameof(Session));
             // Each document has one include: forward prefixes, then reverse suffixes
             // reproduce native sorted-key traversal without recursive loading.
-            foreach (JsonDocument document in Documents) { AddFields(document, true, fields); }
-            for (int index = Documents.Count - 1; index >= 0; index--) { AddFields(Documents[index], false, fields); }
-            return JobJsonParser.ParseProperties(fields, Documents.Count > 1, _limits, _governor);
+            for (int index = first; index < Documents.Count; index++) { AddFields(Documents[index], true, fields); }
+            for (int index = Documents.Count - 1; index >= first; index--) { AddFields(Documents[index], false, fields); }
         }
 
         private void AddFields(JsonDocument document, bool prefix, List<JsonProperty> fields)
@@ -236,7 +296,7 @@ internal static class JobJsonLoader
             {
                 sorted.Sort((left, right) =>
                 {
-                    _governor.ChargeWork(left.Name.Length + right.Name.Length + 1L);
+                    _governor.ChargeWork((long)left.Name.Length + right.Name.Length + 1L);
                     _governor.CheckCancellation();
                     return string.CompareOrdinal(left.Name, right.Name);
                 });

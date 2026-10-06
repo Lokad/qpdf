@@ -11,6 +11,25 @@ namespace Lokad.Qpdf.Tests.Commands;
 public sealed class JobConfigurationOwnershipTests
 {
     [Fact]
+    public async Task MixedArgvModelsDropReferencesOnDisposal()
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("child.json"), "{\"empty\":\"\"}"u8.ToArray(), QpdfInputOwnership.Copy);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        JobJsonLoader.LoadedJob loaded = await JobJsonLoader.ParseArgvAsync(host,
+            ["--job-json-file=child.json", "--show-npages"], QpdfLimits.Default, governor, CancellationToken.None);
+        Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
+        WeakReference[] documents = SnapshotAndDispose(loaded);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
+        Assert.All(documents, document => Assert.False(document.IsAlive));
+        GC.KeepAlive(loaded);
+    }
+
+    [Fact]
     public async Task LoadedConfigurationStaysAdmittedUntilOwnerDisposal()
     {
         InMemoryQpdfHost host = new();

@@ -16,7 +16,8 @@ Three routes converge on one selection plan executed by the shared engine:
 - Argv: `Qpdf.ExecuteAsync` accepts `input --pages [--file=]file [--range=]range
   -- output` (repeated file/range groups with the full range grammar, collation,
   rotation, labels, split, and empty-base forms), `input --check`, standalone
-  `--job-json-file=file` (also the existing separate `--job-json-file file` form),
+  `--job-json-file=file` mixed with ordinary argv settings and repeated files
+  (also the existing separate `--job-json-file file` syntax extension),
   `@file` response files (one argument per line), `--help`/`--version`/`--job-json-help`/`--completion-bash`/`--completion-zsh`,
   content flags, overlay and underlay blocks, appearance flags, image optimization,
   QDF, linearization, JSON inspection and editing, attachment editing, writer controls,
@@ -42,8 +43,11 @@ Configuration files together fit `MaxInputBytes`; host memory/work/nesting and
 operation/handle ceilings apply during loading. File identity cycles reject,
 crypto declarations reject before PDF/password access, and cancellation closes
 job input leases. Models remain admitted through execution and are disposed
-before result snapshots. Mixed argv settings and repeated argv job-file options
-remain required work; codec/pool/diagnostic ownership audits remain open.
+before result snapshots. Argv settings apply at their argument position; files
+do not advance the positional input/output cursor. Active nested identities
+form cycles; a completed independent file may be included again. A later input
+supersedes an earlier empty configuration; empty after an input rejects.
+Complete grammar/default/context and codec/pool/diagnostic audits remain open.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —
@@ -154,6 +158,10 @@ echoing values.
   filters skip streams with a warning at level `all`. Form-tree validation warns without failing on page widgets no field registration reaches, kids whose /Parent back-link does not name the traversed node, and field-like direct objects met while traversing.
 - `input --check` publishes no files and maps diagnostics to exit 0/2/3.
   Inspection never claims conformance, safe content, or rendering correctness.
+- JSON inspection may omit the output file, with or without a final `--`.
+  `QpdfExecutionResult.OutputText` then carries the JSON content; no ambient
+  stdout is used. File-output operations leave that property null. Returned
+  text is immutable caller-owned data and obeys the job's output-byte ceiling.
 - `input --json[=1|2|latest] [--json-key=]... -- output` writes document JSON
   (version plus parameters, then pages, pagelabels, acroform, attachments,
   encrypt, outlines, and objects/objectinfo for version 1 or qpdf for

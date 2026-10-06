@@ -3563,6 +3563,9 @@ public static class Qpdf
         QpdfObject? verbatimTree = plan.Labels.Count == 0 && !plan.RemoveLabels && !plan.SplitPages.HasValue
             ? Content.PageLabelMerge.TryGetRawTree(document.Engine)
             : null;
+        // The shared selection path reopens its input and closes those leases
+        // before publication. Do not retain this preliminary lease across it.
+        await document.DisposeAsync().ConfigureAwait(false);
         return await SelectPagesCoreAsync(
             host,
             solo,
@@ -3577,7 +3580,7 @@ public static class Qpdf
             plan.RemoveLabels,
             verbatimTree,
             plan.SplitPages,
-            false,
+            plan.ReplaceInput,
             plan.MinVersion,
             plan.ForceVersion,
             plan.DeterministicId,
@@ -4836,22 +4839,12 @@ public static class Qpdf
                 governor.Snapshot());
         }
 
-        if (TryTakeJobJsonFile(expanded, out string? jobPath, out QpdfException? jobError))
+        if (JobJsonLoader.HasJobFile(expanded))
         {
-            if (jobError is not null)
-            {
-                return ToFailedResult(jobError);
-            }
-
-            if (jobPath is null)
-            {
-                return ToFailedResult(new QpdfParseException("Null argument.", 1, null));
-            }
-
             JobJsonLoader.LoadedJob loaded;
             try
             {
-                loaded = await JobJsonLoader.ParseFileAsync(host, SelectionPlan.CheckedPath(jobPath), options.Limits, governor, cancellationToken).ConfigureAwait(false);
+                loaded = await JobJsonLoader.ParseArgvAsync(host, expanded, options.Limits, governor, cancellationToken).ConfigureAwait(false);
             }
             catch (QpdfException ex)
             {
@@ -4877,50 +4870,6 @@ public static class Qpdf
         }
 
         return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static bool TryTakeJobJsonFile(IReadOnlyList<string> argv, out string? jobPath, out QpdfException? error)
-    {
-        jobPath = null;
-        error = null;
-        int found = -1;
-        for (int i = 0; i < argv.Count; i++)
-        {
-            if (argv[i] == "--job-json-file" || argv[i].StartsWith("--job-json-file=", StringComparison.Ordinal))
-            {
-                if (found >= 0)
-                {
-                    error = new QpdfParseException("Duplicate --job-json-file is outside the narrow profile.", i, null);
-                    return true;
-                }
-
-                found = i;
-                if (argv[i].StartsWith("--job-json-file=", StringComparison.Ordinal))
-                {
-                    jobPath = argv[i].Substring("--job-json-file=".Length);
-                }
-            }
-        }
-
-        if (found < 0)
-        {
-            return false;
-        }
-
-        if (found != 0 || argv.Count != (jobPath is null ? 2 : 1))
-        {
-            error = new QpdfParseException("--job-json-file takes exactly one file and no other operation.", found, null);
-            return true;
-        }
-
-        jobPath ??= argv[1];
-        if (jobPath is null)
-        {
-            error = new QpdfParseException("Null argument.", 1, null);
-            return true;
-        }
-
-        return true;
     }
 
     /// <summary>Executes a job-JSON invocation with default budgets.</summary>
@@ -4985,7 +4934,7 @@ public static class Qpdf
         {
             result = await RunPlanAsync(host, loaded.Plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
-        return new QpdfExecutionResult(result.Status, result.ExitCode, result.Diagnostics, governor.Snapshot());
+        return new QpdfExecutionResult(result.Status, result.ExitCode, result.Diagnostics, governor.Snapshot()).WithOutputText(result.OutputText);
     }
 
     private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(
@@ -5478,10 +5427,10 @@ public static class Qpdf
                         schema,
                     };
 
-                    return CompleteWithPresentation(warnings, inspected.Counters, plan);
+                    return CompleteWithPresentation(warnings, inspected.Counters, plan).WithOutputText(json.Output.HasValue ? null : inspected.Json);
                 }
 
-                return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan);
+                return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan).WithOutputText(json.Output.HasValue ? null : inspected.Json);
             }
             catch (QpdfException ex)
             {

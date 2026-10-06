@@ -117,8 +117,8 @@ public sealed class EmptyInputTests
     }
 
     [Theory]
-    [InlineData("{\"empty\": true, \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}]}")]
-    [InlineData("{\"empty\": true, \"outputFile\": \"outputs/a.pdf\"}")]
+    [InlineData("{\"empty\": [], \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}]}")]
+    [InlineData("{\"empty\": [], \"outputFile\": \"outputs/a.pdf\"}")]
     [InlineData("{\"empty\": true, \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
     [InlineData("{\"empty\": \"yes\", \"outputFile\": \"outputs/a.pdf\", \"pages\": [{\"file\": \"inputs/a.pdf\", \"range\": \"1\"}]}")]
     public async Task BadEmptyJobsFail(string jobJson)

@@ -300,7 +300,7 @@ internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecove
 internal sealed record AttachmentPlan(QpdfPath Input, QpdfPath? Output, string? Key, bool List, QpdfRecoveryMode Recovery) : JobPlan(Input);
 
 /// <summary>Validated JSON inspection.</summary>
-internal sealed record JsonPlan(QpdfPath Input, QpdfPath Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input)
+internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
     public string StreamDataMode { get; init; } = "none";
 

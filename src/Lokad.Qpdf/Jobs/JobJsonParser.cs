@@ -280,6 +280,7 @@ internal static class JobJsonParser
                         }
 
                         seenEmpty = true;
+                        if (input is not null) { throw new QpdfParseException("Empty input cannot follow an input file.", 0L, null); }
                         empty = RequireBareFlag(property.Value, "empty");
                         break;
                     case "inputFile":
@@ -290,6 +291,7 @@ internal static class JobJsonParser
 
                         seenInput = true;
                         input = RequireString(property.Value, "inputFile");
+                        empty = false;
                         break;
                     case "outputFile":
                         if (seenOutput)
@@ -336,6 +338,7 @@ internal static class JobJsonParser
 
                         seenCollate = true;
                         collate = RequireString(property.Value, "collate");
+                        _ = ArgvParser.ParseCollateValue(collate, 0L);
                         break;
                     case "rotate":
                         if (seenRotate && !configurationLayers)
@@ -1171,15 +1174,6 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null);
             }
 
-            bool emptyInspection = check || showNpages || showPages || showObject is not null || showXref
-                || listAttachments || showAttachment is not null
-                || checkLinearization || showLinearization
-                || seenJson || seenJsonOutput;
-            if (empty && !hasPages && !emptyInspection)
-            {
-                throw new QpdfParseException("Job \"empty\" requires \"pages\".", 0L, null);
-            }
-
             if (empty && input is not null)
             {
                 throw new QpdfParseException("Job \"empty\" cannot be combined with \"inputFile\".", 0L, null);
@@ -1475,17 +1469,13 @@ internal static class JobJsonParser
                     throw new QpdfParseException("Job \"replaceInput\" cannot be combined with \"outputFile\".", 0L, null);
                 }
 
-                if (!hasPages)
-                {
-                    throw new QpdfParseException("Job \"replaceInput\" requires \"pages\".", 0L, null);
-                }
-
                 if (empty)
                 {
                     throw new QpdfParseException("Job \"replaceInput\" cannot be combined with \"empty\".", 0L, null);
                 }
+                if (!hasPages) { output = input; }
             }
-            else if (output is null)
+            else if (output is null && !seenJson && !seenJsonOutput)
             {
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
@@ -1603,11 +1593,6 @@ internal static class JobJsonParser
 
             if (seenJsonOutput || seenJson)
             {
-                if (output is null)
-                {
-                    throw new QpdfParseException("Job JSON requires \"outputFile\" with JSON inspection.", 0L, null);
-                }
-
                 int jsonNumber = 2;
                 if (seenJson && jsonVersion is not null && jsonVersion != "latest")
                 {
@@ -1635,7 +1620,7 @@ internal static class JobJsonParser
 
                 string jsonStreams = seenJsonStreamData ? jsonStreamData! : (seenJsonOutput ? "inline" : "none");
                 (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "json inspection");
-                return new JsonPlan(inspectionInput, SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
+                return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
                     EmptyDocument = emptyDocument,
                     DecodeLevel = jsonDecode,
@@ -1664,18 +1649,19 @@ internal static class JobJsonParser
 
             if (!hasPages)
             {
-                if (seenRotate || seenLabels || seenCollate)
-                {
-                    throw new QpdfParseException("Job rotation, label and collate keys require \"pages\".", 0L, null);
-                }
-
                 if (output is null)
                 {
                     throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
                 }
 
-                return new WholeFilePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
+                QpdfPath wholeInput = empty ? QpdfPath.From(JobPlan.EmptyDocumentInput)
+                    : SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
+                return new WholeFilePlan(wholeInput, SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    EmptyDocument = empty,
+                    ReplaceInput = replaceInput,
+                    Rotations = rotations,
+                    Labels = labels,
                     WarningExitZero = warningExit0,
                     RemoveLabels = removeLabels,
                     SplitPages = splitPages,

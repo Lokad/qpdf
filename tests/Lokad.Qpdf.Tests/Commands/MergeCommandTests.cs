@@ -267,15 +267,18 @@ public sealed class MergeCommandTests
     }
 
     [Fact]
-    public async Task JobCollateRequiresPages()
+    public async Task JobCollateWithoutPagesKeepsTheWholeDocument()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(
             host,
             """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/m.pdf", "coalesceContents": true, "collate": ""}""",
             CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
-        Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] bytes));
+        host.AddInput(QpdfPath.From("inputs/reread.pdf"), bytes, QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
+        Assert.Equal(1, document.PageCount);
     }
 
     [Theory]

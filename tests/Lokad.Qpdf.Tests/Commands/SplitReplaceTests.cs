@@ -218,8 +218,8 @@ public sealed class SplitReplaceTests
     [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": "yes"}""")]
     [InlineData("""{"inputFile":"inputs/a.pdf","pages":[{"file":".","range":"1"}],"replaceInput":true,"replaceInput":[]}""")]
     [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "replaceInput": true}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true, "empty": true}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "replaceInput": []}""")]
+    [InlineData("""{"inputFile": "inputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "replaceInput": true, "empty": []}""")]
     public async Task JobReplaceRejectsMalformed(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");

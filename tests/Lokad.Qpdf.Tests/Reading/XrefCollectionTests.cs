@@ -108,7 +108,9 @@ public sealed class XrefCollectionTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         XRefTable table = Parse(input, governor, QpdfLimits.Default);
         int capacity = Assert.IsType<Dictionary<int, XrefEntry>>(table.Entries).EnsureCapacity(0);
-        DictionaryAllocation(0);
+        // Warm the actual constructor path before measuring backing storage.
+        // Cold BCL/runtime initialization is a separate allocation audit.
+        DictionaryAllocation(capacity);
         long storage = DictionaryAllocation(capacity);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= storage,
             $"Retained admission {governor.Snapshot().LiveMemoryBytes} is below independently allocated dictionary storage {storage}, capacity {capacity}.");
@@ -325,7 +327,10 @@ public sealed class XrefCollectionTests
     [InlineData(true)]
     public async Task CancellationAfterCollectionWorkReleasesAllTemporaryOwners(bool recovery)
     {
-        byte[] input = Classic(20000, recovery);
+        // Keep enough work after collection growth for a scheduled observer;
+        // every attempt still requires interruption after actual admission.
+        const int count = 200000;
+        byte[] input = Classic(count, recovery);
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         bool interrupted = false;
         for (int attempt = 0; attempt < 8 && !interrupted; attempt++)
@@ -341,7 +346,7 @@ public sealed class XrefCollectionTests
             try
             {
                 XRefTable completed = await parsing.WaitAsync(TimeSpan.FromSeconds(10));
-                Assert.True(completed.Entries.Count >= 20000);
+                Assert.True(completed.Entries.Count >= count);
             }
             catch (OperationCanceledException)
             {

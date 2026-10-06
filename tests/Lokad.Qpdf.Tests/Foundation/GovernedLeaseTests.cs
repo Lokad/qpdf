@@ -15,9 +15,37 @@ public sealed class GovernedLeaseTests
     {
         CountingHost host = new(Fixture("minimal-1page.pdf"));
         QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1L };
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["a", "--overlay", "b", "--", "--", "out"]), new QpdfExecutionOptions(limits), CancellationToken.None);
+        QpdfCommandInvocation command = new(["a", "--pages", ".", "1", "--linearize", "--linearize-pass1=pass1", "--", "out"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, command, new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.Equal(0, host.OutputCreations);
+        Assert.Equal(0L, host.OpenLeases);
         Assert.True(host.PeakLeases <= 1);
+        Assert.False(host.HasOutput("out"));
+        Assert.False(host.HasOutput("pass1"));
+
+        QpdfExecutionResult control = await Qpdf.ExecuteAsync(host, command,
+            new QpdfExecutionOptions(QpdfLimits.Default), CancellationToken.None);
+        Assert.True(control.Status == QpdfExecutionStatus.Completed,
+            string.Join("; ", control.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+        Assert.Equal(2, host.OutputCreations);
+        Assert.True(host.HasOutput("out"));
+        Assert.True(host.HasOutput("pass1"));
+        Assert.Equal(0L, host.OpenLeases);
+    }
+
+    [Fact]
+    public async Task WholeFileOverlayClosesInputsBeforePublication()
+    {
+        CountingHost host = new(Fixture("minimal-1page.pdf"));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["a", "--overlay", "b", "--", "--", "out"]),
+            new QpdfExecutionOptions(QpdfLimits.Default with { MaxOpenHandles = 1L }), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(1L, host.PeakLeases);
+        Assert.Equal(0L, host.OpenLeases);
+        Assert.True(host.HasOutput("out"));
     }
 
     [Fact]
@@ -75,7 +103,11 @@ public sealed class GovernedLeaseTests
         private readonly InMemoryQpdfHost _inner = new();
         public int ReadCalls { get; private set; }
         public long PeakLeases { get; private set; }
+        public int OutputCreations { get; private set; }
+        public long OpenLeases => _inner.OpenLeaseCount;
         public bool ShortReads { get; init; }
+
+        internal bool HasOutput(string path) => _inner.TryGetOutput(QpdfPath.From(path), out _);
 
         internal CountingHost(byte[] bytes)
         {
@@ -97,6 +129,7 @@ public sealed class GovernedLeaseTests
 
         public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
         {
+            OutputCreations++;
             IQpdfOutputTransaction transaction = await _inner.CreateOutputAsync(path, cancellationToken);
             PeakLeases = Math.Max(PeakLeases, _inner.OpenLeaseCount);
             return transaction;

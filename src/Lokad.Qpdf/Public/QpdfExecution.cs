@@ -91,6 +91,15 @@ public sealed record QpdfExecutionResult
     /// <summary>Gets the final resource counters.</summary>
     public QpdfExecutionCounters Counters { get; }
 
+    /// <summary>
+    /// Gets JSON inspection text when no output file was requested, or null
+    /// for operations that publish to a host path or have no text payload.
+    /// The caller owns the returned immutable text; no ambient stdout is used.
+    /// </summary>
+    public string? OutputText { get; private init; }
+
+    internal QpdfExecutionResult WithOutputText(string? text) => this with { OutputText = text };
+
     /// <summary>Creates an execution result.</summary>
     /// <exception cref="ArgumentNullException">Diagnostics or counters are null.</exception>
     public QpdfExecutionResult(

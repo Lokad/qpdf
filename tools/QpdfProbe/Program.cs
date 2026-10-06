@@ -68,6 +68,7 @@ internal static class Program
         Console.WriteLine("validate opens the PDF with the pinned independent reader (PdfPig 0.1.16) and reports page count, header version and SHA-256.");
         Console.WriteLine("compare requires oracle npages, independent npages and --expected-npages to agree; mismatch exits 2.");
         Console.WriteLine("emit runs the managed library over <dir>/inputs through the public API and writes mapped outputs to disk.");
+        Console.WriteLine("validate --allow-empty explicitly accepts an independently observed zero-page document.");
     Console.WriteLine("probe-jpeg exercises the pinned ImageSharp 3.1.12 JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK gap, bounds, cancellation).");
         Console.WriteLine("probe-flate exercises the governed BCL Flate pipeline (zlib round-trip, level mapping, truncation, expansion limit, cancellation).");
         Console.WriteLine("Missing executables or inputs are explicit failures, never silent skips.");
@@ -102,7 +103,7 @@ internal static class Program
     private static int Validate(string[] args)
     {
         string input = GetOption(args, "--input");
-        IndependentResult result = IndependentReader.Read(input);
+        IndependentResult result = IndependentReader.Read(input, Array.IndexOf(args, "--allow-empty") >= 0);
         Console.WriteLine($"independent: input-sha256={result.InputSha256}");
         Console.WriteLine($"independent: header-version={result.HeaderVersion}");
         Console.WriteLine($"independent: npages={result.Npages}");
@@ -121,7 +122,7 @@ internal static class Program
         }
 
         OracleResult oracle = OracleRunner.Run(qpdfExe, input, ExpectedQpdfVersion);
-        IndependentResult independent = IndependentReader.Read(input);
+        IndependentResult independent = IndependentReader.Read(input, false);
         string sha = ComputeSha256(input);
         Console.WriteLine($"compare: input-sha256={sha}");
         Console.WriteLine($"compare: expected-npages={expected}");

@@ -110,6 +110,40 @@ internal static class Program
         Check(lastKey.Status == QpdfExecutionStatus.Completed && lastKey.ExitCode == QpdfExitCode.Success, "duplicate job keys keep the final value");
         Console.WriteLine("PASS nested job files, joined argv, duplicate-key precedence and cleanup");
 
+        InMemoryQpdfHost mixedHost = NewHost("inputs/in.pdf", input);
+        mixedHost.AddInput(QpdfPath.From("inputs/version.json"), "{\"forceVersion\":\"1.5\"}"u8.ToArray(), QpdfInputOwnership.Copy);
+        mixedHost.AddInput(QpdfPath.From("inputs/output.json"), "{\"outputFile\":\"outputs/mixed.pdf\"}"u8.ToArray(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult mixed = await Qpdf.ExecuteAsync(mixedHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--force-version=1.6", "--job-json-file=inputs/version.json", "--job-json-file=inputs/output.json", "--rotate=+90:1"]), CancellationToken.None);
+        Check(mixed.Status == QpdfExecutionStatus.Completed && mixed.ExitCode == QpdfExitCode.Success, "mixed argv/file execution");
+        byte[] mixedBytes = Published(mixedHost, "outputs/mixed.pdf");
+        Check(Encoding.ASCII.GetString(mixedBytes).StartsWith("%PDF-1.5", StringComparison.Ordinal), "mixed setter precedence");
+        mixedHost.AddInput(QpdfPath.From("inputs/mixed.pdf"), mixedBytes, QpdfInputOwnership.Copy);
+        QpdfJsonResult rotatedJson = await Qpdf.GetDocumentJsonAsync(mixedHost,
+            QpdfPath.From("inputs/mixed.pdf"), QpdfPath.From("outputs/mixed-inspection.json"), new QpdfJsonOptions(2, ["qpdf"]), CancellationToken.None);
+        using (JsonDocument mixedDocument = JsonDocument.Parse(rotatedJson.Json))
+        {
+            Check(mixedDocument.RootElement.GetProperty("qpdf")[1].EnumerateObject().Any(entry =>
+                entry.Value.TryGetProperty("value", out JsonElement value)
+                && value.ValueKind == JsonValueKind.Object
+                && value.TryGetProperty("/Type", out JsonElement type) && type.GetString() == "/Page"
+                && value.TryGetProperty("/Rotate", out JsonElement rotation) && rotation.GetInt32() == 90), "mixed rotation effect");
+        }
+        Check(mixed.Counters.TotalWork > 0 && mixed.Counters.OpenHandles == 0 && mixedHost.OpenLeaseCount == 0, "mixed argv cleanup");
+        Console.WriteLine("PASS mixed argv/files, version precedence, rotation and cleanup");
+
+        QpdfExecutionResult mixedJson = await Qpdf.ExecuteAsync(mixedHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--job-json-file=inputs/version.json", "--json=2", "--json-object=1", "--json-object=trailer"]), CancellationToken.None);
+        Check(mixedJson.Status == QpdfExecutionStatus.Completed && mixedJson.OutputText is not null, "mixed JSON text result");
+        using (JsonDocument inspection = JsonDocument.Parse(mixedJson.OutputText ?? throw new InvalidOperationException("Missing JSON text")))
+        {
+            Check(inspection.RootElement.GetProperty("version").GetInt32() == 2
+                && inspection.RootElement.GetProperty("qpdf")[1].TryGetProperty("obj:1 0 R", out _)
+                && inspection.RootElement.GetProperty("qpdf")[1].TryGetProperty("trailer", out _), "mixed JSON objects and trailer");
+        }
+        Check(mixedJson.Counters.OpenHandles == 0 && mixedHost.OpenLeaseCount == 0, "mixed JSON cleanup");
+        Console.WriteLine("PASS mixed JSON inspection returns text without an output file");
+
         byte[] damaged = BreakStartXref(input);
         InMemoryQpdfHost repairHost = NewHost("inputs/damaged.pdf", damaged);
         QpdfExecutionResult repair = await Qpdf.ExecuteAsync(

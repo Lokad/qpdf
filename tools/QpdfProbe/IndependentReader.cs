@@ -11,7 +11,7 @@ internal sealed record IndependentResult(
 
 internal static class IndependentReader
 {
-    internal static IndependentResult Read(string inputPdf)
+    internal static IndependentResult Read(string inputPdf, bool allowEmpty)
     {
         if (string.IsNullOrWhiteSpace(inputPdf))
         {
@@ -25,7 +25,7 @@ internal static class IndependentReader
 
         string sha = ComputeSha256(inputPdf);
         string headerVersion = ReadHeaderVersion(inputPdf);
-        int npages = ReadPageCount(inputPdf);
+        int npages = ReadPageCount(inputPdf, allowEmpty);
         return new IndependentResult(sha, headerVersion, npages);
     }
 
@@ -64,13 +64,13 @@ internal static class IndependentReader
         return version;
     }
 
-    private static int ReadPageCount(string path)
+    private static int ReadPageCount(string path, bool allowEmpty)
     {
         try
         {
             using PdfDocument document = PdfDocument.Open(path);
             int count = document.NumberOfPages;
-            if (count <= 0)
+            if (count < 0 || (count == 0 && !allowEmpty))
             {
                 throw new ProbeException($"Independent reader reports no pages: {path}.", 1);
             }

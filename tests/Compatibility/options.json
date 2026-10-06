@@ -2432,12 +2432,12 @@
           "MergeCommandTests.JobCollateGroupsApply",
           "MergeCommandTests.JobCollateSingleEntryMerges",
           "MergeCommandTests.ArgvCollateRangesInterleaveInOrder",
-          "MergeCommandTests.JobCollateRangesMatchArgv"
+          "MergeCommandTests.JobCollateRangesMatchArgv",
+          "MergeCommandTests.JobCollateWithoutPagesKeepsTheWholeDocument"
         ],
         "negative": [
           "MergeCommandTests.ArgvMergeErrorsAreExplicit",
           "MergeCommandTests.JobCollateMalformedFails",
-          "MergeCommandTests.JobCollateRequiresPages",
           "MergeCommandTests.CollateRangesCountMismatchFailsWithoutOutput"
         ],
         "interaction": [
@@ -3382,27 +3382,32 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Native mixed argv settings and multiple job-file arguments remain unsupported. Standalone joined/separate argv and nested JSON files use the shared operation parser; configuration ordering, complete grammar and remaining contexts still require auditing."
+        "Mixed argv settings, repeated job-file arguments and nested JSON use the shared loader/parser with configuration ordering and cumulative limits. Complete grammar, defaults and remaining context/interaction coverage still require auditing; parsing a root key does not prove complete behavior."
       ],
       "evidence": {
         "positive": [
           "InvocationTests.JobJsonFileMatchesInlineJob",
           "NestedJobTests.NestedFilesShareTheChecker",
           "NestedJobTests.OuterJobCompletesPartialChildAndRepeatsEmptyFlag",
-          "NestedJobTests.PlainJobUsesTheWholeFileWriter"
+          "NestedJobTests.PlainJobUsesTheWholeFileWriter",
+          "MixedJobArgvTests.NativeConfigurationOrderAndPositionalState",
+          "MixedJobArgvTests.RepeatedCompletedIncludesAreNotIdentityCycles"
         ],
         "negative": [
           "InvocationTests.JobJsonFileErrorsAreExplicit",
           "NestedJobTests.InvalidFileValuesRejectBeforeHostAccess",
           "NestedJobTests.BadChildDoesNotAccessPdfOrPublish",
           "NestedJobTests.RepeatedExclusiveDeclarationsRejectAfterLoading",
-          "NestedJobTests.CryptoDeclarationsRejectBeforePdfOrPasswordAccess"
+          "NestedJobTests.CryptoDeclarationsRejectBeforePdfOrPasswordAccess",
+          "MixedJobArgvTests.ArgvCryptoRejectsBeforeConfigurationAccess",
+          "MixedJobGovernanceTests.NestedCycleInARepeatedFileStillRejects"
         ],
         "interaction": [
           "InvocationTests.JobJsonFileErrorsAreExplicit",
           "NestedJobTests.ScalarPrecedenceUsesNativeKeyOrder",
           "NestedJobTests.RepeatedRotationRangesReplaceAndLabelsReset",
-          "NestedJobTests.DuplicateKeysWithinOneLayerUseTheLastValue"
+          "NestedJobTests.DuplicateKeysWithinOneLayerUseTheLastValue",
+          "MixedJobArgvTests.NativeConfigurationOrderAndPositionalState"
         ],
         "resource": [
           "InvocationTests.JobFileYieldsToExhaustedBudget",
@@ -3411,11 +3416,18 @@
           "NestedJobTests.LoadingBudgetsStopBeforePdfAccess",
           "NestedJobTests.HostReadFailuresAndShortReadsCloseLeases",
           "NestedJobTests.DifferentPathsWithTheSameIdentityFormACycle",
-          "NestedJobTests.CancellationAfterJobReadStartsPreservesPriorOutput"
+          "NestedJobTests.CancellationAfterJobReadStartsPreservesPriorOutput",
+          "MixedJobGovernanceTests.CumulativeLoadingLimitsPreserveTargetsAndCloseLeases",
+          "MixedJobGovernanceTests.AFailedSecondFileDoesNotAccessPdfOrPublish",
+          "MixedJobGovernanceTests.ShortReadsAndIndependentDepthUseSequentialLeases",
+          "MixedJobGovernanceTests.WholeRewriteClosesItsPreliminaryLeaseBeforePublication",
+          "MixedJobGovernanceTests.CancellationDuringTheSecondFileReleasesLoadedModelsAndLeases",
+          "JobConfigurationOwnershipTests.MixedArgvModelsDropReferencesOnDisposal"
         ],
         "oracle": [
           "diff:job-file",
-          "diff:nested-job"
+          "diff:nested-job",
+          "diff:mixed-job"
         ]
       }
     },
@@ -3494,6 +3506,7 @@
       "evidence": {
         "positive": [
           "JsonInspectionTests.DefaultVersionIsTwo",
+          "JsonInspectionTests.JsonWithoutFileReturnsText",
           "JsonInspectionTests.ExplicitVersionOne",
           "JsonInspectionTests.NamesAndStringsEncode",
           "JsonInspectionTests.PageImagesListDirectImages",
@@ -3518,7 +3531,8 @@
           "JsonModesTests.JobModesRoundTrip"
         ],
         "resource": [
-          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
+          "MixedJobArgvTests.DirectJsonTextObeysOutputLimitsAndPreservesTargets"
         ],
         "oracle": [
           "diff:json-pages",

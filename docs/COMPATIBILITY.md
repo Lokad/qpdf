@@ -5,8 +5,9 @@ Reference: qpdf **12.4.2**, commit
 https://github.com/qpdf/qpdf. This target must not move silently.
 
 **Implemented PDF operations: the audited non-cryptographic subset.** 152 inventory entries
-are complete and 5 stay partial: `--job-json-file` lacks native mixed-argv and
-multiple-file configuration; `--check` lacks required native inspection/
+are complete and 5 stay partial: `--job-json-file` still needs complete grammar,
+defaults and interaction auditing after mixed-argv/multiple-file configuration;
+`--check` lacks required native inspection/
 selection/transformation combinations; the no-Zopfli build profile and four-component CMYK
 image samples retain their accepted compatibility exceptions with partial labeling;
 and `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
@@ -47,18 +48,27 @@ snapshots work, peaks and handles after input cleanup; broader diagnostic and
 invocation/presentation counters remain under audit.
 
 `jobJsonFile` loads partial configurations through the invoking host. Direct JSON
-and standalone joined/separate argv job-file routes share the loader and operation
-parser. Native sorted-key traversal determines cross-file setter order; each JSON
+and mixed argv job-file routes share the loader and operation parser. Repeated
+independent files are allowed; active include identity cycles reject. Argv setter
+order follows argument position, and files do not advance the positional cursor.
+Native sorted-key traversal determines order within each file; each JSON
 object uses its last value per key. Repeated input/output/page declarations across
 files reject. Cumulative configuration bytes, nesting, host operations/handles,
 work and a conservative DOM envelope obey host ceilings. Loaded configuration
 stays admitted through execution; cleanup precedes outcome snapshots. Pool/state
-retention and exact allocation accounting remain under audit.
+retention and exact allocation accounting remain under audit. The separate argv
+job-file parameter is an existing managed syntax extension; native comparison
+uses the documented joined form.
+
+JSON inspection without an output file returns its content in
+`QpdfExecutionResult.OutputText`, through the same inspector used by typed and
+file-output routes. No ambient stdout authority is granted. The text obeys the
+host output ceiling and remains usable after execution cleanup.
 
 The target's 98 root keys now have parsing/loading or explicit crypto rejection
 routes. Names alone do not establish complete grammar, defaults or context
-coverage. Mixed argv configuration and additional checker combinations remain
-required gaps in their partial entries, rather than accepted exceptions.
+coverage. Remaining job grammar/default/context auditing and additional checker
+combinations are required gaps in their partial entries.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,

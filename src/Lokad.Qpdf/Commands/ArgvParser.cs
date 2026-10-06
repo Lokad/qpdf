@@ -1005,6 +1005,8 @@ internal static class ArgvParser
         return equals < 0 ? token.Substring(2) : token.Substring(2, equals - 2);
     }
 
+    internal static bool IsCryptoOption(string name) => CryptoOptions.Contains(name);
+
     internal static void CheckOptionToken(string token, long index)
     {
         string name = OptionName(token);
@@ -3063,13 +3065,14 @@ internal static class ArgvParser
         }
 
         Qpdf.ValidateJsonKeys(version, keys);
-        if (cursor >= argv.Count || argv[cursor] != "--")
+        if (cursor < argv.Count && argv[cursor] != "--")
         {
             throw new QpdfParseException("An output file is required after --.", cursor, null);
         }
 
-        string output = ParseOutputArea(argv, cursor);
-        return new JsonPlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), version, keys, recovery) with
+        QpdfPath? output = cursor >= argv.Count || cursor == argv.Count - 1
+            ? null : SelectionPlan.CheckedPath(ParseOutputArea(argv, cursor));
+        return new JsonPlan(SelectionPlan.CheckedPath(input), output, version, keys, recovery) with
         {
             EmptyDocument = string.Equals(input, JobPlan.EmptyDocumentInput, StringComparison.Ordinal),
             DecodeLevel = globals.DecodeLevel ?? (minimalOutput ? "none" : "generalized"),
@@ -3333,7 +3336,7 @@ internal static class ArgvParser
         return new TrailingBlocks(new AttachmentEdits(adds, removes, copies), overlays, underlays);
     }
 
-    private static OverlaySpec ParseOverlayBlock(IReadOnlyList<string> argv, ref int cursor, bool underlay)
+    internal static OverlaySpec ParseOverlayBlock(IReadOnlyList<string> argv, ref int cursor, bool underlay)
     {
         string role = underlay ? "--underlay" : "--overlay";
         cursor += 1;
@@ -3472,7 +3475,7 @@ internal static class ArgvParser
         return TakeOverlayRange(argv, ref cursor);
     }
 
-    private static AttachmentCopy ParseCopyBlock(IReadOnlyList<string> argv, ref int cursor)
+    internal static AttachmentCopy ParseCopyBlock(IReadOnlyList<string> argv, ref int cursor)
     {
         cursor += 1;
         if (cursor >= argv.Count || argv[cursor] is null || argv[cursor] == "--" || (argv[cursor].StartsWith("--", StringComparison.Ordinal) && argv[cursor].Length > 2))
@@ -3525,7 +3528,7 @@ internal static class ArgvParser
         return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix);
     }
 
-    private static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor)
+    internal static AttachmentAdd ParseAddBlock(IReadOnlyList<string> argv, ref int cursor)
     {
         cursor += 1;
         if (cursor >= argv.Count || argv[cursor] is null || argv[cursor] == "--" || (argv[cursor].StartsWith("--", StringComparison.Ordinal) && argv[cursor].Length > 2))
@@ -3715,7 +3718,7 @@ internal static class ArgvParser
         return input;
     }
 
-    private static (List<PageGroup> Groups, List<OutputRotation> Rotations, List<PageLabelSpec> Labels, bool RemoveLabels, List<int> Collate) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
+    internal static (List<PageGroup> Groups, List<OutputRotation> Rotations, List<PageLabelSpec> Labels, bool RemoveLabels, List<int> Collate) ParsePagesArea(IReadOnlyList<string> argv, int pagesAt, int terminatorAt)
     {
         List<PageGroup> groups = new();
         string? file = null;

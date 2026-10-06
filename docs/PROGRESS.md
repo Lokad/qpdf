@@ -2,7 +2,29 @@
 
 ## Current checkpoint
 
-Nested-job correction: **5947/5947 tests pass**, with no failures or
+Mixed argv/job-file correction has passed local verification. The latest completed
+offline run has **6009/6009 passing tests**, no failures/skips, including the
+added context/transform cases.
+The focused lane passes **45 comparisons / 23 independently checked rewrites**;
+the managed separate-parameter extension uses native joined syntax. The identical
+final test assembly fails **52 / preserves 12 of 64** selected public cases
+against the preceding DLL. Fresh package/symbol verification, **41 consumer
+smokes** and two specific rejections pass. The full pinned reference lane passed
+with terminal exit 0 on frozen runtime/test/tool/consumer sources and unchanged
+library/test identities: **1846 exact parser comparisons / 432 rewrite validations**,
+alongside the complete differential lane. This is local Windows evidence;
+package metadata names the preceding commit. Final audited release
+metadata and Windows/Linux reference CI remain open.
+JSON inspection without a file now returns `QpdfExecutionResult.OutputText`;
+the consumer checks actual text and rotation. Configuration ordering, independent
+include cycles, cumulative ceilings and cleanup share the existing engine.
+Whole-file selection closes its preliminary lease before shared copying; the
+handle regression retains an enforced finite ceiling and generous control.
+Xref backing measurement warms its representative constructor path; cold BCL
+state remains A06 work. Its cancellation fixture grows to 200,000 objects while
+still requiring actual interruption after observed admission and cleanup.
+
+Previous committed nested-job correction: **5947/5947 tests pass**, no failures or
 skips. Package/symbol verification and a fresh isolated consumer pass **39
 smokes and two specific rejection cases**. Nineteen focused native nested-job
 cases agree, including three independently checked rewrites. The full pinned
@@ -76,8 +98,9 @@ charge row work and decoded samples once per stage. Those scopes remain partial.
 
 ## Remaining work
 
-- **Next A07 units:** native mixed argv settings/repeated job-file configuration
-  and checker contexts. Native accepts checking with page/object/xref/attachment
+- **Next A07 unit:** correct checker contexts after the verified mixed
+  configuration unit. Complete job grammar/default/context audit stays open.
+  Native accepts checking with page/object/xref/attachment
   inspection and selection/transformation keys that the managed routes reject.
   These are required gaps in partial `--job-json-file` / `--check` entries.
   All 98 root keys have loading/parsing/rejection routes; names do not prove
@@ -111,8 +134,8 @@ charge row work and decoded samples once per stage. Those scopes remain partial.
   pack/verify/consume final audited sources. Benchmark reports are historical;
   governor counters alone cannot establish admission/retention completeness.
 - **M11 and both completion verdicts remain open.** Inventory: 140 flags,
-  157 contexts, 152 complete and five truthful partials: required mixed argv
-  job configuration, checker interactions, parser loading/ownership, accepted CMYK opacity and accepted
+  157 contexts, 152 complete and five truthful partials: job grammar/default/context
+  auditing, checker interactions, parser loading/ownership, accepted CMYK opacity and accepted
   no-Zopfli profile. Pushing,
   tagging and publication are separate actions.
 
