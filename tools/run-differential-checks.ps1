@@ -1341,6 +1341,9 @@ Assert-Trio 'job-file' "$case/lib.pdf" "$case/ora.pdf" 1
 # --- case: check-inspection (shared checking and ordered original-identity listings) ---
 & (Join-Path $PSScriptRoot 'compare-check-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'check-inspections') -FixtureDirectory $fixtureDir
 
+# --- case: binary-inspection (actual bytes, channels, defaults and staged failures) ---
+& (Join-Path $PSScriptRoot 'compare-binary-inspections.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot (Join-Path $diffRoot 'binary-inspections')
+
 # --- case: nested-job (partial configurations and native key/duplicate precedence) ---
 $nestedCases = @(
   @{ Name='valid-direct'; Parent=@{ jobJsonFile='inputs/child.json' }; Child=@{ inputFile='inputs/a.pdf'; check=''; showNpages='' }; Exit=0; Route='direct'; Count=1 },

@@ -1306,7 +1306,8 @@ public static partial class Qpdf
             roots.AddRange(allPreserved);
             roots.AddRange(catalogExtraIds);
             roots.AddRange(multiAttached.ObjectIds);
-            HashSet<int> reachable = ReachableIds(pool, roots, governor);
+            using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
+            HashSet<int> reachable = ReachableIds(pool, roots, reachabilityMemory, governor);
             List<int> kept = new(reachable.Count);
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
@@ -1816,59 +1817,18 @@ public static partial class Qpdf
         return names;
     }
 
-   private static HashSet<int> ReachableIds(Dictionary<int, QpdfObject> pool, List<int> roots, ResourceGovernor governor)
+    private static HashSet<int> ReachableIds(Dictionary<int, QpdfObject> pool, List<int> roots,
+        ParserMemoryScope memory, ResourceGovernor governor)
     {
-        HashSet<int> seen = new();
-        Queue<int> queue = new();
+        List<QpdfObject> references = ParserContainers.CreateList(memory);
         foreach (int root in roots)
         {
-            queue.Enqueue(root);
-        }
-
-        while (queue.TryDequeue(out int id))
-        {
-            if (!pool.TryGetValue(id, out QpdfObject? value) || !seen.Add(id))
-            {
-                continue;
-            }
-
             governor.ChargeWork(1L);
-            Stack<QpdfObject> stack = new();
-            stack.Push(value);
-            while (stack.TryPop(out QpdfObject? current))
-            {
-                if (current is PdfReference reference)
-                {
-                    if (!seen.Contains(reference.ObjectNumber))
-                    {
-                        queue.Enqueue(reference.ObjectNumber);
-                    }
-                }
-                else if (current is PdfArray array)
-                {
-                    for (int i = 0; i < array.Count; i++)
-                    {
-                        stack.Push(array[i]);
-                    }
-                }
-                else if (current is PdfDictionary dictionary)
-                {
-                    foreach (PdfName key in dictionary.Keys)
-                    {
-                        if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
-                        {
-                            stack.Push(entry);
-                        }
-                    }
-                }
-                else if (current is PdfStream stream)
-                {
-                    stack.Push(stream.Dictionary);
-                }
-            }
+            memory.Reserve(24L);
+            ParserContainers.AddItem(memory, references, new PdfReference(root, 0));
         }
-
-        return seen;
+        PdfArray rootArray = ParserContainers.CopyArray(memory, references);
+        return GraphReachability.Find(new Content.PoolResolver(pool), rootArray, memory, governor);
     }
 
     private sealed class MemorySink : IByteSink
@@ -4201,23 +4161,7 @@ public static partial class Qpdf
         }
 
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, cancellationToken);
-        EmbeddedAttachment? match = null;
-        foreach (EmbeddedAttachment attachment in found)
-        {
-            if (string.Equals(attachment.Key, key, StringComparison.Ordinal))
-            {
-                match = attachment;
-                break;
-            }
-        }
-
-        if (match is null)
-        {
-            throw new QpdfParseException("The requested attachment was not found.", 0L, null);
-        }
-
-        byte[] data = EmbeddedFiles.ExtractData(match.Stream, match.StreamObjectNumber, document.Engine, limits, governor, diagnostics);
+        byte[] data = ReadAttachmentData(document, key, limits, governor, diagnostics, cancellationToken);
         if (data.Length > limits.MaxOutputBytes)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
@@ -4227,7 +4171,7 @@ public static partial class Qpdf
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return new QpdfAttachmentExtraction(match.Key, data.Length, [.. diagnostics.Entries], governor.Snapshot());
+        return new QpdfAttachmentExtraction(key, data.Length, [.. diagnostics.Entries], governor.Snapshot());
     }
 
     private static readonly string[] JsonKeys =
@@ -4492,7 +4436,7 @@ public static partial class Qpdf
         PdfVersion version;
         await using (QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false))
         {
-            checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, cancellationToken);
+            checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, false, cancellationToken);
             pageCount = document.PageCount;
             version = document.Version;
             if (showNpages && !checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
@@ -4793,7 +4737,10 @@ public static partial class Qpdf
         }
 
         if (JobJsonLoader.HasJobFile(expanded)
-            || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)))
+            || expanded.Any(token => token == "--check" || token.StartsWith("--check=", StringComparison.Ordinal)
+                || token == "--raw-stream-data" || token.StartsWith("--raw-stream-data=", StringComparison.Ordinal)
+                || token == "--filtered-stream-data" || token.StartsWith("--filtered-stream-data=", StringComparison.Ordinal)
+                || token == "--show-attachment" || token.StartsWith("--show-attachment=", StringComparison.Ordinal)))
         {
             JobJsonLoader.LoadedJob loaded;
             try
@@ -4888,7 +4835,7 @@ public static partial class Qpdf
         {
             result = await RunPlanAsync(host, loaded.Plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
-        return new QpdfExecutionResult(result.Status, result.ExitCode, result.Diagnostics, governor.Snapshot()).WithOutputText(result.OutputText);
+        return result.WithCounters(governor.Snapshot());
     }
 
     private static async ValueTask<IReadOnlyList<QpdfAttachmentInfo>> ListAttachmentsCoreAsync(

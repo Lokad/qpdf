@@ -2,6 +2,36 @@
 
 ## Current checkpoint
 
+Fileless binary inspection has passed local verification. Locked restore,
+Release build and **6189/6189 offline tests** pass with no failures/skips;
+102 net new cases include exact/empty bytes, null informational results, caller
+lifetime, native defaults, output ceilings, six observed-read cancellations and
+checker failure order. The identical final assembly fails **101 / preserves 3
+of 104** selected cases against the preceding checker DLL, without loader
+failures. The native lane passes **108 comparisons / 3 independently checked
+rewrites** across argv/JSON/mixed routes, including warning policy, normalization,
+unreferenced malformed streams and staged failure differences. It is included
+in the full differential lane. Package/symbol checks, **44 fresh consumer smokes**
+and two specific rejection cases pass. The full pinned reference lane completed
+with terminal exit 0 on 325 implementation / 340 total frozen files:
+**1846 exact parser comparisons / 432 rewrite validations**, plus the complete
+differential lane including binary comparisons. Root/probe/packed/fresh-consumer
+library identities agree; all five locks are unchanged. This is local Windows
+evidence. Package metadata names the preceding commit; final release metadata,
+Windows/Linux reference CI, all audit gates and both verdicts remain open.
+The preceding checker checkpoint follows.
+
+Successful fileless inspection returns caller-owned `OutputBytes`; null means
+no binary payload and a non-null empty value means an empty payload. Failed or
+canceled execution discards staged bytes, unlike an already-emitted native
+stdout prefix. Charged output counters include discarded staging. The command
+checker and split writer share admitted reachability traversal; the command
+checker decodes reachable streams, while typed checking retains its broader
+inventory. Filtered inspection shares governed normalization and QDF defaults;
+raw bytes remain unchanged. Empty literal temporaries release only actual
+admission. Constructed-document/input/table/returned-node/diagnostic lifetimes
+and measured CPU/codec cancellation remain separate A03/A04/A06 obligations.
+
 Checker listing correction has passed local verification. Locked restore and
 Release build pass; **6087/6087 offline tests**
 pass with no failures/skips. Sixty focused native comparisons pass across direct
@@ -122,8 +152,10 @@ charge row work and decoded samples once per stage. Those scopes remain partial.
 
 ## Remaining work
 
-- **Next A07 units:** implement fileless binary inspection and checker
-  selection/transformation contexts with actual effects and identities preserved.
+- **Next A07 unit:** implement checker selection/transformation contexts with
+  actual effects and identities preserved. Binary inspection's current checkpoint
+  has complete local reference/package evidence; broader context/default auditing
+  remains required.
   Native checking plus binary output has channel-dependent success/failure
   ordering; matching an exit number alone does not prove that checking ran.
   Complete job grammar/default/context audit stays open.

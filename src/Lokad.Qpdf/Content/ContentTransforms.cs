@@ -459,7 +459,7 @@ internal static class ContentTransforms
             byte[]? normalized = null;
             try
             {
-                normalized = NormalizeContentBytes(data, limits, governor, cancellationToken);
+                normalized = NormalizeContentBytes(data, limits, governor, cancellationToken, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes));
             }
             catch (QpdfException ex) when (ex is not QpdfLimitException)
             {
@@ -544,18 +544,19 @@ internal static class ContentTransforms
 
         return page;
     }
-    private static byte[] NormalizeContentBytes(
+    internal static byte[] NormalizeContentBytes(
         byte[] data,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long maximumBytes, string limitName)
     {
         ContentTokenizer tokenizer = new(data, limits, governor)
         {
             IncludeComments = true,
             IncludeWhitespace = true,
         };
-        List<byte> output = new(data.Length + 16);
+        using GovernedBufferStream output = new(governor, maximumBytes, limitName);
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -575,24 +576,34 @@ internal static class ContentTransforms
                     AppendRaw(output, token);
                     break;
                 case ContentTokenKind.LiteralString:
-                    output.AddRange(EncodeLiteral(DecodeLiteral(token.Data)));
-                    if (ContainsNewline(token.Data))
+                    using (ParserMemoryScope temporary = ParserMemoryScope.Create(governor))
                     {
-                        output.Add((byte)'\n');
+                        byte[] decoded = DecodeLiteral(token.Data, governor, temporary);
+                        byte[] encoded = EncodeLiteral(decoded, governor, temporary, maximumBytes, limitName);
+                        output.Write(encoded);
+                    }
+                    if (ContainsNewline(token.Data, governor))
+                    {
+                        output.WriteByte((byte)'\n');
                     }
 
                     break;
                 case ContentTokenKind.Name:
-                    output.AddRange(EncodeName(ResolveNameBytes(token.Data)));
-                    if (ContainsNewline(token.Data))
+                    using (ParserMemoryScope temporary = ParserMemoryScope.Create(governor))
                     {
-                        output.Add((byte)'\n');
+                        byte[] resolved = ResolveNameBytes(token.Data, governor, temporary);
+                        byte[] encoded = EncodeName(resolved, governor, temporary, maximumBytes, limitName);
+                        output.Write(encoded);
+                    }
+                    if (ContainsNewline(token.Data, governor))
+                    {
+                        output.WriteByte((byte)'\n');
                     }
 
                     break;
                 case ContentTokenKind.Comment:
                     AppendRaw(output, token);
-                    output.Add((byte)'\n');
+                    output.WriteByte((byte)'\n');
                     break;
                 case ContentTokenKind.Whitespace:
                     AppendNormalizedSpace(output, token);
@@ -606,18 +617,15 @@ internal static class ContentTransforms
             }
         }
 
-        return [.. output];
+        return output.ToArray();
     }
 
-    private static void AppendRaw(List<byte> output, ContentToken token)
+    private static void AppendRaw(GovernedBufferStream output, ContentToken token)
     {
-        foreach (byte b in token.Data.Span)
-        {
-            output.Add(b);
-        }
+        output.Write(token.Data.Span);
     }
 
-    private static void AppendNormalizedSpace(List<byte> output, ContentToken token)
+    private static void AppendNormalizedSpace(GovernedBufferStream output, ContentToken token)
     {
         ReadOnlySpan<byte> span = token.Data.Span;
         int position = 0;
@@ -628,7 +636,7 @@ internal static class ContentTransforms
             {
                 for (int i = position; i < span.Length; i++)
                 {
-                    output.Add(span[i]);
+                    output.WriteByte(span[i]);
                 }
 
                 return;
@@ -636,30 +644,32 @@ internal static class ContentTransforms
 
             for (int i = position; i < position + carriage; i++)
             {
-                output.Add(span[i]);
+                output.WriteByte(span[i]);
             }
 
             int absolute = position + carriage;
             if (absolute + 1 >= span.Length)
             {
-                output.Add((byte)'\n');
+                output.WriteByte((byte)'\n');
                 return;
             }
 
             if (span[absolute + 1] != (byte)'\n')
             {
-                output.Add((byte)'\n');
+                output.WriteByte((byte)'\n');
             }
 
             position = absolute + 1;
         }
     }
-    private static bool ContainsNewline(ReadOnlyMemory<byte> raw)
+    private static bool ContainsNewline(ReadOnlyMemory<byte> raw, ResourceGovernor governor)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        for (int i = 0; i < span.Length; i++)
+        for (int i = 0; i < span.Length; i += 8192)
         {
-            if (span[i] == (byte)'\n' || span[i] == (byte)'\r')
+            int count = Math.Min(8192, span.Length - i);
+            governor.ChargeWork(count);
+            if (span.Slice(i, count).IndexOfAny((byte)'\n', (byte)'\r') >= 0)
             {
                 return true;
             }
@@ -668,10 +678,10 @@ internal static class ContentTransforms
         return false;
     }
 
-    private static byte[] DecodeLiteral(ReadOnlyMemory<byte> raw)
+    private static byte[] DecodeLiteral(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        List<byte> decoded = new(span.Length);
+        using GovernedBufferStream decoded = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes));
         int i = 0;
         if (span.Length > 0 && span[0] == (byte)'(')
         {
@@ -686,32 +696,33 @@ internal static class ContentTransforms
 
         while (i < end)
         {
+            governor.ChargeWork(1L);
             if (span[i] == (byte)'\\' && i + 1 < end)
             {
                 byte next = span[i + 1];
                 if (next == (byte)'n')
                 {
-                    decoded.Add((byte)'\n');
+                    decoded.WriteByte((byte)'\n');
                     i += 2;
                 }
                 else if (next == (byte)'r')
                 {
-                    decoded.Add((byte)'\r');
+                    decoded.WriteByte((byte)'\r');
                     i += 2;
                 }
                 else if (next == (byte)'t')
                 {
-                    decoded.Add((byte)'\t');
+                    decoded.WriteByte((byte)'\t');
                     i += 2;
                 }
                 else if (next == (byte)'b')
                 {
-                    decoded.Add((byte)'\b');
+                    decoded.WriteByte((byte)'\b');
                     i += 2;
                 }
                 else if (next == (byte)'f')
                 {
-                    decoded.Add((byte)'\f');
+                    decoded.WriteByte((byte)'\f');
                     i += 2;
                 }
                 else if (next == (byte)'\n')
@@ -736,103 +747,114 @@ internal static class ContentTransforms
                         digits += 1;
                     }
 
-                    decoded.Add((byte)(value & 0xFF));
+                    decoded.WriteByte((byte)(value & 0xFF));
                     i += 1 + digits;
                 }
                 else
                 {
-                    decoded.Add(next);
+                    decoded.WriteByte(next);
                     i += 2;
                 }
 
                 continue;
             }
 
-            decoded.Add(span[i]);
+            decoded.WriteByte(span[i]);
             i += 1;
         }
 
-        return [.. decoded];
+        byte[] result = decoded.ToArray();
+        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
+        return result;
     }
 
-    private static byte[] EncodeLiteral(byte[] value)
+    private static byte[] EncodeLiteral(byte[] value, ResourceGovernor governor, ParserMemoryScope memory,
+        long maximumBytes, string limitName)
     {
-        List<byte> output = new(value.Length + 2) { (byte)'(' };
+        using GovernedBufferStream output = new(governor, maximumBytes, limitName);
+        output.WriteByte((byte)'(');
         foreach (byte b in value)
         {
             switch (b)
             {
                 case (byte)'\n':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'n');
+                    output.WriteByte((byte)'\\');
+                    output.WriteByte((byte)'n');
                     break;
                 case (byte)'\r':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'r');
+                    output.WriteByte((byte)'\\');
+                    output.WriteByte((byte)'r');
                     break;
                 case (byte)'\t':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'t');
+                    output.WriteByte((byte)'\\');
+                    output.WriteByte((byte)'t');
                     break;
                 case (byte)'\b':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'b');
+                    output.WriteByte((byte)'\\');
+                    output.WriteByte((byte)'b');
                     break;
                 case (byte)'\f':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'f');
+                    output.WriteByte((byte)'\\');
+                    output.WriteByte((byte)'f');
                     break;
                 case (byte)'(':
                 case (byte)')':
                 case (byte)'\\':
-                    output.Add((byte)'\\');
-                    output.Add(b);
+                    output.WriteByte((byte)'\\');
+                    output.WriteByte(b);
                     break;
                 default:
                     if (b < 0x20 || b > 0x7E)
                     {
-                        output.Add((byte)'\\');
-                        output.Add((byte)('0' + ((b >> 6) & 0x07)));
-                        output.Add((byte)('0' + ((b >> 3) & 0x07)));
-                        output.Add((byte)('0' + (b & 0x07)));
+                        output.WriteByte((byte)'\\');
+                        output.WriteByte((byte)('0' + ((b >> 6) & 0x07)));
+                        output.WriteByte((byte)('0' + ((b >> 3) & 0x07)));
+                        output.WriteByte((byte)('0' + (b & 0x07)));
                     }
                     else
                     {
-                        output.Add(b);
+                        output.WriteByte(b);
                     }
 
                     break;
             }
         }
 
-        output.Add((byte)')');
-        return [.. output];
+        output.WriteByte((byte)')');
+        byte[] result = output.ToArray();
+        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
+        return result;
     }
 
-    private static byte[] ResolveNameBytes(ReadOnlyMemory<byte> raw)
+    private static byte[] ResolveNameBytes(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        List<byte> resolved = new(span.Length);
+        using GovernedBufferStream resolved = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes));
         int i = 0;
         while (i < span.Length)
         {
+            governor.ChargeWork(1L);
             if (span[i] == (byte)'#' && i + 2 < span.Length && IsHexDigit(span[i + 1]) && IsHexDigit(span[i + 2]))
             {
-                resolved.Add((byte)((HexValue(span[i + 1]) << 4) | HexValue(span[i + 2])));
+                resolved.WriteByte((byte)((HexValue(span[i + 1]) << 4) | HexValue(span[i + 2])));
                 i += 3;
                 continue;
             }
 
-            resolved.Add(span[i]);
+            resolved.WriteByte(span[i]);
             i += 1;
         }
 
-        return [.. resolved];
+        byte[] result = resolved.ToArray();
+        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
+        return result;
     }
 
-    private static byte[] EncodeName(byte[] resolved)
+    private static byte[] EncodeName(byte[] resolved, ResourceGovernor governor, ParserMemoryScope memory,
+        long maximumBytes, string limitName)
     {
-        List<byte> output = new(resolved.Length + 1) { (byte)'/' };
+        using GovernedBufferStream output = new(governor, maximumBytes, limitName);
+        output.WriteByte((byte)'/');
         foreach (byte b in resolved)
         {
             bool delimiter = b == (byte)'#' || b == (byte)'/' || b == (byte)'(' || b == (byte)')'
@@ -840,17 +862,19 @@ internal static class ContentTransforms
                 || b == (byte)'{' || b == (byte)'}' || b == (byte)'%';
             if (b < 33 || b > 126 || delimiter)
             {
-                output.Add((byte)'#');
-                output.Add((byte)"0123456789abcdef"[b >> 4]);
-                output.Add((byte)"0123456789abcdef"[b & 15]);
+                output.WriteByte((byte)'#');
+                output.WriteByte((byte)"0123456789abcdef"[b >> 4]);
+                output.WriteByte((byte)"0123456789abcdef"[b & 15]);
             }
             else
             {
-                output.Add(b);
+                output.WriteByte(b);
             }
         }
 
-        return [.. output];
+        byte[] result = output.ToArray();
+        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
+        return result;
     }
 
     private static bool IsHexDigit(byte b)
@@ -887,14 +911,16 @@ internal static class ContentTransforms
         ["Do"] = "XObject",
     };
 
-    private static string DecodeResourceName(PdfName name)
+    private static string DecodeResourceName(PdfName name, ResourceGovernor governor)
     {
-        return Encoding.Latin1.GetString(ResolveNameBytes(name.RawBytes));
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        return Encoding.Latin1.GetString(ResolveNameBytes(name.RawBytes, governor, memory));
     }
 
-    private static string DecodeContentName(ReadOnlyMemory<byte> raw)
+    private static string DecodeContentName(ReadOnlyMemory<byte> raw, ResourceGovernor governor)
     {
-        return Encoding.Latin1.GetString(ResolveNameBytes(raw.ToArray()));
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        return Encoding.Latin1.GetString(ResolveNameBytes(raw, governor, memory));
     }
 
     private static QpdfObject? ResolvePool(PoolResolver resolver, PdfReference reference)
@@ -1103,7 +1129,7 @@ internal static class ContentTransforms
                     {
                         foreach (PdfName key in sectionDict.Keys)
                         {
-                            known.Add(DecodeResourceName(key));
+                            known.Add(DecodeResourceName(key, governor));
                         }
                     }
                 }
@@ -1158,7 +1184,7 @@ internal static class ContentTransforms
             Dictionary<PdfName, QpdfObject> kept = new();
             foreach (PdfName key in sectionDict.Keys)
             {
-                string decoded = DecodeResourceName(key);
+                string decoded = DecodeResourceName(key, governor);
                 if (!sectionDict.TryGet(key, out QpdfObject? held) || held is null)
                 {
                     changed = true;
@@ -1403,7 +1429,7 @@ internal static class ContentTransforms
                 cancellationToken.ThrowIfCancellationRequested();
                 if (token.Kind == ContentTokenKind.Name)
                 {
-                    lastName = DecodeContentName(token.Data);
+                    lastName = DecodeContentName(token.Data, governor);
                     continue;
                 }
 

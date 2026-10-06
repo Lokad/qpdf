@@ -23,8 +23,12 @@ document for subsequent count, linearization, xref, object, page/image and
 attachment listings, in native inspection order. Object and xref identities
 remain unchanged; serialization-only QDF/linearize settings do not rewrite them.
 Page traversal and declared-count reporting are distinct; failed checking stops
-subsequent inspection. Binary extraction and selection/transformation combinations
-remain under implementation. Checker/page-count results
+subsequent inspection. Fileless stream/attachment inspection returns caller-owned
+binary bytes separately from diagnostics, distinguishing absent and empty payloads.
+Failure or cancellation discards staged bytes. Filtered output uses shared governed
+normalization; command checking and split writing share admitted reachability
+traversal. Selection/transformation inspection combinations remain under
+implementation. Checker/page-count results
 snapshot the governor after input disposal. Broader invocation/presentation
 counters and diagnostic ownership remain under audit.
 

@@ -28,7 +28,7 @@ Three routes converge on one selection plan executed by the shared engine:
   optimization, QDF, linearization, attachments, writer controls, and inspection.
 
 Job inspection accepts `{inputFile, check:""}` without an output file, optionally
-with `showNpages`, `checkLinearization` and `showLinearization`. The `check` value
+with count, linearization, xref, object, page/image and attachment listings. The `check` value
 must be an empty string; booleans fail. Failed checking stops following inspection.
 Checking uses page traversal quietly when `/Count` disagrees, while page-count
 inspection reports the declared count. Typed document reading still reports
@@ -51,7 +51,7 @@ Complete grammar/default/context and codec/pool/diagnostic audits remain open.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —
-stdout binary forms,
+ambient stdout output,
 unknown options — fails explicitly. Password and encryption
 flags fail with `UnsupportedCryptoOperation` and exit 2 without retaining or
 echoing values.
@@ -280,9 +280,16 @@ echoing values.
   explicit output path (raw bytes plus a warning where decoding is
   unavailable). The same engine backs
   `--list-attachments` (info diagnostics, no output file) and
-  `--show-attachment=key` (last key wins; output file required). Upstream
-  writes extracts to stdout; without a stdout binary contract this profile
-  publishes them to the declared output instead.
+  `--show-attachment=key` (last key wins). Without a host output path, argv and
+  job inspection return caller-owned `QpdfExecutionResult.OutputBytes`; empty
+  payloads have a value of length zero, and operations without a binary payload
+  return null. The library leaves returned bytes unchanged after cleanup.
+  Raw/filtered object-stream inspection uses the same result contract; filtered
+  bytes honor normalization and QDF defaults. Diagnostic text remains separate.
+  Failed or canceled operations discard staged binary bytes; a native stdout
+  prefix emitted before a later error is an explicit publication difference.
+  Counters charge staged output even when it is subsequently discarded.
+  Explicit output paths use the host's staged transaction instead of stdout.
 - Page selection still drops `/Names` unless attachment edits apply.
   `--add-attachment FILE [--key=] [--filename=] [--creationdate=] [--moddate=]
   [--mimetype=] [--description=] [--replace] --` (repeatable) embeds host

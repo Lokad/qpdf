@@ -297,6 +297,8 @@ internal sealed record ShowPagesPlan(QpdfPath Input, QpdfRecoveryMode Recovery) 
 /// <summary>Validated object inspection.</summary>
 internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input)
 {
+    public bool RejectStreamAfterInfo { get; init; }
+
     public QpdfPath? Output { get; init; }
 }
 
@@ -306,6 +308,10 @@ internal sealed record ShowXrefPlan(QpdfPath Input, QpdfRecoveryMode Recovery) :
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input)
 {
+    public bool RunCheck { get; init; } = true;
+
+    public string? AttachmentKey { get; init; }
+
     public bool ShowNpages { get; init; }
 
     public bool ShowPages { get; init; }

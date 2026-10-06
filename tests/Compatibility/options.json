@@ -2270,7 +2270,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Checker page/object/xref/attachment listings share one document in native inspection order. Binary extraction and page-selection/transformation keys still need implementation and evidence across argv/job routes. Full target-field/default/precedence auditing remains open."
+        "Checker listings and fileless binary extraction share one document, with source-bound native bytes/default/order and full-reference evidence across argv/JSON/mixed routes. Required page-selection/transformation contexts and full target-field/default/precedence auditing remain open."
       ],
       "evidence": {
         "positive": [
@@ -2285,14 +2285,20 @@
           "JobCheckTests.EmptyJobRunsThePageTreeCheck",
           "CheckInspectionTests.CombinedInspectionsRunInNativeOrderOnOriginalIdentities",
           "CheckInspectionTests.PageImageInspectionRunsAfterChecking",
-          "CheckInspectionTests.ExistingAttachmentsAreListedWithTheirOriginalStreamIdentity"
+          "CheckInspectionTests.ExistingAttachmentsAreListedWithTheirOriginalStreamIdentity",
+          "BinaryInspectionTests.FilelessInspectionReturnsExactCallerBytes",
+          "BinaryInspectionTests.StreamDefaultsPreserveNativeInspectionAndWriterChoice",
+          "BinaryInspectionTests.FilteredBytesHonorNormalizationAndQdfDefaults",
+          "BinaryInspectionTests.UnreferencedMalformedStreamsDoNotStopNativeCheckerExtraction"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
           "JobCheckTests.InvalidFlagValuesFailBeforeOpening",
           "JobCheckTests.InvalidOutputModesDoNotOpenOrPublish",
           "JobCheckTests.CryptoKeysRejectBeforeHostAccessWithoutEchoingValues",
-          "JobCheckTests.EncryptedBytesRejectThroughTheCheckerRoute"
+          "JobCheckTests.EncryptedBytesRejectThroughTheCheckerRoute",
+          "BinaryInspectionTests.CheckerOutputPathRejectsBeforePdfAccess",
+          "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2320,14 +2326,19 @@
           "CheckInspectionTests.InspectionCeilingsPreserveTargetsAndCloseTheInput",
           "CheckInspectionTests.AllLinearizationAndListingStagesKeepOneInputLease",
           "CheckInspectionTests.CancellationAfterAnObservedReadStopsTheCombinedJob",
-          "CheckInspectionTests.SelectorOverflowRejectsBeforePdfAccess"
+          "CheckInspectionTests.SelectorOverflowRejectsBeforePdfAccess",
+          "BinaryInspectionTests.OutputCeilingBindsActualAggregateBytes",
+          "BinaryInspectionTests.NormalizedOutputIsBoundedBeforePublication",
+          "BinaryInspectionTests.CancellationAfterAnObservedReadReturnsNoBinaryPayload",
+          "BinaryInspectionTests.AttachmentFailureDiscardsAnEarlierBinaryPayload"
         ],
         "oracle": [
           "diff:linearized",
           "diff:cmyk",
           "diff:forms-check",
           "diff:job-check",
-          "diff:check-inspection"
+          "diff:check-inspection",
+          "diff:binary-inspection"
         ]
       }
     },
@@ -2987,9 +2998,9 @@
           "ShowObjectTests.JobStreamDataMatchesArgv"
         ],
         "negative": [
-          "ShowObjectTests.StreamDataNeedsExactlyOneOutput",
+          "ShowObjectTests.StreamOutputPathsMustBeUnambiguous",
           "ShowObjectTests.RejectsMalformedStreamForms",
-          "ShowObjectTests.StreamDataRequiresShowObject",
+          "ShowObjectTests.UnusedStreamFlagsWithoutAnOperationRequireOutput",
           "ShowObjectTests.FailsOnUndecodableFiltered",
           "ShowObjectTests.JobStreamDataRejectsCombinations"
         ],
@@ -5058,9 +5069,9 @@
           "ShowObjectTests.JobStreamDataMatchesArgv"
         ],
         "negative": [
-          "ShowObjectTests.StreamDataNeedsExactlyOneOutput",
+          "ShowObjectTests.StreamOutputPathsMustBeUnambiguous",
           "ShowObjectTests.RejectsMalformedStreamForms",
-          "ShowObjectTests.StreamDataRequiresShowObject",
+          "ShowObjectTests.UnusedStreamFlagsWithoutAnOperationRequireOutput",
           "ShowObjectTests.JobStreamDataRejectsCombinations"
         ],
         "interaction": [

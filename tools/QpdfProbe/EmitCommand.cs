@@ -77,6 +77,10 @@ internal static class EmitCommand
         {
             Console.WriteLine("emit: text " + System.Text.Json.JsonSerializer.Serialize(result.OutputText));
         }
+        if (result.OutputBytes is ReadOnlyMemory<byte> bytes)
+        {
+            Console.WriteLine("emit: bytes " + Convert.ToHexString(bytes.Span));
+        }
         foreach (QpdfDiagnostic diagnostic in result.Diagnostics)
         {
             Console.WriteLine($"emit: diagnostic {diagnostic.Code} {diagnostic.Severity} {diagnostic.Message}");

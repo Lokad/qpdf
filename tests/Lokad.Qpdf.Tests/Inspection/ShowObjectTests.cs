@@ -320,10 +320,10 @@ public sealed class ShowObjectTests
     }
 
     [Theory]
-    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin", "outputs/s.bin")]
     [InlineData("inputs/a.pdf", "--show-object=trailer", "--raw-stream-data", "--", "outputs/r.bin")]
     [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--", "outputs/r.bin", "--", "outputs/s.bin")]
-    public async Task StreamDataNeedsExactlyOneOutput(params string[] argv)
+    public async Task StreamOutputPathsMustBeUnambiguous(params string[] argv)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
@@ -337,8 +337,8 @@ public sealed class ShowObjectTests
     [Theory]
     [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data=x")]
     [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data=x")]
-    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--raw-stream-data", "--", "outputs/r.bin")]
-    [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--filtered-stream-data", "--", "outputs/r.bin")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--raw-stream-data", "--raw-stream-data=x", "--", "outputs/r.bin")]
+    [InlineData("inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--filtered-stream-data=x", "--", "outputs/r.bin")]
     [InlineData("inputs/a.pdf", "--show-object=4", "--normalize-content=y", "--filtered-stream-data", "--", "outputs/f.bin")]
     public async Task RejectsMalformedStreamForms(params string[] argv)
     {
@@ -352,9 +352,7 @@ public sealed class ShowObjectTests
     [Theory]
     [InlineData("inputs/a.pdf", "--raw-stream-data")]
     [InlineData("inputs/a.pdf", "--filtered-stream-data")]
-    [InlineData("inputs/a.pdf", "--check", "--raw-stream-data")]
-    [InlineData("inputs/a.pdf", "--show-npages", "--filtered-stream-data")]
-    public async Task StreamDataRequiresShowObject(params string[] argv)
+    public async Task UnusedStreamFlagsWithoutAnOperationRequireOutput(params string[] argv)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
@@ -388,7 +386,7 @@ public sealed class ShowObjectTests
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showObject\": \"4\", \"rawStreamData\": \"yes\"}")]
     [InlineData("{\"inputFile\":\"inputs/a.pdf\",\"showObject\":\"4\",\"rawStreamData\":true,\"rawStreamData\":[]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"rawStreamData\": true}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showNpages\": true, \"rawStreamData\": \"yes\"}")]
     public async Task JobStreamDataRejectsCombinations(string jobJson)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");

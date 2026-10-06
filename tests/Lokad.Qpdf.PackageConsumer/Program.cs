@@ -153,7 +153,33 @@ internal static class Program
         Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 1: 3 0 R"), "original page identity");
         Check(combined.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("3/0: uncompressed; offset = ", StringComparison.Ordinal)), "original xref listing");
         Check(combined.Counters.TotalWork > 0 && combined.Counters.OpenHandles == 0 && inspectionHost.OpenLeaseCount == 0, "combined inspection cleanup");
+        Check(combined.OutputBytes is null, "informational inspection has no binary payload");
         Console.WriteLine("PASS checking with count, page, object, xref, attachment and linearization inspections");
+
+        InMemoryQpdfHost streamHost = NewHost("inputs/in.pdf", input);
+        QpdfExecutionResult streamResult = await Qpdf.ExecuteAsync(streamHost,
+            new QpdfCommandInvocation(["inputs/in.pdf", "--show-object=5", "--raw-stream-data"]), CancellationToken.None);
+        byte[] expectedStream = Encoding.ASCII.GetBytes("BT /F1 24 Tf 100 700 Td (First) Tj ET");
+        Check(streamResult.Status == QpdfExecutionStatus.Completed && streamResult.OutputBytes.HasValue, "fileless raw stream result");
+        Check(streamResult.OutputBytes.GetValueOrDefault().Span.SequenceEqual(expectedStream), "fileless raw stream bytes");
+        Check(streamResult.Counters.TotalOutputBytes == expectedStream.Length && streamHost.OpenLeaseCount == 0L, "fileless stream counters and cleanup");
+        Console.WriteLine("PASS fileless raw stream returns caller-owned bytes");
+
+        byte[] attachmentBytes = [0, 255, 127, 10];
+        InMemoryQpdfHost filelessHost = NewHost("inputs/in.pdf", input);
+        filelessHost.AddInput(QpdfPath.From("inputs/payload.bin"), attachmentBytes, QpdfInputOwnership.Copy);
+        await Qpdf.AddAttachmentsAsync(filelessHost, QpdfPath.From("inputs/in.pdf"), QpdfPath.From("outputs/embedded.pdf"),
+            [new QpdfAttachmentSpec("inputs/payload.bin", "payload", "p.bin", null, "application/octet-stream", null, null, false)], CancellationToken.None);
+        Check(filelessHost.TryGetOutput(QpdfPath.From("outputs/embedded.pdf"), out byte[] embedded), "embedded file for binary consumer");
+        filelessHost.AddInput(QpdfPath.From("inputs/embedded.pdf"), embedded, QpdfInputOwnership.Copy);
+        QpdfExecutionResult binaryResult = await Qpdf.ExecuteJobAsync(filelessHost,
+            """{"inputFile":"inputs/embedded.pdf","check":"","showAttachment":"payload"}""", CancellationToken.None);
+        Check(binaryResult.Status == QpdfExecutionStatus.Completed && binaryResult.OutputBytes.HasValue, "checking with fileless attachment result");
+        ReadOnlyMemory<byte> returnedAttachment = binaryResult.OutputBytes.GetValueOrDefault();
+        Check(returnedAttachment.Span.SequenceEqual(attachmentBytes) && binaryResult.Counters.TotalOutputBytes == attachmentBytes.Length, "actual fileless attachment bytes");
+        Check(binaryResult.Counters.OpenHandles == 0L && filelessHost.OpenLeaseCount == 0L, "fileless attachment cleanup");
+        Check(returnedAttachment.Span.SequenceEqual(attachmentBytes), "returned attachment remains usable after cleanup");
+        Console.WriteLine("PASS checking with fileless attachment returns binary NUL/high bytes");
 
         byte[] damaged = BreakStartXref(input);
         InMemoryQpdfHost repairHost = NewHost("inputs/damaged.pdf", damaged);

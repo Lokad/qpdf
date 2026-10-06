@@ -446,7 +446,7 @@ public sealed class AttachmentTests
     [InlineData("--list-attachments", "--", "outputs/x.pdf")]
     [InlineData("--pages", ".", "1", "--list-attachments", "--", "outputs/a.pdf")]
     [InlineData("--check", "--list-attachments", "outputs/a.pdf")]
-    [InlineData("--show-attachment=notes.txt")]
+    [InlineData("--show-attachment=notes.txt", "--raw-stream-data=x")]
     [InlineData("--show-attachment=")]
     [InlineData("--show-attachment")]
     public async Task MalformedAttachmentsFail(params string[] flags)
@@ -501,7 +501,7 @@ public sealed class AttachmentTests
     }
 
     [Theory]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showAttachment\": \"notes.txt\"}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"showAttachment\": false}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"showAttachment\": \"\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"listAttachments\": \"\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"listAttachments\": true}")]

@@ -7,8 +7,8 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 **Implemented PDF operations: the audited non-cryptographic subset.** 152 inventory entries
 are complete and 5 stay partial: `--job-json-file` still needs complete grammar,
 defaults and interaction auditing after mixed-argv/multiple-file configuration;
-`--check` lacks required binary extraction and
-selection/transformation combinations; the no-Zopfli build profile and four-component CMYK
+`--check` still needs required selection/transformation combinations and complete
+context/default auditing after binary-inspection verification; the no-Zopfli build profile and four-component CMYK
 image samples retain their accepted compatibility exceptions with partial labeling;
 and `--parser-max-errors`, whose invocation values, zero/default behavior, `--no-default-limits`
 scope, host-ceiling enforcement and per-object repair are implemented for the verified
@@ -541,14 +541,27 @@ address generation 0, freed or never-defined pairs display `null` with a success
 and superseded same-generation revisions stay unaddressable on both sides.
 `--show-object={trailer|obj[,gen]}` with `--raw-stream-data` (plus job key `rawStreamData`)
 or `--filtered-stream-data` (plus job key `filteredStreamData`, decoded as `--decode-level=all`)
-publishes exact stream bytes to a required output file (byte-identical with the reference,
-filtered winning when both are given); non-stream resolutions keep the diagnostics view and
-an output file is then rejected, while valued, duplicate, misplaced, and `--normalize-content`
-combinations fail explicitly (where upstream silently ignores the modifier outside `--show-object`
-and allows the normalization combination). The differential lane compares payloads byte for
-byte on plain and compressed streams plus line-for-line trailer and missing dumps; the plain
+returns exact fileless stream bytes through `QpdfExecutionResult.OutputBytes`,
+with filtered output winning when both flags are given. Explicit host output paths remain
+an extension for stream extraction. Non-stream resolutions retain the diagnostic view;
+their binary result is null. Empty stream payloads have a non-null value of length zero.
+Repeated bare flags accept; flags unused by an inspection or writer are ignored.
+Fileless filtered output honors `normalizeContent` and QDF defaults through the shared
+normalizer, while raw output stays unchanged. The binary differential lane compares actual
+bytes, disabled/absent/generation selectors, warnings and failure order across argv, JSON
+and mixed configurations. The plain
 show-object lane still compares definitions line for line on plain, stream, trailer, missing,
 and compressed objects, plus same-generation, absent-generation, freed, and live-pair selectors over incremental fixtures.
+
+Fileless attachment inspection uses the same binary result and embedded-file reader.
+Checking and all following inspections share one document. The command checker decodes
+the graph reachable by the writer; the typed checker retains its broader object inventory.
+Native attachment output places check text on stderr and permits subsequent stream and
+attachment payloads; binary stream output after prior informational output without that
+attachment route fails after checking. Diagnostics and payloads remain separate in the
+managed result. Failed or canceled execution returns no binary payload, preserving staged
+publication: native stdout can already contain a prefix when a later attachment lookup
+fails. Charged output counters may include those discarded staged bytes.
 
 `qpdf input --show-xref` (plus job key `showXref`) lists every live cross-reference entry
 (`n/gen: uncompressed; offset`, `n/0: compressed; stream, index`, free entries skipped)

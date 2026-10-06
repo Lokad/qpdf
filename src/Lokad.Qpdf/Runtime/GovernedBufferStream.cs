@@ -29,6 +29,13 @@ internal sealed class GovernedBufferStream : Stream
     public override bool CanSeek => !_disposed;
     public override bool CanWrite => !_disposed;
 
+    public override void WriteByte(byte value)
+    {
+        Span<byte> single = stackalloc byte[1];
+        single[0] = value;
+        Write(single);
+    }
+
     internal ReadOnlySpan<byte> WrittenSpan
     {
         get

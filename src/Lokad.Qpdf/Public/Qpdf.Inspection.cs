@@ -152,7 +152,7 @@ public static partial class Qpdf
         }
     }
 
-    private static async ValueTask ShowObjectAsync(
+    private static async ValueTask<byte[]?> ShowObjectAsync(
         IQpdfHost host,
         QpdfDocument document,
         ShowObjectPlan showObject,
@@ -165,7 +165,7 @@ public static partial class Qpdf
         if (!trailer && number <= 0)
         {
             if (showObject.Output is not null) { throw new QpdfParseException("The output file is only used for stream data.", 0L, null); }
-            return;
+            return null;
         }
         QpdfObject? target = null;
         if (trailer)
@@ -180,8 +180,12 @@ public static partial class Qpdf
         bool wantsStreamData = showObject.RawStreamData || showObject.FilteredStreamData;
         if (target is PdfStream dataStream && wantsStreamData)
         {
-            QpdfPath output = showObject.Output ?? throw new QpdfParseException("An output file is required after --.", 0L, null);
-            if (string.Equals(showObject.Input.Value, output.Value, StringComparison.Ordinal))
+            if (showObject.RejectStreamAfterInfo)
+            {
+                throw new QpdfException("Binary stream output cannot follow informational output in this inspection.");
+            }
+            QpdfPath? output = showObject.Output;
+            if (output.HasValue && string.Equals(showObject.Input.Value, output.Value.Value, StringComparison.Ordinal))
             {
                 throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
             }
@@ -191,6 +195,11 @@ public static partial class Qpdf
             {
                 IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine);
                 payload = FilterChain.Decode(dataStream.Data, stages, limits, governor);
+                if (showObject.NormalizeContent)
+                {
+                    payload = Content.ContentTransforms.NormalizeContentBytes(payload, limits, governor,
+                        cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
+                }
             }
 
             if (payload.Length > limits.MaxOutputBytes)
@@ -198,11 +207,12 @@ public static partial class Qpdf
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), payload.Length, limits.MaxOutputBytes);
             }
 
-            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, output, governor, cancellationToken).ConfigureAwait(false);
+            if (!output.HasValue) { return payload; }
+            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, output.Value, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink sink = new(transaction, governor);
             await sink.AppendAsync(payload, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return;
+            return null;
         }
 
         if (showObject.Output is not null)
@@ -224,7 +234,7 @@ public static partial class Qpdf
             CanonicalDisplay.AddDiagnostic(target, limits, governor, document.Engine, diagnostics);
         }
 
-        return;
+        return null;
     }
 
     private static void ShowXref(QpdfDocument document, JobPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)

@@ -65,7 +65,7 @@ public sealed record QpdfExecutionCounters
     /// <summary>Gets the decoded stream payload bytes.</summary>
     public long TotalDecodedBytes { get; }
 
-    /// <summary>Gets the published output bytes.</summary>
+    /// <summary>Gets charged output bytes, including staged bytes discarded on failure.</summary>
     public long TotalOutputBytes { get; }
 
     /// <summary>Gets the host storage calls.</summary>
@@ -89,7 +89,7 @@ public sealed record QpdfExecutionResult
     public IReadOnlyList<QpdfDiagnostic> Diagnostics { get; }
 
     /// <summary>Gets the final resource counters.</summary>
-    public QpdfExecutionCounters Counters { get; }
+    public QpdfExecutionCounters Counters { get; private init; }
 
     /// <summary>
     /// Gets JSON inspection text when no output file was requested, or null
@@ -99,6 +99,23 @@ public sealed record QpdfExecutionResult
     public string? OutputText { get; private init; }
 
     internal QpdfExecutionResult WithOutputText(string? text) => this with { OutputText = text };
+
+    /// <summary>
+    /// Gets caller-owned binary inspection bytes when no host output path was
+    /// requested, or null when no binary payload was produced. An empty payload
+    /// has a value with length zero. Diagnostic text is recorded separately.
+    /// The library does not mutate these bytes after returning the result.
+    /// Failed or canceled execution returns no binary payload, even if an
+    /// earlier inspection produced staged bytes. No ambient stdout is used.
+    /// </summary>
+    public ReadOnlyMemory<byte>? OutputBytes { get; private init; }
+
+    internal QpdfExecutionResult WithOutputBytes(ReadOnlyMemory<byte>? bytes) => this with { OutputBytes = bytes };
+
+    internal QpdfExecutionResult WithCounters(QpdfExecutionCounters counters) => this with
+    {
+        Counters = counters ?? throw new ArgumentNullException(nameof(counters)),
+    };
 
     /// <summary>Creates an execution result.</summary>
     /// <exception cref="ArgumentNullException">Diagnostics or counters are null.</exception>

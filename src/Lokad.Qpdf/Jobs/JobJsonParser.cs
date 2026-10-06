@@ -1154,9 +1154,13 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job withImages requires showPages.", 0L, null);
             }
 
-            if ((seenRawStreamData || seenFilteredStreamData) && showObject is null)
+            if (showObject is not null && output is not null)
             {
-                throw new QpdfParseException("Job rawStreamData and filteredStreamData require showObject.", 0L, null);
+                var selector = SelectionPlan.ParseInspectionSelector(showObject, showObjectGeneration);
+                if (!selector.Trailer && selector.Number <= 0)
+                {
+                    throw new QpdfParseException("An output file cannot accompany a disabled object inspection.", 0L, null);
+                }
             }
 
             if (input == "-")
@@ -1180,25 +1184,29 @@ internal static class JobJsonParser
             }
 
             bool wantAttachments = listAttachments || showAttachment is not null;
-            if (check)
+            if (check || (output is null && (showAttachment is not null
+                || (showObject is not null && (rawStreamData || filteredStreamData)))))
             {
                 if (hasPages || output is not null || seenReplaceInput || seenSplitPages || seenCollate
                     || seenRotate || seenLabels || seenRemoveLabels || seenOverlay || seenUnderlay
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenShowAttachment || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
-                    || seenRawStreamData || seenFilteredStreamData
+                    || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
                     || seenTestJsonSchema)
                 {
-                    throw new QpdfParseException("Job check cannot be combined with output, page transformations, binary extraction or JSON inspection.", 0L, null);
+                    throw new QpdfParseException("Job inspection cannot be combined with output, page transformations or JSON inspection.", 0L, null);
                 }
 
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
                     EmptyDocument = checkEmpty,
+                    RunCheck = check,
+                    AttachmentKey = showAttachment,
+                    RawStreamData = rawStreamData,
+                    FilteredStreamData = filteredStreamData,
                     ShowNpages = showNpages,
                     ShowPages = showPages,
                     ShowXref = showXref,
@@ -1239,7 +1247,7 @@ internal static class JobJsonParser
                     RemoveStructure = seenRemoveStructure,
                     RemoveMetadata = removeMetadata,
                     CoalesceContents = coalesceContents,
-                    NormalizeContent = normalizeContent,
+                    NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                     RemoveUnreferencedResources = removeUnreferencedResources,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,

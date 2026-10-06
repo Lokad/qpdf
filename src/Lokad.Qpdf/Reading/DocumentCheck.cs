@@ -24,6 +24,7 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        bool nativeStreamTraversal,
         CancellationToken cancellationToken)
     {
         if (document is null)
@@ -65,7 +66,16 @@ internal static class DocumentCheck
         };
 
         List<(int Number, PdfStream Stream)> streams = new();
-        outcomes.Add(CheckObjectGraph(engine, governor, streams, cancellationToken));
+        QpdfCheckOutcome objectGraph = CheckObjectGraph(engine, governor, streams, cancellationToken);
+        outcomes.Add(objectGraph);
+        if (nativeStreamTraversal && objectGraph.Status != QpdfCheckStatus.Failed)
+        {
+            // Native checking writes the reachable graph to a discard sink;
+            // unreferenced streams are not decoded by that writer traversal.
+            using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            HashSet<int> reachable = GraphReachability.Find(engine, engine.Trailer, memory, governor);
+            streams.RemoveAll(stream => !reachable.Contains(stream.Number));
+        }
         outcomes.Add(CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken));
         outcomes.Add(CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken));
         outcomes.Add(CheckFormTree(document, governor, diagnostics, cancellationToken));
