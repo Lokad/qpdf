@@ -22,6 +22,12 @@ public sealed class WriterEncodingTests
             : kind == "name" ? WriterEncoding.Name((PdfName)source, limits, governor, token)
             : WriterEncoding.String((PdfByteString)source, limits, governor, token);
 
+    private static WriterEncoding EncodeObserved(string kind, object source, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken token, Action observe)
+        => kind == "ascii" ? WriterEncoding.Ascii((string)source, limits, governor, token, observe)
+            : kind == "name" ? WriterEncoding.Name((PdfName)source, limits, governor, token, observe)
+            : WriterEncoding.String((PdfByteString)source, limits, governor, token, observe);
+
     private static int Size(string kind, int count) => kind switch
     {
         "ascii" => count, "name" => 1 + 3 * count, "hex" => 2 + 2 * count, _ => 2 + 4 * count,
@@ -225,21 +231,28 @@ public sealed class WriterEncodingTests
         const int count = 4 * 1024 * 1024;
         object source = Source(kind, count);
         using CancellationTokenSource cancellation = new();
-        using ManualResetEventSlim start = new();
+        using ManualResetEventSlim start = new(), reached = new(), resume = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
         long threshold = kind is "name" or "literal" ? 8192L : Size(kind, count) + (kind == "hex" ? 2L : 0L) + 8192L;
         Task worker = Task.Factory.StartNew(() =>
         {
             start.Wait();
-            using WriterEncoding encoded = Encode(kind, source, QpdfLimits.Default, governor,
-                governorToken ? CancellationToken.None : cancellation.Token);
+            using WriterEncoding encoded = EncodeObserved(kind, source, QpdfLimits.Default, governor,
+                governorToken ? CancellationToken.None : cancellation.Token, () =>
+                {
+                    if (governor.Snapshot().TotalWork >= threshold)
+                    {
+                        reached.Set();
+                        if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Encoding observation did not resume."); }
+                    }
+                });
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
             start.Set();
-            bool observed = SpinWait.SpinUntil(() => governor.Snapshot().TotalWork >= threshold || worker.IsCompleted, TimeSpan.FromSeconds(10));
-            cancellation.Cancel();
+            bool observed = reached.Wait(TimeSpan.FromSeconds(10));
+            cancellation.Cancel(); resume.Set();
             Assert.True(observed);
             Assert.True(governor.Snapshot().TotalWork >= threshold);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
@@ -248,7 +261,7 @@ public sealed class WriterEncodingTests
         }
         finally
         {
-            start.Set(); cancellation.Cancel();
+            start.Set(); cancellation.Cancel(); resume.Set();
             try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); }
             catch (OperationCanceledException) { }
         }

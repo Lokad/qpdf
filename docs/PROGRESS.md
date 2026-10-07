@@ -1,5 +1,19 @@
 # Progress
 
+## Encoding cancellation observation
+
+Existing encoding cancellation controls now synchronize after completed scan/
+fill blocks through an internal observer. Ordinary callers supply no observer;
+owners retain no callback state. The original 4-MiB inputs, work thresholds,
+10-second deadlines and assertions are preserved. Active polling could observe
+progress after the encoder had completed; that failure remains archived.
+
+The isolated correction passes locked restore/Release and **6827 offline cases**;
+all eight original controls pass in each of eight repetitions (**64 observations**).
+The combined pending writer tree passes **7522 offline cases**, fresh native/
+package/consumer gates and independent probes. These scoped witnesses do not
+establish codec/CPU/host latency, cold/native state or broader completion gates.
+
 ## Scoped cross-reference results
 
 A reusable xref owner admits one exact array, its wrapper/scope and optional

@@ -22,23 +22,46 @@ internal sealed class WriterEncoding : IDisposable
     internal static WriterEncoding Ascii(string text, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return Create(Kind.Ascii, ReadOnlySpan<byte>.Empty, text.AsSpan(), limits, governor, cancellationToken);
+        return Create(Kind.Ascii, ReadOnlySpan<byte>.Empty, text.AsSpan(), limits, governor, cancellationToken, null);
     }
 
     internal static WriterEncoding Name(PdfName name, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return Create(Kind.Name, name.RawSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken);
+        return Create(Kind.Name, name.RawSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken, null);
     }
 
     internal static WriterEncoding String(PdfByteString text, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return Create(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken);
+        return Create(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken, null);
+    }
+
+    // Completed-block observation keeps cancellation controls independent of
+    // scheduler races. Ordinary callers retain no callback or observer state.
+    internal static WriterEncoding Ascii(string text, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, Action observe)
+    {
+        ArgumentNullException.ThrowIfNull(text); ArgumentNullException.ThrowIfNull(observe);
+        return Create(Kind.Ascii, ReadOnlySpan<byte>.Empty, text.AsSpan(), limits, governor, cancellationToken, observe);
+    }
+
+    internal static WriterEncoding Name(PdfName name, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, Action observe)
+    {
+        ArgumentNullException.ThrowIfNull(name); ArgumentNullException.ThrowIfNull(observe);
+        return Create(Kind.Name, name.RawSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken, observe);
+    }
+
+    internal static WriterEncoding String(PdfByteString text, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, Action observe)
+    {
+        ArgumentNullException.ThrowIfNull(text); ArgumentNullException.ThrowIfNull(observe);
+        return Create(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken, observe);
     }
 
     private static WriterEncoding Create(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text,
-        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observe)
     {
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor);
@@ -65,6 +88,7 @@ internal sealed class WriterEncoding : IDisposable
                     CheckLength(length, maximum);
                 }
                 offset += count;
+                observe?.Invoke();
             }
         }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -74,14 +98,14 @@ internal sealed class WriterEncoding : IDisposable
             governor.ChargeWork(length);
             CheckCancellation(governor, cancellationToken);
             byte[] bytes = length == 0L ? Array.Empty<byte>() : new byte[(int)length];
-            Fill(kind, input, text, bytes, governor, cancellationToken);
+            Fill(kind, input, text, bytes, governor, cancellationToken, observe);
             return new WriterEncoding(memory, bytes);
         }
         catch { memory.Dispose(); throw; }
     }
 
     private static void Fill(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text, Span<byte> target,
-        ResourceGovernor governor, CancellationToken cancellationToken)
+        ResourceGovernor governor, CancellationToken cancellationToken, Action? observe)
     {
         int used = 0;
         if (kind != Kind.Ascii)
@@ -129,6 +153,7 @@ internal sealed class WriterEncoding : IDisposable
                 }
             }
             offset += count;
+            observe?.Invoke();
         }
     }
 
