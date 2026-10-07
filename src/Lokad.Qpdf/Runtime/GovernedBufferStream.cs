@@ -8,12 +8,16 @@ internal sealed class GovernedBufferStream : Stream
     private readonly ResourceGovernor _governor;
     private readonly long _maximumBytes;
     private readonly string _limitName;
+    private readonly CancellationToken _cancellationToken;
     private byte[] _buffer = Array.Empty<byte>();
     private int _length;
     private int _position;
     private bool _disposed;
 
     internal GovernedBufferStream(ResourceGovernor governor, long maximumBytes, string limitName)
+        : this(governor, maximumBytes, limitName, CancellationToken.None) { }
+
+    internal GovernedBufferStream(ResourceGovernor governor, long maximumBytes, string limitName, CancellationToken cancellationToken)
     {
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         if (maximumBytes < 1L)
@@ -23,6 +27,7 @@ internal sealed class GovernedBufferStream : Stream
 
         _maximumBytes = Math.Min(maximumBytes, Array.MaxLength);
         _limitName = limitName ?? throw new ArgumentNullException(nameof(limitName));
+        _cancellationToken = cancellationToken;
     }
 
     public override bool CanRead => false;
@@ -41,7 +46,7 @@ internal sealed class GovernedBufferStream : Stream
         get
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _governor.CheckCancellation();
+            CheckCancellation(CancellationToken.None);
             return _buffer.AsSpan(0, _length);
         }
     }
@@ -72,15 +77,18 @@ internal sealed class GovernedBufferStream : Stream
     public override void Flush()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _governor.CheckCancellation();
+        CheckCancellation(CancellationToken.None);
     }
 
     public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
 
     public override void Write(ReadOnlySpan<byte> buffer)
+        => Write(buffer, CancellationToken.None);
+
+    internal void Write(ReadOnlySpan<byte> buffer, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _governor.CheckCancellation();
+        CheckCancellation(cancellationToken);
         long end = (long)_position + buffer.Length;
         if (end > _maximumBytes)
         {
@@ -92,56 +100,68 @@ internal sealed class GovernedBufferStream : Stream
             return;
         }
 
-        EnsureCapacity((int)end);
+        EnsureCapacity((int)end, cancellationToken);
         if (_position > _length)
         {
-            Clear(_length, _position - _length);
+            Clear(_length, _position - _length, cancellationToken);
         }
 
-        Copy(buffer, _buffer.AsSpan(_position, buffer.Length));
+        Copy(buffer, _buffer.AsSpan(_position, buffer.Length), cancellationToken);
         _position = (int)end;
         _length = Math.Max(_length, _position);
     }
 
     public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        Write(buffer.Span);
+        Write(buffer.Span, cancellationToken);
         return ValueTask.CompletedTask;
     }
 
     public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        Write(buffer, offset, count);
+        Write(buffer.AsSpan(offset, count), cancellationToken);
         return Task.CompletedTask;
     }
 
     internal byte[] ToArray()
+        => ToArrayCore(null, CancellationToken.None);
+
+    internal byte[] ToArray(ParserMemoryScope memory, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(memory);
+        memory.CheckOwner(_governor);
+        return ToArrayCore(memory, cancellationToken);
+    }
+
+    private byte[] ToArrayCore(ParserMemoryScope? memory, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _governor.CheckCancellation();
+        CheckCancellation(cancellationToken);
         if (_length == 0)
         {
             return Array.Empty<byte>();
         }
 
         long reserved = _length + ArrayOverheadBytes;
-        _governor.ReserveMemory(reserved);
+        if (memory is null) { _governor.ReserveMemory(reserved); }
+        else { memory.Reserve(reserved); }
         try
         {
+            if (memory is not null) { _governor.ChargeWork(_length); }
+            CheckCancellation(cancellationToken);
             byte[] result = new byte[_length];
-            Copy(_buffer.AsSpan(0, _length), result);
+            Copy(_buffer.AsSpan(0, _length), result, cancellationToken);
             return result;
         }
         catch
         {
-            _governor.ReleaseMemory(reserved);
+            if (memory is null) { _governor.ReleaseMemory(reserved); }
+            else { memory.Release(reserved); }
             throw;
         }
     }
 
-    private void EnsureCapacity(int required)
+    private void EnsureCapacity(int required, CancellationToken cancellationToken)
     {
         if (required <= _buffer.Length)
         {
@@ -155,8 +175,9 @@ internal sealed class GovernedBufferStream : Stream
         _governor.ReserveMemory(reserved);
         try
         {
+            CheckCancellation(cancellationToken);
             byte[] next = new byte[capacity];
-            Copy(_buffer.AsSpan(0, _length), next);
+            Copy(_buffer.AsSpan(0, _length), next, cancellationToken);
             long previous = _buffer.Length == 0 ? 0L : _buffer.Length + ArrayOverheadBytes;
             _buffer = next;
             _governor.ReleaseMemory(previous);
@@ -168,11 +189,11 @@ internal sealed class GovernedBufferStream : Stream
         }
     }
 
-    private void Copy(ReadOnlySpan<byte> source, Span<byte> destination)
+    private void Copy(ReadOnlySpan<byte> source, Span<byte> destination, CancellationToken cancellationToken)
     {
         for (int position = 0; position < source.Length;)
         {
-            _governor.CheckCancellation();
+            CheckCancellation(cancellationToken);
             int count = Math.Min(8192, source.Length - position);
             _governor.ChargeWork(count);
             source.Slice(position, count).CopyTo(destination.Slice(position, count));
@@ -180,10 +201,17 @@ internal sealed class GovernedBufferStream : Stream
         }
     }
 
+    private void CheckCancellation(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _cancellationToken.ThrowIfCancellationRequested();
+        _governor.CheckCancellation();
+    }
+
     private void CheckLength(long value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _governor.CheckCancellation();
+        CheckCancellation(CancellationToken.None);
         if (value < 0L)
         {
             throw new ArgumentOutOfRangeException(nameof(value));
@@ -195,11 +223,11 @@ internal sealed class GovernedBufferStream : Stream
         }
     }
 
-    private void Clear(int start, int length)
+    private void Clear(int start, int length, CancellationToken cancellationToken)
     {
         for (int position = 0; position < length;)
         {
-            _governor.CheckCancellation();
+            CheckCancellation(cancellationToken);
             int count = Math.Min(8192, length - position);
             _governor.ChargeWork(count);
             _buffer.AsSpan(start + position, count).Clear();
@@ -239,10 +267,10 @@ internal sealed class GovernedBufferStream : Stream
     public override void SetLength(long value)
     {
         CheckLength(value);
-        EnsureCapacity((int)value);
+        EnsureCapacity((int)value, CancellationToken.None);
         if (value > _length)
         {
-            Clear(_length, (int)value - _length);
+            Clear(_length, (int)value - _length, CancellationToken.None);
         }
 
         _length = (int)value;

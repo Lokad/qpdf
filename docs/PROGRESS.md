@@ -1,5 +1,36 @@
 # Progress
 
+## Owned object-stream captures
+
+Shared buffered capture reuses the governed byte stream, admits sink/stream
+wrappers and capacity overlap, and transfers returned copies into a caller
+scope. Copy zeroing and visits charge work; factory, operation and governor
+tokens stop byte work. A bounded member owner keeps its table/copies funded
+through assembly and output, then drops backing before retiring admission.
+Pending ordinary, QDF and linearized writers share this implementation.
+
+The isolated reusable component passes locked restore/Release build and
+**6520 offline cases / 27 new controls**, zero failures/skips. Pending integration
+passes **6783 offline cases / 44 new controls**, including finite pre-container
+memory/work rejection and 12 retained-task outcomes across ordinary/QDF and both
+linearized passes. The identical final assembly's **five eligible writer
+regressions fail on the preceding library**, with zero loader failures and
+unchanged identities. Fresh **120 native comparisons / 108 output rereads**,
+package/symbol checks, **50 consumer smokes** and both specific rejection
+controls pass. Original controls/ceilings, five locks and warning policy remain.
+
+Independent warmed 128-owner probes measure buffered/member managed allocation
+at **29388800 / 33586176 bytes**, forced-GC retained heap **16799744 / 33586176**,
+live admission **16814080 / 33595392**. Disposal retires admission to zero while
+rooted empty wrappers retain **4096 / 7168** heap bytes; dropping holders leaves
+one **32 / 56-byte** local wrapper. Prepared inputs/governors/delegates/holders
+and the prepared member-source capture are excluded, as are PDF encoding,
+headers/payloads/xrefs/hints/codecs, cold/native state, whole-job/RSS and latency.
+This is local Windows/pre-commit metadata evidence. Remaining buffer owners,
+sorting/encoding/codec work, hints, legacy owners, presentation/snapshots and all
+A01–A07/M11/verdict requirements remain open.
+
+
 ## Scoped linearized pass layouts
 
 A reusable pass owner admits offsets, lengths and streamed-member indexes
