@@ -14,6 +14,7 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     // Mutable tables borrow their construction scope weakly; publication drops
     // even that reference. Immutable aliases retain storage without execution state.
     private WeakReference<ParserMemoryScope>? _origin;
+    private DictionaryKeyView? _dictionaryKeys;
     private int _count;
     private int _version;
     private bool _frozen;
@@ -46,6 +47,17 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     internal int Capacity => _entries.Length;
     internal long StorageBytes => checked(WrapperBytes + ArrayBytes(Capacity));
     public IEnumerable<PdfName> Keys => this;
+    // Publication has dropped the 24-byte construction weak reference. Its
+    // admission now covers this 24-byte view; the table includes its cache slot.
+    // Keep the dictionary's nongeneric key enumeration distinct from entries.
+    internal IEnumerable<PdfName> DictionaryKeys
+    {
+        get
+        {
+            if (!_frozen) { throw new InvalidOperationException("Dictionary keys require frozen name storage."); }
+            return _dictionaryKeys ??= new DictionaryKeyView(this);
+        }
+    }
     public IEnumerable<T> Values => EnumerateValues();
     public T this[PdfName key] => TryGetValue(key, out T? value) ? value : throw new KeyNotFoundException();
 
@@ -233,6 +245,12 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
 
     private IEnumerator<PdfName> EnumerateKeys()
     { foreach (KeyValuePair<PdfName, T> entry in this) { yield return entry.Key; } }
+
+    private sealed class DictionaryKeyView(PdfNameTable<T> owner) : IEnumerable<PdfName>
+    {
+        public IEnumerator<PdfName> GetEnumerator() => owner.EnumerateKeys();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 
     internal struct Enumerator : IEnumerator<KeyValuePair<PdfName, T>>
     {

@@ -417,13 +417,25 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
 /// </summary>
 public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
 {
-    private readonly Dictionary<PdfName, QpdfObject> _entries;
+    private readonly IReadOnlyDictionary<PdfName, QpdfObject> _entries;
 
     private PdfDictionary(Dictionary<PdfName, QpdfObject> ownedEntries) { _entries = ownedEntries; }
+    private PdfDictionary(PdfNameTable<QpdfObject> ownedEntries)
+    {
+        _entries = ownedEntries;
+        _ = ownedEntries.DictionaryKeys;
+    }
 
     // The parser has admitted and populated this private dictionary. No caller
     // may retain mutable access after transfer; public construction still copies.
     internal static PdfDictionary FromOwnedEntries(Dictionary<PdfName, QpdfObject> entries) => new(entries);
+
+    internal static PdfDictionary FromOwnedEntries(PdfNameTable<QpdfObject> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        if (!entries.IsFrozen) { throw new InvalidOperationException("Dictionary name storage must be frozen before transfer."); }
+        return new(entries);
+    }
 
     /// <summary>Creates a dictionary, copying the entries.</summary>
     /// <exception cref="ArgumentNullException">The entries are null.</exception>
@@ -441,10 +453,15 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
     public int Count => _entries.Count;
 
     /// <summary>Gets the entry keys.</summary>
-    public IEnumerable<PdfName> Keys => _entries.Keys;
+    public IEnumerable<PdfName> Keys => _entries is PdfNameTable<QpdfObject> names ? names.DictionaryKeys : _entries.Keys;
 
     internal EntryEnumerator GetEntryEnumerator() => AllocationCarrier is PdfNameTable<QpdfObject> names
         ? new(names) : new((Dictionary<PdfName, QpdfObject>)AllocationCarrier);
+
+    internal int StorageCapacity => _entries is PdfNameTable<QpdfObject> names
+        ? names.Capacity : ((Dictionary<PdfName, QpdfObject>)_entries).EnsureCapacity(0);
+
+    internal object AllocationCarrier => _entries;
 
     internal struct EntryEnumerator : IDisposable
     {
@@ -466,10 +483,6 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
         }
         public void Dispose() { _legacy.Dispose(); _names.Dispose(); }
     }
-
-    internal int StorageCapacity => _entries.EnsureCapacity(0);
-
-    internal object AllocationCarrier => _entries;
 
     /// <summary>Looks up a key by raw name bytes.</summary>
     public bool TryGet(PdfName key, out QpdfObject value)

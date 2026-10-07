@@ -167,6 +167,24 @@ canonical inventory and leaves A01-A07/M11, combined correction and both verdict
 open. Runtime `8F278873`, tests `D764CF23`; local Windows build checkpoint
 `885fdb5`, with no source commit or URL in package repository metadata.
 
+## Frozen table-backed dictionary prerequisite
+
+Internal PdfDictionary construction now accepts frozen PdfNameTable storage.
+Public construction retains copying semantics; binary/empty names, replacement
+order, values, equality and generic/nongeneric key enumeration have regressions.
+Borrowed lookup/cursors retain explicit work and both cancellation routes.
+Escaping key views keep backing admission alive independently of the wrapper;
+completed execution state can collect. Isolated 7458 / pending 8181 offline
+cases pass, including 15 new / ten promoted dictionary controls. The identical
+final tests on preceding pending 8F278873 fail seven key-view behavior cases and
+preserve 18; all 25 are eligible, zero loader failures. Original controls remain.
+Affected native 358 comparisons / 500 rereads and package/symbol/50-smoke/two
+specific-negative checks pass on pending 86794DBF, tests 1E5B59F5, build checkpoint
+c5d9b00. Full reference evidence on preceding 8F278873 remains historical;
+combined final correction requires a fresh full lane. The inherited undefined
+form font mismatch, rebuilt resource graphs, broader ownership/diagnostic work,
+A01-A07/M11 and both completion verdicts stay open. No inventory context closes.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

@@ -1,5 +1,41 @@
 # Progress
 
+## Frozen table-backed dictionaries
+
+PdfDictionary can now adopt frozen shared name storage; mutable transfers fail
+without changing funding, and public construction still copies. Raw lookup and
+borrowed entry cursors dispatch to the existing governed table. A cached key view
+preserves generic and nongeneric public enumeration without retaining the wrapper
+or completed execution state. The existing 96-byte table admission covers its
+cache slot and the view that replaces the dropped construction weak reference.
+Borrowed values keep their original funding. Rebuilt resource graphs remain open.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7458 offline cases / 25 dictionary controls** and pending **8181 / 25** pass:
+15 new controls and ten promoted unchanged controls. All 7433 isolated / 8166
+pending stable identities and 213 original test sources remain. Identical final
+tests on preceding pending 8F278873 fail seven key-view behavior cases and preserve
+18 of all 25 eligible cases, with zero loader failures or exclusions.
+
+Independent pending/isolated warmed probes agree across 128 empty / seven-entry /
+32-entry dictionaries: mutable forced-GC heap **12288 / 44032 / 244736**,
+frozen wrapper/backing/view heap **15360 / 47104 / 247808**, live admission
+**15360 / 48640 / 249344**. Publication allocation is **6144 / 6144 / 6144**;
+borrowed views/cursors allocate zero and disposal admission is zero. Prepared
+inputs/controllers/scopes/holders/reflection/reporting are excluded. Cold/native/
+pool/whole-job/RSS/CPU/host measurement obligations remain open.
+
+Fresh affected native evidence passes **358 comparisons / 500 rereads**;
+package/symbol checks, **50 consumer smokes** and both specific negatives pass.
+These are local Windows results bound to pending 86794DBF, tests 1E5B59F5,
+build checkpoint c5d9b00. Full reference/parser results on preceding 8F278873
+remain historical; combined final correction still requires its fresh full lane.
+The inherited undefined form font mismatch remains open and is reconfirmed.
+Initial draft constructor and enumeration-driver failures remain archived.
+Initial empty-case aggregate-heap drift is also archived; a complete warm-up
+sample makes the final independent probes agree.
+Sources stayed frozen through final gates; broader audits and both verdicts remain open.
+
 ## Owned decoded content chunks
 
 Page and form pruning now own decoded chunks and list capacities until joining,
