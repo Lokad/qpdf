@@ -96,6 +96,40 @@ disposal control passes focused candidate/preceding runs but its scheduling audi
 remains open. Broader defaults/interactions, visual/reference CI/release,
 A01-A07/M11 and both completion verdicts remain open. Inventory is unchanged.
 
+Joined content scratch is now scoped through page/form resource analysis. One
+exact admitted buffer replaces unowned intermediate lists and newline arrays;
+all sizing/copying work is bounded and cancelable. Existing LF/CR/empty/binary
+boundary semantics remain. Construction, failure, cancellation and disposal
+preserve prior receipts and borrowed input bytes. Decoded chunks, rebuilt graphs,
+other content consumers and the broader allocation audit remain pending.
+
+This component passes **7374 isolated / 29 new controls**; frozen pending runtime
+`A88C7784` and tests `98C5FE5E` pass **8107 / 29**, preserving all 7345 isolated /
+8078 root preceding identities and 206 original test sources. Identical final
+tests on preceding pending `4D3887E7` fail eight / preserve thirteen of 21 eligible
+cases, zero loaders; eight new owner controls are excluded. Original fixtures,
+ceilings, repetitions, thresholds, deadlines and assertions remain unchanged.
+
+Fresh focused native evidence passes **313 comparisons / 410 output rereads**,
+including 21 content join comparisons / 42 rereads. The full reference wrapper
+passes its differential operation matrix and **1846 parser comparisons / 432
+rewrite trios**. Package/symbol checks, **50 consumer smokes** and both specific
+negatives pass on the same runtime. These are local Windows results.
+
+The first native run also exposed an inherited undefined form font mismatch:
+with empty form Resources and a form content reference to F1, current and
+preceding managed runtimes prune an unused page font while qpdf keeps both.
+That context is archived as an open compatibility obligation. Final joined buffer
+evidence uses declared form fonts; the runtime remained frozen and original
+controls were preserved.
+
+Independent managed observations fund the scoped buffer through last use and
+show no execution/backing witnesses surviving 128 rooted disposed owners. These
+local Windows results at build checkpoint `6d78f94` do not close cold/native/
+pool/codec/whole-job/RSS/CPU/host measurement, the three preceding scheduling
+observations, the complete diagnostic correction or either completion verdict.
+
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

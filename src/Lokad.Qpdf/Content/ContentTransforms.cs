@@ -949,7 +949,8 @@ internal static class ContentTransforms
             return page;
         }
 
-        ScanAndPrune(copier, pageId, page, JoinContentBytes(pageChunks, governor), resources, true, unresolved, limits, governor, diagnostics, cancellationToken);
+        using JoinedContent content = JoinContentBytes(pageChunks, governor, cancellationToken);
+        ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, limits, governor, diagnostics, cancellationToken);
         if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) && refreshed is PdfDictionary refreshedPage)
         {
             return refreshedPage;
@@ -1042,14 +1043,15 @@ internal static class ContentTransforms
             return;
         }
 
-        ScanAndPrune(copier, formId, null, JoinContentBytes(chunks, governor), resources, false, unresolved, limits, governor, diagnostics, cancellationToken);
+        using JoinedContent content = JoinContentBytes(chunks, governor, cancellationToken);
+        ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, limits, governor, diagnostics, cancellationToken);
     }
 
     private static void ScanAndPrune(
         GraphCopier copier,
         int? nodeId,
         PdfDictionary? page,
-        byte[] content,
+        ReadOnlyMemory<byte> content,
         PdfDictionary? resources,
         bool isPage,
         ResourceNameSet unresolved,
@@ -1218,42 +1220,8 @@ internal static class ContentTransforms
             copier.ReplaceCopiedObject(nodeId.Value, new PdfStream(ReplaceEntry(stream.Dictionary, PdfName.FromAscii("Resources"), new PdfDictionary(resourcesEntries), governor), stream.Data));
         }
     }
-    private static byte[] JoinContentBytes(List<byte[]> parts, ResourceGovernor governor)
-    {
-        List<byte[]> joined = new(parts.Count * 2);
-        bool needNewline = false;
-        foreach (byte[] part in parts)
-        {
-            governor.ChargeWork(1L);
-            if (needNewline)
-            {
-                joined.Add([(byte)'\n']);
-            }
-
-            joined.Add(part);
-            needNewline = part.Length == 0 || part[part.Length - 1] != (byte)'\n';
-        }
-
-        int total = 0;
-        foreach (byte[] part in joined)
-        {
-            checked
-            {
-                total += part.Length;
-            }
-        }
-
-        governor.ReserveMemory(total);
-        byte[] output = new byte[total];
-        int at = 0;
-        foreach (byte[] part in joined)
-        {
-            Buffer.BlockCopy(part, 0, output, at, part.Length);
-            at += part.Length;
-        }
-
-        return output;
-    }
+    private static JoinedContent JoinContentBytes(List<byte[]> parts, ResourceGovernor governor, CancellationToken token)
+        => JoinedContent.Create(parts, governor, token);
 
     private static List<byte[]>? CollectPageChunks(
         GraphCopier copier,
@@ -1379,7 +1347,7 @@ internal static class ContentTransforms
     }
 
     private static bool ScanNames(
-        byte[] content,
+        ReadOnlyMemory<byte> content,
         ResourceNameSet names,
         ResourceNameSet scoped,
         QpdfLimits limits,

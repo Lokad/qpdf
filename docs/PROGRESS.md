@@ -1,5 +1,55 @@
 # Progress
 
+## Owned joined content analysis
+
+Page and form pruning now hold an admitted owner for the exact joined buffer
+through analysis. The intermediate list and per-boundary newline arrays are
+gone. Sizing and copying observe work and both cancellation routes; copies reuse
+the shared bounded byte routine. Empty chunks, existing LF/CR endings, binary
+bytes and final-boundary behavior remain exact. Tokenization borrows the scoped
+memory. Disposal drops buffer/execution references before retiring admission;
+construction, copy failure and cancellation return only the new owner's funding.
+Decoded chunk lists/buffers, rebuilt resource graphs and broader consumers remain
+pending; this component does not establish their allocation or lifetime contract.
+
+Locked restore and Release pass with zero warnings/errors. The component passes
+**7374 offline cases / 29 new controls**; frozen pending integration passes
+**8107 / 29**. All 7345 preceding isolated / 8078 preceding root stable identities
+and 206 original test sources remain unchanged. Identical final tests on preceding
+pending `4D3887E7` fail **8 / preserve 13 / 21 eligible**, zero loaders; eight new
+owner controls are excluded. A private join adapter binds the preceding array
+return or current scoped owner with identical inputs, ceilings and assertions.
+Original fixtures, assertions, repetitions, thresholds and deadlines remain.
+
+Independent pending/isolated probes agree. Across 128 empty/joined owners,
+allocation is **9216 / 2114560**, active forced-GC heap **9216 / 2114560**,
+live/peak admission **12288 / 2117760**; disposal live is zero.
+Empty admission is 96 bytes; nonempty adds the exact buffer plus 32. Across 128
+warmed borrowed view reads, allocation and retained heap are zero. All 512
+execution/backing witnesses die across 128 rooted disposed owners; borrowed input
+bytes remain usable. Prepared inputs/controllers/holders/reflection/reporting are
+excluded; disposed aggregate heap includes unrelated state. Broader cold/native/
+pool/codec/whole-job/RSS/CPU/host measurements remain open.
+
+Fresh focused native evidence passes **313 comparisons / 410 output rereads**,
+including 21 content join comparisons / 42 rereads. The full reference wrapper
+passes its differential operation matrix and **1846 parser comparisons / 432
+rewrite trios**. Package/symbol checks, **50 consumer smokes** and both specific
+negatives pass on the same runtime. These are local Windows results.
+
+The first native run also exposed an inherited undefined form font mismatch:
+with empty form Resources and a form content reference to F1, current and
+preceding managed runtimes prune an unused page font while qpdf keeps both.
+That context is archived as an open compatibility obligation. Final joined buffer
+evidence uses declared form fonts; the runtime remained frozen and original
+controls were preserved.
+
+Frozen pending runtime `A88C7784`, tests `98C5FE5E`, build checkpoint `6d78f94`;
+nuspec exposes no source commit or URL. All three preceding scheduling/counter
+observations remain archived and open. Final runtime/test sources stayed frozen
+through their gates. Continue decoded chunks/rebuilt resource graphs and the
+remaining ownership/diagnostic correction; A01-A07/M11 and both verdicts are open.
+
 ## Governed pruning name analysis
 
 Pruning now owns decoded resource names through the shared name table. Borrowed
