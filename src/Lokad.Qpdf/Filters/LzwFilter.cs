@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Filters;
 
@@ -18,6 +19,9 @@ internal static class LzwFilter
     private const int LastCode = 4095;
 
     internal static byte[] Decode(byte[] input, bool earlyChange, QpdfLimits limits, ResourceGovernor governor)
+        => Decode(input, earlyChange, limits, governor, CancellationToken.None);
+
+    internal static byte[] Decode(byte[] input, bool earlyChange, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (input is null)
         {
@@ -35,73 +39,83 @@ internal static class LzwFilter
         }
 
         limits.Validate();
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        List<byte[]> table = ParserContainers.CreateList<byte[]>(memory);
         int delta = earlyChange ? 1 : 0;
-        List<byte[]> table = new();
         int codeSize = 9;
         int lastCode = ClearCode;
         bool end = false;
-        List<byte> output = new();
-        LzwBitReader reader = new(input);
-        while (reader.TryReadCode(codeSize, out int code))
+        using FilterOutput output = FilterOutput.Create(governor, limits, token);
+        LzwBitReader reader = new(input, governor, token);
+        Span<byte> literal = stackalloc byte[1];
+        try
         {
-            if (end)
+            while (reader.TryReadCode(codeSize, out int code))
             {
-                continue;
-            }
-
-            if (code == ClearCode)
-            {
-                table.Clear();
-                codeSize = 9;
-            }
-            else if (code == EndCode)
-            {
-                end = true;
-            }
-            else
-            {
-                if (lastCode != ClearCode)
+                if (end)
                 {
-                    byte firstChar = FirstChar(code, lastCode, table);
-                    int newIndex = FirstCode + table.Count;
-                    if (newIndex == 4096)
-                    {
-                        throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Table is full.");
-                    }
-
-                    byte[] previous = Suffix(lastCode, table);
-                    byte[] entry = new byte[previous.Length + 1];
-                    Buffer.BlockCopy(previous, 0, entry, 0, previous.Length);
-                    entry[entry.Length - 1] = firstChar;
-                    governor.ReserveMemory(entry.Length);
-                    table.Add(entry);
-                    int changeIndex = newIndex + delta;
-                    if (changeIndex == 511 || changeIndex == 1023 || changeIndex == 2047)
-                    {
-                        codeSize += 1;
-                    }
+                    continue;
                 }
 
-                if (code < 256)
+                if (code == ClearCode)
                 {
-                    Emit(output, new byte[] { (byte)code }, governor, limits);
+                    Clear(table, memory, governor, token);
+                    codeSize = 9;
+                }
+                else if (code == EndCode)
+                {
+                    end = true;
                 }
                 else
                 {
-                    int index = code - FirstCode;
-                    if (index < 0 || index >= table.Count)
+                    if (lastCode != ClearCode)
                     {
-                        throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, $"Bad code {code}.");
+                        byte firstChar = FirstChar(code, lastCode, table);
+                        int newIndex = FirstCode + table.Count;
+                        if (newIndex == 4096)
+                        {
+                            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Table is full.");
+                        }
+
+                        ReadOnlySpan<byte> previous = Suffix(lastCode, table, literal);
+                        long bytes = checked(previous.Length + 1L + GovernedBufferStream.ArrayOverheadBytes);
+                        memory.Reserve(bytes);
+                        governor.ChargeWork(previous.Length + 1L);
+                        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        byte[] entry = new byte[previous.Length + 1];
+                        GovernedBufferStream.CopyBytes(previous, entry, governor, token, CancellationToken.None);
+                        entry[entry.Length - 1] = firstChar;
+                        ParserContainers.AddItem(memory, table, entry, IntPtr.Size);
+                        int changeIndex = newIndex + delta;
+                        if (changeIndex == 511 || changeIndex == 1023 || changeIndex == 2047)
+                        {
+                            codeSize += 1;
+                        }
                     }
 
-                    Emit(output, table[index], governor, limits);
+                    if (code < 256)
+                    {
+                        output.WriteByte((byte)code);
+                    }
+                    else
+                    {
+                        int index = code - FirstCode;
+                        if (index < 0 || index >= table.Count)
+                        {
+                            throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, $"Bad code {code}.");
+                        }
+
+                        output.Write(table[index]);
+                    }
                 }
+
+                lastCode = code;
             }
 
-            lastCode = code;
+            return output.ToArray();
         }
-
-        return [.. output];
+        finally { table.Clear(); table.Capacity = 0; }
     }
 
     private static byte FirstChar(int code, int lastCode, List<byte[]> table)
@@ -124,17 +138,18 @@ internal static class LzwFilter
 
         if (index == table.Count)
         {
-            return Suffix(lastCode, table)[0];
+            return lastCode < 256 ? (byte)lastCode : table[lastCode - FirstCode][0];
         }
 
         return table[index][0];
     }
 
-    private static byte[] Suffix(int code, List<byte[]> table)
+    private static ReadOnlySpan<byte> Suffix(int code, List<byte[]> table, Span<byte> literal)
     {
         if (code < 256)
         {
-            return [(byte)code];
+            literal[0] = (byte)code;
+            return literal;
         }
 
         if (code == ClearCode || code == EndCode)
@@ -151,36 +166,39 @@ internal static class LzwFilter
         return table[index];
     }
 
-    private static void Emit(List<byte> output, byte[] chunk, ResourceGovernor governor, QpdfLimits limits)
+    private static void Clear(List<byte[]> table, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        long next = (long)output.Count + chunk.Length;
-        if (next > limits.MaxDecodedBytes)
+        for (int index = 0; index < table.Count; index++)
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), next, limits.MaxDecodedBytes);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            long bytes = table[index].Length + GovernedBufferStream.ArrayOverheadBytes;
+            table[index] = Array.Empty<byte>();
+            memory.Release(bytes);
         }
-
-        governor.ReserveMemory(chunk.Length);
-        for (int i = 0; i < chunk.Length; i++)
-        {
-            output.Add(chunk[i]);
-        }
+        table.Clear();
     }
 
-    private sealed class LzwBitReader
+    private ref struct LzwBitReader
     {
-        private readonly byte[] _data;
+        private readonly ReadOnlySpan<byte> _data;
+        private readonly ResourceGovernor _governor;
+        private readonly CancellationToken _token;
         private int _position;
         private int _buffer;
         private int _available;
 
-        internal LzwBitReader(byte[] data)
+        internal LzwBitReader(ReadOnlySpan<byte> data, ResourceGovernor governor, CancellationToken token)
         {
             _data = data;
+            _governor = governor;
+            _token = token;
             _position = 0;
+            _buffer = 0; _available = 0;
         }
 
         internal bool TryReadCode(int codeSize, out int code)
         {
+            _token.ThrowIfCancellationRequested(); _governor.CheckCancellation(); _governor.ChargeWork(1L);
             while (_available < codeSize)
             {
                 if (_position >= _data.Length)

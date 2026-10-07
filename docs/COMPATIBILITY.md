@@ -130,6 +130,43 @@ pool/codec/whole-job/RSS/CPU/host measurement, the three preceding scheduling
 observations, the complete diagnostic correction or either completion verdict.
 
 
+## Decoded pruning chunk ownership checkpoint
+
+Page/form analysis owns filtered chunks and list capacities through joining;
+raw immutable stream payloads stay borrowed. Shared codec output storage and
+LZW dictionary storage admit allocation and growth. Chains retire intermediate
+arrays and preserve independent receipts on failure. Supported pruning filters
+and predictors observe finite work and both cancellation routes. Existing filter
+behavior remains; rebuilt graphs, broader codec aliases/JPEG and whole-job
+ownership remain open.
+
+The isolated component passes **7433 offline cases / 59 new controls**; frozen
+pending integration passes **8166 / 59**, preserving all preceding stable IDs
+and 209 original test sources. Identical final tests on preceding `A88C7784` fail
+**37 / preserve 7 / 44 eligible**, zero loaders; 15 new owner/caller-route controls
+are excluded. Original fixtures, budgets, assertions, repetitions and deadlines
+remain. Independent allocation/retention probes agree; admission covers measured
+managed storage, borrowed views allocate/retain zero, and all 1152 witnesses die
+with 256 rooted disposed owners. Broader measurement obligations remain open.
+
+Fresh focused native evidence passes **358 comparisons / 500 output rereads**,
+including 45 filtered page/form chunk comparisons / 90 rereads. The complete
+reference wrapper passes its differential operation matrix and **1846 parser
+comparisons / 432 rewrite trios**. Package/symbol checks, **50 consumer smokes**
+and both specific negatives pass on the same runtime. These are local Windows
+results; the full compatibility and release audits remain open.
+
+The archived MSBuild out-of-memory, missing probe dependency and malformed new
+empty-Flate fixture observations are retained. Five new empty-result controls
+and corrected native fixtures pass. Six trailing-whitespace lines were removed
+before the final source freeze; both stopped candidate reference runs and prior
+gates are archived. The inherited undefined form font context is confirmed on this
+runtime. It and all three preceding
+scheduling/counter observations remain open. This checkpoint preserves the
+canonical inventory and leaves A01-A07/M11, combined correction and both verdicts
+open. Runtime `8F278873`, tests `D764CF23`; local Windows build checkpoint
+`885fdb5`, with no source commit or URL in package repository metadata.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

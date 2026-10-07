@@ -91,6 +91,10 @@ internal static class FilterChain
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope? memory)
+        => Decode(input, stages, limits, governor, memory, CancellationToken.None);
+
+    internal static byte[] Decode(byte[] input, IReadOnlyList<FilterStage> stages, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope? memory, CancellationToken token)
     {
         if (input is null)
         {
@@ -122,32 +126,48 @@ internal static class FilterChain
         }
         if (stages.Count == 0)
         {
-            if (memory is null) { governor.ReserveMemory(input.Length); }
-            else { memory.Reserve(input.Length); }
-            byte[] passthrough = new byte[input.Length];
-            Buffer.BlockCopy(input, 0, passthrough, 0, input.Length);
-            return passthrough;
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (input.Length == 0) { return Array.Empty<byte>(); }
+            long bytes = input.Length + GovernedBufferStream.ArrayOverheadBytes;
+            governor.ReserveMemory(bytes);
+            try
+            {
+                governor.ChargeWork(input.Length);
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                byte[] passthrough = new byte[input.Length];
+                GovernedBufferStream.CopyBytes(input, passthrough, governor, token, CancellationToken.None);
+                memory?.AdoptReserved(bytes);
+                return passthrough;
+            }
+            catch { governor.ReleaseMemory(bytes); throw; }
         }
 
         byte[] current = input;
-        for (int i = 0; i < stages.Count; i++)
+        long owned = 0L;
+        try
         {
-            current = DecodeStage(current, stages[i], limits, governor);
-            // Flate's returned array has an explicit retained reservation.
-            // Other codecs still need their own allocation/ownership audit.
-            if (stages[i].Name == FlateFilter.FilterName && current.Length != 0)
+            for (int i = 0; i < stages.Count; i++)
             {
-                memory?.AdoptReserved(checked((long)current.Length + GovernedBufferStream.ArrayOverheadBytes));
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                byte[] next = DecodeStage(current, stages[i], limits, governor, token);
+                current = next;
+                governor.ReleaseMemory(owned);
+                owned = ArrayBytes(next);
             }
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            memory?.AdoptReserved(owned);
+            owned = 0L; // The caller's scope or legacy caller now funds only the final array.
+            return current;
         }
-
-        return current;
+        finally { current = Array.Empty<byte>(); governor.ReleaseMemory(owned); }
     }
 
-    private static byte[] DecodeStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor)
+    private static long ArrayBytes(byte[] bytes) => bytes.Length == 0 ? 0L : bytes.Length + GovernedBufferStream.ArrayOverheadBytes;
+
+    private static byte[] DecodeStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName)
-        { return DecodePredictorStage(input, stage, limits, governor); }
+        { return DecodePredictorStage(input, stage, limits, governor, token); }
 
         if (stage.Name == DctFilter.FilterName)
         {
@@ -159,61 +179,65 @@ internal static class FilterChain
         {
             RequireNoParms(stage);
             byte[] decoded = stage.Name == AsciiHexFilter.FilterName
-                ? AsciiHexFilter.Decode(input, limits, governor)
+                ? AsciiHexFilter.Decode(input, limits, governor, token)
                 : stage.Name == Ascii85Filter.FilterName
-                    ? Ascii85Filter.Decode(input, limits, governor)
-                    : RunLengthFilter.Decode(input, limits, governor);
+                    ? Ascii85Filter.Decode(input, limits, governor, token)
+                    : RunLengthFilter.Decode(input, limits, governor, token);
             return DecodeChecked(decoded, limits, governor);
         }
 
         throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "Filter is not implemented in this milestone.");
     }
 
-    private static byte[] DecodePredictorStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor)
+    private static byte[] DecodePredictorStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
-        bool earlyChange = stage.Name != LzwFilter.FilterName || ReadEarlyChange(stage.Parms, stage.Resolver, governor);
+        bool earlyChange = stage.Name != LzwFilter.FilterName || ReadEarlyChange(stage.Parms, stage.Resolver, governor, token);
         using ParserMemoryScope? memory = stage.Parms is null ? null : ParserMemoryScope.Create(governor);
         PredictorParameters? parms = null;
         try
         {
             if (memory is not null)
-            { parms = PredictorParameters.FromDictionary(stage.Parms, stage.Name, stage.Resolver, memory, governor, governor.CancellationToken); }
+            { parms = PredictorParameters.FromDictionary(stage.Parms, stage.Name, stage.Resolver, memory, governor, token); }
             // Direct hint/companion decoding shares the same codec implementation.
-            if (stage.Name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor); }
-            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor);
-            if (parms is not null && parms.Predictor != 1)
-            { return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor), limits, governor); }
-            return DecodeChecked(inflated, limits, governor);
+            if (stage.Name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor, token); }
+            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor, token);
+            if (parms is null || parms.Predictor == 1) { return DecodeChecked(inflated, limits, governor); }
+            try { return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor, token), limits, governor); }
+            finally { long bytes = ArrayBytes(inflated); inflated = Array.Empty<byte>(); governor.ReleaseMemory(bytes); }
         }
         finally { parms = null; }
     }
 
     private static byte[] DecodeChecked(byte[] decoded, QpdfLimits limits, ResourceGovernor governor)
     {
-        if (decoded.Length > limits.MaxDecodedBytes)
+        try
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), decoded.Length, limits.MaxDecodedBytes);
-        }
+            if (decoded.Length > limits.MaxDecodedBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), decoded.Length, limits.MaxDecodedBytes);
+            }
 
-        governor.ChargeDecodedBytes(decoded.Length);
-        return decoded;
+            governor.ChargeDecodedBytes(decoded.Length);
+            return decoded;
+        }
+        catch { governor.ReleaseMemory(ArrayBytes(decoded)); throw; }
     }
 
-    private static bool ReadEarlyChange(PdfDictionary? parms, IIndirectResolver? resolver, ResourceGovernor governor)
+    private static bool ReadEarlyChange(PdfDictionary? parms, IIndirectResolver? resolver, ResourceGovernor governor, CancellationToken token)
     {
         if (parms is null)
         {
             return true;
         }
 
-        if (!PdfDictionaryLookup.TryGet(parms, "EarlyChange"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(parms, "EarlyChange"u8, governor, token, out QpdfObject raw) || raw is PdfNull)
         {
             return true;
         }
 
-        governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         raw = Deref(raw, resolver, "/EarlyChange");
-        governor.CheckCancellation(); governor.ChargeWork(1L);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         if (raw is PdfNull)
         {
             return true;

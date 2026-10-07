@@ -22,6 +22,9 @@ internal static class FlateFilter
     private const int ChunkBytes = GovernedReadStream.MaximumReadBytes;
 
     internal static byte[] Decode(byte[] input, PredictorParameters? parms, QpdfLimits limits, ResourceGovernor governor)
+        => Decode(input, parms, limits, governor, CancellationToken.None);
+
+    internal static byte[] Decode(byte[] input, PredictorParameters? parms, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (input is null)
         {
@@ -39,11 +42,12 @@ internal static class FlateFilter
         }
 
         limits.Validate();
+        token.ThrowIfCancellationRequested();
         governor.CheckCancellation();
         long selectorStride = parms is not null && parms.Predictor >= 10
             ? PredictorStages.RowLength(parms, FilterName) + 1L
             : 0L;
-        byte[] inflated = Inflate(input, selectorStride, governor, limits);
+        byte[] inflated = Inflate(input, selectorStride, governor, limits, token);
         byte[] result;
         if (parms is null || parms.Predictor == 1)
         {
@@ -53,11 +57,13 @@ internal static class FlateFilter
         {
             try
             {
-                result = PredictorStages.Apply(inflated, parms, FilterName, governor);
+                result = PredictorStages.Apply(inflated, parms, FilterName, governor, token);
             }
             finally
             {
-                governor.ReleaseMemory(inflated.Length == 0 ? 0L : inflated.Length + GovernedBufferStream.ArrayOverheadBytes);
+                long bytes = inflated.Length == 0 ? 0L : inflated.Length + GovernedBufferStream.ArrayOverheadBytes;
+                inflated = Array.Empty<byte>();
+                governor.ReleaseMemory(bytes);
             }
         }
 
@@ -73,7 +79,7 @@ internal static class FlateFilter
         }
     }
 
-    private static byte[] Inflate(byte[] input, long selectorStride, ResourceGovernor governor, QpdfLimits limits)
+    private static byte[] Inflate(byte[] input, long selectorStride, ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
     {
         governor.CheckCancellation();
         if (input.Length < 7)
@@ -105,7 +111,7 @@ internal static class FlateFilter
         governor.ReserveMemory(reserved);
         try
         {
-            using GovernedReadStream source = new(input.AsMemory(2, input.Length - 6), governor);
+            using GovernedReadStream source = new(input.AsMemory(2, input.Length - 6), governor, token);
             using DeflateStream decompressor = new(source, CompressionMode.Decompress);
             long maximumRaw = Math.Min(limits.MaxDecodedBytes, Array.MaxLength);
             if (selectorStride > 0L)
@@ -115,12 +121,13 @@ internal static class FlateFilter
                 maximumRaw = Math.Min(Array.MaxLength, maximumRaw + maximumRaw / (selectorStride - 1L) + 1L);
             }
 
-            using GovernedBufferStream output = new(governor, maximumRaw, nameof(QpdfLimits.MaxDecodedBytes));
+            using GovernedBufferStream output = new(governor, maximumRaw, nameof(QpdfLimits.MaxDecodedBytes), token);
             byte[] buffer = new byte[ChunkBytes];
             try
             {
                 while (true)
                 {
+                    token.ThrowIfCancellationRequested();
                     governor.CheckCancellation();
                     // Admit each bounded codec output unit before CPU work;
                     // input refills also charge when no output is produced.
@@ -147,7 +154,8 @@ internal static class FlateFilter
             uint expected = ((uint)input[input.Length - 4] << 24) | ((uint)input[input.Length - 3] << 16)
                 | ((uint)input[input.Length - 2] << 8) | input[input.Length - 1];
             governor.CheckCancellation();
-            if (Adler32(output.WrittenSpan, governor) != expected)
+            token.ThrowIfCancellationRequested();
+            if (Adler32(output.WrittenSpan, governor, token) != expected)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, FilterName, "Adler-32 mismatch.");
             }
@@ -266,7 +274,7 @@ internal static class FlateFilter
         }
     }
 
-    private static uint Adler32(ReadOnlySpan<byte> data, ResourceGovernor governor)
+    private static uint Adler32(ReadOnlySpan<byte> data, ResourceGovernor governor, CancellationToken token)
     {
         const uint Mod = 65521U;
         uint a = 1U;
@@ -274,6 +282,7 @@ internal static class FlateFilter
         int i = 0;
         while (i < data.Length)
         {
+            token.ThrowIfCancellationRequested();
             governor.CheckCancellation();
             int chunk = Math.Min(5552, data.Length - i);
             governor.ChargeWork(chunk);

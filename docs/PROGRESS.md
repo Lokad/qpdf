@@ -1,5 +1,60 @@
 # Progress
 
+## Owned decoded content chunks
+
+Page and form pruning now own decoded chunks and list capacities until joining,
+then retire that storage before scanning. Unfiltered stream storage stays borrowed
+from the immutable graph. Flate, ASCIIHex, ASCII85, LZW and RunLength share admitted
+output storage; LZW also admits dictionary entries and capacity growth. Filter
+chains retire intermediate arrays and roll back only their own receipts. Ignored
+input carries finite work; supported analysis codecs and predictors observe both
+cancellation routes. Existing filter semantics and warning paths remain.
+Rebuilt resource graphs, broader returned codec aliases, JPEG, presentation and
+whole-job ownership remain open.
+
+Locked restore and Release pass with zero warnings/errors. The component passes
+**7433 offline cases / 59 new controls**; frozen pending integration passes
+**8166 / 59**. All 7374 preceding isolated / 8107 preceding root stable identities
+and 209 original test sources remain unchanged. Identical final tests on preceding
+pending `A88C7784` fail **37 / preserve 7 / 44 eligible**, zero loaders; ten new
+chunk-owner and five explicit caller-token controls are excluded. Original
+fixtures, assertions, repetitions, thresholds and deadlines remain.
+
+Independent pending/isolated probes agree. Across 128 empty, six borrowed and six
+decoded-chunk owners, allocation is **15360 / 101376 / 38237184**, active forced-GC
+heap **15360 / 26624 / 12627968**, live admission **18432 / 30720 / 12638208**,
+peaks **18432 / 55296 / 32592896**; disposal live is zero. Across 128 empty/grown
+codec outputs, allocation and active heap are **14336 / 2114560**, live/peak
+admission **20480 / 2121728**; disposal live is zero. Empty chunk/output admission
+is **144 / 160**. Borrowed views allocate/retain zero. All **1152** execution/
+backing witnesses die with 256 rooted disposed owners; borrowed inputs stay usable.
+Prepared inputs/controllers/holders/reflection/reporting are excluded; disposed
+aggregate heap includes unrelated state. Cold/native/pool/codec/whole-job/RSS/CPU/
+host measurements remain open.
+
+Fresh focused native evidence passes **358 comparisons / 500 output rereads**,
+including 45 filtered page/form chunk comparisons / 90 rereads. The complete
+reference wrapper passes its differential operation matrix and **1846 parser
+comparisons / 432 rewrite trios**. Package/symbol checks, **50 consumer smokes**
+and both specific negatives pass on the same runtime. These are local Windows
+results; the full compatibility and release audits remain open.
+
+The first test build stopped inside MSBuild with an out-of-memory exception;
+the unchanged retry passed. The first isolated probe lacked its ImageSharp
+dependency; the explicit reviewed dependency reference fixed that harness.
+Both observations are archived. Runtime and test sources stayed frozen through
+final gates. A new native fixture initially encoded its empty Flate chunk as
+zero bytes; its corrected valid frame and five empty-result controls pass.
+Six trailing-whitespace lines were then removed before the final source freeze;
+both stopped candidate reference runs and prior gate results are archived.
+Final gates use the corrected frozen sources. The inherited undefined form font
+mismatch is confirmed on this runtime. All three preceding scheduling/counter
+observations remain open.
+
+Frozen pending runtime `8F278873`, tests `D764CF23`, build checkpoint `885fdb5`;
+nuspec exposes no source commit or URL. Continue rebuilt resource graphs and the
+remaining ownership/diagnostic correction; A01-A07/M11 and both verdicts are open.
+
 ## Owned joined content analysis
 
 Page and form pruning now hold an admitted owner for the exact joined buffer

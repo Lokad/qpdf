@@ -14,6 +14,11 @@ internal static class RunLengthFilter
 
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
     {
+        return Decode(input, limits, governor, CancellationToken.None);
+    }
+
+    internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
         if (input is null)
         {
             throw new ArgumentNullException(nameof(input));
@@ -30,10 +35,11 @@ internal static class RunLengthFilter
         }
 
         limits.Validate();
-        List<byte> output = new();
+        using FilterOutput output = FilterOutput.Create(governor, limits, token);
         int position = 0;
         while (position < input.Length)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             byte length = input[position];
             position += 1;
             if (length < 128)
@@ -46,7 +52,7 @@ internal static class RunLengthFilter
 
                 for (int i = 0; i < count; i++)
                 {
-                    Emit(output, input[position + i], governor, limits);
+                    output.WriteByte(input[position + i]);
                 }
 
                 position += count;
@@ -61,25 +67,14 @@ internal static class RunLengthFilter
                 int count = 257 - length;
                 for (int i = 0; i < count; i++)
                 {
-                    Emit(output, input[position], governor, limits);
+                    output.WriteByte(input[position]);
                 }
 
                 position += 1;
             }
         }
 
-        return [.. output];
+        return output.ToArray();
     }
 
-    private static void Emit(List<byte> output, byte value, ResourceGovernor governor, QpdfLimits limits)
-    {
-        long next = (long)output.Count + 1L;
-        if (next > limits.MaxDecodedBytes)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), next, limits.MaxDecodedBytes);
-        }
-
-        governor.ReserveMemory(1L);
-        output.Add(value);
-    }
 }

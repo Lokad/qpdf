@@ -9,6 +9,7 @@ internal sealed class GovernedBufferStream : Stream
     private readonly long _maximumBytes;
     private readonly string _limitName;
     private readonly CancellationToken _cancellationToken;
+    private readonly int _initialCapacity;
     private byte[] _buffer = Array.Empty<byte>();
     private int _length;
     private int _position;
@@ -18,6 +19,10 @@ internal sealed class GovernedBufferStream : Stream
         : this(governor, maximumBytes, limitName, CancellationToken.None) { }
 
     internal GovernedBufferStream(ResourceGovernor governor, long maximumBytes, string limitName, CancellationToken cancellationToken)
+        : this(governor, maximumBytes, limitName, cancellationToken, 8192) { }
+
+    internal GovernedBufferStream(ResourceGovernor governor, long maximumBytes, string limitName, CancellationToken cancellationToken,
+        int initialCapacity)
     {
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         if (maximumBytes < 1L)
@@ -28,6 +33,8 @@ internal sealed class GovernedBufferStream : Stream
         _maximumBytes = Math.Min(maximumBytes, Array.MaxLength);
         _limitName = limitName ?? throw new ArgumentNullException(nameof(limitName));
         _cancellationToken = cancellationToken;
+        ArgumentOutOfRangeException.ThrowIfLessThan(initialCapacity, 1);
+        _initialCapacity = initialCapacity;
     }
 
     public override bool CanRead => false;
@@ -168,7 +175,7 @@ internal sealed class GovernedBufferStream : Stream
             return;
         }
 
-        long growth = _buffer.Length == 0 ? 8192L : 2L * _buffer.Length;
+        long growth = _buffer.Length == 0 ? _initialCapacity : 2L * _buffer.Length;
         int capacity = (int)Math.Min(_maximumBytes, Math.Max(required, growth));
         long reserved = capacity + ArrayOverheadBytes;
         _governor.ChargeWork(capacity);

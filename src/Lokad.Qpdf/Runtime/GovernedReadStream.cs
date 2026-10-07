@@ -6,14 +6,19 @@ internal sealed class GovernedReadStream : Stream
     internal const int MaximumReadBytes = 8192;
 
     private readonly ResourceGovernor _governor;
+    private CancellationToken _token;
     private ReadOnlyMemory<byte> _input;
     private int _position;
     private bool _disposed;
 
     internal GovernedReadStream(ReadOnlyMemory<byte> input, ResourceGovernor governor)
+        : this(input, governor, CancellationToken.None) { }
+
+    internal GovernedReadStream(ReadOnlyMemory<byte> input, ResourceGovernor governor, CancellationToken token)
     {
         _input = input;
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+        _token = token;
     }
 
     public override bool CanRead => !_disposed;
@@ -31,6 +36,7 @@ internal sealed class GovernedReadStream : Stream
     public override int Read(Span<byte> buffer)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _token.ThrowIfCancellationRequested();
         _governor.CheckCancellation();
         int count = Math.Min(Math.Min(buffer.Length, MaximumReadBytes), _input.Length - _position);
         _governor.ChargeWork(count + 1L);
@@ -42,6 +48,7 @@ internal sealed class GovernedReadStream : Stream
     protected override void Dispose(bool disposing)
     {
         _input = ReadOnlyMemory<byte>.Empty;
+        _token = default;
         _disposed = true;
         base.Dispose(disposing);
     }

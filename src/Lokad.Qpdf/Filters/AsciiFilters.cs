@@ -13,6 +13,11 @@ internal static class AsciiHexFilter
 
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
     {
+        return Decode(input, limits, governor, CancellationToken.None);
+    }
+
+    internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
         if (input is null)
         {
             throw new ArgumentNullException(nameof(input));
@@ -29,10 +34,11 @@ internal static class AsciiHexFilter
         }
 
         limits.Validate();
-        List<byte> output = new();
+        using FilterOutput output = FilterOutput.Create(governor, limits, token);
         int pending = -1;
         foreach (byte b in input)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             if (IsWhitespace(b))
             {
                 continue;
@@ -42,10 +48,10 @@ internal static class AsciiHexFilter
             {
                 if (pending >= 0)
                 {
-                    Emit(output, (byte)(pending << 4), governor, limits);
+                    output.WriteByte((byte)(pending << 4));
                 }
 
-                return [.. output];
+                return output.ToArray();
             }
 
             int digit = HexValue(b);
@@ -60,17 +66,17 @@ internal static class AsciiHexFilter
             }
             else
             {
-                Emit(output, (byte)((pending << 4) | digit), governor, limits);
+                output.WriteByte((byte)((pending << 4) | digit));
                 pending = -1;
             }
         }
 
         if (pending >= 0)
         {
-            Emit(output, (byte)(pending << 4), governor, limits);
+            output.WriteByte((byte)(pending << 4));
         }
 
-        return [.. output];
+        return output.ToArray();
     }
 
     private static bool IsWhitespace(byte b)
@@ -94,17 +100,6 @@ internal static class AsciiHexFilter
         return -1;
     }
 
-    private static void Emit(List<byte> output, byte value, ResourceGovernor governor, QpdfLimits limits)
-    {
-        long next = (long)output.Count + 1L;
-        if (next > limits.MaxDecodedBytes)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), next, limits.MaxDecodedBytes);
-        }
-
-        governor.ReserveMemory(1L);
-        output.Add(value);
-    }
 }
 
 /// <summary>
@@ -118,6 +113,11 @@ internal static class Ascii85Filter
     internal const string FilterName = "ASCII85Decode";
 
     internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor)
+    {
+        return Decode(input, limits, governor, CancellationToken.None);
+    }
+
+    internal static byte[] Decode(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (input is null)
         {
@@ -135,13 +135,15 @@ internal static class Ascii85Filter
         }
 
         limits.Validate();
-        List<byte> output = new();
-        byte[] group = [ (byte)'u', (byte)'u', (byte)'u', (byte)'u', (byte)'u' ];
+        using FilterOutput output = FilterOutput.Create(governor, limits, token);
+        Span<byte> group = stackalloc byte[5];
+        group.Fill((byte)'u');
         int position = 0;
         bool tilde = false;
         bool done = false;
         foreach (byte b in input)
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             if (done)
             {
                 break;
@@ -159,7 +161,7 @@ internal static class Ascii85Filter
                     throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Broken end-of-data sequence.");
                 }
 
-                Flush(output, group, position, governor, limits);
+                Flush(output, group, position);
                 done = true;
                 continue;
             }
@@ -177,10 +179,10 @@ internal static class Ascii85Filter
                     throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, FilterName, "Unexpected z inside a group.");
                 }
 
-                Emit(output, 0, governor, limits);
-                Emit(output, 0, governor, limits);
-                Emit(output, 0, governor, limits);
-                Emit(output, 0, governor, limits);
+                output.WriteByte(0);
+                output.WriteByte(0);
+                output.WriteByte(0);
+                output.WriteByte(0);
                 continue;
             }
 
@@ -193,7 +195,7 @@ internal static class Ascii85Filter
             position += 1;
             if (position == 5)
             {
-                Flush(output, group, position, governor, limits);
+                Flush(output, group, position);
                 position = 0;
                 group[0] = (byte)'u';
                 group[1] = (byte)'u';
@@ -205,13 +207,13 @@ internal static class Ascii85Filter
 
         if (!done)
         {
-            Flush(output, group, position, governor, limits);
+            Flush(output, group, position);
         }
 
-        return [.. output];
+        return output.ToArray();
     }
 
-    private static void Flush(List<byte> output, byte[] group, int position, ResourceGovernor governor, QpdfLimits limits)
+    private static void Flush(FilterOutput output, ReadOnlySpan<byte> group, int position)
     {
         if (position == 0)
         {
@@ -226,7 +228,7 @@ internal static class Ascii85Filter
 
         for (int i = 0; i < position - 1; i++)
         {
-            Emit(output, (byte)((value >> (8 * (3 - i))) & 0xFFUL), governor, limits);
+            output.WriteByte((byte)((value >> (8 * (3 - i))) & 0xFFUL));
         }
     }
 
@@ -235,15 +237,4 @@ internal static class Ascii85Filter
         return b == (byte)' ' || b == (byte)'\f' || b == 0x0B || b == (byte)'\t' || b == (byte)'\r' || b == (byte)'\n';
     }
 
-    private static void Emit(List<byte> output, byte value, ResourceGovernor governor, QpdfLimits limits)
-    {
-        long next = (long)output.Count + 1L;
-        if (next > limits.MaxDecodedBytes)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxDecodedBytes), next, limits.MaxDecodedBytes);
-        }
-
-        governor.ReserveMemory(1L);
-        output.Add(value);
-    }
 }

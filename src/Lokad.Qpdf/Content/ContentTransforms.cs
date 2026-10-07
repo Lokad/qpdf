@@ -942,14 +942,15 @@ internal static class ContentTransforms
             }
         }
 
-        List<byte[]>? pageChunks = CollectPageChunks(copier, page, resolver, limits, governor, cancellationToken);
+        using AnalysisChunks? pageChunks = CollectPageChunks(copier, page, resolver, limits, governor, cancellationToken);
         if (pageChunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
             return page;
         }
 
-        using JoinedContent content = JoinContentBytes(pageChunks, governor, cancellationToken);
+        using JoinedContent content = JoinContentBytes(pageChunks.Parts, governor, cancellationToken);
+        pageChunks.Dispose();
         ScanAndPrune(copier, pageId, page, content.Bytes, resources, true, unresolved, limits, governor, diagnostics, cancellationToken);
         if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? refreshed) && refreshed is PdfDictionary refreshedPage)
         {
@@ -1036,14 +1037,15 @@ internal static class ContentTransforms
             resources = ownTarget as PdfDictionary;
         }
 
-        List<byte[]>? chunks = CollectFormContent(form, resolver, diagnostics, limits, governor, cancellationToken);
+        using AnalysisChunks? chunks = CollectFormContent(form, resolver, limits, governor, cancellationToken);
         if (chunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
             return;
         }
 
-        using JoinedContent content = JoinContentBytes(chunks, governor, cancellationToken);
+        using JoinedContent content = JoinContentBytes(chunks.Parts, governor, cancellationToken);
+        chunks.Dispose();
         ScanAndPrune(copier, formId, null, content.Bytes, resources, false, unresolved, limits, governor, diagnostics, cancellationToken);
     }
 
@@ -1220,10 +1222,10 @@ internal static class ContentTransforms
             copier.ReplaceCopiedObject(nodeId.Value, new PdfStream(ReplaceEntry(stream.Dictionary, PdfName.FromAscii("Resources"), new PdfDictionary(resourcesEntries), governor), stream.Data));
         }
     }
-    private static JoinedContent JoinContentBytes(List<byte[]> parts, ResourceGovernor governor, CancellationToken token)
+    private static JoinedContent JoinContentBytes(IReadOnlyList<byte[]> parts, ResourceGovernor governor, CancellationToken token)
         => JoinedContent.Create(parts, governor, token);
 
-    private static List<byte[]>? CollectPageChunks(
+    private static AnalysisChunks? CollectPageChunks(
         GraphCopier copier,
         PdfDictionary page,
         PoolResolver resolver,
@@ -1233,7 +1235,7 @@ internal static class ContentTransforms
     {
         if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) || contents is PdfNull)
         {
-            return new List<byte[]>();
+            return AnalysisChunks.Create(governor, cancellationToken);
         }
 
         using CheckStreamList streams = CheckStreamList.Create(governor);
@@ -1269,81 +1271,46 @@ internal static class ContentTransforms
         }
         else
         {
-            return new List<byte[]>();
+            return AnalysisChunks.Create(governor, cancellationToken);
         }
 
-        List<byte[]> chunks = new(streams.Count);
-        for (int index = 0; index < streams.Count; index++)
+        AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            PdfStream stream = streams.Get(index, cancellationToken);
-            byte[]? decoded = DecodeAnalysisBytes(stream, resolver, limits, governor);
-            if (decoded is null)
+            for (int index = 0; index < streams.Count; index++)
             {
-                return null;
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                PdfStream stream = streams.Get(index, cancellationToken);
+                if (!chunks.TryAdd(stream, resolver, limits))
+                {
+                    chunks.Dispose();
+                    return null;
+                }
             }
 
-            chunks.Add(decoded);
+            return chunks;
         }
-
-        return chunks;
+        catch { chunks.Dispose(); throw; }
     }
 
-    private static List<byte[]>? CollectFormContent(
+    private static AnalysisChunks? CollectFormContent(
         PdfStream form,
         PoolResolver resolver,
-        DiagnosticBag diagnostics,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         governor.ChargeWork(1L);
-        byte[]? decoded = DecodeAnalysisBytes(form, resolver, limits, governor);
-        if (decoded is null)
-        {
-            return null;
-        }
-
-        return new List<byte[]>() { decoded };
-    }
-
-    private static byte[]? DecodeAnalysisBytes(
-        PdfStream stream,
-        PoolResolver resolver,
-        QpdfLimits limits,
-        ResourceGovernor governor)
-    {
-        FilterPlan stages;
+        AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
-        }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
-        {
+            if (chunks.TryAdd(form, resolver, limits)) { return chunks; }
+            chunks.Dispose();
             return null;
         }
-        using FilterPlan stageOwner = stages;
-
-        if (stages.Count == 0)
-        {
-            return stream.Data;
-        }
-
-        if (!FilterChain.AllStagesInLevel(stages, "specialized"))
-        {
-            return null;
-        }
-
-        try
-        {
-            return FilterChain.Decode(stream.Data, stages, limits, governor);
-        }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
-        {
-            return null;
-        }
+        catch { chunks.Dispose(); throw; }
     }
 
     private static bool ScanNames(

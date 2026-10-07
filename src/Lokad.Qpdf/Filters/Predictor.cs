@@ -161,6 +161,9 @@ internal static class PredictorStages
     private const int CheckInterval = 1024;
 
     internal static byte[] Apply(byte[] inflated, PredictorParameters parms, string filterName, ResourceGovernor governor)
+        => Apply(inflated, parms, filterName, governor, CancellationToken.None);
+
+    internal static byte[] Apply(byte[] inflated, PredictorParameters parms, string filterName, ResourceGovernor governor, CancellationToken token)
     {
         if (inflated is null)
         {
@@ -177,7 +180,7 @@ internal static class PredictorStages
             throw new ArgumentNullException(nameof(governor));
         }
 
-        governor.CheckCancellation();
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         int rowLength = RowLength(parms, filterName);
         bool tiff = parms.Predictor == 2;
         long stride = tiff ? rowLength : rowLength + 1L;
@@ -203,11 +206,11 @@ internal static class PredictorStages
             byte[] output = new byte[outputLength];
             if (tiff)
             {
-                ApplyTiff(inflated, output, rows, rowLength, parms, governor);
+                ApplyTiff(inflated, output, rows, rowLength, parms, governor, token);
             }
             else
             {
-                ApplyPng(inflated, output, rows, rowLength, parms, filterName, governor);
+                ApplyPng(inflated, output, rows, rowLength, parms, filterName, governor, token);
             }
 
             return output;
@@ -243,14 +246,14 @@ internal static class PredictorStages
     }
 
     private static void ApplyTiff(byte[] inflated, byte[] output, int rows, int rowLength,
-        PredictorParameters parms, ResourceGovernor governor)
+        PredictorParameters parms, ResourceGovernor governor, CancellationToken token)
     {
         int bits = parms.BitsPerComponent;
         long samplesPerRow = (long)parms.Columns * parms.Colors;
         int mask = (1 << bits) - 1;
         for (int row = 0; row < rows; row++)
         {
-            governor.CheckCancellation();
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int start = row * rowLength;
             if (bits == 8)
             {
@@ -259,7 +262,7 @@ internal static class PredictorStages
                 {
                     if (i % CheckInterval == 0)
                     {
-                        governor.CheckCancellation();
+                        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     }
 
                     int previous = i >= parms.Colors ? output[start + i - parms.Colors] : 0;
@@ -273,7 +276,7 @@ internal static class PredictorStages
                 {
                     if (sample % CheckInterval == 0)
                     {
-                        governor.CheckCancellation();
+                        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     }
 
                     long bitPosition = sample * bits;
@@ -288,12 +291,12 @@ internal static class PredictorStages
     }
 
     private static void ApplyPng(byte[] inflated, byte[] output, int rows, int rowLength,
-        PredictorParameters parms, string filterName, ResourceGovernor governor)
+        PredictorParameters parms, string filterName, ResourceGovernor governor, CancellationToken token)
     {
         int bytesPerPixel = (int)Math.Min(rowLength, ((long)parms.BitsPerComponent * parms.Colors + 7L) / 8L);
         for (int row = 0; row < rows; row++)
         {
-            governor.CheckCancellation();
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             governor.ChargeWork(rowLength);
             int inputBase = row * (rowLength + 1);
             int filter = inflated[inputBase];
@@ -308,7 +311,7 @@ internal static class PredictorStages
             {
                 if (i % CheckInterval == 0)
                 {
-                    governor.CheckCancellation();
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 }
 
                 int raw = inflated[inputBase + 1 + i];
