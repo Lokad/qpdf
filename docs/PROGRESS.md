@@ -1,5 +1,45 @@
 # Progress
 
+## Governed raw name lookup and reader metadata
+
+A shared stateless helper looks up borrowed raw names with explicit work and
+cancellation. Frozen name tables charge their actual hash/bucket/equality work;
+legacy backing charges every entry visit and compared byte without constructing
+a temporary name/display string or key view. Raw type comparisons share the
+byte semantics. Reader routes cover stream length, object-stream metadata, xref
+fields and page inheritance. Public object access remains independent of a job.
+
+The helper/table closure passes locked restore/Release with zero warnings/errors
+and **6896 offline cases / 20 new controls**. Adding the reader routes passes
+**6902 / 26 new controls** from committed sources: the same 20 component cases
+and six compatible reader cases. Frozen wider pending integration passes
+**7640 / 36 new controls**, including ten owned-dictionary dispatch cases. All
+7604 prior identities and test sources remain unchanged. The identical final
+assembly **fails three / preserves three of six** eligible reader cases on the
+preceding library, with zero loader failures. Thirty new-type/overload cases are
+excluded from that baseline. Missing namespace/API fixture errors are archived;
+original fixtures, ceilings, repetitions, thresholds and deadlines remain.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. These local Windows
+lanes bind the frozen wider integration and retain preceding-commit package
+metadata; the final full reference lane and combined diagnostic correction remain.
+
+Independent warmed 1024-call legacy/owned 8192-byte hits, raw-name equality and
+legacy/owned 512-entry misses each allocate **zero bytes** and add no live
+admission. Work totals are **8389632 / 8411136 / 8389632 / 525312 / 20480**;
+forced-GC heap deltas are **-240 / 0 / 0 / 0 / 0 bytes**. Separate observations
+leave **zero governors/observers alive from 256 callers per backing** while the
+borrowed dictionaries survive. Prepared dictionaries/tables/names/queries/values,
+construction admission, governors, holders and snapshots/reporting are excluded.
+These are serial warmed lookup observations, without codec/cold/native/pool,
+whole-job/RSS, CPU or host-latency claims.
+
+Owned dictionary/parser/recovery/copier/remapper and ten dispatch controls remain
+pending with the weak-ledger integration. Other runtime name lookups/collections,
+legacy unowned construction, hints/presentation, broader measurements, final
+reference/visual CI and all A01–A07/M11/verdict requirements remain open.
+
 ## Governed PDF name storage
 
 A reusable name table admits wrapper/array capacities and growth overlap before

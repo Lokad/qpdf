@@ -279,20 +279,20 @@ internal sealed class XRefTable : IDisposable
             (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(data, limits, governor, diagnostics, tokenizer, current, values, section);
             if (effectiveSize is null)
             {
-                effectiveSize = ReadSize(trailer);
+                effectiveSize = ReadSize(trailer, governor);
             }
 
             MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory);
             section.Discard();
             ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
-            long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm", data, current);
+            long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm"u8, "XRefStm", data, current, governor);
             if (hybrid.HasValue)
             {
                 (Dictionary<int, XrefEntry> extra, PdfDictionary _) = ParseStreamSection(data, limits, governor, diagnostics, hybrid.Value, values, section, false);
                 MergeSection(merged, extra, effectiveSize.Value, data.Length, hybrid.Value, governor, memory);
             }
 
-            return ReadLinkOffset(trailer, "Prev", data, current);
+            return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor);
         }
 
         if (head.Kind == PdfTokenKind.Integer)
@@ -310,13 +310,13 @@ internal sealed class XRefTable : IDisposable
             (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseStreamSection(data, limits, governor, diagnostics, current, values, section, true);
             if (effectiveSize is null)
             {
-                effectiveSize = ReadSize(trailer);
+                effectiveSize = ReadSize(trailer, governor);
             }
 
             MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory);
             section.Discard();
             ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
-            return ReadLinkOffset(trailer, "Prev", data, current);
+            return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor);
         }
 
         throw new QpdfParseException("Cross-reference section is neither an xref table nor a stream.", current, null);
@@ -348,10 +348,10 @@ internal sealed class XRefTable : IDisposable
         }
     }
 
-    private static long? ReadLinkOffset(PdfDictionary trailer, string name, ReadOnlyMemory<byte> data, long offset)
+    private static long? ReadLinkOffset(PdfDictionary trailer, ReadOnlySpan<byte> key, string name,
+        ReadOnlyMemory<byte> data, long offset, ResourceGovernor governor)
     {
-        PdfName key = PdfName.FromAscii(name);
-        if (!trailer.TryGet(key, out QpdfObject raw) || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(trailer, key, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
         {
             return null;
         }
@@ -448,16 +448,16 @@ internal sealed class XRefTable : IDisposable
         }
 
         PdfDictionary dictionary = stream.Dictionary;
-        PdfName typeKey = PdfName.FromAscii("Type");
-        if (!dictionary.TryGet(typeKey, out QpdfObject typeRaw) || typeRaw is not PdfName typeName || typeName.DisplayText != "XRef")
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, governor.CancellationToken, out QpdfObject typeRaw)
+            || typeRaw is not PdfName typeName || !PdfDictionaryLookup.NameEquals(typeName, "XRef"u8, governor, governor.CancellationToken))
         {
             throw new QpdfParseException("Cross-reference stream must declare /Type /XRef.", xrefOffset, streamNumber);
         }
 
-        int size = ReadSize(dictionary);
+        int size = ReadSize(dictionary, governor);
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(48L);
-        int[] widths = ReadWidths(dictionary);
+        int[] widths = ReadWidths(dictionary, governor);
         List<(int First, int Count)> index = ReadIndex(dictionary, size, governor, scratch);
         ReadOnlyMemory<byte> decoded = DecodeXRefData(stream, governor, limits, xrefOffset, streamNumber, scratch);
         Dictionary<int, XrefEntry> entries = ReadStreamEntries(decoded, widths, index, size, data.Length, governor, xrefOffset, entriesMemory);
@@ -471,10 +471,9 @@ internal sealed class XRefTable : IDisposable
         return (entries, dictionary);
     }
 
-    private static int[] ReadWidths(PdfDictionary dictionary)
+    private static int[] ReadWidths(PdfDictionary dictionary, ResourceGovernor governor)
     {
-        PdfName key = PdfName.FromAscii("W");
-        if (!dictionary.TryGet(key, out QpdfObject raw) || raw is not PdfArray array || array.Count != 3)
+        if (!PdfDictionaryLookup.TryGet(dictionary, "W"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is not PdfArray array || array.Count != 3)
         {
             throw new QpdfParseException("Cross-reference stream must declare exactly three /W widths.", null, null);
         }
@@ -503,8 +502,7 @@ internal sealed class XRefTable : IDisposable
     private static List<(int First, int Count)> ReadIndex(
         PdfDictionary dictionary, int size, ResourceGovernor governor, ParserMemoryScope scratch)
     {
-        PdfName key = PdfName.FromAscii("Index");
-        if (!dictionary.TryGet(key, out QpdfObject raw) || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Index"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
         {
             scratch.Reserve(72L);
             return new List<(int First, int Count)>(1) { (0, size) };
@@ -906,10 +904,9 @@ internal sealed class XRefTable : IDisposable
         return kind == (byte)'n' ? XrefEntry.Uncompressed(target, generation) : XrefEntry.Free(target, generation);
     }
 
-    private static int ReadSize(PdfDictionary trailer)
+    private static int ReadSize(PdfDictionary trailer, ResourceGovernor governor)
     {
-        PdfName sizeKey = new([(byte)'S', (byte)'i', (byte)'z', (byte)'e']);
-        if (!trailer.TryGet(sizeKey, out QpdfObject raw) || raw is not PdfInteger size)
+        if (!PdfDictionaryLookup.TryGet(trailer, "Size"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is not PdfInteger size)
         {
             throw new QpdfParseException("Trailer must declare an integer /Size.", null, null);
         }

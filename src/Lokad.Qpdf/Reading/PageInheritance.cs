@@ -7,8 +7,6 @@ namespace Lokad.Qpdf.Reading;
 /// <summary>Shared bounded lookup of a page attribute through its ancestry.</summary>
 internal static class PageInheritance
 {
-    private static readonly PdfName Parent = PdfName.FromAscii("Parent");
-
     internal static QpdfObject? Find(DocumentEngine engine, PageLocation location, PdfName name,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
@@ -23,8 +21,9 @@ internal static class PageInheritance
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            if (current.TryGet(name, out QpdfObject value) && Resolve(engine, value, limits, governor) is not PdfNull) { return value; }
-            if (!current.TryGet(Parent, out QpdfObject raw) || raw is PdfNull) { return null; }
+            if (PdfDictionaryLookup.TryGet(current, name.RawSpan, governor, cancellationToken, out QpdfObject value)
+                && Resolve(engine, value, limits, governor) is not PdfNull) { return value; }
+            if (!PdfDictionaryLookup.TryGet(current, "Parent"u8, governor, cancellationToken, out QpdfObject raw) || raw is PdfNull) { return null; }
             if (depth >= limits.MaxNestingDepth) { throw new QpdfParseException("Page ancestry exceeds the nesting limit.", null, null); }
             if (raw is PdfDictionary direct) { current = direct; }
             else if (raw is PdfReference reference)

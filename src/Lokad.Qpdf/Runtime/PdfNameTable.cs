@@ -82,7 +82,18 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         [MaybeNullWhen(false)] out T value)
     {
         ArgumentNullException.ThrowIfNull(governor); CheckRead(governor);
-        Visits visits = new(governor, token, null);
+        return ReadBytes(key, new Visits(governor, token, null), out value);
+    }
+
+    internal bool TryGetObserved(ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token,
+        Action observe, [MaybeNullWhen(false)] out T value)
+    {
+        ArgumentNullException.ThrowIfNull(governor); ArgumentNullException.ThrowIfNull(observe); CheckRead(governor);
+        return ReadBytes(key, new Visits(governor, token, observe), out value);
+    }
+
+    private bool ReadBytes(ReadOnlySpan<byte> key, Visits visits, [MaybeNullWhen(false)] out T value)
+    {
         int found = Find(key, null, visits, out _);
         if (found < 0) { value = default; return false; }
         value = _entries[found].Value; return true;

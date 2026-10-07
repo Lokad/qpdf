@@ -28,7 +28,6 @@ internal sealed class PdfParser
     private int _dictionaryReceiptDepth = -1;
     private IReadOnlyDictionary<PdfName, ParsedValue>? _dictionaryReceipts;
     private ParserMemoryScope Memory => _memory ?? throw new InvalidOperationException("Parser allocation has no attempt owner.");
-    private static readonly PdfName LengthKey = PdfName.FromAscii("Length");
 
     internal PdfParser(QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
@@ -903,7 +902,7 @@ internal sealed class PdfParser
 
     private long ResolveStreamLength(PdfDictionary dictionary, long offset)
     {
-        if (!dictionary.TryGet(LengthKey, out QpdfObject raw))
+        if (!PdfDictionaryLookup.TryGet(dictionary, "Length"u8, _governor, _governor.CancellationToken, out QpdfObject raw))
         {
             throw new QpdfParseException("Stream dictionary has no /Length.", offset, null);
         }

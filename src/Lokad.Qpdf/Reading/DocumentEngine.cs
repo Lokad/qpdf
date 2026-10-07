@@ -353,8 +353,8 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
             }
 
             PdfDictionary dictionary = stream.Dictionary;
-            PdfName typeKey = PdfName.FromAscii("Type");
-            if (!dictionary.TryGet(typeKey, out QpdfObject typeRaw) || typeRaw is not PdfName typeName || typeName.DisplayText != "ObjStm")
+            if (!PdfDictionaryLookup.TryGet(dictionary, "Type"u8, _governor, _governor.CancellationToken, out QpdfObject typeRaw)
+                || typeRaw is not PdfName typeName || !PdfDictionaryLookup.NameEquals(typeName, "ObjStm"u8, _governor, _governor.CancellationToken))
             {
                 throw new QpdfParseException($"Object {streamNumber} must declare /Type /ObjStm.", null, streamNumber);
             }
@@ -365,8 +365,8 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
             // (even a self-reference like the objstm-extends.pdf fixture resolves).
             // The key itself stays opaque data for the copy engine to preserve.
 
-            int count = ReadObjStmInt(dictionary, "N", 1, streamNumber);
-            int first = ReadObjStmInt(dictionary, "First", 0, streamNumber);
+            int count = ReadObjStmInt(dictionary, "N"u8, "N", 1, streamNumber);
+            int first = ReadObjStmInt(dictionary, "First"u8, "First", 0, streamNumber);
             using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
             ReadOnlyMemory<byte> decoded = DecodeStreamData(stream, streamNumber, scratch);
             if (first >= decoded.Length && count > 0)
@@ -447,10 +447,9 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         }
     }
 
-    private static int ReadObjStmInt(PdfDictionary dictionary, string name, int minimum, int streamNumber)
+    private int ReadObjStmInt(PdfDictionary dictionary, ReadOnlySpan<byte> key, string name, int minimum, int streamNumber)
     {
-        PdfName key = PdfName.FromAscii(name);
-        if (!dictionary.TryGet(key, out QpdfObject raw) || raw is not PdfInteger integer)
+        if (!PdfDictionaryLookup.TryGet(dictionary, key, _governor, _governor.CancellationToken, out QpdfObject raw) || raw is not PdfInteger integer)
         {
             throw new QpdfParseException($"Object stream {streamNumber} has incorrect /{name}.", null, streamNumber);
         }
