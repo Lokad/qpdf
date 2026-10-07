@@ -1,5 +1,43 @@
 # Progress
 
+## Scoped streamed QDF values and headers
+
+A reusable value owner admits rebuilt references/arrays/dictionaries/headers
+through shared remapping while borrowing immutable keys, primitives and payloads.
+Header construction replaces old length metadata before traversal and maps other
+references once. Pending streamed-QDF integration keeps regular/member/header
+metadata funded through value/dictionary output, then detaches it before closing
+awaits; internal payload output borrows bytes and public copies stay immutable.
+
+The isolated component passes locked restore/Release and **6860 offline cases /
+18 new controls**. Frozen pending integration passes **7582 offline cases / 60
+new controls**: 22 compatible writer and 20 rooted-task/retirement outcomes
+alongside the component. The identical final assembly **fails 28 / preserves
+55 of 83** eligible value/row/index cases on the preceding library, with zero
+loader/identity drift or timeouts; 38 new-type/private cases are excluded and all
+7522 preceding identities remain. Three recent control files account for the
+exact new catalog receipt or strengthen final streamed-header residue to zero;
+their original fixtures/ceilings/repetitions/thresholds/deadlines remain. New
+ownership-fixture, probe-argument and evidence-category corrections are archived.
+
+Fresh **153 native comparisons / 174 rereads** include 54 exact binary-scalar
+rereads and 12 authored header-target/raw-body/indirect-length validations across
+argv/job/mixed routes. Package/symbol checks, **50 consumer smokes** and both
+specific negatives pass. Runtime bytes remain unchanged after the authored
+fixture correction; final full/baseline lanes use the corrected test assembly.
+
+Independent warmed 128-owner null/512-reference-array/absent-length-header/
+existing-length-header phases measure allocation **9216 / 2112512 / 2157568 /
+2146304 bytes**, retained heap **9216 / 2112512 / 2153472 / 2146304**, live admission
+**16384 / 2646016 / 2694400 / 2685440**. Wrapper/scope geometry is near **32/40
+bytes**, admitted as 64 each. Prepared map admission (416 bytes), immutable
+values/keys/2-MiB payloads and governors/holders/reporting are excluded. Disposal
+retires admission to zero; rooted empty owners retain **4096** heap bytes,
+dropping holders leaves one **32-byte** local. Local pre-commit observations
+exclude name-key collision work, hints/codecs, cold/native/pool/whole-job/RSS and
+CPU/host latency. Wider integrations, presentation, the complete diagnostic
+correction, final full reference evidence and A01–A07/M11/verdicts remain open.
+
 ## Scoped writer rows and classic QDF metadata
 
 Classic QDF owns exact emission rows and rebuilt references/arrays/dictionaries/
