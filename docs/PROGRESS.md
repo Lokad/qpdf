@@ -1,5 +1,25 @@
 # Progress
 
+## Formatter cancellation observations
+
+The existing formatter cancellation controls now pause after actual byte-block
+completion at their original work threshold, then cancel and resume shared
+formatting. An internal observer overload supports this gate; ordinary calls
+pass no observer and retain no extra state. The formatter test collection runs
+without parallel allocation/GC observations. The original 32-MiB inputs,
+65536-work threshold after zeroing, ten-second deadlines, fixture constructors,
+40 assertion lines and case identities remain unchanged. An active-polling
+attempt still raced completion; its source/binaries/failures remain archived.
+
+The isolated correction passes locked restore/Release and **6687 offline cases**;
+the pending tree passes **7208**, with **64 repeated cancellation observations**
+and no failures/skips. Fresh **147 native comparisons / 162 output rereads**,
+including **54 binary-value rereads**, package/symbol checks, **50 consumer smokes**
+and both specific negatives pass. Independent formatting and ordering probes
+reproduce the preceding allocation/retention/admission/work vectors on the new
+DLL. These scoped local Windows/pre-commit observations close the test race;
+remaining writer/diagnostic work and all broader gates/verdicts remain open.
+
 ## Owned writer formatting
 
 A shared byte formatter borrows fields and admits one exact result before

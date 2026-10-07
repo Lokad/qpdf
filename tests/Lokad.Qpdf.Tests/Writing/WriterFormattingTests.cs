@@ -7,6 +7,10 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
+[CollectionDefinition(nameof(WriterFormattingCollection), DisableParallelization = true)]
+public sealed class WriterFormattingCollection { }
+
+[Collection(nameof(WriterFormattingCollection))]
 public sealed class WriterFormattingTests
 {
     public static IEnumerable<object[]> Numbers()
@@ -190,27 +194,36 @@ public sealed class WriterFormattingTests
         WriterPart[] parts = Parts(kind, count);
         using CancellationTokenSource cancellation = new();
         using ManualResetEventSlim start = new();
+        using ManualResetEventSlim reached = new();
+        using ManualResetEventSlim resume = new();
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
         long threshold = Length(kind, count) + 65536L;
+        void ObserveFill()
+        {
+            if (governor.Snapshot().TotalWork < threshold) { return; }
+            reached.Set();
+            if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Formatter observation did not resume."); }
+        }
         Task worker = Task.Factory.StartNew(() =>
         {
             start.Wait();
             using WriterFormatting output = WriterFormatting.Create(parts, QpdfLimits.Default, governor,
-                governorToken ? CancellationToken.None : cancellation.Token);
+                governorToken ? CancellationToken.None : cancellation.Token, ObserveFill);
         }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         try
         {
             start.Set();
-            bool observed = SpinWait.SpinUntil(() => governor.Snapshot().TotalWork >= threshold || worker.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = reached.Wait(TimeSpan.FromSeconds(10));
             cancellation.Cancel();
+            resume.Set();
             Assert.True(observed); Assert.True(governor.Snapshot().TotalWork >= threshold);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(parts);
         }
         finally
         {
-            start.Set(); cancellation.Cancel();
+            start.Set(); cancellation.Cancel(); resume.Set();
             try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); }
             catch (OperationCanceledException) { }
         }

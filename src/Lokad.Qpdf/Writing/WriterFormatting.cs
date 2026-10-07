@@ -15,18 +15,27 @@ internal sealed class WriterFormatting : IDisposable
 
     internal static WriterFormatting Create(ReadOnlySpan<WriterPart> parts, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken cancellationToken)
-        => CreateCore(parts, null, null, limits, governor, cancellationToken);
+        => CreateCore(parts, null, null, limits, governor, cancellationToken, null);
+
+    // Internal block observation lets tests cancel after actual formatting work
+    // without racing the scheduler. Ordinary callers retain no callback/state.
+    internal static WriterFormatting Create(ReadOnlySpan<WriterPart> parts, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken cancellationToken, Action observeFill)
+    {
+        ArgumentNullException.ThrowIfNull(observeFill);
+        return CreateCore(parts, null, null, limits, governor, cancellationToken, observeFill);
+    }
 
     internal static WriterFormatting CreatePadded(ReadOnlySpan<WriterPart> parts, int width, string overflowMessage,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(width);
         ArgumentNullException.ThrowIfNull(overflowMessage);
-        return CreateCore(parts, width, overflowMessage, limits, governor, cancellationToken);
+        return CreateCore(parts, width, overflowMessage, limits, governor, cancellationToken, null);
     }
 
     private static WriterFormatting CreateCore(ReadOnlySpan<WriterPart> parts, int? width, string? overflowMessage,
-        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observeFill)
     {
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor);
@@ -57,9 +66,9 @@ internal sealed class WriterFormatting : IDisposable
             {
                 CheckCancellation(governor, cancellationToken);
                 governor.ChargeWork(1L);
-                Fill(part, bytes, ref used, governor, cancellationToken);
+                Fill(part, bytes, ref used, governor, cancellationToken, observeFill);
             }
-            FillRepeated(bytes.AsSpan(used), (byte)' ', governor, cancellationToken);
+            FillRepeated(bytes.AsSpan(used), (byte)' ', governor, cancellationToken, observeFill);
             return new WriterFormatting(memory, bytes);
         }
         catch { memory.Dispose(); throw; }
@@ -86,7 +95,8 @@ internal sealed class WriterFormatting : IDisposable
         }
     }
 
-    private static void Fill(WriterPart part, byte[] target, ref int used, ResourceGovernor governor, CancellationToken token)
+    private static void Fill(WriterPart part, byte[] target, ref int used, ResourceGovernor governor, CancellationToken token,
+        Action? observeFill)
     {
         if (part.Type == WriterPart.Kind.Empty) { return; }
         if (part.Type == WriterPart.Kind.Text)
@@ -103,6 +113,7 @@ internal sealed class WriterFormatting : IDisposable
                     target[used + index] = value <= 127 ? (byte)value : (byte)'?';
                 }
                 used += count; offset += count;
+                observeFill?.Invoke();
             }
             return;
         }
@@ -122,12 +133,13 @@ internal sealed class WriterFormatting : IDisposable
                     target[used++] = (byte)digits[value & 15];
                 }
                 offset += count;
+                observeFill?.Invoke();
             }
             return;
         }
         if (part.Type == WriterPart.Kind.Spaces)
         {
-            FillRepeated(target.AsSpan(used, part.Width), (byte)' ', governor, token);
+            FillRepeated(target.AsSpan(used, part.Width), (byte)' ', governor, token, observeFill);
             used += part.Width;
             return;
         }
@@ -141,18 +153,19 @@ internal sealed class WriterFormatting : IDisposable
             governor.ChargeWork(1L);
             target[used++] = (byte)'-'; start = 1;
         }
-        FillRepeated(target.AsSpan(used, padding), (byte)'0', governor, token);
+        FillRepeated(target.AsSpan(used, padding), (byte)'0', governor, token, observeFill);
         used += padding;
         GovernedBufferStream.CopyBytes(number.Slice(start, countNumber - start), target.AsSpan(used), governor, token, CancellationToken.None);
         used += countNumber - start;
         if (part.Type == WriterPart.Kind.RightPaddedNumber)
         {
-            FillRepeated(target.AsSpan(used, part.Width - countNumber), (byte)' ', governor, token);
+            FillRepeated(target.AsSpan(used, part.Width - countNumber), (byte)' ', governor, token, observeFill);
             used += part.Width - countNumber;
         }
     }
 
-    private static void FillRepeated(Span<byte> target, byte value, ResourceGovernor governor, CancellationToken token)
+    private static void FillRepeated(Span<byte> target, byte value, ResourceGovernor governor, CancellationToken token,
+        Action? observeFill)
     {
         for (int offset = 0; offset < target.Length;)
         {
@@ -161,6 +174,7 @@ internal sealed class WriterFormatting : IDisposable
             governor.ChargeWork(count);
             target.Slice(offset, count).Fill(value);
             offset += count;
+            observeFill?.Invoke();
         }
     }
 
