@@ -1,5 +1,53 @@
 # Progress
 
+## Governed form resource traversal
+
+Form collection now owns its visited numbers, value-deduplicated scopes and
+borrowed form references through both pruning and inline-image externalization.
+An admitted iterative comparison preserves dictionary value equality, including
+raw names/numeric text, string syntax, reference generations, array order and
+stream bytes. Its stack, dictionary/key visits, scalar bytes/text and set growth
+have work/cancellation boundaries. Scope hashing still uses dictionary counts;
+resource and form visit order, direct repeats and number-based indirect deduplication
+remain. Disposed walks drop all backing/execution state before retiring admission.
+
+Resource/Font/XObject/Contents metadata uses shared raw lookup and bounded pool
+resolution. Concrete entry cursors avoid key views and repeated lookup; content
+arrays use indexed borrowing and the existing admitted stream-reference owner.
+Analysis name sets/decoded strings, joined/decoded chunks, rebuilt graphs and
+broader content/inspection/JSON/writer storage remain pending.
+
+Locked restore/Release passes with zero warnings/errors. The component passes
+**7276 offline cases / 52 new controls**; frozen wider integration passes
+**8009 / 52**, without retries. All 7224 preceding isolated / 7957 preceding root
+stable identities remain; all original test sources, fixtures, assertions,
+ceilings, repetitions, thresholds and deadlines remain unchanged. Identical final
+tests on preceding pending `36B4F491` fail **6 / preserve 7 / 13 eligible**, zero
+loaders; 39 new owner/comparison controls are excluded. A private resolver adapter
+keeps identical prepared values, budgets and tokens while binding the old signature.
+
+Independent isolated/pending probes agree. Across 128 empty/grown walks, allocation
+is **63488 / 591872**, active forced-GC heap **63488 / 337920**, live admission
+**90112 / 408064**, peaks **90112 / 440832**; disposal live admission is zero.
+Empty admission is 704 bytes. Warmed 128 borrowed comparisons allocate/retain zero
+bytes, with 704 live admission and 35968 work. Frames measure 88 bytes within
+128-byte admission. All 2432 execution/backing witnesses die across 128 rooted
+disposed owners while a borrowed 2-MiB stream stays usable. Disposed aggregate
+heap includes unrelated state; prepared inputs/controllers/holders/reflection/
+reporting are excluded. Broader cold/native/pool/codec/whole-job/RSS/CPU/host
+measurements and both earlier scheduling observations remain open.
+
+Fresh focused native evidence passes **271 comparisons / 326 output rereads**;
+the full differential operation lane, package/symbol checks, **50 consumer smokes**
+and both specific negatives pass on the same runtime. These are local Windows results.
+Frozen pending runtime `B04540B7`, tests `68FE65FC`, build checkpoint `07bbeb7`;
+nuspec exposes no source commit or URL. The initial build missed the externalization
+caller of the changed collector; both callers now dispose the same owner. That
+failure is archived separately; final sources/binaries stayed frozen through gates.
+The full parser lane is historical at `36B4F491` / `A714D700` and needs final
+combined verification. Continue remaining name analysis, collections and output
+owners; A01-A07/M11 and both completion verdicts remain open. Inventory is unchanged.
+
 ## Pages-block grammar correction
 
 Plain and mixed argv now share pages-option validation before main options are

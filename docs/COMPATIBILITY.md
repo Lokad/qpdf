@@ -56,6 +56,16 @@ inventory consistency, fixture/independent-reader contracts, codec feasibility, 
 package boundaries; operation coverage is carried by the per-entry unit, budget,
 and oracle-differential evidence reconciled below.
 
+Form resource traversal now admits its scopes, form references and visited-number
+index through pruning and inline-image externalization. An iterative, admitted
+value comparison preserves scope deduplication while bounding nested values,
+raw names, numeric text and stream-byte work. Raw metadata lookup and bounded
+indirect resolution borrow PDF values; concrete cursors and indexed content arrays
+avoid key views and array copies. Fifty-two new controls, compatible preceding-DLL
+proof and independent component/pending measurements verify this scope. Remaining
+analysis name sets/strings, chunks, rebuilt graphs, broader lookup/storage and
+diagnostic/default/interaction audits remain open; inventory status is unchanged.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string
