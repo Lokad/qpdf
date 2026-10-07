@@ -1,5 +1,60 @@
 # Progress
 
+## Governed checker metadata and traversal owners
+
+Checker catalog/form registration, child arrays, annotations and page contents
+now use borrowed raw-name operations. Shared indirect resolution bounds both
+sides of each resolver call and publishes its result only after the return gate.
+Page/array traversal borrows indexed views without cloning arrays or creating
+interface enumerators. Temporary page-stream references have an admitted owner;
+payloads stay borrowed. Form traversal uses shared governed integer sets, admits
+its state before initial metadata lookup, and drops indexes/execution references
+before releasing admission or constructing an outcome.
+
+The buildable closure passes locked restore/Release with zero warnings/errors
+and **7078 offline cases / 48 controls** (42 new, six promoted original form-owner
+cases). Wider frozen integration passes **7811 / 42 new**, preserving all 7769
+preceding stable IDs; all 7030 preceding isolated IDs remain. The eight original
+form-owner cases keep their fixtures, ceilings, repetitions, thresholds, deadlines
+and assertions. Their class is split into identical partials: six ownership
+cases are committed; two outcome-funding growth cases remain with pending
+diagnostics. Every other original test source is unchanged.
+
+The identical final assembly on the preceding pending runtime fails twelve
+work/cancellation/allocation cases and preserves fourteen behavior cases, with
+zero loader failures. All 26 context-compatible lookup controls are eligible;
+16 new owner/primitive cases and six promoted owner cases are excluded. A
+declared private adapter binds the preceding name-key helper using the same
+prepared values, resolver, budgets and tokens. Null/direct/indirect shape,
+generation and borrowing contracts remain.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. These local Windows
+lanes use the frozen pending DLL and build checkpoint `ab5ea41`; nuspec repository
+metadata exposes no source commit or URL. The final full reference lane remains
+required on combined sources.
+
+Independent probes on isolated and pending DLLs agree: four warmed 128-invocation
+metadata scenarios allocate/retain/fund zero bytes. Per-owner empty stream/form
+admission is 160/480 bytes; 17 borrowed stream references admit 448 bytes, with
+608-byte growth peak. Across 128 owners, allocation is 14336/88064/39936 bytes for
+empty streams/grown streams/empty forms; active forced-GC heap is
+14336/50176/39936, versus live admission 20480/57344/61440. All disposal returns
+live admission to zero. Rooted disposed owners and a usable 2-MiB payload leave
+zero of 1408 execution/backing witnesses alive across 128 contexts/256 owners.
+Disposed total-heap deltas include unrelated collection/reporting state and are
+not owner geometry. Prepared inputs/controllers/holders/delegates/reflection and
+reporting are excluded. Cold/native/pool/codec/whole-job/RSS/CPU/host latency stay
+open. One probe-harness expected-capacity correction is archived separately;
+runtime sources and test assertions did not change during these gates.
+
+Remaining resource/inspection/JSON/content/writer name consumers, views, BCL
+collections and legacy construction continue in PLAN section 2.1. Broader
+checker diagnostic/presentation/object-graph storage, the preceding writer GC
+observation, combined correction, full reference/release gates, A01-A07/M11 and
+both completion verdicts remain open. No inventory entry changes.
+
+
 ## Governed form-name classification
 
 Checker field/widget classification and parent-link validation now use the

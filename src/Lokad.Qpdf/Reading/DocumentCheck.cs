@@ -311,25 +311,29 @@ internal static class DocumentCheck
         int skipped = 0;
         List<string> failures = new();
         int pageNumber = 0;
-        foreach (PageLocation location in document.PageReferences)
+        IReadOnlyList<PageLocation> pages = document.PageReferences;
+        for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
+            PageLocation location = pages[pageIndex];
             cancellationToken.ThrowIfCancellationRequested();
             pageNumber += 1;
-            if (!location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
+            if (!PdfDictionaryLookup.TryGet(location.Page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) || contents is null || contents is PdfNull)
             {
                 continue;
             }
 
-            List<PdfStream> streams = new();
+            using CheckStreamList streams = CheckStreamList.Create(governor);
             bool unreadable = false;
             if (contents is PdfArray array)
             {
-                foreach (QpdfObject item in array.Items)
+                for (int itemIndex = 0; itemIndex < array.Count; itemIndex++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                    QpdfObject item = array[itemIndex];
                     QpdfObject target = item;
                     if (item is PdfReference reference)
                     {
-                        if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
+                        if (!PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved) || resolved is null)
                         {
                             unreadable = true;
                             break;
@@ -344,23 +348,23 @@ internal static class DocumentCheck
                         break;
                     }
 
-                    streams.Add(stream);
+                    streams.Add(stream, cancellationToken);
                 }
             }
             else if (contents is PdfReference singleReference)
             {
-                if (!resolver.TryResolve(singleReference, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
+                if (!PdfObjectLookup.TryResolve(singleReference, resolver, governor, cancellationToken, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
                 {
                     unreadable = true;
                 }
                 else
                 {
-                    streams.Add(resolvedStream);
+                    streams.Add(resolvedStream, cancellationToken);
                 }
             }
             else if (contents is PdfStream single)
             {
-                streams.Add(single);
+                streams.Add(single, cancellationToken);
             }
             else
             {
@@ -373,8 +377,9 @@ internal static class DocumentCheck
                 continue;
             }
 
-            foreach (PdfStream stream in streams)
+            for (int streamIndex = 0; streamIndex < streams.Count; streamIndex++)
             {
+                PdfStream stream = streams.Get(streamIndex, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 byte[]? bytes = DecodeCheckStream(stream, resolver, options.DecodeLevel, limits, governor);
                 if (bytes is null)
@@ -412,19 +417,53 @@ internal static class DocumentCheck
         return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Passed, string.Concat(examined.ToString(System.Globalization.CultureInfo.InvariantCulture), " content streams tokenized, ", skipped.ToString(System.Globalization.CultureInfo.InvariantCulture), " skipped."));
     }
 
-    private sealed class FormCheckState
+    private sealed class FormCheckState : IDisposable
     {
+        private ParserMemoryScope? _memory;
+        private ResourceGovernor? _governor;
+        private GovernedIntSet? _visited;
+        private GovernedIntSet? _widgets;
+
+        private FormCheckState(ParserMemoryScope memory, ResourceGovernor governor)
+        {
+            _memory = memory; _governor = governor;
+            // The owner is admitted before initial lookup. Explicit caller
+            // cancellation is observed by that lookup after construction;
+            // the governor's own token also bounds these allocations.
+            _visited = GovernedIntSet.Create(memory, governor, CancellationToken.None);
+            _widgets = GovernedIntSet.Create(memory, governor, CancellationToken.None);
+        }
+
+        internal static FormCheckState Create(ResourceGovernor governor)
+        {
+            ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            try { memory.Reserve(64L); return new(memory, governor); }
+            catch { memory.Dispose(); throw; }
+        }
+
         public int Nodes { get; set; }
-
         public int Warnings { get; set; }
-
         public bool Truncated { get; set; }
+        private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(FormCheckState));
+        private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(FormCheckState));
+        private GovernedIntSet Visited => _visited ?? throw new ObjectDisposedException(nameof(FormCheckState));
+        private GovernedIntSet Widgets => _widgets ?? throw new ObjectDisposedException(nameof(FormCheckState));
+        internal int WidgetCount => Widgets.Count;
 
-        public HashSet<int> Visited { get; } = new();
+        internal bool Visit(int number, CancellationToken token)
+        { token.ThrowIfCancellationRequested(); Visited.CheckOwner(Governor); return Visited.Add(Memory, number); }
+        internal void ReachWidget(int number, CancellationToken token)
+        { token.ThrowIfCancellationRequested(); Widgets.CheckOwner(Governor); Widgets.Add(Memory, number); }
+        internal bool HasWidget(int number, CancellationToken token)
+        { token.ThrowIfCancellationRequested(); return Widgets.Contains(number); }
 
-        public HashSet<int> ReachedWidgets { get; } = new();
+        public void Dispose()
+        {
+            ParserMemoryScope? memory = _memory;
+            _visited = null; _widgets = null; _memory = null; _governor = null;
+            memory?.Dispose();
+        }
     }
-
     /// <summary>
     /// Warn-only form-tree validation, mirroring the reference checker's three
     /// field findings: kids whose /Parent back-link does not name the node
@@ -445,26 +484,29 @@ internal static class DocumentCheck
     {
         DocumentEngine engine = document.Engine;
         IIndirectResolver resolver = (IIndirectResolver)engine;
-        if (!TryGetCheckForm(engine, resolver, out PdfDictionary? form) || form is null)
+        using FormCheckState state = FormCheckState.Create(governor);
+        if (!TryGetCheckForm(engine, resolver, governor, cancellationToken, out PdfDictionary? form) || form is null)
         {
+            state.Dispose();
             return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, "No interactive form.");
         }
 
-        if (!TryResolveCheckArray(form, PdfName.FromAscii("Fields"), resolver, out PdfArray? fields) || fields is null)
+        if (!TryResolveCheckArray(form, "Fields"u8, resolver, governor, cancellationToken, out PdfArray? fields) || fields is null)
         {
+            state.Dispose();
             return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, "Interactive form carries no field registrations.");
         }
 
-        FormCheckState state = new();
         try
         {
             for (int i = 0; i < fields.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                governor.CheckCancellation();
                 governor.ChargeWork(1L);
                 if (fields[i] is PdfReference topReference)
                 {
-                    if (resolver.TryResolve(topReference, out QpdfObject? top) && top is PdfDictionary topDictionary)
+                    if (PdfObjectLookup.TryResolve(topReference, resolver, governor, cancellationToken, out QpdfObject? top) && top is PdfDictionary topDictionary)
                     {
                         WalkFieldNode(topDictionary, topReference.ObjectNumber, 0, resolver, governor, diagnostics, state, cancellationToken);
                     }
@@ -479,10 +521,13 @@ internal static class DocumentCheck
         }
         catch (QpdfLimitException ex)
         {
+            state.Dispose();
             return new QpdfCheckOutcome("forms", QpdfCheckStatus.Failed, $"Form traversal exceeded its budget: {ex.Message}");
         }
 
-        string detail = $"{state.Nodes} field nodes traversed, {state.ReachedWidgets.Count} widgets reached.";
+        int widgets = state.WidgetCount;
+        state.Dispose();
+        string detail = $"{state.Nodes} field nodes traversed, {widgets} widgets reached.";
         if (state.Warnings > 0)
         {
             detail += $" {state.Warnings} warnings recorded.";
@@ -511,20 +556,21 @@ internal static class DocumentCheck
             return;
         }
 
-        if (nodeId.HasValue && !state.Visited.Add(nodeId.Value))
+        if (nodeId.HasValue && !state.Visit(nodeId.Value, cancellationToken))
         {
             return;
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        governor.CheckCancellation();
         governor.ChargeWork(1L);
         state.Nodes += 1;
         if (nodeId.HasValue && IsCheckWidget(node, governor, cancellationToken))
         {
-            state.ReachedWidgets.Add(nodeId.Value);
+            state.ReachWidget(nodeId.Value, cancellationToken);
         }
 
-        if (!TryResolveCheckArray(node, PdfName.FromAscii("Kids"), resolver, out PdfArray? kids) || kids is null)
+        if (!TryResolveCheckArray(node, "Kids"u8, resolver, governor, cancellationToken, out PdfArray? kids) || kids is null)
         {
             return;
         }
@@ -532,10 +578,11 @@ internal static class DocumentCheck
         for (int i = 0; i < kids.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            governor.CheckCancellation();
             governor.ChargeWork(1L);
             if (kids[i] is PdfReference kidReference)
             {
-                if (resolver.TryResolve(kidReference, out QpdfObject? kid) && kid is PdfDictionary kidDictionary)
+                if (PdfObjectLookup.TryResolve(kidReference, resolver, governor, cancellationToken, out QpdfObject? kid) && kid is PdfDictionary kidDictionary)
                 {
                     if (nodeId.HasValue)
                     {
@@ -605,17 +652,20 @@ internal static class DocumentCheck
         FormCheckState state,
         CancellationToken cancellationToken)
     {
-        foreach (PageLocation location in document.PageReferences)
+        IReadOnlyList<PageLocation> pages = document.PageReferences;
+        for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
+            PageLocation location = pages[pageIndex];
             cancellationToken.ThrowIfCancellationRequested();
+            governor.CheckCancellation();
             governor.ChargeWork(1L);
-            if (!location.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject? annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
+            if (!PdfDictionaryLookup.TryGet(location.Page, "Annots"u8, governor, cancellationToken, out QpdfObject annotsRaw) || annotsRaw is null || annotsRaw is PdfNull)
             {
                 continue;
             }
 
             QpdfObject annotsTarget = annotsRaw is PdfReference annotsReference
-                && resolver.TryResolve(annotsReference, out QpdfObject? resolved)
+                && PdfObjectLookup.TryResolve(annotsReference, resolver, governor, cancellationToken, out QpdfObject? resolved)
                 ? resolved ?? annotsRaw
                 : annotsRaw;
             if (annotsTarget is not PdfArray annots)
@@ -626,18 +676,19 @@ internal static class DocumentCheck
             for (int i = 0; i < annots.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                governor.CheckCancellation();
                 governor.ChargeWork(1L);
                 if (annots[i] is not PdfReference itemReference)
                 {
                     continue;
                 }
 
-                if (state.ReachedWidgets.Contains(itemReference.ObjectNumber))
+                if (state.HasWidget(itemReference.ObjectNumber, cancellationToken))
                 {
                     continue;
                 }
 
-                if (!resolver.TryResolve(itemReference, out QpdfObject? target) || target is not PdfDictionary annot || !IsCheckWidget(annot, governor, cancellationToken))
+                if (!PdfObjectLookup.TryResolve(itemReference, resolver, governor, cancellationToken, out QpdfObject? target) || target is not PdfDictionary annot || !IsCheckWidget(annot, governor, cancellationToken))
                 {
                     continue;
                 }
@@ -659,16 +710,16 @@ internal static class DocumentCheck
         diagnostics.Add(QpdfDiagnosticCode.FormStructureWarning, QpdfDiagnosticSeverity.Warning, message);
     }
 
-    private static bool TryGetCheckForm(DocumentEngine engine, IIndirectResolver resolver, out PdfDictionary? form)
+    private static bool TryGetCheckForm(DocumentEngine engine, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken cancellationToken, out PdfDictionary? form)
     {
         form = null;
-        if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) || root is null || root is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject root) || root is null || root is PdfNull)
         {
             return false;
         }
 
         PdfDictionary? catalog = root is PdfReference rootReference
-            && resolver.TryResolve(rootReference, out QpdfObject? resolved)
+            && PdfObjectLookup.TryResolve(rootReference, resolver, governor, cancellationToken, out QpdfObject? resolved)
             ? resolved as PdfDictionary
             : root as PdfDictionary;
         if (catalog is null)
@@ -676,14 +727,14 @@ internal static class DocumentCheck
             return false;
         }
 
-        if (!catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(catalog, "AcroForm"u8, governor, cancellationToken, out QpdfObject raw) || raw is null || raw is PdfNull)
         {
             return false;
         }
 
         if (raw is PdfReference formReference)
         {
-            if (resolver.TryResolve(formReference, out QpdfObject? target) && target is PdfDictionary dictionary)
+            if (PdfObjectLookup.TryResolve(formReference, resolver, governor, cancellationToken, out QpdfObject? target) && target is PdfDictionary dictionary)
             {
                 form = dictionary;
                 return true;
@@ -696,10 +747,10 @@ internal static class DocumentCheck
         return form is not null;
     }
 
-    private static bool TryResolveCheckArray(PdfDictionary node, PdfName key, IIndirectResolver resolver, out PdfArray? array)
+    private static bool TryResolveCheckArray(PdfDictionary node, ReadOnlySpan<byte> key, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken cancellationToken, out PdfArray? array)
     {
         array = null;
-        if (!node.TryGet(key, out QpdfObject? raw) || raw is null || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(node, key, governor, cancellationToken, out QpdfObject raw) || raw is null || raw is PdfNull)
         {
             return false;
         }
@@ -711,7 +762,7 @@ internal static class DocumentCheck
         }
 
         if (raw is PdfReference reference
-            && resolver.TryResolve(reference, out QpdfObject? resolved)
+            && PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved)
             && resolved is PdfArray indirect)
         {
             array = indirect;
