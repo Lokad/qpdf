@@ -166,6 +166,19 @@ internal static class FlateFilter
     /// smallest size, anything else (including the default) is optimal.
     /// </summary>
     internal static byte[] Encode(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor)
+        => EncodeCore(input, level, limits, governor, null, CancellationToken.None);
+
+    internal static byte[] Encode(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(governor);
+        ArgumentNullException.ThrowIfNull(memory);
+        memory.CheckOwner(governor);
+        return EncodeCore(input, level, limits, governor, memory, cancellationToken);
+    }
+
+    private static byte[] EncodeCore(byte[] input, int? level, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope? memory, CancellationToken cancellationToken)
     {
         if (input is null)
         {
@@ -183,6 +196,7 @@ internal static class FlateFilter
         }
 
         limits.Validate();
+        cancellationToken.ThrowIfCancellationRequested();
         governor.CheckCancellation();
         CompressionLevel mapped = level switch
         {
@@ -203,35 +217,40 @@ internal static class FlateFilter
             // (header 78 9C, empty fixed block 03 00, Adler-32 of empty 00 00 00 01).
             governor.ChargeWork(1L);
             long reserved = 8L + GovernedBufferStream.ArrayOverheadBytes;
-            governor.ReserveMemory(reserved);
+            if (memory is null) { governor.ReserveMemory(reserved); }
+            else { memory.Reserve(reserved); }
             try
             {
                 return new byte[] { 0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01 };
             }
             catch
             {
-                governor.ReleaseMemory(reserved);
+                if (memory is null) { governor.ReleaseMemory(reserved); }
+                else { memory.Release(reserved); }
                 throw;
             }
         }
 
-        governor.ChargeWork(input.Length + 1L);
-        governor.ReserveMemory(DeflateWorkingSetBytes);
+        governor.ChargeWork(memory is null ? input.Length + 1L : 1L);
+        long workingSet = DeflateWorkingSetBytes + (memory is null ? 0L : 256L);
+        governor.ReserveMemory(workingSet);
         try
         {
-            using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
+            using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), cancellationToken);
             using (ZLibStream compressor = new(output, mapped, leaveOpen: true))
             {
                 for (int position = 0; position < input.Length;)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     governor.CheckCancellation();
                     int count = Math.Min(ChunkBytes, input.Length - position);
+                    if (memory is not null) { governor.ChargeWork(count); }
                     compressor.Write(input, position, count);
                     position += count;
                 }
             }
 
-            return output.ToArray();
+            return memory is null ? output.ToArray() : output.ToArray(memory, cancellationToken);
         }
         catch (QpdfException)
         {
@@ -243,7 +262,7 @@ internal static class FlateFilter
         }
         finally
         {
-            governor.ReleaseMemory(DeflateWorkingSetBytes);
+            governor.ReleaseMemory(workingSet);
         }
     }
 

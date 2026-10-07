@@ -1,5 +1,36 @@
 # Progress
 
+## Owned object-stream payloads
+
+A shared bounded byte formatter builds the member-offset table directly and
+admits the raw payload before allocation. Ordinary, QDF and linearized writers
+keep raw and optional Flate-result bytes funded across output awaits. Scoped
+Flate results use the existing codec, charge input blocks and check cancellation;
+cleanup drops payload backing before retiring its scope on every outcome.
+
+The isolated component passes locked restore/Release build and **6549 offline
+cases / 29 new controls**. Pending writer integration passes **6854 offline
+cases / 71 new controls**, including 21 stable cleanup regressions and 21
+retained-task lifetime cases. All **21 identical-assembly stable regressions
+fail on the preceding library**, with zero loader failures/identity drift;
+50 new-type/private-state controls are excluded from that comparison. Fresh
+**120 focused native comparisons / 108 output rereads**, package/symbol checks,
+**50 consumer smokes** and both specific rejection controls pass. Original
+fixtures/ceilings, five locks, canonical inventory and warning policy remain.
+
+Independent warmed 128-owner probes over prepared 64-KiB bodies measure
+raw/QDF/compressed managed allocation **8404992 / 8406016 / 49362000 bytes**;
+forced-GC retained heap **8404992 / 8406016 / 16800768**, live payload admission
+**8409600 / 8411136 / 16806400**. Disposal retires payload admission to zero;
+rooted empty wrappers retain **7168** heap bytes, dropping holders leaves one
+**56-byte** local wrapper. Prepared sources/captures/numbers/governors/delegates/
+holders are excluded. Codec temporaries count in cumulative allocation; these
+observations do not establish codec working/native/cold bounds, broader PDF
+encoding/indexes/xrefs/hints, whole-job/RSS or CPU/host latency. This is local
+Windows/pre-commit metadata evidence. Outer headers, other encoders/xref paths,
+sorting, hints, legacy owners and all A01–A07/M11/verdict gates remain open.
+
+
 ## Owned object-stream captures
 
 Shared buffered capture reuses the governed byte stream, admits sink/stream

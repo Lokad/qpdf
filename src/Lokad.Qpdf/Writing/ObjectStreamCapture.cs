@@ -38,6 +38,10 @@ internal sealed class ObjectStreamCapture : IDisposable
 
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(ObjectStreamCapture));
 
+    internal int Count { get { _ = Memory; return _count; } }
+
+    internal void CheckOwner(ResourceGovernor governor) => Memory.CheckOwner(governor);
+
     internal byte[] this[int index]
     {
         get

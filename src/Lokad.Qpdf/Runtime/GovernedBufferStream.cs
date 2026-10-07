@@ -190,12 +190,18 @@ internal sealed class GovernedBufferStream : Stream
     }
 
     private void Copy(ReadOnlySpan<byte> source, Span<byte> destination, CancellationToken cancellationToken)
+        => CopyBytes(source, destination, _governor, cancellationToken, _cancellationToken);
+
+    internal static void CopyBytes(ReadOnlySpan<byte> source, Span<byte> destination, ResourceGovernor governor,
+        CancellationToken firstToken, CancellationToken secondToken)
     {
         for (int position = 0; position < source.Length;)
         {
-            CheckCancellation(cancellationToken);
+            firstToken.ThrowIfCancellationRequested();
+            secondToken.ThrowIfCancellationRequested();
+            governor.CheckCancellation();
             int count = Math.Min(8192, source.Length - position);
-            _governor.ChargeWork(count);
+            governor.ChargeWork(count);
             source.Slice(position, count).CopyTo(destination.Slice(position, count));
             position += count;
         }
