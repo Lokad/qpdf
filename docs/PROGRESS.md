@@ -1,5 +1,47 @@
 # Progress
 
+## Scoped writer ordering
+
+Shared fixed-capacity sequences admit wrappers, scopes and exact backing before
+allocation, then borrow immutable values. Value-type heapsort comparers charge
+visits/swaps and check both cancellation routes. Escaped-name comparison matches
+ordinal display order without constructing strings; canonical display shares
+the engine while preserving raw-byte order. Pending QDF model/key and classic
+linearization integration keeps orders funded through their consumers and drops
+dead storage before later awaits. Disposal also drops governor/token references;
+rooted empty owners and enumerators release completed governors. Xref/lookups,
+renumber/emission/mark maps, collision work, copies and hints remain under audit.
+
+The isolated component passes locked restore/Release and **6711 offline cases /
+24 new controls**. Pending integration passes **7208 offline cases / 74 new
+controls**, including 13 stable writer cases and 37 retained-task/early-retirement
+outcomes across both classic halves/passes and QDF. The identical final assembly
+**fails nine / preserves four** eligible cases on the preceding library, with
+zero loader/identity drift; 61 new-type/private-state cases are excluded. All
+7134 preceding offline identities remain. Fresh **147 native comparisons / 162
+output rereads**, including **54 exact binary-value rereads**, package/symbol
+checks, **50 consumer smokes** and both specific negatives pass.
+
+Archived runs retain one new-fixture analyzer error, an incorrect NUL-byte
+expectation, full/isolated allocation and cancellation observation failures.
+The new ordering classes share a nonparallel collection; their cancellation
+comparison gate preserves the 65536-work threshold, inputs and deadlines.
+The separate formatter observation correction preserves its original fixtures,
+ceilings, thresholds, deadlines and assertions; all other original test sources
+remain unchanged. Its block gate passes 64 repeated cancellation observations.
+
+Independent warmed 128-owner/512-entry number/name/object probes measure managed
+allocation and forced-GC retained heap at **277504 / 539648 / 1063936 bytes**,
+live admission **282624 / 544768 / 1069056**. Approximate wrapper/scope geometry
+is **56/40 bytes**, admitted as 64 each; backing arrays measure **2072/4120/8216**.
+Disposal retires admission to zero; rooted empty wrappers retain **7168** heap
+bytes, dropping holders leaves one **56-byte** local. Separate governors measure
+allocation/retention; prepared values/governors/delegates/holders/reporting and
+geometry constructors are excluded. Maps/marks/hints/codecs, cold/native/
+whole-job/RSS and CPU/host latency are excluded. These local Windows/pre-commit
+observations prove scoped ordering, while the complete diagnostic correction,
+full-reference/visual evidence and all A01–A07/M11/verdict gates remain open.
+
 ## Formatter cancellation observations
 
 The existing formatter cancellation controls now pause after actual byte-block
