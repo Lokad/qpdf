@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
@@ -232,6 +231,8 @@ public sealed class BufferedSinkTests
         if (copying) { await capture.AppendAsync(chunk, CancellationToken.None); }
         CancellationToken token = route == "operation" ? cancellation.Token : CancellationToken.None;
         long threshold = governor.Snapshot().TotalWork + 65536L;
+        TaskCompletionSource observed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Task worker = Task.Run(async () =>
         {
             while (true)
@@ -239,18 +240,30 @@ public sealed class BufferedSinkTests
                 if (copying)
                 {
                     using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
+                    await PauseAfterObservedWork();
                     _ = capture.ToArray(owner, token);
                 }
-                else { await capture.AppendAsync(chunk, token); }
+                else
+                {
+                    await PauseAfterObservedWork();
+                    await capture.AppendAsync(chunk, token);
+                }
             }
         });
+        async ValueTask PauseAfterObservedWork()
+        {
+            if (governor.Snapshot().TotalWork >= threshold)
+            {
+                observed.TrySetResult();
+                await resume.Task;
+            }
+        }
         try
         {
-            long started = Stopwatch.GetTimestamp();
-            while (governor.Snapshot().TotalWork < threshold && !worker.IsCompleted
-                && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10)) { await Task.Yield(); }
+            await observed.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.True(governor.Snapshot().TotalWork >= threshold);
             cancellation.Cancel();
+            resume.TrySetResult();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
             capture.Dispose();
             Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes);
@@ -258,6 +271,7 @@ public sealed class BufferedSinkTests
         finally
         {
             cancellation.Cancel();
+            resume.TrySetResult();
             try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); }
             catch (OperationCanceledException) { }
         }

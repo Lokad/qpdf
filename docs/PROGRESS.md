@@ -1,5 +1,15 @@
 # Progress
 
+## Deterministic buffered cancellation controls
+
+Six existing byte-work cancellation cases now pause the worker after the
+unchanged 65536-work threshold, then resume the actual copy/write after
+cancellation. This prevents observer scheduling from allowing growth to reach
+the memory ceiling first. Fixtures, limits, case identities and outcome/cleanup
+assertions remain unchanged. The isolated test correction passes locked
+restore/Release and **6549 offline cases**; runtime behavior is unchanged.
+
+
 ## Owned object-stream payloads
 
 A shared bounded byte formatter builds the member-offset table directly and
