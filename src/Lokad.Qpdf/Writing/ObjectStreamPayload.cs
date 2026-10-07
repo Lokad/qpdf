@@ -1,4 +1,3 @@
-using System.Buffers.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Runtime;
 
@@ -87,10 +86,10 @@ internal sealed class ObjectStreamPayload : IDisposable
                 }
                 if (number <= 0) { throw new QpdfException("Object-stream member numbers must be positive."); }
                 if (headers is null && index > 0) { table[used++] = 32; }
-                used += WriteInteger(number, table.Slice(used), governor);
+                used += WriterNumber.Format(number, table.Slice(used), governor);
                 table[used++] = 32;
                 long offset = headers is null ? running : checked(running + headers[index].Length - headers[0].Length);
-                used += WriteInteger(offset, table.Slice(used), governor);
+                used += WriterNumber.Format(offset, table.Slice(used), governor);
                 if (headers is not null) { table[used++] = 10; }
                 running = checked(running + bodies[index].Length + (headers is null ? 0L : headers[index].Length));
             }
@@ -121,16 +120,6 @@ internal sealed class ObjectStreamPayload : IDisposable
             return new ObjectStreamPayload(memory, raw, stored, checked(used + (headers is null ? 0L : headers[0].Length)), compress);
         }
         catch { memory.Dispose(); throw; }
-    }
-
-    private static int WriteInteger(long value, Span<byte> target, ResourceGovernor governor)
-    {
-        governor.ChargeWork(20L);
-        if (!Utf8Formatter.TryFormat(value, target, out int written))
-        {
-            throw new QpdfException("Object-stream header exceeded its bounded table.");
-        }
-        return written;
     }
 
     public void Dispose()

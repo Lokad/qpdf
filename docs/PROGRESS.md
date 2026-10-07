@@ -1,5 +1,34 @@
 # Progress
 
+## Owned object-stream outer headers
+
+Ordinary, QDF and both linearized passes share bounded decimal/byte formatting
+for object-stream outer headers. Admission precedes the final byte allocation;
+header bytes stay funded across the sink await and retire before payload output.
+Disposed wrappers and retained completed tasks drop the header backing.
+
+The isolated component passes locked restore/Release and **6580 offline cases /
+31 new controls**. Pending integration passes **6913 offline cases / 59 new
+controls**, including seven stable awaited-admission regressions and 21 lifetime
+outcomes. All **seven identical-assembly stable cases fail on the preceding
+library**, with zero loader/identity drift; 52 new-type/private-state controls
+are excluded. Fresh **120 focused native comparisons / 108 output rereads**,
+package/symbol checks, **50 consumer smokes** and both specific negatives pass.
+Original fixtures/ceilings, case identities, five locks and inventory remain.
+The prior cancellation scheduling failure and stale test binary are archived;
+the separate test synchronization correction is carried into the final suite.
+
+Independent warmed probes retain 8192 raw/QDF/compressed header owners. Managed
+allocation and forced-GC retained heap are **1310720 / 1376256 / 1507328 bytes**;
+live admission **1826816 / 1892352 / 1998848**. Disposal retires admission to zero;
+rooted empty wrappers retain **262144** heap bytes, dropping holders leaves
+**32 / 0 / 0** measured bytes. Prepared governors/delegates/holders, constructors
+in geometry, payloads/codecs/indexes/xrefs/hints, broader encoding, cold/native/
+whole-job/RSS and CPU/host latency are excluded. This is local Windows/pre-commit
+metadata evidence. Other headers/encoders/xref/sort paths, hints, legacy owners
+and all A01–A07/M11/verdict requirements remain open.
+
+
 ## Deterministic buffered cancellation controls
 
 Six existing byte-work cancellation cases now pause the worker after the
