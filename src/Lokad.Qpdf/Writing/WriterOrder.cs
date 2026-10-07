@@ -40,6 +40,11 @@ internal sealed class WriterOrder<T> : IDisposable
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(WriterOrder<T>));
     internal int Count { get { _ = Items; return _count; } }
 
+    internal void CheckOwner(ResourceGovernor governor)
+    {
+        if (!ReferenceEquals(Governor, governor)) { throw new InvalidOperationException("Writer sequence belongs to a different governor."); }
+    }
+
     private void Visit()
     {
         _ = Items; _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L);

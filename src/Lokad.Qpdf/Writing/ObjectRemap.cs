@@ -16,7 +16,7 @@ internal static class ObjectRemap
     {
         ArgumentNullException.ThrowIfNull(renumber);
         ArgumentNullException.ThrowIfNull(governor);
-        return RemapIds(value, new NumberMap(renumber, null), null, governor, governor.CancellationToken, 0L);
+        return RemapIds(value, new NumberMap(renumber, null, null), null, governor, governor.CancellationToken, 0L);
     }
 
     internal static QpdfObject RemapIds(QpdfObject value, GovernedIntDictionary<int> renumber, ResourceGovernor governor)
@@ -24,7 +24,7 @@ internal static class ObjectRemap
         ArgumentNullException.ThrowIfNull(renumber);
         ArgumentNullException.ThrowIfNull(governor);
         renumber.CheckOwner(governor);
-        return RemapIds(value, new NumberMap(null, renumber), null, governor, governor.CancellationToken, 0L);
+        return RemapIds(value, new NumberMap(null, renumber, null), null, governor, governor.CancellationToken, 0L);
     }
 
     internal static QpdfObject RemapIds(QpdfObject value, GovernedIntDictionary<int> renumber,
@@ -32,13 +32,40 @@ internal static class ObjectRemap
     {
         memory.CheckOwner(governor);
         renumber.CheckOwner(governor);
-        return RemapIds(value, new NumberMap(null, renumber), memory, governor, cancellationToken, 0L);
+        return RemapIds(value, new NumberMap(null, renumber, null), memory, governor, cancellationToken, 0L);
     }
 
-    private readonly record struct NumberMap(Dictionary<int, int>? Plain, GovernedIntDictionary<int>? Governed)
+    internal static QpdfObject RemapIds(QpdfObject value, WriterIndex<int> renumber,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(renumber);
+        ArgumentNullException.ThrowIfNull(governor);
+        renumber.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(null, null, renumber), null, governor, cancellationToken, 0L);
+    }
+
+    internal static QpdfObject RemapIds(QpdfObject value, WriterIndex<int> renumber,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        memory.CheckOwner(governor);
+        renumber.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(null, null, renumber), memory, governor, cancellationToken, 0L);
+    }
+
+    internal static PdfDictionary RemapStreamHeader(PdfDictionary header, int lengthNumber,
+        WriterIndex<int> renumber, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        memory.CheckOwner(governor); renumber.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        return RemapDictionary(header, new NumberMap(null, null, renumber), memory, governor, cancellationToken, 0L, lengthNumber);
+    }
+
+    private readonly record struct NumberMap(Dictionary<int, int>? Plain, GovernedIntDictionary<int>? Governed,
+        WriterIndex<int>? Writer)
     {
         internal bool TryGetValue(int number, out int mapped)
         {
+            if (Writer is not null) { return Writer.TryGetValue(number, out mapped); }
             if (Governed is not null) { return Governed.TryGetValue(number, out mapped); }
             if (Plain is not null) { return Plain.TryGetValue(number, out mapped); }
             throw new InvalidOperationException("Object remapping requires an index.");
@@ -100,29 +127,7 @@ internal static class ObjectRemap
 
         if (value is PdfDictionary dictionary)
         {
-            Dictionary<PdfName, QpdfObject> entries = memory is null
-                ? new() : ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
-            using Dictionary<PdfName, QpdfObject>.Enumerator source = dictionary.GetEntryEnumerator();
-            while (source.MoveNext())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
-                KeyValuePair<PdfName, QpdfObject> entry = source.Current;
-                if (entry.Value is not null)
-                {
-                    QpdfObject mapped = RemapIds(entry.Value, renumber, memory, governor, cancellationToken, checked(depth + 1L));
-                    if (memory is not null)
-                    {
-                        if (entries.Count == entries.EnsureCapacity(0)) { governor.ChargeWork(checked(4L * (entries.Count + 1L))); }
-                        ParserContainers.EnsureEntryCapacity(memory, entries, IntPtr.Size);
-                    }
-                    // Name-key hashing/collision work retains the shared dictionary audit.
-                    governor.ChargeWork(checked(Math.Min(entry.Key.RawSpan.Length, 16) + 1L));
-                    entries.Add(entry.Key, mapped);
-                }
-            }
-            memory?.Reserve(32L);
-            return PdfDictionary.FromOwnedEntries(entries);
+            return RemapDictionary(dictionary, renumber, memory, governor, cancellationToken, depth, null);
         }
 
         if (value is PdfStream stream)
@@ -137,5 +142,53 @@ internal static class ObjectRemap
         }
 
         return value;
+    }
+
+    private static PdfDictionary RemapDictionary(PdfDictionary dictionary, NumberMap renumber,
+        ParserMemoryScope? memory, ResourceGovernor governor, CancellationToken cancellationToken, long depth, int? lengthNumber)
+    {
+        Dictionary<PdfName, QpdfObject> entries = memory is null
+            ? new() : ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
+        PdfName? lengthKey = null;
+        using Dictionary<PdfName, QpdfObject>.Enumerator source = dictionary.GetEntryEnumerator();
+        while (source.MoveNext())
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            KeyValuePair<PdfName, QpdfObject> entry = source.Current;
+            if (lengthNumber.HasValue && entry.Key.RawSpan.SequenceEqual("Length"u8))
+            { lengthKey = entry.Key; continue; }
+            if (entry.Value is not null)
+            {
+                QpdfObject mapped = RemapIds(entry.Value, renumber, memory, governor, cancellationToken, checked(depth + 1L));
+                AdmitEntry(memory, governor, entries);
+                // Name-key hashing/collision work retains the shared dictionary audit.
+                governor.ChargeWork(checked(Math.Min(entry.Key.RawSpan.Length, 16) + 1L));
+                entries.Add(entry.Key, mapped);
+            }
+        }
+        if (lengthNumber.HasValue)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(7L);
+            if (lengthKey is null)
+            {
+                // FromAscii allocates one temporary array and one immutable copy.
+                memory?.Reserve(108L);
+                lengthKey = PdfName.FromAscii("Length");
+                memory?.Release(38L);
+            }
+            memory?.Reserve(32L);
+            PdfReference length = new(lengthNumber.Value, 0);
+            AdmitEntry(memory, governor, entries);
+            entries.Add(lengthKey, length);
+        }
+        memory?.Reserve(32L);
+        return PdfDictionary.FromOwnedEntries(entries);
+    }
+
+    private static void AdmitEntry(ParserMemoryScope? memory, ResourceGovernor governor, Dictionary<PdfName, QpdfObject> entries)
+    {
+        if (memory is null) { return; }
+        if (entries.Count == entries.EnsureCapacity(0)) { governor.ChargeWork(checked(4L * (entries.Count + 1L))); }
+        ParserContainers.EnsureEntryCapacity(memory, entries, IntPtr.Size);
     }
 }

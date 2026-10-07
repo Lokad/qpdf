@@ -1,5 +1,44 @@
 # Progress
 
+## Scoped writer rows and classic QDF metadata
+
+Classic QDF owns exact emission rows and rebuilt references/arrays/dictionaries/
+stream headers through their output consumers. Shared remapping and sequence/
+integer engines provide admission, visits and both cancellation routes; binary
+stream payloads stay borrowed. Indirect length lookup uses dense row indexing.
+Rows/graph backing retire before unrelated xref output. Ordinary/QDF streamed
+regular/container rows use admitted exact sequences and retire after emission;
+an unused ordinary container list is removed. Public stream copying is preserved.
+
+The isolated component plus encoding observation correction passes locked
+restore/Release and **6842 offline cases / 15 new component controls**. Frozen
+pending integration passes **7522 offline cases / 64 new controls**, including
+31 compatible writer and 18 rooted-task/early-retirement outcomes. The identical
+final assembly **fails 31 / preserves 30 of 61** eligible cases on the preceding
+library, with zero loader/identity drift; 30 preceding index cases are included
+and 33 new-type/private cases excluded. All 7458 preceding identities remain.
+Three recent index/order control files now account for exact added receipts,
+validate new row shapes and require zero classic-header residue. Their fixtures,
+ceilings, repetitions, thresholds and deadlines remain. The separate original
+encoding witness correction preserves its fixture/assertions and passes 64
+repeated observations. New-fixture API/slice-witness errors stay archived.
+Fresh **147 native comparisons / 162 rereads / 54 exact binary-value rereads**,
+package/symbol checks, **50 consumer smokes** and both specific negatives pass.
+
+Independent warmed 128-owner/512-source-row null/graph/borrowed-stream phases
+measure cumulative allocation **4281344 / 8481792 / 4334592 bytes**, retained
+heap **3197952 / 7398400 / 3247104**, live admission **3487744 / 8738816 / 3544320**.
+Plan/sequence/scope geometry is near **48/56/40 bytes**, admitted as 64 each;
+10,000 struct rows allocate 320024 bytes. Prepared source admission (8352 bytes)
+and immutable values/payloads/governors/holders/reporting are excluded. Disposal
+retires admission to zero; rooted empty plans retain **6144** heap bytes, dropping
+holders leaves one **48-byte** local. Measurements retain their renumber indexes;
+writer-specific earlier retirement has separate controls. These local Windows
+pre-commit results exclude name-key collision work, streamed QDF rebuilt values/
+header copies, hints/codecs, cold/native/pool/whole-job/RSS and CPU/host latency.
+Wider integration, presentation, the full diagnostic correction, final full
+reference evidence and all A01–A07/M11/verdict requirements remain open.
+
 ## Encoding cancellation observation
 
 Existing encoding cancellation controls now synchronize after completed scan/
