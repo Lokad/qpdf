@@ -1,5 +1,37 @@
 # Progress
 
+## Scoped linearized pass layouts
+
+A reusable pass owner admits offsets, lengths and streamed-member indexes
+before allocation. Governed integer collections charge visits and admit growth
+overlap. Counting metadata stays funded through hints and replay; partial-pass
+failure/cancellation and final cleanup drop backing before retiring admission.
+Completed tasks and disposed wrappers do not pin the retired indexes.
+
+The isolated component passes locked restore/Release build and **6493 offline
+cases / 15 new controls**, zero failures/skips. Pending classic/streamed/fallback
+integration passes **6739 offline cases / 60 new controls**, including both passes,
+finite admission, divergent replay and retained completed tasks. The identical
+assembly fails **22 / preserves two of 24** eligible writer regressions on the
+preceding library, with zero loader failures and unchanged identities. Scoped
+raw xref buffers add 12 awaited-use/cleanup controls; all fail before that fix.
+Fresh **84 native cases / 36 output validations**, package/symbol checks,
+**50 consumer smokes** and both specific rejection controls pass. Five locks and
+the original fixtures, ceilings and warning policy stay unchanged.
+
+Independent warmed probes retain 128 layouts of 512 entries. Classic/streamed
+managed allocation is **5358592 / 8029184 bytes**, forced-GC retained heap
+**2671616 / 3998720**, live admission **2699264 / 4036608**. Disposal retires
+admission to zero; rooted empty wrappers retain **12288** heap bytes, dropping
+holders leaves one **96-byte** local wrapper. Prepared governors/delegates/holders,
+classification/remapping, emission/replay/hints/codecs, cold/native state,
+whole-job/RSS and latency are excluded. This is local Windows/pre-commit package
+evidence. The preceding remap runtime's full pinned lane ends with exit 0,
+**1846 parser comparisons / 432 rewrites**; it excludes these layout changes.
+Remaining buffers, hints, name-key/legacy owners, presentation/snapshots and all
+A01–A07/M11/verdict requirements remain open.
+
+
 ## Scoped object remapping
 
 A reusable remapped-model owner admits rebuilt references, array/dictionary
