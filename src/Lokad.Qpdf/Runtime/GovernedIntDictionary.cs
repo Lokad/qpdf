@@ -187,6 +187,35 @@ internal sealed class GovernedIntDictionary<T> : IReadOnlyCollection<KeyValuePai
         catch { memory.Release(reserved); throw; }
     }
 
+    internal int Version => _version;
+
+    internal KeyValuePair<int, T> EntryAt(int index)
+    {
+        Visit();
+        if ((uint)index >= (uint)_used || _entries[index].Next < -1)
+        {
+            throw new InvalidOperationException("Integer index has no current entry.");
+        }
+        Entry entry = _entries[index];
+        return new KeyValuePair<int, T>(entry.Key, entry.Value);
+    }
+
+    internal bool MoveNext(ref int index, out KeyValuePair<int, T> current)
+    {
+        _cancellationToken.ThrowIfCancellationRequested();
+        _governor.CheckCancellation();
+        while (index < _used)
+        {
+            Visit();
+            Entry entry = _entries[index++];
+            if (entry.Next < -1) { continue; }
+            current = new KeyValuePair<int, T>(entry.Key, entry.Value);
+            return true;
+        }
+        current = default;
+        return false;
+    }
+
     public Enumerator GetEnumerator() => new(this);
     IEnumerator<KeyValuePair<int, T>> IEnumerable<KeyValuePair<int, T>>.GetEnumerator() => GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -207,16 +236,9 @@ internal sealed class GovernedIntDictionary<T> : IReadOnlyCollection<KeyValuePai
             _owner._cancellationToken.ThrowIfCancellationRequested();
             _owner._governor.CheckCancellation();
             if (_version != _owner._version) { throw new InvalidOperationException("Integer index changed during enumeration."); }
-            while (_index < _owner._used)
-            {
-                _owner.Visit();
-                Entry entry = _owner._entries[_index++];
-                if (entry.Next < -1) { continue; }
-                Current = new KeyValuePair<int, T>(entry.Key, entry.Value);
-                return true;
-            }
-            Current = default;
-            return false;
+            bool found = _owner.MoveNext(ref _index, out KeyValuePair<int, T> current);
+            Current = current;
+            return found;
         }
         public void Dispose() { }
         public void Reset() => throw new NotSupportedException();

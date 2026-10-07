@@ -1,5 +1,41 @@
 # Progress
 
+## Scoped writer integer indexes
+
+A reusable integer-index owner admits its wrapper, scope, backing capacities
+and growth overlap before allocation while borrowing immutable values. Shared
+bucket-chain and enumeration visits charge work and check both cancellation
+routes. Concrete enumerators retain the owner without caching borrowed values
+or backing. Disposal drops index/scope references before retiring admission.
+Pending ordinary/QDF offsets, lookups, membership, renumbering and mark tables
+use this owner; QDF classic offsets use the ordered-sequence owner. Early
+retirement covers the last xref, indirect stream length and info consumers.
+
+The isolated component passes locked restore/Release and **6733 offline cases /
+22 new controls**. Frozen pending integration passes **7308 offline cases / 100
+new controls**: 30 compatible writer cases and 48 retained-task/retirement cases
+alongside the component controls. The identical final assembly **fails 25 /
+preserves five** eligible cases on the preceding library, with zero loader or
+identity drift; 70 new-type/private-state cases are excluded. All 7208 preceding
+offline identities and original test sources remain. Fresh **147 native
+comparisons / 162 output rereads**, including **54 exact binary-value rereads**,
+package/symbol checks, **50 consumer smokes** and both specific negatives pass.
+Initial admission/cancellation failures and new-fixture compile/header-size/
+role-count corrections remain archived separately from passing evidence.
+
+Independent warmed 128-owner/512-entry probes measure cumulative allocation at
+**2679808 bytes** and forced-GC retained heap at **1336320** for offset/reference/
+packed maps; byte/integer maps measure **2157568 / 1074176**. Live admission is
+**1353728**, peak **1358912**. Actual wrapper/scope/index geometry is near
+**32/40/80 bytes**. Disposal retires admission to zero; rooted empty wrappers
+retain **4096** heap bytes, dropping holders leaves one **32-byte** local.
+Separate governors exclude prepared values/delegates/holders/reporting and
+geometry constructors. Lists/graph/header copies, raw xrefs, hints/codecs,
+cold/native/whole-job/RSS and CPU/host latency are excluded. These local Windows
+pre-commit observations prove scoped indexes; their integrations, the complete
+diagnostic correction, full-reference/visual evidence and A01–A07/M11/verdicts
+remain open.
+
 ## Scoped writer ordering
 
 Shared fixed-capacity sequences admit wrappers, scopes and exact backing before
