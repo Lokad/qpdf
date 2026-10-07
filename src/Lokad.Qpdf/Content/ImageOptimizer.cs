@@ -316,15 +316,16 @@ internal static class ImageOptimizer
             return null;
         }
 
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(image.Dictionary, resolver);
+            stages = FilterChain.Resolve(image.Dictionary, resolver, governor, governor.CancellationToken);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
             return null;
         }
+        using FilterPlan stageOwner = stages;
 
         bool isDct = false;
         foreach (FilterStage stage in stages)
@@ -359,6 +360,7 @@ internal static class ImageOptimizer
             return null;
         }
 
+        stages.Dispose();
         long expected = checked(checked(width * height) * components);
         if ((long)raw.Length != expected)
         {

@@ -750,7 +750,7 @@ internal static class DocumentJson
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(detail.Stream.Dictionary, (IIndirectResolver)engine);
+        using FilterPlan stages = FilterChain.Resolve(detail.Stream.Dictionary, (IIndirectResolver)engine, governor, cancellationToken);
         builder.Append("{\"bitspercomponent\": ");
         AppendOptionalInteger(builder, ImageInteger(detail.Stream.Dictionary, "BitsPerComponent", engine));
         builder.Append(",\"colorspace\": ");
@@ -1537,15 +1537,16 @@ internal static class DocumentJson
             return (raw, false);
         }
 
-        IReadOnlyList<Filters.FilterStage> stages;
+        Filters.FilterPlan stages;
         try
         {
-            stages = Filters.FilterChain.Resolve(stream.Dictionary, engine);
+            stages = Filters.FilterChain.Resolve(stream.Dictionary, engine, governor, governor.CancellationToken);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
             return (raw, false);
         }
+        using Filters.FilterPlan stageOwner = stages;
 
         if (stages.Count == 0 || !Filters.FilterChain.AllStagesInLevel(stages, decodeLevel))
         {

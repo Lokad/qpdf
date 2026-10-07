@@ -542,15 +542,16 @@ internal sealed class XRefTable : IDisposable
         int streamNumber,
         ParserMemoryScope scratch)
     {
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary);
+            stages = FilterChain.Resolve(stream.Dictionary, null, governor, governor.CancellationToken);
         }
         catch (QpdfParseException ex)
         {
             throw new QpdfParseException($"Cross-reference stream declares invalid filters: {ex.Message}", xrefOffset, streamNumber);
         }
+        using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0) { return stream.RawMemory; }
         scratch.Reserve(checked((long)stream.RawMemory.Length + 32L));

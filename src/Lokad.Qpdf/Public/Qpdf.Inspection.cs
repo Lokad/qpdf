@@ -193,8 +193,9 @@ public static partial class Qpdf
             byte[] payload = dataStream.Data;
             if (showObject.FilteredStreamData)
             {
-                IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine);
+                using FilterPlan stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine, governor, cancellationToken);
                 payload = FilterChain.Decode(dataStream.Data, stages, limits, governor);
+                stages.Dispose();
                 if (showObject.NormalizeContent)
                 {
                     payload = Content.ContentTransforms.NormalizeContentBytes(payload, limits, governor,

@@ -33,7 +33,7 @@ public sealed class LzwTests
     private static byte[] DecodeThroughChain(byte[] input, PdfDictionary dict)
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dict);
+        using FilterPlan stages = FilterChain.Resolve(dict, null, governor, governor.CancellationToken);
         return FilterChain.Decode(input, stages, limits, governor);
     }
 
@@ -306,7 +306,7 @@ public sealed class LzwTests
             [PdfName.FromAscii("Filter")] = new PdfArray([PdfName.FromAscii("ASCIIHexDecode"), PdfName.FromAscii("LZWDecode")]),
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(new PdfDictionary(entries));
+        using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
         byte[] decoded = FilterChain.Decode(Encoding.ASCII.GetBytes(hex), stages, limits, governor);
         Assert.Equal(raw, decoded);
     }
@@ -391,7 +391,7 @@ public sealed class LzwTests
             [PdfName.FromAscii("DecodeParms")] = new PdfDictionary(parms),
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(new PdfDictionary(entries));
+        using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
         byte[] decoded = FilterChain.Decode(encoded, stages, limits, governor);
         Assert.Equal(raw, decoded);
     }

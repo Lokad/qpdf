@@ -50,7 +50,7 @@ public sealed class PredictorTests
     private static byte[] DecodePredicted(byte[] predicted, PdfDictionary parms)
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(StreamDict(parms));
+        using FilterPlan stages = FilterChain.Resolve(StreamDict(parms), null, governor, governor.CancellationToken);
         return FilterChain.Decode(ZLibCompress(predicted), stages, limits, governor);
     }
 
@@ -243,7 +243,7 @@ public sealed class PredictorTests
             [PdfName.FromAscii("Columns")] = new PdfInteger("4", 4L),
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(StreamDict(new PdfDictionary(entries)));
+        using FilterPlan stages = FilterChain.Resolve(StreamDict(new PdfDictionary(entries)), null, governor, governor.CancellationToken);
         QpdfFilterException ex = Assert.Throws<QpdfFilterException>(
             () => FilterChain.Decode(ZLibCompress(raw), stages, limits, governor));
         Assert.Equal(QpdfFilterFailureReason.InvalidData, ex.Reason);
@@ -301,7 +301,7 @@ public sealed class PredictorTests
             [PdfName.FromAscii("DecodeParms")] = new PdfArray([new PdfDictionary(parms)]),
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(new PdfDictionary(entries));
+        using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
         byte[] decoded = FilterChain.Decode(ZLibCompress(predicted), stages, limits, governor);
         Assert.Equal(raw, decoded);
     }
@@ -321,7 +321,7 @@ public sealed class PredictorTests
             [PdfName.FromAscii("DecodeParms")] = new PdfDictionary(parms),
         };
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(new PdfDictionary(entries));
+        using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), null, governor, governor.CancellationToken);
         byte[] decoded = FilterChain.Decode(twice, stages, limits, governor);
         Assert.Equal(raw, decoded);
     }

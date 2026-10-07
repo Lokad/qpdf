@@ -184,8 +184,8 @@ public sealed class CompressionTests
 
     private static byte[] DecodeFully(byte[] data, PdfDictionary dictionary)
     {
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dictionary);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
         return FilterChain.Decode(data, stages, QpdfLimits.Default, governor);
     }
 

@@ -230,15 +230,16 @@ internal static class InlineImages
         QpdfLimits limits,
         ResourceGovernor governor)
     {
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver);
+            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
             return stream.Data;
         }
+        using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, "specialized"))
         {

@@ -2712,7 +2712,7 @@ public static partial class Qpdf
 
     private static bool StreamFilterInLevel(string name, string decode)
     {
-        return Filters.FilterChain.AllStagesInLevel([new Filters.FilterStage(name, null, null)], decode);
+        return Filters.FilterChain.NameInLevel(name, decode);
     }
 
     private static void TransformCopierStreams(
@@ -2766,16 +2766,17 @@ public static partial class Qpdf
         ResourceGovernor governor,
         DiagnosticBag diagnostics)
     {
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine);
+            stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, governor.CancellationToken);
         }
         catch (QpdfParseException)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: unsupported filter.");
             return null;
         }
+        using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0)
         {
@@ -2820,6 +2821,7 @@ public static partial class Qpdf
             return null;
         }
 
+        stages.Dispose();
         if (!compress || decoded.Length == 0)
         {
             return new PdfStream(StrippedDictionary(stream.Dictionary, governor), decoded);

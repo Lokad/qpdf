@@ -897,15 +897,16 @@ internal static class GenerateAppearances
         QpdfLimits limits,
         ResourceGovernor governor)
     {
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver);
+            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
             return null;
         }
+        using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0)
         {

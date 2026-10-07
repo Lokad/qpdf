@@ -5,7 +5,7 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Filters;
 
 /// <summary>A resolved filter stage: canonical name, its parms, and the resolver for indirect specs.</summary>
-internal sealed record FilterStage(string Name, PdfDictionary? Parms, IIndirectResolver? Resolver);
+internal readonly record struct FilterStage(string Name, PdfDictionary? Parms, IIndirectResolver? Resolver);
 
 /// <summary>
 /// Resolves `/Filter` and `/DecodeParms` into an ordered stage list and
@@ -15,27 +15,34 @@ internal sealed record FilterStage(string Name, PdfDictionary? Parms, IIndirectR
 /// </summary>
 internal static class FilterChain
 {
-    internal static IReadOnlyList<FilterStage> Resolve(PdfDictionary streamDict)
+    internal static FilterPlan Resolve(PdfDictionary streamDict, IIndirectResolver? resolver,
+        ResourceGovernor governor, CancellationToken token) => ResolveCore(streamDict, resolver, governor, token, null);
+
+    internal static FilterPlan ResolveObserved(PdfDictionary streamDict, IIndirectResolver? resolver,
+        ResourceGovernor governor, CancellationToken token, Action observe)
     {
-        return Resolve(streamDict, null);
+        ArgumentNullException.ThrowIfNull(observe);
+        return ResolveCore(streamDict, resolver, governor, token, observe);
     }
 
-    internal static IReadOnlyList<FilterStage> Resolve(PdfDictionary streamDict, IIndirectResolver? resolver)
+    private static FilterPlan ResolveCore(PdfDictionary streamDict, IIndirectResolver? resolver,
+        ResourceGovernor governor, CancellationToken token, Action? observe)
     {
-        if (streamDict is null)
+        ArgumentNullException.ThrowIfNull(streamDict);
+        FilterPlan plan = FilterPlan.Create(governor, token);
+        try
         {
-            throw new ArgumentNullException(nameof(streamDict));
+            ReadFilters(streamDict, resolver, plan, token, observe);
+            ReadParms(streamDict, resolver, plan, token, observe);
+            for (int index = 0; index < plan.Count; index++)
+            {
+                string name = plan[index].Name;
+                if (!IsBorrowedName(name)) { plan.RetainName(name, GovernedText.StringBytes(name.Length)); }
+            }
+            plan.Visit();
+            return plan;
         }
-
-        List<string> filters = ReadFilters(streamDict, resolver);
-        List<PdfDictionary?> parms = ReadParms(streamDict, filters.Count, resolver);
-        List<FilterStage> stages = new(filters.Count);
-        for (int i = 0; i < filters.Count; i++)
-        {
-            stages.Add(new FilterStage(filters[i], parms[i], resolver));
-        }
-
-        return stages;
+        catch { plan.Dispose(); throw; }
     }
 
     internal static bool AllStagesInLevel(IReadOnlyList<FilterStage> stages, string decode)
@@ -45,38 +52,28 @@ internal static class FilterChain
             throw new ArgumentNullException(nameof(stages));
         }
 
-        foreach (FilterStage stage in stages)
+        for (int index = 0; index < stages.Count; index++)
         {
-            bool allowed;
-            if (decode == "generalized")
-            {
-                allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
-                    || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName;
-            }
-            else if (decode == "specialized")
-            {
-                allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
-                    || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName
-                    || stage.Name == RunLengthFilter.FilterName;
-            }
-            else if (decode == "all")
-            {
-                allowed = stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName
-                    || stage.Name == AsciiHexFilter.FilterName || stage.Name == Ascii85Filter.FilterName
-                    || stage.Name == RunLengthFilter.FilterName || stage.Name == DctFilter.FilterName;
-            }
-            else
-            {
-                allowed = false;
-            }
-
-            if (!allowed)
+            if (!NameInLevel(stages[index].Name, decode))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    internal static bool NameInLevel(string name, string decode)
+    {
+        bool generalized = name == FlateFilter.FilterName || name == LzwFilter.FilterName
+            || name == AsciiHexFilter.FilterName || name == Ascii85Filter.FilterName;
+        return decode switch
+        {
+            "generalized" => generalized,
+            "specialized" => generalized || name == RunLengthFilter.FilterName,
+            "all" => generalized || name == RunLengthFilter.FilterName || name == DctFilter.FilterName,
+            _ => false,
+        };
     }
 
     internal static byte[] Decode(
@@ -117,6 +114,8 @@ internal static class FilterChain
 
         limits.Validate();
         memory?.CheckOwner(governor);
+        if (stages is FilterPlan plan && !ReferenceEquals(plan.Governor, governor))
+        { throw new InvalidOperationException("Filter stages belong to a different governor."); }
         if (stages.Count > limits.MaxStreamFilters)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.TooManyFilters, null, $"{stages.Count} filters exceed the maximum of {limits.MaxStreamFilters}");
@@ -256,117 +255,150 @@ internal static class FilterChain
         return resolved;
     }
 
-    private static List<string> ReadFilters(PdfDictionary streamDict, IIndirectResolver? resolver)
+    private static bool Lookup(PdfDictionary dictionary, ReadOnlySpan<byte> key,
+        FilterPlan plan, CancellationToken token, Action? observe, out QpdfObject value)
+        => observe is null ? PdfDictionaryLookup.TryGet(dictionary, key, plan.Governor, token, out value)
+            : PdfDictionaryLookup.TryGetObserved(dictionary, key, plan.Governor, token, observe, out value);
+
+    private static QpdfObject ResolveValue(QpdfObject raw, IIndirectResolver? resolver,
+        string role, FilterPlan plan, CancellationToken token)
     {
-        PdfName filterKey = PdfName.FromAscii("Filter");
-        if (!streamDict.TryGet(filterKey, out QpdfObject raw) || raw is PdfNull)
-        {
-            return new List<string>();
-        }
+        plan.Visit(); token.ThrowIfCancellationRequested();
+        QpdfObject result = Deref(raw, resolver, role);
+        token.ThrowIfCancellationRequested(); plan.Visit();
+        return result;
+    }
 
-        raw = Deref(raw, resolver, "/Filter");
-        if (raw is PdfNull)
-        {
-            return new List<string>();
-        }
-
-        List<string> filters = new();
+    private static void ReadFilters(PdfDictionary dictionary, IIndirectResolver? resolver,
+        FilterPlan plan, CancellationToken token, Action? observe)
+    {
+        if (!Lookup(dictionary, "Filter"u8, plan, token, observe, out QpdfObject raw) || raw is PdfNull) { return; }
+        raw = ResolveValue(raw, resolver, "/Filter", plan, token);
+        if (raw is PdfNull) { return; }
         if (raw is PdfName single)
         {
-            filters.Add(Expand(single));
-            return filters;
+            plan.Allocate(1);
+            plan.Set(0, new FilterStage(Expand(single, plan, token, observe), null, resolver));
+            return;
         }
-
-        if (raw is PdfArray array)
+        if (raw is not PdfArray array)
+        { throw new QpdfParseException("Stream /Filter must be a name or an array of names.", null, null); }
+        plan.Allocate(array.Count);
+        for (int index = 0; index < array.Count; index++)
         {
-            for (int i = 0; i < array.Count; i++)
-            {
-                QpdfObject entry = Deref(array[i], resolver, "/Filter");
-                if (entry is not PdfName name)
-                {
-                    throw new QpdfParseException("Stream /Filter array entries must be names.", null, null);
-                }
-
-                filters.Add(Expand(name));
-            }
-
-            return filters;
+            QpdfObject entry = ResolveValue(array[index], resolver, "/Filter", plan, token);
+            if (entry is not PdfName name)
+            { throw new QpdfParseException("Stream /Filter array entries must be names.", null, null); }
+            plan.Set(index, new FilterStage(Expand(name, plan, token, observe), null, resolver));
+            if ((index + 1) % 256 == 0) { observe?.Invoke(); }
         }
-
-        throw new QpdfParseException("Stream /Filter must be a name or an array of names.", null, null);
     }
-    private static List<PdfDictionary?> ReadParms(PdfDictionary streamDict, int filterCount, IIndirectResolver? resolver)
+
+    private static void ReadParms(PdfDictionary dictionary, IIndirectResolver? resolver,
+        FilterPlan plan, CancellationToken token, Action? observe)
     {
-        List<PdfDictionary?> parms = new();
-        for (int i = 0; i < filterCount; i++)
-        {
-            parms.Add(null);
-        }
-
-        PdfName parmsKey = PdfName.FromAscii("DecodeParms");
-        if (!streamDict.TryGet(parmsKey, out QpdfObject raw) || raw is PdfNull)
-        {
-            return parms;
-        }
-
-        raw = Deref(raw, resolver, "/DecodeParms");
-        if (raw is PdfNull)
-        {
-            return parms;
-        }
-
+        if (!Lookup(dictionary, "DecodeParms"u8, plan, token, observe, out QpdfObject raw) || raw is PdfNull) { return; }
+        raw = ResolveValue(raw, resolver, "/DecodeParms", plan, token);
+        if (raw is PdfNull) { return; }
         if (raw is PdfDictionary single)
         {
-            for (int i = 0; i < parms.Count; i++)
-            {
-                parms[i] = single;
-            }
-
-            return parms;
+            for (int index = 0; index < plan.Count; index++)
+            { plan.Set(index, plan[index] with { Parms = single }); }
+            return;
         }
-
-        if (raw is PdfArray array)
+        if (raw is not PdfArray array)
+        { throw new QpdfParseException("Stream /DecodeParms must be a dictionary, an array, or null.", null, null); }
+        if (array.Count != plan.Count)
+        { throw new QpdfParseException($"Stream /DecodeParms holds {array.Count} entries for {plan.Count} filters.", null, null); }
+        for (int index = 0; index < array.Count; index++)
         {
-            if (array.Count != filterCount)
+            QpdfObject entry = ResolveValue(array[index], resolver, "/DecodeParms", plan, token);
+            PdfDictionary? parms = entry switch
             {
-                throw new QpdfParseException($"Stream /DecodeParms holds {array.Count} entries for {filterCount} filters.", null, null);
-            }
-
-            for (int i = 0; i < array.Count; i++)
-            {
-                QpdfObject entry = Deref(array[i], resolver, "/DecodeParms");
-                if (entry is PdfNull)
-                {
-                    parms[i] = null;
-                }
-                else if (entry is PdfDictionary dictionary)
-                {
-                    parms[i] = dictionary;
-                }
-                else
-                {
-                    throw new QpdfParseException("Stream /DecodeParms entries must be dictionaries or null.", null, null);
-                }
-            }
-
-            return parms;
+                PdfNull => null,
+                PdfDictionary value => value,
+                _ => throw new QpdfParseException("Stream /DecodeParms entries must be dictionaries or null.", null, null),
+            };
+            plan.Set(index, plan[index] with { Parms = parms });
+            if ((index + 1) % 256 == 0) { observe?.Invoke(); }
         }
-
-        throw new QpdfParseException("Stream /DecodeParms must be a dictionary, an array, or null.", null, null);
     }
 
-    private static string Expand(PdfName name)
+    private static string? CanonicalName(PdfName name, ResourceGovernor governor, CancellationToken token)
     {
-        return name.DisplayText switch
+        ReadOnlySpan<byte> raw = name.RawSpan;
+        switch (raw.Length)
         {
-            "Fl" => "FlateDecode",
-            "LZW" => "LZWDecode",
-            "A85" => "ASCII85Decode",
-            "AHx" => "ASCIIHexDecode",
-            "RL" => "RunLengthDecode",
-            "CCF" => "CCITTFaxDecode",
-            "DCT" => "DCTDecode",
-            _ => name.DisplayText,
-        };
+            case 2:
+                if (PdfDictionaryLookup.NameEquals(name, "Fl"u8, governor, token)) { return FlateFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "RL"u8, governor, token)) { return RunLengthFilter.FilterName; }
+                break;
+            case 3:
+                if (PdfDictionaryLookup.NameEquals(name, "LZW"u8, governor, token)) { return LzwFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "A85"u8, governor, token)) { return Ascii85Filter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "AHx"u8, governor, token)) { return AsciiHexFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "CCF"u8, governor, token)) { return "CCITTFaxDecode"; }
+                if (PdfDictionaryLookup.NameEquals(name, "DCT"u8, governor, token)) { return DctFilter.FilterName; }
+                break;
+            case 9:
+                if (PdfDictionaryLookup.NameEquals(name, "LZWDecode"u8, governor, token)) { return LzwFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "DCTDecode"u8, governor, token)) { return DctFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "JPXDecode"u8, governor, token)) { return "JPXDecode"; }
+                break;
+            case 11:
+                if (PdfDictionaryLookup.NameEquals(name, "FlateDecode"u8, governor, token)) { return FlateFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "JBIG2Decode"u8, governor, token)) { return "JBIG2Decode"; }
+                break;
+            case 13:
+                if (PdfDictionaryLookup.NameEquals(name, "ASCII85Decode"u8, governor, token)) { return Ascii85Filter.FilterName; }
+                break;
+            case 14:
+                if (PdfDictionaryLookup.NameEquals(name, "ASCIIHexDecode"u8, governor, token)) { return AsciiHexFilter.FilterName; }
+                if (PdfDictionaryLookup.NameEquals(name, "CCITTFaxDecode"u8, governor, token)) { return "CCITTFaxDecode"; }
+                break;
+            case 15:
+                if (PdfDictionaryLookup.NameEquals(name, "RunLengthDecode"u8, governor, token)) { return RunLengthFilter.FilterName; }
+                break;
+        }
+        return null;
+    }
+
+    private static bool IsBorrowedName(string name) => name.Length == 0
+        || ReferenceEquals(name, FlateFilter.FilterName) || ReferenceEquals(name, LzwFilter.FilterName)
+        || ReferenceEquals(name, AsciiHexFilter.FilterName) || ReferenceEquals(name, Ascii85Filter.FilterName)
+        || ReferenceEquals(name, RunLengthFilter.FilterName) || ReferenceEquals(name, DctFilter.FilterName)
+        || ReferenceEquals(name, "CCITTFaxDecode") || ReferenceEquals(name, "JPXDecode") || ReferenceEquals(name, "JBIG2Decode");
+
+    private static string Expand(PdfName name, FilterPlan plan, CancellationToken token, Action? observe)
+    {
+        string? canonical = CanonicalName(name, plan.Governor, token);
+        if (canonical is not null) { return canonical; }
+        int length = 0;
+        Span<char> scratch = stackalloc char[3];
+        for (int index = 0; index < name.RawSpan.Length; index++)
+        {
+            plan.Visit();
+            length = checked(length + PdfNameDisplay.WriteByte(name.RawSpan[index], scratch));
+            if (length > Array.MaxLength / sizeof(char)) { throw new QpdfException("Filter name exceeds supported capacity."); }
+            if ((index + 1) % 256 == 0) { observe?.Invoke(); }
+        }
+        plan.Visit();
+        long bytes = GovernedText.StringBytes(length);
+        plan.ReserveName(bytes);
+        try
+        {
+            return string.Create(length, (name, plan, observe), static (target, state) =>
+            {
+                int offset = 0;
+                for (int index = 0; index < state.name.RawSpan.Length; index++)
+                {
+                    state.plan.Visit();
+                    offset += PdfNameDisplay.WriteByte(state.name.RawSpan[index], target.Slice(offset));
+                    if ((index + 1) % 256 == 0) { state.observe?.Invoke(); }
+                }
+                state.plan.Visit();
+            });
+        }
+        catch { plan.ReleaseName(bytes); throw; }
     }
 }

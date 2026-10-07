@@ -65,6 +65,19 @@ internal sealed class ParserMemoryScope : IDisposable
         _reservedBytes = 0L;
     }
 
+    // Transfer one independently escaping allocation while preserving this
+    // scope's remaining storage. The retained ledger admits its own metadata.
+    internal void RetainAllocation(object carrier, long bytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(carrier);
+        if (bytes < 0L || bytes > _reservedBytes)
+        { throw new InvalidOperationException("Retained allocation exceeds its scope's ownership."); }
+        long retained = _governor.RetainValues(carrier, bytes, Array.Empty<QpdfObject>(), bytes);
+        _reservedBytes -= bytes;
+        _governor.ReleaseMemory(bytes - retained);
+    }
+
     internal void CheckOwner(ResourceGovernor governor)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

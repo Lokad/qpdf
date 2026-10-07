@@ -82,7 +82,7 @@ public sealed class IndirectFilterTests
     private static byte[] DecodeWith(PdfDictionary dict, StubResolver resolver, byte[] input)
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dict, resolver);
+        using FilterPlan stages = FilterChain.Resolve(dict, resolver, governor, governor.CancellationToken);
         return FilterChain.Decode(input, stages, limits, governor);
     }
 
@@ -183,8 +183,8 @@ public sealed class IndirectFilterTests
     {
         PdfDictionary dict = DictWith("Filter", new PdfReference(99, 0));
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        Assert.Throws<QpdfParseException>(() => FilterChain.Resolve(dict, new StubResolver()));
-        Assert.Throws<QpdfParseException>(() => FilterChain.Resolve(dict));
+        Assert.Throws<QpdfParseException>(() => FilterChain.Resolve(dict, new StubResolver(), governor, governor.CancellationToken));
+        Assert.Throws<QpdfParseException>(() => FilterChain.Resolve(dict, null, governor, governor.CancellationToken));
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public sealed class IndirectFilterTests
         StubResolver resolver = new();
         resolver.Add(12, new PdfInteger("2", 2L));
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(new PdfDictionary(entries), resolver);
+        using FilterPlan stages = FilterChain.Resolve(new PdfDictionary(entries), resolver, governor, governor.CancellationToken);
         QpdfFilterException ex = Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(TinyLzw(), stages, limits, governor));
         Assert.Equal(QpdfFilterFailureReason.InvalidData, ex.Reason);
     }

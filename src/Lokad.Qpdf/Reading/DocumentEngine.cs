@@ -464,15 +464,16 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     private ReadOnlyMemory<byte> DecodeStreamData(PdfStream stream, int streamNumber, ParserMemoryScope scratch)
     {
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, this);
+            stages = FilterChain.Resolve(stream.Dictionary, this, _governor, _governor.CancellationToken);
         }
         catch (QpdfParseException ex)
         {
             throw new QpdfParseException($"Object stream {streamNumber} declares invalid filters: {ex.Message}", null, streamNumber);
         }
+        using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0) { return stream.RawMemory; }
         scratch.Reserve(checked((long)stream.RawMemory.Length + 32L));

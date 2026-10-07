@@ -20,6 +20,16 @@ internal sealed class GovernedText : IDisposable
 
     internal long Utf8Bytes { get; }
 
+    // Measured .NET 10 strings contain two pointer-sized header words, an
+    // Int32 length and a UTF-16 terminator, aligned to the pointer size. Empty
+    // String.Create results borrow String.Empty instead of allocating storage.
+    internal static long StringBytes(int length)
+    {
+        if (length == 0) { return 0L; }
+        long alignment = IntPtr.Size;
+        return checked((2L * alignment + 6L + 2L * length + alignment - 1L) & ~(alignment - 1L));
+    }
+
     internal static GovernedText Create(ResourceGovernor governor, TextChunk? head, int length, long utf8Bytes)
     {
         governor.CheckCancellation();

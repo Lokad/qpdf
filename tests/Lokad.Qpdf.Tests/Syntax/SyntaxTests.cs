@@ -311,6 +311,7 @@ public sealed class ObjectModelTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
         PdfDictionary dictionary = Assert.IsType<PdfDictionary>(parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("<< /Filter /#2346lateDecode >>")), 0));
-        Assert.NotEqual("FlateDecode", Assert.Single(FilterChain.Resolve(dictionary)).Name);
+        using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
+        Assert.NotEqual("FlateDecode", Assert.Single(stages).Name);
     }
 }

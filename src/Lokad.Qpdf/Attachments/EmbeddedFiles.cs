@@ -134,7 +134,7 @@ internal static class EmbeddedFiles
         governor.ReserveMemory(raw.Length);
         try
         {
-            IReadOnlyList<FilterStage> stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine);
+            using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, governor.CancellationToken);
             return FilterChain.Decode(raw, stages, limits, governor);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)

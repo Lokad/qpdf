@@ -1,5 +1,55 @@
 # Progress
 
+## Governed filter-stage resolution
+
+Filter resolution now admits one exact stage array and its disposable owner,
+replacing three lists and separate stage records. Readonly stages store three
+borrowed references inline. Raw `/Filter` and `/DecodeParms` operations, visits,
+name conversion and indirect resolver boundaries use explicit work/cancellation.
+Known names borrow canonical strings; unknown/binary names use the shared display
+rules with admission before allocation and retained-ledger transfer for escaping
+aliases. All 15 runtime consumers dispose stage metadata on every outcome;
+inspection/rewrite/optimization drop it before later output or encoding work.
+Concrete iteration avoids allocation; interface enumeration and escaping stage
+boxes have their own admitted lifetimes. Filter/parameter order, null/defaults,
+indirection and validation precedence remain; inspection still precedes the
+decoder's filter-count check.
+
+The buildable closure passes locked restore/Release with zero warnings/errors
+and **6973 offline cases / 46 new controls** (40 owner/type and six compatible
+checker-helper cases). Frozen wider pending integration passes **7715 / 48**,
+adding two string-alias/weak-ledger controls. All 7667 preceding identities remain.
+Eight original test files adapt context/owner/disposal or governor declaration
+order; their fixtures, ceilings, repetitions, thresholds, deadlines and behavior
+assertions remain. The same final assembly **fails three / preserves three of
+six** eligible cases on the preceding DLL, with zero loaders; 42 owner/type/
+pending-alias cases are excluded. New import/analyzer, GC-frame, probe-argument
+and isolated-helper corrections are archived separately from final evidence.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. These scoped local
+Windows results retain preceding-commit package metadata; the final full pinned
+reference lane, visual/reference CI and final-source release gates remain open.
+
+Independent warmed 128-owner empty/known-512/borrowed-512/binary-single phases
+allocate **11264 / 1587200 / 1587200 / 239160 bytes**, retain heap **11264 /
+1587200 / 1587200 / 233368**, and admit **16384 / 1593344 / 1593344 / 240768**.
+Work is **512 / 2033536 / 2166272 / 72013**. Stage disposal retires the first
+three phases to zero; binary names retain **217216** live bytes until their last
+aliases drop, then retire to zero. Rooted disposed owners retain **6144** heap
+bytes; dropping owners leaves zero. Geometry is near **48-byte owners / 40-byte
+scopes / 48-byte single-stage arrays**, with **24-byte inline stages**. Separate
+observations keep 256 escaping names while zero governors/observers survive.
+Prepared names/dictionaries/2-MiB payload/controllers/holders and reporting are
+excluded; geometry excludes constructors. Codec/cold/native/pool/whole-job/RSS,
+CPU and host-latency obligations remain separate.
+
+Escaping-name completed-job retirement depends on the pending weak-ledger
+integration. Other checker/form/resource/inspection/JSON/content/writer name
+consumers, legacy construction, emission/codecs/replay, hints/presentation and
+the complete diagnostic correction remain open, alongside A01–A07/M11 and both
+verdicts. Wider pending edits remain preserved.
+
 ## Governed predictor metadata
 
 Predictor parsing borrows dictionary entries directly, charges each visit and
@@ -37,8 +87,9 @@ excluded; geometry excludes constructors. The result-state observation makes
 no post-scope public-alias funding claim. Codec/cold/native/pool/whole-job/RSS,
 CPU and host latency remain separate obligations.
 
-Filter-stage resolution/list/name storage and its inspection/JSON/codec
-consumers remain unowned; broader codec output/intermediate ownership is open.
+At that predictor freeze, filter-stage resolution/list/name storage and its
+inspection/JSON/codec consumers remained unowned. The later stage-owner unit
+above governs that metadata; broader codec output/intermediate ownership is open.
 Other name consumers/collections, legacy construction, hints/presentation, final
 reference/visual CI, all A01–A07/M11 and both verdicts remain open. Wider pending
 name/parser/recovery/copier/remapper/ledger/diagnostic/writer edits are preserved.

@@ -44,7 +44,7 @@ public sealed class FlateTests
     private static byte[] DecodeThroughChain(byte[] input, PdfDictionary dict)
     {
         (QpdfLimits limits, ResourceGovernor governor) = Governed();
-        IReadOnlyList<FilterStage> stages = FilterChain.Resolve(dict);
+        using FilterPlan stages = FilterChain.Resolve(dict, null, governor, governor.CancellationToken);
         return FilterChain.Decode(input, stages, limits, governor);
     }
 

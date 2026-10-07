@@ -194,10 +194,10 @@ internal static class DocumentCheck
         foreach ((int number, PdfStream stream) in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<FilterStage> stages;
+            FilterPlan stages;
             try
             {
-                stages = FilterChain.Resolve(stream.Dictionary, resolver);
+                stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
             }
             catch (QpdfParseException ex)
             {
@@ -209,6 +209,7 @@ internal static class DocumentCheck
 
                 continue;
             }
+            using FilterPlan stageOwner = stages;
 
             if (stages.Count == 0)
             {
@@ -731,15 +732,16 @@ internal static class DocumentCheck
         QpdfLimits limits,
         ResourceGovernor governor)
     {
-        IReadOnlyList<FilterStage> stages;
+        FilterPlan stages;
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver);
+            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
             return null;
         }
+        using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0)
         {
