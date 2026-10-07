@@ -836,19 +836,11 @@ internal static class ContentTransforms
     {
         ReadOnlySpan<byte> span = raw.Span;
         using GovernedBufferStream resolved = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes));
-        int i = 0;
-        while (i < span.Length)
+        PdfNameBytes.Cursor cursor = new(span, true);
+        while (cursor.TryRead(out byte value))
         {
             governor.ChargeWork(1L);
-            if (span[i] == (byte)'#' && i + 2 < span.Length && IsHexDigit(span[i + 1]) && IsHexDigit(span[i + 2]))
-            {
-                resolved.WriteByte((byte)((HexValue(span[i + 1]) << 4) | HexValue(span[i + 2])));
-                i += 3;
-                continue;
-            }
-
-            resolved.WriteByte(span[i]);
-            i += 1;
+            resolved.WriteByte(value);
         }
 
         byte[] result = resolved.ToArray();
@@ -903,31 +895,6 @@ internal static class ContentTransforms
 
         return b - (byte)'A' + 10;
     }
-    private static readonly Dictionary<string, string> OperatorResourceTypes = new(StringComparer.Ordinal)
-    {
-        ["CS"] = "ColorSpace",
-        ["cs"] = "ColorSpace",
-        ["gs"] = "ExtGState",
-        ["Tf"] = "Font",
-        ["SCN"] = "Pattern",
-        ["scn"] = "Pattern",
-        ["BDC"] = "Properties",
-        ["DP"] = "Properties",
-        ["sh"] = "Shading",
-        ["Do"] = "XObject",
-    };
-
-    private static string DecodeResourceName(PdfName name, ResourceGovernor governor)
-    {
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        return Encoding.Latin1.GetString(ResolveNameBytes(name.RawBytes, governor, memory));
-    }
-
-    private static string DecodeContentName(ReadOnlyMemory<byte> raw, ResourceGovernor governor)
-    {
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        return Encoding.Latin1.GetString(ResolveNameBytes(raw, governor, memory));
-    }
 
     private static QpdfObject? ResolvePool(PoolResolver resolver, PdfReference reference,
         ResourceGovernor governor, CancellationToken cancellationToken)
@@ -965,7 +932,7 @@ internal static class ContentTransforms
             return page;
         }
 
-        HashSet<string> unresolved = new(StringComparer.Ordinal);
+        using ResourceNameSet unresolved = ResourceNameSet.Create(governor, cancellationToken);
         using (FormResourceWalk forms = CollectFormStreams(copier, resources, governor, cancellationToken))
         {
             for (int index = 0; index < forms.Count; index++)
@@ -1051,7 +1018,7 @@ internal static class ContentTransforms
         GraphCopier copier,
         int? formId,
         PdfStream form,
-        HashSet<string> unresolved,
+        ResourceNameSet unresolved,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -1085,7 +1052,7 @@ internal static class ContentTransforms
         byte[] content,
         PdfDictionary? resources,
         bool isPage,
-        HashSet<string> unresolved,
+        ResourceNameSet unresolved,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
@@ -1093,14 +1060,16 @@ internal static class ContentTransforms
     {
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
-        if (!ScanNames(content, out HashSet<string> names, out HashSet<string> scoped, limits, governor, diagnostics, cancellationToken))
+        using ResourceNameSet names = ResourceNameSet.Create(governor, cancellationToken);
+        using ResourceNameSet scoped = ResourceNameSet.Create(governor, cancellationToken);
+        if (!ScanNames(content, names, scoped, limits, governor, diagnostics, cancellationToken))
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be parsed.");
             return;
         }
 
 
-        HashSet<string> known = new(StringComparer.Ordinal);
+        using ResourceNameSet known = ResourceNameSet.Create(governor, cancellationToken);
         if (resources is not null)
         {
             for (int section = 0; section < 2; section++)
@@ -1116,18 +1085,20 @@ internal static class ContentTransforms
                         using var entries = sectionDict.GetEntryEnumerator();
                         while (entries.MoveNext(governor, cancellationToken))
                         {
-                            known.Add(DecodeResourceName(entries.Current.Key, governor));
+                            known.AddDecoded(entries.Current.Key.RawSpan);
                         }
                     }
                 }
             }
         }
 
-        foreach (string name in scoped)
+        using var scopedEntries = scoped.GetEnumerator();
+        while (scopedEntries.MoveNext(governor, cancellationToken))
         {
-            if (!known.Contains(name))
+            ReadOnlySpan<byte> name = scopedEntries.Current.Key.RawSpan;
+            if (!known.ContainsDecoded(name))
             {
-                unresolved.Add(name);
+                unresolved.AddDecoded(name);
             }
         }
 
@@ -1137,9 +1108,10 @@ internal static class ContentTransforms
         }
 
         bool hasUnknown = false;
-        foreach (string name in scoped)
+        using var unknownEntries = scoped.GetEnumerator();
+        while (unknownEntries.MoveNext(governor, cancellationToken))
         {
-            if (!known.Contains(name))
+            if (!known.ContainsDecoded(unknownEntries.Current.Key.RawSpan))
             {
                 hasUnknown = true;
                 break;
@@ -1175,7 +1147,6 @@ internal static class ContentTransforms
             while (sectionEntries.MoveNext(governor, cancellationToken))
             {
                 PdfName key = sectionEntries.Current.Key;
-                string decoded = DecodeResourceName(key, governor);
                 QpdfObject held = sectionEntries.Current.Value;
                 if (held is null)
                 {
@@ -1183,13 +1154,13 @@ internal static class ContentTransforms
                     continue;
                 }
 
-                if (isPage && unresolved.Contains(decoded))
+                if (isPage && unresolved.ContainsDecoded(key.RawSpan))
                 {
                     kept[key] = held;
                     continue;
                 }
 
-                if (names.Contains(decoded))
+                if (names.ContainsDecoded(key.RawSpan))
                 {
                     kept[key] = held;
                     continue;
@@ -1409,17 +1380,18 @@ internal static class ContentTransforms
 
     private static bool ScanNames(
         byte[] content,
-        out HashSet<string> names,
-        out HashSet<string> scoped,
+        ResourceNameSet names,
+        ResourceNameSet scoped,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        names = new HashSet<string>(StringComparer.Ordinal);
-        scoped = new HashSet<string>(StringComparer.Ordinal);
-        ContentTokenizer tokenizer = new(content, limits, governor);
-        string? lastName = null;
+        using ParserMemoryScope tokenizerMemory = ParserMemoryScope.Create(governor);
+        tokenizerMemory.Reserve(192L);
+        ContentTokenizer tokenizer = new(content, limits, governor, cancellationToken);
+        ReadOnlyMemory<byte> lastName = default;
+        bool hasName = false;
         try
         {
             while (tokenizer.TryReadToken(out ContentToken token))
@@ -1427,25 +1399,29 @@ internal static class ContentTransforms
                 cancellationToken.ThrowIfCancellationRequested();
                 if (token.Kind == ContentTokenKind.Name)
                 {
-                    lastName = DecodeContentName(token.Data, governor);
+                    lastName = token.Data; hasName = true;
                     continue;
                 }
 
                 if (token.Kind == ContentTokenKind.Operator)
                 {
-                    string word = Encoding.ASCII.GetString(token.Data.Span);
-                    if (word == "ID")
+                    ReadOnlySpan<byte> word = token.Data.Span;
+                    governor.CheckCancellation(); governor.ChargeWork(1L);
+                    if (word.SequenceEqual("ID"u8))
                     {
                         tokenizer.TryReadInlineImageData(out ContentToken _);
                         continue;
                     }
 
-                    if (lastName is not null && OperatorResourceTypes.TryGetValue(word, out string? resourceType))
+                    bool scopedOperator = word.SequenceEqual("Tf"u8) || word.SequenceEqual("Do"u8);
+                    if (hasName && (scopedOperator || word.SequenceEqual("CS"u8) || word.SequenceEqual("cs"u8)
+                        || word.SequenceEqual("gs"u8) || word.SequenceEqual("SCN"u8) || word.SequenceEqual("scn"u8)
+                        || word.SequenceEqual("BDC"u8) || word.SequenceEqual("DP"u8) || word.SequenceEqual("sh"u8)))
                     {
-                        names.Add(lastName);
-                        if (resourceType == "Font" || resourceType == "XObject")
+                        names.AddRaw(lastName.Span);
+                        if (scopedOperator)
                         {
-                            scoped.Add(lastName);
+                            scoped.AddRaw(lastName.Span);
                         }
                     }
 

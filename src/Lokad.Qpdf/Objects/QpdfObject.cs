@@ -161,15 +161,19 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
     /// <summary>Creates a name, copying the raw bytes.</summary>
     /// <exception cref="ArgumentNullException">The bytes are null.</exception>
-    public PdfName(byte[] rawBytes)
+    public PdfName(byte[] rawBytes) : this(rawBytes, true) { }
+
+    private PdfName(byte[] rawBytes, bool copy)
     {
         if (rawBytes is null)
         {
             throw new ArgumentNullException(nameof(rawBytes));
         }
 
-        _raw = (byte[])rawBytes.Clone();
+        _raw = copy ? (byte[])rawBytes.Clone() : rawBytes;
     }
+
+    internal static PdfName FromOwnedBytes(byte[] rawBytes) => new(rawBytes, false);
 
     /// <summary>Creates a name from ASCII text, rejecting non-ASCII input.</summary>
     /// <exception cref="ArgumentNullException">The text is null.</exception>

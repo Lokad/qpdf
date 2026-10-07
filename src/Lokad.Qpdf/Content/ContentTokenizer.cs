@@ -50,14 +50,34 @@ internal sealed class ContentTokenizer
     private readonly ReadOnlyMemory<byte> _data;
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
+    private readonly CancellationToken _token;
     private int _position;
+    private int _tokenByteCredit;
 
     internal ContentTokenizer(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor)
+        : this(data, limits, governor, governor?.CancellationToken ?? CancellationToken.None)
+    {
+    }
+
+    internal ContentTokenizer(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken token)
     {
         _data = data;
         _limits = limits ?? throw new ArgumentNullException(nameof(limits));
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+        _token = token;
         limits.Validate();
+    }
+
+    private void Check() { _token.ThrowIfCancellationRequested(); _governor.CheckCancellation(); }
+    private void Visit() { Check(); _governor.ChargeWork(1L); }
+    // Dispatch funds a bounded prefix, preserving the one-unit short-token
+    // contract. Every later scan step pays work; every step checks cancellation.
+    private void VisitTokenByte()
+    {
+        Check();
+        if (_tokenByteCredit > 0) { _tokenByteCredit--; }
+        else { _governor.ChargeWork(1L); }
     }
 
     internal bool IncludeComments { get; set; }
@@ -68,16 +88,17 @@ internal sealed class ContentTokenizer
 
     internal bool TryReadToken(out ContentToken token)
     {
+        Check();
         SkipWhitespaceAndComments();
         if (TakePendingComment(out token))
         {
-            _governor.ChargeWork(1L);
+            Visit();
             return true;
         }
 
         if (TakePendingWhitespace(out token))
         {
-            _governor.ChargeWork(1L);
+            Visit();
             return true;
         }
 
@@ -87,7 +108,8 @@ internal sealed class ContentTokenizer
             return false;
         }
 
-        _governor.ChargeWork(1L);
+        Visit();
+        _tokenByteCredit = 16;
         long offset = _position;
         byte b = _data.Span[_position];
         if (b == (byte)'[')
@@ -152,6 +174,7 @@ internal sealed class ContentTokenizer
     }
     internal bool TryReadInlineImageData(out ContentToken token)
     {
+        Check();
         if (_position >= _data.Length)
         {
             throw new QpdfParseException("Unterminated inline image in content stream.", _position, null);
@@ -165,7 +188,7 @@ internal sealed class ContentTokenizer
             throw new QpdfParseException("Unterminated inline image in content stream.", dataStart, null);
         }
 
-        _governor.ChargeWork(1L);
+        Visit();
         token = new ContentToken(ContentTokenKind.InlineImage, _data.Slice(dataStart, end - dataStart), dataStart);
         _position = end + 2;
         return true;
@@ -178,6 +201,7 @@ internal sealed class ContentTokenizer
         int last = -1;
         while (search + 1 < span.Length)
         {
+            Visit();
             int candidate = IndexOfEI(span, search);
             if (candidate < 0)
             {
@@ -201,10 +225,11 @@ internal sealed class ContentTokenizer
         return last;
     }
 
-    private static int IndexOfEI(ReadOnlySpan<byte> span, int start)
+    private int IndexOfEI(ReadOnlySpan<byte> span, int start)
     {
         for (int i = start; i + 1 < span.Length; i++)
         {
+            Visit();
             if (span[i] == (byte)'E' && span[i + 1] == (byte)'I')
             {
                 return i;
@@ -218,7 +243,7 @@ internal sealed class ContentTokenizer
     {
         for (int i = 0; i < 10; i++)
         {
-            _governor.ChargeWork(1L);
+            Visit();
             ProbeKind kind = ScanToken(position, out int next, out bool suspiciousWord);
             if (kind == ProbeKind.End)
             {
@@ -250,18 +275,22 @@ internal sealed class ContentTokenizer
         int i = position;
         while (i < span.Length && IsWhitespace(span[i]))
         {
+            Visit();
             i += 1;
         }
 
         while (i < span.Length && span[i] == (byte)'%')
         {
+            Visit();
             while (i < span.Length && span[i] != (byte)'\n' && span[i] != (byte)'\r')
             {
+                Visit();
                 i += 1;
             }
 
             while (i < span.Length && IsWhitespace(span[i]))
             {
+                Visit();
                 i += 1;
             }
         }
@@ -273,6 +302,7 @@ internal sealed class ContentTokenizer
         }
 
         byte b = span[i];
+        Visit();
         if (b == (byte)'[' || b == (byte)']')
         {
             next = i + 1;
@@ -306,6 +336,7 @@ internal sealed class ContentTokenizer
             int j = i + 1;
             while (j < span.Length && !IsDelimiter(span[j]))
             {
+                Visit();
                 j += 1;
             }
 
@@ -323,6 +354,7 @@ internal sealed class ContentTokenizer
         int i = position + 1;
         while (i < span.Length)
         {
+            Visit();
             byte b = span[i];
             if (b == (byte)'>')
             {
@@ -351,6 +383,7 @@ internal sealed class ContentTokenizer
         int i = position;
         while (i < span.Length)
         {
+            Visit();
             if (span[i] == (byte)'\\')
             {
                 i += 2;
@@ -386,6 +419,7 @@ internal sealed class ContentTokenizer
         int i = position;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
+            Visit();
             i += 1;
         }
 
@@ -399,6 +433,7 @@ internal sealed class ContentTokenizer
         bool other = false;
         for (int j = position; j < i; j++)
         {
+            Visit();
             byte b = span[j];
             if ((b >= (byte)'a' && b <= (byte)'z') || (b >= (byte)'A' && b <= (byte)'Z') || b == (byte)'*')
             {
@@ -425,6 +460,7 @@ internal sealed class ContentTokenizer
         int i = _position;
         while (i < span.Length)
         {
+            VisitTokenByte();
             if (span[i] == (byte)'\\')
             {
                 i += 2;
@@ -460,6 +496,7 @@ internal sealed class ContentTokenizer
         int i = _position + 1;
         while (i < span.Length)
         {
+            VisitTokenByte();
             byte b = span[i];
             if (b == (byte)'>')
             {
@@ -488,6 +525,7 @@ internal sealed class ContentTokenizer
         int i = start;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
+            VisitTokenByte();
             i += 1;
         }
 
@@ -502,12 +540,14 @@ internal sealed class ContentTokenizer
         int i = _position;
         if (i < span.Length && (span[i] == (byte)'+' || span[i] == (byte)'-'))
         {
+            VisitTokenByte();
             i += 1;
         }
 
         int integerDigits = 0;
         while (i < span.Length && span[i] >= (byte)'0' && span[i] <= (byte)'9')
         {
+            VisitTokenByte();
             integerDigits += 1;
             i += 1;
         }
@@ -515,11 +555,13 @@ internal sealed class ContentTokenizer
         bool real = false;
         if (i < span.Length && span[i] == (byte)'.')
         {
+            VisitTokenByte();
             real = true;
             i += 1;
             int fractionDigits = 0;
             while (i < span.Length && span[i] >= (byte)'0' && span[i] <= (byte)'9')
             {
+                VisitTokenByte();
                 fractionDigits += 1;
                 i += 1;
             }
@@ -547,6 +589,7 @@ internal sealed class ContentTokenizer
         int i = _position;
         while (i < span.Length && !IsDelimiter(span[i]))
         {
+            VisitTokenByte();
             i += 1;
         }
 
@@ -578,11 +621,13 @@ internal sealed class ContentTokenizer
         ReadOnlySpan<byte> span = _data.Span;
         while (_position < span.Length)
         {
+            Check();
             byte b = span[_position];
             if (IsWhitespace(b))
             {
                 if (!IncludeWhitespace)
                 {
+                    Visit();
                     _position += 1;
                     continue;
                 }
@@ -590,6 +635,7 @@ internal sealed class ContentTokenizer
                 long start = _position;
                 while (_position < span.Length && IsWhitespace(span[_position]))
                 {
+                    Visit();
                     _position += 1;
                 }
 
@@ -603,6 +649,7 @@ internal sealed class ContentTokenizer
                 {
                     while (_position < span.Length && span[_position] != (byte)'\n' && span[_position] != (byte)'\r')
                     {
+                        Visit();
                         _position += 1;
                     }
 
@@ -612,6 +659,7 @@ internal sealed class ContentTokenizer
                 long start = _position;
                 while (_position < span.Length && span[_position] != (byte)'\n' && span[_position] != (byte)'\r')
                 {
+                    Visit();
                     _position += 1;
                 }
 

@@ -1,5 +1,60 @@
 # Progress
 
+## Governed pruning name analysis
+
+Pruning now owns decoded resource names through the shared name table. Borrowed
+queries decode valid hash escapes once, preserve malformed/binary bytes and
+compare without strings or temporary keys. Names retain their insertion order;
+page unresolved names fund independent copies through their final use. Duplicate
+queries allocate nothing. Failed insertion returns only its fresh admission;
+disposed owners drop backing and execution state before retirement.
+
+Native single-pass escaped-name evidence exposed inherited double decoding of
+already-decoded dictionary keys. Known/resource membership now borrows those
+key bytes directly; only raw content tokens decode escapes. Three new behavior
+controls fail on the preceding runtime. The initial native mismatch, stopped
+reference run and NUL/warning-adapter harness failures remain archived separately.
+Tokenizer name/operator/string/number, whitespace/comment and inline-image search/
+lookahead loops now observe finite work and caller/governor cancellation. Token
+dispatch funds a bounded 16-step prefix to preserve the existing one-unit short
+token control. Pruning admits the tokenizer wrapper. Other tokenizer callers,
+joined/decoded chunks, rebuilt graphs and broader consumers remain pending.
+
+Locked restore/Release passes with zero warnings/errors. The component passes
+**7345 offline cases / 69 new controls**; frozen wider integration passes
+**8078 / 69**. All 7276 preceding isolated / 8009 preceding root stable identities
+and 202 original test sources remain unchanged. Identical final tests on preceding
+pending `B04540B7` fail **22 / preserve 22 / 44 eligible**, zero loaders; 25 new
+owner/query/caller-token controls are excluded. Original fixtures, assertions,
+ceilings, repetitions, thresholds and deadlines remain.
+
+Independent isolated/pending probes agree. Across 128 empty/grown owners,
+allocation is **22528 / 389120**, active forced-GC heap **22528 / 279552**,
+live admission **28672 / 309888**, peaks **28672 / 362240**; disposal live is
+zero. Empty admission is 224 bytes. Warmed 128 duplicate/borrowed query pairs
+allocate/retain zero bytes, with live admission 2421 and work 9984. Tokenizer
+geometry is 152 bytes within 192 admission. All 5248 execution/backing/key witnesses
+die across 128 rooted disposed owners; borrowed inputs remain usable. Disposed
+aggregate heap includes unrelated state; prepared inputs/controllers/holders/
+reflection/reporting are excluded. Broader cold/native/pool/codec/whole-job/RSS/
+CPU/host measurements remain open.
+
+Fresh focused native evidence passes **292 comparisons / 368 output rereads**,
+including 21 decoded-name comparisons / 42 rereads. The full reference wrapper
+passes its differential operation matrix and **1846 parser comparisons / 432
+rewrite trios**. Package/symbol checks, **50 consumer smokes** and both specific
+negatives pass on the same runtime. These are local Windows results.
+
+Frozen pending runtime `4D3887E7`, tests `4C3722AF`, build checkpoint `666f28e`;
+nuspec exposes no source commit or URL. Initial new-fixture registration and
+whole-path admission expectations are archived. The first full run passed 8076
+with two failures: the original one-unit tokenizer control, now preserved, and a
+document-disposal counter observation. The same unchanged disposal control passes
+in focused candidate/preceding runs. That observation remains open with both
+earlier scheduling observations; no original control was relaxed. Final sources
+and binaries stayed frozen through all final gates. Continue chunk/rebuilt-graph
+ownership and remaining consumers; A01-A07/M11 and both verdicts remain open.
+
 ## Governed form resource traversal
 
 Form collection now owns its visited numbers, value-deduplicated scopes and

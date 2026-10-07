@@ -85,6 +85,24 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         return ReadBytes(key, new Visits(governor, token, null), out value);
     }
 
+    internal bool TryGetValue(PdfNameBytes key, ResourceGovernor governor, CancellationToken token,
+        [MaybeNullWhen(false)] out T value)
+    {
+        ArgumentNullException.ThrowIfNull(governor); CheckRead(governor);
+        int found = Find(key, null, new Visits(governor, token, null), out _);
+        if (found < 0) { value = default; return false; }
+        value = _entries[found].Value; return true;
+    }
+
+    internal bool TryGetObserved(PdfNameBytes key, ResourceGovernor governor, CancellationToken token,
+        Action observe, [MaybeNullWhen(false)] out T value)
+    {
+        ArgumentNullException.ThrowIfNull(governor); ArgumentNullException.ThrowIfNull(observe); CheckRead(governor);
+        int found = Find(key, null, new Visits(governor, token, observe), out _);
+        if (found < 0) { value = default; return false; }
+        value = _entries[found].Value; return true;
+    }
+
     internal bool TryGetObserved(ReadOnlySpan<byte> key, ResourceGovernor governor, CancellationToken token,
         Action observe, [MaybeNullWhen(false)] out T value)
     {
@@ -154,6 +172,9 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     }
 
     private int Find(ReadOnlySpan<byte> key, PdfName? identityKey, Visits visits, out int hash)
+        => Find(new PdfNameBytes(key), identityKey, visits, out hash);
+
+    private int Find(PdfNameBytes key, PdfName? identityKey, Visits visits, out int hash)
     {
         visits.Step(); hash = visits.Hash(key);
         if (_buckets.Length == 0) { return -1; }
@@ -240,10 +261,12 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     {
         internal void Step() => Units(1L);
         internal void Units(long count) { token.ThrowIfCancellationRequested(); governor?.CheckCancellation(); governor?.ChargeWork(count); }
-        internal int Hash(ReadOnlySpan<byte> bytes)
+        internal int Hash(PdfNameBytes bytes)
         {
             HashCode hash = new();
-            for (int index = 0; index < Math.Min(bytes.Length, 16); index++) { Step(); hash.Add(bytes[index]); }
+            PdfNameBytes.Cursor cursor = bytes.GetCursor();
+            for (int index = 0; index < Math.Min(bytes.Length, 16); index++)
+            { Step(); if (!cursor.TryRead(out byte value)) { throw new InvalidOperationException("Name length differs."); } hash.Add(value); }
             Step(); hash.Add(bytes.Length); Step(); return hash.ToHashCode();
         }
         internal bool Equal(PdfName left, PdfName right)
@@ -251,8 +274,20 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
             Step(); if (ReferenceEquals(left, right)) { return true; }
             return EqualBytes(left.RawSpan, right.RawSpan);
         }
-        internal bool Equal(PdfName left, ReadOnlySpan<byte> right)
-        { Step(); return EqualBytes(left.RawSpan, right); }
+        internal bool Equal(PdfName left, PdfNameBytes right)
+        {
+            Step();
+            if (!right.IsDecoded) { return EqualBytes(left.RawSpan, right.Raw); }
+            ReadOnlySpan<byte> a = left.RawSpan;
+            if (a.Length != right.Length) { return false; }
+            PdfNameBytes.Cursor cursor = right.GetCursor();
+            for (int index = 0; index < a.Length; index++)
+            {
+                Step(); if (!cursor.TryRead(out byte value) || a[index] != value) { return false; }
+                if ((index + 1) % 256 == 0) { observe?.Invoke(); }
+            }
+            return true;
+        }
         private bool EqualBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
         {
             if (a.Length != b.Length) { return false; }

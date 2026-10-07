@@ -66,6 +66,36 @@ proof and independent component/pending measurements verify this scope. Remainin
 analysis name sets/strings, chunks, rebuilt graphs, broader lookup/storage and
 diagnostic/default/interaction audits remain open; inventory status is unchanged.
 
+## Pruning name-analysis checkpoint
+
+Pruning uses admitted decoded-byte name storage and borrowed queries while
+preserving single-pass escapes, binary/malformed bytes, resource operators,
+operand history, form-to-page unresolved names, inline-image boundaries and
+parse-failure warnings. Tokenizer scans observe finite work and both cancellation
+routes; the original one-unit short-token control remains. Analysis storage drops
+before admission retires; chunks, rebuilt graphs and other consumers remain open.
+
+Native single-pass escaped-name evidence exposed inherited double decoding of
+already-decoded dictionary keys. Known/resource membership now borrows those
+key bytes directly; only raw content tokens decode escapes. Three new behavior
+controls fail on the preceding runtime. The initial native mismatch, stopped
+reference run and NUL/warning-adapter harness failures remain archived separately.
+The component passes **7345 offline cases / 69 new controls**; wider pending
+integration passes **8078 / 69**, preserving all preceding stable identities and
+original test sources/fixtures/limits/assertions. Identical final tests on preceding
+`B04540B7`: **22 fail / 22 preserve / 44 eligible**, zero loaders; 25 new helper/
+owner/caller-token controls are excluded. Fresh focused native evidence passes **292 comparisons / 368 output rereads**,
+including 21 decoded-name comparisons / 42 rereads. The full reference wrapper
+passes its differential operation matrix and **1846 parser comparisons / 432
+rewrite trios**. Package/symbol checks, **50 consumer smokes** and both specific
+negatives pass on the same runtime. These are local Windows results.
+Local Windows evidence on frozen pending `4D3887E7` / `4C3722AF`, build checkpoint
+`666f28e`; package metadata exposes no source commit or URL. The initial tokenizer
+budget correction and disposal-counter observation are archived; the unchanged
+disposal control passes focused candidate/preceding runs but its scheduling audit
+remains open. Broader defaults/interactions, visual/reference CI/release,
+A01-A07/M11 and both completion verdicts remain open. Inventory is unchanged.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string
