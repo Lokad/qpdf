@@ -1,5 +1,48 @@
 # Progress
 
+## Governed predictor metadata
+
+Predictor parsing borrows dictionary entries directly, charges each visit and
+raw-name comparison, and checks both cancellation routes before work/result
+publication and around indirect resolution. It preserves defaults, ranges and
+entry-based failure order without display strings, key views or repeated
+lookups. The immutable four-integer result admits **32 bytes** before allocation;
+Flate/LZW keep it funded through codec use, drop the reference and retire the
+exclusive scope on success/failure/cancellation. LZW `/EarlyChange` uses the
+shared governed raw lookup and preserves its validation precedence.
+
+The standalone closure passes locked restore/Release with zero warnings/errors
+and **6927 offline cases / 25 new controls**: 18 factory and seven compatible
+pipeline cases. Frozen wider pending integration passes **7667 / 27 new controls**,
+including two owned-backing cases. All 7640 prior identities and test sources
+remain unchanged. The identical final assembly **fails two / preserves five
+of seven** eligible pipeline cases on the preceding library, with zero loader
+failures; 20 new-factory/owned-backing cases are excluded. Original fixtures,
+ceilings, repetitions, thresholds and deadlines remain unchanged.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. These are scoped local
+Windows results with preceding-commit package metadata; the final full reference
+lane and complete diagnostic correction remain open.
+
+Independent warmed 128-result empty/512-unknown-binary/four-known-field phases
+each allocate **4096 bytes** and add **4096** live admission; forced-GC retained
+heap deltas are **3856 / 4096 / 4096 bytes**. Work is **256 / 327936 / 6912**;
+total live admission includes the prepared scopes (**12288**) and retires to
+zero after results drop and scopes dispose. Geometry for 10000 uninitialized
+results allocates **320312 bytes**, near 32 per result. A separate forced-GC
+observation keeps 256 results while zero governors/observers survive. Prepared
+dictionaries/names/values, scopes, governors/holders and snapshots/reporting are
+excluded; geometry excludes constructors. The result-state observation makes
+no post-scope public-alias funding claim. Codec/cold/native/pool/whole-job/RSS,
+CPU and host latency remain separate obligations.
+
+Filter-stage resolution/list/name storage and its inspection/JSON/codec
+consumers remain unowned; broader codec output/intermediate ownership is open.
+Other name consumers/collections, legacy construction, hints/presentation, final
+reference/visual CI, all A01–A07/M11 and both verdicts remain open. Wider pending
+name/parser/recovery/copier/remapper/ledger/diagnostic/writer edits are preserved.
+
 ## Governed raw name lookup and reader metadata
 
 A shared stateless helper looks up borrowed raw names with explicit work and

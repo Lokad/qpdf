@@ -7,8 +7,24 @@ namespace Lokad.Qpdf.Filters;
 /// <summary>Predictor parameters resolved from a DecodeParms dictionary.</summary>
 internal sealed record PredictorParameters(int Predictor, int Columns, int Colors, int BitsPerComponent)
 {
-    internal static PredictorParameters? FromDictionary(PdfDictionary? parms, string filterName, IIndirectResolver? resolver)
+    internal const long AllocationBytes = 32L;
+
+    internal static PredictorParameters? FromDictionary(PdfDictionary? parms, string filterName, IIndirectResolver? resolver,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        => Read(parms, filterName, resolver, memory, governor, token, null);
+
+    internal static PredictorParameters? FromDictionaryObserved(PdfDictionary? parms, string filterName, IIndirectResolver? resolver,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token, Action observe)
     {
+        ArgumentNullException.ThrowIfNull(observe);
+        return Read(parms, filterName, resolver, memory, governor, token, observe);
+    }
+
+    private static PredictorParameters? Read(PdfDictionary? parms, string filterName, IIndirectResolver? resolver,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token, Action? observe)
+    {
+        ArgumentNullException.ThrowIfNull(memory); ArgumentNullException.ThrowIfNull(governor);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); memory.CheckOwner(governor);
         if (parms is null)
         {
             return null;
@@ -18,20 +34,27 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
         int columns = 1;
         int colors = 1;
         int bitsPerComponent = 8;
-        foreach (PdfName key in parms.Keys)
+        int visited = 0;
+        using var entries = parms.GetEntryEnumerator();
+        while (true)
         {
-            string name = key.DisplayText;
-            if (name != "Predictor" && name != "Columns" && name != "Colors" && name != "BitsPerComponent")
+            Step(governor, token);
+            if (!entries.MoveNext()) { break; }
+            var entry = entries.Current;
+            string? name = ParameterName(entry.Key, governor, token);
+            if (name is null)
             {
+                Observe(ref visited, observe);
                 continue;
             }
 
-            if (!parms.TryGet(key, out QpdfObject raw))
+            QpdfObject raw = entry.Value;
+            if (raw is null)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");
             }
 
-            raw = DerefValue(raw, resolver, filterName, name);
+            raw = DerefValue(raw, resolver, filterName, name, governor, token);
             if (raw is not PdfInteger integer)
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"DecodeParms /{name} must be an integer.");
@@ -53,6 +76,7 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
             {
                 bitsPerComponent = CheckRange(integer.Value, filterName, "BitsPerComponent");
             }
+            Observe(ref visited, observe);
         }
 
         if (predictor != 1 && predictor != 2 && (predictor < 10 || predictor > 15))
@@ -76,10 +100,28 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Invalid /BitsPerComponent value {bitsPerComponent}.");
         }
 
-        return new PredictorParameters(predictor, columns, colors, bitsPerComponent);
+        Step(governor, token); memory.Reserve(AllocationBytes);
+        try { return new PredictorParameters(predictor, columns, colors, bitsPerComponent); }
+        catch { memory.Release(AllocationBytes); throw; }
     }
 
-    private static QpdfObject DerefValue(QpdfObject raw, IIndirectResolver? resolver, string filterName, string role)
+    private static void Step(ResourceGovernor governor, CancellationToken token)
+    { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L); }
+
+    private static void Observe(ref int visited, Action? observe)
+    { if (++visited % 256 == 0) { observe?.Invoke(); } }
+
+    private static string? ParameterName(PdfName key, ResourceGovernor governor, CancellationToken token)
+    {
+        if (PdfDictionaryLookup.NameEquals(key, "Predictor"u8, governor, token)) { return "Predictor"; }
+        if (PdfDictionaryLookup.NameEquals(key, "Columns"u8, governor, token)) { return "Columns"; }
+        if (PdfDictionaryLookup.NameEquals(key, "Colors"u8, governor, token)) { return "Colors"; }
+        if (PdfDictionaryLookup.NameEquals(key, "BitsPerComponent"u8, governor, token)) { return "BitsPerComponent"; }
+        return null;
+    }
+
+    private static QpdfObject DerefValue(QpdfObject raw, IIndirectResolver? resolver, string filterName, string role,
+        ResourceGovernor governor, CancellationToken token)
     {
         if (raw is not PdfReference reference)
         {
@@ -91,7 +133,10 @@ internal sealed record PredictorParameters(int Predictor, int Columns, int Color
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Indirect DecodeParms /{role} needs an object resolver.");
         }
 
-        if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
+        Step(governor, token);
+        bool found = resolver.TryResolve(reference, out QpdfObject? resolved);
+        Step(governor, token);
+        if (!found || resolved is null)
         {
             throw new QpdfFilterException(QpdfFilterFailureReason.InvalidData, filterName, $"Unresolvable indirect DecodeParms /{role}.");
         }

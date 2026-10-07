@@ -147,25 +147,8 @@ internal static class FilterChain
 
     private static byte[] DecodeStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor)
     {
-        if (stage.Name == FlateFilter.FilterName)
-        {
-            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, FlateFilter.FilterName, stage.Resolver);
-            // The decoder also serves direct hint and companion calls and owns its byte charge.
-            return FlateFilter.Decode(input, parms, limits, governor);
-        }
-
-        if (stage.Name == LzwFilter.FilterName)
-        {
-            bool earlyChange = ReadEarlyChange(stage.Parms, stage.Resolver);
-            PredictorParameters? parms = PredictorParameters.FromDictionary(stage.Parms, LzwFilter.FilterName, stage.Resolver);
-            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor);
-            if (parms is not null && parms.Predictor != 1)
-            {
-                return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor), limits, governor);
-            }
-
-            return DecodeChecked(inflated, limits, governor);
-        }
+        if (stage.Name == FlateFilter.FilterName || stage.Name == LzwFilter.FilterName)
+        { return DecodePredictorStage(input, stage, limits, governor); }
 
         if (stage.Name == DctFilter.FilterName)
         {
@@ -187,6 +170,25 @@ internal static class FilterChain
         throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, stage.Name, "Filter is not implemented in this milestone.");
     }
 
+    private static byte[] DecodePredictorStage(byte[] input, FilterStage stage, QpdfLimits limits, ResourceGovernor governor)
+    {
+        bool earlyChange = stage.Name != LzwFilter.FilterName || ReadEarlyChange(stage.Parms, stage.Resolver, governor);
+        using ParserMemoryScope? memory = stage.Parms is null ? null : ParserMemoryScope.Create(governor);
+        PredictorParameters? parms = null;
+        try
+        {
+            if (memory is not null)
+            { parms = PredictorParameters.FromDictionary(stage.Parms, stage.Name, stage.Resolver, memory, governor, governor.CancellationToken); }
+            // Direct hint/companion decoding shares the same codec implementation.
+            if (stage.Name == FlateFilter.FilterName) { return FlateFilter.Decode(input, parms, limits, governor); }
+            byte[] inflated = LzwFilter.Decode(input, earlyChange, limits, governor);
+            if (parms is not null && parms.Predictor != 1)
+            { return DecodeChecked(PredictorStages.Apply(inflated, parms, LzwFilter.FilterName, governor), limits, governor); }
+            return DecodeChecked(inflated, limits, governor);
+        }
+        finally { parms = null; }
+    }
+
     private static byte[] DecodeChecked(byte[] decoded, QpdfLimits limits, ResourceGovernor governor)
     {
         if (decoded.Length > limits.MaxDecodedBytes)
@@ -198,20 +200,21 @@ internal static class FilterChain
         return decoded;
     }
 
-    private static bool ReadEarlyChange(PdfDictionary? parms, IIndirectResolver? resolver)
+    private static bool ReadEarlyChange(PdfDictionary? parms, IIndirectResolver? resolver, ResourceGovernor governor)
     {
         if (parms is null)
         {
             return true;
         }
 
-        PdfName key = PdfName.FromAscii("EarlyChange");
-        if (!parms.TryGet(key, out QpdfObject raw) || raw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(parms, "EarlyChange"u8, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
         {
             return true;
         }
 
+        governor.CheckCancellation(); governor.ChargeWork(1L);
         raw = Deref(raw, resolver, "/EarlyChange");
+        governor.CheckCancellation(); governor.ChargeWork(1L);
         if (raw is PdfNull)
         {
             return true;
