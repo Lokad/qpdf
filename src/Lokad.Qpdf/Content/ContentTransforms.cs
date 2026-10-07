@@ -1025,7 +1025,7 @@ internal static class ContentTransforms
                     target = ResolvePool(resolver, entryReference) ?? entry;
                 }
 
-                if (target is not PdfStream stream || !IsFormXObject(stream))
+                if (target is not PdfStream stream || !IsFormXObject(stream, governor, cancellationToken))
                 {
                     continue;
                 }
@@ -1055,11 +1055,11 @@ internal static class ContentTransforms
         return forms;
     }
 
-    private static bool IsFormXObject(PdfStream stream)
+    private static bool IsFormXObject(PdfStream stream, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject? subtype) && subtype is PdfName name)
+        if (PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype) && subtype is PdfName name)
         {
-            return name.DisplayText == "Form";
+            return PdfDictionaryLookup.NameEquals(name, "Form"u8, governor, cancellationToken);
         }
 
         return false;
@@ -1486,45 +1486,40 @@ internal static class ContentTransforms
         }
 
         limits.Validate();
-        if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? rootRaw) || rootRaw is null || rootRaw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject rootRaw) || rootRaw is null || rootRaw is PdfNull)
         {
             return false;
         }
 
         QpdfObject root = rootRaw is PdfReference rootReference
-            ? ResolveEngine(engine, rootReference) ?? rootRaw
+            ? ResolveEngine(engine, rootReference, governor, cancellationToken) ?? rootRaw
             : rootRaw;
         if (root is not PdfDictionary catalog)
         {
             return false;
         }
 
-        if (!catalog.TryGet(PdfName.FromAscii("Pages"), out QpdfObject? pagesRaw) || pagesRaw is null || pagesRaw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw) || pagesRaw is null || pagesRaw is PdfNull)
         {
             return false;
         }
 
         QpdfObject pages = pagesRaw is PdfReference pagesReference
-            ? ResolveEngine(engine, pagesReference) ?? pagesRaw
+            ? ResolveEngine(engine, pagesReference, governor, cancellationToken) ?? pagesRaw
             : pagesRaw;
-        HashSet<int> resourcesSeen = new();
-        HashSet<int> nodesSeen = new();
-        List<QpdfObject> queue = new() { pages };
-        while (queue.Count > 0)
+        using SharedResourceWalk walk = SharedResourceWalk.Create(governor, cancellationToken);
+        walk.Push(pages, cancellationToken);
+        while (walk.TryPop(cancellationToken, out QpdfObject node))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            QpdfObject node = queue[queue.Count - 1];
-            queue.RemoveAt(queue.Count - 1);
             PdfDictionary? dictionary = null;
             if (node is PdfReference nodeReference)
             {
-                if (!nodesSeen.Add(nodeReference.ObjectNumber))
+                if (!walk.VisitNode(nodeReference.ObjectNumber, cancellationToken))
                 {
                     continue;
                 }
 
-                QpdfObject? resolved = ResolveEngine(engine, nodeReference);
+                QpdfObject? resolved = ResolveEngine(engine, nodeReference, governor, cancellationToken);
                 if (resolved is PdfStream resolvedStream)
                 {
                     dictionary = resolvedStream.Dictionary;
@@ -1548,9 +1543,9 @@ internal static class ContentTransforms
                 continue;
             }
 
-            if (dictionary.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) && kidsRaw is PdfArray kids)
+            if (PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw) && kidsRaw is PdfArray kids)
             {
-                bool hasResources = dictionary.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? branchResources)
+                bool hasResources = PdfDictionaryLookup.TryGet(dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject branchResources)
                     && branchResources is not null
                     && branchResources is not PdfNull;
                 if (hasResources)
@@ -1558,71 +1553,71 @@ internal static class ContentTransforms
                     return true;
                 }
 
-                foreach (QpdfObject kid in kids.Items)
+                for (int index = 0; index < kids.Count; index++)
                 {
-                    queue.Add(kid);
+                    walk.Push(kids[index], cancellationToken);
                 }
 
                 continue;
             }
 
-            if (!dictionary.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? leafResources) || leafResources is null || leafResources is PdfNull)
+            if (!PdfDictionaryLookup.TryGet(dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject leafResources) || leafResources is null || leafResources is PdfNull)
             {
                 continue;
             }
 
             if (leafResources is PdfReference leafReference)
             {
-                if (!resourcesSeen.Add(leafReference.ObjectNumber))
+                if (!walk.VisitResource(leafReference.ObjectNumber, cancellationToken))
                 {
                     return true;
                 }
             }
 
             QpdfObject resourcesTarget = leafResources is PdfReference leafLink
-                ? ResolveEngine(engine, leafLink) ?? leafResources
+                ? ResolveEngine(engine, leafLink, governor, cancellationToken) ?? leafResources
                 : leafResources;
             if (resourcesTarget is not PdfDictionary resourcesDict)
             {
                 continue;
             }
 
-            if (!resourcesDict.TryGet(PdfName.FromAscii("XObject"), out QpdfObject? xobjectsRaw) || xobjectsRaw is null || xobjectsRaw is PdfNull)
+            if (!PdfDictionaryLookup.TryGet(resourcesDict, "XObject"u8, governor, cancellationToken, out QpdfObject xobjectsRaw) || xobjectsRaw is null || xobjectsRaw is PdfNull)
             {
                 continue;
             }
 
             if (xobjectsRaw is PdfReference xobjectsReference)
             {
-                if (!resourcesSeen.Add(xobjectsReference.ObjectNumber))
+                if (!walk.VisitResource(xobjectsReference.ObjectNumber, cancellationToken))
                 {
                     return true;
                 }
             }
 
             QpdfObject xobjectsTarget = xobjectsRaw is PdfReference xobjectsLink
-                ? ResolveEngine(engine, xobjectsLink) ?? xobjectsRaw
+                ? ResolveEngine(engine, xobjectsLink, governor, cancellationToken) ?? xobjectsRaw
                 : xobjectsRaw;
             if (xobjectsTarget is not PdfDictionary xobjects)
             {
                 continue;
             }
 
-            foreach (PdfName key in xobjects.Keys)
+            using PdfDictionary.EntryEnumerator entries = xobjects.GetEntryEnumerator();
+            while (entries.MoveNext(governor, cancellationToken))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
-                if (!xobjects.TryGet(key, out QpdfObject? entry) || entry is null || entry is PdfNull)
+                QpdfObject entry = entries.Current.Value;
+                if (entry is null || entry is PdfNull)
                 {
                     continue;
                 }
 
                 QpdfObject target = entry is PdfReference entryReference
-                    ? ResolveEngine(engine, entryReference) ?? entry
+                    ? ResolveEngine(engine, entryReference, governor, cancellationToken) ?? entry
                     : entry;
-                if (target is PdfStream stream && IsFormXObject(stream))
+                if (target is PdfStream stream && IsFormXObject(stream, governor, cancellationToken))
                 {
-                    queue.Add(entry);
+                    walk.Push(entry, cancellationToken);
                 }
             }
         }
@@ -1630,9 +1625,9 @@ internal static class ContentTransforms
         return false;
     }
 
-    private static QpdfObject? ResolveEngine(DocumentEngine engine, PdfReference reference)
+    private static QpdfObject? ResolveEngine(DocumentEngine engine, PdfReference reference, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? found) && found is not null && found is not PdfNull)
+        if (PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, cancellationToken, out QpdfObject? found) && found is not null && found is not PdfNull)
         {
             return found;
         }

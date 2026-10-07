@@ -1,5 +1,65 @@
 # Progress
 
+## Governed shared-resource decision
+
+The automatic resource-pruning decision now owns its pending nodes and shared
+integer indexes. Raw catalog/page/resource metadata and form classification use
+borrowed lookup; each resolver boundary observes caller/governor cancellation
+and work before accepting its return. Children are indexed without array copies;
+resource entries borrow concrete cursors without key views or repeated lookup.
+Scratch references drop before admission retires. LIFO order, branch/resource
+truth, direct/indirect shapes and object-number/generation treatment remain.
+Explicit `auto` now uses the same shared-resource decision as the default mode;
+previously its dispatch skipped pruning. Nine public argv/job/mixed regressions
+check byte-identical default/auto outputs and active page resources for three
+resource shapes, rather than matching unused names anywhere in the PDF.
+
+The shared dictionary cursor is promoted with three caller declaration changes;
+owned dictionary construction/dispatch remains pending. The buildable closure
+passes locked restore/Release with zero warnings/errors and **7143 offline cases /
+65 new controls**. Frozen wider integration passes **7876 / 65**, preserving all
+7811 preceding root and 7078 preceding isolated stable IDs. All 194 original test
+sources, fixtures, ceilings, repetitions, thresholds, deadlines and assertions
+are unchanged. The identical final assembly on preceding pending runtime fails
+**17 / preserves 35 / 52 eligible**, zero loaders; 13 new walk-owner cases are
+excluded. The existing heuristic entry is unchanged; an explicit private adapter
+binds the old form predicate with identical prepared values, budgets and tokens.
+
+Independent isolated/pending probes agree: warmed 128-pass legacy/owned entry and
+form-classification scenarios allocate/retain/fund zero bytes. Across 128 empty/
+grown walks, allocation is **43008 / 411648**, active forced-GC heap
+**43008 / 222208**, live admission **65536 / 282624**, growth peak
+**65536 / 331776**; disposal live admission is zero. Empty per-walk admission is
+512 bytes. All **1664** execution/backing witnesses die across 128 contexts while
+disposed owners and a 2-MiB borrowed payload stay rooted. Disposed aggregate heap
+includes unrelated collection/reporting state. Prepared inputs/controllers/
+holders/delegates/reflection/reporting are excluded; broader measurements remain.
+
+Fresh focused native evidence covers **198 comparisons / 264 rereads**, including
+45 resource decisions across branch/shared-leaf/direct-leaf shapes, five modes
+and argv/job/mixed routes. Package/symbol checks, **50 consumer smokes** and both
+specific negatives pass on the frozen pending DLL at build checkpoint `37c1074`;
+nuspec repository metadata exposes no source commit or URL. This local Windows
+scope does not replace full combined reference/default/interaction/release gates.
+
+Before the auto fix, an initial isolated full run passed 7133 and failed an existing ten-second page
+observation. The same final assembly passes that control on final/preceding
+isolated runtimes; unchanged full rerun passes 7134. Failure stays archived for
+broader scheduling/latency audit. Initial build projection and new growth-point
+test corrections are separately recorded; original controls did not change.
+The initial resource harness put deterministic-id inside an unfinished pages
+block: native rejects while managed accepts. Correct valid ordering completes the
+resource lane; the exposed grammar discrepancy remains open for correction.
+The valid explicit-auto native mismatch was corrected in runtime dispatch and
+all final gates rerun on the final sources. New semantic assertion and namespace
+harness failures remain separate from final results.
+
+Continue remaining resource pruning/inspection/JSON/content/writer name consumers,
+views, collections and legacy construction. Checker/presentation/diagnostic,
+codec/emission/replay/hints ownership, both scheduling observations, the pages
+grammar discrepancy, full reference/release gates, A01-A07/M11 and both verdicts
+remain open. Inventory classifications are unchanged.
+
 ## Governed checker metadata and traversal owners
 
 Checker catalog/form registration, child arrays, annotations and page contents

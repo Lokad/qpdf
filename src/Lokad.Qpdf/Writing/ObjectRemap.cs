@@ -150,7 +150,7 @@ internal static class ObjectRemap
         Dictionary<PdfName, QpdfObject> entries = memory is null
             ? new() : ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
         PdfName? lengthKey = null;
-        using Dictionary<PdfName, QpdfObject>.Enumerator source = dictionary.GetEntryEnumerator();
+        using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext())
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);

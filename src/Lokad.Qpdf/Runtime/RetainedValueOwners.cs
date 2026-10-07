@@ -284,7 +284,7 @@ internal sealed class RetainedValueOwners
                 // The backing owner includes the lazy cached key collection,
                 // which can keep an empty dictionary alive after its wrapper dies.
                 Register(dictionary.AllocationCarrier, checked(104L + (capacity == 0 ? 0L : 64L + 28L * capacity)), acceptance);
-                Dictionary<PdfName, QpdfObject>.Enumerator entries = dictionary.GetEntryEnumerator();
+                PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
                 while (entries.MoveNext())
                 {
                     Visit(entries.Current.Key, acceptance);

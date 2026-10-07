@@ -1,4 +1,5 @@
 using System.Text;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Objects;
 
@@ -438,7 +439,29 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
     /// <summary>Gets the entry keys.</summary>
     public IEnumerable<PdfName> Keys => _entries.Keys;
 
-    internal Dictionary<PdfName, QpdfObject>.Enumerator GetEntryEnumerator() => _entries.GetEnumerator();
+    internal EntryEnumerator GetEntryEnumerator() => AllocationCarrier is PdfNameTable<QpdfObject> names
+        ? new(names) : new((Dictionary<PdfName, QpdfObject>)AllocationCarrier);
+
+    internal struct EntryEnumerator : IDisposable
+    {
+        private Dictionary<PdfName, QpdfObject>.Enumerator _legacy;
+        private PdfNameTable<QpdfObject>.Enumerator _names;
+        private readonly bool _owned;
+
+        internal EntryEnumerator(Dictionary<PdfName, QpdfObject> entries)
+        { _legacy = entries.GetEnumerator(); _names = default; _owned = false; }
+        internal EntryEnumerator(PdfNameTable<QpdfObject> entries)
+        { _legacy = default; _names = entries.GetEnumerator(); _owned = true; }
+        internal KeyValuePair<PdfName, QpdfObject> Current => _owned ? _names.Current : _legacy.Current;
+        internal bool MoveNext() => _owned ? _names.MoveNext() : _legacy.MoveNext();
+        internal bool MoveNext(ResourceGovernor governor, CancellationToken token)
+        {
+            if (_owned) { return _names.MoveNext(governor, token); }
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            return _legacy.MoveNext();
+        }
+        public void Dispose() { _legacy.Dispose(); _names.Dispose(); }
+    }
 
     internal int StorageCapacity => _entries.EnsureCapacity(0);
 

@@ -238,7 +238,7 @@ public static partial class Qpdf
         CancellationToken cancellationToken)
     {
         bool pruneHere = prune.Enabled && (prune.Mode == "yes"
-            || (prune.Mode is null && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
+            || (prune.Mode is null or "auto" && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
         if (!coalesceContents && !normalizeContent && !pruneHere && !externalizeInlineImages)
         {
             return;

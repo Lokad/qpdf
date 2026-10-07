@@ -150,7 +150,7 @@ internal static class CanonicalDisplay
                 KeyValuePair<PdfName, QpdfObject>[] keys = dictionary.Count == 0
                     ? Array.Empty<KeyValuePair<PdfName, QpdfObject>>()
                     : new KeyValuePair<PdfName, QpdfObject>[dictionary.Count];
-                using Dictionary<PdfName, QpdfObject>.Enumerator entries = dictionary.GetEntryEnumerator();
+                using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
                 int index = 0;
                 while (entries.MoveNext())
                 {
