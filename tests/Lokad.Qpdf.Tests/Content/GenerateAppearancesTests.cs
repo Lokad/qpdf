@@ -175,7 +175,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [7 0 R] /NeedAppearances true /
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 ("<< /FT /Tx /T (Other) /V (World) >>", null),
 });
-(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
+(QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1");
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.Empty(result.Diagnostics);
 using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
@@ -245,7 +245,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-(QpdfExecutionResult formlessResult, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
+(QpdfExecutionResult formlessResult, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1");
 Assert.Equal(QpdfExitCode.Success, formlessResult.ExitCode);
 Assert.Empty(formlessResult.Diagnostics);
 using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
@@ -294,7 +294,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Mapped) /V (Mval) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length ", stale.Length.ToString(), " >>"), stale),
 });
-(QpdfExecutionResult directResult, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances");
+(QpdfExecutionResult directResult, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1");
 Assert.Equal(QpdfExitCode.Success, directResult.ExitCode);
 Assert.Empty(directResult.Diagnostics);
 byte[] mapped = await AppearanceBytesAsync(pdf, 0);
@@ -353,7 +353,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", appearance.Length.ToString(), " >>"), appearance),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(bytes);
 Assert.Contains("(Hello) Tj", text);
@@ -372,7 +372,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", appearance.Length.ToString(), " >>"), appearance),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(bytes);
 Assert.Contains("/Helv 12 Tf", text);
@@ -389,7 +389,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains("(Hello) Tj", Encoding.ASCII.GetString(bytes));
 }
@@ -409,7 +409,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", off.Length.ToString(), " >>"), off),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", on.Length.ToString(), " >>"), on),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
 using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
@@ -437,7 +437,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", first.Length.ToString(), " >>"), first),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", second.Length.ToString(), " >>"), second),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
 using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
@@ -463,7 +463,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 ("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Btn /Ff 32768 /T (R) /V /Choice1 /AS /Off /AP << /N << /Off 6 0 R /Choice1 6 0 R >> >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
 using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
@@ -487,7 +487,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
-List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--generate-appearances", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--generate-appearances", "--pages", ".", "1", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
 Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
@@ -521,7 +521,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains("(caf?) Tj", Encoding.ASCII.GetString(bytes));
 }
@@ -539,7 +539,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (annotDict, null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >> /Length ", stale.Length.ToString(), " >>"), stale),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains(((char)233).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
 }
@@ -557,7 +557,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains(((char)140).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
 }
@@ -575,7 +575,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 // The reference ignores field-level /DR for encoding (AcroForm /DR only),
 // so a WinAnsi font reachable only through the field falls back to ASCII.
@@ -595,7 +595,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true /
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", null),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
 Assert.Contains(((char)140).ToString(), System.Text.Encoding.GetEncoding(28591).GetString(bytes));
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
@@ -676,7 +676,7 @@ byte[] plain = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict,
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", formed);
 host.AddInput(QpdfPath.From("inputs/b.pdf"), plain, QpdfInputOwnership.Copy);
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--generate-appearances", "--", "outputs/m.pdf"]), CancellationToken.None);
+host, new QpdfCommandInvocation(["--empty", "--generate-appearances", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] pdf));
 byte[] bytes = await AppearanceBytesAsync(pdf, 0);
@@ -694,7 +694,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 ("<< /Type /Annot /Subtype /Widget /Rect [100 500 300 620] /FT /Ch /V (B) /DA (/Helv 12 Tf) /Opt [(A) (B) (C)] /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 120] /Length ", stale.Length.ToString(), " >>"), stale),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] listBytes = await AppearanceBytesAsync(pdf, 0);
 string text = Encoding.ASCII.GetString(listBytes);
 Assert.Contains("0.85 0.85 0.85 rg", text);
@@ -712,7 +712,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 ("<< /Type /Annot /Subtype /Widget /Rect [0 0 100 50] /FT /Sig /AP << /N 6 0 R >> >>", null),
 ("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length 0 >>", new byte[0]),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 byte[] output = await PageContentAsync(pdf);
 Assert.DoesNotContain("EMC", Encoding.ASCII.GetString(output));
 }
@@ -728,7 +728,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", on.Length.ToString(), " >>"), on),
 });
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
-List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--generate-appearances", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--generate-appearances", "--pages", ".", "1", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
 Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature);
@@ -773,7 +773,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 7 0 R >> >> /Length ", stale.Length.ToString(), " >>"), stale),
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 });
-byte[] a = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances")).Pdf;
+byte[] a = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--pages", ".", "1")).Pdf;
 InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
 string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "generateAppearances": true}""";
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
@@ -825,7 +825,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 });
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
 host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
-List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--generate-appearances", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--generate-appearances", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -845,7 +845,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /NeedAppearances true >
 ("<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /V (Hello) /DA (/Helv 12 Tf) /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length ", stale.Length.ToString(), " >>"), stale),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--generate-appearances", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--generate-appearances", "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 byte[] output = await PageContentAsync(pdf);
 string text = Encoding.ASCII.GetString(output);
 Assert.Contains("/Fxo1 Do", text);

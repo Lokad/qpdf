@@ -25,6 +25,9 @@ internal static class ArgvParser
     };
 
     internal static JobPlan Parse(IReadOnlyList<string> argv)
+        => Parse(argv, null);
+
+    internal static JobPlan Parse(IReadOnlyList<string> argv, Runtime.ResourceGovernor? governor)
     {
         if (argv is null)
         {
@@ -36,6 +39,8 @@ internal static class ArgvParser
             throw new QpdfParseException("No command arguments were supplied.", 0L, null);
         }
 
+        RejectCryptoOptions(argv, governor);
+        PagesArgumentBlock.Validate(argv, governor);
         argv = StripGlobalBlocks(argv);
         GlobalOptions globals = ExtractGlobalOptions(ref argv);
         return ParseCore(argv, globals) with
@@ -47,6 +52,20 @@ internal static class ArgvParser
             ParserMaxErrors = globals.ParserMaxErrors,
             NoDefaultLimits = globals.NoDefaultLimits,
         };
+    }
+
+    internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor? governor)
+    {
+        foreach (string token in argv)
+        {
+            governor?.CheckCancellation();
+            governor?.ChargeWork(1L);
+            if (token is not null && token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
+                && IsCryptoOption(OptionName(token)))
+            {
+                throw new QpdfCryptoException("--" + OptionName(token));
+            }
+        }
     }
 
     private static JobPlan ParseCore(IReadOnlyList<string> argv, GlobalOptions globals)
@@ -820,26 +839,10 @@ internal static class ArgvParser
             int overlayAt = FirstOverlayBlock(argv, pagesAt + 1, argv.Count);
             if (globals.ReplaceInput)
             {
-                int areaEnd = argv.Count;
-                if (blockAt >= 0 && blockAt < areaEnd)
-                {
-                    areaEnd = blockAt;
-                }
-                if (overlayAt >= 0 && overlayAt < areaEnd)
-                {
-                    areaEnd = overlayAt;
-                }
-                for (int i = pagesAt + 1; i < areaEnd; i++)
-                {
-                    if (argv[i] == "--")
-                    {
-                        throw new QpdfParseException("No output file may be given with --replace-input.", pagesAt, null);
-                    }
-                }
-
+                int areaEnd = FindTerminator(argv, pagesAt);
                 input = ParseInputArea(argv, pagesAt, "--pages");
                 (groups, rotations, labels, removeLabels, collate) = ParsePagesArea(argv, pagesAt, areaEnd);
-                cursor = areaEnd;
+                cursor = areaEnd + 1;
             }
             else
             {
@@ -913,12 +916,12 @@ internal static class ArgvParser
             };
         }
 
-        if (cursor >= argv.Count || argv[cursor] != "--")
+        if (cursor >= argv.Count)
         {
             throw new QpdfParseException("An output file is required after --.", cursor, null);
         }
 
-        string output = ParseOutputArea(argv, cursor);
+        string output = ParseOutputArea(argv, argv[cursor] == "--" ? cursor : cursor - 1);
         if (emptyInput && (overlays.Count > 0 || underlays.Count > 0))
         {
             throw new QpdfParseException("Options --overlay and --underlay cannot be combined with --empty.", pagesAt, null);
@@ -3335,7 +3338,9 @@ internal static class ArgvParser
                 continue;
             }
 
-            throw new QpdfParseException("Unexpected argument after the page selection.", cursor, null);
+            // A completed trailing block returns to main positional context.
+            // ParseOutputArea validates the remaining output arguments.
+            break;
         }
 
         return new TrailingBlocks(new AttachmentEdits(adds, removes, copies), overlays, underlays);
@@ -3727,6 +3732,7 @@ internal static class ArgvParser
     {
         List<PageGroup> groups = new();
         string? file = null;
+        bool namedFile = false;
         List<OutputRotation> rotations = new();
         List<PageLabelSpec> labels = new();
         bool removeLabels = false;
@@ -3739,6 +3745,8 @@ internal static class ArgvParser
             {
                 throw new QpdfParseException("Null argument.", i, null);
             }
+
+            PagesArgumentBlock.CheckToken(token, i);
 
             if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2)
             {
@@ -3756,6 +3764,7 @@ internal static class ArgvParser
                     }
 
                     file = TakeParameter(argv, terminatorAt, ref i, "--file");
+                    namedFile = true;
                     continue;
                 }
 
@@ -3772,78 +3781,19 @@ internal static class ArgvParser
                     continue;
                 }
 
-                if (name == "collate")
-                {
-                    string? value = TakeOptionalParameter(argv, terminatorAt, ref i, "--collate");
-                    collate.AddRange(ParseCollateValue(value, i));
-                    continue;
-                }
-
-                if (name == "rotate")
-                {
-                    string specification = TakeParameter(argv, terminatorAt, ref i, "--rotate");
-                    rotations.Add(OutputRotation.Parse(specification, i));
-                    continue;
-                }
-
-                if (token == "--set-page-labels")
-                {
-                    if (removeLabels)
-                    {
-                        throw new QpdfParseException("--set-page-labels cannot be combined with --remove-page-labels.", i, null);
-                    }
-
-                    i += 1;
-                    bool specified = false;
-                    while (i < terminatorAt)
-                    {
-                        string specification = argv[i];
-                        if (specification is null)
-                        {
-                            throw new QpdfParseException("Null argument.", i, null);
-                        }
-
-                        if (specification.StartsWith("--", StringComparison.Ordinal) && specification.Length > 2)
-                        {
-                            break;
-                        }
-
-                        labels.Add(PageLabelSpec.Parse(specification, i));
-                        specified = true;
-                        i += 1;
-                    }
-
-                    if (!specified)
-                    {
-                        throw new QpdfParseException("--set-page-labels requires at least one label specification.", i, null);
-                    }
-
-                    continue;
-                }
-
-                if (token == "--remove-page-labels")
-                {
-                    if (removeLabels)
-                    {
-                        throw new QpdfParseException("Duplicate --remove-page-labels is outside the narrow profile.", i, null);
-                    }
-
-                    if (labels.Count > 0)
-                    {
-                        throw new QpdfParseException("--set-page-labels cannot be combined with --remove-page-labels.", i, null);
-                    }
-
-                    removeLabels = true;
-                    i += 1;
-                    continue;
-                }
-
                 throw new QpdfParseException($"Unsupported option '--{name}' in the narrow selection profile.", i, null);
             }
 
             if (file is null)
             {
                 file = token;
+                namedFile = false;
+            }
+            else if (namedFile)
+            {
+                groups.Add(new PageGroup(file, null));
+                file = token;
+                namedFile = false;
             }
             else
             {

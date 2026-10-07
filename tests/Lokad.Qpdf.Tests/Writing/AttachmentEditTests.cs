@@ -327,7 +327,7 @@ public sealed class AttachmentEditTests
         host.AddInput(QpdfPath.From("files/note.bin"), PayloadA, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--add-attachment", "files/note.bin", "--", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "--add-attachment", "files/note.bin", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -364,7 +364,8 @@ public sealed class AttachmentEditTests
         argv.AddRange(flags);
         if (!argv.Contains("--"))
         {
-            argv.AddRange(["--", "outputs/a.pdf"]);
+            if (flags[0] == "--copy-attachments-from") { argv.Add("outputs/a.pdf"); }
+            else { argv.AddRange(["--", "outputs/a.pdf"]); }
         }
 
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", input);

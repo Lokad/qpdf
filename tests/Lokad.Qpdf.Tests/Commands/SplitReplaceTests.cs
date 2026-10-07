@@ -44,7 +44,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
@@ -61,7 +61,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages=2", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages=2", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument both = await Reopen(host, "outputs/split-1-2.pdf");
@@ -74,7 +74,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split%d.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split%d.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument first = await Reopen(host, "outputs/split1.pdf");
@@ -87,7 +87,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/split-1.pdf"), out byte[] first));
@@ -102,7 +102,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost host = await HostWithFixture("outputs/m-1.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["outputs/m-1.pdf", "--pages", ".", "1", "--split-pages", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["outputs/m-1.pdf", "--split-pages", "--pages", ".", "1", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m-1.pdf"), out byte[] _));
@@ -116,7 +116,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "2", "--replace-input"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--replace-input", "--pages", ".", "2", "--"]),
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
@@ -137,19 +137,19 @@ public sealed class SplitReplaceTests
         host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Copy);
         QpdfExecutionResult withOutput = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--replace-input", "--", "outputs/x.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--replace-input", "--pages", ".", "1", "--", "outputs/x.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(withOutput).Code);
 
         QpdfExecutionResult withSplit = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--split-pages", "--replace-input"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--replace-input", "--pages", ".", "1"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(withSplit).Code);
 
         QpdfExecutionResult multiInput = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "inputs/b.pdf", "1", "--replace-input"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--replace-input", "--pages", ".", "1", "inputs/b.pdf", "1"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(multiInput).Code);
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -169,7 +169,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost split = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             split,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "2", "--split-pages=9", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages=9", "--pages", ".", "2", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(split.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] actual));
@@ -181,7 +181,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             argvHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "2", "--replace-input"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--replace-input", "--pages", ".", "2", "--"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("inputs/a.pdf"), out byte[] a));
@@ -235,7 +235,7 @@ public sealed class SplitReplaceTests
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--replace-input"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--replace-input", "--pages", ".", "1", "--"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);
@@ -252,7 +252,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(
             argvHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] first));
@@ -321,14 +321,14 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost bareHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult bareResult = await Qpdf.ExecuteAsync(
             bareHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, bareResult.ExitCode);
         Assert.True(bareHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] bare));
         InMemoryQpdfHost valuedHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult valuedResult = await Qpdf.ExecuteAsync(
             valuedHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages=", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages=", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, valuedResult.ExitCode);
         Assert.True(valuedHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] valued));
@@ -388,7 +388,7 @@ public sealed class SplitReplaceTests
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             argvHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1-2", "--split-pages", "--", "outputs/argv.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1-2", "--", "outputs/argv.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv-1.pdf"), out byte[] c));

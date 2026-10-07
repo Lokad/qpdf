@@ -672,7 +672,7 @@ public sealed class AcroFormPreservationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument first = await RereadAsync(host, "outputs/split-1.pdf", "inputs/first.pdf");
@@ -706,7 +706,7 @@ public sealed class AcroFormPreservationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--generate-appearances", "--flatten-annotations=all", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--generate-appearances", "--flatten-annotations=all", "--pages", ".", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");

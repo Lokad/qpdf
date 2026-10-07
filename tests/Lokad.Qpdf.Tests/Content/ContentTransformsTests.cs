@@ -161,7 +161,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--coalesce-contents");
+        byte[] pdf = await TransformAsync(host, "--coalesce-contents", "--pages", ".", "1");
         byte[] content = await PageContentAsync(pdf);
         Assert.Equal("BT /F1 12 Tf\n(Hi) Tj ET", Encoding.ASCII.GetString(content));
         using JsonDocument document = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=pages");
@@ -181,7 +181,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--coalesce-contents");
+        byte[] pdf = await TransformAsync(host, "--coalesce-contents", "--pages", ".", "1");
         byte[] content = await PageContentAsync(pdf);
         Assert.Equal("BT (Page) Tj ET", Encoding.ASCII.GetString(content));
     }
@@ -243,7 +243,7 @@ public sealed class ContentTransformsTests
         byte[] fixture = ResourceFixture("/F1 12 Tf (x) Tj");
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--remove-unreferenced-resources=yes");
+        byte[] pdf = await TransformAsync(host, "--remove-unreferenced-resources=yes", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.DoesNotContain("Font:/F2", keys);
@@ -254,7 +254,7 @@ public sealed class ContentTransformsTests
     public async Task CheckedInUnreferencedFixturePrunes()
     {
         byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
-        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--remove-unreferenced-resources=yes");
+        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--remove-unreferenced-resources=yes", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.DoesNotContain("Font:/F2", keys);
@@ -266,7 +266,7 @@ public sealed class ContentTransformsTests
         byte[] fixture = ResourceFixture("/F1 12 Tf (x) Tj");
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--remove-unreferenced-resources=no");
+        byte[] pdf = await TransformAsync(host, "--remove-unreferenced-resources=no", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.Contains("Font:/F2", keys);
@@ -414,7 +414,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--remove-unreferenced-resources=yes");
+        byte[] pdf = await TransformAsync(host, "--remove-unreferenced-resources=yes", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.Contains("Font:/F2", keys);
@@ -437,7 +437,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--remove-unreferenced-resources=yes");
+        byte[] pdf = await TransformAsync(host, "--remove-unreferenced-resources=yes", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.DoesNotContain("Font:/F2", keys);
@@ -460,7 +460,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--remove-unreferenced-resources=yes");
+        byte[] pdf = await TransformAsync(host, "--remove-unreferenced-resources=yes", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.DoesNotContain("Font:/F1", keys);
     }
@@ -488,7 +488,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--normalize-content=y");
+        byte[] pdf = await TransformAsync(host, "--normalize-content=y", "--pages", ".", "1");
         byte[] content = await PageContentAsync(pdf);
         Assert.Equal("BT\n/F1 12 Tf ET", Encoding.ASCII.GetString(content));
     }
@@ -506,7 +506,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--normalize-content=y");
+        byte[] pdf = await TransformAsync(host, "--normalize-content=y", "--pages", ".", "1");
         byte[] content = await PageContentAsync(pdf);
         Assert.Equal("BT\n/F1 12 Tf\nET", Encoding.ASCII.GetString(content));
     }
@@ -524,7 +524,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        byte[] pdf = await TransformAsync(host, "--pages", ".", "1", "--coalesce-contents");
+        byte[] pdf = await TransformAsync(host, "--coalesce-contents", "--pages", ".", "1");
         byte[] content = await PageContentAsync(pdf);
         byte[] expected = [(byte)0xFF, (byte)0xD8, (byte)0x00, (byte)0x01, (byte)'\n', (byte)'E', (byte)'T'];
         Assert.Equal(expected, content);
@@ -543,7 +543,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--normalize-content=y", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--normalize-content=y", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature);
@@ -568,7 +568,7 @@ public sealed class ContentTransformsTests
             });
         InMemoryQpdfHost host0 = HostWith("inputs/a.pdf", fixture);
         InMemoryQpdfHost host = host0;
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--remove-unreferenced-resources=yes", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--remove-unreferenced-resources=yes", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature);
@@ -586,7 +586,7 @@ public sealed class ContentTransformsTests
         host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
         QpdfExecutionResult merge = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--coalesce-contents", "--remove-unreferenced-resources=yes", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--coalesce-contents", "--remove-unreferenced-resources=yes", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, merge.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -598,7 +598,7 @@ public sealed class ContentTransformsTests
     public async Task SplitOutputsPrune()
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", SharedFixture());
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages=1", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--split-pages=1", "--pages", ".", "1", ".", "2", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a-1.pdf"), out byte[] first));
@@ -641,7 +641,7 @@ public sealed class ContentTransformsTests
                 ("<< /Length 2 >>", Encoding.ASCII.GetBytes("ET")),
             });
         InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", fixture);
-        byte[] a = await TransformAsync(argvHost, "--pages", ".", "1", "--coalesce-contents", "--normalize-content=y", "--remove-unreferenced-resources=yes");
+        byte[] a = await TransformAsync(argvHost, "--coalesce-contents", "--normalize-content=y", "--remove-unreferenced-resources=yes", "--pages", ".", "1");
         InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
         QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
             jobHost,
@@ -673,7 +673,7 @@ public sealed class ContentTransformsTests
     public async Task PreserveResourcesKeepsUnreferenced()
     {
         byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
-        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--preserve-unreferenced-resources");
+        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--preserve-unreferenced-resources", "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.Contains("Font:/F2", keys);
@@ -683,8 +683,8 @@ public sealed class ContentTransformsTests
     public async Task PreserveResourcesMatchesRemoveNo()
     {
         byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
-        byte[] preserved = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--preserve-unreferenced-resources");
-        byte[] kept = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--remove-unreferenced-resources=no");
+        byte[] preserved = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--preserve-unreferenced-resources", "--pages", ".", "1");
+        byte[] kept = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--remove-unreferenced-resources=no", "--pages", ".", "1");
         Assert.Equal(kept, preserved);
     }
 
@@ -694,7 +694,7 @@ public sealed class ContentTransformsTests
     public async Task PreserveResourcesLastWins(string first, string second, bool keepF2)
     {
         byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
-        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", first, second);
+        byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), first, second, "--pages", ".", "1");
         HashSet<string> keys = await ResourceKeysAsync(pdf);
         Assert.Contains("Font:/F1", keys);
         Assert.Equal(keepF2, keys.Contains("Font:/F2"));
@@ -705,7 +705,7 @@ public sealed class ContentTransformsTests
     {
         byte[] fixture = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "unref-1page.pdf"));
         InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", fixture);
-        byte[] a = await TransformAsync(argvHost, "--pages", ".", "1", "--preserve-unreferenced-resources");
+        byte[] a = await TransformAsync(argvHost, "--preserve-unreferenced-resources", "--pages", ".", "1");
         InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
         QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
             jobHost,
@@ -741,7 +741,7 @@ public sealed class ContentTransformsTests
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--preserve-unreferenced-resources", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--preserve-unreferenced-resources", "--pages", ".", "1", "--", "outputs/a.pdf"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);

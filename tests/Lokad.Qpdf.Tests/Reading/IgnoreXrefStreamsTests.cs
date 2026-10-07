@@ -95,7 +95,7 @@ public sealed class IgnoreXrefStreamsTests
     public async Task JobParityHolds()
     {
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "hybrid-xstm.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--ignore-xref-streams", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--ignore-xref-streams", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Warning, argvResult.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));

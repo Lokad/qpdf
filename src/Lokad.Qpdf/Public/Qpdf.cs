@@ -4678,7 +4678,9 @@ public static partial class Qpdf
                 || token == "--show-xref" || token.StartsWith("--show-xref=", StringComparison.Ordinal)
                 || token == "--list-attachments" || token.StartsWith("--list-attachments=", StringComparison.Ordinal)
                 || token == "--check-linearization" || token.StartsWith("--check-linearization=", StringComparison.Ordinal)
-                || token == "--show-linearization" || token.StartsWith("--show-linearization=", StringComparison.Ordinal)))
+                || token == "--show-linearization" || token.StartsWith("--show-linearization=", StringComparison.Ordinal)
+                || token == "--set-page-labels" || token.StartsWith("--set-page-labels=", StringComparison.Ordinal)
+                || token == "--remove-page-labels" || token.StartsWith("--remove-page-labels=", StringComparison.Ordinal)))
         {
             JobJsonLoader.LoadedJob loaded;
             try
@@ -4701,11 +4703,16 @@ public static partial class Qpdf
         JobPlan plan;
         try
         {
-            plan = ArgvParser.Parse(expanded);
+            plan = ArgvParser.Parse(expanded, governor);
         }
         catch (QpdfException ex)
         {
-            return ToFailedResult(ex);
+            QpdfExecutionResult failure = ToFailedResult(ex);
+            return new QpdfExecutionResult(failure.Status, failure.ExitCode, failure.Diagnostics, governor.Snapshot());
+        }
+        catch (OperationCanceledException)
+        {
+            return QpdfExecutionResult.Canceled([], governor.Snapshot());
         }
 
         return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);

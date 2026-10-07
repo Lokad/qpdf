@@ -87,7 +87,7 @@ public sealed class MergeCommandTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--collate", "--pages", ".", "1", ".", "2", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
@@ -102,7 +102,7 @@ public sealed class MergeCommandTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--file=inputs/a.pdf", "--range=2", "--collate=2,1", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--collate=2,1", "--pages", ".", "1", "--file=inputs/a.pdf", "--range=2", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         List<string> markers = await OutputMarkers(host, "outputs/m.pdf");
@@ -115,7 +115,7 @@ public sealed class MergeCommandTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult badCollate = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate=x", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--collate=x", "--pages", ".", "1", ".", "2", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(badCollate).Code);
 
@@ -162,7 +162,7 @@ public sealed class MergeCommandTests
         InMemoryQpdfHost insideHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult insideResult = await Qpdf.ExecuteAsync(
             insideHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--collate", "--pages", ".", "1", ".", "2", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, insideResult.ExitCode);
         Assert.True(insideHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] inside));
@@ -182,7 +182,7 @@ public sealed class MergeCommandTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "inputs/a.pdf", "1", "--collate=1,2", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--collate=1,2", "--pages", ".", "1", ".", "2", "inputs/a.pdf", "1", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] _));
@@ -208,7 +208,7 @@ public sealed class MergeCommandTests
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(
             argvHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--collate", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--collate", "--pages", ".", "1", ".", "2", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] a));

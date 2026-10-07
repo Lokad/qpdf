@@ -317,7 +317,7 @@ $case = New-Case 'uncompress'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--stream-data=compress', '--', "$case/inputs/c.pdf")
 if ($code -ne 0) { throw "uncompress setup: oracle compress failed ($code)" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--stream-data=uncompress', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/c.pdf', '--stream-data=uncompress', '--pages', '.', '1', '.', '2', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "uncompress: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--stream-data=uncompress', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "uncompress: oracle failed ($code)" }
@@ -327,7 +327,7 @@ if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf"
 # --- case: normalize (exact decoded-content comparison) ---
 $case = New-Case 'normalize'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--normalize-content=y', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--normalize-content=y', '--pages', '.', '1', '.', '2', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "normalize: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--normalize-content=y', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "normalize: oracle failed ($code)" }
@@ -337,7 +337,7 @@ if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf"
 # --- case: coalesce (decoded-content comparison) ---
 $case = New-Case 'coalesce'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--coalesce-contents', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--coalesce-contents', '--pages', '.', '1', '.', '2', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "coalesce: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--coalesce-contents', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "coalesce: oracle failed ($code)" }
@@ -349,7 +349,7 @@ $case = New-Case 'compress'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--stream-data=compress', '--', "$case/inputs/c.pdf")
 if ($code -ne 0) { throw "compress setup: oracle compress failed ($code)" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--stream-data=compress', '--recompress-flate', '--compression-level=9', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/c.pdf', '--stream-data=compress', '--recompress-flate', '--compression-level=9', '--pages', '.', '1', '.', '2', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "compress: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--stream-data=compress', '--recompress-flate', '--compression-level=9', 'inputs/c.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "compress: oracle failed ($code)" }
@@ -359,7 +359,7 @@ if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf"
 # --- case: flatten-rotation (baked boxes and counter-transform) ---
 $case = New-Case 'flatten-rotation'
 Copy-Item "$fixtureDir/rotated-1page.pdf" "$case/inputs/r.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/r.pdf', '--pages', '.', '1', '--flatten-rotation', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/r.pdf', '--flatten-rotation', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "flatten-rotation: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--flatten-rotation', 'inputs/r.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "flatten-rotation: oracle failed ($code)" }
@@ -375,7 +375,7 @@ if ((Get-StreamPayloads "$case/lib.pdf") -ne (Get-StreamPayloads "$case/ora.pdf"
 Write-Output "[flatten-rotation] box and matrix assertions done"
 
 Copy-Item "$fixtureDir/rotated-ap-1page.pdf" "$case/inputs/ap.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ap.pdf=$case/lib-ap.pdf", '--', 'inputs/ap.pdf', '--pages', '.', '1', '--flatten-rotation', '--', 'outputs/ap.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ap.pdf=$case/lib-ap.pdf", '--', 'inputs/ap.pdf', '--flatten-rotation', '--pages', '.', '1', '--', 'outputs/ap.pdf')
 if ($code -ne 0) { throw "flatten-rotation-ap: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--flatten-rotation', 'inputs/ap.pdf', '--pages', '.', '1', '--', "$case/ora-ap.pdf")
 if ($code -ne 0) { throw "flatten-rotation-ap: oracle failed ($code)" }
@@ -390,7 +390,7 @@ Write-Output "[flatten-rotation-ap] appearance assertions done"
 # --- case: prune (page-operation resource pruning) ---
 $case = New-Case 'prune'
 Copy-Item "$fixtureDir/unref-1page.pdf" "$case/inputs/u.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/u.pdf', '--pages', '.', '1', '--remove-unreferenced-resources=yes', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/u.pdf', '--remove-unreferenced-resources=yes', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "prune: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--remove-unreferenced-resources=yes', 'inputs/u.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "prune: oracle failed ($code)" }
@@ -406,7 +406,7 @@ Write-Output "[prune] resource assertions done"
 # --- case: preserve (managed vs oracle resource preservation) ---
 $case = New-Case 'preserve'
 Copy-Item "$fixtureDir/unref-1page.pdf" "$case/inputs/u.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/u.pdf', '--pages', '.', '1', '--preserve-unreferenced-resources', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/u.pdf', '--preserve-unreferenced-resources', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "preserve: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--preserve-unreferenced-resources', 'inputs/u.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "preserve: oracle failed ($code)" }
@@ -664,7 +664,7 @@ Copy-Item "$fixtureDir/meta-1page.pdf" "$case/inputs/a.pdf"
 foreach ($sub in @(('remove-info', '--remove-info'), ('remove-metadata', '--remove-metadata'))) {
   $tag = $sub[0]
   $flag = $sub[1]
-  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', $flag, '--', "outputs/$tag.pdf")
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', 'inputs/a.pdf', $flag, '--pages', '.', '1', '--', "outputs/$tag.pdf")
   if ($code -ne 0) { throw "metadata/${tag}: emit failed ($code)" }
   $code = Invoke-Oracle $case @($flag, 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-$tag.pdf")
   if ($code -ne 0) { throw "metadata/${tag}: oracle failed ($code)" }
@@ -687,7 +687,7 @@ Write-Output "[remove-metadata] info/metadata assertions done"
 # --- case: labels (managed vs oracle page-label setting and removal) ---
 $case = New-Case 'labels'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/labeled.pdf=$case/lib-labeled.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--set-page-labels', '1:r', '--', 'outputs/labeled.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/labeled.pdf=$case/lib-labeled.pdf", '--', 'inputs/a.pdf', '--set-page-labels', '1:r', '--', '--pages', '.', '1', '.', '2', '--', 'outputs/labeled.pdf')
 if ($code -ne 0) { throw "labels/set: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--set-page-labels', '1:r', '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-labeled.pdf")
 if ($code -ne 0) { throw "labels/set: oracle failed ($code)" }
@@ -701,7 +701,7 @@ elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[set-page-labels] 
 else { Write-Output "[set-page-labels] labeled catalogs agree" }
 foreach ($sub in @(@('pdfdoc', "1:D/1/$([char]0xC9)"), @('utf16', "1:D/1/$([char]0x65E5)$([char]0x672C)"))) {
   $name = $sub[0]
-  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/p-$name.pdf=$case/lib-p-$name.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--set-page-labels', $sub[1], '--', "outputs/p-$name.pdf"))
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/p-$name.pdf=$case/lib-p-$name.pdf", '--', 'inputs/a.pdf', '--set-page-labels', $sub[1], '--', '--pages', '.', '1', '.', '2', '--', "outputs/p-$name.pdf"))
   if ($code -ne 0) { throw "labels/prefix-$name`: emit failed ($code)" }
   $code = Invoke-Oracle $case @('inputs/a.pdf', '--set-page-labels', $sub[1], '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-p-$name.pdf")
   if ($code -ne 0) { throw "labels/prefix-$name`: oracle failed ($code)" }
@@ -715,7 +715,7 @@ foreach ($sub in @(@('pdfdoc', "1:D/1/$([char]0xC9)"), @('utf16', "1:D/1/$([char
   else { Write-Output "[labels-prefix-$name] prefixed catalogs agree" }
 }
 Copy-Item "$case/ora-labeled.pdf" "$case/inputs/labeled.pdf" -Force
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/labeled.pdf', '--pages', '.', '1', '.', '2', '--remove-page-labels', '--', 'outputs/plain.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/labeled.pdf', '--remove-page-labels', '--pages', '.', '1', '.', '2', '--', 'outputs/plain.pdf')
 if ($code -ne 0) { throw "labels/remove: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/labeled.pdf', '--remove-page-labels', '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-plain.pdf")
 if ($code -ne 0) { throw "labels/remove: oracle failed ($code)" }
@@ -777,7 +777,7 @@ $oraNums = Get-LabelTreeNums "$case/ora-w.pdf"
 if ($null -eq $libNums -or $null -eq $oraNums) { Write-Output "[labels-merge-whole] FAIL: labels missing"; $script:failures++ }
 elseif ($libNums -ne $oraNums) { Write-Output "[labels-merge-whole] FAIL: verbatim number trees differ"; $script:failures++ }
 else { Write-Output "[labels-merge-whole] whole-file number trees agree" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/sp-1.pdf=$case/lib-sp-1.pdf", '--out', "outputs/sp-2.pdf=$case/lib-sp-2.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--split-pages', '--', 'outputs/sp.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/sp-1.pdf=$case/lib-sp-1.pdf", '--out', "outputs/sp-2.pdf=$case/lib-sp-2.pdf", '--', 'inputs/a.pdf', '--split-pages', '--pages', '.', '1', '.', '2', '--', 'outputs/sp.pdf')
 if ($code -ne 0) { throw "labels-merge/split: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--split-pages', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-sp.pdf")
 if ($code -ne 0) { throw "labels-merge/split: oracle failed ($code)" }
@@ -831,7 +831,7 @@ $oraWhole = Get-NormalizedCatalog "$case/ora-w.pdf"
 if ($libWhole -ne $oraWhole) { Write-Output "[catalog-extras-whole] FAIL: whole-file catalogs differ"; $script:failures++ }
 elseif (-not $libWhole.Contains('/ViewerPreferences')) { Write-Output "[catalog-extras-whole] FAIL: extras missing"; $script:failures++ }
 else { Write-Output "[catalog-extras-whole] whole-file catalogs agree" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/sp-1.pdf=$case/lib-sp-1.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--split-pages', '--', 'outputs/sp.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/sp-1.pdf=$case/lib-sp-1.pdf", '--', 'inputs/a.pdf', '--split-pages', '--pages', '.', '1', '--', 'outputs/sp.pdf')
 if ($code -ne 0) { throw "catalog-extras/split: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--split-pages', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-sp.pdf")
 if ($code -ne 0) { throw "catalog-extras/split: oracle failed ($code)" }
@@ -845,7 +845,7 @@ else { Write-Output "[catalog-extras-split] split catalogs agree" }
 # --- case: forms (generate + flatten) ---
 $case = New-Case 'forms'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/f.pdf', '--pages', '.', '1', '--generate-appearances', '--flatten-annotations=all', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/f.pdf', '--generate-appearances', '--flatten-annotations=all', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "forms: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--generate-appearances', '--flatten-annotations=all', 'inputs/f.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "forms: oracle failed ($code)" }
@@ -863,7 +863,7 @@ Write-Output "[forms] appearance assertions done"
 # --- case: flatten-dr (managed vs oracle flatten with DR-font appearance) ---
 $case = New-Case 'flatten-dr'
 Copy-Item "$fixtureDir/flatten-dr-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--flatten-annotations=all', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--flatten-annotations=all', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "flatten-dr: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--flatten-annotations=all', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "flatten-dr: oracle failed ($code)" }
@@ -1103,7 +1103,7 @@ Write-Output "[overlay-widgets-repeat] assertions done"
 $case = New-Case 'writer-controls'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
 foreach ($sub in @(('min', '--min-version=1.7', '%PDF-1.7'), ('force', '--force-version=1.1', '%PDF-1.1'))) {
-  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$($sub[0]).pdf=$case/lib-$($sub[0]).pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', $sub[1], '--', "outputs/$($sub[0]).pdf")
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$($sub[0]).pdf=$case/lib-$($sub[0]).pdf", '--', 'inputs/a.pdf', $sub[1], '--pages', '.', '1', '--', "outputs/$($sub[0]).pdf")
   if ($code -ne 0) { throw "writer-controls/$($sub[0]): emit failed ($code)" }
   $code = Invoke-Oracle $case @($sub[1], 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-$($sub[0]).pdf")
   if ($code -ne 0) { throw "writer-controls/$($sub[0]): oracle failed ($code)" }
@@ -1113,7 +1113,7 @@ foreach ($sub in @(('min', '--min-version=1.7', '%PDF-1.7'), ('force', '--force-
   if ($libHead -ne $sub[2] -or $oraHead -ne $sub[2]) { Write-Output "[writer-versions] FAIL: headers lib=[$libHead] ora=[$oraHead], expected [$($sub[2])]"; $script:failures++ }
   else { Write-Output "[writer-versions] headers agree ($($sub[2]))" }
 }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ext.pdf=$case/lib-ext.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--force-version=1.7.8', '--', 'outputs/ext.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/ext.pdf=$case/lib-ext.pdf", '--', 'inputs/a.pdf', '--force-version=1.7.8', '--pages', '.', '1', '--', 'outputs/ext.pdf')
 if ($code -ne 0) { throw "writer-controls/ext: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--force-version=1.7.8', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-ext.pdf")
 if ($code -ne 0) { throw "writer-controls/ext: oracle failed ($code)" }
@@ -1125,7 +1125,7 @@ $oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
 if ($libCat -ne $oraCat) { Write-Output "[writer-versions] FAIL: extension catalogs differ"; $script:failures++ }
 elseif (-not $libCat.Contains('/ExtensionLevel 8')) { Write-Output "[writer-versions] FAIL: extension level missing"; $script:failures++ }
 else { Write-Output "[writer-versions] extension catalogs agree (/ExtensionLevel 8)" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/static.pdf=$case/lib-static.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--static-id', '--', 'outputs/static.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/static.pdf=$case/lib-static.pdf", '--', 'inputs/a.pdf', '--static-id', '--pages', '.', '1', '--', 'outputs/static.pdf')
 if ($code -ne 0) { throw "writer-controls/static: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--static-id', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-static.pdf")
 if ($code -ne 0) { throw "writer-controls/static: oracle failed ($code)" }
@@ -1137,7 +1137,7 @@ $oraTrailer = (Get-Content "$case/trailer-ora.txt" -Raw).Trim()
 if ($libTrailer -ne $oraTrailer) { Write-Output "[writer-ids] FAIL: static trailers differ"; $script:failures++ }
 elseif (-not $libTrailer.Contains('31415926535897932384626433832795')) { Write-Output "[writer-ids] FAIL: test constant missing"; $script:failures++ }
 else { Write-Output "[writer-ids] static trailers agree (test constant)" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/det.pdf=$case/lib-det.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--deterministic-id', '--', 'outputs/det.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/det.pdf=$case/lib-det.pdf", '--', 'inputs/a.pdf', '--deterministic-id', '--pages', '.', '1', '--', 'outputs/det.pdf')
 if ($code -ne 0) { throw "writer-controls/det: emit failed ($code)" }
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--', 'outputs/plain.pdf')
 if ($code -ne 0) { throw "writer-controls/plain: emit failed ($code)" }
@@ -1148,7 +1148,7 @@ else { Write-Output "[writer-ids] deterministic output matches default bytes" }
 $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', "$case/lib-det.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
 if ($p.ExitCode -ne 0) { Write-Output "[writer-ids] FAIL: deterministic output check exit $($p.ExitCode)"; $script:failures++ }
 else { Write-Output "[writer-ids] deterministic output validates under oracle check" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/nl.pdf=$case/lib-nl.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--newline-before-endstream', '--', 'outputs/nl.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/nl.pdf=$case/lib-nl.pdf", '--', 'inputs/a.pdf', '--newline-before-endstream', '--pages', '.', '1', '--', 'outputs/nl.pdf')
 if ($code -ne 0) { throw "writer-controls/nl: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--newline-before-endstream', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-nl.pdf")
 if ($code -ne 0) { throw "writer-controls/nl: oracle failed ($code)" }
@@ -1171,7 +1171,7 @@ if (-not $nlMismatch) { Write-Output "[writer-newlines] stream endings agree (LF
 # --- case: qdf (editable view with generated object streams) ---
 $case = New-Case 'qdf'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--qdf', '--object-streams=generate', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--qdf', '--object-streams=generate', '--pages', '.', '1', '.', '2', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "qdf: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--qdf', '--object-streams=generate', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "qdf: oracle failed ($code)" }
@@ -1197,7 +1197,7 @@ Write-Output "[qdf] marker assertions done"
 # --- case: qdf-noids (managed vs oracle QDF without original object IDs) ---
 $case = New-Case 'qdf-noids'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--qdf', '--no-original-object-ids', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--qdf', '--no-original-object-ids', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "qdf-noids: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--qdf', '--no-original-object-ids', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "qdf-noids: oracle failed ($code)" }
@@ -1212,9 +1212,9 @@ Write-Output "[qdf-noids] suppression assertions done"
 # --- case: fixqdf (managed repair must match oracle fix-qdf byte for byte) ---
 $case = New-Case 'fixqdf'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/classic.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--qdf', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/classic.pdf", '--', 'inputs/a.pdf', '--qdf', '--pages', '.', '1', '.', '2', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "fixqdf setup: classic emit failed ($code)" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/b.pdf=$case/streamed.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--qdf', '--object-streams=generate', '--', 'outputs/b.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/b.pdf=$case/streamed.pdf", '--', 'inputs/a.pdf', '--qdf', '--object-streams=generate', '--pages', '.', '1', '.', '2', '--', 'outputs/b.pdf')
 if ($code -ne 0) { throw "fixqdf setup: streamed emit failed ($code)" }
 $fixQdf = Join-Path (Split-Path $QpdfExe -Parent) 'fix-qdf.exe'
 if (-not (Test-Path $fixQdf)) { throw "fixqdf setup: fix-qdf.exe missing beside oracle" }
@@ -1320,7 +1320,7 @@ Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
 foreach ($sub in @(
   @('page-range', @('emit', '--workdir', $case, '--out', "outputs/x.pdf=$case/lib-x.pdf", '--', 'inputs/a.pdf', '--pages', '.', '9', '--', 'outputs/x.pdf'), @('inputs/a.pdf', '--pages', '.', '9', '--', "$case/ora-x.pdf")),
   @('missing-input', @('emit', '--workdir', $case, '--out', "outputs/y.pdf=$case/lib-y.pdf", '--', 'inputs/missing.pdf', '--pages', '.', '1', '--', 'outputs/y.pdf'), @('inputs/missing.pdf', '--pages', '.', '1', '--', "$case/ora-y.pdf")),
-  @('unknown-flag', @('emit', '--workdir', $case, '--out', "outputs/z.pdf=$case/lib-z.pdf", '--', 'inputs/b.pdf', '--pages', '.', '1', '--bogus-flag', '--', 'outputs/z.pdf'), @('--bogus-flag', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-z.pdf"))
+  @('unknown-flag', @('emit', '--workdir', $case, '--out', "outputs/z.pdf=$case/lib-z.pdf", '--', 'inputs/b.pdf', '--bogus-flag', '--pages', '.', '1', '--', 'outputs/z.pdf'), @('--bogus-flag', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-z.pdf"))
 )) {
   $m = Invoke-Emit $case $sub[1]
   $o = Invoke-Oracle $case $sub[2]
@@ -1691,7 +1691,7 @@ Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/b.pdf"
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/plain.pdf=$case/lib-plain.pdf", '--', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', 'outputs/plain.pdf')
 if ($code -ne 0) { throw "hints: baseline emit failed ($code)" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/hinted.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--keep-files-open=y', '--keep-files-open-threshold=200', '--', 'outputs/hinted.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/hinted.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--keep-files-open=y', '--keep-files-open-threshold=200', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', 'outputs/hinted.pdf')
 if ($code -ne 0) { throw "hints: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--keep-files-open=y', '--keep-files-open-threshold=200', '--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/b.pdf', '1', 'inputs/b.pdf', '2', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "hints: oracle failed ($code)" }
@@ -1791,7 +1791,7 @@ foreach ($sub in @(
   @('no-warn', @('--no-warn'), 3)
 )) {
   $name = $sub[0]
-  $m = Invoke-ManagedExit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1') + $sub[1] + @('--', "outputs/$name.pdf")) "warn-$name"
+  $m = Invoke-ManagedExit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', 'inputs/a.pdf') + $sub[1] + @('--pages', '.', '1', '--', "outputs/$name.pdf")) "warn-$name"
   $o = Invoke-Oracle $case ((@() + $sub[1]) + @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-$name.pdf"))
   if ($m -ne $sub[2] -or $o -ne $sub[2]) { Write-Output "[warnings/$name] FAIL: exits managed=$m oracle=$o, expected $($sub[2])"; $script:failures++ }
   else { Write-Output "[warnings/$name] exit parity ($m/$o)" }
@@ -1800,7 +1800,7 @@ foreach ($sub in @(
 # --- case: inline (managed vs oracle inline-image externalization) ---
 $case = New-Case 'inline'
 Copy-Item "$fixtureDir/inline-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--externalize-inline-images', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--externalize-inline-images', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "inline: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--externalize-inline-images', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "inline: oracle failed ($code)" }
@@ -1811,7 +1811,7 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   if ($decoded.Contains(' BI ')) { Write-Output "[inline] FAIL: inline image remains in decoded $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[inline] externalization assertions done"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--externalize-inline-images', '--ii-min-bytes=100000', '--', 'outputs/k.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/a.pdf', '--externalize-inline-images', '--ii-min-bytes=100000', '--pages', '.', '1', '--', 'outputs/k.pdf')
 if ($code -ne 0) { throw "inline/keep: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--externalize-inline-images', '--ii-min-bytes=100000', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-keep.pdf")
 if ($code -ne 0) { throw "inline/keep: oracle failed ($code)" }
@@ -1827,7 +1827,7 @@ Write-Output "[inline/keep] threshold assertions done"
 $case = New-Case 'optimize'
 Copy-Item "$fixtureDir/photo-1page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/inline-1page.pdf" "$case/inputs/b.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--optimize-images', '--jpeg-quality=50', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--optimize-images', '--jpeg-quality=50', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "optimize: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--optimize-images', '--jpeg-quality=50', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "optimize: oracle failed ($code)" }
@@ -1839,14 +1839,14 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
   }
 }
 Write-Output "[optimize] recompression assertions done"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-skip.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--optimize-images', '--oi-min-width=100000', '--oi-min-height=100000', '--oi-min-area=100000000', '--', 'outputs/s.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/s.pdf=$case/lib-skip.pdf", '--', 'inputs/a.pdf', '--optimize-images', '--oi-min-width=100000', '--oi-min-height=100000', '--oi-min-area=100000000', '--pages', '.', '1', '--', 'outputs/s.pdf')
 if ($code -ne 0) { throw "optimize/skip: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--optimize-images', '--oi-min-width=100000', '--oi-min-height=100000', '--oi-min-area=100000000', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-skip.pdf")
 if ($code -ne 0) { throw "optimize/skip: oracle failed ($code)" }
 Assert-Trio 'optimize-skip' "$case/lib-skip.pdf" "$case/ora-skip.pdf" 1
 if ((Get-StreamPayloads "$case/lib-skip.pdf") -ne (Get-StreamPayloads "$case/ora-skip.pdf")) { Write-Output "[optimize/skip] FAIL: kept image payloads differ"; $script:failures++ }
 else { Write-Output "[optimize/skip] threshold payloads match" }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/b.pdf', '--pages', '.', '1', '--optimize-images', '--keep-inline-images', '--', 'outputs/k.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/k.pdf=$case/lib-keep.pdf", '--', 'inputs/b.pdf', '--optimize-images', '--keep-inline-images', '--pages', '.', '1', '--', 'outputs/k.pdf')
 if ($code -ne 0) { throw "optimize/keep: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--optimize-images', '--keep-inline-images', 'inputs/b.pdf', '--pages', '.', '1', '--', "$case/ora-keep.pdf")
 if ($code -ne 0) { throw "optimize/keep: oracle failed ($code)" }
@@ -1860,7 +1860,7 @@ Write-Output "[optimize/keep] keep-inline assertions done"
 # --- case: optimize-masks (managed vs oracle masked image optimization) ---
 $case = New-Case 'optimize-masks'
 Copy-Item "$fixtureDir/images-smask-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--optimize-images', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--optimize-images', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "optimize-masks: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--optimize-images', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "optimize-masks: oracle failed ($code)" }
@@ -1904,7 +1904,7 @@ $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '.', '2', '--
 if ($code -ne 0) { throw "diagnostics: baseline oracle failed ($code)" }
 Assert-Trio 'diagnostics-plain' "$case/lib-plain.pdf" "$case/ora-plain.pdf" 2
 foreach ($sub in @('progress', 'verbose', 'report-memory-usage')) {
-  $m = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/$sub.pdf=$case/lib-$sub.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', "--$sub", '--', "outputs/$sub.pdf") "diag-$sub"
+  $m = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/$sub.pdf=$case/lib-$sub.pdf", '--', 'inputs/a.pdf', "--$sub", '--pages', '.', '1', '.', '2', '--', "outputs/$sub.pdf") "diag-$sub"
   $o = Invoke-Oracle $case @("--$sub", 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--', "$case/ora-$sub.pdf")
   if ($m -ne 0 -or $o -ne 0) { Write-Output "[diagnostics/$sub] FAIL: exits managed=$m oracle=$o, expected 0/0"; $script:failures++; continue }
   Assert-Trio "diagnostics-$sub" "$case/lib-$sub.pdf" "$case/ora-$sub.pdf" 2
@@ -2157,7 +2157,7 @@ foreach ($sub in @(@("classic", "inputs/a.pdf"), @("streams", "inputs/o.pdf"))) 
 # --- case: remove-acroform (managed vs oracle form-dictionary removal) ---
 $case = New-Case 'remove-acroform'
 Copy-Item "$fixtureDir/forms-1page.pdf" "$case/inputs/f.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/f.pdf', '--pages', '.', '1', '--remove-acroform', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/f.pdf', '--remove-acroform', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "remove-acroform: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--remove-acroform', 'inputs/f.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "remove-acroform: oracle failed ($code)" }
@@ -2272,7 +2272,7 @@ function Get-AllStreamBytes {
   }
   return $found.ToArray()
 }
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "dr-encoding: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--generate-appearances','inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "dr-encoding: oracle failed ($code)" }
@@ -2286,7 +2286,7 @@ else { Write-Output "[dr-encoding] both sides encode the value as WinAnsi" }
 # --- case: dr-merge (managed vs oracle DR font merging) ---
 $case = New-Case 'dr-merge'
 Copy-Item "$fixtureDir/dr-merge-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "dr-merge: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--generate-appearances','inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "dr-merge: oracle failed ($code)" }
@@ -2324,9 +2324,9 @@ Write-Output "[parent-held] parent-held appearance assertions done"
 # --- case: generate-radio (managed vs oracle radio synchronization warning) ---
 $case = New-Case 'generate-radio'
 Copy-Item "$fixtureDir/generate-radio-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "generate-radio: emit failed ($code)" }
-$managedExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/m.pdf') "gen-radio"
+$managedExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/m.pdf') "gen-radio"
 $code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 3) { Write-Output "[generate-radio] FAIL: oracle generate exit $code, expected 3 (radio sync warning)"; $script:failures++ }
 elseif ($managedExit -ne 3) { Write-Output "[generate-radio] FAIL: managed generate exit $managedExit, expected 3 (radio sync warning)"; $script:failures++ }
@@ -2353,9 +2353,9 @@ foreach ($pair in @(('lib', "$case/lib-sel.pdf"), ('ora', "$case/ora-sel.pdf")))
   if ($rawText.Contains('/AcroForm')) { Write-Output "[generate-unreachable/sel] FAIL: /AcroForm remains in $($pair[0]) output"; $script:failures++ }
 }
 Write-Output "[generate-unreachable/sel] dropped-form assertions done"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/g.pdf=$case/lib-selgen.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/g.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/g.pdf=$case/lib-selgen.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/g.pdf')
 if ($code -ne 0) { throw "generate-unreachable/selgen: emit failed ($code)" }
-$managedSelgenExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--generate-appearances', '--', 'outputs/m.pdf') "gen-unreachable-selgen"
+$managedSelgenExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m.pdf=$case/lib-m.pdf", '--', 'inputs/a.pdf', '--generate-appearances', '--pages', '.', '1', '--', 'outputs/m.pdf') "gen-unreachable-selgen"
 $code = Invoke-Oracle $case @('--generate-appearances', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-selgen.pdf")
 if ($code -ne 0) { throw "generate-unreachable/selgen: oracle failed ($code)" }
 if ($managedSelgenExit -ne 0) { Write-Output "[generate-unreachable/selgen] FAIL: managed exit $managedSelgenExit, expected 0 (silent skip)"; $script:failures++ }
@@ -2426,8 +2426,7 @@ foreach ($fixture in $progressiveFixtures) {
   $label = $fixture.file.Replace('images-', '').Replace('.pdf', '')
   $case = New-Case $label
   Copy-Item "$fixtureDir/$($fixture.file)" "$case/inputs/a.pdf"
-  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--',
-    'inputs/a.pdf', '--pages', '.', '1', '--decode-level=all', '--stream-data=uncompress', '--', 'outputs/a.pdf')
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--decode-level=all', '--stream-data=uncompress', '--pages', '.', '1', '--', 'outputs/a.pdf')
   if ($code -ne 0) { throw "$label`: managed decode failed ($code)" }
   $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', '--decode-level=all', '--stream-data=uncompress', "$case/ora.pdf")
   if ($code -ne 0) { throw "$label`: oracle decode failed ($code)" }
@@ -2461,9 +2460,9 @@ $expectedYcck = New-Object byte[] 256
 for ($i = 0; $i -lt 64; $i++) { $expectedYcck[$i*4] = 75; $expectedYcck[$i*4+1] = 132; $expectedYcck[$i*4+2] = 152; $expectedYcck[$i*4+3] = 88 }
 $expectedYcckHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($expectedYcck))
 foreach ($sub in @(('plain', 'inputs/a.pdf', $expectedPlainHash), ('ycck', 'inputs/b.pdf', $expectedYcckHash))) {
-  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$($sub[0]).pdf=$case/lib-$($sub[0]).pdf", '--', $sub[1], '--pages', '.', '1', '--decode-level=all', '--', "outputs/$($sub[0]).pdf")
+  $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/$($sub[0]).pdf=$case/lib-$($sub[0]).pdf", '--', $sub[1], '--decode-level=all', '--pages', '.', '1', '--', "outputs/$($sub[0]).pdf")
   if ($code -ne 0) { throw "cmyk/$($sub[0]): emit failed ($code)" }
-  $managedDecExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m-$($sub[0]).pdf=$case/lib-m-$($sub[0]).pdf", '--', $sub[1], '--pages', '.', '1', '--decode-level=all', '--', "outputs/m-$($sub[0]).pdf") "cmyk-decode-$($sub[0])"
+  $managedDecExit = Invoke-ManagedExit $case @('emit', '--workdir', $case, '--out', "outputs/m-$($sub[0]).pdf=$case/lib-m-$($sub[0]).pdf", '--', $sub[1], '--decode-level=all', '--pages', '.', '1', '--', "outputs/m-$($sub[0]).pdf") "cmyk-decode-$($sub[0])"
   $code = Invoke-Oracle $case @('--decode-level=all', $sub[1], '--pages', '.', '1', '--', "$case/ora-$($sub[0]).pdf")
   if ($code -ne 0) { throw "cmyk/$($sub[0]): oracle failed ($code)" }
   if ($managedDecExit -ne 3) { Write-Output "[cmyk/$($sub[0])] FAIL: managed decode exit $managedDecExit, expected 3 (opaque with warning)"; $script:failures++ }
@@ -2544,7 +2543,7 @@ Write-Output "[structure-preserve] structure assertions done"
 $case = New-Case 'preserve-unreferenced'
 Copy-Item "$fixtureDir/orphans-1page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--preserve-unreferenced', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--preserve-unreferenced', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "preserve-unreferenced: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--preserve-unreferenced', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "preserve-unreferenced: oracle failed ($code)" }
@@ -2572,7 +2571,7 @@ Write-Output "[preserve-unreferenced/empty] empty-base assertions done"
 # --- case: remove-structure (managed vs oracle structure-tree removal) ---
 $case = New-Case 'remove-structure'
 Copy-Item "$fixtureDir/struct-1page.pdf" "$case/inputs/s.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/s.pdf', '--pages', '.', '1', '--remove-structure', '--', 'outputs/a.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/s.pdf', '--remove-structure', '--pages', '.', '1', '--', 'outputs/a.pdf')
 if ($code -ne 0) { throw "remove-structure: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--remove-structure', 'inputs/s.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "remove-structure: oracle failed ($code)" }
@@ -2609,14 +2608,14 @@ foreach ($sub in @(@("hybrid", "inputs/h.pdf", 3), @("classic", "inputs/x.pdf", 
   if ((Get-PigNpages "$case/$($sub[1])") -ne 1) { Write-Output "[ignore-xref-streams/$name] FAIL: independent page count"; $script:failures++ }
   else { Write-Output "[ignore-xref-streams/$name] exit parity ($m/$o) with independent count 1" }
 }
-Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/h.pdf=$case/lib-h.pdf", '--', 'inputs/h.pdf', '--pages', '.', '1', '--ignore-xref-streams', '--', 'outputs/h.pdf') | Out-Null
+Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/h.pdf=$case/lib-h.pdf", '--', 'inputs/h.pdf', '--ignore-xref-streams', '--pages', '.', '1', '--', 'outputs/h.pdf') | Out-Null
 Invoke-Oracle $case @('--ignore-xref-streams', 'inputs/h.pdf', '--pages', '.', '1', '--', "$case/ora-h.pdf") | Out-Null
 Assert-Trio 'ignore-xref-streams/hybrid' "$case/lib-h.pdf" "$case/ora-h.pdf" 1
 
 # --- case: linearize-pass1 (managed vs oracle first pass) ---
 $case = New-Case 'linearize-pass1'
 Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/p1.bin=$case/lib-p1.bin", '--out', "outputs/final.pdf=$case/lib-final.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '.', '2', '--linearize', '--linearize-pass1=outputs/p1.bin', '--', 'outputs/final.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/p1.bin=$case/lib-p1.bin", '--out', "outputs/final.pdf=$case/lib-final.pdf", '--', 'inputs/a.pdf', '--linearize', '--linearize-pass1=outputs/p1.bin', '--pages', '.', '1', '.', '2', '--', 'outputs/final.pdf')
 if ($code -ne 0) { throw "linearize-pass1: managed emit failed ($code)" }
 $code = Invoke-Oracle $case @('--linearize', '--static-id', '--linearize-pass1=ora-p1.bin', 'inputs/a.pdf', '--', "$case/ora-final.pdf")
 if ($code -ne 0) { throw "linearize-pass1: oracle failed ($code)" }
@@ -2654,7 +2653,7 @@ Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/outlined-use-2page.pdf" "$case/inputs/u.pdf"
 foreach ($sub in @(@("plain", "inputs/a.pdf"), @("use", "inputs/u.pdf"))) {
   $tag = $sub[0]
-  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', $sub[1], '--pages', '.', '1', '.', '2', '--linearize', '--', "outputs/$tag.pdf"))
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$tag.pdf=$case/lib-$tag.pdf", '--', $sub[1], '--linearize', '--pages', '.', '1', '.', '2', '--', "outputs/$tag.pdf"))
   if ($code -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: managed emit exit $code"; $script:failures++; continue }
   $code = Invoke-Oracle $case @('--linearize', '--static-id', $sub[1], '--', "$case/ora-$tag.pdf")
   if ($code -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: oracle linearize exit $code"; $script:failures++; continue }
@@ -2681,7 +2680,7 @@ foreach ($sub in @(@("plain", "inputs/a.pdf"), @("use", "inputs/u.pdf"))) {
 # --- case: linearize-thumbs (managed vs oracle with thumbnails) ---
 $case = New-Case 'linearize-thumbs'
 Copy-Item "$fixtureDir/thumb-1page.pdf" "$case/inputs/a.pdf"
-$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/t.pdf=$case/lib-t.pdf", '--', 'inputs/a.pdf', '--pages', '.', '1', '--linearize', '--', 'outputs/t.pdf')
+$code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/t.pdf=$case/lib-t.pdf", '--', 'inputs/a.pdf', '--linearize', '--pages', '.', '1', '--', 'outputs/t.pdf')
 if ($code -ne 0) { Write-Output '[linearize-thumbs] FAIL: managed emit exit $code'; $script:failures++ }
 else {
   $code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--', "$case/ora-t.pdf")
@@ -2714,7 +2713,7 @@ Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
 foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", "inputs/b.pdf", @(".", "1"), 1))) {
   $name = $sub[0]
-  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', $sub[1], '--pages') + $sub[2] + @('--linearize', '--', "outputs/$name.pdf"))
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', $sub[1], '--linearize', '--pages') + $sub[2] + @('--', "outputs/$name.pdf"))
   if ($code -ne 0) { Write-Output "[linearize/$name] FAIL: managed emit exit $code"; $script:failures++; continue }
   $code = Invoke-Oracle $case @('--linearize', '--static-id', $sub[1], '--', "$case/ora-$name.pdf")
   if ($code -ne 0) { Write-Output "[linearize/$name] FAIL: oracle linearize exit $code"; $script:failures++; continue }
@@ -2735,7 +2734,7 @@ Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
 Copy-Item "$fixtureDir/outlined-2page.pdf" "$case/inputs/o.pdf"
 foreach ($sub in @(@("two", "inputs/a.pdf", @(".", "1", ".", "2"), 2), @("one", "inputs/b.pdf", @(".", "1"), 1), @("outlines", "inputs/o.pdf", @(".", "1", ".", "2"), 2))) {
   $name = $sub[0]
-  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', $sub[1], '--pages') + $sub[2] + @('--linearize', '--object-streams=generate', '--', "outputs/$name.pdf"))
+  $code = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/$name.pdf=$case/lib-$name.pdf", '--', $sub[1], '--linearize', '--object-streams=generate', '--pages') + $sub[2] + @('--', "outputs/$name.pdf"))
   if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: managed emit exit $code"; $script:failures++; continue }
   $code = Invoke-Oracle $case @('--linearize', '--static-id', '--object-streams=generate', $sub[1], '--', "$case/ora-$name.pdf")
   if ($code -ne 0) { Write-Output "[linearize-streams/$name] FAIL: oracle linearize exit $code"; $script:failures++; continue }

@@ -403,7 +403,7 @@ public sealed class InvocationTests
         QpdfDiagnostic bashScript = Assert.Single(bash.Diagnostics);
         Assert.Equal(QpdfDiagnosticCode.HelpText, bashScript.Code);
         Assert.Contains("complete -F _qpdf_complete qpdf", bashScript.Message, StringComparison.Ordinal);
-        foreach (string flag in new[] { "--check", "--pages", "--json", "--qdf", "--linearize" })
+        foreach (string flag in new[] { "--check", "--json", "--qdf", "--linearize" , "--pages"})
         {
             Assert.Contains(flag, bashScript.Message, StringComparison.Ordinal);
         }

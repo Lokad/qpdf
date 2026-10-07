@@ -535,7 +535,7 @@ public sealed class ImageOptimizeTests
         byte[] fixture = BuildImagePage(200, 200, "DeviceRGB", 8, " /Filter /FlateDecode", flated);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
         host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
-        List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--optimize-images", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--optimize-images", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));

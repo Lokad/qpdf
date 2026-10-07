@@ -49,7 +49,7 @@ public sealed class TestingOptionsTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--report-memory-usage", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--report-memory-usage", "--pages", ".", "1", ".", "2", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.MemoryUsage);
@@ -110,7 +110,7 @@ public sealed class TestingOptionsTests
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--report-memory-usage", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--report-memory-usage", "--pages", ".", "1", "--", "outputs/a.pdf"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);

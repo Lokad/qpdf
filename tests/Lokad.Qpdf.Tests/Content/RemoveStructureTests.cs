@@ -29,7 +29,7 @@ public sealed class RemoveStructureTests
     public async Task FlagDropsStructureTree()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "struct-1page.pdf");
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--remove-structure", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--remove-structure", "--pages", ".", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -52,7 +52,7 @@ public sealed class RemoveStructureTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "struct-1page.pdf");
         host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Copy);
-        List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--remove-structure", "--", "outputs/m.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--remove-structure", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/m.pdf"), out byte[] pdf));

@@ -264,7 +264,7 @@ public sealed class LabelTests
         InMemoryQpdfHost host = HostWith("inputs/labels.pdf", bytes);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/labels.pdf", "--pages", ".", "1", "--set-page-labels", "1:r", "--", "outputs/argv.pdf"]),
+            new QpdfCommandInvocation(["inputs/labels.pdf", "--set-page-labels", "1:r", "--", "--pages", ".", "1", "--", "outputs/argv.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument labeled = await Reopen(host, "outputs/argv.pdf");
@@ -286,13 +286,13 @@ public sealed class LabelTests
 
         QpdfExecutionResult badStyle = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/labels.pdf", "--pages", ".", "1", "--set-page-labels", "1:X", "--", "outputs/x.pdf"]),
+            new QpdfCommandInvocation(["inputs/labels.pdf", "--set-page-labels", "1:X", "--", "--pages", ".", "1", "--", "outputs/x.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(badStyle.Diagnostics).Code);
 
         QpdfExecutionResult conflict = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/labels.pdf", "--pages", ".", "1", "--set-page-labels", "1:D", "--remove-page-labels", "--", "outputs/x.pdf"]),
+            new QpdfCommandInvocation(["inputs/labels.pdf", "--set-page-labels", "1:D", "--remove-page-labels", "--", "--pages", ".", "1", "--", "outputs/x.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(conflict.Diagnostics).Code);
     }
@@ -304,7 +304,7 @@ public sealed class LabelTests
         InMemoryQpdfHost host = HostWith("inputs/labels.pdf", bytes);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/labels.pdf", "--pages", ".", "1", "--remove-page-labels", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/labels.pdf", "--remove-page-labels", "--pages", ".", "1", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
@@ -319,7 +319,7 @@ public sealed class LabelTests
         InMemoryQpdfHost first = HostWith("inputs/labels.pdf", bytes);
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             first,
-            new QpdfCommandInvocation(["inputs/labels.pdf", "--pages", ".", "1", "--set-page-labels", "1:r", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/labels.pdf", "--set-page-labels", "1:r", "--", "--pages", ".", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(first.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
@@ -368,7 +368,8 @@ public sealed class LabelTests
         byte[] bytes = BuildDoc(2);
         InMemoryQpdfHost host = HostWith("inputs/labels.pdf", bytes);
         List<string> argv = new() { "inputs/labels.pdf", "--pages", ".", "1" };
-        argv.AddRange(flags);
+        argv.InsertRange(1, flags);
+        if (flags.Contains("--set-page-labels", StringComparer.Ordinal)) { argv.Insert(1 + flags.Length, "--"); }
         argv.AddRange(["--", "outputs/a.pdf"]);
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
@@ -685,7 +686,7 @@ public sealed class LabelTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", labeled);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages=1", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages=1", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] first));
@@ -713,7 +714,7 @@ public sealed class LabelTests
         host.AddInput(QpdfPath.From("inputs/b.pdf"), plain, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--set-page-labels", "1:A", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["--empty", "--set-page-labels", "1:A", "--", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await Reopen(host, "outputs/m.pdf");
@@ -729,7 +730,7 @@ public sealed class LabelTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", labeled);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--set-page-labels", "1:A", "--split-pages=1", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--set-page-labels", "1:A", "--", "--split-pages=1", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/split-1.pdf"), out byte[] first));
@@ -749,7 +750,7 @@ public sealed class LabelTests
         argvHost.AddInput(QpdfPath.From("inputs/b.pdf"), plain, QpdfInputOwnership.Copy);
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             argvHost,
-            new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--remove-page-labels", "--", "outputs/m.pdf"]),
+            new QpdfCommandInvocation(["--empty", "--remove-page-labels", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/m.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         await using QpdfDocument argvOutput = await Reopen(argvHost, "outputs/m.pdf");

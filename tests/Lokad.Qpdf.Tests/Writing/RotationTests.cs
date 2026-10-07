@@ -244,7 +244,7 @@ public sealed class RotationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--rotate=+90", "--pages", ".", "1", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
@@ -257,7 +257,7 @@ public sealed class RotationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90:2", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--rotate=+90:2", "--pages", ".", "1", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
@@ -273,10 +273,10 @@ public sealed class RotationTests
     public async Task ArgvRotateInvalidSpecsFail(string flag)
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        List<string> argv = ["inputs/a.pdf", "--pages", ".", "1", flag, "--", "outputs/r.pdf"];
+        List<string> argv = ["inputs/a.pdf", flag, "--pages", ".", "1", "--", "outputs/r.pdf"];
         if (flag == "--rotate")
         {
-            argv = ["inputs/a.pdf", "--pages", ".", "1", "--rotate", "--", "outputs/r.pdf"];
+            argv = ["inputs/a.pdf", "--rotate", "--pages", ".", "1", "--", "outputs/r.pdf"];
         }
 
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
@@ -311,7 +311,7 @@ public sealed class RotationTests
         InMemoryQpdfHost insideHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult insideResult = await Qpdf.ExecuteAsync(
             insideHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--rotate=+90", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--rotate=+90", "--pages", ".", "1", ".", "2", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, insideResult.ExitCode);
         Assert.True(insideHost.TryGetOutput(QpdfPath.From("outputs/r.pdf"), out byte[] inside));
@@ -351,7 +351,7 @@ public sealed class RotationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "rotated-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90:1,1", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--rotate=+90:1,1", "--pages", ".", "1", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
@@ -364,7 +364,7 @@ public sealed class RotationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90:2-1", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--rotate=+90:2-1", "--pages", ".", "1", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
@@ -439,7 +439,7 @@ public sealed class RotationTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "--file=inputs/a.pdf", "--range=1-2", "--rotate=+90:r1", "--", "outputs/r.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--rotate=+90:r1", "--pages", "--file=inputs/a.pdf", "--range=1-2", "--", "outputs/r.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await Reopen(host, "outputs/r.pdf");
@@ -572,7 +572,7 @@ await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.SelectPageAsync(
         InMemoryQpdfHost argvHost = HostWith("inputs/rot.pdf", bytes);
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             argvHost,
-            new QpdfCommandInvocation(["inputs/rot.pdf", "--pages", ".", "1", "--rotate=+90", "--", "outputs/argv.pdf"]),
+            new QpdfCommandInvocation(["inputs/rot.pdf", "--rotate=+90", "--pages", ".", "1", "--", "outputs/argv.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv.pdf"), out byte[] b));

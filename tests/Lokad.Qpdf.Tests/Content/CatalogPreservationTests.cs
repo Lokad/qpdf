@@ -322,7 +322,7 @@ public sealed class CatalogPreservationTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "catalog-extras-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--split-pages", "--", "outputs/s.pdf"]), CancellationToken.None);
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", "--", "outputs/s.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await RereadAsync(host, "outputs/s-1.pdf", "inputs/reread.pdf");
         Assert.Equal(1, output.PageCount);
@@ -374,7 +374,7 @@ public sealed class CatalogPreservationTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "catalog-extras-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--set-page-labels", "1:D", "--", "outputs/a.pdf"]), CancellationToken.None);
+            host, new QpdfCommandInvocation(["inputs/a.pdf", "--set-page-labels", "1:D", "--", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf", "inputs/reread.pdf");
         PdfDictionary catalog = RequireCatalog(output);

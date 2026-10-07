@@ -191,7 +191,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 ("<< /Type /Annot /Subtype /Text /Rect [0 0 100 50] /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 byte[] content = await PageContentAsync(pdf);
 string text = Encoding.ASCII.GetString(content);
 Assert.Contains("(Hi)", text);
@@ -214,7 +214,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /Fields [5 0 R] /DR << /Font << /F1 6 0
 ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Resources << /Font << /F1 6 0 R >> >> /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 byte[] stamp = await FormContentAsync(pdf, "/Fxo1");
 Assert.Contains("(Hello)", Encoding.ASCII.GetString(stamp));
 using JsonDocument catalog = await InspectAsync(pdf, "--json", "--json-key=qpdf");
@@ -243,7 +243,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 ("<< /Type /Annot /Subtype /Text /Rect [0 0 100 50] /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
 using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement objects = full.RootElement.GetProperty("qpdf")[1];
@@ -269,7 +269,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 (annot, null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", flag)).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), flag, "--pages", ".", "1")).Pdf;
 byte[] content = await PageContentAsync(pdf);
 if (stamped)
 {
@@ -295,7 +295,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 (annot, null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", flag)).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), flag, "--pages", ".", "1")).Pdf;
 byte[] content = await PageContentAsync(pdf);
 if (stamped)
 {
@@ -314,7 +314,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 {
 ("<< /Type /Annot /Subtype /Link /Rect [0 0 100 50] /A << /S /URI /URI (https://example.test) >> >>", null),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
 using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement value = full.RootElement.GetProperty("qpdf")[1].GetProperty(PageObjectKey(pages.RootElement.GetProperty("pages")[0])).GetProperty("value");
@@ -331,7 +331,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 ("<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /FT /Btn /AS /Yes /AP << /N << /Off 6 0 R >> >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length ", off.Length.ToString(), " >>"), off),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 using JsonDocument pages = await InspectAsync(pdf, "--json", "--json-key=pages");
 using JsonDocument full = await InspectAsync(pdf, "--json", "--json-key=qpdf");
 JsonElement value = full.RootElement.GetProperty("qpdf")[1].GetProperty(PageObjectKey(pages.RootElement.GetProperty("pages")[0])).GetProperty("value");
@@ -350,7 +350,7 @@ byte[] fixture = BuildPdf(" /AcroForm << /NeedAppearances true >>", " /Contents 
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", on.Length.ToString(), " >>"), on),
 });
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
-List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--flatten-annotations=all", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--flatten-annotations=all", "--pages", ".", "1", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
 Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature);
@@ -364,7 +364,7 @@ Assert.True(value.TryGetProperty("/Annots", out JsonElement _));
 public async Task EmptyAnnotsArrayLeavesPageAlone()
 {
 byte[] fixture = TextFixture(" /Annots []", new List<(string Dict, byte[]? StreamData)>());
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 byte[] content = await PageContentAsync(pdf);
 Assert.DoesNotContain("/Fxo1 Do", Encoding.ASCII.GetString(content));
 Assert.Contains("(Hi)", Encoding.ASCII.GetString(content));
@@ -384,8 +384,8 @@ byte[] rotated = TextFixture(" /Rotate 90 /Annots [5 0 R]", new List<(string Dic
 ("<< /Type /Annot /Subtype /Text /Rect [0 0 100 50] /F 16 /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] plainPdf = (await RunAsync(HostWith("inputs/a.pdf", plain), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
-byte[] rotatedPdf = (await RunAsync(HostWith("inputs/a.pdf", rotated), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] plainPdf = (await RunAsync(HostWith("inputs/a.pdf", plain), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
+byte[] rotatedPdf = (await RunAsync(HostWith("inputs/a.pdf", rotated), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 string plainText = Encoding.ASCII.GetString(await PageContentAsync(plainPdf));
 string rotatedText = Encoding.ASCII.GetString(await PageContentAsync(rotatedPdf));
 Assert.Contains("/Fxo1 Do", plainText);
@@ -403,7 +403,7 @@ byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R /Annots [5 0 R]", new 
 ("<< /Type /Annot /Subtype /Text /Rect [0 0 100 50] /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=all")).Pdf;
+byte[] pdf = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=all", "--pages", ".", "1")).Pdf;
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/Fxo1 Do", Encoding.ASCII.GetString(output));
 }
@@ -438,7 +438,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 ("<< /Type /Annot /Subtype /Text /Rect [0 0 100 50] /AP << /N 6 0 R >> >>", null),
 (string.Concat("<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Length ", appearance.Length.ToString(), " >>"), appearance),
 });
-byte[] a = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--pages", ".", "1", "--flatten-annotations=print")).Pdf;
+byte[] a = (await RunAsync(HostWith("inputs/a.pdf", fixture), "--flatten-annotations=print", "--pages", ".", "1")).Pdf;
 InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
 string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "flattenAnnotations": "print"}""";
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
@@ -483,7 +483,7 @@ byte[] fixture = TextFixture(" /Annots [5 0 R]", new List<(string Dict, byte[]? 
 });
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
 host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
-List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--flatten-annotations=all", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--flatten-annotations=all", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));

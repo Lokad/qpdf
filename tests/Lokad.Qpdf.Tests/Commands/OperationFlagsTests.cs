@@ -27,7 +27,7 @@ public sealed class OperationFlagsTests
     private static async Task<byte[]> MergeAsync(InMemoryQpdfHost host, params string[] flags)
     {
         List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1" };
-        argv.AddRange(flags);
+        argv.InsertRange(1, flags);
         argv.AddRange(["--", "outputs/a.pdf"]);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
@@ -63,7 +63,7 @@ public sealed class OperationFlagsTests
     {
         InMemoryQpdfHost host = await HostWithTwoSources();
         List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1" };
-        argv.AddRange(flags);
+        argv.InsertRange(1, flags);
         argv.AddRange(["--", "outputs/a.pdf"]);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
@@ -114,7 +114,7 @@ public sealed class OperationFlagsTests
     public async Task VerboseSummarizesMerge()
     {
         InMemoryQpdfHost host = await HostWithTwoSources();
-        List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--verbose", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--verbose", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.VerboseSummary);
@@ -147,7 +147,7 @@ public sealed class OperationFlagsTests
     public async Task JobVerboseMatchesArgv()
     {
         InMemoryQpdfHost argvHost = await HostWithTwoSources();
-        List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--verbose", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--verbose", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         string argvMessage = Assert.Single(argvResult.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.VerboseSummary).Message;
@@ -182,7 +182,7 @@ public sealed class OperationFlagsTests
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--verbose", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--verbose", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);

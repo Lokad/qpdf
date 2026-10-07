@@ -274,7 +274,7 @@ public sealed class PreserveUnreferencedTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", OrphanFixture());
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--preserve-unreferenced", "--pages", ".", "1", "--split-pages=9", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--preserve-unreferenced", "--split-pages=9", "--pages", ".", "1", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] pdf));

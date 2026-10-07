@@ -278,7 +278,7 @@ public sealed class MetadataTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", InfoFixture());
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--split-pages=9", "--", "outputs/s.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages=9", "--pages", ".", "1", "--", "outputs/s.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] pdf));
@@ -362,7 +362,7 @@ public sealed class MetadataTests
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", InfoMetadataFixture());
         List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1" };
-        argv.AddRange(flags);
+        argv.InsertRange(1, flags);
         argv.AddRange(["--", "outputs/a.pdf"]);
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(

@@ -657,7 +657,7 @@ internal static class Program
         InMemoryQpdfHost rotateHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult rotated = await Qpdf.ExecuteAsync(
             rotateHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--rotate=+90", "--", "outputs/rotated.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--rotate=+90", "--pages", ".", "1", "--", "outputs/rotated.pdf"]),
             CancellationToken.None);
         Check(rotated.Status == QpdfExecutionStatus.Completed && rotated.ExitCode == QpdfExitCode.Success, "rotated execution");
         Console.WriteLine("PASS rotated selection (--rotate)");
@@ -676,14 +676,14 @@ internal static class Program
         InMemoryQpdfHost labelHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult labeled = await Qpdf.ExecuteAsync(
             labelHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--set-page-labels", "1:D", "--", "outputs/labeled.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--set-page-labels", "1:D", "--", "--pages", ".", "1", "--", "outputs/labeled.pdf"]),
             CancellationToken.None);
         Check(labeled.Status == QpdfExecutionStatus.Completed && labeled.ExitCode == QpdfExitCode.Success, "labeled execution");
         Console.WriteLine("PASS labeled selection (--set-page-labels)");
         InMemoryQpdfHost splitHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult split = await Qpdf.ExecuteAsync(
             splitHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
             CancellationToken.None);
         Check(split.Status == QpdfExecutionStatus.Completed && split.ExitCode == QpdfExitCode.Success, "split execution");
         Console.WriteLine("PASS split publication (--split-pages)");
@@ -702,14 +702,14 @@ internal static class Program
         InMemoryQpdfHost replaceHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult replaced = await Qpdf.ExecuteAsync(
             replaceHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--replace-input"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--replace-input", "--pages", ".", "1", "--"]),
             CancellationToken.None);
         Check(replaced.Status == QpdfExecutionStatus.Completed && replaced.ExitCode == QpdfExitCode.Success, "replace execution");
         Console.WriteLine("PASS in-place replacement (--replace-input)");
         InMemoryQpdfHost mergeArgvHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult mergeArgv = await Qpdf.ExecuteAsync(
             mergeArgvHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "2", ".", "1", "--collate", "--", "outputs/argv-merge.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--collate", "--pages", ".", "2", ".", "1", "--", "outputs/argv-merge.pdf"]),
             CancellationToken.None);
         Check(mergeArgv.Status == QpdfExecutionStatus.Completed && mergeArgv.ExitCode == QpdfExitCode.Success, "argv merge execution");
         Console.WriteLine("PASS argv multi-file merge (--pages/--collate)");
@@ -727,7 +727,7 @@ internal static class Program
         InMemoryQpdfHost qdfHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult qdf = await Qpdf.ExecuteAsync(
             qdfHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", "--qdf", "--", "outputs/qdf.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--qdf", "--pages", ".", "1", "--", "outputs/qdf.pdf"]),
             CancellationToken.None);
         Check(qdf.Status == QpdfExecutionStatus.Completed && qdf.ExitCode == QpdfExitCode.Success, "qdf execution");
         byte[] qdfBytes = Published(qdfHost, "outputs/qdf.pdf");
@@ -764,7 +764,7 @@ internal static class Program
         InMemoryQpdfHost linHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult lin = await Qpdf.ExecuteAsync(
             linHost,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--", "outputs/lin.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--linearize", "--pages", ".", "1", ".", "2", "--", "outputs/lin.pdf"]),
             CancellationToken.None);
         Check(lin.Status == QpdfExecutionStatus.Completed && lin.ExitCode == QpdfExitCode.Success, "linearize execution");
         byte[] linBytes = Published(linHost, "outputs/lin.pdf");
@@ -775,7 +775,7 @@ internal static class Program
         InMemoryQpdfHost linPass1Host = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult linPass1 = await Qpdf.ExecuteAsync(
             linPass1Host,
-            new QpdfCommandInvocation(["inputs/in.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--linearize-pass1=outputs/p1.bin", "--", "outputs/lin2.pdf"]),
+            new QpdfCommandInvocation(["inputs/in.pdf", "--linearize", "--linearize-pass1=outputs/p1.bin", "--pages", ".", "1", ".", "2", "--", "outputs/lin2.pdf"]),
             CancellationToken.None);
         Check(linPass1.Status == QpdfExecutionStatus.Completed && linPass1.ExitCode == QpdfExitCode.Success, "linearize-pass1 execution");
         Check(Published(linPass1Host, "outputs/p1.bin").Length < Published(linPass1Host, "outputs/lin2.pdf").Length, "pass1 shorter than final");
@@ -784,7 +784,7 @@ internal static class Program
         InMemoryQpdfHost linOlHost = NewHost("inputs/ol.pdf", outlined);
         QpdfExecutionResult linOl = await Qpdf.ExecuteAsync(
             linOlHost,
-            new QpdfCommandInvocation(["inputs/ol.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--", "outputs/ol.pdf"]),
+            new QpdfCommandInvocation(["inputs/ol.pdf", "--linearize", "--pages", ".", "1", ".", "2", "--", "outputs/ol.pdf"]),
             CancellationToken.None);
         Check(linOl.Status == QpdfExecutionStatus.Completed && linOl.ExitCode == QpdfExitCode.Success, "outlined linearize execution");
         byte[] linOlBytes = Published(linOlHost, "outputs/ol.pdf");

@@ -100,7 +100,7 @@ public sealed class EmptyInputTests
     {
         InMemoryQpdfHost host = await HostWithTwoSources();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "--replace-input"]), CancellationToken.None);
+            host, new QpdfCommandInvocation(["--empty", "--replace-input", "--pages", "inputs/a.pdf", "1"]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }
 
@@ -110,7 +110,7 @@ public sealed class EmptyInputTests
         InMemoryQpdfHost host = await HostWithTwoSources();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["--empty", "--pages", "inputs/a.pdf", "1", "--overlay", "inputs/b.pdf", "--", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["--empty", "--overlay", "inputs/b.pdf", "--pages", "inputs/a.pdf", "1", "--", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));

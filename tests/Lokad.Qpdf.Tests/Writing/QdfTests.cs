@@ -163,7 +163,7 @@ public sealed class QdfTests
     public async Task MarkerAndReadableLayout()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.ASCII.GetString(pdf);
         Assert.StartsWith("%PDF-1.4\n", text, StringComparison.Ordinal);
@@ -180,7 +180,7 @@ public sealed class QdfTests
     {
         byte[] flated = FlateBytes(PageRaw);
         byte[] input = BuildFilteredPage("<< /Length " + flated.Length.ToString() + " /Filter /FlateDecode >>", flated);
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.ASCII.GetString(pdf);
         Assert.DoesNotContain("FlateDecode", text, StringComparison.Ordinal);
@@ -191,7 +191,7 @@ public sealed class QdfTests
     public async Task ContentNormalizedByDefault()
     {
         byte[] input = BuildFilteredPage("<< /Length " + PageCrlf.Length.ToString() + " >>", PageCrlf);
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         PdfStream stream = await OutputContentsAsync(HostWith("inputs/r.pdf", pdf), pdf);
         Assert.DoesNotContain((byte)13, stream.Data);
@@ -201,7 +201,7 @@ public sealed class QdfTests
     public async Task LengthsAreIndirectObjects()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         PdfStream stream = await OutputContentsAsync(HostWith("inputs/r.pdf", pdf), pdf);
         Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Length"), out QpdfObject raw));
@@ -214,7 +214,7 @@ public sealed class QdfTests
     public async Task TwoPageClassicQdfKeepsStreamLengths()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", ".", "2", "--qdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--pages", ".", "1", ".", "2");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(HostWith("inputs/r.pdf", pdf), QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
         Assert.Equal(2, document.PageCount);
@@ -227,7 +227,7 @@ public sealed class QdfTests
     public async Task NoOriginalObjectIdsSuppressesComments()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--no-original-object-ids");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--no-original-object-ids", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.ASCII.GetString(pdf);
         Assert.DoesNotContain("Original object ID", text, StringComparison.Ordinal);
@@ -239,7 +239,7 @@ public sealed class QdfTests
     public async Task NormalizeExplicitNoKeepsNewlines()
     {
         byte[] input = BuildFilteredPage("<< /Length " + PageCrlf.Length.ToString() + " >>", PageCrlf);
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--pages", ".", "1", "--qdf", "--normalize-content=n");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--qdf", "--normalize-content=n", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         PdfStream stream = await OutputContentsAsync(HostWith("inputs/r.pdf", pdf), pdf);
         Assert.Contains((byte)13, stream.Data);
@@ -249,7 +249,7 @@ public sealed class QdfTests
     public async Task ExplicitOverridesRestoreFlate()
     {
         byte[] input = BuildFilteredPage("<< /Length " + PageRaw.Length.ToString() + " >>", PageRaw);
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--pages", ".", "1", "--qdf", "--normalize-content=n", "--compress-streams=y");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--qdf", "--normalize-content=n", "--compress-streams=y", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.ASCII.GetString(pdf);
         Assert.Contains("FlateDecode", text, StringComparison.Ordinal);
@@ -261,7 +261,7 @@ public sealed class QdfTests
     {
         byte[] flated = FlateBytes(PageCrlf);
         byte[] input = BuildFilteredPage("<< /Length " + flated.Length.ToString() + " /Filter /FlateDecode >>", flated);
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--pages", ".", "1", "--qdf", "--decode-level=none");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(HostWith("inputs/a.pdf", input), "--qdf", "--decode-level=none", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.ASCII.GetString(pdf);
         Assert.DoesNotContain("FlateDecode", text, StringComparison.Ordinal);
@@ -272,7 +272,7 @@ public sealed class QdfTests
     public async Task RoundTripsThroughOwnReaderAndPig()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(HostWith("inputs/r.pdf", pdf), QpdfPath.From("inputs/r.pdf"), CancellationToken.None);
         Assert.Equal(1, document.PageCount);
@@ -285,7 +285,7 @@ public sealed class QdfTests
     public async Task JobParityMatchesArgvBytes()
     {
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
@@ -317,7 +317,7 @@ public sealed class QdfTests
     public async Task ObjectStreamsGenerateProducesStreamedQdf()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--object-streams=generate", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.Latin1.GetString(pdf);
         Assert.Contains("%QDF-1.0", text, StringComparison.Ordinal);
@@ -336,7 +336,7 @@ public sealed class QdfTests
     public async Task ObjectStreamsQdfOffsetsLandOnValues()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--object-streams=generate", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.Latin1.GetString(pdf);
         int headerAt = text.IndexOf("/Type /ObjStm", StringComparison.Ordinal);
@@ -374,7 +374,7 @@ public sealed class QdfTests
     public async Task ObjectStreamsQdfNoOriginalIdsSuppressesComments()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--no-original-object-ids", "--object-streams=generate");
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--qdf", "--no-original-object-ids", "--object-streams=generate", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         string text = Encoding.Latin1.GetString(pdf);
         Assert.DoesNotContain("Original object ID", text, StringComparison.Ordinal);
@@ -387,7 +387,7 @@ public sealed class QdfTests
     public async Task ObjectStreamsQdfJobParityMatchesArgvBytes()
     {
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--qdf", "--object-streams=generate", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
@@ -418,7 +418,7 @@ public sealed class QdfTests
     public async Task NoOriginalIdsJobParityHolds()
     {
         InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--pages", ".", "1", "--qdf", "--no-original-object-ids");
+        (QpdfExecutionResult argvResult, byte[] a) = await RunAsync(argvHost, "--qdf", "--no-original-object-ids", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(

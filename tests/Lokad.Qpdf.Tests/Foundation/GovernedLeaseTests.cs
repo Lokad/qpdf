@@ -15,7 +15,7 @@ public sealed class GovernedLeaseTests
     {
         CountingHost host = new(Fixture("minimal-1page.pdf"));
         QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1L };
-        QpdfCommandInvocation command = new(["a", "--pages", ".", "1", "--linearize", "--linearize-pass1=pass1", "--", "out"]);
+        QpdfCommandInvocation command = new(["a", "--linearize", "--linearize-pass1=pass1", "--pages", ".", "1", "--", "out"]);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, command, new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);

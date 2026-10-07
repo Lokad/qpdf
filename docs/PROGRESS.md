@@ -1,5 +1,50 @@
 # Progress
 
+## Pages-block grammar correction
+
+Plain and mixed argv now share pages-option validation before main options are
+extracted. Main options inside `--pages` reject before PDF access; file/range
+options require `=value`. A positional token after a named file starts another
+source. Replacement requires the pages terminator, and completed trailing
+overlay/underlay/attachment blocks return to main output context. Main label
+blocks use the shared job parser, including native empty-block no-op behavior.
+The shared crypto precheck keeps excluded operations ahead of PDF/configuration/
+password input access.
+The new boundary scan observes work/cancellation; plain parse failures retain
+observed counters. Broader frontend ownership/counters and grammar remain open.
+
+Locked restore/Release passes with zero warnings/errors. The buildable component
+passes **7224 offline cases / 81 new controls**; frozen wider integration passes
+**7957 / 81**. All 7143 preceding isolated and 7876 preceding root stable IDs
+remain. Thirty-three existing test sources and nine packed-consumer argv calls
+use legal argument placement. Their assertions, numeric limits, timing calls and
+PDF construction remain; reference checks also remain. The same final assembly
+on preceding pending runtime fails **44 / preserves 29 / 73 eligible**, zero
+loaders; eight new scan/context helper controls are excluded.
+
+Fresh focused native evidence passes **271 comparisons / 326 output rereads**,
+including **73 grammar comparisons / 62 rereads**, across argv/job/mixed routes.
+The fresh full pinned lane passes **1846 parser comparisons / 432 rewrites**
+on these pending sources; broader combined ownership/default gates remain open.
+Package/symbol checks, **50 consumer smokes** and both specific negatives pass
+on frozen pending runtime `36B4F491`, tests `A714D700`, build checkpoint `087f1ed`;
+nuspec repository metadata exposes no source commit or URL. These are local
+Windows results; broader default/context, visual, reference CI and release gates
+remain open.
+
+Exploratory failures remain archived: old fixture placement, initial new-test
+expectations, crypto failure priority, projected block returns, native file/range
+spellings, package-consumer placement and literal/dynamic reference arrays.
+One reference run was deliberately stopped after discovering a remaining warning
+option concatenation; the final lane uses fresh directories. Runtime/test sources
+stay frozen through final gates. No original ceiling, repetition, deadline,
+assertion or fixture was relaxed to obtain the passes.
+
+Continue resource/inspection/JSON/content/writer name consumers, views,
+collections and legacy construction. Broader ownership/diagnostics, both earlier
+scheduling observations, remaining grammar/default/interaction audits,
+A01-A07/M11 and both completion verdicts stay open. Inventory counts are unchanged.
+
 ## Governed shared-resource decision
 
 The automatic resource-pruning decision now owns its pending nodes and shared

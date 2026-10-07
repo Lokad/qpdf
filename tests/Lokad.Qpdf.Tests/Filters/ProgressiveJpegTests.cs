@@ -85,8 +85,7 @@ public sealed class ProgressiveJpegTests
     {
         InMemoryQpdfHost host = await FixtureHost(fixture);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--decode-level=all",
-                "--stream-data=uncompress", "--", "outputs/a.pdf"]), CancellationToken.None);
+            new QpdfCommandInvocation(["inputs/a.pdf", "--decode-level=all",                 "--stream-data=uncompress", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] output));

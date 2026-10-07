@@ -117,7 +117,7 @@ public sealed class FixQdfTests
     public async Task PristineClassicQdfRoundTripsIdentically()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         (QpdfExecutionResult result, byte[]? repaired) = await FixAsync(qdf);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
@@ -130,7 +130,7 @@ public sealed class FixQdfTests
     public async Task LengthenedContentStreamGetsNewLengthAndOffsets()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "(Hello)", "(HelloHello)");
         Assert.NotEqual(qdf.Length, edited.Length);
@@ -147,7 +147,7 @@ public sealed class FixQdfTests
     public async Task ShortenedContentStreamShrinksDownstreamObjects()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "(Hello)", "(Hi)");
         (QpdfExecutionResult result, byte[]? repaired) = await FixAsync(edited);
@@ -165,7 +165,7 @@ public sealed class FixQdfTests
     public async Task StreamedMemberEditRefixesTableAndLengths()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf", "--object-streams=generate");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--object-streams=generate", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "/Helvetica", "/Helvetica-Bold");
         (QpdfExecutionResult result, byte[]? repaired) = await FixAsync(edited);
@@ -206,7 +206,7 @@ public sealed class FixQdfTests
     public async Task RenumberedObjectFailsWithInvalidArguments()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "\n2 0 obj\n", "\n9 0 obj\n");
         (QpdfExecutionResult result, byte[]? repaired) = await FixAsync(edited);
@@ -220,7 +220,7 @@ public sealed class FixQdfTests
     public async Task CorruptLengthLineFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "\n37\nendobj", "\nxyz\nendobj");
         (QpdfExecutionResult result, byte[]? repaired) = await FixAsync(edited);
@@ -232,7 +232,7 @@ public sealed class FixQdfTests
     public async Task CarriageReturnsFailExplicitly()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] crlf = ReplaceBytes(qdf, new byte[] { 10 }, new byte[] { 13, 10 });
         (QpdfExecutionResult result, byte[]? repaired) = await FixAsync(crlf);
@@ -245,7 +245,7 @@ public sealed class FixQdfTests
     public async Task TruncatedInputFailsWithoutPublishing()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] cut = new byte[qdf.Length * 3 / 4];
         Buffer.BlockCopy(qdf, 0, cut, 0, cut.Length);
@@ -276,7 +276,7 @@ public sealed class FixQdfTests
     public async Task TinyOutputBudgetFails()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         InMemoryQpdfHost fixHost = HostWith("inputs/a.pdf", qdf);
         QpdfLimits limits = new QpdfLimits { MaxOutputBytes = 64L };
@@ -289,7 +289,7 @@ public sealed class FixQdfTests
     public async Task CancelledTokenReportsCanceled()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         InMemoryQpdfHost fixHost = HostWith("inputs/a.pdf", qdf);
         using CancellationTokenSource source = new();
@@ -302,7 +302,7 @@ public sealed class FixQdfTests
     public async Task SameInputOutputPathRepairsInPlace()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
-        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--pages", ".", "1", "--qdf");
+        (QpdfExecutionResult emit, byte[] qdf) = await RunAsync(host, "--qdf", "--pages", ".", "1");
         Assert.Equal(QpdfExitCode.Success, emit.ExitCode);
         byte[] edited = ReplaceFirst(qdf, "(Hello)", "(HelloHello)");
         InMemoryQpdfHost fixHost = HostWith("inputs/a.pdf", edited);

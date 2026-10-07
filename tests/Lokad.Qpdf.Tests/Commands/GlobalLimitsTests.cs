@@ -277,7 +277,7 @@ public sealed class GlobalLimitsTests
     public async Task NestedGlobalParityHolds()
     {
         byte[] input = BuildDeepPage(300);
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--parser-max-nesting=499", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--parser-max-nesting=499", "--pages", ".", "1", "--", "outputs/a.pdf" };
         InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", input);
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
@@ -704,7 +704,7 @@ public sealed class GlobalLimitsTests
     public async Task ContainerCapsJobParityHolds()
     {
         byte[] input = BuildBigPage();
-        List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", "--parser-max-container-size=1000", "--parser-max-container-size-damaged=1000", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--parser-max-container-size=1000", "--parser-max-container-size-damaged=1000", "--pages", ".", "1", "--", "outputs/a.pdf" };
         InMemoryQpdfHost argvHost = HostWith("inputs/a.pdf", input);
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);

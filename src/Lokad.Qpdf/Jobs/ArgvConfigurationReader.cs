@@ -12,16 +12,7 @@ internal static class ArgvConfigurationReader
     {
         argv = new GovernedArguments(argv, governor);
         // Excluded operations reject before any configuration/PDF/password input.
-        foreach (string token in argv)
-        {
-            governor.CheckCancellation();
-            governor.ChargeWork(1L);
-            if (token.StartsWith("--", StringComparison.Ordinal) && token.Length > 2
-                && ArgvParser.IsCryptoOption(ArgvParser.OptionName(token)))
-            {
-                throw new QpdfCryptoException("--" + ArgvParser.OptionName(token));
-            }
-        }
+        ArgvParser.RejectCryptoOptions(argv, governor);
         bool gaveInput = false;
         bool gaveOutput = false;
         bool global = false;
@@ -73,17 +64,7 @@ internal static class ArgvConfigurationReader
                     continue;
                 case "pages":
                     _ = Bare(token, cursor);
-                    int end = Terminator(argv, cursor);
-                    for (int index = cursor + 1; index < end; index++)
-                    {
-                        governor.CheckCancellation();
-                        governor.ChargeWork(1L);
-                        if (argv[index].StartsWith("--", StringComparison.Ordinal)
-                            && ArgvParser.OptionName(argv[index]) is not ("file" or "range"))
-                        {
-                            throw Invalid("Unsupported option in --pages.", index);
-                        }
-                    }
+                    int end = PagesArgumentBlock.FindEnd(argv, cursor, governor);
                     var pages = ArgvParser.ParsePagesArea(argv, cursor, end);
                     setting("pages", pages.Groups.Select(group => Optional(
                         new Dictionary<string, object> { ["file"] = group.File }, "range", group.Range)).ToArray());

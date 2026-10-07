@@ -38,7 +38,7 @@ public sealed class ProgressTests
         InMemoryQpdfHost host = await HostWithTwoSources();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--progress", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--progress", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] progressBytes));
@@ -83,7 +83,7 @@ public sealed class ProgressTests
     public async Task JobProgressMatchesArgv()
     {
         InMemoryQpdfHost argvHost = await HostWithTwoSources();
-        List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--progress", "--", "outputs/a.pdf" };
+        List<string> argv = new() { "inputs/a.pdf", "--progress", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf" };
         QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(argvHost, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] argvBytes));
@@ -122,7 +122,7 @@ public sealed class ProgressTests
         InMemoryQpdfHost host = await HostWithTwoSources();
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--verbose", "--progress", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--verbose", "--progress", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] progressBytes));
@@ -138,7 +138,7 @@ public sealed class ProgressTests
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "--progress", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--progress", "--pages", "inputs/a.pdf", "1", "--", "outputs/a.pdf"]),
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(result).Code);

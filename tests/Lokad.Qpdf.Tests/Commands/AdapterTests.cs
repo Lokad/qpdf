@@ -72,7 +72,7 @@ public sealed class AdapterTests
 
         InMemoryQpdfHost second = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfCommandInvocation separate = new(
-            ["inputs/a.pdf", "--pages", "--file", "inputs/a.pdf", "--range", "1", "--", "outputs/b.pdf"]);
+            ["inputs/a.pdf", "--pages", "inputs/a.pdf", "--range=1", "--", "outputs/b.pdf"]);
         QpdfExecutionResult other = await Qpdf.ExecuteAsync(second, separate, CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, other.ExitCode);
     }
@@ -168,7 +168,7 @@ public sealed class AdapterTests
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--flatten-annotations", "--", "outputs/a.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--flatten-annotations", "--pages", ".", "1", "--", "outputs/a.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
     }

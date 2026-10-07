@@ -55,7 +55,7 @@ public sealed class ResourceEnforcementTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1", ".", "2" };
-        argv.AddRange(flags);
+        argv.InsertRange(1, flags);
         argv.AddRange(["--", "outputs/a.pdf"]);
         await AssertBudgetExceeded(host, argv, "outputs/a.pdf");
     }
@@ -64,35 +64,35 @@ public sealed class ResourceEnforcementTests
     public async Task CoalesceYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--coalesce-contents", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--coalesce-contents", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
     public async Task NormalizeYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--normalize-content=y", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--normalize-content=y", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
     public async Task PruneYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--remove-unreferenced-resources=yes", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--remove-unreferenced-resources=yes", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
     public async Task FlattenRotationYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "rotated-1page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--flatten-rotation", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--flatten-rotation", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
     public async Task FlattenAnnotationsYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--flatten-annotations=all", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--flatten-annotations=all", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
@@ -149,28 +149,28 @@ public sealed class ResourceEnforcementTests
     public async Task LinearizeYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--linearize", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--linearize", "--pages", ".", "1", ".", "2", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
     public async Task QdfYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--qdf", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--qdf", "--pages", ".", "1", ".", "2", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
     public async Task SplitYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", ".", "2", "--split-pages", "--", "outputs/split.pdf"], "outputs/split-1.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"], "outputs/split-1.pdf");
     }
 
     [Fact]
     public async Task RotateYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--rotate=+90", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--rotate=+90", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public sealed class ResourceEnforcementTests
     public async Task GenerateAppearancesYieldsToExhaustedBudget()
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
-        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--pages", ".", "1", "--generate-appearances", "--", "outputs/a.pdf"], "outputs/a.pdf");
+        await AssertBudgetExceeded(host, ["inputs/a.pdf", "--generate-appearances", "--pages", ".", "1", "--", "outputs/a.pdf"], "outputs/a.pdf");
     }
 
     [Theory]
@@ -194,7 +194,7 @@ public sealed class ResourceEnforcementTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "inline-1page.pdf");
         List<string> argv = new() { "inputs/a.pdf", "--pages", ".", "1" };
-        argv.AddRange(flags);
+        argv.InsertRange(1, flags);
         argv.AddRange(["--", "outputs/a.pdf"]);
         await AssertBudgetExceeded(host, argv, "outputs/a.pdf");
     }

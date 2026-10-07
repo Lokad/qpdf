@@ -265,7 +265,7 @@ public async Task ToRestrictsDestinationPages()
 byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
 InMemoryQpdfHost host = HostWithTwo(primary, overlay);
-List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/a.pdf", "2", "--overlay", "inputs/o.pdf", "--to=2", "--", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/a.pdf", "2", "--", "--overlay", "inputs/o.pdf", "--to=2", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -350,7 +350,7 @@ public async Task PagesSelectionThenOverlay()
 byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
 InMemoryQpdfHost host = HostWithTwo(primary, overlay);
-List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "2", "--overlay", "inputs/o.pdf", "--", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "2", "--", "--overlay", "inputs/o.pdf", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -364,7 +364,7 @@ byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
 InMemoryQpdfHost host = HostWithTwo(primary, overlay);
 host.AddInput(QpdfPath.From("inputs/b.pdf"), primary, QpdfInputOwnership.Copy);
-List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--overlay", "inputs/o.pdf", "--", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "--overlay", "inputs/o.pdf", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
@@ -1212,7 +1212,7 @@ byte[] two = BuildAnnotPdf("[0 0 612 792]", string.Empty, new List<(string Dict,
 byte[] overlay = BuildAnnotPdf("[0 0 612 792]", "[<< /Type /Annot /Subtype /Text /Rect [10 10 60 60] /Contents (Twice) >>]", new List<(string Dict, byte[]? StreamData)>(), "BT (Stamp) Tj ET");
 InMemoryQpdfHost host = HostWithTwo(one, overlay);
 host.AddInput(QpdfPath.From("inputs/b.pdf"), two, QpdfInputOwnership.Copy);
-List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--overlay", "inputs/o.pdf", "--repeat=1", "--", "--", "outputs/a.pdf" };
+List<string> argv = new() { "inputs/a.pdf", "--pages", "inputs/a.pdf", "1", "inputs/b.pdf", "1", "--", "--overlay", "inputs/o.pdf", "--repeat=1", "--", "outputs/a.pdf" };
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
