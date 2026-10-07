@@ -1,5 +1,42 @@
 # Progress
 
+## Release completed retained-ledger state
+
+Activated retained-value receipts now reuse one weak link per ledger. The active
+governor owns that ledger and preserves admission until the last escaping
+carrier retires; surviving carriers no longer anchor a completed governor,
+storage/index, table segments or pending retirement queue. Pending acceptance
+still roots its carrier for rollback. The finalizer reuses the admitted link
+and queue node without allocating or invoking the governor. Ledger admission
+includes the shared weak-link wrapper.
+
+The buildable closure passes locked restore/Release with zero warnings/errors
+and **6995 offline cases / 22 controls** (19 new, three promoted table/filter
+alias controls). Wider frozen integration passes **7734 / 19 new**, preserving
+all 7715 preceding identities and their unchanged fixtures, ceilings,
+repetitions, thresholds, deadlines and behavior assertions. The identical final
+test assembly on the preceding strong-receipt component fails ten lifetime
+cases and preserves twelve funding/failure/cancellation cases, with zero
+loaders or excluded cases. Controls cover seven escaping carrier shapes,
+initial/additional transfer failures and retry, cancellation after accepted
+root visits, a populated retirement queue and 32 finite ledger cycles.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. These are local Windows
+lanes on the wider pending runtime, identified by its binary hash and build
+checkpoint. They do not replace the final full reference or release gates.
+
+Independent warmed managed probes confirm 128 receipts share one ledger link,
+live admission retires to zero after the last alias, and 192 completed jobs
+retain no witnessed ledger/job metadata while string/text/table aliases stay
+usable. Constructor-free geometry measures 96-byte isolated and 136-byte wider
+ledger wrappers, a 24-byte shared link and 48-byte receipts; ledger admission is
+160 bytes. Prepared inputs/keys/controllers/holders and reporting are excluded.
+Allocation, live admission and forced-GC heap remain distinct; native weak
+handles, cold/pool/codec state, whole-job/RSS, CPU and host latency remain open.
+Remaining name consumers, broader ownership/diagnostics and A01–A07/M11 remain
+pending. No compatibility inventory entry or completion verdict changes.
+
 ## Governed filter-stage resolution
 
 Filter resolution now admits one exact stage array and its disposable owner,

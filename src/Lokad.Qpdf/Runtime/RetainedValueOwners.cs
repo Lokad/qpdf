@@ -10,7 +10,10 @@ namespace Lokad.Qpdf.Runtime;
 // governor or allocates a queue entry on the finalizer thread.
 internal sealed class RetainedValueOwners
 {
-    private const long LedgerBytes = 128L;
+    // The ledger wrapper and its one shared weak link are admitted together.
+    // Active jobs own the ledger through their governor; surviving carriers
+    // must not keep a completed job's index and pending retirements alive.
+    private const long LedgerBytes = 160L;
     // Independent warmed measurements allocate 376 bytes for the segment and
     // its initial table, including eight insertions. Keep a managed allowance
     // above that geometry and cap insertions before BCL table growth. Native
@@ -23,6 +26,7 @@ internal sealed class RetainedValueOwners
     private const long SlotBytes = 24L;
     private const int SlotsPerPage = 16;
     private readonly ResourceGovernor _governor;
+    private readonly WeakReference<RetainedValueOwners> _weakSelf;
     private ParserMemoryScope? _storage;
     private int[]? _heads;
     private List<Slot[]>? _slots;
@@ -47,8 +51,9 @@ internal sealed class RetainedValueOwners
 
     private sealed class Receipt
     {
-        // Pending acceptance needs the carrier for rollback; an active receipt
-        // needs its ledger for collection. Those lifetimes never overlap.
+        // Pending acceptance roots its carrier for rollback; activation reuses
+        // the ledger's pre-admitted weak link without allocating. The governor
+        // keeps that ledger alive while admission can still be spent.
         private object? _ownerOrCarrier;
         internal Receipt? Next;
         internal readonly int Index;
@@ -66,7 +71,7 @@ internal sealed class RetainedValueOwners
 
         internal void Activate(RetainedValueOwners owner)
         {
-            _ownerOrCarrier = owner;
+            _ownerOrCarrier = owner._weakSelf;
             Volatile.Write(ref _active, 1);
         }
 
@@ -86,7 +91,7 @@ internal sealed class RetainedValueOwners
         ~Receipt()
         {
             if (Interlocked.Exchange(ref _active, 0) == 0) { return; }
-            if (_ownerOrCarrier is not RetainedValueOwners owner) { return; }
+            if (_ownerOrCarrier is not WeakReference<RetainedValueOwners> reference || !reference.TryGetTarget(out RetainedValueOwners? owner)) { return; }
             Interlocked.Add(ref owner._retiredBytes, Bytes);
             Receipt? previous;
             do
@@ -104,7 +109,11 @@ internal sealed class RetainedValueOwners
         internal long Bytes;
     }
 
-    private RetainedValueOwners(ResourceGovernor governor) { _governor = governor; }
+    private RetainedValueOwners(ResourceGovernor governor)
+    {
+        _governor = governor;
+        _weakSelf = new(this);
+    }
 
     internal static RetainedValueOwners Create(ResourceGovernor governor)
     {
