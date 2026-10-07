@@ -1,5 +1,38 @@
 # Progress
 
+## Scoped writer encodings
+
+A shared owner borrows immutable name/string bytes and admits one exact result
+before allocation. Ordinary/QDF value and key formatting, both writers' ASCII
+paths and object-stream captures keep encoded bytes funded through sink awaits,
+then drop backing before retirement. Width scans, zeroing, encoding visits and
+output bytes charge bounded work and check both cancellation routes. Escapes,
+repair sentinels, hex case and ASCII replacement remain byte-compatible.
+
+The isolated component passes locked restore/Release and **6625 offline cases /
+45 new controls**. Pending integration passes **7022 offline cases / 109 new
+controls**, including 32 stable memory/lifetime regressions, eight preserved
+spelling cases and 24 retained-task outcomes. The identical final assembly
+**fails 32 / preserves eight** of 40 eligible cases on the preceding library,
+with zero loader/identity drift; 69 new-type/private-state cases are excluded.
+Fresh **147 focused native comparisons / 162 output rereads**, including **54
+exact binary-value rereads**, package/symbol checks, **50 consumer smokes** and
+both specific negatives pass. Original fixtures/ceilings, locks, case identities,
+inventory and warning policy remain unchanged. The initial private binary page
+needed an empty Resources dictionary; its warning/source are archived.
+
+Independent warmed probes retain 128 ASCII/name/literal/hex results over prepared
+64-KiB inputs. Managed allocation is **8400896 / 25179136 / 33567744 / 16790528
+bytes**; forced-GC retained heap matches those values, live admission
+**8409088 / 25186432 / 33575168 / 16797952**. Disposal retires admission to zero;
+rooted empty wrappers retain **4096** heap bytes, dropping holders leaves one
+**32-byte** local. Prepared values/governors/delegates/holders and geometry
+constructors are excluded, as are outer header/payload/index/xref/sort/hint/codec,
+broader encoding, cold/native/whole-job/RSS and CPU/host latency. These are local
+Windows/pre-commit observations. Constructed header strings, IDs/indents, other
+xref/sort paths, hints, legacy owners and all A01–A07/M11/verdict gates stay open.
+
+
 ## Owned object-stream outer headers
 
 Ordinary, QDF and both linearized passes share bounded decimal/byte formatting
