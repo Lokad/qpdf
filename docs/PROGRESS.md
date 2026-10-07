@@ -1,5 +1,50 @@
 # Progress
 
+## Governed PDF name storage
+
+A reusable name table admits wrapper/array capacities and growth overlap before
+allocation, charges hashing, every bucket visit, raw-byte equality and enumeration,
+and checks both cancellation routes. Raw-span lookup allocates no name/display
+text. Small tables preserve three/seven-slot geometry; larger known copies admit
+their exact extent. Frozen storage drops its weak construction link and retains
+no governor, token or callback. Binary keys, first-key identity, duplicate
+last-wins order and borrowed values remain intact.
+
+The isolated component passes locked restore/Release with zero warnings/errors
+and **6876 offline cases / 16 new controls**. Pending dictionary backing,
+parser/recovery, owned copier/remapper and governed lookup integration passes
+**7604 offline cases / 22 new controls**: five compatible parser/writer controls
+and one pending-ledger lifetime control alongside the component. All 7582 prior
+identities remain. The identical final assembly **fails three / preserves two
+of five** eligible cases on the preceding library, with zero loader failures.
+Original fixtures, ceilings, repetitions, thresholds, deadlines and exact receipt
+assertions remain; one prior control's enumerator type annotation follows the
+changed internal representation. Initial compile/measurement errors and the
+four-slot receipt mismatch are archived. An unchanged isolated page-visit
+observation failed once; its unchanged full-suite repeat passes.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. These are local Windows
+results with preceding-commit package metadata, separate from the full reference
+lane and final diagnostic correction.
+
+Independent warmed 128-owner empty/known-512/grown-512/colliding-32/borrowed-2-MiB
+phases measure allocation **16384 / 1857536 / 7369728 / 137216 / 1857536 bytes**,
+retained heap **13312 / 1854464 / 3686400 / 134144 / 1854464**, live admission
+**20480 / 1863680 / 3695104 / 143360 / 1863680**. Table/scope geometry is near
+**64/40 bytes**; 10,000 combined value/parsed arrays allocate **280048/360048**,
+admitted as **280064/360064**. Dropping table references before scope disposal
+retires admission to zero; rooted disposed scopes retain **5120** heap bytes,
+dropping scope holders leaves zero. Prepared names/values/payload/governors/
+holders/reporting and geometry constructors are excluded. Earlier probe frames
+retained temporary tables; those observations remain archived separately.
+
+Wider integration remains pending. Legacy unowned construction, other runtime
+name lookups/collections, hints/presentation, codec/cold/native/pool/whole-job/RSS,
+CPU/host latency, final full reference/visual CI and all A01–A07/M11/verdict
+requirements remain open. Accepted alias funding relies on the pending weak
+ledger correction and has separate integration coverage.
+
 ## Scoped streamed QDF values and headers
 
 A reusable value owner admits rebuilt references/arrays/dictionaries/headers
