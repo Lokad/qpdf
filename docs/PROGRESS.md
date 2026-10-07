@@ -1,5 +1,43 @@
 # Progress
 
+## Governed form-name classification
+
+Checker field/widget classification and parent-link validation now use the
+shared raw-name lookup with explicit work and both cancellation routes. Borrowed
+`T`, `Kids`, `FT`, `Parent` and `Subtype` lookups create no temporary names;
+widget recognition compares raw bytes without display strings. Non-null field
+truth, short-circuit order, parent object-number matching and warnings remain.
+Active lookup stores no execution state in the borrowed values.
+
+The buildable closure passes locked restore/Release with zero warnings/errors
+and **7030 offline cases / 35 new controls**. Wider frozen integration passes
+**7769 / 35 new**, preserving all 7734 preceding stable test IDs; all 6995 prior
+isolated IDs remain. Original fixtures, ceilings, repetitions, thresholds,
+deadlines and assertions are unchanged, including eight form-owner controls.
+The same final test assembly on the preceding pending runtime fails thirteen
+work/cancellation/allocation cases and preserves twenty-two behavior cases, with
+zero loaders or exclusions. An explicit private context adapter binds the
+preceding dictionary-only predicates; prepared values, budgets and tokens stay
+identical. Parent warning/generation behavior uses the unchanged checker entry.
+
+Fresh **153 focused native comparisons / 174 rereads**, package/symbol checks,
+**50 consumer smokes** and both specific negatives pass. Independent warmed
+128-invocation probes report zero allocation, retained heap and live admission
+for five borrowed classification scenarios. Work counts each visit/comparison;
+128 completed contexts leave no governors or token sources alive. Prepared
+names/maps/payloads/controllers/holders/delegates and reporting are excluded.
+Cold/native/pool/codec, whole-job/RSS, CPU and host latency remain open.
+
+Catalog/registration and child-array/annotation/page-content lookup still need
+coordination with their construction, traversal and resolver boundaries. Broader
+name consumers, ownership/diagnostics, full reference/release gates, A01-A07/M11
+and both completion verdicts remain open. No inventory entry changes.
+
+One initial full run failed a writer GC lifetime observation. All 18 writer
+controls pass on final and preceding runtimes in isolation; the unchanged full
+rerun passes 7769. The failed observation remains recorded for the broader
+completed-task/GC scheduling audit; no source, fixture or assertion changed.
+
 ## Release completed retained-ledger state
 
 Activated retained-value receipts now reuse one weak link per ledger. The active
