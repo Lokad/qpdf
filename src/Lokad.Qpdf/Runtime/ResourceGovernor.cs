@@ -37,6 +37,8 @@ internal sealed class ResourceGovernor
 
     internal CancellationToken CancellationToken => _cancellationToken;
 
+    internal long MaxNestingDepth => _limits.MaxNestingDepth;
+
     private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L));
 
     internal void ReserveMemory(long bytes)

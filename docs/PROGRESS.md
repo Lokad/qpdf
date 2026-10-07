@@ -1,5 +1,34 @@
 # Progress
 
+## Scoped object remapping
+
+A reusable remapped-model owner admits rebuilt references, array/dictionary
+storage, index capacities and overlap before allocation. It borrows immutable
+stream payloads for header rewrites; shared serialization emits those bytes
+directly. Public construction and returned copies stay immutable. Failed
+construction, cancellation and disposal retire only the attempt's metadata;
+prior owners and borrowed values survive. Remapping checks nesting and both
+cancellation routes through the shared implementation.
+
+The isolated component passes locked restore/Release build and **6478 offline
+cases / 11 new controls**, zero failures/skips. Its pending classic/streamed/
+fallback integration passes **6679 offline cases / 44 new controls**, including
+both-pass funding and nine retained completed-task lifetime cases. The identical
+final assembly's **24 eligible writer regressions fail on the preceding DLL**,
+with zero loader failures and unchanged test identities. Fresh **84 native
+cases / 36 output validations**, package/symbol checks, **50 consumer smokes**
+and both specific rejection controls pass.
+
+Independent warmed remap probes keep 128 owners over borrowed 1-MiB payloads.
+With 1024 references per result, managed allocation and retained heap are
+**4271104 bytes**, live metadata admission **5343744**; disposal retires that
+admission to zero. Rooted empty wrappers retain **4096** heap bytes; dropping
+holders leaves one **32-byte** local wrapper. Prepared inputs/indexes/governor,
+writer layouts/emission/replay/hints, cold/native state, whole-job/RSS and latency
+are excluded. This is local Windows/pre-commit package evidence. Pass layouts,
+buffers/hints, name-key collision work, legacy unscoped owners, presentation/
+snapshots and broader A01–A07/M11/verdict requirements remain open.
+
 ## Governed integer collections
 
 The reusable internal integer dictionary/set charges every bucket-chain and

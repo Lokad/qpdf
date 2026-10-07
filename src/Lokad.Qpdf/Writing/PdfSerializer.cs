@@ -660,7 +660,7 @@ internal sealed partial class PdfSerializer
 
     private async ValueTask AppendStreamAsync(PdfStream stream, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
-        byte[] data = stream.Data;
+        ReadOnlyMemory<byte> data = stream.RawMemory;
         await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
         foreach (PdfName key in stream.Dictionary.Keys)
         {
@@ -698,14 +698,14 @@ internal sealed partial class PdfSerializer
         await AppendBytesAsync(System.Text.Encoding.ASCII.GetBytes(text), sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask AppendBytesAsync(byte[] chunk, IByteSink sink, CancellationToken cancellationToken)
+    private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
     {
         int offset = 0;
         while (offset < chunk.Length)
         {
             cancellationToken.ThrowIfCancellationRequested();
             int take = Math.Min(WriteSplitBytes, chunk.Length - offset);
-            await sink.AppendAsync(chunk.AsMemory(offset, take), cancellationToken).ConfigureAwait(false);
+            await sink.AppendAsync(chunk.Slice(offset, take), cancellationToken).ConfigureAwait(false);
             offset += take;
         }
     }

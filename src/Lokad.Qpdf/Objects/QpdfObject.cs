@@ -350,6 +350,10 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
 {
     private readonly QpdfObject[] _items;
 
+    private PdfArray(QpdfObject[] ownedItems) { _items = ownedItems; }
+
+    internal static PdfArray FromOwnedItems(QpdfObject[] items) => new(items);
+
     /// <summary>Creates an array, copying the items.</summary>
     /// <exception cref="ArgumentNullException">The items are null.</exception>
     public PdfArray(IReadOnlyList<QpdfObject> items)
@@ -537,7 +541,9 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
 
     /// <summary>Creates a stream, copying the data.</summary>
     /// <exception cref="ArgumentNullException">Dictionary or data is null.</exception>
-    public PdfStream(PdfDictionary dictionary, byte[] data)
+    public PdfStream(PdfDictionary dictionary, byte[] data) : this(dictionary, data, true) { }
+
+    private PdfStream(PdfDictionary dictionary, byte[] data, bool copyData)
     {
         Dictionary = dictionary ?? throw new ArgumentNullException(nameof(dictionary));
         if (data is null)
@@ -545,7 +551,7 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
             throw new ArgumentNullException(nameof(data));
         }
 
-        _data = (byte[])data.Clone();
+        _data = copyData ? (byte[])data.Clone() : data;
     }
 
     /// <summary>Gets the stream dictionary.</summary>
@@ -555,6 +561,9 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
     public byte[] Data => (byte[])_data.Clone();
 
     internal ReadOnlyMemory<byte> RawMemory => _data;
+
+    // Header-only rewrites keep the immutable payload's existing owner.
+    internal PdfStream WithDictionary(PdfDictionary dictionary) => new(dictionary, _data, false);
 
     internal object AllocationCarrier => _data;
 
