@@ -1,5 +1,43 @@
 # Progress
 
+## Scoped cross-reference results
+
+A reusable xref owner admits one exact array, its wrapper/scope and optional
+compressed result before allocation. Shared binary integer fields preserve
+widths/free/direct/member spelling. Entry writes charge work and check both
+cancellation routes. Compression keeps raw/output overlap funded, then drops
+raw backing before retiring its admission. Pending ordinary/QDF integration
+keeps results funded across header/body awaits and detaches them before closing
+syntax; disposed owners drop governor/token references. QDF member comments
+transfer and retire their capture buffer before value capture, removing an
+unnecessary overlap under the unchanged 32-cycle/32-KiB control.
+
+The isolated component passes locked restore/Release and **6827 offline cases /
+94 new controls**. Frozen pending integration passes **7458 offline cases / 150
+new controls**, including 29 compatible writer and 27 retained-task outcomes.
+The identical final assembly **fails 33 / preserves 26 of 59** eligible cases
+on the preceding library, with zero loader/identity drift. Eligibility includes
+30 preceding index controls with stricter zero-xref-residue assertions; 121
+new-type/private-state cases are excluded. All 7308 preceding identities remain.
+Fresh **147 native comparisons / 162 rereads**, including **54 exact binary-value
+rereads**, package/symbol checks, **50 consumer smokes** and both specific
+negatives pass. The QDF transient-overlap failure stays archived; its fixture,
+ceiling, repetitions and deadlines remain unchanged. Four recently added index
+cleanup assertions now require zero xref residue; other test sources/controls
+retain their previous content.
+
+Independent warmed 128-owner/8192-entry raw/compressed/varied probes measure
+cumulative allocation **7357440 / 18844672 / 29972480 bytes**, retained heap
+**7357440 / 4112384 / 6848512**, live admission **7364608 / 4119168 / 6855040**.
+Wrapper/scope geometry is **72/40 bytes**, admitted as 96/64. Disposal retires
+admission to zero; rooted empty wrappers retain **9216** heap bytes, dropping
+holders leaves one **72-byte** local. A retained temporary probe view was moved
+into a separate frame; its original source/binaries/observations remain archived.
+Prepared inputs/governors/delegates/holders/reporting and geometry constructors
+are excluded. Codec working/native/cold/pool bounds, other graphs/lists/header
+copies/hints, whole-job/RSS and CPU/host latency remain open, alongside wider
+integration, the full diagnostic correction and all A01–A07/M11/verdict gates.
+
 ## Scoped writer integer indexes
 
 A reusable integer-index owner admits its wrapper, scope, backing capacities

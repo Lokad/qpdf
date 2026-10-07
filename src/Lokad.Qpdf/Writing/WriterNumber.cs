@@ -15,4 +15,13 @@ internal static class WriterNumber
         }
         return written;
     }
+
+    internal static void WriteUInt(Span<byte> output, long value)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(output.Length, sizeof(long));
+        for (int index = 0; index < output.Length; index++)
+        {
+            output[index] = (byte)((value >> (8 * (output.Length - index - 1))) & 0xFFL);
+        }
+    }
 }
