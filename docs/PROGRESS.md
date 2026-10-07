@@ -1,5 +1,43 @@
 # Progress
 
+## Owned writer formatting
+
+A shared byte formatter borrows fields and admits one exact result before
+allocation. Pending ordinary/QDF/linearized integration uses it for headers,
+versions, integer/reference fields, trailers/xref headers, IDs, indentation and
+comments, including hint prefixes. QDF marks store structured page/contents
+values. Classic D10 digits, 21-character Prev fields and the 200-byte replay
+region retain exact syntax and padding. Results stay funded through sink awaits
+and drop backing before retirement; field/byte visits and zeroing charge work
+with both cancellation routes. Mark tables, stream-data copies, xref/index/sort
+paths, hint bodies and legacy codec owners remain under audit.
+
+The isolated component passes locked restore/Release and **6687 offline cases /
+62 new controls**. Pending integration passes **7134 offline cases / 112 new
+controls**, including 32 stable writer controls and 18 retained-task outcomes.
+The identical final assembly **fails eight / preserves 24** eligible cases on
+the preceding library, with zero loader/identity drift; 80 new-type/private-state
+cases are excluded. All 7022 preceding offline identities remain. Fresh **147
+focused native comparisons / 162 output rereads**, including **54 exact binary
+value rereads**, package/symbol checks, **50 consumer smokes** and both specific
+negatives pass. Original fixtures/ceilings/thresholds/assertions, locks, inventory
+and warning policy remain unchanged. Expanded test fixtures needed compile
+corrections; the stale-assembly run is archived and excluded from final evidence.
+
+Independent warmed 128-owner header/ID/indent/region probes measure managed
+allocation and forced-GC retained heap at **25600 / 33568768 / 8401920 / 37888
+bytes**, live admission **33024 / 33576448 / 8409472 / 46080**. Inline header/ID
+carriers allocate identically to prepared carriers; 148 writer/generated methods
+contain no part-array/boxing allocation. Disposal retires admission to zero;
+rooted empty wrappers retain **4096** heap bytes, dropping holders leaves one
+**32-byte** local. Reporting counter records are excluded consistently in the
+final probe; initial instrumentation and decoder errors are archived.
+Prepared fields/governors/delegates/holders and geometry constructors are
+excluded, as are xref bodies/indexes/sorts/hint bodies/codecs, cold/native/
+whole-job/RSS and CPU/host latency. These are local Windows/pre-commit observations
+from separate allocation/retention governors using the existing test-friend
+identity. Remaining writer/diagnostic work and all A01–A07/M11/verdict gates stay open.
+
 ## Scoped writer encodings
 
 A shared owner borrows immutable name/string bytes and admits one exact result
