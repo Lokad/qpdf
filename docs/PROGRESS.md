@@ -1,5 +1,31 @@
 # Progress
 
+## Governed integer collections
+
+The reusable internal integer dictionary/set charges every bucket-chain and
+enumeration visit and checks both explicit and governor cancellation tokens.
+Dense backing preserves encounter order. Capacity growth admits both arrays
+and overlap before allocation; late rebuild failures preserve old backing and
+caller admission. Creation-scope checks prevent cross-owner releases. Removed
+entries drop their borrowed values and reuse slots without an allocation.
+
+The isolated helper unit passes locked restore/Release build with zero warnings/
+errors and **6467 offline cases**, including **16 new controls**, zero failures/
+skips. Classifier/renumber/inspection integration remains separately uncommitted
+in the diagnostic correction. Its frozen tree passes **6635 offline cases / 21
+new controls**, with **three stable collision regressions failing on the preceding
+DLL**, zero loaders/identity drift. Fresh **84 native cases / 36 output validations**,
+package/symbol checks, **50 consumer smokes** and both specific rejections pass.
+
+Independent warmed probes observe backing entries at **12/16 bytes**, array
+headers at **24**, and integer-wrapper batches near **80 bytes/object**; the
+144-byte allowance includes the creation scope retained after transfer. Separate
+128-result allocation/retention phases stay funded and return admission to zero
+after disposal. Prepared/cold/native/writer-replay/whole-job/RSS/latency state is
+excluded. Original ceilings/fixtures/warnings and five locks stay unchanged.
+Remaining writer/hint/JSON-image owners, presentation/snapshots, final diagnostic
+reference/metadata verification and all A01–A07/M11 verdicts remain open.
+
 ## Committed argv correction: whole-file rewriting
 
 Bare argv input/output pairs now use the shared whole-file job plan, with an
