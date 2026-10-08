@@ -71,9 +71,13 @@ binary bytes separately from diagnostics, distinguishing absent and empty payloa
 Failure or cancellation discards staged bytes. Filtered output uses shared governed
 normalization; command checking and split writing share admitted reachability
 traversal. Overlay/underlay and broader transformation/default/context audits
-remain open. Checker/page-count results snapshot the governor after input
-disposal. Broader invocation/presentation counters and diagnostic ownership
-remain under audit.
+remain open. Public execution and typed result boundaries refresh immutable
+counter snapshots after their core, configuration and input/output scopes finish.
+Failures and cancellation retain observed work; typed throwing routes keep their
+existing exception contract. Counter copies preserve warning/mapping/text/binary
+references and readonly public properties. Later weak-receipt collection can reduce
+live governor memory after a returned snapshot. Broader presentation/storage and
+diagnostic ownership remain under audit.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

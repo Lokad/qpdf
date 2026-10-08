@@ -20,6 +20,11 @@ The committed physical checker rejects all eight preserved invalid form outputs
 and accepts the corrected/native layouts; HINT-02 is retired by final source-bound
 public, reference and package verification. See the finite public-route
 checks and pass conditions in [AUDIT-CLOSURE](AUDIT-CLOSURE.md).
+DIAG-02C corrects lost observed counters on direct argv/response failures and
+cancellation, and snapshots taken before typed/companion cleanup. The public
+counter controls cover full jobs and existing exception/publication contracts;
+final integrated verification remains pending. Diagnostic ownership/presentation
+and the broader gates remain open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

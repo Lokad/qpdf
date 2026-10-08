@@ -1,5 +1,34 @@
 # Progress
 
+## Final counter correction in progress
+
+DIAG-02C addresses observed counters lost on direct argv/response failures and
+cancellation, and typed/companion snapshots captured before cleanup. Public
+boundaries now refresh the shared governor snapshot after their core and lease
+scopes finish. Loaded jobs retain their existing post-configuration snapshot;
+status, diagnostics, payloads and publication order are preserved. Private typed
+result copies retain existing warning/mapping/text references and readonly public
+properties; no public signatures are added.
+
+All **413 complete public controls** pass: 376 raw/Flate read/write jobs,
+21 response/nested/mixed/multiple-file configuration jobs and 16 actual short-read
+host-budget failures after the first completed byte. Success, read/write/publish/
+close faults and after-start cancellation preserve immutable counters, fileless
+payloads, accepted output aliases and existing publication order; zero leases and
+handles remain. If disposal fails after commit, the published output stays
+published, preserving the existing host contract rather than implying rollback.
+All eight fields match the actual final governor in an exclusive 16 MiB no-GC
+observation window for the 376 read/write jobs; later weak retirement is not a
+snapshot mutation. Existing ownership GC controls remain unchanged.
+
+Identical final tests on preceding `858BEE55`: **149 fail / 264 preserve / 413
+eligible**, all failures are counter assertions, no loaders/skips/exclusions.
+The additional **331 affected existing checks** pass. Earlier draft build errors,
+ten early CPU-work assumptions and a later-GC observation remain separate.
+Original fixtures, budgets, deadlines and cancellation/GC controls are preserved.
+Final source/reference/package evidence is still pending; DIAG-02C and broader
+DIAG-01/02 remain open.
+
 ## Hint ownership correction
 
 HINT-03E/W/R/V and HINT-03 are retired by the combined correction at `4c60a78`

@@ -101,6 +101,15 @@ public sealed record QpdfJsonOptions
 /// <summary>Outcome of JSON inspection.</summary>
 public sealed record QpdfJsonResult
 {
+    private QpdfJsonResult(QpdfJsonResult original, QpdfExecutionCounters counters)
+    {
+        Json = original.Json;
+        Warnings = original.Warnings;
+        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
+    }
+
+    internal QpdfJsonResult WithCounters(QpdfExecutionCounters counters) => new(this, counters);
+
     /// <summary>Creates an inspection outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfJsonResult(
@@ -125,6 +134,15 @@ public sealed record QpdfJsonResult
 /// <summary>Outcome of a JSON import.</summary>
 public sealed record QpdfJsonImportResult
 {
+    private QpdfJsonImportResult(QpdfJsonImportResult original, QpdfExecutionCounters counters)
+    {
+        PageCount = original.PageCount;
+        Warnings = original.Warnings;
+        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
+    }
+
+    internal QpdfJsonImportResult WithCounters(QpdfExecutionCounters counters) => new(this, counters);
+
     /// <summary>Creates an import outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfJsonImportResult(
