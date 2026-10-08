@@ -9,14 +9,14 @@ groups/members/identifiers and outline identity/count/offset/length. Integer /P
 and deprecated content fields retain the pinned checker's ignored semantics.
 Show-linearization reports bad physical claims while retaining parsed raw fields.
 
-Focused evidence covers **1016 complete public jobs**: all 24 preserved form
-observations over seven routes; 48 independent native-classified mutations/valid
+Focused evidence covers **1058 complete public jobs**: all 24 preserved form
+observations over seven routes; 54 independent native-classified mutations/valid
 controls over seven routes; all original 64 pairs/128 layouts over check/show argv
 and job routes. The native controls accept multi-object groups and alternate
 valid /E,/T and hint-span boundaries. Eight scratch controls preserve the original
 32 KiB/32-cycle limits and exercise failed admission, late work exhaustion and
-both cancellation tokens. Complete hint-body/public-job ownership remains HINT-03.
-The final integrated source, reference, package and consumer verification is pending;
+both cancellation tokens. Two independently assembled overflow layouts pass native checking; four short/long overflow-span mutations fail. Complete hint-body/public-job ownership remains HINT-03.
+The initial full run preserves all 9767 prior cases except the outline-offset message contract (10790 pass / one fail). The corrected validator preserves that diagnostic; the interrupted reference and qualified package run remain historical evidence. Final integrated source, reference, package and consumer verification is pending;
 HINT-02 retires only after that evidence is recorded.
 
 ## Combined implementation

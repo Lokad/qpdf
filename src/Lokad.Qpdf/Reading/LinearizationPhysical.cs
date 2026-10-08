@@ -327,14 +327,14 @@ internal sealed class LinearizationPhysical : IDisposable
         if (table.ObjectCount == 0) { return; }
         if (table.FirstObject != graph.Outlines[0])
         {
-            throw new QpdfParseException("Outline hint names the wrong physical first object.", null, null);
+            throw new QpdfParseException("Incorrect offset in outlines table. Outline hint names the wrong physical first object.", null, null);
         }
         long end = 0L;
         foreach (int number in graph.Outlines) { end = Math.Max(end, Extent(number).WhitespaceEnd); }
         long start = Extent(table.FirstObject).Start;
         if (Adjusted(table.FirstOffset) != start || table.GroupLength != end - start)
         {
-            throw new QpdfParseException("Outline hint offset/length disagrees with physical boundaries.", start, table.FirstObject);
+            throw new QpdfParseException("Incorrect offset in outlines table. Outline hint offset/length disagrees with physical boundaries.", start, table.FirstObject);
         }
     }
 }
