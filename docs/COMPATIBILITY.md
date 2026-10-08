@@ -341,6 +341,26 @@ Those warning/default/context gaps and full image-payload parity remain open.
 Paired warm process measurements do not resolve the older grouped 24-byte result
 or establish exclusive helper/whole-job retention. No inventory label changes.
 
+## Inline reconstruction qualification
+
+Inline parsing, naming, candidate/output storage and resource/header rebuilding now
+share the admitted parser/builders. Source-reference remapping and existing image
+behavior are preserved. The pending/isolated suites pass 8472/7749 cases with 29 new
+controls. Thirty new authored page/form observations match twelve cases and expose
+eighteen inherited mismatches: indirect XObject dictionaries lose existing resource
+names, and form-local named colorspaces remain unresolved. All thirty managed
+outputs/public exits are unchanged against the preceding binary. Encoded form
+metadata, shared-resource propagation, full diagnostic/default/context parity and
+the preceding missing-resource warning/exit gap remain open. Inventory labels/counts
+are unchanged.
+
+Fresh local reference and package checks are development evidence qualified by
+ImageSharp advisory warnings. Unmodified strict locked restore and fresh artifact
+consumer restore fail for the pinned 3.1.12 dependency; no dependency/lock/audit
+policy change has been made. This gate requires resolution before build/release
+readiness. M11/A01–A07, original measurement obligations, visual/reference CI,
+known overlay/form findings and both independent completion verdicts remain open.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

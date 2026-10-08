@@ -9,8 +9,14 @@ internal static class InlineImageDictionary
     internal static PdfDictionary Convert(PdfDictionary raw, PdfDictionary resources,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        int capacity = CountAllocations(raw, governor, token);
-        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, AllocationCount(raw, governor, token), token);
+        PdfDictionary result = Build(graph, raw, resources, diagnostics);
+        graph.Retain(); return result;
+    }
+
+    internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary resources, DiagnosticBag diagnostics)
+    {
+        ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
         using PdfDictionary.EntryEnumerator source = raw.GetEntryEnumerator();
         while (source.MoveNext(governor, token))
@@ -35,10 +41,10 @@ internal static class InlineImageDictionary
             entries.Assign(graph.Memory, governor, convertedKey, value, token);
         }
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.Retain(); return result;
+        return result;
     }
 
-    private static int CountAllocations(PdfDictionary raw, ResourceGovernor governor, CancellationToken token)
+    internal static int AllocationCount(PdfDictionary raw, ResourceGovernor governor, CancellationToken token)
     {
         int count = 2; // Fresh table and dictionary; the batch itself stays scoped.
         using PdfDictionary.EntryEnumerator source = raw.GetEntryEnumerator();

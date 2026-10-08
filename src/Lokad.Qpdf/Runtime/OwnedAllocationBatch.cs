@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Objects;
+
 namespace Lokad.Qpdf.Runtime;
 
 /// <summary>Transfers only fresh allocations, atomically, without visiting borrowed graphs.</summary>
@@ -83,6 +85,17 @@ internal sealed class OwnedAllocationBatch : IDisposable
     }
 
     internal void Retain() => RetainCore(null);
+
+    internal void RetainParsed(QpdfObject parsed, ParserMemoryScope source)
+    {
+        ArgumentNullException.ThrowIfNull(parsed); ArgumentNullException.ThrowIfNull(source);
+        CheckMutable(); Step(); source.CheckOwner(Governor);
+        long bytes = source.ReservedBytes;
+        source.TransferTo(Memory); _retaining = true;
+        try { Memory.RetainAllocations(this, parsed, bytes); _accepted = true; }
+        catch { Memory.TransferTo(source, bytes); throw; }
+        finally { _retaining = false; }
+    }
 
     internal void RetainObserved(Action observer)
     { ArgumentNullException.ThrowIfNull(observer); RetainCore(observer); }

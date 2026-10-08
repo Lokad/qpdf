@@ -58,10 +58,15 @@ internal sealed class PdfTokenizer
     private int _position;
     private ResourceGovernor? _governor;
     private int _scanWork;
+    private readonly CancellationToken _token;
 
     internal PdfTokenizer(ReadOnlyMemory<byte> data)
+        : this(data, CancellationToken.None) { }
+
+    internal PdfTokenizer(ReadOnlyMemory<byte> data, CancellationToken token)
     {
         _data = data;
+        _token = token;
         _position = 0;
     }
 
@@ -93,6 +98,7 @@ internal sealed class PdfTokenizer
 
     private bool TryReadTokenCore(out PdfToken token, bool tolerateErrors)
     {
+        _token.ThrowIfCancellationRequested();
         SkipWhitespaceAndComments();
         if (_position >= _data.Length)
         {
@@ -444,6 +450,7 @@ internal sealed class PdfTokenizer
 
     private void ScanStep()
     {
+        _token.ThrowIfCancellationRequested();
         if (++_scanWork >= 4096)
         {
             _governor?.ChargeWork(1L);

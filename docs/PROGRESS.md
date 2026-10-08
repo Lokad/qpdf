@@ -1,5 +1,38 @@
 # Progress
 
+## Owned inline-image reconstruction
+
+Inline-image parsing and naming now use the shared parser, raw lookup and admitted
+builders. Copied data, synthetic input, tokenizer/parser scratch, candidate capacity,
+raw/Flate output and rebuilt resources/headers have owners. Parsed values and fresh
+allocations transfer atomically; failed transfer restores the source receipt.
+Borrowed colorspaces stay borrowed and copier source-reference remapping is preserved.
+
+Release builds pass with an audit-warning qualification. Pending **8472** and
+isolated **7749** offline cases pass, including **29 new controls**; all preceding
+cases, 229 original test sources and five locks remain unchanged. Thirteen eligible
+final reconstruction controls on the preceding binary fail six / preserve seven,
+with zero loader failures; sixteen new-helper controls are explicitly excluded.
+An unchanged isolated page-cancellation test first missed its ten-second threshold;
+the focused and full reruns pass without changing its controls. That observation
+remains open. Wrapper geometry fits admission. Synchronized helper probes cover
+28 processes / 56 paired samples and retirement; their earlier maintenance/sampling
+failures remain recorded. Whole-job and historical measurement attribution remain open.
+
+Fresh focused native checks, full differential/parser reference, package/symbol
+checks and qualified fresh consumer/negative checks pass. Thirty authored page/form
+observations give twelve exact matches and eighteen inherited indirect-XObject or
+form-local-colorspace mismatches; all thirty managed outputs/exits are unchanged.
+The earlier missing-resource warning/exit gap and undefined form-font mismatch persist.
+
+**Strict locked restore and fresh artifact consumer restore currently fail** on
+five ImageSharp 3.1.12 advisories. Development checks retain audit warnings and
+change only their error treatment for those commands. Dependency versions, locks
+and repository audit policy are unchanged; the original build/release gate is unmet.
+Continue resource/default fixes, parser caller-token copying, failure integration,
+legacy inspection and remaining consumers/codecs/replay/hints/presentation, then
+the complete diagnostic correction. M11/A01–A07 and both verdicts remain open.
+
 ## Owned inline-image dictionary conversion
 
 Inline-image conversion now uses the shared admitted dictionary/name/array

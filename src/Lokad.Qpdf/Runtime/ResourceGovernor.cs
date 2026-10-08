@@ -115,6 +115,13 @@ internal sealed class ResourceGovernor
         catch { DisposeEmptyValueOwners(owners); throw; }
     }
 
+    internal long RetainAllocations(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.Retain(allocations, parsed, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+    }
+
     internal void ChargeWork(long units)
     {
         if (units < 0)

@@ -170,18 +170,21 @@ internal sealed class RetainedValueOwners
 
     internal long Retain(QpdfObject value, long reservedBytes)
     {
-        return RetainCore(value, 0L, null, reservedBytes);
+        return RetainCore(value, 0L, null, reservedBytes, null);
     }
 
     internal long Retain(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
     {
-        return RetainCore(wrapper, wrapperBytes, roots, reservedBytes);
+        return RetainCore(wrapper, wrapperBytes, roots, reservedBytes, null);
     }
 
     internal long Retain(OwnedAllocationBatch allocations, long reservedBytes)
-        => RetainCore(allocations, 0L, null, reservedBytes);
+        => RetainCore(allocations, 0L, null, reservedBytes, null);
 
-    private long RetainCore(object value, long wrapperBytes, IReadOnlyList<QpdfObject>? roots, long reservedBytes)
+    internal long Retain(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
+        => RetainCore(allocations, 0L, null, reservedBytes, parsed);
+
+    private long RetainCore(object value, long wrapperBytes, IReadOnlyList<QpdfObject>? roots, long reservedBytes, QpdfObject? sourceParsed)
     {
         if (_busy) { throw new InvalidOperationException("Value ownership acceptance cannot be nested."); }
         _busy = true;
@@ -197,6 +200,7 @@ internal sealed class RetainedValueOwners
             {
                 if (value is OwnedAllocationBatch allocations)
                 {
+                    if (sourceParsed is not null) { Visit(sourceParsed, acceptance); }
                     for (int index = 0; index < allocations.Count; index++)
                     {
                         OwnedAllocationBatch.Allocation allocation = allocations.Get(index);

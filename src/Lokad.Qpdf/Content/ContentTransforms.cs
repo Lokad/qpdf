@@ -253,7 +253,7 @@ internal static class ContentTransforms
         graph.Retain(); return result;
     }
 
-    private static List<int> ReplacedContentIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    internal static List<int> ReplacedContentIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         List<int> ids = ParserContainers.CreateList<int>(memory);

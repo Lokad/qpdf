@@ -24,12 +24,17 @@ internal sealed class PdfParser
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
     private readonly IIndirectResolver? _resolver;
+    private readonly CancellationToken _token;
     private ParserMemoryScope? _memory;
     private int _dictionaryReceiptDepth = -1;
     private IReadOnlyDictionary<PdfName, ParsedValue>? _dictionaryReceipts;
     private ParserMemoryScope Memory => _memory ?? throw new InvalidOperationException("Parser allocation has no attempt owner.");
 
     internal PdfParser(QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, IIndirectResolver? resolver)
+        : this(limits, governor, diagnostics, resolver, governor?.CancellationToken ?? CancellationToken.None) { }
+
+    internal PdfParser(QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, IIndirectResolver? resolver,
+        CancellationToken token)
     {
         if (limits is null)
         {
@@ -41,6 +46,7 @@ internal sealed class PdfParser
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
         _resolver = resolver;
+        _token = token;
     }
 
     /// <summary>Allows object syntax repair without relaxing host resource ceilings.</summary>
@@ -123,7 +129,7 @@ internal sealed class PdfParser
 
     private bool TryReadValueToken(PdfTokenizer tokenizer, out PdfToken token)
     {
-        _governor.ChargeWork(1L);
+        ChargeWork(1L);
         bool found = tokenizer.TryReadToken(out token, TolerateObjectErrors, _governor);
         if (found)
         {
@@ -222,9 +228,13 @@ internal sealed class PdfParser
         }
     }
 
+    private void ChargeWork(long bytes)
+    { _token.ThrowIfCancellationRequested(); _governor.ChargeWork(bytes); }
+
     private void ReserveMemory(long bytes)
     {
         if (_memory is null) { throw new InvalidOperationException("Parser allocation has no attempt owner."); }
+        _token.ThrowIfCancellationRequested();
         _memory.Reserve(bytes);
     }
 
@@ -537,7 +547,7 @@ internal sealed class PdfParser
         {
             if ((i & 4095) == 0)
             {
-                _governor.ChargeWork(1L);
+                ChargeWork(1L);
                 _governor.CheckCancellation();
             }
 
@@ -641,7 +651,7 @@ internal sealed class PdfParser
 
             if (token.Kind == PdfTokenKind.ArrayClose)
             {
-                _governor.ChargeWork(items.Count);
+                ChargeWork(items.Count);
                 _governor.CheckCancellation();
                 return ParserContainers.CopyArray(Memory, items);
             }
@@ -772,7 +782,7 @@ internal sealed class PdfParser
                 WarnRepair("Ignored orphan dictionary values during xref recovery.", offset);
                 for (int i = 0; i < missingKeys.Count; i++)
                 {
-                    _governor.ChargeWork(1L);
+                    ChargeWork(1L);
                     long reserved = missingKeys[i].ReservedBytes;
                     missingKeys[i] = default;
                     ReleaseMemory(reserved);
@@ -793,7 +803,7 @@ internal sealed class PdfParser
             ParserContainers.ReleaseOwnedList(Memory, missingKeys);
         }
 
-        _governor.ChargeWork(entries.Count);
+        ChargeWork(entries.Count);
         _governor.CheckCancellation();
         bool preserveReceipts = depth == _dictionaryReceiptDepth;
         PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, _governor, entries, preserveReceipts);
@@ -824,7 +834,7 @@ internal sealed class PdfParser
         "QPDFFake"u8.CopyTo(text);
         while (true)
         {
-            _governor.ChargeWork(1L);
+            ChargeWork(1L);
             index = checked(index + 1L);
             if (!Utf8Formatter.TryFormat(index, text[8..], out int count))
             {
@@ -885,7 +895,7 @@ internal sealed class PdfParser
         for (int start = 0; start < bytes.Length; start += Math.Min(4096, bytes.Length - start))
         {
             int count = Math.Min(4096, bytes.Length - start);
-            _governor.ChargeWork(count);
+            ChargeWork(count);
             _governor.CheckCancellation();
             data.Slice((int)cursor + start, count).CopyTo(bytes.AsMemory(start, count));
         }
@@ -1110,7 +1120,7 @@ internal sealed class PdfParser
         // can miss an interval when an escape steps across its boundary.
         if (position >= nextWork)
         {
-            _governor.ChargeWork(1L);
+            ChargeWork(1L);
             _governor.CheckCancellation();
             nextWork = (long)position + 4096L;
         }

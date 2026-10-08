@@ -99,15 +99,27 @@ internal sealed class ParserMemoryScope : IDisposable
         _reservedBytes -= retained;
     }
 
+    internal void RetainAllocations(OwnedAllocationBatch allocations, QpdfObject parsed, long parsedBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        allocations.CheckOwner(this, _governor);
+        long bytes = checked(allocations.Bytes + parsedBytes);
+        if (bytes > _reservedBytes) { throw new InvalidOperationException("Parsed allocation batch exceeds its scope's ownership."); }
+        long retained = _governor.RetainAllocations(allocations, parsed, bytes);
+        _reservedBytes -= retained;
+    }
+
     internal void Discard() { Release(_reservedBytes); }
 
-    internal void TransferTo(ParserMemoryScope target)
+    internal void TransferTo(ParserMemoryScope target) => TransferTo(target, _reservedBytes);
+
+    internal void TransferTo(ParserMemoryScope target, long bytes)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         target.CheckOwner(_governor);
         if (ReferenceEquals(this, target)) { throw new InvalidOperationException("An owner cannot transfer to itself."); }
-        target.AdoptReserved(_reservedBytes);
-        _reservedBytes = 0L;
+        if (bytes < 0L || bytes > _reservedBytes) { throw new InvalidOperationException("Transfer exceeds its scope's ownership."); }
+        target.AdoptReserved(bytes); _reservedBytes -= bytes;
     }
 
     // A decoder has already admitted this allocation through the same governor.
