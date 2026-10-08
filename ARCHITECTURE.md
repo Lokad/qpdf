@@ -40,7 +40,11 @@ indirect descendants and indirect roots retain their own physical identities.
 Page boundaries are tested before assigning object-stream owners. The ordering
 pass includes generated container IDs when placing document-open objects.
 The catalog copier preserves non-name PageMode values through its existing graph
-copy path. Physical checker cross-checking and hint ownership remain open.
+copy path. Physical linearization checking uses the shared reader for object
+ends and the shared graph classifier for compressed owners. It verifies page
+runs, hint spans, shared groups and outlines against the actual input layout.
+Show-linearization retains parsed raw fields on physical failures. Broader checker
+coverage and complete hint ownership remain open.
 
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and

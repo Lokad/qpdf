@@ -10,15 +10,18 @@ form invocations retain their fixtures/settings/routes. Non-name PageMode values
 are preserved through catalog copying. Additional structural controls retain all
 native hint fields; array-valued AcroForm still has eight explicit schema-rejection
 differences. These controls establish no complete catalog-schema/default parity.
-The combined implementation passes 9767 Release cases; all 9597 preceding
-occurrences remain. Of 152 retained native document-open observations, 144
+The preceding document-open integration passed 9767 Release cases; all 9597
+preceding occurrences remained. The committed physical checker passes all 10833
+final cases, retaining those 9767 occurrences and adding 1066 controls. Of 152
+retained native document-open observations, 144
 outputs pass native linearization and match assignments with zero warnings;
 eight array-AcroForm schema rejections retain the native-success difference.
-The checker still passes the eight preserved invalid form outputs, so HINT-02
-remains open independently of the corrected writer. See the finite public-route
+The committed physical checker rejects all eight preserved invalid form outputs
+and accepts the corrected/native layouts; HINT-02 is retired by final source-bound
+public, reference and package verification. See the finite public-route
 checks and pass conditions in [AUDIT-CLOSURE](AUDIT-CLOSURE.md).
-Physical checker validation and hint ownership remain open. The numerator evidence
-below describes the preceding checkpoint and its then-preserved eight warnings.
+Broader checker coverage and complete hint ownership remain open. The numerator
+evidence below describes the preceding checkpoint and its then-preserved eight warnings.
 
 Linearization shared numerators now use native width zero. The original 64
 single-page hint differences retain complete payloads and fields: independent
