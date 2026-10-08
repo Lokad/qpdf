@@ -328,7 +328,7 @@ internal static class ContentTransforms
             List<int>? orphaned = ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
             try
             {
-                if (orphaned.Count > 0) { copier.DropPoolObjectsIfUnreferenced(orphaned); }
+                if (orphaned.Count > 0) { copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken); }
             }
             finally { orphaned = null; }
         }

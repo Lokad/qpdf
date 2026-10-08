@@ -274,6 +274,27 @@ checkpoint closes no inventory context or audit verdict. Orphan-removal scratch,
 inline images, legacy inspection output, broader integration/defaults/contexts,
 undefined form-font mismatch, M11/A01–A07 and both verdicts remain open.
 
+## Orphan-removal ownership checkpoint
+
+Orphan removal owns its sets, traversal backing and removal metadata while
+borrowing copied values. It preserves the original one-scan inbound-reference
+rule, including self/candidate references, generations, duplicate/nonpositive/
+missing IDs and actual nulls. Mapping visits, growth overlap, copy/zero work and
+both cancellation routes are bounded. Prepared mutation precharges rollback;
+cancellation during pool or mapping removal restores aliases and iteration order.
+
+Frozen pending 624EED12 / tests A604F964 passes 8365 offline cases; isolated passes
+7642, including 26 new controls. All 8339/7616 preceding stable identities and
+224 original test sources remain. Preceding 2164476D fails eight / preserves eight
+of 16 eligible identical controls, with zero loaders; ten new plan/caller controls
+are excluded. Fresh 358 native comparisons / 500 rereads, full differential/
+reference, 1846 parser comparisons / 432 rewrite trios and package/symbol/50-smoke/
+two-negative gates pass at build checkpoint 6b78d66. Helper probes cover managed
+admission, zero-allocation application and scratch/context retirement. This local
+Windows checkpoint closes no inventory context or audit verdict. Inline images,
+legacy inspection output, broader integration/defaults/contexts, measurements,
+undefined form-font mismatch, M11/A01–A07 and both verdicts remain open.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

@@ -164,94 +164,12 @@ internal sealed class GraphCopier
     /// source mappings so a later copy re-materializes instead of dangling.
     /// </summary>
     internal void DropPoolObjectsIfUnreferenced(IReadOnlyList<int> candidates)
+        => DropPoolObjectsIfUnreferenced(candidates, _governor.CancellationToken);
+
+    internal void DropPoolObjectsIfUnreferenced(IReadOnlyList<int> candidates, CancellationToken cancellationToken)
     {
-        if (candidates is null)
-        {
-            throw new ArgumentNullException(nameof(candidates));
-        }
-
-        HashSet<int> wanted = new();
-        foreach (int candidate in candidates)
-        {
-            _governor.ChargeWork(1L);
-            if (candidate > 0 && _copied.ContainsKey(candidate))
-            {
-                wanted.Add(candidate);
-            }
-        }
-
-        if (wanted.Count == 0)
-        {
-            return;
-        }
-
-        HashSet<int> referenced = new();
-        Stack<QpdfObject> stack = new();
-        foreach (QpdfObject value in _copied.Values)
-        {
-            _governor.ChargeWork(1L);
-            stack.Push(value);
-            while (stack.TryPop(out QpdfObject? current))
-            {
-                _governor.ChargeWork(1L);
-                if (current is PdfReference reference)
-                {
-                    if (wanted.Contains(reference.ObjectNumber))
-                    {
-                        referenced.Add(reference.ObjectNumber);
-                    }
-                }
-                else if (current is PdfArray array)
-                {
-                    for (int i = 0; i < array.Count; i++)
-                    {
-                        stack.Push(array[i]);
-                    }
-                }
-                else if (current is PdfDictionary dictionary)
-                {
-                    foreach (PdfName key in dictionary.Keys)
-                    {
-                        if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
-                        {
-                            stack.Push(entry);
-                        }
-                    }
-                }
-                else if (current is PdfStream stream)
-                {
-                    stack.Push(stream.Dictionary);
-                }
-            }
-        }
-
-        foreach (int id in wanted)
-        {
-            _governor.ChargeWork(1L);
-            if (referenced.Contains(id))
-            {
-                continue;
-            }
-
-            if (!_copied.Remove(id))
-            {
-                continue;
-            }
-
-            List<int> stale = new();
-            foreach (KeyValuePair<int, int> mapped in _mapping)
-            {
-                if (mapped.Value == id)
-                {
-                    stale.Add(mapped.Key);
-                }
-            }
-
-            foreach (int source in stale)
-            {
-                _mapping.Remove(source);
-            }
-        }
+        using OrphanRemovalPlan plan = OrphanRemovalPlan.Create(candidates, _copied, _mapping, _governor, cancellationToken);
+        plan.Apply();
     }
 
     internal IReadOnlyDictionary<int, int> SourceToDestination => _mapping;

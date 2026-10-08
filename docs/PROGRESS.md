@@ -1,5 +1,42 @@
 # Progress
 
+## Governed orphan removal
+
+Orphan removal now owns candidate/reference sets, traversal backing and removal
+metadata. It borrows pool values, scans mappings once, and drops traversal backing
+before applying the plan. Duplicate/nonpositive/missing IDs, reference generations,
+actual nulls, self references and references from another candidate retain the
+original rule. Both content callers forward cancellation. Mutation and rollback
+work is precharged; cancellation during either dictionary's mutation restores
+aliases, mappings and enumeration order without allocating replacement storage.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7642 offline cases / 26 new controls** and pending **8365 / 26** pass. All
+7616 isolated / 8339 pending stable identities and 224 original test sources
+remain. Identical compatible controls on preceding pending 2164476D fail
+**8 / preserve 8 / 16 eligible**, zero loaders; ten new plan/caller controls are
+excluded. Only private caller-token overload binding changes in the adapter.
+Every valid work budget from 1 through 511 preserves both dictionaries on failure.
+
+Independent warmed probes cover 128 empty/orphan/shared/wide-1024/mapping-512
+plans. Both runtimes allocate **30720 / 96256 / 88064 / 2201600 / 1158144** helper
+bytes; active forced-GC heap **30720 / 84992 / 76800 / 76800 / 605152** fits admission
+**43008 / 112640 / 106496 / 106496 / 632832**. Prepared application allocates zero;
+disposal releases all admission. 128 rooted disposed plans per runtime retain
+zero of eleven context/scratch/container witnesses. Borrowed 2MiB payloads remain
+usable. Prepared inputs/controllers/holders/reflection/reporting are excluded;
+helper allocation includes owner/scope/set/list/backing/growth/removal storage.
+Cold/native/pool/whole-job/RSS/CPU/host measurements remain open.
+
+Fresh **358 native comparisons / 500 rereads**, full differential/reference,
+**1846 parser comparisons / 432 rewrite trios**, package/symbol checks, 50 consumer
+smokes and both specific negatives pass on pending 624EED12 / tests A604F964 at
+build checkpoint 6b78d66. This is local Windows evidence; nuspec exposes no source
+commit or URL. Inline-image reconstruction, legacy inspection output, other
+consumers/codecs/JPEG/replay/hints/presentation/diagnostics, the broader correction,
+undefined form-font mismatch, five partial contexts, M11/A01–A07 and both verdicts
+remain open.
+
 ## Owned transformed content buffers
 
 Engine coalescing and normalization now own decoded, joined, encoded and final

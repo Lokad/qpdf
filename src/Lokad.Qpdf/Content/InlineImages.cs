@@ -97,7 +97,7 @@ internal static class InlineImages
         copier.ReplaceCopiedObject(pageId, replaced);
         if (orphaned.Count > 0)
         {
-            copier.DropPoolObjectsIfUnreferenced(orphaned);
+            copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken);
         }
 
         return replaced;
