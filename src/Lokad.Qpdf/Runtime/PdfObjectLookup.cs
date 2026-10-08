@@ -6,6 +6,15 @@ namespace Lokad.Qpdf.Runtime;
 /// <summary>Bounds borrowed indirect resolution at both sides of the resolver call.</summary>
 internal static class PdfObjectLookup
 {
+    internal static bool TryResolve(PdfReference reference, IReadOnlyDictionary<int, QpdfObject> pool,
+        ResourceGovernor governor, CancellationToken token, out QpdfObject? value)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        bool found = pool.TryGetValue(reference.ObjectNumber, out QpdfObject? resolved);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        value = resolved; return found;
+    }
+
     internal static bool TryResolve(PdfReference reference, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token, out QpdfObject? value)
     {

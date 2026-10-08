@@ -181,66 +181,52 @@ internal static class ContentTransforms
         return current;
     }
 
-    private sealed record ContentEntry(int? ObjectId, int ArrayIndex, PdfStream Stream);
-
-    private static List<ContentEntry>? ReadPageContents(
+    private static ContentEntries? ReadPageContents(
         GraphCopier copier,
         PdfDictionary page,
-        DiagnosticBag diagnostics)
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
     {
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) || contents is PdfNull)
         {
             return null;
         }
-
-        List<ContentEntry> entries = new();
-        if (contents is PdfArray array)
+        if (contents is not (PdfArray or PdfReference or PdfStream)) { return null; }
+        ContentEntries entries = ContentEntries.Create(governor, cancellationToken);
+        try
         {
-            foreach (QpdfObject item in array.Items)
+            PdfArray? array = contents as PdfArray;
+            int count = array?.Count ?? 1;
+            for (int index = 0; index < count; index++)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                QpdfObject item = array is null ? contents : array[index];
                 if (item is PdfReference reference)
                 {
-                    if (!copier.CopiedObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
+                    if (!PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
                     {
-                        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped content operation on an unresolvable content stream.");
-                        return null;
+                        return SkipContentEntries(entries, diagnostics, "Skipped content operation on an unresolvable content stream.");
                     }
-
-                    entries.Add(new ContentEntry(reference.ObjectNumber, entries.Count, resolvedStream));
+                    entries.Add(new(reference.ObjectNumber, index, resolvedStream));
                     continue;
                 }
-
                 if (item is PdfStream direct)
                 {
-                    entries.Add(new ContentEntry(null, entries.Count, direct));
+                    entries.Add(new(null, index, direct));
                     continue;
                 }
-
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped content operation on a non-stream content entry.");
-                return null;
+                return SkipContentEntries(entries, diagnostics, "Skipped content operation on a non-stream content entry.");
             }
-
             return entries;
         }
+        catch { entries.Dispose(); throw; }
+    }
 
-        if (contents is PdfReference singleReference)
-        {
-            if (!copier.CopiedObjects.TryGetValue(singleReference.ObjectNumber, out QpdfObject? resolved) || resolved is not PdfStream resolvedStream)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped content operation on an unresolvable content stream.");
-                return null;
-            }
-
-            entries.Add(new ContentEntry(singleReference.ObjectNumber, 0, resolvedStream));
-            return entries;
-        }
-
-        if (contents is PdfStream single)
-        {
-            entries.Add(new ContentEntry(null, 0, single));
-            return entries;
-        }
-
+    private static ContentEntries? SkipContentEntries(ContentEntries entries, DiagnosticBag diagnostics, string message)
+    {
+        entries.Dispose();
+        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, message);
         return null;
     }
 
@@ -290,25 +276,39 @@ internal static class ContentTransforms
         graph.Retain(); return result;
     }
 
-    private static List<int> ReplacedContentIds(QpdfObject? value)
+    private static List<int> ReplacedContentIds(QpdfObject? value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        List<int> ids = new();
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        List<int> ids = ParserContainers.CreateList<int>(memory);
         if (value is PdfReference reference)
         {
-            ids.Add(reference.ObjectNumber);
+            AddContentId(ids, reference.ObjectNumber, memory, governor, token);
         }
         else if (value is PdfArray array)
         {
             for (int i = 0; i < array.Count; i++)
             {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
                 if (array[i] is PdfReference item)
                 {
-                    ids.Add(item.ObjectNumber);
+                    AddContentId(ids, item.ObjectNumber, memory, governor, token);
                 }
             }
         }
 
         return ids;
+    }
+
+    private static void AddContentId(List<int> ids, int id, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        if (ids.Count == ids.Capacity)
+        {
+            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, ids.Capacity * 2L));
+            governor.ChargeWork(checked(ids.Count + capacity));
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        }
+        ParserContainers.AddItem(memory, ids, id, sizeof(int));
     }
 
     private static PdfDictionary CoalescePage(
@@ -321,7 +321,7 @@ internal static class ContentTransforms
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        List<ContentEntry>? entries = ReadPageContents(copier, page, diagnostics);
+        using ContentEntries? entries = ReadPageContents(copier, page, governor, diagnostics, cancellationToken);
         if (entries is null || entries.Count <= 1)
         {
             return page;
@@ -330,8 +330,9 @@ internal static class ContentTransforms
         PoolResolver resolver = new(copier.CopiedObjects);
         List<byte[]> parts = new(entries.Count);
         bool needNewline = false;
-        foreach (ContentEntry entry in entries)
+        for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
         {
+            ContentEntries.Entry entry = entries.Get(entryIndex);
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
             (byte[] data, bool _) = DecodeForContent(entry.Stream, resolver, limits, governor);
@@ -395,11 +396,13 @@ internal static class ContentTransforms
             }
 
             replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
-            List<int> orphaned = ReplacedContentIds(contentsRaw);
-            if (orphaned.Count > 0)
+            using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
+            List<int>? orphaned = ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
+            try
             {
-                copier.DropPoolObjectsIfUnreferenced(orphaned);
+                if (orphaned.Count > 0) { copier.DropPoolObjectsIfUnreferenced(orphaned); }
             }
+            finally { orphaned = null; }
         }
 
         copier.ReplaceCopiedObject(pageId, replaced);
@@ -415,7 +418,7 @@ internal static class ContentTransforms
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        List<ContentEntry>? entries = ReadPageContents(copier, page, diagnostics);
+        using ContentEntries? entries = ReadPageContents(copier, page, governor, diagnostics, cancellationToken);
         if (entries is null || entries.Count == 0)
         {
             return page;
@@ -423,8 +426,9 @@ internal static class ContentTransforms
 
         PoolResolver resolver = new(copier.CopiedObjects);
         Dictionary<int, PdfStream> rewritten = new();
-        foreach (ContentEntry entry in entries)
+        for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
         {
+            ContentEntries.Entry entry = entries.Get(entryIndex);
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
             byte[] data;

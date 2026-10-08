@@ -1,5 +1,40 @@
 # Progress
 
+## Owned content traversal plans
+
+Coalescing and normalization now share scoped content-entry metadata and list
+capacity. Indexed traversal borrows immutable streams; copied-pool lookup bounds
+both resolver boundaries without cloning payloads. Growth overlap and copy/zero
+work are admitted. Missing/null/unsupported single entries stay silent; invalid
+entries release prefix scratch before preserving the original warning. Orphan
+IDs use a caller scope and retain raw order, duplicates and generation treatment.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7576 offline cases / 29 new controls** and pending **8299 / 29** pass.
+All 7547 isolated / 8270 pending stable identities and 219 original test sources
+remain. Identical final compatible controls on preceding pending AC3D755A fail
+**14 / preserve 7 / 21 eligible**, zero loaders; eight new owner/pool/caller-token
+cases are excluded. Only private signature/entry access/disposal binding changes
+in the adapter. Every valid plan work budget from 1 through 511 is covered.
+
+Across 128 warmed empty/direct/17-entry plans and 512-ID lists, helper allocation
+is **15360 / 30720 / 211968 / 556032**, active forced-GC heap
+**15360 / 30720 / 116736 / 274432**, within admission
+**20480 / 36864 / 122880 / 278528**, identical in both runtimes. Entry queries
+allocate zero bytes; disposal releases all admission. 128 rooted disposed owners
+per runtime retain zero governors, token sources, scopes, lists or backing arrays;
+borrowed 2MiB payloads remain usable. Owner/scope/list/backing/growth allocation
+is included; prepared inputs/controllers/holders/delegates/reflection/reporting
+are excluded. Cold/native/pool/codec/whole-job/RSS/CPU/host audits remain open.
+
+Fresh **358 native comparisons / 500 rereads**, full differential/reference,
+**1846 parser comparisons / 432 rewrite trios**, package/symbol checks, 50 consumer
+smokes and both specific negatives pass on pending D227DD6C / tests DF0B70A9 at
+build checkpoint 5b52720. This is local Windows evidence; nuspec exposes no source
+commit or URL. Content buffers, replacement arrays, codec copies, orphan-removal
+graph scratch, inline images and the broader correction remain open, as do the
+undefined form-font mismatch, original observations, A01–A07/M11 and both verdicts.
+
 ## Shared content-header reconstruction
 
 Resource pruning and content-header replacement/encoding stripping now share

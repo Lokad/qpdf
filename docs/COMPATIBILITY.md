@@ -231,6 +231,27 @@ explicit exclusions. These are local Windows results; no inventory context,
 broader audit or completion gate closes. The known form-font mismatch, content
 buffers/codec copies, other consumers and final combined correction remain open.
 
+## Content traversal ownership checkpoint
+
+Scoped content-entry plans now serve both coalescing and normalization, borrowing
+streams while admitting metadata/list growth. Raw lookup and copied-pool
+resolution carry work and both cancellation routes. Existing missing/null/skip
+warnings, order, generations, IDs and orphan candidates are preserved; orphan-ID
+lists use a caller scope. Isolated 7576 / pending 8299 offline cases, including
+29 new controls, pass. Preceding AC3D755A preserves seven / fails 14 of 21 identical
+eligible controls, zero loaders; eight new owner/pool/caller-token cases are
+excluded. All preceding identities and 219 original test sources remain.
+
+Independent warmed probes cover helper allocation, active heap/admission, zero
+allocation borrowed queries, disposal and rooted-owner cleanup in both runtimes.
+Fresh 358 native comparisons / 500 rereads, full differential/reference, 1846
+parser comparisons / 432 rewrite trios and package/symbol/50-smoke/two-specific-
+negative gates pass on D227DD6C / DF0B70A9 at build checkpoint 5b52720. These local
+Windows results close this component only. Content buffers/arrays/codecs and
+orphan-removal scratch, broader ownership/diagnostics, defaults/context auditing,
+the known form-font mismatch, all five partial contexts, A01–A07/M11 and both
+completion verdicts remain open.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string
