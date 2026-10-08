@@ -1,5 +1,28 @@
 # Progress
 
+## Process-heap measurement qualification
+
+A control that never loads this library reproduces a negative 8224-byte
+`GC.GetTotalMemory(false)` delta with zero measured allocations on .NET 10.0.12.
+In 192 metadata samples, a 288-byte allocation raises that metric by 8224 bytes;
+the preceding blocking-GC size minus fragmentation remains unchanged. The
+[pinned runtime implementation](https://github.com/dotnet/runtime/blob/v10.0.12/src/coreclr/gc/gc.cpp)
+uses an approximate heap calculation. Net process deltas need independent checks.
+
+Untraced pending and isolated probes cover 32 processes and 112 paired comparisons
+across default/fixed-JIT and separate/grouped modes. Blocking-GC deltas fit live
+admission in 110 comparisons; two grouped default decode-failure results retain
+an unexplained 24-byte process delta. One approximate 8224-byte excess disappears
+in the paired metric. All 4096 rooted disposed owners retain zero of six witnesses.
+Instrumented before/after snapshots have identical 5933-object histograms despite
+an approximate 8224-byte change; collection does not reproduce the 24-byte result.
+
+These observations qualify the measurement method, not exclusive helper or
+whole-job retention. The 24-byte and historical GC/scheduling/counter observations
+stay open. Runtime/tests, original controls and limits are unchanged; prior full
+suite/reference/package results remain bound to their preceding binaries. Inline
+reconstruction and all wider M11/A01–A07 and completion obligations remain open.
+
 ## Scoped inline-image inputs
 
 Inline-image page inputs now own entry metadata, decoded chunks and exact joined
