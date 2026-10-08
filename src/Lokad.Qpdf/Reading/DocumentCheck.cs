@@ -3,6 +3,7 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Content;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Reading;
 
@@ -55,19 +56,22 @@ internal static class DocumentCheck
         }
 
         DocumentEngine engine = document.Engine;
-        List<QpdfCheckOutcome> outcomes = new()
-        {
-            new QpdfCheckOutcome("header", QpdfCheckStatus.Passed, $"Version {document.Version}."),
-            new QpdfCheckOutcome("cross-reference", QpdfCheckStatus.Passed, $"{engine.XRefEntries.Count} entries cover the effective size."),
-            new QpdfCheckOutcome("trailer", QpdfCheckStatus.Passed, "Catalog root is reachable and input is unencrypted."),
-            document.PageCount == 0
-                ? new QpdfCheckOutcome("page-tree", QpdfCheckStatus.Failed, "File does not contain any pages.")
-                : new QpdfCheckOutcome("page-tree", QpdfCheckStatus.Passed, $"{document.PageCount} pages traversed."),
-        };
+        using ParserMemoryScope outcomeMemory = ParserMemoryScope.Create(governor);
+        List<QpdfCheckOutcome> outcomes = ParserContainers.CreateList<QpdfCheckOutcome>(outcomeMemory);
+        AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Create(governor, "header", QpdfCheckStatus.Passed,
+            ["Version ", document.Version.Major, ".", document.Version.Minor, "."]), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Create(governor, "cross-reference", QpdfCheckStatus.Passed,
+            [engine.XRefEntries.Count, " entries cover the effective size."]), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Literal(governor, "trailer", QpdfCheckStatus.Passed,
+            "Catalog root is reachable and input is unencrypted."), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, document.PageCount == 0
+            ? CheckOutcome.Literal(governor, "page-tree", QpdfCheckStatus.Failed, "File does not contain any pages.")
+            : CheckOutcome.Create(governor, "page-tree", QpdfCheckStatus.Passed, [document.PageCount, " pages traversed."]), IntPtr.Size);
 
-        List<(int Number, PdfStream Stream)> streams = new();
-        QpdfCheckOutcome objectGraph = CheckObjectGraph(engine, governor, streams, cancellationToken);
-        outcomes.Add(objectGraph);
+        using ParserMemoryScope streamMemory = ParserMemoryScope.Create(governor);
+        List<(int Number, PdfStream Stream)> streams = ParserContainers.CreateList<(int, PdfStream)>(streamMemory);
+        QpdfCheckOutcome objectGraph = CheckObjectGraph(engine, governor, streams, streamMemory, cancellationToken);
+        AddItem(outcomeMemory, governor, outcomes, objectGraph, IntPtr.Size);
         if (nativeStreamTraversal && objectGraph.Status != QpdfCheckStatus.Failed)
         {
             // Native checking writes the reachable graph to a discard sink;
@@ -76,25 +80,52 @@ internal static class DocumentCheck
             HashSet<int> reachable = GraphReachability.Find(engine, engine.Trailer, memory, governor);
             streams.RemoveAll(stream => !reachable.Contains(stream.Number));
         }
-        outcomes.Add(CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken));
-        outcomes.Add(CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken));
-        outcomes.Add(CheckFormTree(document, governor, diagnostics, cancellationToken));
-        outcomes.Add(LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken));
+        AddItem(outcomeMemory, governor, outcomes, CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, cancellationToken), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, CheckPageContent(document, options, limits, governor, diagnostics, cancellationToken), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, CheckFormTree(document, governor, diagnostics, cancellationToken), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken), IntPtr.Size);
         foreach (QpdfCheckOutcome outcome in outcomes)
         {
             if (outcome.Status == QpdfCheckStatus.Failed)
             {
-                diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"Check '{outcome.Name}' failed: {outcome.Detail}");
+                diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ["Check '", outcome.Name, "' failed: ", outcome.Detail]);
             }
         }
 
+        outcomeMemory.Retain(outcomes, outcomeMemory.ReservedBytes, Array.Empty<QpdfObject>());
         return outcomes;
+    }
+
+    private static void AddItem<T>(ParserMemoryScope memory, ResourceGovernor governor, List<T> items, T value, long itemBytes)
+    {
+        governor.ChargeWork(1L);
+        if (items.Count == items.Capacity)
+        {
+            long capacity = Math.Min(Array.MaxLength, Math.Max(4L, items.Capacity * 2L));
+            governor.ChargeWork(checked(items.Count + capacity));
+            governor.CheckCancellation();
+        }
+        ParserContainers.AddItem(memory, items, value, itemBytes);
+    }
+
+    private static void AddFailure(DisplayBuffer detail, ref int count, ReadOnlySpan<DiagnosticPart> parts)
+    {
+        if (count != 0) { detail.AppendText(" "); }
+        detail.AppendParts(parts);
+        count++;
+    }
+
+    private static QpdfCheckOutcome FinishOutcome(ResourceGovernor governor, string name, QpdfCheckStatus status, DisplayBuffer detail)
+    {
+        using GovernedText text = detail.Finish();
+        return CheckOutcome.Create(governor, name, status, text);
     }
 
     private static QpdfCheckOutcome CheckObjectGraph(
         DocumentEngine engine,
         ResourceGovernor governor,
         List<(int Number, PdfStream Stream)> streams,
+        ParserMemoryScope streamMemory,
         CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -111,7 +142,8 @@ internal static class DocumentCheck
         }
         numbers.Sort();
         int resolved = 0;
-        List<string> failures = new();
+        using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
+        int failureCount = 0;
         foreach (int number in numbers)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -122,31 +154,31 @@ internal static class DocumentCheck
                 resolved += 1;
                 if (value is PdfStream stream)
                 {
-                    streams.Add((number, stream));
+                    AddItem(streamMemory, governor, streams, (number, stream), 16L);
                 }
             }
             catch (QpdfLimitException ex)
             {
-                failures.Add($"object {number}: {ex.Message}");
+                AddFailure(failures, ref failureCount, ["object ", number, ": ", ex.Message]);
                 break;
             }
             catch (QpdfException ex)
             {
-                failures.Add($"object {number}: {ex.Message}");
-                if (failures.Count >= MaxObjectFailures)
+                AddFailure(failures, ref failureCount, ["object ", number, ": ", ex.Message]);
+                if (failureCount >= MaxObjectFailures)
                 {
-                    failures.Add("Further object failures are not recorded.");
+                    AddFailure(failures, ref failureCount, ["Further object failures are not recorded."]);
                     break;
                 }
             }
         }
 
-        if (failures.Count > 0)
+        if (failureCount > 0)
         {
-            return new QpdfCheckOutcome("object-graph", QpdfCheckStatus.Failed, string.Join(" ", failures));
+            return FinishOutcome(governor, "object-graph", QpdfCheckStatus.Failed, failures);
         }
 
-        return new QpdfCheckOutcome("object-graph", QpdfCheckStatus.Passed, $"{resolved} objects resolved with {streams.Count} streams.");
+        return CheckOutcome.Create(governor, "object-graph", QpdfCheckStatus.Passed, [resolved, " objects resolved with ", streams.Count, " streams."]);
     }
 
     private static bool InLevel(string filter, QpdfStreamDecodeLevel level)
@@ -181,7 +213,7 @@ internal static class DocumentCheck
         if (level == QpdfStreamDecodeLevel.None)
         {
             diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check 'streams': decode level none disables stream decoding.");
-            return new QpdfCheckOutcome("streams", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
+            return CheckOutcome.Literal(governor, "streams", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
         }
 
         IIndirectResolver resolver = (IIndirectResolver)engine;
@@ -189,8 +221,10 @@ internal static class DocumentCheck
         int unfiltered = 0;
         int aboveLevel = 0;
         int skippedUnavailable = 0;
-        List<string> unavailable = new();
-        List<string> failures = new();
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        List<string> unavailable = ParserContainers.CreateList<string>(memory);
+        using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
+        int failureCount = 0;
         foreach ((int number, PdfStream stream) in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -201,8 +235,8 @@ internal static class DocumentCheck
             }
             catch (QpdfParseException ex)
             {
-                failures.Add($"stream {number}: {ex.Message}");
-                if (failures.Count >= MaxStreamFailures)
+                AddFailure(failures, ref failureCount, ["stream ", number, ": ", ex.Message]);
+                if (failureCount >= MaxStreamFailures)
                 {
                     break;
                 }
@@ -243,52 +277,81 @@ internal static class DocumentCheck
                 skippedUnavailable += 1;
                 foreach (FilterStage stage in stages)
                 {
-                    if (!IsDecodable(stage.Name) && !unavailable.Contains(stage.Name, StringComparer.Ordinal))
+                    if (!IsDecodable(stage.Name) && !ContainsUnavailable(governor, unavailable, stage.Name))
                     {
-                        unavailable.Add(stage.Name);
+                        AddItem(memory, governor, unavailable, stage.Name, IntPtr.Size);
                     }
                 }
             }
             catch (QpdfLimitException ex)
             {
-                failures.Add($"stream {number}: {ex.Message}");
+                AddFailure(failures, ref failureCount, ["stream ", number, ": ", ex.Message]);
                 break;
             }
             catch (QpdfException ex)
             {
-                failures.Add($"stream {number}: {ex.Message}");
-                if (failures.Count >= MaxStreamFailures)
+                AddFailure(failures, ref failureCount, ["stream ", number, ": ", ex.Message]);
+                if (failureCount >= MaxStreamFailures)
                 {
                     break;
                 }
             }
         }
 
-        if (failures.Count > 0)
+        if (failureCount > 0)
         {
-            return new QpdfCheckOutcome("streams", QpdfCheckStatus.Failed, string.Join(" ", failures));
+            return FinishOutcome(governor, "streams", QpdfCheckStatus.Failed, failures);
         }
 
-        string detail = $"{decoded} decoded, {unfiltered} unfiltered, {aboveLevel} above level {level}.";
+        using DisplayBuffer detail = DisplayBuffer.Create(governor, false);
+        detail.AppendParts([decoded, " decoded, ", unfiltered, " unfiltered, ", aboveLevel, " above level ", DiagnosticPart.DecodeLevel(level), "."]);
         if (skippedUnavailable > 0)
         {
-            detail += $" {skippedUnavailable} skipped ({string.Join(", ", unavailable)} unavailable).";
-            diagnostics.Add(
+            detail.AppendParts([" ", skippedUnavailable, " skipped ("]);
+            for (int index = 0; index < unavailable.Count; index++)
+            {
+                governor.ChargeWork(1L);
+                if (index != 0) { detail.AppendText(", "); }
+                detail.AppendText(unavailable[index]);
+            }
+            detail.AppendText(" unavailable).");
+            QpdfCheckOutcome outcome = FinishOutcome(governor, "streams", QpdfCheckStatus.Skipped, detail);
+            diagnostics.AddParts(
                 QpdfDiagnosticCode.CheckSkipped,
                 QpdfDiagnosticSeverity.Warning,
-                $"Skipped check 'streams': {detail} Decoding unavailable filters arrives in a later milestone.");
-            return new QpdfCheckOutcome("streams", QpdfCheckStatus.Skipped, detail);
+                ["Skipped check 'streams': ", outcome.Detail, " Decoding unavailable filters arrives in a later milestone."]);
+            return outcome;
         }
 
         if (aboveLevel > 0)
         {
-            diagnostics.Add(
+            diagnostics.AddParts(
                 QpdfDiagnosticCode.CheckSkipped,
                 QpdfDiagnosticSeverity.Info,
-                $"Left {aboveLevel} stream(s) above decode level {level} for a higher level.");
+                ["Left ", aboveLevel, " stream(s) above decode level ", DiagnosticPart.DecodeLevel(level), " for a higher level."]);
         }
 
-        return new QpdfCheckOutcome("streams", QpdfCheckStatus.Passed, detail);
+        return FinishOutcome(governor, "streams", QpdfCheckStatus.Passed, detail);
+    }
+
+    private static bool ContainsUnavailable(ResourceGovernor governor, List<string> names, string name)
+    {
+        foreach (string candidate in names)
+        {
+            governor.ChargeWork(1L);
+            governor.CheckCancellation();
+            if (candidate.Length != name.Length) { continue; }
+            bool equal = true;
+            for (int offset = 0; offset < name.Length; offset += Math.Min(256, name.Length - offset))
+            {
+                int count = Math.Min(256, name.Length - offset);
+                governor.ChargeWork(count);
+                governor.CheckCancellation();
+                if (!candidate.AsSpan(offset, count).SequenceEqual(name.AsSpan(offset, count))) { equal = false; break; }
+            }
+            if (equal) { return true; }
+        }
+        return false;
     }
 
     private static QpdfCheckOutcome CheckPageContent(
@@ -302,14 +365,15 @@ internal static class DocumentCheck
         if (options.DecodeLevel == QpdfStreamDecodeLevel.None)
         {
             diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check page-content: decode level none disables stream decoding.");
-            return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
+            return CheckOutcome.Literal(governor, "page-content", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
         }
 
         DocumentEngine engine = document.Engine;
         IIndirectResolver resolver = (IIndirectResolver)engine;
         int examined = 0;
         int skipped = 0;
-        List<string> failures = new();
+        using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
+        int failureCount = 0;
         int pageNumber = 0;
         IReadOnlyList<PageLocation> pages = document.PageReferences;
         for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
@@ -395,26 +459,27 @@ internal static class DocumentCheck
                 }
                 catch (QpdfException ex) when (ex is not QpdfLimitException)
                 {
-                    failures.Add(string.Concat("Page ", pageNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), " content: ", ex.Message));
-                    if (failures.Count >= MaxStreamFailures)
+                    AddFailure(failures, ref failureCount, ["Page ", DiagnosticPart.Invariant(pageNumber), " content: ", ex.Message]);
+                    if (failureCount >= MaxStreamFailures)
                     {
                         break;
                     }
                 }
             }
 
-            if (failures.Count >= MaxStreamFailures)
+            if (failureCount >= MaxStreamFailures)
             {
                 break;
             }
         }
 
-        if (failures.Count > 0)
+        if (failureCount > 0)
         {
-            return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Failed, string.Join(" ", failures));
+            return FinishOutcome(governor, "page-content", QpdfCheckStatus.Failed, failures);
         }
 
-        return new QpdfCheckOutcome("page-content", QpdfCheckStatus.Passed, string.Concat(examined.ToString(System.Globalization.CultureInfo.InvariantCulture), " content streams tokenized, ", skipped.ToString(System.Globalization.CultureInfo.InvariantCulture), " skipped."));
+        return CheckOutcome.Create(governor, "page-content", QpdfCheckStatus.Passed,
+            [DiagnosticPart.Invariant(examined), " content streams tokenized, ", DiagnosticPart.Invariant(skipped), " skipped."]);
     }
 
     private sealed class FormCheckState : IDisposable
@@ -488,13 +553,13 @@ internal static class DocumentCheck
         if (!TryGetCheckForm(engine, resolver, governor, cancellationToken, out PdfDictionary? form) || form is null)
         {
             state.Dispose();
-            return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, "No interactive form.");
+            return CheckOutcome.Literal(governor, "forms", QpdfCheckStatus.Passed, "No interactive form.");
         }
 
         if (!TryResolveCheckArray(form, "Fields"u8, resolver, governor, cancellationToken, out PdfArray? fields) || fields is null)
         {
             state.Dispose();
-            return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, "Interactive form carries no field registrations.");
+            return CheckOutcome.Literal(governor, "forms", QpdfCheckStatus.Passed, "Interactive form carries no field registrations.");
         }
 
         try
@@ -522,23 +587,24 @@ internal static class DocumentCheck
         catch (QpdfLimitException ex)
         {
             state.Dispose();
-            return new QpdfCheckOutcome("forms", QpdfCheckStatus.Failed, $"Form traversal exceeded its budget: {ex.Message}");
+            return CheckOutcome.Create(governor, "forms", QpdfCheckStatus.Failed, ["Form traversal exceeded its budget: ", ex.Message]);
         }
 
         int widgets = state.WidgetCount;
         state.Dispose();
-        string detail = $"{state.Nodes} field nodes traversed, {widgets} widgets reached.";
+        using DisplayBuffer detail = DisplayBuffer.Create(governor, false);
+        detail.AppendParts([state.Nodes, " field nodes traversed, ", widgets, " widgets reached."]);
         if (state.Warnings > 0)
         {
-            detail += $" {state.Warnings} warnings recorded.";
+            detail.AppendParts([" ", state.Warnings, " warnings recorded."]);
         }
 
         if (state.Truncated)
         {
-            detail += " Further findings are not recorded.";
+            detail.AppendText(" Further findings are not recorded.");
         }
 
-        return new QpdfCheckOutcome("forms", QpdfCheckStatus.Passed, detail);
+        return FinishOutcome(governor, "forms", QpdfCheckStatus.Passed, detail);
     }
 
     private static void WalkFieldNode(
@@ -610,7 +676,7 @@ internal static class DocumentCheck
     {
         if (IsFieldLike(node, governor, cancellationToken))
         {
-            AddFormWarning(diagnostics, state, "Encountered a direct object as a field or annotation while traversing /AcroForm; ignoring.");
+            AddFormWarning(diagnostics, state, ["Encountered a direct object as a field or annotation while traversing /AcroForm; ignoring."]);
             return;
         }
 
@@ -641,7 +707,7 @@ internal static class DocumentCheck
             return;
         }
 
-        AddFormWarning(diagnostics, state, $"Field node {kidNumber} has an invalid /Parent entry while traversing /AcroForm.");
+        AddFormWarning(diagnostics, state, ["Field node ", kidNumber, " has an invalid /Parent entry while traversing /AcroForm."]);
     }
 
     private static void CollectUnreachedWidgets(
@@ -693,12 +759,12 @@ internal static class DocumentCheck
                     continue;
                 }
 
-                AddFormWarning(diagnostics, state, $"Widget annotation {itemReference.ObjectNumber} is not reachable from /AcroForm.");
+                AddFormWarning(diagnostics, state, ["Widget annotation ", itemReference.ObjectNumber, " is not reachable from /AcroForm."]);
             }
         }
     }
 
-    private static void AddFormWarning(DiagnosticBag diagnostics, FormCheckState state, string message)
+    private static void AddFormWarning(DiagnosticBag diagnostics, FormCheckState state, ReadOnlySpan<DiagnosticPart> parts)
     {
         state.Warnings += 1;
         if (state.Warnings > MaxFormWarnings)
@@ -707,7 +773,7 @@ internal static class DocumentCheck
             return;
         }
 
-        diagnostics.Add(QpdfDiagnosticCode.FormStructureWarning, QpdfDiagnosticSeverity.Warning, message);
+        diagnostics.AddParts(QpdfDiagnosticCode.FormStructureWarning, QpdfDiagnosticSeverity.Warning, parts);
     }
 
     private static bool TryGetCheckForm(DocumentEngine engine, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken cancellationToken, out PdfDictionary? form)

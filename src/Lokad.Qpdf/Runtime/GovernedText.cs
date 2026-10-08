@@ -1,6 +1,6 @@
 namespace Lokad.Qpdf.Runtime;
 
-/// <summary>Owns an admitted immutable string until disposal or transfer to diagnostics.</summary>
+/// <summary>Owns an admitted immutable string until disposal or transfer to retained storage.</summary>
 internal sealed class GovernedText : IDisposable
 {
     private const long OwnerBytes = 64L;
@@ -20,6 +20,8 @@ internal sealed class GovernedText : IDisposable
 
     internal long Utf8Bytes { get; }
 
+    internal long StringReservation => checked(_reservedBytes - OwnerBytes);
+
     // Measured .NET 10 strings contain two pointer-sized header words, an
     // Int32 length and a UTF-16 terminator, aligned to the pointer size. Empty
     // String.Create results borrow String.Empty instead of allocating storage.
@@ -33,7 +35,7 @@ internal sealed class GovernedText : IDisposable
     internal static GovernedText Create(ResourceGovernor governor, TextChunk? head, int length, long utf8Bytes)
     {
         governor.CheckCancellation();
-        long reserved = checked(OwnerBytes + 32L + 2L * length);
+        long reserved = checked(OwnerBytes + StringBytes(length));
         governor.ReserveMemory(reserved);
         try
         {
@@ -61,6 +63,39 @@ internal sealed class GovernedText : IDisposable
         }
     }
 
+    internal static GovernedText Create(ResourceGovernor governor, DiagnosticStage stage, DiagnosticStage.Entry entry)
+    {
+        governor.CheckCancellation();
+        long reserved = checked(OwnerBytes + StringBytes(entry.Length));
+        governor.ReserveMemory(reserved);
+        try
+        {
+            string value = string.Create(entry.Length, (stage, entry), static (target, state) => state.stage.CopyTo(state.entry, target));
+            return new GovernedText(governor, value, reserved, entry.Utf8Bytes);
+        }
+        catch { governor.ReleaseMemory(reserved); throw; }
+    }
+
+    private readonly ref struct FormattingState(ResourceGovernor governor, ReadOnlySpan<DiagnosticPart> parts)
+    {
+        internal readonly ResourceGovernor Governor = governor;
+        internal readonly ReadOnlySpan<DiagnosticPart> Parts = parts;
+    }
+
+    internal static GovernedText Create(ResourceGovernor governor, ReadOnlySpan<DiagnosticPart> parts, DiagnosticTextInfo info)
+    {
+        governor.CheckCancellation();
+        long reserved = checked(OwnerBytes + StringBytes(info.Length));
+        governor.ReserveMemory(reserved);
+        try
+        {
+            string value = string.Create(info.Length, new FormattingState(governor, parts),
+                static (target, state) => DiagnosticMessage.Copy(state.Governor, state.Parts, target));
+            return new GovernedText(governor, value, reserved, info.Utf8Bytes);
+        }
+        catch { governor.ReleaseMemory(reserved); throw; }
+    }
+
     internal void CheckOwner(ResourceGovernor governor)
     {
         _ = Value;
@@ -70,9 +105,9 @@ internal sealed class GovernedText : IDisposable
         }
     }
 
-    // The diagnostic list retains the very same string for the remaining job
-    // lifetime. Release only this temporary wrapper; keep the string admitted.
-    internal void TransferToDiagnostic(ResourceGovernor governor)
+    // The receiver adopts the string's receipt before this handoff.
+    // Release only the temporary wrapper; retained storage owns the string.
+    internal void TransferToRetainedStorage(ResourceGovernor governor)
     {
         CheckOwner(governor);
         _governor.ReleaseMemory(OwnerBytes);

@@ -4,6 +4,8 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Runtime;
 
+internal readonly record struct DiagnosticWorkState(long Carriers, long Slots, long Buckets, long Messages, bool Maintenance);
+
 /// <summary>Funds accepted values against their independently escaping storage.</summary>
 // Only the job thread changes the index or budget. Collection publishes a
 // payload retirement and an already allocated cleanup node; it never calls the
@@ -31,12 +33,18 @@ internal sealed class RetainedValueOwners
     private int[]? _heads;
     private List<Slot[]>? _slots;
     private Segment? _segments;
+    private Segment? _valueSegment;
+    private Segment? _diagnosticSegment;
     private Receipt? _pending;
+    private MessageNode? _messages;
+    private MessageNode? _messageCursor;
+    private long _messageCount;
     private long _retiredBytes;
     private int _free = -1;
     private int _count;
     private int _slotCount;
     private bool _busy;
+    private bool _messageMaintenance;
 
     private readonly record struct Slot(Segment? Segment, int Hash, int Next, int Previous);
 
@@ -49,7 +57,7 @@ internal sealed class RetainedValueOwners
         internal int Count;
     }
 
-    private sealed class Receipt
+    internal sealed class Receipt
     {
         // Pending acceptance roots its carrier for rollback; activation reuses
         // the ledger's pre-admitted weak link without allocating. The governor
@@ -57,7 +65,7 @@ internal sealed class RetainedValueOwners
         private object? _ownerOrCarrier;
         internal Receipt? Next;
         internal readonly int Index;
-        internal readonly long Bytes;
+        internal long Bytes;
         private int _active;
 
         internal Receipt(int index, long bytes, object carrier)
@@ -107,7 +115,84 @@ internal sealed class RetainedValueOwners
     {
         internal Receipt? First;
         internal long Bytes;
+        internal bool Diagnostics;
         internal CancellationToken Token;
+    }
+
+    // The index holds weak text references, never job-lifetime string roots.
+    // Node and weak-reference managed storage are admitted before construction.
+    private const long MessageNodeBytes = 80L;
+
+    private sealed class MessageNode
+    {
+        internal readonly WeakReference<string> Message;
+        internal readonly int Hash;
+        internal MessageNode? Next;
+        internal MessageNode? Previous;
+
+        internal MessageNode(string message, int hash)
+        {
+            Message = new(message);
+            Hash = hash;
+        }
+    }
+
+    internal string? FindDiagnosticMessage(string message, int hash)
+    {
+        for (MessageNode? node = _messages; node is not null; node = node.Next)
+        {
+            _governor.ChargeWork(1L);
+            _governor.CheckCancellation();
+            if (node.Hash != hash || !node.Message.TryGetTarget(out string? candidate) || candidate.Length != message.Length) { continue; }
+            bool equal = true;
+            for (int offset = 0; offset < message.Length; offset += Math.Min(256, message.Length - offset))
+            {
+                int count = Math.Min(256, message.Length - offset);
+                _governor.ChargeWork(count);
+                _governor.CheckCancellation();
+                if (!candidate.AsSpan(offset, count).SequenceEqual(message.AsSpan(offset, count))) { equal = false; break; }
+            }
+            if (equal) { return candidate; }
+        }
+        return null;
+    }
+
+    internal string? FindDiagnosticMessage(ReadOnlySpan<DiagnosticPart> parts, DiagnosticTextInfo info)
+    {
+        for (MessageNode? node = _messages; node is not null; node = node.Next)
+        {
+            _governor.ChargeWork(1L);
+            _governor.CheckCancellation();
+            if (node.Hash != info.Hash || !node.Message.TryGetTarget(out string? candidate) || candidate.Length != info.Length) { continue; }
+            if (DiagnosticMessage.Matches(_governor, parts, candidate)) { return candidate; }
+        }
+        return null;
+    }
+
+    internal long RetainCachedDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes, int messageHash)
+    {
+        // The bag's list is already retained, so this scope cannot disappear
+        // while a new diagnostic and its weak message index are accepted.
+        // A fresh record/string and memo node can enlarge the future export
+        // bound of a different bag. Preflight the combined effect before any
+        // receipt activates; normal carrier preflight then remains conservative.
+        _governor.PreflightDiagnosticWork(WorkState with
+        {
+            Carriers = checked(_count + 2L), Slots = checked(_slotCount + 2L), Messages = checked(_messageCount + 1L),
+        });
+        Storage.Reserve(MessageNodeBytes);
+        try
+        {
+            MessageNode node = new(diagnostic.Message, messageHash);
+            long retained = RetainDiagnostic(diagnostic, reservedBytes);
+            node.Next = _messages;
+            if (_messages is not null) { _messages.Previous = node; }
+            _messages = node;
+            _messageCursor ??= node;
+            _messageCount++;
+            return retained;
+        }
+        catch { Storage.Release(MessageNodeBytes); throw; }
     }
 
     private RetainedValueOwners(ResourceGovernor governor)
@@ -124,6 +209,8 @@ internal sealed class RetainedValueOwners
     }
 
     internal long RetiredBytes => Interlocked.Read(ref _retiredBytes);
+
+    internal DiagnosticWorkState WorkState => new(_count, _slotCount, _heads?.Length ?? 0, _messageCount, _messageMaintenance);
 
     internal bool Busy => _busy;
 
@@ -170,22 +257,53 @@ internal sealed class RetainedValueOwners
 
     internal long Retain(QpdfObject value, long reservedBytes)
     {
-        return RetainCore(value, 0L, null, reservedBytes, null);
+        return RetainCore(value, 0L, null, reservedBytes, false, null, out _);
     }
 
     internal long Retain(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
     {
-        return RetainCore(wrapper, wrapperBytes, roots, reservedBytes, null);
+        return RetainCore(wrapper, wrapperBytes, roots, reservedBytes, false, null, out _);
     }
 
     internal long Retain(OwnedAllocationBatch allocations, long reservedBytes)
-        => RetainCore(allocations, 0L, null, reservedBytes, null);
+        => RetainCore(allocations, 0L, null, reservedBytes, false, null, out _);
 
     internal long Retain(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
-        => RetainCore(allocations, 0L, null, reservedBytes, parsed);
+        => RetainCore(allocations, 0L, null, reservedBytes, false, parsed, out _);
 
-    private long RetainCore(object value, long wrapperBytes, IReadOnlyList<QpdfObject>? roots, long reservedBytes, QpdfObject? sourceParsed)
+    internal Receipt RetainAllocation(object carrier, long reservedBytes)
     {
+        RetainCore(carrier, reservedBytes, null, reservedBytes, true, null, out Receipt? receipt);
+        return receipt ?? throw new InvalidOperationException("A new allocation needs its own receipt.");
+    }
+
+    internal long RetainDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes)
+        => RetainCore(diagnostic, 0L, null, reservedBytes, false, null, out _);
+
+    internal long RetainCheckOutcome(QpdfCheckOutcome outcome, long detailBytes, long reservedBytes)
+        => RetainCore(outcome, detailBytes, null, reservedBytes, false, null, out _);
+
+    // Failure cleanup for an exclusively owned allocation. Its owner still
+    // roots the carrier, so collection cannot race this allocation-free removal.
+    internal void DropAllocation(object carrier, Receipt receipt)
+    {
+        if (_busy) { throw new InvalidOperationException("Allocation cleanup cannot be nested."); }
+        _busy = true;
+        try
+        {
+            Slot slot = GetSlot(receipt.Index);
+            slot.Segment?.Values.Remove(carrier);
+            receipt.Cancel();
+            RemoveSlot(receipt.Index);
+        }
+        finally { _busy = false; }
+        GC.KeepAlive(carrier);
+    }
+
+    private long RetainCore(object value, long wrapperBytes, IReadOnlyList<QpdfObject>? roots,
+        long reservedBytes, bool allocationOnly, QpdfObject? sourceParsed, out Receipt? allocationReceipt)
+    {
+        allocationReceipt = null;
         if (_busy) { throw new InvalidOperationException("Value ownership acceptance cannot be nested."); }
         _busy = true;
         Acceptance? acceptance = null;
@@ -194,11 +312,21 @@ internal sealed class RetainedValueOwners
         {
             _governor.ReserveMemory(48L);
             fundedAcceptance = true;
-            acceptance = new Acceptance { Token = value is OwnedAllocationBatch batch ? batch.Token : CancellationToken.None };
+            acceptance = new Acceptance { Token = value is OwnedAllocationBatch batch ? batch.Token : CancellationToken.None,
+                Diagnostics = value is QpdfDiagnostic or IReadOnlyList<QpdfDiagnostic>
+                or QpdfCheckOutcome or IReadOnlyList<QpdfCheckOutcome> };
             Initialize();
             if (roots is null)
             {
-                if (value is OwnedAllocationBatch allocations)
+                if (allocationOnly)
+                {
+                    if (!Register(value, wrapperBytes, acceptance))
+                    {
+                        throw new InvalidOperationException("Allocation carrier is already retained.");
+                    }
+                    allocationReceipt = acceptance.First;
+                }
+                else if (value is OwnedAllocationBatch allocations)
                 {
                     if (sourceParsed is not null) { Visit(sourceParsed, acceptance); }
                     for (int index = 0; index < allocations.Count; index++)
@@ -209,11 +337,18 @@ internal sealed class RetainedValueOwners
                         allocations.ObserveAcceptedVisit();
                     }
                 }
-                else
+                else if (value is QpdfObject parsed) { Visit(parsed, acceptance); }
+                else if (value is QpdfDiagnostic diagnostic) { VisitDiagnostic(diagnostic, acceptance); }
+                else if (value is QpdfCheckOutcome outcome)
                 {
-                    if (value is not QpdfObject parsed) { throw new InvalidOperationException("Expected a parsed value."); }
-                    Visit(parsed, acceptance);
+                    Register(outcome, 40L, acceptance);
+                    if (wrapperBytes != 0L) { Register(outcome.Detail, wrapperBytes, acceptance); }
                 }
+                else if (value is IReadOnlyList<QpdfDiagnostic> diagnostics)
+                {
+                    foreach (QpdfDiagnostic entry in diagnostics) { VisitDiagnostic(entry, acceptance); }
+                }
+                else { throw new InvalidOperationException("Expected retained storage."); }
             }
             else
             {
@@ -258,6 +393,19 @@ internal sealed class RetainedValueOwners
         {
             _busy = false;
             if (fundedAcceptance) { _governor.ReleaseMemory(48L); }
+        }
+    }
+
+    private void VisitDiagnostic(QpdfDiagnostic diagnostic, Acceptance acceptance)
+    {
+        _governor.CheckCancellation();
+        _governor.ChargeWork(1L);
+        if (!Register(diagnostic, 32L, acceptance)) { return; }
+        // String.Create returns the global empty string without an allocation.
+        // It must not anchor a job's weak ownership ledger.
+        if (diagnostic.Message.Length != 0)
+        {
+            Register(diagnostic.Message, GovernedText.StringBytes(diagnostic.Message.Length), acceptance);
         }
     }
 
@@ -344,8 +492,12 @@ internal sealed class RetainedValueOwners
         }
         _governor.ChargeWork(1L);
         _governor.CheckCancellation();
+        _governor.PreflightDiagnosticWork(WorkState with
+        {
+            Carriers = checked(_count + 1L), Slots = checked(_slotCount + (_free < 0 ? 1L : 0L)),
+        });
         long nextBytes = checked(acceptance.Bytes + bytes);
-        Segment segment = GetSegment();
+        Segment segment = GetSegment(acceptance.Diagnostics);
         EnsureBucketCapacity();
         Storage.Reserve(ReceiptBytes);
         int index = -1;
@@ -463,9 +615,12 @@ internal sealed class RetainedValueOwners
         }
     }
 
-    private Segment GetSegment()
+    private Segment GetSegment(bool diagnostics)
     {
-        Segment? segment = _segments;
+        // Long-lived warnings must not pin nearly empty tables containing
+        // short-lived reader values from every disposed document. Both groups
+        // share the same index/retirement path and eight-insertion table cap.
+        Segment? segment = diagnostics ? _diagnosticSegment : _valueSegment;
         if (segment is not null && segment.Added < SegmentEntries) { return segment; }
         Storage.Reserve(SegmentBytes);
         try
@@ -473,6 +628,8 @@ internal sealed class RetainedValueOwners
             segment = new Segment { Next = _segments };
             if (_segments is not null) { _segments.Previous = segment; }
             _segments = segment;
+            if (diagnostics) { _diagnosticSegment = segment; }
+            else { _valueSegment = segment; }
             return segment;
         }
         catch { Storage.Release(SegmentBytes); throw; }
@@ -530,15 +687,35 @@ internal sealed class RetainedValueOwners
                 _governor.CheckCancellation();
                 _governor.ChargeWork(1L);
                 if (!ReferenceEquals(Interlocked.CompareExchange(ref _pending, receipt.Next, receipt), receipt)) { count--; continue; }
+                _messageMaintenance = true;
                 receipt.Detach();
                 RemoveSlot(receipt.Index);
             }
+            for (int count = 0; count < 64 && _messageMaintenance && _messageCursor is MessageNode node; count++)
+            {
+                _governor.CheckCancellation();
+                _governor.ChargeWork(1L);
+                _messageCursor = node.Next;
+                if (!node.Message.TryGetTarget(out _))
+                {
+                    if (node.Previous is null) { _messages = node.Next; }
+                    else { node.Previous.Next = node.Next; }
+                    if (node.Next is not null) { node.Next.Previous = node.Previous; }
+                    node.Next = null;
+                    node.Previous = null;
+                    _messageCount--;
+                    Storage.Release(MessageNodeBytes);
+                }
+            }
+            if (_messageCursor is null) { _messageMaintenance = false; _messageCursor = _messages; }
         }
         finally { _busy = false; }
     }
 
     private void RemoveSegment(Segment segment)
     {
+        if (ReferenceEquals(_valueSegment, segment)) { _valueSegment = null; }
+        if (ReferenceEquals(_diagnosticSegment, segment)) { _diagnosticSegment = null; }
         if (segment.Previous is null) { _segments = segment.Next; }
         else { segment.Previous.Next = segment.Next; }
         if (segment.Next is not null) { segment.Next.Previous = segment.Previous; }
@@ -547,15 +724,30 @@ internal sealed class RetainedValueOwners
         Storage.Release(SegmentBytes);
     }
 
-    internal void DisposeEmpty()
+    internal void DisposeUnusedIndex()
     {
-        if (!Empty || _busy) { throw new InvalidOperationException("Live value ownership cannot be discarded."); }
+        if (_count != 0 || _busy) { return; }
+        // Drop index and weak-message storage after their last carrier dies.
         _heads = null;
         _slots = null;
         _segments = null;
+        _valueSegment = null;
+        _diagnosticSegment = null;
+        _messages = null;
+        _messageCursor = null;
+        _messageCount = 0L;
+        _messageMaintenance = false;
+        _free = -1;
+        _slotCount = 0;
         ParserMemoryScope? storage = _storage;
         _storage = null;
         storage?.Dispose();
+    }
+
+    internal void DisposeEmpty()
+    {
+        if (!Empty || _busy) { throw new InvalidOperationException("Live value ownership cannot be discarded."); }
+        DisposeUnusedIndex();
         _governor.ReleaseMemory(LedgerBytes);
     }
 }

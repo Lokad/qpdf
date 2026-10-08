@@ -139,7 +139,7 @@ internal static class EmbeddedFiles
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} extracted raw: decode unavailable.");
+            diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Stream ", number, " extracted raw: decode unavailable."]);
             return raw;
         }
     }

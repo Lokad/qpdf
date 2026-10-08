@@ -6,6 +6,7 @@ using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Tests.Reading;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Syntax;
 
@@ -46,12 +47,17 @@ public sealed class ParserDiscardTests
             : parser.ParseIndirectObject(new PdfTokenizer(input), 0).Value;
     }
 
-    private static long ControlAdmission(string body, bool member, bool repair)
+    private static long ControlAdmission(string body, bool member, bool repair, IReadOnlyList<QpdfDiagnostic> recorded)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = 0L, MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        Parse(new PdfParser(limits, governor, new DiagnosticBag(governor), null) { TolerateObjectErrors = repair }, body, member);
-        return governor.Snapshot().LiveMemoryBytes;
+        DiagnosticBag diagnostics = new(governor);
+        QpdfObject value = Parse(new PdfParser(limits, governor, diagnostics, null) { TolerateObjectErrors = repair }, body, member);
+        DiagnosticControl.Replay(diagnostics, recorded);
+        long admitted = governor.Snapshot().LiveMemoryBytes;
+        GC.KeepAlive(value);
+        GC.KeepAlive(diagnostics);
+        return admitted;
     }
 
     [Theory]
@@ -67,7 +73,7 @@ public sealed class ParserDiscardTests
         Assert.True(value.TryGet(PdfName.FromAscii("A"), out QpdfObject surviving));
         Assert.Same(PdfNull.Instance, surviving);
         Assert.False(parser.ObjectAborted);
-        Assert.Equal(ControlAdmission("<< /A null >>", member, repair), governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("<< /A null >>", member, repair, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().PeakMemoryBytes > governor.Snapshot().LiveMemoryBytes);
         Assert.Contains(diagnostics.Entries, d => d.Code == QpdfDiagnosticCode.DuplicateKey);
     }
@@ -84,7 +90,7 @@ public sealed class ParserDiscardTests
         Assert.Equal(1, value.Count);
         Assert.True(value.TryGet(PdfName.FromAscii("A"), out QpdfObject surviving));
         Assert.Same(PdfNull.Instance, surviving);
-        Assert.Equal(ControlAdmission("<< /A null >>", member, true), governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("<< /A null >>", member, true, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
         Assert.Contains(diagnostics.Entries, d => d.Message.Contains("Ignored orphan", StringComparison.Ordinal));
     }
 
@@ -94,11 +100,12 @@ public sealed class ParserDiscardTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = 0L, MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null) { TolerateObjectErrors = true };
+        DiagnosticBag diagnostics = new(governor);
+        PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true };
         PdfDictionary value = Assert.IsType<PdfDictionary>(Parse(parser, "<< " + kept + " /A null >>", member));
         Assert.True(value.TryGet(PdfName.FromAscii("QPDFFake1"), out QpdfObject orphan));
         Assert.NotSame(PdfNull.Instance, orphan);
-        Assert.Equal(ControlAdmission("<< /QPDFFake1 " + kept + " /A null >>", member, true), governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("<< /QPDFFake1 " + kept + " /A null >>", member, true, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -108,10 +115,11 @@ public sealed class ParserDiscardTests
         string escaped = string.Concat(Enumerable.Repeat("#41", 4096));
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        DiagnosticBag diagnostics = new(governor);
+        PdfParser parser = new(limits, governor, diagnostics, null);
         PdfDictionary value = Assert.IsType<PdfDictionary>(Parse(parser, "<< /" + key + " true /" + escaped + " null >>", true));
         Assert.Equal(Encoding.ASCII.GetBytes(key), Assert.Single(value.Keys).RawBytes);
-        Assert.Equal(ControlAdmission("<< /" + key + " null >>", true, false), governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("<< /" + key + " null >>", true, false, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -126,7 +134,7 @@ public sealed class ParserDiscardTests
         PdfDictionary value = Assert.IsType<PdfDictionary>(Parse(parser, "<< /A (" + new string('A', 4096) + ") /A >>", member));
         Assert.True(value.TryGet(PdfName.FromAscii("A"), out QpdfObject surviving));
         Assert.Same(PdfNull.Instance, surviving);
-        Assert.Equal(ControlAdmission("<< /A null >>", member, true), governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("<< /A null >>", member, true, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(2, diagnostics.Entries.Count);
     }
 
@@ -234,6 +242,7 @@ public sealed class ParserDiscardTests
             long discardedBase = discarded.Counters.LiveMemoryBytes;
             Assert.Equal("abc"u8.ToArray(), Assert.IsType<PdfStream>(control.GetObject(5)).Data);
             Assert.Equal("abc"u8.ToArray(), Assert.IsType<PdfStream>(discarded.GetObject(5)).Data);
+            DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(discarded).Entries);
             Assert.Equal(control.Counters.LiveMemoryBytes - controlBase, discarded.Counters.LiveMemoryBytes - discardedBase);
             PdfInteger cached = Assert.IsType<PdfInteger>(discarded.GetObject(6));
             Assert.Equal(3L, cached.Value);
@@ -249,13 +258,13 @@ public sealed class ParserDiscardTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L, MaxParserErrors = abort ? 2L : 0L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null) { TolerateObjectErrors = abort };
+        DiagnosticBag diagnostics = new(governor);
+        PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = abort };
         PdfByteString kept = Assert.IsType<PdfByteString>(Parse(parser, "(kept)", true));
-        long retained = governor.Snapshot().LiveMemoryBytes;
         string body = "<< /A (" + new string('A', 4096) + ") /A null /B @ >>";
         if (abort) { Assert.Same(PdfNull.Instance, Parse(parser, body, true)); }
         else { Assert.Throws<QpdfParseException>(() => Parse(parser, body, true)); }
-        Assert.Equal(retained, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("(kept)", true, abort, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
         Assert.Equal("kept"u8.ToArray(), kept.Value);
         Assert.True(governor.Snapshot().TotalWork > 0L);
     }
@@ -282,6 +291,7 @@ public sealed class ParserDiscardTests
             PdfDictionary surviving = Assert.IsType<PdfDictionary>(discarded.GetObject(5));
             Assert.True(surviving.TryGet(PdfName.FromAscii("A"), out QpdfObject kept));
             Assert.Same(PdfNull.Instance, kept);
+            DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(discarded).Entries);
             Assert.Equal(control.Counters.LiveMemoryBytes - controlBase, discarded.Counters.LiveMemoryBytes - discardedBase);
             PdfInteger cached = Assert.IsType<PdfInteger>(discarded.GetObject(6));
             Assert.Equal(3L, cached.Value);
@@ -297,7 +307,8 @@ public sealed class ParserDiscardTests
         using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         ResourceGovernor governor = new(limits, cancellation.Token);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        DiagnosticBag diagnostics = new(governor);
+        PdfParser parser = new(limits, governor, diagnostics, null);
         Task<QpdfObject> parsing = Task.Factory.StartNew(() => parser.ParseObjectValue(new PdfTokenizer(input), 0), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         bool observed = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 16L * 1024L * 1024L || parsing.IsCompleted, TimeSpan.FromSeconds(10));
         cancellation.Cancel();
@@ -305,6 +316,6 @@ public sealed class ParserDiscardTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await parsing.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.True(governor.Snapshot().PeakMemoryBytes >= 16L * 1024L * 1024L);
         Assert.True(governor.Snapshot().TotalWork > 0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(ControlAdmission("null", true, false, diagnostics.Entries), governor.Snapshot().LiveMemoryBytes);
     }
 }

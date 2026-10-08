@@ -5,6 +5,7 @@ using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -186,9 +187,12 @@ public sealed class XrefCollectionTests
         byte[] duplicate = Encoding.ASCII.GetBytes(original.Insert(original.IndexOf(marker, StringComparison.Ordinal), headers));
         ResourceGovernor control = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable expected = Parse(Encoding.ASCII.GetBytes(original), control, QpdfLimits.Default);
-        XRefTable actual = Parse(duplicate, governor, QpdfLimits.Default);
+        DiagnosticBag controlDiagnostics = new(control);
+        DiagnosticBag diagnostics = new(governor);
+        XRefTable expected = XRefTable.Parse(Encoding.ASCII.GetBytes(original), QpdfLimits.Default, control, controlDiagnostics, QpdfRecoveryMode.BoundedRepair);
+        XRefTable actual = XRefTable.Parse(duplicate, QpdfLimits.Default, governor, diagnostics, QpdfRecoveryMode.BoundedRepair);
         Assert.Equal(expected.Entries.Count, actual.Entries.Count);
+        DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
         Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -230,10 +234,16 @@ public sealed class XrefCollectionTests
         string original = Encoding.ASCII.GetString(Classic(2000, true)).Replace("/Size 2005", "/Size 5", StringComparison.Ordinal);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         ResourceGovernor control = new(QpdfLimits.Default, CancellationToken.None);
-        XRefTable table = Parse(Encoding.ASCII.GetBytes(original), governor, QpdfLimits.Default);
-        XRefTable expected = Parse(Classic(0, true), control, QpdfLimits.Default);
+        DiagnosticBag diagnostics = new(governor);
+        DiagnosticBag controlDiagnostics = new(control);
+        XRefTable table = XRefTable.Parse(Encoding.ASCII.GetBytes(original), QpdfLimits.Default, governor, diagnostics, QpdfRecoveryMode.BoundedRepair);
+        XRefTable expected = XRefTable.Parse(Classic(0, true), QpdfLimits.Default, control, controlDiagnostics, QpdfRecoveryMode.BoundedRepair);
         Assert.Equal(expected.Entries.Count, table.Entries.Count);
         Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
+        GC.KeepAlive(diagnostics);
+        GC.KeepAlive(controlDiagnostics);
+        GC.KeepAlive(table);
+        GC.KeepAlive(expected);
     }
 
     [Theory]

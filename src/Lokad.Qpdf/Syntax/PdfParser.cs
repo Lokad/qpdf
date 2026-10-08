@@ -95,8 +95,8 @@ internal sealed class PdfParser
             return;
         }
 
-        _diagnostics.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning,
-            $"Object syntax repair at offset {offset.ToString(CultureInfo.InvariantCulture)}: {detail}");
+        _diagnostics.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning,
+            ["Object syntax repair at offset ", DiagnosticPart.Invariant(offset), ": ", detail]);
     }
 
     private void CountToleratedError(long offset)
@@ -685,7 +685,7 @@ internal sealed class PdfParser
 
     private QpdfObject ParseDictionaryContentsOrStream(PdfTokenizer tokenizer, int depth, long offset)
     {
-        Dictionary<PdfName, ParsedValue> entries = ParserContainers.CreateDictionary(Memory);
+        PdfNameTable<ParsedValue> entries = ParserContainers.CreateDictionary(Memory, _governor);
         List<ParsedValue>? missingKeys = null;
         while (true)
         {
@@ -742,12 +742,12 @@ internal sealed class PdfParser
             }
 
             long discardedBytes = 0L;
-            if (entries.TryGetValue(key, out ParsedValue previous))
+            if (entries.TryGetValue(key, _governor, _governor.CancellationToken, out ParsedValue previous))
             {
                 if (!SuppressRepairDiagnostics)
                 {
-                    _diagnostics.Add(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning,
-                        $"Duplicate dictionary key '{key.DisplayText}' keeps the last value.");
+                    _diagnostics.AddParts(QpdfDiagnosticCode.DuplicateKey, QpdfDiagnosticSeverity.Warning,
+                        ["Duplicate dictionary key '", DiagnosticPart.Name(key), "' keeps the last value."]);
                 }
                 if (TolerateObjectErrors)
                 {
@@ -766,12 +766,7 @@ internal sealed class PdfParser
                 discardedBytes = checked(keyBytes + previous.ReservedBytes);
                 previous = default;
             }
-            else
-            {
-                ParserContainers.EnsureEntryCapacity(Memory, entries);
-            }
-
-            entries[key] = value;
+            entries.Assign(Memory, _governor, key, value, _governor.CancellationToken);
             ReleaseMemory(discardedBytes);
             if (missingValue)
             {
@@ -799,8 +794,7 @@ internal sealed class PdfParser
                 {
                     PdfName key = FreshFakeKey(entries, ref fakeIndex);
                     WarnRepair("Inserted a missing dictionary key.", offset);
-                    ParserContainers.EnsureEntryCapacity(Memory, entries);
-                    entries.Add(key, value);
+                    entries.TryAdd(Memory, _governor, key, value, _governor.CancellationToken);
                 }
             }
 
@@ -832,7 +826,7 @@ internal sealed class PdfParser
         return dictionary;
     }
 
-    private PdfName FreshFakeKey(Dictionary<PdfName, ParsedValue> entries, ref long index)
+    private PdfName FreshFakeKey(PdfNameTable<ParsedValue> entries, ref long index)
     {
         Span<byte> text = stackalloc byte[32];
         "QPDFFake"u8.CopyTo(text);
@@ -850,7 +844,7 @@ internal sealed class PdfParser
             ReserveMemory(checked(memory + scratch));
             PdfName candidate = new(text[..(count + 8)].ToArray());
             ReleaseMemory(scratch);
-            if (!entries.ContainsKey(candidate))
+            if (!entries.TryGetValue(candidate, _governor, _governor.CancellationToken, out _))
             {
                 return candidate;
             }

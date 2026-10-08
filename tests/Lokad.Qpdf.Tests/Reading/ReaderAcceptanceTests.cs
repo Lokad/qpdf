@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
@@ -32,6 +33,7 @@ public sealed class ReaderAcceptanceTests
         host.AddInput(QpdfPath.From("inputs/a.pdf"), input, QpdfInputOwnership.Copy);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
+        await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
         {
             Assert.Equal(1, document.PageCount);
             long baseline = document.Counters.LiveMemoryBytes;
@@ -39,7 +41,8 @@ public sealed class ReaderAcceptanceTests
             for (int i = 0; i < 50; i++)
             {
                 Assert.Contains("header contradicts", Assert.Throws<QpdfParseException>(() => document.GetObject(5)).Message, StringComparison.Ordinal);
-                Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+                DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(document).Entries);
+                Assert.Equal(control.Counters.LiveMemoryBytes, document.Counters.LiveMemoryBytes);
             }
             Assert.True(document.Counters.TotalWork > work);
             Assert.InRange(document.Counters.PeakMemoryBytes, baseline + 1L, limits.MaxMemoryBytes);

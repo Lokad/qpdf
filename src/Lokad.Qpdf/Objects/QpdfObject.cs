@@ -258,8 +258,12 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
     private static string ToDisplay(byte b)
     {
-        return b >= 0x21 && b <= 0x7E && b != (byte)'#' ? ((char)b).ToString() : $"#{b:X2}";
+        Span<char> text = stackalloc char[3];
+        int length = WriteDisplayByte(b, text);
+        return new string(text.Slice(0, length));
     }
+
+    internal static int WriteDisplayByte(byte value, Span<char> target) => PdfNameDisplay.WriteByte(value, target);
 
     private static int HexValue(byte b)
     {

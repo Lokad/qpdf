@@ -4244,6 +4244,7 @@ public static partial class Qpdf
 
         // JSON emits text and copied sidecar bytes. Its reader values remain
         // exclusive to this document until serialization completes.
+        using DiagnosticStage? diagnosticStage = diagnostics.BeginStaging();
         await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
         Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
         List<Json.JsonSidecar> sidecars = new();
@@ -4257,6 +4258,7 @@ public static partial class Qpdf
         // No PDF value escapes serialization. Close the input before publishing
         // so a host close fault preserves the existing main and sidecar targets.
         await document.DisposeAsync().ConfigureAwait(false);
+        diagnosticStage?.Flush();
         if (outputPath.HasValue)
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath.Value, governor, cancellationToken).ConfigureAwait(false);

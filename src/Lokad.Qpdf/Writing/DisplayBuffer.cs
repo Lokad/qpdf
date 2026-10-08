@@ -1,4 +1,5 @@
 using System.Globalization;
+using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Writing;
@@ -59,6 +60,9 @@ internal sealed class DisplayBuffer : IDisposable
     }
 
     internal void AppendText(string text)
+        => AppendSpan(text.AsSpan());
+
+    private void AppendSpan(ReadOnlySpan<char> text)
     {
         for (int offset = 0; offset < text.Length; offset += Math.Min(256, text.Length - offset))
         {
@@ -66,6 +70,27 @@ internal sealed class DisplayBuffer : IDisposable
             _governor.ChargeWork(count);
             _governor.CheckCancellation();
             for (int i = offset; i < offset + count; i++) { Append(text[i]); }
+        }
+    }
+
+    internal void AppendParts(ReadOnlySpan<DiagnosticPart> parts)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        Span<char> digits = stackalloc char[20];
+        Span<char> escaped = stackalloc char[3];
+        foreach (DiagnosticPart part in parts)
+        {
+            _governor.ChargeWork(1L);
+            _governor.CheckCancellation();
+            int written = part.WriteNumber(_governor, digits);
+            AppendSpan(part.Prefix);
+            AppendSpan(digits.Slice(digits.Length - written, written));
+            foreach (byte value in part.RawName)
+            {
+                _governor.ChargeWork(1L);
+                int count = PdfName.WriteDisplayByte(value, escaped);
+                AppendSpan(escaped.Slice(0, count));
+            }
         }
     }
 

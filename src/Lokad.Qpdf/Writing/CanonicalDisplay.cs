@@ -322,31 +322,16 @@ internal static class CanonicalDisplay
     // spans instead of private key copies; even long common prefixes charge
     // work and check cancellation without Array.Sort exception wrapping.
     private static void SortKeys(KeyValuePair<PdfName, QpdfObject>[] keys, ResourceGovernor governor)
-    {
-        for (int root = keys.Length / 2 - 1; root >= 0; root--) { SiftDown(keys, root, keys.Length, governor); }
-        for (int end = keys.Length - 1; end > 0; end--)
-        {
-            (keys[0], keys[end]) = (keys[end], keys[0]);
-            SiftDown(keys, 0, end, governor);
-        }
-    }
+        => GovernedSort.Sort<KeyValuePair<PdfName, QpdfObject>, RawKeyComparer>(keys, new RawKeyComparer(governor), governor, CancellationToken.None);
 
-    private static void SiftDown(KeyValuePair<PdfName, QpdfObject>[] keys, int root, int count, ResourceGovernor governor)
+    private readonly struct RawKeyComparer(ResourceGovernor governor) : IComparer<KeyValuePair<PdfName, QpdfObject>>
     {
-        while (root < count / 2)
-        {
-            int child = checked(2 * root + 1);
-            if (child + 1 < count && CompareKeys(keys[child].Key, keys[child + 1].Key, governor) < 0) { child++; }
-            if (CompareKeys(keys[root].Key, keys[child].Key, governor) >= 0) { return; }
-            (keys[root], keys[child]) = (keys[child], keys[root]);
-            root = child;
-        }
+        public int Compare(KeyValuePair<PdfName, QpdfObject> left, KeyValuePair<PdfName, QpdfObject> right)
+            => CompareKeys(left.Key, right.Key, governor);
     }
 
     private static int CompareKeys(PdfName left, PdfName right, ResourceGovernor governor)
     {
-        governor.ChargeWork(1L);
-        governor.CheckCancellation();
         ReadOnlySpan<byte> a = left.RawSpan;
         ReadOnlySpan<byte> b = right.RawSpan;
         int shared = Math.Min(a.Length, b.Length);

@@ -147,8 +147,14 @@ internal static class ObjectRemap
     private static PdfDictionary RemapDictionary(PdfDictionary dictionary, NumberMap renumber,
         ParserMemoryScope? memory, ResourceGovernor governor, CancellationToken cancellationToken, long depth, int? lengthNumber)
     {
-        Dictionary<PdfName, QpdfObject> entries = memory is null
-            ? new() : ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
+        IReadOnlyDictionary<PdfName, QpdfObject> entries;
+        if (memory is null) { entries = new Dictionary<PdfName, QpdfObject>(); }
+        else
+        {
+            PdfNameTable<QpdfObject> names = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, cancellationToken);
+            names.EnsureCapacity(memory, governor, checked(dictionary.Count + (lengthNumber.HasValue ? 1 : 0)), cancellationToken);
+            entries = names;
+        }
         PdfName? lengthKey = null;
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext())
@@ -160,10 +166,7 @@ internal static class ObjectRemap
             if (entry.Value is not null)
             {
                 QpdfObject mapped = RemapIds(entry.Value, renumber, memory, governor, cancellationToken, checked(depth + 1L));
-                AdmitEntry(memory, governor, entries);
-                // Name-key hashing/collision work retains the shared dictionary audit.
-                governor.ChargeWork(checked(Math.Min(entry.Key.RawSpan.Length, 16) + 1L));
-                entries.Add(entry.Key, mapped);
+                AddEntry(memory, governor, cancellationToken, entries, entry.Key, mapped);
             }
         }
         if (lengthNumber.HasValue)
@@ -178,17 +181,20 @@ internal static class ObjectRemap
             }
             memory?.Reserve(32L);
             PdfReference length = new(lengthNumber.Value, 0);
-            AdmitEntry(memory, governor, entries);
-            entries.Add(lengthKey, length);
+            AddEntry(memory, governor, cancellationToken, entries, lengthKey, length);
         }
         memory?.Reserve(32L);
-        return PdfDictionary.FromOwnedEntries(entries);
+        if (memory is not null && entries is PdfNameTable<QpdfObject> owned)
+        { owned.Freeze(memory, governor, cancellationToken); return PdfDictionary.FromOwnedEntries(owned); }
+        return PdfDictionary.FromOwnedEntries((Dictionary<PdfName, QpdfObject>)entries);
     }
 
-    private static void AdmitEntry(ParserMemoryScope? memory, ResourceGovernor governor, Dictionary<PdfName, QpdfObject> entries)
+    private static void AddEntry(ParserMemoryScope? memory, ResourceGovernor governor, CancellationToken token,
+        IReadOnlyDictionary<PdfName, QpdfObject> entries, PdfName key, QpdfObject value)
     {
-        if (memory is null) { return; }
-        if (entries.Count == entries.EnsureCapacity(0)) { governor.ChargeWork(checked(4L * (entries.Count + 1L))); }
-        ParserContainers.EnsureEntryCapacity(memory, entries, IntPtr.Size);
+        if (memory is not null && entries is PdfNameTable<QpdfObject> owned)
+        { owned.TryAdd(memory, governor, key, value, token); return; }
+        governor.ChargeWork(checked(Math.Min(key.RawSpan.Length, 16) + 1L));
+        ((Dictionary<PdfName, QpdfObject>)entries).Add(key, value);
     }
 }

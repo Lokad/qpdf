@@ -6,6 +6,7 @@ using Lokad.Qpdf.Tests.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Syntax;
 
@@ -43,6 +44,8 @@ public sealed class ParserOwnershipTests
         DiagnosticBag diagnostics = new(governor);
         PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true };
         byte[] input = Encoding.ASCII.GetBytes(member ? body : "5 0 obj " + body + " endobj");
+        ResourceGovernor control = new(limits, CancellationToken.None);
+        DiagnosticBag controlDiagnostics = new(control);
         for (int i = 0; i < 50; i++)
         {
             QpdfObject value = member
@@ -50,7 +53,8 @@ public sealed class ParserOwnershipTests
                 : parser.ParseIndirectObject(new PdfTokenizer(input), 0).Value;
             Assert.Same(PdfNull.Instance, value);
             Assert.True(parser.ObjectAborted);
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
+            Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         Assert.True(governor.Snapshot().TotalWork >= 50L);
@@ -75,20 +79,27 @@ public sealed class ParserOwnershipTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxParserErrors = 1L, MaxMemoryBytes = 100000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null) { TolerateObjectErrors = true };
+        DiagnosticBag diagnostics = new(governor);
+        PdfParser parser = new(limits, governor, diagnostics, null) { TolerateObjectErrors = true };
         string text = new('A', 4096);
         PdfByteString kept = Assert.IsType<PdfByteString>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + text + ")")), 0));
         long retained = governor.Snapshot().LiveMemoryBytes;
         Assert.True(retained >= 4096L);
+        ResourceGovernor control = new(limits, CancellationToken.None);
+        DiagnosticBag controlDiagnostics = new(control);
+        PdfParser controlParser = new(limits, control, controlDiagnostics, null) { TolerateObjectErrors = true };
+        QpdfObject controlValue = controlParser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + text + ")")), 0);
         byte[] abandoned = Encoding.ASCII.GetBytes("[ (" + text + ") @ ]");
         for (int i = 0; i < 20; i++)
         {
             Assert.Same(PdfNull.Instance, parser.ParseObjectValue(new PdfTokenizer(abandoned), 0));
-            Assert.Equal(retained, governor.Snapshot().LiveMemoryBytes);
+            DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
+            Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.Equal(Encoding.ASCII.GetBytes(text), kept.Value);
         Assert.Equal(7L, Assert.IsType<PdfInteger>(parser.ParseObjectValue(new PdfTokenizer("7"u8.ToArray()), 0)).Value);
         Assert.False(parser.ObjectAborted);
+        GC.KeepAlive(controlValue);
     }
 
     [Theory]
@@ -124,7 +135,10 @@ public sealed class ParserOwnershipTests
             QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseIndirectObject(new PdfTokenizer(input), 0));
             Assert.Equal(kind == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
         }
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        ResourceGovernor control = new(limits, CancellationToken.None);
+        DiagnosticBag controlDiagnostics = new(control);
+        DiagnosticControl.Replay(controlDiagnostics, diagnostics.Entries);
+        Assert.Equal(control.Snapshot().LiveMemoryBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().TotalWork > 0L);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 4096L, limits.MaxMemoryBytes);
         Assert.Equal(kind == "diagnostics" ? 1L : 0L, governor.Snapshot().DiagnosticCount);

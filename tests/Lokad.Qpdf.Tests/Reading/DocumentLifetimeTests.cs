@@ -6,10 +6,14 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Tests.Foundation;
 using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
+// Observe cancellation intervals without another lifetime control forcing a
+// process-wide collection during this class's parsing/traversal phases.
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class DocumentLifetimeTests
 {
     private static byte[] Input(int padding, bool broken, string fault, bool nested)
@@ -440,7 +444,8 @@ public sealed class DocumentLifetimeTests
                 Thread.SpinWait(16);
             }
             if (opening.IsCompleted) { await (await opening).DisposeAsync(); continue; }
-            Assert.True(governor.Snapshot().TotalWork >= pageThreshold);
+            Assert.True(governor.Snapshot().TotalWork >= pageThreshold,
+                $"Observed {governor.Snapshot().TotalWork} work; expected at least {pageThreshold} before the original 10-second observation deadline.");
             cancellation.Cancel();
             try { await (await opening.WaitAsync(TimeSpan.FromSeconds(10))).DisposeAsync(); }
             catch (OperationCanceledException)

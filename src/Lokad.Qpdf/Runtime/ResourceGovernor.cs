@@ -22,6 +22,9 @@ internal sealed class ResourceGovernor
     private long _diagnosticBytes;
     private long _operationsSinceCheck;
     private RetainedValueOwners? _valueOwners;
+    private DiagnosticStage? _diagnosticStage;
+    private long _reservedWork;
+    private bool _presentingDiagnostics;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)
     {
@@ -79,13 +82,15 @@ internal sealed class ResourceGovernor
     {
         RetainedValueOwners? owners = _valueOwners;
         if (owners is null || owners.Busy) { return; }
-        owners.Drain();
-        DisposeEmptyValueOwners(owners);
+        try { owners.Drain(); DisposeEmptyValueOwners(owners); }
+        finally { ShrinkDiagnosticWork(); }
     }
 
     private void DisposeEmptyValueOwners(RetainedValueOwners owners)
     {
-        if (!owners.Empty || owners.Busy) { return; }
+        if (owners.Busy) { return; }
+        owners.DisposeUnusedIndex();
+        if (!owners.Empty) { return; }
         // Fold the atomic retirement total before detaching its storage. The
         // detached ledger has no live carrier or future collection notification.
         _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - owners.RetiredBytes);
@@ -99,6 +104,7 @@ internal sealed class ResourceGovernor
         RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
         try { return owners.Retain(value, reservedBytes); }
         catch { DisposeEmptyValueOwners(owners); throw; }
+        finally { ShrinkDiagnosticWork(); }
     }
 
     internal long RetainValues(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
@@ -106,6 +112,7 @@ internal sealed class ResourceGovernor
         RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
         try { return owners.Retain(wrapper, wrapperBytes, roots, reservedBytes); }
         catch { DisposeEmptyValueOwners(owners); throw; }
+        finally { ShrinkDiagnosticWork(); }
     }
 
     internal long RetainAllocations(OwnedAllocationBatch allocations, long reservedBytes)
@@ -122,6 +129,113 @@ internal sealed class ResourceGovernor
         catch { DisposeEmptyValueOwners(owners); throw; }
     }
 
+    internal RetainedValueOwners.Receipt RetainAllocation(object carrier, long reservedBytes)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.RetainAllocation(carrier, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+        finally { ShrinkDiagnosticWork(); }
+    }
+
+    internal void DropAllocation(object carrier, RetainedValueOwners.Receipt receipt)
+    {
+        RetainedValueOwners owners = _valueOwners ?? throw new InvalidOperationException("Allocation owner is unavailable.");
+        long bytes = receipt.Bytes;
+        owners.DropAllocation(carrier, receipt);
+        ReleaseMemory(bytes);
+        DisposeEmptyValueOwners(owners);
+        ShrinkDiagnosticWork();
+    }
+
+    internal long RetainDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.RetainDiagnostic(diagnostic, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+        finally { ShrinkDiagnosticWork(); }
+    }
+
+    internal long RetainCheckOutcome(QpdfCheckOutcome outcome, long detailBytes, long reservedBytes)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.RetainCheckOutcome(outcome, detailBytes, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+        finally { ShrinkDiagnosticWork(); }
+    }
+
+    internal string? FindDiagnosticMessage(string message, int hash)
+        => _valueOwners?.FindDiagnosticMessage(message, hash);
+
+    internal string? FindDiagnosticMessage(ReadOnlySpan<DiagnosticPart> parts, DiagnosticTextInfo info)
+        => _valueOwners?.FindDiagnosticMessage(parts, info);
+
+    internal long RetainCachedDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes, int messageHash)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.RetainCachedDiagnostic(diagnostic, reservedBytes, messageHash); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+        finally { ShrinkDiagnosticWork(); }
+    }
+
+    internal DiagnosticWorkState DiagnosticWorkState => _valueOwners?.WorkState ?? default;
+
+    internal void AttachDiagnosticStage(DiagnosticStage stage)
+    {
+        if (_diagnosticStage is not null) { throw new InvalidOperationException("A job already has a diagnostic stage."); }
+        _diagnosticStage = stage;
+    }
+
+    internal void SetDiagnosticWork(DiagnosticStage stage, long capacity)
+    {
+        if (!ReferenceEquals(_diagnosticStage, stage) || _presentingDiagnostics) { throw new InvalidOperationException("Diagnostic work cannot be changed in this phase."); }
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        CheckWorkCapacity(capacity);
+        _reservedWork = capacity;
+    }
+
+    internal void PreflightDiagnosticWork(DiagnosticWorkState state)
+    {
+        if (_diagnosticStage is null || _presentingDiagnostics) { return; }
+        long needed = _diagnosticStage.PresentationWork(state);
+        if (needed > _reservedWork) { SetDiagnosticWork(_diagnosticStage, needed); }
+    }
+
+    private void ShrinkDiagnosticWork()
+    {
+        if (_diagnosticStage is null || _presentingDiagnostics || _diagnosticStage.Admitting) { return; }
+        long needed = _diagnosticStage.PresentationWork(DiagnosticWorkState);
+        // Growth preflight funds an upper bound before any carrier activates.
+        // After commit/rollback/retirement, reconciliation only returns excess;
+        // it cannot fail after a successful ownership transfer.
+        if (needed < _reservedWork) { _reservedWork = needed; }
+    }
+
+    internal void BeginDiagnosticPresentation(DiagnosticStage stage)
+    {
+        SetDiagnosticWork(stage, stage.PresentationWork(DiagnosticWorkState));
+        _presentingDiagnostics = true;
+    }
+
+    internal void EndDiagnosticPresentation(DiagnosticStage stage)
+    {
+        if (ReferenceEquals(_diagnosticStage, stage)) { _presentingDiagnostics = false; }
+    }
+
+    internal void DetachDiagnosticStage(DiagnosticStage stage)
+    {
+        if (!ReferenceEquals(_diagnosticStage, stage)) { return; }
+        _diagnosticStage = null;
+        _presentingDiagnostics = false;
+        _reservedWork = 0L;
+    }
+
+    private void CheckWorkCapacity(long units)
+    {
+        if (units <= _limits.MaxWork - _totalWork) { return; }
+        long requested = units > long.MaxValue - _totalWork ? long.MaxValue : _totalWork + units;
+        throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested, _limits.MaxWork);
+    }
+
     internal void ChargeWork(long units)
     {
         if (units < 0)
@@ -129,16 +243,18 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(units), "Charge must not be negative.");
         }
 
-        checked
+        if (_presentingDiagnostics)
         {
-            long next = _totalWork + units;
-            if (next > _limits.MaxWork)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), next, _limits.MaxWork);
-            }
-
-            _totalWork = next;
+            if (units > _reservedWork) { throw new InvalidOperationException("Diagnostic work exceeds its pre-admitted bound."); }
+            _reservedWork -= units;
         }
+        else
+        {
+            if (units > long.MaxValue - _reservedWork) { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+            long capacity = units + _reservedWork;
+            CheckWorkCapacity(capacity);
+        }
+        _totalWork = checked(_totalWork + units);
 
         NoteOperation();
     }

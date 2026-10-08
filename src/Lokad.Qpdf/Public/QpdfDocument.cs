@@ -683,10 +683,10 @@ public sealed class QpdfDocument : IAsyncDisposable
             long total = collector.Count - before;
             if (declared.Value != total && diagnostics.ReportPageCountMismatch)
             {
-                diagnostics.Add(
+                diagnostics.AddParts(
                     QpdfDiagnosticCode.PageCountMismatch,
                     QpdfDiagnosticSeverity.Warning,
-                    $"A /Pages /Count of {declared.Value} disagrees with traversal ({total}); traversal wins.");
+                    ["A /Pages /Count of ", declared.Value, " disagrees with traversal (", total, "); traversal wins."]);
             }
         }
     }

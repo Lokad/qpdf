@@ -140,12 +140,13 @@ public sealed class CanonicalDisplayMemoryTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
         bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "repair");
+        QpdfExecutionCounters before = governor.Snapshot();
         PdfByteString value = new(new byte[4 * 1024 * 1024], false);
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
             CanonicalDisplay.AddDiagnostic(value, limits, governor, null, bag));
         Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
-        Assert.Equal(0L, governor.Snapshot().TotalWork);
-        Assert.Equal(0L, governor.Snapshot().PeakMemoryBytes);
+        Assert.Equal(before.TotalWork, governor.Snapshot().TotalWork);
+        Assert.Equal(before.PeakMemoryBytes, governor.Snapshot().PeakMemoryBytes);
         Assert.Single(bag.Entries);
     }
 

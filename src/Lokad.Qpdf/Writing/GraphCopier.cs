@@ -107,23 +107,31 @@ internal sealed class GraphCopier
         _mapping[source] = destination;
     }
 
-    private Dictionary<PdfName, QpdfObject> CreateEntries()
-        => _ownership is null ? new() : ParserContainers.CreateDictionary<PdfName, QpdfObject>(_ownership);
-
-    private void SetEntry(Dictionary<PdfName, QpdfObject> entries, PdfName key, QpdfObject value)
+    private IReadOnlyDictionary<PdfName, QpdfObject> CreateEntries(int count)
     {
-        if (_ownership is not null && !entries.ContainsKey(key))
-        {
-            ParserContainers.EnsureEntryCapacity(_ownership, entries, IntPtr.Size);
-        }
-        entries[key] = value;
+        if (_ownership is null) { return new Dictionary<PdfName, QpdfObject>(); }
+        PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(_ownership, _governor, IntPtr.Size, _governor.CancellationToken);
+        entries.EnsureCapacity(_ownership, _governor, count, _governor.CancellationToken);
+        return entries;
     }
 
-    private PdfDictionary CompleteDictionary(Dictionary<PdfName, QpdfObject> entries)
+    private void SetEntry(IReadOnlyDictionary<PdfName, QpdfObject> entries, PdfName key, QpdfObject value)
+    {
+        if (_ownership is not null && entries is PdfNameTable<QpdfObject> names)
+        {
+            names.Assign(_ownership, _governor, key, value, _governor.CancellationToken);
+            return;
+        }
+        ((Dictionary<PdfName, QpdfObject>)entries)[key] = value;
+    }
+
+    private PdfDictionary CompleteDictionary(IReadOnlyDictionary<PdfName, QpdfObject> entries)
     {
         if (_ownership is null) { return new PdfDictionary(entries); }
+        if (entries is not PdfNameTable<QpdfObject> names) { throw new InvalidOperationException("Owned copy requires governed name storage."); }
+        names.Freeze(_ownership, _governor, _governor.CancellationToken);
         _ownership.Reserve(32L);
-        return PdfDictionary.FromOwnedEntries(entries);
+        return PdfDictionary.FromOwnedEntries(names);
     }
 
     internal IReadOnlyDictionary<int, QpdfObject> CopiedObjects => _copied;
@@ -339,7 +347,7 @@ internal sealed class GraphCopier
         }
         else if (skipped > 1)
         {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Skipped {skipped} unpreservable objects.");
+            diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Skipped ", skipped, " unpreservable objects."]);
         }
 
         return preserved;
@@ -399,27 +407,26 @@ internal sealed class GraphCopier
         }
 
         _rootPageNumber = sourceNumber ?? -2;
-        Dictionary<PdfName, QpdfObject> entries = CreateEntries();
-        foreach (PdfName key in page.Keys)
+        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(checked(page.Count + extra.Count));
+        using (PdfDictionary.EntryEnumerator source = page.GetEntryEnumerator())
         {
-            if (_ownership is not null) { _governor.ChargeWork(1L); }
-            if (!retainSourceObjects && key.Equals(ParentKey))
+            while (source.MoveNext(_governor, _governor.CancellationToken))
             {
-                continue;
-            }
+                PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
+                if (value is null) { continue; }
+                if (!retainSourceObjects && key.Equals(ParentKey)) { continue; }
 
-            if (!page.TryGet(key, out QpdfObject value))
-            {
-                continue;
+                Reserve(32L);
+                SetEntry(entries, key, retainSourceObjects ? value : CopyValue(value, 0));
             }
-
-            Reserve(32L);
-            SetEntry(entries, key, retainSourceObjects ? value : CopyValue(value, 0));
         }
 
         foreach (KeyValuePair<PdfName, QpdfObject> materialized in extra)
         {
-            if (!entries.TryGetValue(materialized.Key, out QpdfObject? existing) || existing is PdfNull)
+            bool found = entries is PdfNameTable<QpdfObject> names
+                ? names.TryGetValue(materialized.Key, _governor, _governor.CancellationToken, out QpdfObject? existing)
+                : entries.TryGetValue(materialized.Key, out existing);
+            if (!found || existing is PdfNull)
             {
                 Reserve(32L);
                 SetEntry(entries, materialized.Key, materialized.Value);
@@ -549,13 +556,12 @@ internal sealed class GraphCopier
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth)
     {
         Reserve(64L);
-        Dictionary<PdfName, QpdfObject> entries = CreateEntries();
-        foreach (PdfName key in dictionary.Keys)
+        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(dictionary.Count);
+        using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
+        while (source.MoveNext(_governor, _governor.CancellationToken))
         {
-            if (!dictionary.TryGet(key, out QpdfObject value))
-            {
-                continue;
-            }
+            PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
+            if (value is null) { continue; }
 
             Reserve(32L);
             if (key.Equals(ParentKey))

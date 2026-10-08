@@ -59,17 +59,14 @@ internal static class ParserContainers
         memory.Release(32L + ArrayBytes(items.Capacity, 16L));
     }
 
-    internal static Dictionary<PdfName, ParsedValue> CreateDictionary(ParserMemoryScope memory)
-        => CreateDictionary<PdfName, ParsedValue>(memory);
+    internal static PdfNameTable<ParsedValue> CreateDictionary(ParserMemoryScope memory, ResourceGovernor governor)
+        => PdfNameTable<ParsedValue>.Create(memory, governor, 16L, governor.CancellationToken);
 
     internal static Dictionary<TKey, TValue> CreateDictionary<TKey, TValue>(ParserMemoryScope memory) where TKey : notnull
     {
         memory.Reserve(96L);
         return new Dictionary<TKey, TValue>();
     }
-
-    internal static void EnsureEntryCapacity(ParserMemoryScope memory, Dictionary<PdfName, ParsedValue> entries)
-        => EnsureEntryCapacity(memory, entries, 16L);
 
     internal static void EnsureEntryCapacity<TKey, TValue>(
         ParserMemoryScope memory, Dictionary<TKey, TValue> entries, long valueBytes) where TKey : notnull
@@ -114,20 +111,19 @@ internal static class ParserContainers
         }
     }
 
-    internal static PdfDictionary CopyDictionary(
-        ParserMemoryScope memory, ResourceGovernor governor, Dictionary<PdfName, ParsedValue> entries, bool preserveReceipts)
+    internal static PdfDictionary CopyDictionary(ParserMemoryScope memory, ResourceGovernor governor,
+        PdfNameTable<ParsedValue> entries, bool preserveReceipts)
     {
-        long upper = DictionaryArrays(PrimeCapacityAllowance(entries.Count), IntPtr.Size);
-        memory.Reserve(128L + upper);
-        Dictionary<PdfName, QpdfObject> kept = new(entries.Count);
-        foreach (KeyValuePair<PdfName, ParsedValue> entry in entries)
-        {
-            governor.CheckCancellation();
-            kept.Add(entry.Key, entry.Value.Value);
-        }
+        CancellationToken token = governor.CancellationToken;
+        PdfNameTable<QpdfObject> kept = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, token);
+        kept.EnsureCapacity(memory, governor, entries.Count, token);
+        using PdfNameTable<ParsedValue>.Enumerator source = entries.GetEnumerator();
+        while (source.MoveNext(governor, token))
+        { kept.Assign(memory, governor, source.Current.Key, source.Current.Value.Value, token); }
+        kept.Freeze(memory, governor, token); memory.Reserve(32L);
         PdfDictionary value = PdfDictionary.FromOwnedEntries(kept);
-        long temporary = preserveReceipts ? 0L : checked(96L + DictionaryArrays(entries.EnsureCapacity(0), 16L));
-        memory.Release(checked(upper - DictionaryArrays(value.StorageCapacity, IntPtr.Size) + temporary));
+        if (preserveReceipts) { entries.Freeze(memory, governor, token); }
+        else { entries.Discard(memory, governor); }
         return value;
     }
 
