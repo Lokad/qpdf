@@ -35,7 +35,12 @@ layout. Complete native hints and independent byte-boundary checks distinguish
 those layout differences from encoding choices. The writer scopes bit buffers,
 construction collections, tables, compression output and the final hint object
 through replay. Independently escaping table arrays retain their own receipts.
-Hint parsing, decoding and complete combined ownership remain under audit.
+The shared hint reader borrows immutable raw stream backing and scopes Flate
+decoding, overflow joins, bit cursors and temporary arrays. Check/show retain
+parsed tables only through classification, validation and reporting. Independently
+escaping tables, entries and identifier/numerator arrays receive separate receipts;
+discarded siblings and decoded scratch can collect while source values survive.
+Final combined verification and broader ownership remain under audit.
 
 Document-open traversal starts at catalog values, so direct containers retain
 indirect descendants and indirect roots retain their own physical identities.

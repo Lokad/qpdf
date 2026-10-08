@@ -116,10 +116,10 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        LinearizationData? data;
+        LinearizationDataOwner? owner;
         try
         {
-            data = LinearizationCheck.TryReadData(document.Engine, document.PageCount, limits, governor, cancellationToken);
+            owner = LinearizationCheck.TryReadOwnedData(document.Engine, document.PageCount, limits, governor, cancellationToken);
         }
         catch (QpdfException ex)
         {
@@ -127,37 +127,41 @@ public static partial class Qpdf
             return;
         }
 
-        if (data is null)
+        using (owner)
         {
-            diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
-            return;
-        }
+            if (owner is null)
+            {
+                diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
+                return;
+            }
 
-        using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(governor);
-        ClassifiedGraph graph;
-        try
-        {
-            graph = LinearizationReport.ClassifyDocument(document.Engine, data.LindictObject, data.HintObject,
-                classificationMemory, governor, cancellationToken);
-        }
-        catch (QpdfException ex)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ex.Message);
-            return;
-        }
-
-        using (graph)
-        {
+            LinearizationData data = owner.Data;
+            using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(governor);
+            ClassifiedGraph graph;
             try
             {
-                LinearizationPhysical.Validate(document.Engine, data, graph, limits, governor, cancellationToken);
+                graph = LinearizationReport.ClassifyDocument(document.Engine, data.LindictObject, data.HintObject,
+                    classificationMemory, governor, cancellationToken);
             }
-            catch (QpdfParseException ex)
+            catch (QpdfException ex)
             {
-                diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
-                    ["Check 'linearization' failed: ", ex.Message]);
+                diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ex.Message);
+                return;
             }
-            LinearizationReport.Write(inputPath.Value, data, graph, governor, diagnostics, cancellationToken);
+
+            using (graph)
+            {
+                try
+                {
+                    LinearizationPhysical.Validate(document.Engine, data, graph, limits, governor, cancellationToken);
+                }
+                catch (QpdfParseException ex)
+                {
+                    diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
+                        ["Check 'linearization' failed: ", ex.Message]);
+                }
+                LinearizationReport.Write(inputPath.Value, data, graph, governor, diagnostics, cancellationToken);
+            }
         }
     }
 

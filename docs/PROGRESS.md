@@ -19,12 +19,23 @@ Same new tests on `9C5B832E`: **67 fail / 2 preserve / 69 eligible**, no loaders
 skips, including a demonstrated ignored governor-token cancellation in the old
 encoder. A new reflection observer cycle was fixed; its aborted draft remains.
 
-HINT-03 remains open: **HINT-03R** must own read/decode/overflow buffers and parsed
-tables/identifiers/numerators/groups through check/show and independent aliases;
-**HINT-03V** must verify the final combined correction with the original native
-comparisons, full tests, reference/package/consumer/source checks and timings.
-No expensive lane has been repeated for this debugging draft. M11/A01–A07 and both
-verdicts remain open.
+HINT-03R now scopes primary/overflow decoding and joins, bit cursors and temporary
+arrays. Check/show own parsed tables through reporting; independently escaping
+tables, entries, identifier/numerator arrays and outlines retain separate receipts.
+Decoded scratch dies while the parsed owner and borrowed source streams survive.
+The final focused build has zero warnings; **1756** cases pass, including **106**
+new reader controls: 31 ownership/failure/cancellation checks and **75 complete
+public reads** over classic, streamed, overflow and Flate inputs. Original
+32 KiB/32-cycle controls remain; the compressed supplement retains the existing
+128 KiB inflate allowance. Input-close faults and cancellation after observed work
+close all leases and preserve prior output aliases. Identical new tests on the
+committed writer runtime: **30 fail / 76 preserve / 106 eligible**, no loaders/skips.
+All preceding test sources, five locks and unrelated work remain unchanged.
+
+HINT-03R is a scoped correction; **HINT-03V** remains open until the final combined
+read/write tree passes the original native comparisons, full tests,
+reference/package/consumer/source checks and phase timings. No expensive lane has
+been repeated during debugging. M11/A01–A07 and both verdicts remain open.
 
 ## Physical linearization checker
 
