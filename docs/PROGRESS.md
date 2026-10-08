@@ -3,7 +3,7 @@
 ## Combined implementation
 
 The owned parser/diagnostic/copier and inspection/writer changes are integrated
-in coherent buildable commits. Raw-name tables charge collision work; diagnostic
+at `2c1b2d2` and `6ff5236`. Raw-name tables charge collision work; diagnostic
 storage and future export work are admitted before acceptance; JSON stages warnings
 through input closure. Escaping value/check/diagnostic aliases remain funded while
 completed jobs release ledger metadata. Writer row/index/capture/header/payload,
@@ -37,11 +37,15 @@ The five ImageSharp 3.1.12 advisories have explicit temporary URL-specific
 exclusions; audit and other warnings remain enabled, all five locks unchanged.
 Strict restore/build and fresh artifact-consumer restore pass without overrides.
 The [assessment](DEVELOPMENT.md) records reachability and review triggers.
+Policy/checklist commit: `7b0379b`. Final strict package/symbol verification,
+50 fresh consumer smokes and both specific pre-smoke negatives pass; packed DLL
+and changelog exactly match the final tree.
 
 Measured phases: combined test execution 4m57s (TRX interval 5m05s); full reference/
 differential/parser 39m41s; strict build 37s. Intermediate focused execution 12s
-(process 17s), build 34s. Final package/consumer timings and exact source/artifact
-identities are retained with terminal verification evidence.
+(process 17s), build 34s. Final pack 1.5s, package inspection 0.6s, fresh consumer 14.9s and negative
+consumer checks 6.1s. Exact source/artifact identities and terminal timings
+are retained with verification evidence.
 
 The [finite checklist](AUDIT-CLOSURE.md) names every remaining route/check/pass
 condition. Keep the 4 KiB/28-call/4047-byte hint finding, grouped +24 bytes,
