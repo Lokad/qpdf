@@ -11,6 +11,31 @@ work; the library keeps it behind the governed JPEG adapter. Test packages are
 only allowed in test projects. SourceLink is private build
 tooling. Debug packaging and unsafe compilation are rejected by build targets.
 
+The five reported ImageSharp 3.1.12 advisories are intentionally, temporarily
+excluded with advisory-specific `NuGetAuditSuppress` entries in
+`Directory.Build.props`, accepted on 2026-10-08. NuGet audit remains enabled for
+other advisories, and warnings remain errors. Remove these exclusions when the
+approved codec pin is revised; dependency versions and lock files are unchanged.
+See [NuGet advisory exclusions](https://learn.microsoft.com/nuget/concepts/auditing-packages#excluding-advisories).
+
+The temporary decision uses this advisory-by-advisory source assessment:
+
+| Advisory | Affected path | Current adapter reachability |
+| --- | --- | --- |
+| [GHSA-j9gm-c75j-xc9q](https://github.com/advisories/GHSA-j9gm-c75j-xc9q) | TIFF CCITT T4 encoding | Only `JpegEncoder` is constructed. |
+| [GHSA-jjfr-hcj7-qf5w](https://github.com/advisories/GHSA-jjfr-hcj7-qf5w) | TIFF CCITT T6 encoding | Only `JpegEncoder` is constructed. |
+| [GHSA-wmxv-xphr-5c9g](https://github.com/advisories/GHSA-wmxv-xphr-5c9g) | BigTIFF decoding | JPEG-only configuration and the DCT frame-header check restrict decoding. |
+| [GHSA-j3p4-wp97-rph4](https://github.com/advisories/GHSA-j3p4-wp97-rph4) | Histogram equalization of TIFF floating-point pixels | No histogram processing; adapter pixels are `L8`/`Rgb24`. |
+| [GHSA-gwg2-r3hj-4w44](https://github.com/advisories/GHSA-gwg2-r3hj-4w44) | Lazy ICC entries parsing in version 3 | DCT decoding sets `SkipMetadata = true`; no ICC entries are accessed. |
+
+This is source-based reachability evidence for this library's current adapter,
+not an exploit test or package-wide security clearance. A consumer can use other
+ImageSharp paths. Review these five decisions whenever codec registration,
+metadata handling, pixel types or processing operations change. Audit stays
+enabled for additional advisories; a qualified restore is no longer the policy
+resolution. The explicit temporary acceptance is tracked as POLICY-01 in the
+[closure checklist](AUDIT-CLOSURE.md).
+
 SourceLink is enabled when an actual repository URL is supplied, including
 GitHub Actions' repository metadata. The initial local repository has no remote,
 so local SourceLink/source-control queries are disabled. Do not invent a URL.
