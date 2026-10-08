@@ -64,10 +64,10 @@ public sealed class InlineImageReconstructionTests
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         object result = Run(governor,Content("BI /W 1 /H 1 ID a EI BI /W 1 /H 1 ID b EI BI /W 1 /H 1 ID c EI\n"),Dictionary(("Resources",resources)),0L,false,diagnostics,CancellationToken.None);
         PdfStream stream=Assert.IsType<PdfStream>(Property(result,"Stream"));
-        Assert.Equal("/IIm2 Do\n /IIm4 Do\n /IIm5 Do\n\n",Encoding.ASCII.GetString(stream.Data));
+        Assert.Equal("/IIm1 Do\n /IIm2 Do\n /IIm3 Do\n\n",Encoding.ASCII.GetString(stream.Data));
         PdfDictionary rewritten=Assert.IsType<PdfDictionary>(Property(result,"Resources"));
         Assert.True(rewritten.TryGet(PdfName.FromAscii("XObject"),out QpdfObject? value)); PdfDictionary images=Assert.IsType<PdfDictionary>(value);
-        Assert.Equal(5,images.Count); Assert.Equal(2,Assert.IsType<PdfDictionary>(Get(resources,"XObject")).Count);
+        Assert.Equal(3,images.Count); Assert.Equal(2,Assert.IsType<PdfDictionary>(Get(resources,"XObject")).Count);
     }
     [Theory]
     [InlineData("BI /W [ ID abc EI\n")]

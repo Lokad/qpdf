@@ -27,7 +27,7 @@ internal static class InlineImageStorage
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
         dataMemory.TransferTo(graph.Memory);
         if (data.Length != 0) { graph.Add(data, checked(32L + data.Length)); }
-        PdfDictionary converted = InlineImageDictionary.Build(graph, raw, resources, diagnostics);
+        PdfDictionary converted = InlineImageDictionary.Build(graph, raw, resources, diagnostics, resolver);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
         AddDefault(graph, entries, converted, "Type"u8, "XObject"u8);
         AddDefault(graph, entries, converted, "Subtype"u8, "Image"u8);
@@ -35,7 +35,7 @@ internal static class InlineImageStorage
         while (source.MoveNext(governor, token)) { entries.Assign(graph.Memory, governor, source.Current.Key, source.Current.Value, token); }
         PdfDictionary header = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, data); graph.Add(stream, 32L);
-        PdfName name = Name(graph, resources, ref suffix);
+        PdfName name = Name(graph, resources, resolver, ref suffix);
         graph.RetainParsed(raw, parsedMemory);
         return new(name, stream);
     }
@@ -50,7 +50,7 @@ internal static class InlineImageStorage
         byte[] synthetic = new byte[length];
         "<< "u8.CopyTo(synthetic); " >>"u8.CopyTo(synthetic.AsSpan(length - 3));
         GovernedBufferStream.CopyBytes(bytes.Span, synthetic.AsSpan(3, bytes.Length), governor, token, CancellationToken.None);
-        PdfParser parser = new(limits, governor, diagnostics, resolver, token);
+        PdfParser parser = new(limits, governor, diagnostics, resolver, token) { RejectIndirectReferences = true };
         PdfTokenizer tokenizer = new(synthetic, token);
         QpdfObject parsed = parser.ParseValue(tokenizer, 0, parsedMemory);
         return parsed as PdfDictionary ?? throw new QpdfParseException("Inline image dictionary must be a dictionary.", offset, null);
@@ -67,10 +67,8 @@ internal static class InlineImageStorage
         entries.Assign(graph.Memory, graph.Governor, name, target, graph.Token);
     }
 
-    private static PdfName Name(OwnedAllocationBatch graph, PdfDictionary resources, ref int suffix)
+    private static PdfName Name(OwnedAllocationBatch graph, PdfDictionary resources, PoolResolver resolver, ref int suffix)
     {
-        PdfDictionary? xobjects = PdfDictionaryLookup.TryGet(resources, "XObject"u8, graph.Governor, graph.Token, out QpdfObject raw)
-            ? raw as PdfDictionary : null;
         Span<byte> bytes = stackalloc byte[13]; "IIm"u8.CopyTo(bytes);
         while (true)
         {
@@ -78,9 +76,24 @@ internal static class InlineImageStorage
             if (suffix < 1 || suffix == int.MaxValue) { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), (long)suffix + 1L, int.MaxValue); }
             if (!suffix.TryFormat(bytes[3..], out int digits, provider: CultureInfo.InvariantCulture)) { throw new InvalidOperationException("Inline image suffix does not fit."); }
             suffix = checked(suffix + 1); ReadOnlySpan<byte> candidate = bytes[..(3 + digits)];
-            if (xobjects is null || !PdfDictionaryLookup.Contains(xobjects, candidate, graph.Governor, graph.Token))
+            if (!HasResourceName(resources, candidate, resolver, graph.Governor, graph.Token))
             { return PdfDictionaryRebuild.CreateName(graph, candidate); }
         }
+    }
+
+    private static bool HasResourceName(PdfDictionary resources, ReadOnlySpan<byte> name, PoolResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        using PdfDictionary.EntryEnumerator categories = resources.GetEntryEnumerator();
+        while (categories.MoveNext(governor, token))
+        {
+            QpdfObject? target = categories.Current.Value;
+            if (target is PdfReference reference)
+            { PdfObjectLookup.TryResolve(reference, resolver, governor, token, out target); }
+            if (target is PdfDictionary entries && PdfDictionaryLookup.TryGet(entries, name, governor, token, out QpdfObject value) && value is not PdfNull)
+            { return true; }
+        }
+        return false;
     }
 
     private static byte[] Copy(ReadOnlySpan<byte> value, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)

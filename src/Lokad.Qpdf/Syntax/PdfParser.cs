@@ -52,6 +52,8 @@ internal sealed class PdfParser
     /// <summary>Allows object syntax repair without relaxing host resource ceilings.</summary>
     internal bool TolerateObjectErrors { get; set; }
 
+    internal bool RejectIndirectReferences { get; set; }
+
     /// <summary>Budgeted errors encountered in the current object.</summary>
     internal long ToleratedErrors { get; private set; }
 
@@ -455,6 +457,8 @@ internal sealed class PdfParser
 
         if (reference)
         {
+            if (RejectIndirectReferences)
+            { throw new QpdfParseException("Inline image dictionaries cannot contain indirect references.", first.Offset, null); }
             if (TolerateObjectErrors)
             {
                 CountRepairToken(second.Offset);
@@ -1195,13 +1199,14 @@ internal sealed class PdfParser
     {
         // The tokenizer established ASCII numeric syntax. Copy directly into
         // the admitted string, without a second full-size character array.
-        return string.Create(data.Length, (Data: data, Governor: _governor), static (chars, state) =>
+        return string.Create(data.Length, (Data: data, Governor: _governor, Token: _token), static (chars, state) =>
         {
             ReadOnlySpan<byte> bytes = state.Data.Span;
             for (int i = 0; i < chars.Length; i++)
             {
                 if ((i & 4095) == 0)
                 {
+                    state.Token.ThrowIfCancellationRequested();
                     state.Governor.ChargeWork(1L);
                     state.Governor.CheckCancellation();
                 }

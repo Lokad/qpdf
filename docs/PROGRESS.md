@@ -1,37 +1,38 @@
 # Progress
 
-## Owned inline-image reconstruction
+## Inline resource scope and identities
 
-Inline-image parsing and naming now use the shared parser, raw lookup and admitted
-builders. Copied data, synthetic input, tokenizer/parser scratch, candidate capacity,
-raw/Flate output and rebuilt resources/headers have owners. Parsed values and fresh
-allocations transfer atomically; failed transfer restores the source receipt.
-Borrowed colorspaces stay borrowed and copier source-reference remapping is preserved.
+Inline externalization now preserves existing indirect XObjects, form-local
+colorspaces and shared page resources/content. Names check all resource categories
+and ignore null entries. Copied colorspace references keep their destination
+identities; references written inside inline dictionaries warn and keep the original
+content. Rebuilt form headers remove obsolete predictors. Numeric copying checks
+the separate caller token at its existing work interval.
 
-Release builds pass with an audit-warning qualification. Pending **8472** and
-isolated **7749** offline cases pass, including **29 new controls**; all preceding
-cases, 229 original test sources and five locks remain unchanged. Thirteen eligible
-final reconstruction controls on the preceding binary fail six / preserve seven,
-with zero loader failures; sixteen new-helper controls are explicitly excluded.
-An unchanged isolated page-cancellation test first missed its ten-second threshold;
-the focused and full reruns pass without changing its controls. That observation
-remains open. Wrapper geometry fits admission. Synchronized helper probes cover
-28 processes / 56 paired samples and retirement; their earlier maintenance/sampling
-failures remain recorded. Whole-job and historical measurement attribution remain open.
+Qualified Release builds and **8509 pending / 7786 isolated offline
+cases pass, including **37 new controls**. All preceding case identities, 232 other
+test sources and five locks remain. One preceding component's null-name expectation
+is corrected against pinned native evidence; its fixture and original controls stay.
+Identical final tests on the preceding runtime fail **32 / preserve 6 /
+38 eligible**, with zero loaders or exclusions. A new draft test omitted its funded
+prior scope owner's 64 bytes; using its measured baseline fixes that test without a
+runtime or original-control change. The failed observation is retained.
 
-Fresh focused native checks, full differential/parser reference, package/symbol
-checks and qualified fresh consumer/negative checks pass. Thirty authored page/form
-observations give twelve exact matches and eighteen inherited indirect-XObject or
-form-local-colorspace mismatches; all thirty managed outputs/exits are unchanged.
-The earlier missing-resource warning/exit gap and undefined form-font mismatch persist.
+The expanded unchanged native matrix improves **21 to 82 exact matches / 96**.
+Decoded content/images and public exits match in 90. Six missing-resource outcomes
+and eight job/mixed encoded form headers remain different. Native warns and leaves
+missing form Resources absent; managed code still supplies them. Compression
+setter order needs correction. Full differential/reference, package/symbol checks,
+50 qualified consumer smokes and both specific negatives pass on the frozen tree.
+Paired warm probes cover 36 processes / 72 samples and wrapper geometry; they do
+not close whole-job or historical measurement attribution.
 
-**Strict locked restore and fresh artifact consumer restore currently fail** on
-five ImageSharp 3.1.12 advisories. Development checks retain audit warnings and
-change only their error treatment for those commands. Dependency versions, locks
-and repository audit policy are unchanged; the original build/release gate is unmet.
-Continue resource/default fixes, parser caller-token copying, failure integration,
-legacy inspection and remaining consumers/codecs/replay/hints/presentation, then
-the complete diagnostic correction. M11/A01–A07 and both verdicts remain open.
+**Strict locked restore and fresh artifact-consumer restore remain unmet** on five
+ImageSharp 3.1.12 advisories. Qualified commands retain warnings; versions, locks
+and repository audit policy are unchanged. Continue missing/malformed resources,
+configuration order and later failure integration, then legacy inspection and the
+remaining ownership/diagnostic correction. M11/A01–A07, original measurements,
+known overlay/form findings and both completion verdicts remain open.
 
 ## Owned inline-image dictionary conversion
 

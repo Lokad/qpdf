@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Content;
 
@@ -15,6 +16,10 @@ internal static class InlineImageDictionary
     }
 
     internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary resources, DiagnosticBag diagnostics)
+        => Build(graph, raw, resources, diagnostics, null);
+
+    internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary resources,
+        DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
@@ -30,8 +35,7 @@ internal static class InlineImageDictionary
             {
                 ReadOnlySpan<byte> full = ColorName(color, governor, token);
                 if (!full.IsEmpty) { value = PdfDictionaryRebuild.CreateName(graph, full); }
-                else if (PdfDictionaryLookup.TryGet(resources, "ColorSpace"u8, governor, token, out QpdfObject spacesRaw) &&
-                    spacesRaw is PdfDictionary spaces && PdfDictionaryLookup.TryGet(spaces, color.RawSpan, governor, token, out QpdfObject found))
+                else if (TryColorspace(resources, color, resolver, governor, token, out QpdfObject found))
                 { value = found; }
                 else
                 { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the original name."); }
@@ -42,6 +46,18 @@ internal static class InlineImageDictionary
         }
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         return result;
+    }
+
+    private static bool TryColorspace(PdfDictionary resources, PdfName name, IIndirectResolver? resolver,
+        ResourceGovernor governor, CancellationToken token, out QpdfObject value)
+    {
+        value = PdfNull.Instance;
+        if (!PdfDictionaryLookup.TryGet(resources, "ColorSpace"u8, governor, token, out QpdfObject raw)) { return false; }
+        QpdfObject? target = raw;
+        if (raw is PdfReference reference && resolver is not null)
+        { PdfObjectLookup.TryResolve(reference, resolver, governor, token, out target); }
+        return target is PdfDictionary spaces &&
+            PdfDictionaryLookup.TryGet(spaces, name.RawSpan, governor, token, out value) && value is not PdfNull;
     }
 
     internal static int AllocationCount(PdfDictionary raw, ResourceGovernor governor, CancellationToken token)

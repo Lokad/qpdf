@@ -43,34 +43,11 @@ internal static class InlineImages
         }
 
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
-        PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out QpdfObject resourcesRaw);
-        PdfDictionary replaced = page;
         using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
-        List<int>? orphaned = null;
-        if (contentsRaw is PdfReference contentsRef)
-        {
-            copier.ReplaceCopiedObject(contentsRef.ObjectNumber, rewritten.Stream);
-        }
-        else
-        {
-            PdfReference? link = copier.AddIndirectObject(rewritten.Stream);
-            if (link is null)
-            {
-                return page;
-            }
-
-            orphaned = ContentTransforms.ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
-            replaced = ReplaceEntry(replaced, "Contents"u8, link, governor, cancellationToken);
-        }
-
-        if (resourcesRaw is PdfReference resourcesRef)
-        {
-            copier.ReplaceCopiedObject(resourcesRef.ObjectNumber, rewritten.Resources);
-        }
-        else
-        {
-            replaced = ReplaceEntry(replaced, "Resources"u8, rewritten.Resources, governor, cancellationToken);
-        }
+        List<int> orphaned = ContentTransforms.ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
+        PdfReference link = copier.AddIndirectObjectWithId(rewritten.Stream, copier.NextId);
+        PdfDictionary replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
+        replaced = ReplaceEntry(replaced, "Resources"u8, rewritten.Resources, governor, cancellationToken);
 
         copier.ReplaceCopiedObject(pageId, replaced);
         if (orphaned is { Count: > 0 })
@@ -101,7 +78,7 @@ internal static class InlineImages
             return;
         }
 
-        RewriteResult rewritten = RewriteContent(copier, null, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
+        RewriteResult rewritten = RewriteContent(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
         chunks.Dispose();
         resolverMemory.Dispose();
         if (!rewritten.Changed || rewritten.Stream is null || rewritten.Resources is null)
@@ -109,26 +86,14 @@ internal static class InlineImages
             return;
         }
 
-        PdfDictionary formDict = ReplaceEntry(form.Dictionary, "Resources"u8, rewritten.Resources, governor, cancellationToken);
-        PdfDictionary encodedDict = rewritten.Stream.Dictionary;
-        if (PdfDictionaryLookup.TryGet(encodedDict, "Filter"u8, governor, cancellationToken, out QpdfObject filter))
+        using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, 10, cancellationToken);
+        PdfDictionary unencoded = PdfDictionaryRebuild.StripStreamEncoding(headers, form.Dictionary);
+        PdfDictionary formDict = ResourceRebuild.ReplaceResources(headers, unencoded, rewritten.Resources);
+        if (PdfDictionaryLookup.TryGet(rewritten.Stream.Dictionary, "Filter"u8, governor, cancellationToken, out QpdfObject filter))
         {
-            formDict = ReplaceEntry(formDict, "Filter"u8, filter, governor, cancellationToken);
+            formDict = PdfDictionaryRebuild.ReplaceEntry(headers, formDict, "Filter"u8, filter);
         }
-        else
-        {
-            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 2, cancellationToken);
-            PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
-            using PdfDictionary.EntryEnumerator source = formDict.GetEntryEnumerator();
-            while (source.MoveNext(governor, cancellationToken))
-            {
-                PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
-                if (value is null || PdfDictionaryLookup.NameEquals(key, "Filter"u8, governor, cancellationToken) ||
-                    PdfDictionaryLookup.NameEquals(key, "DecodeParms"u8, governor, cancellationToken)) { continue; }
-                entries.Assign(graph.Memory, governor, key, value, cancellationToken);
-            }
-            formDict = PdfDictionaryRebuild.Complete(graph, entries, allocation); graph.Retain();
-        }
+        headers.Retain();
         using OwnedAllocationBatch final = OwnedAllocationBatch.Create(governor, 1, cancellationToken);
         final.Memory.Reserve(32L);
         PdfStream replaced = rewritten.Stream.WithDictionary(formDict);
@@ -253,12 +218,18 @@ internal static class InlineImages
             existing = target as PdfDictionary;
         }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6, token);
-        bool valid = existing is not null && PdfDictionaryLookup.TryGet(existing, "XObject"u8, governor, token, out QpdfObject xobjects) && xobjects is PdfDictionary;
-        PdfDictionary? empty = null;
-        if (!valid)
+        PdfDictionary? resolvedXObjects = null;
+        if (existing is not null && PdfDictionaryLookup.TryGet(existing, "XObject"u8, governor, token, out QpdfObject rawXObjects))
+        {
+            QpdfObject? target = rawXObjects;
+            if (rawXObjects is PdfReference reference)
+            { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, token, out target); }
+            resolvedXObjects = target as PdfDictionary;
+        }
+        if (resolvedXObjects is null)
         {
             PdfNameTable<QpdfObject> blank = PdfDictionaryRebuild.CreateEntries(graph, out int blankAllocation);
-            empty = PdfDictionaryRebuild.Complete(graph, blank, blankAllocation);
+            resolvedXObjects = PdfDictionaryRebuild.Complete(graph, blank, blankAllocation);
         }
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
         bool hasKey = false;
@@ -269,11 +240,11 @@ internal static class InlineImages
             {
                 PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
                 if (value is null) { continue; }
-                if (PdfDictionaryLookup.NameEquals(key, "XObject"u8, governor, token)) { hasKey = true; value = empty ?? value; }
+                if (PdfDictionaryLookup.NameEquals(key, "XObject"u8, governor, token)) { hasKey = true; value = resolvedXObjects; }
                 entries.Assign(graph.Memory, governor, key, value, token);
             }
         }
-        if (!hasKey && empty is not null) { entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "XObject"u8), empty, token); }
+        if (!hasKey) { entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, "XObject"u8), resolvedXObjects, token); }
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation); graph.Retain(); return result;
     }
 
@@ -288,8 +259,10 @@ internal static class InlineImages
         for (int index = 0; index < output.Count; index++)
         {
             InlineImageEntry image = output.Get(index);
-            PdfReference? link = copier.AddIndirectObject(image.Stream);
-            if (link is not null) { entries.Assign(graph.Memory, governor, image.Name, link, token); }
+            // Parsing rejects source references. Resource values already belong
+            // to this pool and must retain their destination identities.
+            PdfReference link = copier.AddIndirectObjectWithId(image.Stream, copier.NextId);
+            entries.Assign(graph.Memory, governor, image.Name, link, token);
         }
         PdfDictionary images = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, resources, "XObject"u8, images); graph.Retain(); return result;

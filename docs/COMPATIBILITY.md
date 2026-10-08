@@ -341,25 +341,31 @@ Those warning/default/context gaps and full image-payload parity remain open.
 Paired warm process measurements do not resolve the older grouped 24-byte result
 or establish exclusive helper/whole-job retention. No inventory label changes.
 
-## Inline reconstruction qualification
+## Inline resource qualification
 
-Inline parsing, naming, candidate/output storage and resource/header rebuilding now
-share the admitted parser/builders. Source-reference remapping and existing image
-behavior are preserved. The pending/isolated suites pass 8472/7749 cases with 29 new
-controls. Thirty new authored page/form observations match twelve cases and expose
-eighteen inherited mismatches: indirect XObject dictionaries lose existing resource
-names, and form-local named colorspaces remain unresolved. All thirty managed
-outputs/public exits are unchanged against the preceding binary. Encoded form
-metadata, shared-resource propagation, full diagnostic/default/context parity and
-the preceding missing-resource warning/exit gap remain open. Inventory labels/counts
-are unchanged.
+Inline externalization preserves existing indirect XObjects, form-local direct or
+indirect colorspace maps and shared page content/resources. Resource names check
+all categories and ignore null values. Resolved copied references retain their
+destination identities; written inline references follow native warn-and-keep
+behavior. Rebuilt form headers remove old predictors. Numeric copying checks both
+cancellation routes. Pending/isolated suites pass 8509/7786 cases with
+37 new controls. All prior case identities and original acceptance controls stay;
+one preceding component's null-name expectation is corrected from native evidence.
 
-Fresh local reference and package checks are development evidence qualified by
-ImageSharp advisory warnings. Unmodified strict locked restore and fresh artifact
-consumer restore fail for the pinned 3.1.12 dependency; no dependency/lock/audit
-policy change has been made. This gate requires resolution before build/release
-readiness. M11/A01–A07, original measurement obligations, visual/reference CI,
-known overlay/form findings and both independent completion verdicts remain open.
+The same 96 authored page/form observations improve from 21 to 82 exact matches.
+Decoded content/images and public exits match in 90. Six missing-resource outcomes
+remain different: native warns, leaves missing form Resources absent and omits
+unreachable images; managed supplies resources/images. Eight job/mixed encoded
+form headers differ because streamData/compressStreams setter order differs.
+Missing/malformed resource defaults, warning detail, configuration interactions,
+later publication failures and full invocation parity remain open. Inventory labels
+and counts are unchanged; the preceding undefined form-font finding persists.
+
+Fresh local reference/package checks are qualified development evidence. Strict
+locked restore and fresh artifact-consumer restore fail on five advisories for
+the required ImageSharp 3.1.12 dependency. Versions/locks/repository policy stay;
+the original gate is unmet. M11/A01–A07, original measurement attribution,
+visual/reference CI, remaining contexts and both completion verdicts remain open.
 
 ## Inventory
 
