@@ -6,6 +6,7 @@
     <EmbeddedResource Include="Content/InlineImageNativeCases.json" />
     <EmbeddedResource Include="Writing/LinearizedHintNativeCases.json" />
     <EmbeddedResource Include="Writing/DocumentOpenHintCases.json" />
+    <EmbeddedResource Include="Inspection/LinearizationCheckCases.json" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="All" />
     <PackageReference Include="xunit" PrivateAssets="All" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="All" />

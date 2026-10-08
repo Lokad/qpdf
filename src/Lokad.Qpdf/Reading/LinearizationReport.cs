@@ -10,35 +10,7 @@ internal static class LinearizationReport
 {
     internal static ClassifiedGraph ClassifyDocument(DocumentEngine engine, int lindictObject, int hintObject,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(engine);
-        ArgumentNullException.ThrowIfNull(governor);
-        memory.CheckOwner(governor);
-        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
-        GovernedIntDictionary<QpdfObject> lookup = GovernedIntDictionary<QpdfObject>.Create(temporary, governor, IntPtr.Size, cancellationToken);
-        foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            if (entry.Key <= 0 || entry.Value.Kind == XrefEntryKind.Free
-                || entry.Key == lindictObject || entry.Key == hintObject) { continue; }
-            QpdfObject value;
-            try { value = engine.Load(entry.Key); }
-            catch (QpdfParseException) { continue; }
-            if (value is null or PdfNull) { continue; }
-            lookup.TryAdd(temporary, entry.Key, value);
-        }
-        if (!GovernedCollections.TryGet(engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject rootRaw)
-            || rootRaw is not PdfReference rootReference)
-        {
-            throw new QpdfParseException("Linearized display needs an indirect catalog reference.", null, null);
-        }
-        if (!lookup.TryGetValue(rootReference.ObjectNumber, out QpdfObject? catalog) || catalog is not PdfDictionary)
-        {
-            throw new QpdfParseException("Linearized display needs a reachable catalog dictionary.", null, rootReference.ObjectNumber);
-        }
-        return LinearizedParts.ClassifyGraph(lookup, rootReference.ObjectNumber, memory, governor, cancellationToken);
-    }
+        => LinearizationGraph.Classify(engine, lindictObject, hintObject, memory, governor, cancellationToken);
 
     internal static void Write(string inputName, LinearizationData data, ClassifiedGraph parts,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)

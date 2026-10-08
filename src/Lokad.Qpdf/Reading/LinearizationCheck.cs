@@ -81,8 +81,7 @@ internal sealed record OutlineTable(
 /// Structural validation of linearized files: detection, linearization
 /// dictionary checks, hint-stream resolution and decoding, and governed
 /// bit-level parsing of the page-offset, shared-object, and outline tables.
-/// Object-identity cross-checks against computed part assignments arrive
-/// with the linearization writer.
+/// Physical claims are independently checked with the shared reader and graph classifier.
 /// </summary>
 internal static class LinearizationCheck
 {
@@ -140,6 +139,10 @@ internal static class LinearizationCheck
                 return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, string.Empty);
             }
 
+            using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            using Writing.ClassifiedGraph graph = LinearizationGraph.Classify(engine, data.LindictObject,
+                data.HintObject, memory, governor, cancellationToken);
+            LinearizationPhysical.Validate(engine, data, graph, limits, governor, cancellationToken);
             int shared = data.SharedTable.TotalCount;
             return new LinearizationInspection(
                 LinearizationStatus.Valid,
@@ -582,10 +585,6 @@ internal static class LinearizationCheck
             int outlineCount = (int)outlineReader.ReadBits(32);
             long outlineLength = outlineReader.ReadBits(32);
             outlines = new OutlineTable(outlineFirst, outlineOffset, outlineCount, outlineLength);
-            if (outlineCount > 0)
-            {
-                ValidateOutlineOffset(engine, spans, outlineFirst, outlineOffset);
-            }
         }
 
         return new LinearizationData(
@@ -594,38 +593,7 @@ internal static class LinearizationCheck
             pageTable, sharedTable, outlines);
     }
 
-    private static int CheckHints(
-        DocumentEngine engine,
-        PdfDictionary lindict,
-        long[] spans,
-        int pageCount,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-    {
-        LindictData fields = CheckDictionary(lindict, engine.Data.Length, pageCount, engine);
-        return ReadData(engine, fields, pageCount, limits, governor, cancellationToken).SharedTable.TotalCount;
-    }
-    private static void ValidateOutlineOffset(DocumentEngine engine, long[] spans, int firstObject, long storedOffset)
-    {
-        if (!engine.XRefEntries.TryGetValue(firstObject, out XrefEntry entry))
-        {
-            throw new QpdfParseException("Outline hint table names an unknown object.", null, null);
-        }
-
-        if (entry.Kind != XrefEntryKind.Uncompressed)
-        {
-            return;
-        }
-
-        long expected = storedOffset >= spans[0] ? storedOffset + spans[1] : storedOffset;
-        if (entry.First != expected)
-        {
-            throw new QpdfParseException("Incorrect offset in outlines table.", null, null);
-        }
-    }
-
-private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, ResourceGovernor governor, out int number)
+    private static PdfStream ResolveHintObject(DocumentEngine engine, long offset, ResourceGovernor governor, out int number)
     {
         governor.ChargeWork(engine.XRefEntries.Count);
         foreach (System.Collections.Generic.KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)

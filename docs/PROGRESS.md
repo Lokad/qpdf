@@ -1,5 +1,24 @@
 # Progress
 
+## Physical linearization checker
+
+HINT-02 now uses the shared reader to parse physical object ends and the shared
+classifier to resolve compressed members to their actual containers. It checks
+/O,/E,/T, primary/overflow hint spans, page runs/counts/lengths, complete shared
+groups/members/identifiers and outline identity/count/offset/length. Integer /P
+and deprecated content fields retain the pinned checker's ignored semantics.
+Show-linearization reports bad physical claims while retaining parsed raw fields.
+
+Focused evidence covers **1016 complete public jobs**: all 24 preserved form
+observations over seven routes; 48 independent native-classified mutations/valid
+controls over seven routes; all original 64 pairs/128 layouts over check/show argv
+and job routes. The native controls accept multi-object groups and alternate
+valid /E,/T and hint-span boundaries. Eight scratch controls preserve the original
+32 KiB/32-cycle limits and exercise failed admission, late work exhaustion and
+both cancellation tokens. Complete hint-body/public-job ownership remains HINT-03.
+The final integrated source, reference, package and consumer verification is pending;
+HINT-02 retires only after that evidence is recorded.
+
 ## Combined implementation
 
 The owned parser/diagnostic/copier and inspection/writer changes are integrated
@@ -16,8 +35,8 @@ containers with catalog objects. Catalog copying preserves non-name PageMode.
 The original eight native form warnings disappear. All **152** native observations
 remain: **144** outputs pass native linearization and match physical assignments,
 zero warnings; **eight** array-AcroForm schema rejections/native successes remain
-explicit (HINT-05). The checker still passes eight preserved invalid old form
-outputs: **HINT-02 is the next public failure**, followed by hint ownership HINT-03.
+explicit (HINT-05). HINT-02 corrects the checker's false passes of eight preserved
+invalid old form outputs; hint ownership HINT-03 is the next public work unit.
 
 The combined runtime `4972E00D` / tests `BDA364D9` passes **9767** Release cases,
 retaining all **9597** preceding occurrences; 170 new controls. Identical tests

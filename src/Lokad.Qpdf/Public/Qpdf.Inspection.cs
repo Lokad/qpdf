@@ -148,6 +148,15 @@ public static partial class Qpdf
 
         using (graph)
         {
+            try
+            {
+                LinearizationPhysical.Validate(document.Engine, data, graph, limits, governor, cancellationToken);
+            }
+            catch (QpdfParseException ex)
+            {
+                diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
+                    ["Check 'linearization' failed: ", ex.Message]);
+            }
             LinearizationReport.Write(inputPath.Value, data, graph, governor, diagnostics, cancellationToken);
         }
     }

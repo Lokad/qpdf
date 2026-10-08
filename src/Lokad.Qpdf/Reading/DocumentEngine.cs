@@ -166,6 +166,43 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     internal ReadOnlyMemory<byte> Data => _data;
 
+    // Checking borrows input bytes but owns its short-lived parsing attempt.
+    // Reuse the reader/parser rather than searching binary payloads for endobj.
+    // Keeping this observation scoped avoids enlarging every ordinary cache row.
+    internal PdfObjectExtent ReadPhysicalExtent(int number, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        _ = Cache;
+        cancellationToken.ThrowIfCancellationRequested();
+        governor.CheckCancellation();
+        if (!Table.Entries.TryGetValue(number, out XrefEntry entry)
+            || entry.Kind != XrefEntryKind.Uncompressed)
+        {
+            throw new QpdfParseException("Linearization needs an uncompressed physical object.", null, number);
+        }
+        using ParserMemoryScope attempt = ParserMemoryScope.Create(governor);
+        attempt.Reserve(128L);
+        PdfTokenizer tokenizer = new(_data, cancellationToken);
+        tokenizer.SetPosition(entry.First);
+        PdfParser parser = new(limits, governor, _diagnostics, this) { SuppressRepairDiagnostics = true };
+        (int found, int generation, _) = parser.ParseIndirectObject(tokenizer, 0, attempt);
+        if (found != number || generation != entry.Second)
+        {
+            throw new QpdfParseException("Physical object header contradicts its xref entry.", entry.First, number);
+        }
+        long end = tokenizer.Position;
+        long whitespaceEnd = end;
+        ReadOnlySpan<byte> bytes = _data.Span;
+        while (whitespaceEnd < bytes.Length && bytes[(int)whitespaceEnd] is 9 or 10 or 11 or 12 or 13 or 32)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            governor.CheckCancellation();
+            whitespaceEnd++;
+        }
+        return new(entry.First, end, whitespaceEnd);
+    }
+
     // Inspection edits share this resolver but never change physical xref offsets.
     // Their scoped owner detaches the graph before releasing its storage.
     internal void SetInspectionObjects(IReadOnlyDictionary<int, QpdfObject>? objects)
