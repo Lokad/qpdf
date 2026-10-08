@@ -230,6 +230,7 @@ public static partial class Qpdf
         long iiMinBytes,
         bool compress,
         int? level,
+        byte filterOptions,
         Content.ContentPrunePolicy prune,
         DocumentEngine engine,
         QpdfLimits limits,
@@ -246,7 +247,7 @@ public static partial class Qpdf
         }
 
         Content.ContentTransformRequest request = new(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes)
-        { PreserveUnreferenced = preserveUnreferenced };
+        { PreserveUnreferenced = preserveUnreferenced, FilterOptions = filterOptions };
         Content.ContentTransforms.ApplyPageTransforms(copier, pageIds, request, pruneHere, limits, governor, diagnostics, cancellationToken);
     }
 
@@ -361,7 +362,7 @@ public static partial class Qpdf
             occurrenceIds.Add(occurrenceId);
         }
 
-        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
+        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
         List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
         foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
@@ -932,7 +933,7 @@ public static partial class Qpdf
                 takenIds.Add(takenId);
             }
 
-            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
+            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
             if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
             {
@@ -2738,7 +2739,15 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(engine));
         }
 
-        List<int> ids = new(copier.CopiedObjects.Keys);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        Content.PoolResolver resolver = Content.PoolResolver.Create(scratch, copier.CopiedObjects);
+        List<int> ids = ParserContainers.CreateList<int>(scratch);
+        foreach (int id in copier.CopiedObjects.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            governor.ChargeWork(checked(1L + (ids.Count == ids.Capacity ? ids.Count : 0)));
+            ParserContainers.AddItem(scratch, ids, id, sizeof(int));
+        }
         foreach (int id in ids)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -2752,8 +2761,8 @@ public static partial class Qpdf
                 && type is PdfName typeName && PdfDictionaryLookup.NameEquals(typeName, "Metadata"u8, governor, cancellationToken)
                 && PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
                 && subtype is PdfName subtypeName && PdfDictionaryLookup.NameEquals(subtypeName, "XML"u8, governor, cancellationToken);
-            QpdfObject? replacement = TransformStream(stream, id, engine, xmlMetadata ? false : compress,
-                xmlMetadata ? "all" : decode, recompressFlate, level, limits, governor, diagnostics);
+            QpdfObject? replacement = StreamTransformer.Transform(stream, id, resolver, xmlMetadata ? false : compress,
+                xmlMetadata ? "all" : decode, recompressFlate, level, limits, governor, diagnostics, cancellationToken);
             if (replacement is not null)
             {
                 copier.ReplaceCopiedObject(id, replacement);
@@ -2772,108 +2781,8 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics)
-    {
-        FilterPlan stages;
-        try
-        {
-            stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, governor.CancellationToken);
-        }
-        catch (QpdfParseException)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: unsupported filter.");
-            return null;
-        }
-        using FilterPlan stageOwner = stages;
-
-        if (stages.Count == 0)
-        {
-            if (!compress || ((byte[])stream.AllocationCarrier).Length == 0)
-            {
-                return null;
-            }
-
-            byte[] recompressed = FlateFilter.Encode(stream.Data, level, limits, governor);
-            return new PdfStream(FlateDictionary(stream.Dictionary, governor), recompressed);
-        }
-
-        bool alreadyFlate = stages[0].Name == FlateFilter.FilterName;
-        if (alreadyFlate && !recompressFlate && compress)
-        {
-            return null;
-        }
-
-        foreach (FilterStage stage in stages)
-        {
-            if (StreamFilterInLevel(stage.Name, decode))
-            {
-                continue;
-            }
-
-            if (decode == "all")
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: unsupported filter.");
-            }
-
-            return null;
-        }
-
-        byte[] decoded;
-        try
-        {
-            decoded = FilterChain.Decode(stream.Data, stages, limits, governor);
-        }
-        catch (QpdfFilterException)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Stream {number} kept opaque: decode failed.");
-            return null;
-        }
-
-        stages.Dispose();
-        if (!compress || decoded.Length == 0)
-        {
-            return new PdfStream(StrippedDictionary(stream.Dictionary, governor), decoded);
-        }
-
-        byte[] encoded = FlateFilter.Encode(decoded, level, limits, governor);
-        return new PdfStream(FlateDictionary(stream.Dictionary, governor), encoded);
-    }
-
-    private static PdfDictionary StrippedDictionary(PdfDictionary dictionary, ResourceGovernor governor)
-    {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in dictionary.Keys)
-        {
-            if (key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
-            {
-                continue;
-            }
-
-            if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null)
-            {
-                governor.ReserveMemory(32L);
-                entries[key] = entry;
-            }
-        }
-
-        return new PdfDictionary(entries);
-    }
-
-    private static PdfDictionary FlateDictionary(PdfDictionary dictionary, ResourceGovernor governor)
-    {
-        PdfDictionary stripped = StrippedDictionary(dictionary, governor);
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in stripped.Keys)
-        {
-            if (stripped.TryGet(key, out QpdfObject? entry) && entry is not null)
-            {
-                entries[key] = entry;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode");
-        return new PdfDictionary(entries);
-    }
+        => StreamTransformer.Transform(stream, number, engine, compress, decode, recompressFlate, level,
+            limits, governor, diagnostics, governor.CancellationToken);
 
     private static PdfDictionary? TryGetInputCatalog(DocumentEngine engine)
     {

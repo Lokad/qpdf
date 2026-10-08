@@ -62,11 +62,19 @@ invalid earlier layer values reject before PDF input. QDF defaults apply only
 when fields are unset. Native writer defaults compress generalized streams;
 typed selection remains opaque. Empty streams and catalog XML metadata retain
 their native uncompressed rules, while page metadata follows writer settings.
-All 96 preceding resource observations now match; an expanded 868 matrix matches
-all exits, 788 encoded headers and 676 decoded outputs. Its 660 configuration
-observations match fully under the declared comparisons. Created-image encoding,
-inline page resource-name spelling, copied-filter resolution, linearized hint payloads, complete warning
-context and wider grammar/defaults remain open; inventory labels are unchanged.
+Copied streams resolve Filter/DecodeParms in their destination pool, and newly
+created images use the same owned filtering/encoding pipeline. Rewritten content
+keeps each name slash and its original encoded bytes. Inline Flate delimiter
+whitespace is accepted without removing checksum/truncation checks.
+Qualified Release suites pass 9509 pending / 8786 isolated cases, including 541
+new controls. The same 868 native observations now match all encoded headers
+and exits and 804 decoded outputs; all 432 added name/candidate and 48 copied-
+filter observations match, closing 36 unexpected warning exits. All 96 resource
+and 20 XML/empty-stream comparisons remain matched. Compared stream headers
+exclude Length/Resources/identities; deflater bitstreams are recorded separately.
+The remaining 64 decoded differences are complete linearized hint payloads.
+Full warning context, whole-job ownership and wider grammar/defaults remain
+open; inventory labels are unchanged.
 
 Form resource traversal now admits its scopes, form references and visited-number
 index through pruning and inline-image externalization. An iterative, admitted

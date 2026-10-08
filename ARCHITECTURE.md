@@ -24,8 +24,10 @@ QDF fills fields that earlier setters left unset; stream-data setters update bot
 compression and decoding. Argv/job writers default to generalized decoding and
 compression, while typed selection retains opaque stream copying. The shared
 stream transformer preserves empty streams and keeps catalog XML metadata
-uncompressed. Created-image encoding and broader transformation defaults remain
-under compatibility audit.
+uncompressed. Copied streams resolve filters against their destination pool;
+created images use the same owned transformer and encoding policy. Rewritten
+content preserves encoded name bytes and their slash prefixes. Broader
+transformation defaults and whole-job ownership remain under compatibility audit.
 
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and

@@ -211,7 +211,9 @@ public sealed class InlineImageResourceTests
         Assert.False(form.Dictionary.TryGet(PdfName.FromAscii("DecodeParms"), out _));
         Assert.Equal(compress && route == "argv", form.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _));
         Assert.Equal("/IIm1 Do\n\n", Encoding.ASCII.GetString(Decoded(form)));
-        Assert.Equal("abcd "u8.ToArray(), Stream(document, Images(document, form.Dictionary), "IIm1").Data);
+        PdfStream image = Stream(document, Images(document, form.Dictionary), "IIm1");
+        Assert.Equal(compress && route == "argv", image.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _));
+        Assert.Equal("abcd "u8.ToArray(), Decoded(image));
     }
 
     [Theory]

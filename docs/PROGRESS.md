@@ -1,6 +1,45 @@
 # Progress
 
-## Ordered compression configuration
+## Inline image names and shared stream filtering
+
+Inline and optimization rewrites preserve name slash prefixes and encoded name
+bytes. Copied streams resolve indirect filters/parameters through the destination
+pool; created images use that same owned stream transformer and ordered encoding
+policy. Fresh buffers/headers/keys remain funded through escaping aliases.
+Inline Flate delimiter whitespace is accepted while checksum and truncation
+controls remain. Typed opaque copying and existing public signatures are preserved.
+
+Qualified Release suites pass **9509 pending / 8786 isolated cases**, with **541
+new controls** and all **8968 preceding case occurrences** retained. Identical
+final tests on the preceding runtime yield **500 fail / 9009 preserve / 9509
+eligible**, zero loader failures/exclusions. One old image assertion now decodes
+its payload and adds an exact encoding assertion, confirmed with six unchanged
+native fixture/setting invocations. Budgets, deadlines, cancellation and GC
+controls are unchanged. Eight new public limit/cancellation controls preserve
+prior targets; scoped helper checks cover storage aliases and interrupted work.
+
+All **432 name/candidate and 48 copied-filter observations** match headers,
+decoded payloads and exits, closing **36 unexpected warning exits**. The original
+**868 observations** now match **868 headers / 804 decoded outputs / 868 exits**:
+80 created-image headers and 128 page-name payload differences are closed. All
+96 resource and 20 XML/empty-stream comparisons remain matched. The remaining
+64 decoded differences are complete linearized hint payloads; physical offsets,
+layout and ownership must classify them without dropping differing fields.
+
+Fresh full reference/differential, **1846 parser comparisons / 432 rewrite trios**,
+**358 focused comparisons / 500 rereads**, package/symbol checks, **50 qualified
+consumer smokes** and both specific negatives pass on frozen sources. All **908
+public signatures** remain. Native/reference TEMP/TMP is isolated; local Windows
+evidence does not close visual/cross-platform/reference CI or release gates.
+
+Independent 1024-allocation samples preserve the six plan/request carrier sizes
+and the **40-byte content request**. Broader ownership, earlier process excesses,
+grouped +24 bytes, cold/codec/RSS/CPU/host, diagnostic, grammar/default/context and
+M11/A01–A07 obligations remain open. Strict restore/fresh-consumer gates remain
+unmet on the required ImageSharp pin, with no version/lock/audit-policy change.
+Evidence in subsequent sections describes preceding component freezes.
+
+## Ordered compression configuration (preceding component)
 
 Argv and job writers now apply stream-data, compression and decode setters in
 configuration order, including lexical JSON keys, mixed argv and file chains.

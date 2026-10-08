@@ -32,6 +32,13 @@ internal static class InlineImages
         GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         CancellationToken cancellationToken, bool preserveUnreferenced)
+        => ExternalizePage(copier, pageId, page, minBytes, compress, level, limits,
+            governor, diagnostics, cancellationToken, preserveUnreferenced, 0);
+
+    internal static PdfDictionary ExternalizePage(
+        GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        CancellationToken cancellationToken, bool preserveUnreferenced, byte filterOptions)
     {
         using AnalysisChunks? chunks = CollectDecodedContents(copier, page, limits, governor, cancellationToken);
         if (chunks is null)
@@ -42,7 +49,7 @@ internal static class InlineImages
 
         using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
         chunks.Dispose();
-        RewriteResult rewritten = RewriteContentCore(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, preserveUnreferenced);
+        RewriteResult rewritten = RewriteContentCore(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, preserveUnreferenced, filterOptions);
         CompleteResourceWalk(page, rewritten.Resources, pageId, governor, diagnostics, cancellationToken);
         PdfDictionary replaced = page;
         if (rewritten.Resources is QpdfObject resources)
@@ -85,6 +92,13 @@ internal static class InlineImages
         GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         CancellationToken cancellationToken, bool preserveUnreferenced)
+        => ExternalizeForm(copier, formId, form, minBytes, compress, level, limits,
+            governor, diagnostics, cancellationToken, preserveUnreferenced, 0);
+
+    internal static void ExternalizeForm(
+        GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        CancellationToken cancellationToken, bool preserveUnreferenced, byte filterOptions)
     {
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
@@ -94,7 +108,7 @@ internal static class InlineImages
             return;
         }
 
-        RewriteResult rewritten = RewriteContentCore(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken, true, preserveUnreferenced);
+        RewriteResult rewritten = RewriteContentCore(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken, true, preserveUnreferenced, filterOptions);
         chunks.Dispose();
         resolverMemory.Dispose();
         CompleteResourceWalk(form.Dictionary, rewritten.Resources, formId, governor, diagnostics, cancellationToken);
@@ -182,12 +196,12 @@ internal static class InlineImages
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
-        => RewriteContentCore(copier, page, joined, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, false);
+        => RewriteContentCore(copier, page, joined, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, false, 0);
 
     private static RewriteResult RewriteContentCore(
         GraphCopier copier, PdfDictionary? page, byte[] joined, long minBytes, bool compress, int? level,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken,
-        bool form, bool preserveUnreferenced)
+        bool form, bool preserveUnreferenced, byte filterOptions)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(scratch, copier.CopiedObjects);
@@ -207,6 +221,7 @@ internal static class InlineImages
                 {
                     if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("BI"u8))
                     { inImage = true; imageStart = token.Offset; dictStart = checked(token.Offset + token.Data.Length); continue; }
+                    if (token.Kind == ContentTokenKind.Name) { output.Write("/"u8); }
                     output.Write(token.Data.Span); continue;
                 }
                 if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("ID"u8))
@@ -217,7 +232,10 @@ internal static class InlineImages
                         minBytes, token.Offset, resources, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
                     if (converted is InlineImageEntry entry)
                     {
-                        output.Add(entry);
+                        PdfStream candidate = StreamTransformer.Transform(entry.Stream, copier.NextId, resolver, compress,
+                            StreamTransformer.DecodeLevel(filterOptions), (filterOptions & 4) != 0, level,
+                            limits, governor, diagnostics, cancellationToken) ?? entry.Stream;
+                        output.Add(new(entry.Name, candidate));
                         if (!canAttach)
                         {
                             suffix = checked(suffix - 1);

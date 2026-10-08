@@ -151,11 +151,9 @@ internal static class FlateFilter
                 throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, FilterName, "Deflate body is corrupt or truncated.", ex);
             }
 
-            uint expected = ((uint)input[input.Length - 4] << 24) | ((uint)input[input.Length - 3] << 16)
-                | ((uint)input[input.Length - 2] << 8) | input[input.Length - 1];
             governor.CheckCancellation();
             token.ThrowIfCancellationRequested();
-            if (Adler32(output.WrittenSpan, governor, token) != expected)
+            if (!MatchesTrailer(input, Adler32(output.WrittenSpan, governor, token), governor, token))
             {
                 throw new QpdfFilterException(QpdfFilterFailureReason.TruncatedInput, FilterName, "Adler-32 mismatch.");
             }
@@ -166,6 +164,21 @@ internal static class FlateFilter
         {
             governor.ReleaseMemory(reserved);
         }
+    }
+
+    private static bool MatchesTrailer(ReadOnlySpan<byte> input, uint actual, ResourceGovernor governor, CancellationToken token)
+    {
+        // Inline image data includes the whitespace before EI. Check the full
+        // frame first so a checksum ending in whitespace is never stripped.
+        for (int end = input.Length; end >= 7; end--)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(4L);
+            uint expected = ((uint)input[end - 4] << 24) | ((uint)input[end - 3] << 16)
+                | ((uint)input[end - 2] << 8) | input[end - 1];
+            if (actual == expected) { return true; }
+            if (input[end - 1] is not (0 or 9 or 10 or 12 or 13 or 32)) { return false; }
+        }
+        return false;
     }
 
     /// <summary>
