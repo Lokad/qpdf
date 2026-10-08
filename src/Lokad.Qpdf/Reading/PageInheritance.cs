@@ -9,6 +9,14 @@ internal static class PageInheritance
 {
     internal static QpdfObject? Find(DocumentEngine engine, PageLocation location, PdfName name,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        => FindCore(engine, location, name.RawSpan, false, false, limits, governor, cancellationToken);
+
+    internal static bool HasDictionaryAncestor(DocumentEngine engine, PageLocation location, ReadOnlySpan<byte> name,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        => FindCore(engine, location, name, true, true, limits, governor, cancellationToken) is not null;
+
+    private static QpdfObject? FindCore(DocumentEngine engine, PageLocation location, ReadOnlySpan<byte> name,
+        bool dictionaryOnly, bool skipLeaf, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         HashSet<(int Number, int Generation)> visited = ParserContainers.CreateSet<(int, int)>(memory);
@@ -21,8 +29,11 @@ internal static class PageInheritance
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            if (PdfDictionaryLookup.TryGet(current, name.RawSpan, governor, cancellationToken, out QpdfObject value)
-                && Resolve(engine, value, limits, governor) is not PdfNull) { return value; }
+            if ((!skipLeaf || depth != 0) && PdfDictionaryLookup.TryGet(current, name, governor, cancellationToken, out QpdfObject value))
+            {
+                QpdfObject resolved = Resolve(engine, value, limits, governor);
+                if (resolved is not PdfNull && (!dictionaryOnly || resolved is PdfDictionary)) { return value; }
+            }
             if (!PdfDictionaryLookup.TryGet(current, "Parent"u8, governor, cancellationToken, out QpdfObject raw) || raw is PdfNull) { return null; }
             if (depth >= limits.MaxNestingDepth) { throw new QpdfParseException("Page ancestry exceeds the nesting limit.", null, null); }
             if (raw is PdfDictionary direct) { current = direct; }

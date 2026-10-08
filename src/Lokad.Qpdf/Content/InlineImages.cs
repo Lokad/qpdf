@@ -26,6 +26,12 @@ internal static class InlineImages
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => ExternalizePage(copier, pageId, page, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false);
+
+    internal static PdfDictionary ExternalizePage(
+        GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        CancellationToken cancellationToken, bool preserveUnreferenced)
     {
         using AnalysisChunks? chunks = CollectDecodedContents(copier, page, limits, governor, cancellationToken);
         if (chunks is null)
@@ -36,21 +42,25 @@ internal static class InlineImages
 
         using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
         chunks.Dispose();
-        RewriteResult rewritten = RewriteContent(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
-        if (!rewritten.Changed || rewritten.Stream is null || rewritten.Resources is null)
+        RewriteResult rewritten = RewriteContentCore(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, preserveUnreferenced);
+        CompleteResourceWalk(page, rewritten.Resources, pageId, governor, diagnostics, cancellationToken);
+        PdfDictionary replaced = page;
+        if (rewritten.Resources is QpdfObject resources)
+        { replaced = ReplaceEntry(replaced, "Resources"u8, resources, governor, cancellationToken); }
+        if (!rewritten.Changed || rewritten.Stream is null)
         {
-            return page;
+            if (!ReferenceEquals(page, replaced)) { copier.ReplaceCopiedObject(pageId, replaced); }
+            return replaced;
         }
 
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
         using ParserMemoryScope orphanMemory = ParserMemoryScope.Create(governor);
         List<int> orphaned = ContentTransforms.ReplacedContentIds(contentsRaw, orphanMemory, governor, cancellationToken);
         PdfReference link = copier.AddIndirectObjectWithId(rewritten.Stream, copier.NextId);
-        PdfDictionary replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
-        replaced = ReplaceEntry(replaced, "Resources"u8, rewritten.Resources, governor, cancellationToken);
+        replaced = ReplaceEntry(replaced, "Contents"u8, link, governor, cancellationToken);
 
         copier.ReplaceCopiedObject(pageId, replaced);
-        if (orphaned is { Count: > 0 })
+        if (!preserveUnreferenced && orphaned is { Count: > 0 })
         {
             copier.DropPoolObjectsIfUnreferenced(orphaned, cancellationToken);
         }
@@ -69,6 +79,12 @@ internal static class InlineImages
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => ExternalizeForm(copier, formId, form, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false);
+
+    internal static void ExternalizeForm(
+        GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        CancellationToken cancellationToken, bool preserveUnreferenced)
     {
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
@@ -78,29 +94,30 @@ internal static class InlineImages
             return;
         }
 
-        RewriteResult rewritten = RewriteContent(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
+        RewriteResult rewritten = RewriteContentCore(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken, true, preserveUnreferenced);
         chunks.Dispose();
         resolverMemory.Dispose();
-        if (!rewritten.Changed || rewritten.Stream is null || rewritten.Resources is null)
-        {
-            return;
-        }
-
+        CompleteResourceWalk(form.Dictionary, rewritten.Resources, formId, governor, diagnostics, cancellationToken);
         using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, 10, cancellationToken);
-        PdfDictionary unencoded = PdfDictionaryRebuild.StripStreamEncoding(headers, form.Dictionary);
-        PdfDictionary formDict = ResourceRebuild.ReplaceResources(headers, unencoded, rewritten.Resources);
-        if (PdfDictionaryLookup.TryGet(rewritten.Stream.Dictionary, "Filter"u8, governor, cancellationToken, out QpdfObject filter))
+        PdfDictionary formDict = rewritten.Changed && rewritten.Stream is not null
+            ? PdfDictionaryRebuild.StripStreamEncoding(headers, form.Dictionary) : form.Dictionary;
+        if (rewritten.Resources is PdfNull)
+        { formDict = PdfDictionaryRebuild.RemoveEntry(headers, formDict, "Resources"u8); }
+        else if (rewritten.Resources is QpdfObject resources)
+        { formDict = PdfDictionaryRebuild.ReplaceEntry(headers, formDict, "Resources"u8, resources); }
+        if (rewritten.Changed && rewritten.Stream is not null && PdfDictionaryLookup.TryGet(rewritten.Stream.Dictionary, "Filter"u8, governor, cancellationToken, out QpdfObject filter))
         {
             formDict = PdfDictionaryRebuild.ReplaceEntry(headers, formDict, "Filter"u8, filter);
         }
+        if (ReferenceEquals(formDict, form.Dictionary)) { return; }
         headers.Retain();
         using OwnedAllocationBatch final = OwnedAllocationBatch.Create(governor, 1, cancellationToken);
         final.Memory.Reserve(32L);
-        PdfStream replaced = rewritten.Stream.WithDictionary(formDict);
+        PdfStream replaced = (rewritten.Stream ?? form).WithDictionary(formDict);
         final.Add(replaced, 32L); final.Retain(); copier.ReplaceCopiedObject(formId, replaced);
     }
 
-    private readonly record struct RewriteResult(bool Changed, PdfStream? Stream, PdfDictionary? Resources);
+    private readonly record struct RewriteResult(bool Changed, PdfStream? Stream, QpdfObject? Resources);
 
     private static AnalysisChunks? CollectDecodedContents(
         GraphCopier copier,
@@ -165,10 +182,18 @@ internal static class InlineImages
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => RewriteContentCore(copier, page, joined, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, false);
+
+    private static RewriteResult RewriteContentCore(
+        GraphCopier copier, PdfDictionary? page, byte[] joined, long minBytes, bool compress, int? level,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken,
+        bool form, bool preserveUnreferenced)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         PoolResolver resolver = PoolResolver.Create(scratch, copier.CopiedObjects);
-        PdfDictionary resources = EnsureResources(copier, page, governor, cancellationToken);
+        QpdfObject? resources = EnsureResources(copier, page, governor, cancellationToken);
+        bool canAttach = resources is PdfDictionary prepared &&
+            PdfDictionaryLookup.TryGet(prepared, "XObject"u8, governor, cancellationToken, out QpdfObject objects) && objects is PdfDictionary;
         scratch.Reserve(160L);
         ContentTokenizer tokenizer = new(joined, limits, governor, cancellationToken) { IncludeComments = true, IncludeWhitespace = true };
         using InlineImageBuffer output = InlineImageBuffer.Create(governor, limits, cancellationToken);
@@ -188,9 +213,25 @@ internal static class InlineImages
                 {
                     if (!tokenizer.TryReadInlineImageData(out ContentToken image)) { inImage = false; continue; }
                     int dictionaryLength = checked((int)(token.Offset - dictStart));
-                    InlineImageEntry? converted = InlineImageStorage.Create(joined.AsMemory(checked((int)dictStart), dictionaryLength), image.Data,
+                    InlineImageEntry? converted = InlineImageStorage.CreateWithResources(joined.AsMemory(checked((int)dictStart), dictionaryLength), image.Data,
                         minBytes, token.Offset, resources, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
-                    if (converted is InlineImageEntry entry) { output.Add(entry); output.WriteImage(entry.Name); }
+                    if (converted is InlineImageEntry entry)
+                    {
+                        output.Add(entry);
+                        if (!canAttach)
+                        {
+                            suffix = checked(suffix - 1);
+                            if (resources is not PdfDictionary) { WarnDictionaryOperation(resources, false, diagnostics); }
+                            if (resources is PdfNull)
+                            { return new(false, null, AddXObjects(copier, resources, output, preserveUnreferenced, governor, cancellationToken)); }
+                            QpdfObject? target = resources is PdfDictionary resourceDictionary &&
+                                PdfDictionaryLookup.TryGet(resourceDictionary, "XObject"u8, governor, cancellationToken, out QpdfObject value) ? value : null;
+                            if (target is PdfReference reference)
+                            { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out target); }
+                            WarnDictionaryOperation(target, true, diagnostics);
+                        }
+                        output.WriteImage(entry.Name);
+                    }
                     else { output.Write(joined.AsSpan(checked((int)imageStart), checked((int)(tokenizer.Position - imageStart)))); }
                     inImage = false; continue;
                 }
@@ -199,33 +240,41 @@ internal static class InlineImages
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
+            if (form && resources is not PdfNull) { throw; }
+            if (resources is PdfNull) { return new(false, null, resources); }
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to filter content stream; not attempting to externalize inline images.");
-            return default;
+            resources = AddXObjects(copier, resources, output, preserveUnreferenced, governor, cancellationToken);
+            return page is null && output.Count == 0 ? default : new(false, null, resources);
         }
-        if (output.Count == 0) { return default; }
-        resources = AddXObjects(copier, resources, output, governor, cancellationToken);
+        if (output.Count == 0) { return page is null ? default : new(false, null, resources); }
+        resources = AddXObjects(copier, resources, output, preserveUnreferenced, governor, cancellationToken);
         PdfStream stream = output.Complete(compress, level, limits);
         return new(true, stream, resources);
     }
 
-    private static PdfDictionary EnsureResources(GraphCopier copier, PdfDictionary? page, ResourceGovernor governor, CancellationToken token)
+    private static QpdfObject? EnsureResources(GraphCopier copier, PdfDictionary? page, ResourceGovernor governor, CancellationToken token)
     {
         PdfDictionary? existing = null;
-        if (page is not null && PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw))
+        if (page is not null)
         {
+            if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw)) { return null; }
             QpdfObject? target = raw;
             if (raw is PdfReference reference) { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, token, out target); }
             existing = target as PdfDictionary;
+            if (existing is null) { return target; }
         }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6, token);
         PdfDictionary? resolvedXObjects = null;
+        QpdfObject? existingXObjects = null;
         if (existing is not null && PdfDictionaryLookup.TryGet(existing, "XObject"u8, governor, token, out QpdfObject rawXObjects))
         {
             QpdfObject? target = rawXObjects;
             if (rawXObjects is PdfReference reference)
             { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, token, out target); }
             resolvedXObjects = target as PdfDictionary;
+            existingXObjects = target;
         }
+        if (existingXObjects is not null and not (PdfDictionary or PdfNull)) { return existing; }
         if (resolvedXObjects is null)
         {
             PdfNameTable<QpdfObject> blank = PdfDictionaryRebuild.CreateEntries(graph, out int blankAllocation);
@@ -248,9 +297,17 @@ internal static class InlineImages
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation); graph.Retain(); return result;
     }
 
-    private static PdfDictionary AddXObjects(GraphCopier copier, PdfDictionary resources, InlineImageBuffer output, ResourceGovernor governor, CancellationToken token)
+    private static QpdfObject? AddXObjects(GraphCopier copier, QpdfObject? resources, InlineImageBuffer output,
+        bool preserveUnreferenced, ResourceGovernor governor, CancellationToken token)
     {
-        if (!PdfDictionaryLookup.TryGet(resources, "XObject"u8, governor, token, out QpdfObject raw) || raw is not PdfDictionary xobjects) { return resources; }
+        if (output.Count == 0) { return resources; }
+        if (resources is not PdfDictionary dictionary ||
+            !PdfDictionaryLookup.TryGet(dictionary, "XObject"u8, governor, token, out QpdfObject raw) || raw is not PdfDictionary xobjects)
+        {
+            if (preserveUnreferenced)
+            { for (int index = 0; index < output.Count; index++) { copier.AddIndirectObjectWithId(output.Get(index).Stream, copier.NextId); } }
+            return resources;
+        }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
         using PdfDictionary.EntryEnumerator source = xobjects.GetEntryEnumerator();
@@ -265,7 +322,51 @@ internal static class InlineImages
             entries.Assign(graph.Memory, governor, image.Name, link, token);
         }
         PdfDictionary images = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, resources, "XObject"u8, images); graph.Retain(); return result;
+        PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, "XObject"u8, images); graph.Retain(); return result;
+    }
+
+    private static void CompleteResourceWalk(PdfDictionary original, QpdfObject? resources, int objectId,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        if (resources is null or PdfDictionary or PdfNull) { return; }
+        if (PdfDictionaryLookup.TryGet(original, "Resources"u8, governor, token, out QpdfObject raw) && raw is PdfReference)
+        { throw new QpdfParseException("Resources reference does not resolve to a dictionary.", null, objectId); }
+        WarnDictionaryOperation(resources, false, diagnostics);
+    }
+
+    internal static void WarnDictionaryOperation(QpdfObject? value, bool replacement, DiagnosticBag diagnostics)
+    {
+        string message = value switch
+        {
+            null or PdfNull => replacement
+                ? "operation for dictionary attempted on object of type null: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type null: returning null for attempted key retrieval",
+            PdfInteger => replacement
+                ? "operation for dictionary attempted on object of type integer: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type integer: returning null for attempted key retrieval",
+            PdfReal => replacement
+                ? "operation for dictionary attempted on object of type real: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type real: returning null for attempted key retrieval",
+            PdfArray => replacement
+                ? "operation for dictionary attempted on object of type array: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type array: returning null for attempted key retrieval",
+            PdfBoolean => replacement
+                ? "operation for dictionary attempted on object of type boolean: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type boolean: returning null for attempted key retrieval",
+            PdfName => replacement
+                ? "operation for dictionary attempted on object of type name: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type name: returning null for attempted key retrieval",
+            PdfByteString => replacement
+                ? "operation for dictionary attempted on object of type string: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type string: returning null for attempted key retrieval",
+            PdfStream => replacement
+                ? "operation for dictionary attempted on object of type stream: ignoring key replacement request"
+                : "operation for dictionary attempted on object of type stream: returning null for attempted key retrieval",
+            _ => replacement
+                ? "operation for dictionary attempted on object of unknown type: ignoring key replacement request"
+                : "operation for dictionary attempted on object of unknown type: returning null for attempted key retrieval"
+        };
+        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, message);
     }
 
     private static PdfDictionary ConvertImageDict(

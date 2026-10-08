@@ -341,31 +341,40 @@ Those warning/default/context gaps and full image-payload parity remain open.
 Paired warm process measurements do not resolve the older grouped 24-byte result
 or establish exclusive helper/whole-job retention. No inventory label changes.
 
-## Inline resource qualification
+## Inline resource outcome qualification
 
-Inline externalization preserves existing indirect XObjects, form-local direct or
-indirect colorspace maps and shared page content/resources. Resource names check
-all categories and ignore null values. Resolved copied references retain their
-destination identities; written inline references follow native warn-and-keep
-behavior. Rebuilt form headers remove old predictors. Numeric copying checks both
-cancellation routes. Pending/isolated suites pass 8509/7786 cases with
-37 new controls. All prior case identities and original acceptance controls stay;
-one preceding component's null-name expectation is corrected from native evidence.
+Inline externalization prepares page Resources before selection, including
+unselected pages, while retaining malformed leaves with valid dictionary
+ancestors. Missing/malformed form Resources and invalid XObjects keep their
+native shapes and failed-attachment naming behavior. Below-threshold content
+still prepares valid XObject dictionaries. Later page parsing can retain earlier
+resource mutations and original content; malformed form filtering can fail
+without replacing a prior target. Unreferenced image/content/null preservation
+uses the shared copier. Named colorspaces and explicit nulls remain distinct.
 
-The same 96 authored page/form observations improve from 21 to 82 exact matches.
-Decoded content/images and public exits match in 90. Six missing-resource outcomes
-remain different: native warns, leaves missing form Resources absent and omits
-unreachable images; managed supplies resources/images. Eight job/mixed encoded
-form headers differ because streamData/compressStreams setter order differs.
-Missing/malformed resource defaults, warning detail, configuration interactions,
-later publication failures and full invocation parity remain open. Inventory labels
-and counts are unchanged; the preceding undefined form-font finding persists.
+Pending/isolated offline suites pass 8687/7964 cases, including 171 public
+and seven helper controls. All preceding case identities, 234 other test sources,
+five locks and original acceptance controls stay. Sixteen cases in fourteen methods are
+explicitly corrected against pinned native observations; fixtures stay unchanged.
 
-Fresh local reference/package checks are qualified development evidence. Strict
-locked restore and fresh artifact-consumer restore fail on five advisories for
-the required ImageSharp 3.1.12 dependency. Versions/locks/repository policy stay;
-the original gate is unmet. M11/A01–A07, original measurement attribution,
-visual/reference CI, remaining contexts and both completion verdicts remain open.
+The same 280 argv resource observations improve from 67 to 280 normalized
+graph/exit matches. Another 516 observations cover inherited and indirect
+malformed resources/colorspaces across argv/job/mixed routes. All preceding 96
+decoded graphs and exits match; 86 exact outputs match. Ten job/mixed encoded
+form headers still differ through streamData/compressStreams setter order.
+Two already overlapped preceding missing-resource graph failures; eight were
+previously header-only. These ten differences are retained, rather than closed.
+Identities/Length, full diagnostic context/text and fatal warning retention are
+outside normalization. Global resource defaults, wider interactions/publication
+and invocation parity remain open. Inventory counts/labels are unchanged, and
+the preceding undefined form-font finding persists.
+
+Fresh local reference/parser/package checks and 50 consumer smokes plus both
+specific negatives pass as qualified development evidence. Strict locked restore
+and fresh artifact-consumer restore fail on five advisories for required
+ImageSharp 3.1.12. Versions/locks/repository policy stay fixed; the original gate
+is unmet. M11/A01–A07, original measurement attribution, visual/reference CI,
+remaining contexts and both completion verdicts remain open.
 
 ## Inventory
 

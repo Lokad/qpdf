@@ -302,7 +302,7 @@ internal sealed class GraphCopier
             XrefEntry entry = engine.XRefEntries[number];
             int generation = entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
             PdfReference reference = new(number, generation);
-            if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            if (!resolver.TryResolve(reference, out QpdfObject? resolved) || resolved is null)
             {
                 skipped += 1;
                 continue;

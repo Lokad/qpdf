@@ -18,7 +18,11 @@ internal static class InlineImageDictionary
     internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary resources, DiagnosticBag diagnostics)
         => Build(graph, raw, resources, diagnostics, null);
 
-    internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary resources,
+    internal static PdfDictionary Build(OwnedAllocationBatch graph, PdfDictionary raw, PdfDictionary? resources,
+        DiagnosticBag diagnostics, IIndirectResolver? resolver)
+        => BuildWithResources(graph, raw, resources, diagnostics, resolver);
+
+    internal static PdfDictionary BuildWithResources(OwnedAllocationBatch graph, PdfDictionary raw, QpdfObject? resources,
         DiagnosticBag diagnostics, IIndirectResolver? resolver)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
@@ -35,10 +39,17 @@ internal static class InlineImageDictionary
             {
                 ReadOnlySpan<byte> full = ColorName(color, governor, token);
                 if (!full.IsEmpty) { value = PdfDictionaryRebuild.CreateName(graph, full); }
-                else if (TryColorspace(resources, color, resolver, governor, token, out QpdfObject found))
+                else if (TryColorspace(resources as PdfDictionary, color, resolver, governor, token, out QpdfObject found))
                 { value = found; }
                 else
-                { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the original name."); }
+                {
+                    if (resources is not PdfDictionary)
+                    {
+                        InlineImages.WarnDictionaryOperation(resources, false, diagnostics);
+                        if (resources is PdfNull) { throw new QpdfParseException("Unable to resolve image colorspace through null Resources.", null, null); }
+                    }
+                    diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to resolve image colorspace; keeping the original name.");
+                }
             }
             else if (Equal(name, "Filter"u8, governor, token)) { value = ExpandFilters(graph, value); }
             PdfName convertedKey = expanded.IsEmpty ? key : PdfDictionaryRebuild.CreateName(graph, expanded);
@@ -48,11 +59,11 @@ internal static class InlineImageDictionary
         return result;
     }
 
-    private static bool TryColorspace(PdfDictionary resources, PdfName name, IIndirectResolver? resolver,
+    private static bool TryColorspace(PdfDictionary? resources, PdfName name, IIndirectResolver? resolver,
         ResourceGovernor governor, CancellationToken token, out QpdfObject value)
     {
         value = PdfNull.Instance;
-        if (!PdfDictionaryLookup.TryGet(resources, "ColorSpace"u8, governor, token, out QpdfObject raw)) { return false; }
+        if (resources is null || !PdfDictionaryLookup.TryGet(resources, "ColorSpace"u8, governor, token, out QpdfObject raw)) { return false; }
         QpdfObject? target = raw;
         if (raw is PdfReference reference && resolver is not null)
         { PdfObjectLookup.TryResolve(reference, resolver, governor, token, out target); }

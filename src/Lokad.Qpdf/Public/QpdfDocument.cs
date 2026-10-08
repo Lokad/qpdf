@@ -75,6 +75,30 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     internal void SetInspectionPages(IReadOnlyList<PageLocation>? pages) => _inspectionPages = pages;
 
+    internal void PrepareInlinePageResources(CancellationToken cancellationToken)
+    {
+        List<PageLocation> pages = _pages ?? throw new ObjectDisposedException(nameof(QpdfDocument));
+        DocumentEngine engine = Engine;
+        using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+        HashSet<int> repaired = ParserContainers.CreateSet<int>(memory);
+        for (int index = 0; index < pages.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation(); _governor.ChargeWork(1L);
+            PageLocation location = pages[index];
+            if (PdfDictionaryLookup.TryGet(location.Page, "Resources"u8, _governor, cancellationToken, out QpdfObject raw)
+                && PageInheritance.Resolve(engine, raw, Limits, _governor) is PdfDictionary) { continue; }
+            if (PageInheritance.HasDictionaryAncestor(engine, location, "Resources"u8, Limits, _governor, cancellationToken)) { continue; }
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(_governor, 6, cancellationToken);
+            PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+            PdfDictionary resources = PdfDictionaryRebuild.Complete(graph, entries, allocation);
+            PdfDictionary page = PdfDictionaryRebuild.ReplaceEntry(graph, location.Page, "Resources"u8, resources);
+            graph.Retain();
+            if (location.Source is not PdfReference source || ParserContainers.AddSetItem(memory, repaired, source.ObjectNumber, sizeof(int)))
+            { _diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Page Resources is missing or invalid; repairing."); }
+            pages[index] = new(location.Source, page);
+        }
+    }
+
     /// <summary>Opens a document with default budgets.</summary>
     public static ValueTask<QpdfDocument> OpenAsync(IQpdfHost host, QpdfPath path, CancellationToken cancellationToken)
     {

@@ -235,7 +235,8 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool preserveUnreferenced)
     {
         bool pruneHere = prune.Enabled && (prune.Mode == "yes"
             || (prune.Mode is null or "auto" && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
@@ -244,7 +245,8 @@ public static partial class Qpdf
             return;
         }
 
-        Content.ContentTransformRequest request = new(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes);
+        Content.ContentTransformRequest request = new(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes)
+        { PreserveUnreferenced = preserveUnreferenced };
         Content.ContentTransforms.ApplyPageTransforms(copier, pageIds, request, pruneHere, limits, governor, diagnostics, cancellationToken);
     }
 
@@ -292,6 +294,7 @@ public static partial class Qpdf
         CancellationToken cancellationToken)
     {
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
         int total = document.PageReferences.Count;
         IReadOnlyList<int> requested = options.Resolve(total, limits.MaxWork);
         if ((long)requested.Count > limits.MaxWork)
@@ -358,7 +361,7 @@ public static partial class Qpdf
             occurrenceIds.Add(occurrenceId);
         }
 
-        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
+        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
         List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
         foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
@@ -804,6 +807,7 @@ public static partial class Qpdf
         {
             cancellationToken.ThrowIfCancellationRequested();
             await using QpdfDocument document = await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+            if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
             sourceCounts.Add(document.PageReferences.Count);
             if (version is null || IsNewerVersion(document.Version, version))
             {
@@ -928,7 +932,7 @@ public static partial class Qpdf
                 takenIds.Add(takenId);
             }
 
-            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken);
+            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
             if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
             {
@@ -1308,6 +1312,14 @@ public static partial class Qpdf
             roots.AddRange(multiAttached.ObjectIds);
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             HashSet<int> reachable = ReachableIds(pool, roots, reachabilityMemory, governor);
+            if (preserveUnreferenced)
+            {
+                foreach (int id in pool.Keys)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                    ParserContainers.AddSetItem(reachabilityMemory, reachable, id, sizeof(int));
+                }
+            }
             List<int> kept = new(reachable.Count);
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {

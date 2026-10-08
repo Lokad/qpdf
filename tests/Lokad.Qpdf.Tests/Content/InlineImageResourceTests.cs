@@ -225,6 +225,6 @@ public sealed class InlineImageResourceTests
         await using QpdfDocument document = await Open(await Rewrite(input, route, false, QpdfExitCode.Warning));
         PdfDictionary page = document.PageReferences[0].Page;
         Assert.Equal(content, Stream(document, page, "Contents").Data);
-        Assert.False(Resources(document, page).TryGet(PdfName.FromAscii("XObject"), out _));
+        Assert.Empty(Assert.IsType<PdfDictionary>(Get(Resources(document, page), "XObject")).Keys);
     }
 }

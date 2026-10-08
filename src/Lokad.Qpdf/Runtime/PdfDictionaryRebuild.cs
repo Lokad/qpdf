@@ -55,6 +55,19 @@ internal static class PdfDictionaryRebuild
         PdfName name = PdfName.FromOwnedBytes(raw); graph.Add(name, 24L); return name;
     }
 
+    internal static PdfDictionary RemoveEntry(OwnedAllocationBatch graph, PdfDictionary source, ReadOnlySpan<byte> rawKey)
+    {
+        PdfNameTable<QpdfObject> entries = CreateEntries(graph, out int allocation);
+        using PdfDictionary.EntryEnumerator sourceEntries = source.GetEntryEnumerator();
+        while (sourceEntries.MoveNext(graph.Governor, graph.Token))
+        {
+            PdfName key = sourceEntries.Current.Key; QpdfObject value = sourceEntries.Current.Value;
+            if (value is null || PdfDictionaryLookup.NameEquals(key, rawKey, graph.Governor, graph.Token)) { continue; }
+            entries.Assign(graph.Memory, graph.Governor, key, value, graph.Token);
+        }
+        return Complete(graph, entries, allocation);
+    }
+
     internal static PdfDictionary StripStreamEncoding(OwnedAllocationBatch graph, PdfDictionary source)
     {
         PdfNameTable<QpdfObject> entries = CreateEntries(graph, out int allocation);

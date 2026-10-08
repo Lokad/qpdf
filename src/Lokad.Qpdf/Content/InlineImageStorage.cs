@@ -13,7 +13,12 @@ internal readonly record struct InlineImageEntry(PdfName Name, PdfStream Stream)
 internal static class InlineImageStorage
 {
     internal static InlineImageEntry? Create(ReadOnlyMemory<byte> dictionaryBytes, ReadOnlyMemory<byte> imageBytes,
-        long minimum, long offset, PdfDictionary resources, ref int suffix, QpdfLimits limits,
+        long minimum, long offset, PdfDictionary? resources, ref int suffix, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, PoolResolver resolver, CancellationToken token)
+        => CreateWithResources(dictionaryBytes, imageBytes, minimum, offset, resources, ref suffix, limits, governor, diagnostics, resolver, token);
+
+    internal static InlineImageEntry? CreateWithResources(ReadOnlyMemory<byte> dictionaryBytes, ReadOnlyMemory<byte> imageBytes,
+        long minimum, long offset, QpdfObject? resources, ref int suffix, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, PoolResolver resolver, CancellationToken token)
     {
         Step(governor, token);
@@ -27,7 +32,7 @@ internal static class InlineImageStorage
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, capacity, token);
         dataMemory.TransferTo(graph.Memory);
         if (data.Length != 0) { graph.Add(data, checked(32L + data.Length)); }
-        PdfDictionary converted = InlineImageDictionary.Build(graph, raw, resources, diagnostics, resolver);
+        PdfDictionary converted = InlineImageDictionary.BuildWithResources(graph, raw, resources, diagnostics, resolver);
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
         AddDefault(graph, entries, converted, "Type"u8, "XObject"u8);
         AddDefault(graph, entries, converted, "Subtype"u8, "Image"u8);
@@ -35,7 +40,7 @@ internal static class InlineImageStorage
         while (source.MoveNext(governor, token)) { entries.Assign(graph.Memory, governor, source.Current.Key, source.Current.Value, token); }
         PdfDictionary header = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Memory.Reserve(32L); PdfStream stream = PdfStream.FromOwnedData(header, data); graph.Add(stream, 32L);
-        PdfName name = Name(graph, resources, resolver, ref suffix);
+        PdfName name = Name(graph, resources as PdfDictionary, resolver, ref suffix);
         graph.RetainParsed(raw, parsedMemory);
         return new(name, stream);
     }
@@ -67,7 +72,7 @@ internal static class InlineImageStorage
         entries.Assign(graph.Memory, graph.Governor, name, target, graph.Token);
     }
 
-    private static PdfName Name(OwnedAllocationBatch graph, PdfDictionary resources, PoolResolver resolver, ref int suffix)
+    private static PdfName Name(OwnedAllocationBatch graph, PdfDictionary? resources, PoolResolver resolver, ref int suffix)
     {
         Span<byte> bytes = stackalloc byte[13]; "IIm"u8.CopyTo(bytes);
         while (true)
@@ -81,9 +86,10 @@ internal static class InlineImageStorage
         }
     }
 
-    private static bool HasResourceName(PdfDictionary resources, ReadOnlySpan<byte> name, PoolResolver resolver,
+    private static bool HasResourceName(PdfDictionary? resources, ReadOnlySpan<byte> name, PoolResolver resolver,
         ResourceGovernor governor, CancellationToken token)
     {
+        if (resources is null) { return false; }
         using PdfDictionary.EntryEnumerator categories = resources.GetEntryEnumerator();
         while (categories.MoveNext(governor, token))
         {

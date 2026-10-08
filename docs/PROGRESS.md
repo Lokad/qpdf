@@ -1,38 +1,52 @@
 # Progress
 
-## Inline resource scope and identities
+## Inline resource preparation and failure outcomes
 
-Inline externalization now preserves existing indirect XObjects, form-local
-colorspaces and shared page resources/content. Names check all resource categories
-and ignore null entries. Copied colorspace references keep their destination
-identities; references written inside inline dictionaries warn and keep the original
-content. Rebuilt form headers remove obsolete predictors. Numeric copying checks
-the separate caller token at its existing work interval.
+Inline externalization repairs missing/invalid page Resources before selection,
+including unselected source pages. A valid dictionary ancestor prevents leaf
+repair; malformed leaf values remain visible. Forms retain missing/malformed
+Resources and invalid XObjects. Failed attachment can reuse a name. Resource
+preparation publishes independently of content replacement: later page parsing
+can keep original content and earlier attached images, while malformed form
+filtering can fail and preserve the prior target. Explicit null resources and
+named-colorspace failures keep their distinct outcomes. Requested unreferenced
+images, replaced content and null objects survive the shared copy routes.
 
-Qualified Release builds and **8509 pending / 7786 isolated offline
-cases pass, including **37 new controls**. All preceding case identities, 232 other
-test sources and five locks remain. One preceding component's null-name expectation
-is corrected against pinned native evidence; its fixture and original controls stay.
-Identical final tests on the preceding runtime fail **32 / preserve 6 /
-38 eligible**, with zero loaders or exclusions. A new draft test omitted its funded
-prior scope owner's 64 bytes; using its measured baseline fixes that test without a
-runtime or original-control change. The failed observation is retained.
+Qualified Release builds pass **8687 pending / 7964 isolated offline
+cases**, including **171 public behavior / seven helper ownership controls**.
+All preceding case identities, 234 other test sources and five locks remain.
+Sixteen native-backed cases in fourteen methods preserve fixtures/identities and
+original thresholds, budgets, deadlines, cancellation and GC controls. Identical
+final tests on the preceding runtime fail **172 / preserve 15 /
+187 eligible**, with zero loader failures or eligible exclusions. Seven helper
+controls require the new internal removal API and run in both final suites.
 
-The expanded unchanged native matrix improves **21 to 82 exact matches / 96**.
-Decoded content/images and public exits match in 90. Six missing-resource outcomes
-and eight job/mixed encoded form headers remain different. Native warns and leaves
-missing form Resources absent; managed code still supplies them. Compression
-setter order needs correction. Full differential/reference, package/symbol checks,
-50 qualified consumer smokes and both specific negatives pass on the frozen tree.
-Paired warm probes cover 36 processes / 72 samples and wrapper geometry; they do
-not close whole-job or historical measurement attribution.
+The unchanged 280 argv baseline improves **67 to 280 normalized graph/exit
+matches**. An additional **516 argv/job/mixed observations** cover inheritance,
+indirect malformed resources and named colorspaces. The preceding 96 cases now
+match all decoded graphs/exits and **86 exact outputs**; ten encoded form
+headers still differ through compression setter order. Two already overlapped
+the preceding missing-resource failures; eight were header-only. Normalization excludes
+identities/Length. Full warning text/context and fatal warning retention remain
+open; these results do not close global page defaults or invocation parity.
 
-**Strict locked restore and fresh artifact-consumer restore remain unmet** on five
-ImageSharp 3.1.12 advisories. Qualified commands retain warnings; versions, locks
-and repository audit policy are unchanged. Continue missing/malformed resources,
-configuration order and later failure integration, then legacy inspection and the
-remaining ownership/diagnostic correction. M11/A01–A07, original measurements,
-known overlay/form findings and both completion verdicts remain open.
+Fresh full reference/parser, focused **358 comparisons / 500 rereads**,
+package/symbol checks, **50 qualified consumer smokes** and both specific
+negatives pass on the frozen sources. Warm probes cover **52 processes / 104
+paired samples**: all blocking-GC comparisons fit; 102 approximate comparisons
+fit. Two initial 4192/8224-byte approximate excesses pair with zero blocking
+growth/admission; four unchanged repeat processes pass both metrics. Attribution
+stays open, alongside earlier findings. Controllers, thresholds and GC rounds
+stay fixed; helper/whole-job/cold claims remain unproved. The first failed new
+fixture-builder draft, analyzer correction and shared-build probe-file lock
+are retained; original controls and fixtures were unchanged.
+
+**Strict locked restore and fresh artifact-consumer restore remain unmet** on
+five ImageSharp 3.1.12 advisories. Qualified commands retain warnings; versions,
+locks and repository audit policy stay fixed. Continue compression setter order,
+later copier/publication integration, the grouped +24-byte investigation and
+wider ownership/diagnostics. M11/A01–A07, overlay/form findings, original
+measurements and both completion verdicts remain open.
 
 ## Owned inline-image dictionary conversion
 

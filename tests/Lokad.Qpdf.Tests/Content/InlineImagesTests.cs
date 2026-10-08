@@ -88,13 +88,17 @@ InMemoryQpdfHost host = new();
 host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
 return host;
 }
-private static async Task<byte[]> TransformAsync(InMemoryQpdfHost host, params string[] flags)
+private static Task<byte[]> TransformAsync(InMemoryQpdfHost host, params string[] flags)
+    => TransformWithWarningsAsync(host, [], flags);
+private static async Task<byte[]> TransformWithWarningsAsync(InMemoryQpdfHost host, string[] warnings, params string[] flags)
 {
 List<string> argv = new() { "inputs/a.pdf" };
 argv.AddRange(flags);
 argv.AddRange(["--", "outputs/a.pdf"]);
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(warnings.Length == 0 ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
+Assert.Equal(warnings, result.Diagnostics.Select(d => d.Message));
+Assert.All(result.Diagnostics, d => Assert.Equal(QpdfDiagnosticSeverity.Warning, d.Severity));
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
 return pdf;
 }
@@ -192,7 +196,7 @@ public async Task ExternalizeAboveThreshold()
 byte[] image = Filled(2000, 65);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 string text = Encoding.ASCII.GetString(output);
 Assert.Contains("/IIm1 Do", text);
@@ -206,7 +210,7 @@ public async Task KeepBelowThreshold()
 byte[] image = Filled(10, 65);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 string text = Encoding.ASCII.GetString(output);
 Assert.Contains("BI", text);
@@ -218,7 +222,7 @@ public async Task CustomThresholdKeepsLarge()
 byte[] image = Filled(2000, 65);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--ii-min-bytes=3000", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--ii-min-bytes=3000", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("BI", Encoding.ASCII.GetString(output));
 }
@@ -228,7 +232,7 @@ public async Task CustomThresholdExternalizesSmall()
 byte[] image = Filled(10, 65);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--ii-min-bytes=5", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--ii-min-bytes=5", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 }
@@ -238,7 +242,7 @@ public async Task ZeroThresholdExternalizesSingleByte()
 byte[] image = Filled(1, 65);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--ii-min-bytes=0", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--ii-min-bytes=0", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 }
@@ -248,7 +252,7 @@ public async Task AbbreviationsExpandInXObject()
 byte[] image = Filled(1500, 66);
 byte[] content = InlineContent("/W 2 /H 2 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 using JsonDocument full = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=qpdf");
 string abbrDump = full.RootElement.GetRawText();
 Assert.Contains("Width", abbrDump);
@@ -261,7 +265,7 @@ public async Task FilterAbbreviationExpands()
 byte[] image = Filled(1500, 67);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1 /F /Fl", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 using JsonDocument full = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=qpdf");
 string dump = full.RootElement.GetRawText();
 Assert.Contains("FlateDecode", dump);
@@ -317,7 +321,7 @@ public async Task KeptSmallIsByteIdentical()
 byte[] image = Filled(20, 71);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 Assert.Equal(content, output);
 }
@@ -328,7 +332,7 @@ byte[] image = Filled(1500, 72);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] encoded = Lokad.Qpdf.Filters.FlateFilter.Encode(content, null, QpdfLimits.Default, new Lokad.Qpdf.Runtime.ResourceGovernor(QpdfLimits.Default, CancellationToken.None));
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", encoded.Length.ToString(), " /Filter /FlateDecode >>"), encoded) });
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 }
@@ -345,10 +349,15 @@ List<(string Dict, byte[] StreamData)> extras = new()
 };
 string pageExtra = " /Contents 4 0 R /Resources << /XObject << /Fm1 5 0 R >> >>";
 byte[] fixture = BuildPdf(string.Empty, pageExtra, extras);
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--pages", ".", "1");
-using JsonDocument full = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=qpdf");
-string dump = full.RootElement.GetRawText();
-Assert.Contains("IIm1", dump);
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["operation for dictionary attempted on object of type null: returning null for attempted key retrieval",
+"operation for dictionary attempted on object of type null: ignoring key replacement request"], "--externalize-inline-images", "--pages", ".", "1");
+using JsonDocument full = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=qpdf", "--json-stream-data=inline");
+JsonElement[] streams = full.RootElement.GetProperty("qpdf")[1].EnumerateObject()
+    .Where(p => p.Value.TryGetProperty("stream", out _)).Select(p => p.Value.GetProperty("stream")).ToArray();
+JsonElement form = Assert.Single(streams, s => s.GetProperty("dict").TryGetProperty("/Subtype", out JsonElement subtype) && subtype.GetString() == "/Form");
+Assert.False(form.GetProperty("dict").TryGetProperty("/Resources", out _));
+Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(Convert.FromBase64String(form.GetProperty("data").GetString() ?? string.Empty)));
+Assert.DoesNotContain(streams, s => s.GetProperty("dict").TryGetProperty("/Subtype", out JsonElement subtype) && subtype.GetString() == "/Image");
 }
 [Fact]
 public async Task DamagedContentWarnsAndKeeps()
@@ -384,11 +393,12 @@ public async Task JobRoundTripMatchesArgv()
 byte[] image = Filled(1500, 74);
 byte[] content = InlineContent("/W 1 /H 1 /CS /G /BPC 1", image);
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[] StreamData)> { (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content) });
-byte[] a = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--ii-min-bytes=512", "--pages", ".", "1");
+byte[] a = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--ii-min-bytes=512", "--pages", ".", "1");
 InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", fixture);
 string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "pages": [{"file": ".", "range": "1"}], "externalizeInlineImages": true, "iiMinBytes": 512}""";
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
-Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+Assert.Equal("Page Resources is missing or invalid; repairing.", Assert.Single(result.Diagnostics).Message);
 Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
 Assert.Equal(a, b);
 }
@@ -413,7 +423,8 @@ byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dic
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
 string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "externalizeInlineImages": true}""";
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
-Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+Assert.Equal("Page Resources is missing or invalid; repairing.", Assert.Single(result.Diagnostics).Message);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
@@ -430,7 +441,7 @@ List<(string Dict, byte[] StreamData)> extras = new()
 (string.Concat("<< /Length ", second.Length.ToString(), " >>"), second),
 };
 byte[] fixture = BuildPdf(string.Empty, " /Contents [4 0 R 5 0 R]", extras);
-byte[] pdf = await TransformAsync(HostWith("inputs/a.pdf", fixture), "--externalize-inline-images", "--coalesce-contents", "--normalize-content=y", "--remove-unreferenced-resources=yes", "--pages", ".", "1");
+byte[] pdf = await TransformWithWarningsAsync(HostWith("inputs/a.pdf", fixture), ["Page Resources is missing or invalid; repairing."], "--externalize-inline-images", "--coalesce-contents", "--normalize-content=y", "--remove-unreferenced-resources=yes", "--pages", ".", "1");
 byte[] output = await PageContentAsync(pdf);
 Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(output));
 }
