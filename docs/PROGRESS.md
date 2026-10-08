@@ -1,5 +1,41 @@
 # Progress
 
+## Owned inline-image dictionary conversion
+
+Inline-image conversion now uses the shared admitted dictionary/name/array
+builders. Unknown binary keys and caller-funded values stay borrowed; unchanged
+filter arrays stay borrowed. Expanded arrays and names have independent receipts.
+Fresh carrier acceptance is atomic; limits and both cancellation routes preserve
+prior admission. Canonical keys take priority over abbreviations in either order;
+null canonical values leave abbreviations visible. These rules match the pinned
+native fixtures and correct binary-key corruption and canonical-key replacement.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7720 offline cases / 41 new controls** and pending **8443 / 41** pass. All
+7679 isolated / 8402 pending preceding cases, 228 original test sources and five
+locks remain. Identical final tests on preceding pending 8FE9C3F9 fail **13 /
+preserve 28 / 41 eligible**, zero loaders; only the private four/five-argument
+converter binding differs. Original controls, limits and GC rounds stay unchanged.
+
+Fresh per-mode probes cover 24 processes / 48 paired comparisons, both binaries
+and default/fixed JIT, with 128 operations per calibration and measured batch.
+Both signed process-heap metrics fit admission; output retirement releases it.
+Prepared inputs/controllers/diagnostics/holders and reporting are excluded. Net
+process deltas do not prove exclusive helper or whole-job retention. The older
+grouped 24-byte result and every historical GC/scheduling/counter finding stay open.
+Two new alias tests initially retained storage; moving holder construction into
+the non-inlined capture boundary and adding a dictionary weak witness resolves
+that harness observation. It required no runtime or original-control change.
+
+Fresh **358 native comparisons / 500 rereads**, full differential/reference,
+**1846 parser comparisons / 432 rewrite trios**, package/symbol checks, 50 consumer
+smokes and both specific negatives pass on pending AA91374C / tests 06929009 at
+build checkpoint 2a90662. Local Windows evidence; no package source commit or URL.
+An additional **36 image-header comparisons** match across argv/job/mixed routes,
+excluding Length. Missing-resource warnings leave **18 public-exit differences**;
+payload/full-invocation parity is unproved. Reconstruction, legacy inspection,
+wider integration, five partial contexts, M11/A01–A07 and both verdicts stay open.
+
 ## Process-heap measurement qualification
 
 A control that never loads this library reproduces a negative 8224-byte

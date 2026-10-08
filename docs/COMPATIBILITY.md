@@ -320,6 +320,27 @@ focused 21-case runs and the unchanged full rerun pass. That observation remains
 open. Inline reconstruction, legacy inspection output, wider diagnostic/ownership
 integration, five partial contexts, M11/A01–A07 and both verdicts are still open.
 
+## Inline-image dictionary conversion checkpoint
+
+The shared converter preserves unknown binary keys and borrowed values, expands
+the nine key, four colorspace and seven filter abbreviations, and gives non-null
+canonical keys priority over abbreviations independently of insertion order.
+Unchanged filter arrays remain borrowed; fresh dictionaries/names/arrays retain
+their own admission across escaping aliases. Memory/work failures and both
+cancellation routes preserve previously admitted storage. Isolated 7720 / pending
+8443 offline cases pass, including 41 new controls. Identical final tests on the
+preceding pending runtime fail 13 / preserve 28 / 41 eligible, without loaders.
+
+Fresh local Windows reference/package evidence binds pending AA91374C / tests
+06929009 at build checkpoint 2a90662: 358 focused native comparisons / 500 rereads,
+full differential/reference, 1846 parser comparisons / 432 rewrite trios,
+package/symbol checks, 50 consumer smokes and both specific negatives. Another
+36 image-header comparisons match across argv/job/mixed routes, excluding Length;
+18 public exits differ because native reports missing-resource repair warnings.
+Those warning/default/context gaps and full image-payload parity remain open.
+Paired warm process measurements do not resolve the older grouped 24-byte result
+or establish exclusive helper/whole-job retention. No inventory label changes.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string
