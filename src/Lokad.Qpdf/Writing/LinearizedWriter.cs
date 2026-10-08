@@ -1,6 +1,8 @@
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
+using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -101,8 +103,8 @@ internal sealed class LinearizedWriter
 
         using LinearizedLayout counted = await EmitPassAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
-        byte[] hintObject = BuildHintObject(parts, counted, compressHints, compressionLevel, cancellationToken);
-        long hintLength = hintObject.LongLength;
+        using HintPayload hintObject = BuildHintObject(parts, counted, compressHints, compressionLevel, cancellationToken);
+        long hintLength = hintObject.Data.Length;
 
         using LinearizedLayout finalLayout = await EmitPassAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
@@ -144,7 +146,7 @@ internal sealed class LinearizedWriter
         byte[] id2,
         bool newlineBeforeEndstream,
         bool final,
-        byte[]? hintObject,
+        HintPayload? hintObject,
         LinearizedLayout? counted,
         IByteSink sink,
         CancellationToken cancellationToken)
@@ -198,7 +200,7 @@ internal sealed class LinearizedWriter
             {
                 layout.HintPosition = sink.Length;
                 layout.RecordStart(parts.HintNumber, sink.Length);
-                await AppendBytesAsync(hintObject, sink, cancellationToken).ConfigureAwait(false);
+                await AppendBytesAsync(hintObject.Data, sink, cancellationToken).ConfigureAwait(false);
                 layout.RecordLength(parts.HintNumber, checked(sink.Length - layout.Starts[parts.HintNumber]));
             }
             else
@@ -245,7 +247,7 @@ internal sealed class LinearizedWriter
         catch { layout.Dispose(); throw; }
     }
 
-    private static long XrefOffset(int hintNumber, LinearizedLayout? counted, byte[]? hintObject, bool final, int number)
+    private static long XrefOffset(int hintNumber, LinearizedLayout? counted, HintPayload? hintObject, bool final, int number)
     {
         if (!final || counted is null || !counted.Starts.TryGetValue(number, out long recorded))
         {
@@ -300,13 +302,13 @@ internal sealed class LinearizedWriter
     }
 
     private WriterFormatting LindictInner(GovernedIntDictionary<int> renumber, IReadOnlyList<int> pages,
-        LinearizedLayout? counted, byte[]? hintObject, bool final, CancellationToken cancellationToken)
+        LinearizedLayout? counted, HintPayload? hintObject, bool final, CancellationToken cancellationToken)
     {
         if (!final || counted is null || hintObject is null)
         {
             return WriterFormatting.Create([WriterPart.Spaces(LindictPad)], _limits, _governor, cancellationToken);
         }
-        long hintLength = hintObject.LongLength;
+        long hintLength = hintObject.Data.Length;
         long fileSize = checked(counted.FileSize + hintLength);
         long part6End = checked(counted.Part6End + hintLength);
         long mainXref = checked(counted.MainXref + hintLength);
@@ -376,12 +378,12 @@ internal sealed class LinearizedWriter
     }
 
 
-    private static long HintLength(byte[]? hintObject)
+    private static long HintLength(HintPayload? hintObject)
     {
-        return hintObject is null ? 0L : hintObject.LongLength;
+        return hintObject is null ? 0L : hintObject.Data.Length;
     }
 
-    private byte[] BuildHintObject(
+    private HintPayload BuildHintObject(
         LinearizedParts parts,
         LinearizedLayout counted,
         bool compressHints,
@@ -391,7 +393,7 @@ internal sealed class LinearizedWriter
         return BuildHintObjectCore(parts.Part6, parts.Part8, parts.Part7, parts.Pages, parts.PageUsers, parts.Outlines, parts.Renumber, parts.HintNumber, true, counted, compressHints, compressionLevel, cancellationToken);
     }
 
-    private byte[] BuildHintObject(
+    private HintPayload BuildHintObject(
         StreamedParts parts,
         LinearizedLayout counted,
         bool compressHints,
@@ -401,7 +403,7 @@ internal sealed class LinearizedWriter
         return BuildHintObjectCore(parts.Part6, parts.Part8, parts.Part7, parts.Pages, parts.PageUsers, parts.Outlines, parts.Renumber, parts.HintNumber, parts.OutlinesDirect, counted, compressHints, compressionLevel, cancellationToken);
     }
 
-    private byte[] BuildHintObjectCore(
+    private HintPayload BuildHintObjectCore(
         IReadOnlyList<int> part6,
         IReadOnlyList<int> part8,
         IReadOnlyList<IReadOnlyList<int>> part7,
@@ -416,59 +418,60 @@ internal sealed class LinearizedWriter
         int? compressionLevel,
         CancellationToken cancellationToken)
     {
-        List<int> groups = new(part6.Count + part8.Count);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
+        List<int> groups = ParserContainers.CreateList<int>(scratch);
         foreach (int old in part6)
         {
-            groups.Add(renumber[old]);
+            ParserContainers.AddItem(scratch, groups, renumber[old], sizeof(int));
         }
 
         foreach (int old in part8)
         {
-            groups.Add(renumber[old]);
+            ParserContainers.AddItem(scratch, groups, renumber[old], sizeof(int));
         }
 
-        Dictionary<int, int> groupIndex = new(groups.Count);
+        GovernedIntDictionary<int> groupIndex = GovernedIntDictionary<int>.Create(scratch, _governor, sizeof(int), cancellationToken);
         for (int i = 0; i < groups.Count; i++)
         {
-            groupIndex[groups[i]] = i;
+            groupIndex.Assign(scratch, groups[i], i);
         }
 
-        List<long> groupLengths = new(groups.Count);
+        List<long> groupLengths = ParserContainers.CreateList<long>(scratch);
         foreach (int number in groups)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            groupLengths.Add(ObjectLength(counted, number));
+            ParserContainers.AddItem(scratch, groupLengths, ObjectLength(counted, number), sizeof(long));
         }
 
-        List<int> pageCounts = new(pages.Count);
-        List<long> pageLengths = new(pages.Count);
-        List<List<int>> pageShared = new(pages.Count);
-        pageCounts.Add(part6.Count);
-        List<int> part6New = new();
+        List<int> pageCounts = ParserContainers.CreateList<int>(scratch);
+        List<long> pageLengths = ParserContainers.CreateList<long>(scratch);
+        List<List<int>> pageShared = ParserContainers.CreateList<List<int>>(scratch);
+        ParserContainers.AddItem(scratch, pageCounts, part6.Count, sizeof(int));
+        List<int> part6New = ParserContainers.CreateList<int>(scratch);
         foreach (int old in part6)
         {
-            part6New.Add(renumber[old]);
+            ParserContainers.AddItem(scratch, part6New, renumber[old], sizeof(int));
         }
 
-        pageLengths.Add(RunLength(counted, part6New));
-        pageShared.Add(new List<int>());
+        ParserContainers.AddItem(scratch, pageLengths, RunLength(counted, part6New), sizeof(long));
+        ParserContainers.AddItem(scratch, pageShared, ParserContainers.CreateList<int>(scratch), IntPtr.Size);
         for (int i = 1; i < pages.Count; i++)
         {
-            List<int> run = new();
+            List<int> run = ParserContainers.CreateList<int>(scratch);
             foreach (int old in part7[i - 1])
             {
-                run.Add(renumber[old]);
+                ParserContainers.AddItem(scratch, run, renumber[old], sizeof(int));
             }
-            pageCounts.Add(run.Count);
-            pageLengths.Add(RunLength(counted, run));
-            pageShared.Add(SortedShared(pageUsers, renumber, i, groupIndex));
+            ParserContainers.AddItem(scratch, pageCounts, run.Count, sizeof(int));
+            ParserContainers.AddItem(scratch, pageLengths, RunLength(counted, run), sizeof(long));
+            ParserContainers.AddItem(scratch, pageShared, SortedShared(pageUsers, renumber, i, groupIndex, scratch, cancellationToken), IntPtr.Size);
         }
 
-        List<int> outlineNew = new(outlines.Count);
+        List<int> outlineNew = ParserContainers.CreateList<int>(scratch);
         foreach (int old in outlines)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            outlineNew.Add(renumber[old]);
+            ParserContainers.AddItem(scratch, outlineNew, renumber[old], sizeof(int));
         }
 
         long firstPageOffset = counted.Starts[renumber[pages[0]]];
@@ -486,12 +489,12 @@ internal sealed class LinearizedWriter
             outlineLength = RunLength(counted, outlineNew);
         }
 
-        byte[] tables = EncodeHintTables(part6.Count, pageCounts, pageLengths, pageShared, groupLengths, firstPageOffset, firstSharedObj, firstSharedOffset, groups.Count, outlineFirst, outlineOffset, outlineNew.Count, outlineLength, out long sharedAt, out long outlineAt, cancellationToken);
-        byte[] data = tables;
+        using HintPayload tables = EncodeHintTablesOwned(part6.Count, pageCounts, pageLengths, pageShared, groupLengths, firstPageOffset, firstSharedObj, firstSharedOffset, groups.Count, outlineFirst, outlineOffset, outlineNew.Count, outlineLength, out long sharedAt, out long outlineAt, cancellationToken);
+        byte[] data = tables.Bytes;
         bool flate = compressHints;
         if (flate)
         {
-            data = FlateFilter.Encode(tables, compressionLevel, _limits, _governor);
+            data = FlateFilter.Encode(tables.Bytes, compressionLevel, _limits, _governor, scratch, cancellationToken);
         }
 
         using WriterFormatting head = WriterFormatting.Create([WriterPart.Number(hintNumber), WriterPart.Text(" 0 obj\n<<"),
@@ -503,12 +506,16 @@ internal sealed class LinearizedWriter
         ReadOnlyMemory<byte> prefix = head.Data;
         ReadOnlySpan<byte> tail = data.Length == 0 || data[data.Length - 1] != 10
             ? "\nendstream\nendobj\n"u8 : "endstream\nendobj\n"u8;
-        _governor.ReserveMemory(checked((long)prefix.Length + data.Length + tail.Length));
-        byte[] hintObject = new byte[checked(prefix.Length + data.Length + tail.Length)];
-        GovernedBufferStream.CopyBytes(prefix.Span, hintObject, _governor, cancellationToken, CancellationToken.None);
-        Buffer.BlockCopy(data, 0, hintObject, prefix.Length, data.Length);
-        GovernedBufferStream.CopyBytes(tail, hintObject.AsSpan(prefix.Length + data.Length), _governor, cancellationToken, CancellationToken.None);
-        return hintObject;
+        HintPayload hintObject = HintPayload.Create(checked(prefix.Length + data.Length + tail.Length), _limits, _governor, cancellationToken);
+        try
+        {
+            byte[] target = hintObject.Bytes;
+            GovernedBufferStream.CopyBytes(prefix.Span, target, _governor, cancellationToken, CancellationToken.None);
+            GovernedBufferStream.CopyBytes(data, target.AsSpan(prefix.Length), _governor, cancellationToken, CancellationToken.None);
+            GovernedBufferStream.CopyBytes(tail, target.AsSpan(prefix.Length + data.Length), _governor, cancellationToken, CancellationToken.None);
+            return hintObject;
+        }
+        catch { hintObject.Dispose(); throw; }
     }
 
     private static long ObjectLength(LinearizedLayout counted, int number)
@@ -533,19 +540,31 @@ internal sealed class LinearizedWriter
         return checked(counted.Starts[last] + ObjectLength(counted, last) - start);
     }
 
-    private static List<int> SortedShared(IReadOnlyList<IReadOnlyCollection<int>> pageUsers, GovernedIntDictionary<int> renumber, int page, Dictionary<int, int> groupIndex)
+    private readonly struct HintNumberComparer : IComparer<int>
     {
-        List<int> olds = new(pageUsers[page]);
-        olds.Sort();
-        List<int> identifiers = new(olds.Count);
+        public int Compare(int left, int right) => left.CompareTo(right);
+    }
+
+    private List<int> SortedShared(IReadOnlyList<IReadOnlyCollection<int>> pageUsers, GovernedIntDictionary<int> renumber,
+        int page, GovernedIntDictionary<int> groupIndex, ParserMemoryScope memory, CancellationToken cancellationToken)
+    {
+        List<int> olds = ParserContainers.CreateList<int>(memory);
+        foreach (int old in pageUsers[page])
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _governor.ChargeWork(1L);
+            ParserContainers.AddItem(memory, olds, old, sizeof(int));
+        }
+        GovernedSort.Sort(CollectionsMarshal.AsSpan(olds), new HintNumberComparer(), _governor, cancellationToken);
+        List<int> identifiers = ParserContainers.CreateList<int>(memory);
         foreach (int old in olds)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (renumber.TryGetValue(old, out int number) && groupIndex.TryGetValue(number, out int index))
             {
-                identifiers.Add(index);
+                ParserContainers.AddItem(memory, identifiers, index, sizeof(int));
             }
         }
-
         return identifiers;
     }
 
@@ -567,9 +586,33 @@ internal sealed class LinearizedWriter
         out long outlineAt,
         CancellationToken cancellationToken)
     {
+        using HintPayload tables = EncodeHintTablesOwned(part6Count, pageCounts, pageLengths, pageShared, groupLengths,
+            firstPageOffset, firstSharedObj, firstSharedOffset, totalShared, outlineFirst, outlineOffset, outlineCount,
+            outlineLength, out sharedAt, out outlineAt, cancellationToken);
+        return tables.Escape();
+    }
+
+    private HintPayload EncodeHintTablesOwned(
+        int part6Count,
+        List<int> pageCounts,
+        List<long> pageLengths,
+        List<List<int>> pageShared,
+        List<long> groupLengths,
+        long firstPageOffset,
+        int firstSharedObj,
+        long firstSharedOffset,
+        int totalShared,
+        int outlineFirst,
+        long outlineOffset,
+        int outlineCount,
+        long outlineLength,
+        out long sharedAt,
+        out long outlineAt,
+        CancellationToken cancellationToken)
+    {
         _ = firstSharedObj;
         _ = firstSharedOffset;
-        HintBitWriter pages = new(_governor);
+        using HintBitWriter pages = new(_limits, _governor, cancellationToken);
         long minObjects = pageCounts[0];
         long maxObjects = pageCounts[0];
         long minLength = pageLengths[0];
@@ -656,7 +699,7 @@ internal sealed class LinearizedWriter
             maxGroup = System.Math.Max(maxGroup, groupLengths[i]);
         }
 
-        HintBitWriter shared = new(_governor);
+        using HintBitWriter shared = new(_limits, _governor, cancellationToken);
         shared.WriteBits(firstSharedObj, 32);
         shared.WriteBits(firstSharedOffset, 32);
         shared.WriteBits(part6Count, 32);
@@ -682,35 +725,26 @@ internal sealed class LinearizedWriter
         }
 
         shared.Flush();
-        byte[] head = pages.ToArray();
-        byte[] tail = shared.ToArray();
-        outlineAt = checked((long)head.Length + tail.Length);
-        byte[] outlines = EncodeOutlineTable(outlineFirst, outlineOffset, outlineCount, outlineLength);
-        _governor.ReserveMemory(checked((long)head.Length + tail.Length + outlines.Length));
-        byte[] tables = new byte[checked(head.Length + tail.Length + outlines.Length)];
-        Buffer.BlockCopy(head, 0, tables, 0, head.Length);
-        Buffer.BlockCopy(tail, 0, tables, head.Length, tail.Length);
-        Buffer.BlockCopy(outlines, 0, tables, head.Length + tail.Length, outlines.Length);
-        return tables;
-    }
-
-    private byte[] EncodeOutlineTable(
-        int outlineFirst,
-        long outlineOffset,
-        int outlineCount,
-        long outlineLength)
-    {
-        if (outlineCount <= 0)
+        using HintBitWriter outlines = new(_limits, _governor, cancellationToken);
+        if (outlineCount > 0)
         {
-            return [];
+            outlines.WriteBits(outlineFirst, 32);
+            outlines.WriteBits(outlineOffset, 32);
+            outlines.WriteBits(outlineCount, 32);
+            outlines.WriteBits(outlineLength, 32);
         }
-
-        HintBitWriter outlines = new(_governor);
-        outlines.WriteBits(outlineFirst, 32);
-        outlines.WriteBits(outlineOffset, 32);
-        outlines.WriteBits(outlineCount, 32);
-        outlines.WriteBits(outlineLength, 32);
-        return outlines.ToArray();
+        outlines.Flush();
+        outlineAt = checked(pages.Length + shared.Length);
+        HintPayload tables = HintPayload.Create(checked((int)(outlineAt + outlines.Length)), _limits, _governor, cancellationToken);
+        try
+        {
+            Span<byte> target = tables.Bytes;
+            GovernedBufferStream.CopyBytes(pages.WrittenSpan, target, _governor, cancellationToken, CancellationToken.None);
+            GovernedBufferStream.CopyBytes(shared.WrittenSpan, target.Slice((int)pages.Length), _governor, cancellationToken, CancellationToken.None);
+            GovernedBufferStream.CopyBytes(outlines.WrittenSpan, target.Slice((int)outlineAt), _governor, cancellationToken, CancellationToken.None);
+            return tables;
+        }
+        catch { tables.Dispose(); throw; }
     }
 
     private static int BitLength(long value)
@@ -730,42 +764,49 @@ internal sealed class LinearizedWriter
         return bits;
     }
 
-    private sealed class HintBitWriter
+    private sealed class HintBitWriter : IDisposable
     {
         private readonly ResourceGovernor _governor;
-        private readonly List<byte> _bytes = new();
+        private readonly CancellationToken _token;
+        private ParserMemoryScope? _memory;
+        private GovernedBufferStream? _bytes;
         private int _current;
         private int _filled;
 
-        internal HintBitWriter(ResourceGovernor governor)
+        internal HintBitWriter(QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
         {
-            _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+            _governor = governor;
+            _token = token;
+            ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            try
+            {
+                // Covers the bit cursor and its governed Stream wrapper; capacity is separate.
+                memory.Reserve(192L);
+                _bytes = new GovernedBufferStream(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), token, 32);
+                _memory = memory;
+            }
+            catch { memory.Dispose(); throw; }
         }
 
-        internal long Length => _bytes.Count;
+        private GovernedBufferStream Bytes => _bytes ?? throw new ObjectDisposedException(nameof(HintBitWriter));
+        internal long Length => Bytes.Length;
+        internal ReadOnlySpan<byte> WrittenSpan => Bytes.WrittenSpan;
 
         internal void WriteBits(long value, int count)
         {
-            if (count < 0 || count > 32)
-            {
-                throw new QpdfParseException("Linearized hint value exceeds its bit width.", null, null);
-            }
-
-            if (value < 0L || (count < 63 && value >= (1L << count)))
-            {
-                throw new QpdfParseException("Linearized hint value exceeds its bit width.", null, null);
-            }
-
+            _ = Bytes;
+            _token.ThrowIfCancellationRequested();
+            _governor.CheckCancellation();
+            if (count < 0 || count > 32 || value < 0L || value >= (1L << count))
+            { throw new QpdfParseException("Linearized hint value exceeds its bit width.", null, null); }
             _governor.ChargeWork(1L);
             for (int i = count - 1; i >= 0; i--)
             {
-                int bit = (int)((value >> i) & 1L);
-                _current = checked((_current << 1) | bit);
-                _filled = checked(_filled + 1);
+                _current = checked((_current << 1) | (int)((value >> i) & 1L));
+                _filled++;
                 if (_filled == 8)
                 {
-                    _governor.ReserveMemory(1L);
-                    _bytes.Add((byte)_current);
+                    Bytes.WriteByte((byte)_current);
                     _current = 0;
                     _filled = 0;
                 }
@@ -776,17 +817,20 @@ internal sealed class LinearizedWriter
         {
             if (_filled > 0)
             {
-                _governor.ReserveMemory(1L);
-                _bytes.Add((byte)(_current << (8 - _filled)));
+                Bytes.WriteByte((byte)(_current << (8 - _filled)));
                 _current = 0;
                 _filled = 0;
             }
         }
 
-        internal byte[] ToArray()
+        public void Dispose()
         {
-            Flush();
-            return [.. _bytes];
+            GovernedBufferStream? bytes = _bytes;
+            ParserMemoryScope? memory = _memory;
+            _bytes = null;
+            _memory = null;
+            bytes?.Dispose();
+            memory?.Dispose();
         }
     }
 
@@ -893,8 +937,8 @@ internal sealed class LinearizedWriter
 
         using LinearizedLayout counted = await EmitPassStreamedAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
-        byte[] hintObject = BuildHintObject(parts, counted, compressStreams, compressionLevel, cancellationToken);
-        long hintLength = hintObject.LongLength;
+        using HintPayload hintObject = BuildHintObject(parts, counted, compressStreams, compressionLevel, cancellationToken);
+        long hintLength = hintObject.Data.Length;
 
         using LinearizedLayout finalLayout = await EmitPassStreamedAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
@@ -920,7 +964,7 @@ internal sealed class LinearizedWriter
         int field1,
         int field2,
         bool final,
-        byte[]? hintObject,
+        HintPayload? hintObject,
         LinearizedLayout? counted,
         IByteSink sink,
         CancellationToken cancellationToken)
@@ -955,7 +999,7 @@ internal sealed class LinearizedWriter
             {
                 layout.HintPosition = sink.Length;
                 layout.RecordStart(parts.HintNumber, sink.Length);
-                await AppendBytesAsync(hintObject, sink, cancellationToken).ConfigureAwait(false);
+                await AppendBytesAsync(hintObject.Data, sink, cancellationToken).ConfigureAwait(false);
                 layout.RecordLength(parts.HintNumber, checked(sink.Length - layout.Starts[parts.HintNumber]));
             }
             else
@@ -1078,7 +1122,7 @@ internal sealed class LinearizedWriter
     private async ValueTask AppendXrefStreamAsync(
         StreamedParts parts,
         LinearizedLayout? counted,
-        byte[]? hintObject,
+        HintPayload? hintObject,
         bool final,
         int number,
         int first,

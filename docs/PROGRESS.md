@@ -1,5 +1,31 @@
 # Progress
 
+## Hint ownership correction in progress
+
+HINT-03E/W now share owned bit buffers, raw tables and final hint objects across
+classic/streamed/fallback publication. Construction collections and optional
+Flate output use existing scopes; escaping encoder arrays keep independent receipts.
+The unchanged **4 KiB / 64 calls / four GC rounds** probe completes all 64 calls,
+zero surviving bodies, peak **1503 bytes**. Its final **1224 bytes** are owned weak
+ledger metadata pending job-thread maintenance; the extra maintenance control
+retires that metadata to zero without replacing the original probe.
+
+Release build has zero warnings. **1581** existing focused cases and **69** new
+checks pass, including **64 complete public jobs** over raw/decoded input, classic/
+streamed and raw/compressed hints. Hint receipts survive the paused append and
+retire before success, write/publication failure or cancellation returns. Prior
+output aliases survive; successful publications pass typed check and argv show.
+Same new tests on `9C5B832E`: **67 fail / 2 preserve / 69 eligible**, no loaders or
+skips, including a demonstrated ignored governor-token cancellation in the old
+encoder. A new reflection observer cycle was fixed; its aborted draft remains.
+
+HINT-03 remains open: **HINT-03R** must own read/decode/overflow buffers and parsed
+tables/identifiers/numerators/groups through check/show and independent aliases;
+**HINT-03V** must verify the final combined correction with the original native
+comparisons, full tests, reference/package/consumer/source checks and timings.
+No expensive lane has been repeated for this debugging draft. M11/A01–A07 and both
+verdicts remain open.
+
 ## Physical linearization checker
 
 HINT-02 is retired at `8326940` / `ea6445f`. The shared reader parses physical

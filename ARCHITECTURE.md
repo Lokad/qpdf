@@ -32,8 +32,10 @@ transformation defaults and whole-job ownership remain under compatibility audit
 Linearization emits zero-width shared numerators because every numerator is zero.
 Hint offsets, lengths and derived widths describe each output's physical object
 layout. Complete native hints and independent byte-boundary checks distinguish
-those layout differences from encoding choices. Hint parsing, buffers, shared
-metadata and replay ownership remain under audit.
+those layout differences from encoding choices. The writer scopes bit buffers,
+construction collections, tables, compression output and the final hint object
+through replay. Independently escaping table arrays retain their own receipts.
+Hint parsing, decoding and complete combined ownership remain under audit.
 
 Document-open traversal starts at catalog values, so direct containers retain
 indirect descendants and indirect roots retain their own physical identities.
