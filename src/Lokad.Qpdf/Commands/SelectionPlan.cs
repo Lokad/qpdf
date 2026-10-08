@@ -42,6 +42,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public string? DecodeLevel { get; init; }
 
+    internal byte CompressionState { get; init; }
+
     public long? MaxStreamFilters { get; init; }
 
     public bool NoDefaultLimits { get; init; }
@@ -130,7 +132,11 @@ internal abstract record JobPlan(QpdfPath Input)
 
     internal CompressionRequest Compression()
     {
-        return new CompressionRequest(StreamData, CompressStreams, DecodeLevel, RecompressFlate, CompressionLevel);
+        CompressionSettings settings = CompressionSettings.FromState(CompressionState);
+        return new CompressionRequest(StreamData,
+            settings.IsInitialized ? settings.CompressStreams : CompressStreams,
+            settings.IsInitialized ? settings.DecodeLevel : DecodeLevel,
+            RecompressFlate, CompressionLevel);
     }
 
     internal AttachmentEdits Edits()

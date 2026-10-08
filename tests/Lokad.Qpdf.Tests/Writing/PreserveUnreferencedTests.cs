@@ -157,7 +157,7 @@ public sealed class PreserveUnreferencedTests
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", OrphanFixture());
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--preserve-unreferenced");
-        string text = Encoding.ASCII.GetString(pdf);
+        string text = await StreamObservation.PdfText(pdf);
         Assert.Contains("OrphanOne", text, StringComparison.Ordinal);
         Assert.Contains("HELLO-ORPHAN", text, StringComparison.Ordinal);
         Assert.Equal(1, await RereadPageCountAsync(host, pdf));
@@ -220,7 +220,7 @@ public sealed class PreserveUnreferencedTests
         Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
         Assert.Contains("Skipped 1", warning.Message, StringComparison.Ordinal);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        Assert.Contains("HELLO-ORPHAN", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+        Assert.Contains("HELLO-ORPHAN", await StreamObservation.PdfText(pdf), StringComparison.Ordinal);
         Assert.Equal(1, await RereadPageCountAsync(host, pdf));
     }
 
@@ -278,7 +278,7 @@ public sealed class PreserveUnreferencedTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] pdf));
-        string text = Encoding.ASCII.GetString(pdf);
+        string text = await StreamObservation.PdfText(pdf);
         Assert.Contains("OrphanOne", text, StringComparison.Ordinal);
         Assert.Contains("HELLO-ORPHAN", text, StringComparison.Ordinal);
     }
@@ -288,7 +288,7 @@ public sealed class PreserveUnreferencedTests
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", OrphanFixture());
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--preserve-unreferenced", "--object-streams=generate");
-        string text = Encoding.ASCII.GetString(pdf);
+        string text = await StreamObservation.PdfText(pdf);
         Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
         Assert.Contains("OrphanOne", text, StringComparison.Ordinal);
         Assert.Equal(1, await RereadPageCountAsync(host, pdf));

@@ -241,8 +241,9 @@ public sealed class DctDecodeTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--decode-level=all");
         PdfStream stream = await OutputContentsAsync(host, pdf);
-        Assert.False(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject _));
-        Assert.Equal(64, stream.Data.Length);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText);
+        Assert.Equal(64, Writing.StreamObservation.Decode(stream).Length);
     }
 
     [Fact]
@@ -252,8 +253,9 @@ public sealed class DctDecodeTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildDctPage(jpeg));
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--decode-level=all");
         PdfStream stream = await OutputContentsAsync(host, pdf);
-        Assert.False(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject _));
-        Assert.Equal(144, stream.Data.Length);
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText);
+        Assert.Equal(144, Writing.StreamObservation.Decode(stream).Length);
     }
 
     [Fact]

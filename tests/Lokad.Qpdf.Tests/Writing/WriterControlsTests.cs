@@ -1,5 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -301,6 +302,22 @@ public sealed class WriterControlsTests
         Assert.Equal(a, b);
     }
 
+    private static async Task AssertEncodedBoundary(byte[] pdf, byte[] expected, bool newline)
+    {
+        InMemoryQpdfHost host = HostWith("input.pdf", pdf);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"), CancellationToken.None);
+        PdfDictionary page = document.PageReferences[0].Page;
+        Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents));
+        PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(contents).ObjectNumber));
+        Assert.Equal(expected, StreamObservation.Decode(stream));
+        Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText);
+        byte[] boundary = stream.Data.Concat(newline ? new byte[] { 10 } : Array.Empty<byte>()).Concat("endstream"u8.ToArray()).ToArray();
+        Assert.True(pdf.AsSpan().IndexOf(boundary) >= 0);
+        byte[] extra = stream.Data.Concat(newline ? new byte[] { 10, 10 } : new byte[] { 10 }).Concat("endstream"u8.ToArray()).ToArray();
+        Assert.True(pdf.AsSpan().IndexOf(extra) < 0);
+    }
+
     [Fact]
     public async Task DefaultStreamHasNoExtraNewline()
     {
@@ -312,9 +329,7 @@ public sealed class WriterControlsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        string text = Encoding.ASCII.GetString(pdf);
-        Assert.True(text.Contains("helloendstream", StringComparison.Ordinal));
-        Assert.False(text.Contains("hello\nendstream", StringComparison.Ordinal));
+        await AssertEncodedBoundary(pdf, "hello"u8.ToArray(), false);
     }
 
     [Fact]
@@ -328,8 +343,7 @@ public sealed class WriterControlsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        string text = Encoding.ASCII.GetString(pdf);
-        Assert.True(text.Contains("hello\nendstream", StringComparison.Ordinal));
+        await AssertEncodedBoundary(pdf, "hello"u8.ToArray(), true);
     }
 
     [Fact]
@@ -343,8 +357,7 @@ public sealed class WriterControlsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, plain.ExitCode);
         Assert.True(plainHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
-        Assert.True(Encoding.ASCII.GetString(a).Contains("hello\nendstream", StringComparison.Ordinal));
-        Assert.False(Encoding.ASCII.GetString(a).Contains("hello\n\nendstream", StringComparison.Ordinal));
+        await AssertEncodedBoundary(a, "hello\n"u8.ToArray(), false);
 
         InMemoryQpdfHost flagHost = HostWith("inputs/b.pdf", bytes);
         QpdfExecutionResult flagged = await Qpdf.ExecuteAsync(
@@ -353,7 +366,7 @@ public sealed class WriterControlsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, flagged.ExitCode);
         Assert.True(flagHost.TryGetOutput(QpdfPath.From("outputs/b.pdf"), out byte[] b));
-        Assert.True(Encoding.ASCII.GetString(b).Contains("hello\n\nendstream", StringComparison.Ordinal));
+        await AssertEncodedBoundary(b, "hello\n"u8.ToArray(), true);
     }
 
     [Fact]

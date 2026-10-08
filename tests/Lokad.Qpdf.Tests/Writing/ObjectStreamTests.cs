@@ -403,7 +403,7 @@ public sealed class ObjectStreamTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate");
-        Assert.DoesNotContain("/Filter /FlateDecode", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
+        Assert.Contains("/Filter /FlateDecode", Encoding.ASCII.GetString(pdf), StringComparison.Ordinal);
     }
 
     [Fact]

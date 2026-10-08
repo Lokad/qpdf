@@ -393,8 +393,8 @@ public sealed class SplitReplaceTests
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv-1.pdf"), out byte[] c));
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv-2.pdf"), out byte[] d));
-        Assert.Equal(a, c);
-        Assert.Equal(b, d);
+        await Writing.StreamObservation.SameDecodedGraph(a, c);
+        await Writing.StreamObservation.SameDecodedGraph(b, d);
     }
 
     [Fact]
@@ -415,7 +415,7 @@ public sealed class SplitReplaceTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/job-1-2.pdf"), out byte[] b));
-        Assert.Equal(a, b);
+        await Writing.StreamObservation.SameDecodedGraph(a, b);
     }
 
     [Theory]

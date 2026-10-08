@@ -433,8 +433,8 @@ public sealed class ImageOptimizeTests
         Assert.Empty(result.Diagnostics);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         PdfStream image = await OutputImageAsync(host, pdf);
-        Assert.Equal(string.Empty, FilterOf(image));
-        Assert.Equal(raw, image.Data);
+        Assert.Equal("FlateDecode", FilterOf(image));
+        Assert.Equal(raw, Writing.StreamObservation.Decode(image));
     }
 
     [Fact]
@@ -514,8 +514,8 @@ public sealed class ImageOptimizeTests
         Assert.Empty(result.Diagnostics);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         PdfStream image = await OutputImageAsync(host, pdf);
-        Assert.Equal(string.Empty, FilterOf(image));
-        Assert.Equal(raw, image.Data);
+        Assert.Equal("FlateDecode", FilterOf(image));
+        Assert.Equal(raw, Writing.StreamObservation.Decode(image));
     }
 
     [Fact]

@@ -18,6 +18,15 @@ state. JSON inspection without a file returns immutable execution output text.
 Whole-file selection closes its preliminary input before reopening through the
 shared copier, so replacement can publish after those input leases close.
 
+Writer compression setters share ordered state across argv and job configurations.
+Plans store that state in one byte while retaining raw options for inspection.
+QDF fills fields that earlier setters left unset; stream-data setters update both
+compression and decoding. Argv/job writers default to generalized decoding and
+compression, while typed selection retains opaque stream copying. The shared
+stream transformer preserves empty streams and keeps catalog XML metadata
+uncompressed. Created-image encoding and broader transformation defaults remain
+under compatibility audit.
+
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and
 attachment listings, in native inspection order. Serialization-only QDF/linearize

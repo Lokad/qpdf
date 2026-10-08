@@ -254,7 +254,7 @@ if ($code -ne 0) { throw "collate/ranges: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--collate', 'inputs/a.pdf', '--pages', 'inputs/a.pdf', '1-2', 'inputs/a.pdf', '2-1', '--', "$case/ora-r.pdf")
 if ($code -ne 0) { throw "collate/ranges: oracle failed ($code)" }
 Assert-Trio 'collate-ranges' "$case/lib-r.pdf" "$case/ora-r.pdf" 4
-$libText = [IO.File]::ReadAllText("$case/lib-r.pdf")
+$libText = Get-DecodedText "$case/lib-r.pdf"
 $libMarks = @()
 foreach ($m in [regex]::Matches($libText, '\((First|Second)\)')) { $libMarks += $m.Groups[1].Value }
 if (($libMarks -join ',') -ne 'First,Second,Second,First') { Write-Output "[collate-ranges] FAIL: lib order [$($libMarks -join ',')]"; $script:failures++ }

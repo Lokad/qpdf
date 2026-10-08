@@ -214,8 +214,8 @@ public sealed class CompressionTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildRawPage());
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf");
         PdfStream stream = await OutputContentsAsync(host, pdf);
-        AssertNoFilter(stream.Dictionary);
-        Assert.Equal(PageRaw, stream.Data);
+        AssertFilter(stream.Dictionary, "FlateDecode");
+        Assert.Equal(PageRaw, DecodeFully(stream.Data, stream.Dictionary));
     }
 
     [Fact]
@@ -309,7 +309,8 @@ public sealed class CompressionTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildAsciiHexPage());
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--compress-streams=y");
         PdfStream stream = await OutputContentsAsync(host, pdf);
-        AssertFilter(stream.Dictionary, "ASCIIHexDecode");
+        AssertFilter(stream.Dictionary, "FlateDecode");
+        Assert.Equal(PageRaw, DecodeFully(stream.Data, stream.Dictionary));
     }
 
     [Fact]
@@ -318,8 +319,8 @@ public sealed class CompressionTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildAsciiHexPage());
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--decode-level=generalized");
         PdfStream stream = await OutputContentsAsync(host, pdf);
-        AssertNoFilter(stream.Dictionary);
-        Assert.Equal(PageRaw, stream.Data);
+        AssertFilter(stream.Dictionary, "FlateDecode");
+        Assert.Equal(PageRaw, DecodeFully(stream.Data, stream.Dictionary));
     }
 
     [Theory]
@@ -432,7 +433,14 @@ public sealed class CompressionTests
         argv.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", BuildRawPage());
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        PdfStream stream = await OutputContentsAsync(host, pdf);
+        if (flags[0].StartsWith("--stream-data=", StringComparison.Ordinal) || flags[0].StartsWith("--compress-streams=", StringComparison.Ordinal))
+        { AssertNoFilter(stream.Dictionary); }
+        else { AssertFilter(stream.Dictionary, "FlateDecode"); }
+        Assert.Equal(PageRaw, DecodeFully(stream.Data, stream.Dictionary));
     }
 
     [Fact]

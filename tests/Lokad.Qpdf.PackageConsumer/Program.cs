@@ -1,6 +1,8 @@
+using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -80,7 +82,7 @@ internal static class Program
 
         byte[] typedBytes = Published(typedHost, "outputs/typed.pdf");
         byte[] jobBytes = Published(jobHost, "outputs/job.pdf");
-        Check(typedBytes.AsSpan().SequenceEqual(jobBytes), "typed/job parity");
+        Check(await DecodedGraph(typedBytes) == await DecodedGraph(jobBytes), "decoded typed/job graph parity");
         Console.WriteLine("PASS job selection with typed/job parity");
 
         InMemoryQpdfHost checkHost = NewHost("inputs/in.pdf", input);
@@ -671,7 +673,7 @@ internal static class Program
             CancellationToken.None);
         Check(typedRotated.PageCount == 1, "typed rotation counts");
         await CheckOutputAsync(typedRotateHost, "outputs/typed-rotated.pdf", "First");
-        Check(Published(typedRotateHost, "outputs/typed-rotated.pdf").AsSpan().SequenceEqual(Published(rotateHost, "outputs/rotated.pdf")), "typed/argv rotation parity");
+        Check(await DecodedGraph(Published(typedRotateHost, "outputs/typed-rotated.pdf")) == await DecodedGraph(Published(rotateHost, "outputs/rotated.pdf")), "decoded typed/argv rotation graph parity");
         Console.WriteLine("PASS typed single-page rotation overloads");
         InMemoryQpdfHost labelHost = NewHost("inputs/in.pdf", input);
         QpdfExecutionResult labeled = await Qpdf.ExecuteAsync(
@@ -844,7 +846,7 @@ internal static class Program
             try
             {
                 if (document.GetObject(number) is PdfStream stream
-                    && Encoding.ASCII.GetString(stream.Data).Contains(marker, StringComparison.Ordinal))
+                    && Encoding.ASCII.GetString(DecodedContents(stream)).Contains(marker, StringComparison.Ordinal))
                 {
                     found = true;
                 }
@@ -853,9 +855,41 @@ internal static class Program
             {
             }
         }
-
+        Check(found, "output marker");
     }
 
+    private static async Task<string> DecodedGraph(byte[] pdf)
+    {
+        InMemoryQpdfHost host = NewHost("input.pdf", pdf);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["input.pdf", "--json", "--json-key=qpdf", "--json-stream-data=inline", "--decode-level=all"]), CancellationToken.None);
+        Check(result.ExitCode == QpdfExitCode.Success, "decoded graph inspection");
+        JsonNode json = JsonNode.Parse(result.OutputText ?? throw new InvalidOperationException("Missing graph output."))
+            ?? throw new InvalidOperationException("Missing graph JSON.");
+        JsonObject trailer = json["qpdf"]?[1]?["trailer"]?["value"] as JsonObject ?? throw new InvalidOperationException("Missing graph trailer.");
+        if (trailer["/ID"] is JsonArray ids)
+        {
+            Check(ids.Count == 2, "generated ID count");
+            foreach (JsonNode? id in ids)
+            {
+                string value = id?.GetValue<string>() ?? throw new InvalidOperationException("Missing generated ID.");
+                Check(value.StartsWith("b:", StringComparison.Ordinal) && Convert.FromHexString(value[2..]).Length == 16, "generated ID bytes");
+            }
+            trailer.Remove("/ID");
+        }
+        return json.ToJsonString();
+    }
+
+    private static byte[] DecodedContents(PdfStream stream)
+    {
+        byte[] data = stream.Data;
+        if (!stream.Dictionary.TryGet(new PdfName("Filter"u8.ToArray()), out QpdfObject filter)) { return data; }
+        Check(filter is PdfName name && name.DisplayText == "FlateDecode", "output stream encoding");
+        using MemoryStream input = new(data);
+        using ZLibStream decoder = new(input, CompressionMode.Decompress);
+        using MemoryStream decoded = new(); decoder.CopyTo(decoded);
+        return decoded.ToArray();
+    }
 
     private static async Task CheckMultiOutputAsync(InMemoryQpdfHost host, string output, string[] markers)
     {
@@ -895,7 +929,7 @@ internal static class Program
                 throw new InvalidOperationException("Multi output page has no contents stream.");
             }
 
-            ordered.Add(Encoding.ASCII.GetString(contents.Data));
+            ordered.Add(Encoding.ASCII.GetString(DecodedContents(contents)));
         }
 
         Check(ordered.Count == markers.Length, "multi output page count");

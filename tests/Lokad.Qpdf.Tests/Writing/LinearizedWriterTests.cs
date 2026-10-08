@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -272,6 +273,31 @@ public sealed class LinearizedWriterTests
         int streamAt = IndexOf(pdf, Encoding.ASCII.GetBytes("stream\n"), valueEnd);
         Assert.NotEqual(-1, streamAt);
         int firstAt = streamAt + 7 + tableValue;
+        string prefix = Encoding.ASCII.GetString(pdf, 0, streamAt);
+        int dictionaryAt = prefix.LastIndexOf("<<", StringComparison.Ordinal);
+        string dictionary = prefix[dictionaryAt..];
+        if (dictionary.Contains("/FlateDecode", StringComparison.Ordinal))
+        {
+            int lengthAt = dictionary.IndexOf("/Length ", StringComparison.Ordinal) + 8;
+            int lengthEnd = lengthAt;
+            while (char.IsAsciiDigit(dictionary[lengthEnd])) { lengthEnd++; }
+            int length = int.Parse(dictionary[lengthAt..lengthEnd], System.Globalization.CultureInfo.InvariantCulture);
+            using MemoryStream encoded = new(pdf, streamAt + 7, length);
+            using ZLibStream decoder = new(encoded, CompressionMode.Decompress);
+            using MemoryStream decoded = new(); decoder.CopyTo(decoded);
+            byte[] data = decoded.ToArray();
+            data[tableValue] = 0; data[tableValue + 1] = 0; data[tableValue + 2] = 0; data[tableValue + 3] = firstByte;
+            foreach (CompressionLevel level in new[] { CompressionLevel.Optimal, CompressionLevel.Fastest, CompressionLevel.SmallestSize, CompressionLevel.NoCompression })
+            {
+                using MemoryStream replacement = new();
+                using (ZLibStream encoder = new(replacement, level, true)) { encoder.Write(data); }
+                byte[] compressed = replacement.ToArray();
+                if (compressed.Length != length) { continue; }
+                compressed.CopyTo(output, streamAt + 7);
+                return output;
+            }
+            throw new Xunit.Sdk.XunitException("Hint mutation could not preserve the encoded length.");
+        }
         output[firstAt] = 0;
         output[firstAt + 1] = 0;
         output[firstAt + 2] = 0;

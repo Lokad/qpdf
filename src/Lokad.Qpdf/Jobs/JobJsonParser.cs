@@ -127,6 +127,7 @@ internal static class JobJsonParser
             bool seenObjectStreams = false;
             bool preserveUnreferenced = false;
             bool seenPreserveUnreferenced = false;
+            CompressionSettings compressionSettings = CompressionSettings.NativeDefault;
             string? streamData = null;
             bool seenStreamData = false;
             string? compressStreams = null;
@@ -452,6 +453,7 @@ internal static class JobJsonParser
 
                         seenStreamData = true;
                         streamData = RequireString(property.Value, "streamData");
+                        compressionSettings = compressionSettings.WithStreamData(streamData);
                         break;
                     case "compressStreams":
                         if (seenCompressStreams && !configurationLayers)
@@ -461,6 +463,7 @@ internal static class JobJsonParser
 
                         seenCompressStreams = true;
                         compressStreams = RequireString(property.Value, "compressStreams");
+                        compressionSettings = compressionSettings.WithCompressStreams(compressStreams);
                         break;
                     case "decodeLevel":
                         if (seenDecodeLevel && !configurationLayers)
@@ -470,6 +473,7 @@ internal static class JobJsonParser
 
                         seenDecodeLevel = true;
                         decodeLevel = RequireString(property.Value, "decodeLevel");
+                        compressionSettings = compressionSettings.WithDecodeLevel(decodeLevel);
                         break;
                     case "global":
                         if (seenGlobal && !configurationLayers)
@@ -564,6 +568,7 @@ internal static class JobJsonParser
 
                         seenCompressionLevel = true;
                         compressionLevel = RequireString(property.Value, "compressionLevel");
+                        CompressionRequest.ParseLevel(compressionLevel, "compressionLevel");
                         break;
                     case "removeInfo":
                         if (seenRemoveInfo && !configurationLayers)
@@ -705,6 +710,7 @@ internal static class JobJsonParser
 
                         seenQdf = true;
                         qdf = RequireBareFlag(property.Value, "qdf");
+                        if (qdf) { compressionSettings = compressionSettings.WithQdf(); }
                         break;
                     case "linearize":
                         if (seenLinearize && !configurationLayers)
@@ -1253,6 +1259,7 @@ internal static class JobJsonParser
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     PreserveUnreferenced = preserveUnreferenced,
+                    CompressionState = compressionSettings.State,
                     StreamData = streamData,
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
@@ -1714,6 +1721,7 @@ internal static class JobJsonParser
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     PreserveUnreferenced = preserveUnreferenced,
+                    CompressionState = compressionSettings.State,
                     StreamData = streamData,
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
@@ -1811,6 +1819,7 @@ internal static class JobJsonParser
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     PreserveUnreferenced = preserveUnreferenced,
+                    CompressionState = compressionSettings.State,
                     StreamData = streamData,
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,
@@ -1874,6 +1883,7 @@ internal static class JobJsonParser
                 NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     PreserveUnreferenced = preserveUnreferenced,
+                    CompressionState = compressionSettings.State,
                     StreamData = streamData,
                     CompressStreams = compressStreams,
                     DecodeLevel = decodeLevel,

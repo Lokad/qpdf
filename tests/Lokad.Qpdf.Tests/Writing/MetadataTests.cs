@@ -291,7 +291,7 @@ public sealed class MetadataTests
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", InfoFixture());
         byte[] pdf = await SelectAsync(host, "inputs/a.pdf", "outputs/a.pdf", "--object-streams=generate");
-        string text = Encoding.ASCII.GetString(pdf);
+        string text = await StreamObservation.PdfText(pdf);
         Assert.Contains("/Type /ObjStm", text, StringComparison.Ordinal);
         Assert.Contains("(TitleText)", text, StringComparison.Ordinal);
         Assert.Equal(1, await RereadPageCountAsync(host, pdf));

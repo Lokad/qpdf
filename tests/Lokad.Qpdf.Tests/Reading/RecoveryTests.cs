@@ -122,7 +122,7 @@ public sealed class RecoveryTests
         await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
         Assert.Equal(1, output.PageCount);
         PdfStream contents = Assert.IsType<PdfStream>(output.GetObject(4));
-        Assert.Contains("Hello", Encoding.ASCII.GetString(contents.Data), StringComparison.Ordinal);
+        Assert.Contains("Hello", Encoding.ASCII.GetString(Writing.StreamObservation.Decode(contents)), StringComparison.Ordinal);
     }
 
     [Fact]

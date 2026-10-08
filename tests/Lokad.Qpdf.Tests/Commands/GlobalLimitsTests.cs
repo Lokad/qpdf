@@ -801,6 +801,14 @@ public sealed class GlobalLimitsTests
     {
         InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
+        if (argv.Contains("--max-stream-filters=26"))
+        {
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Empty(result.Diagnostics);
+            Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
+            Assert.Equal(0L, host.OpenLeaseCount);
+            return;
+        }
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] _));
     }

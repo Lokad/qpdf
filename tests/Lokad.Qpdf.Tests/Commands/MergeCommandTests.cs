@@ -36,7 +36,7 @@ public sealed class MergeCommandTests
             Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject raw));
             PdfReference reference = Assert.IsType<PdfReference>(raw);
             PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(reference.ObjectNumber));
-            markers.Add(Encoding.ASCII.GetString(stream.Data));
+            markers.Add(Encoding.ASCII.GetString(Writing.StreamObservation.Decode(stream)));
         }
 
         return markers;

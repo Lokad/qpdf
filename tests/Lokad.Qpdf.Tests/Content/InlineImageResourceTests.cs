@@ -209,7 +209,7 @@ public sealed class InlineImageResourceTests
         await using QpdfDocument document = await Open(await Rewrite(input, route, compress, QpdfExitCode.Success));
         PdfStream form = Stream(document, Images(document, document.PageReferences[0].Page), "Fm1");
         Assert.False(form.Dictionary.TryGet(PdfName.FromAscii("DecodeParms"), out _));
-        Assert.Equal(compress, form.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _));
+        Assert.Equal(compress && route == "argv", form.Dictionary.TryGet(PdfName.FromAscii("Filter"), out _));
         Assert.Equal("/IIm1 Do\n\n", Encoding.ASCII.GetString(Decoded(form)));
         Assert.Equal("abcd "u8.ToArray(), Stream(document, Images(document, form.Dictionary), "IIm1").Data);
     }

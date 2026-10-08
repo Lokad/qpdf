@@ -56,6 +56,18 @@ inventory consistency, fixture/independent-reader contracts, codec feasibility, 
 package boundaries; operation coverage is carried by the per-entry unit, budget,
 and oracle-differential evidence reconciled below.
 
+Stream compression setters now share ordered state across argv, lexical job
+keys, mixed argv and file chains. Repeated values use the final setter, and
+invalid earlier layer values reject before PDF input. QDF defaults apply only
+when fields are unset. Native writer defaults compress generalized streams;
+typed selection remains opaque. Empty streams and catalog XML metadata retain
+their native uncompressed rules, while page metadata follows writer settings.
+All 96 preceding resource observations now match; an expanded 868 matrix matches
+all exits, 788 encoded headers and 676 decoded outputs. Its 660 configuration
+observations match fully under the declared comparisons. Created-image encoding,
+inline page resource-name spelling, copied-filter resolution, linearized hint payloads, complete warning
+context and wider grammar/defaults remain open; inventory labels are unchanged.
+
 Form resource traversal now admits its scopes, form references and visited-number
 index through pruning and inline-image externalization. An iterative, admitted
 value comparison preserves scope deduplication while bounding nested values,

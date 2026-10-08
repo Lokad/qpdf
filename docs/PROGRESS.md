@@ -1,5 +1,49 @@
 # Progress
 
+## Ordered compression configuration
+
+Argv and job writers now apply stream-data, compression and decode setters in
+configuration order, including lexical JSON keys, mixed argv and file chains.
+Repeated setters accept their last value; invalid earlier layer values reject
+before PDF input. QDF supplies defaults only for unset fields. Native writer
+defaults compress streams with generalized decoding; typed selection still copies
+streams opaquely. Empty streams stay empty, catalog XML metadata stays
+uncompressed, and page metadata follows writer settings.
+
+Qualified Release suites pass **8968 pending / 8245 isolated cases**, including
+**281 new controls**. All 8687 preceding case occurrences remain. Identical final
+tests on the preceding runtime fail **115 / preserve 8853 / 8968 eligible**,
+with zero loader failures or exclusions. Native-backed observation corrections
+retain fixtures, invocations, budgets, deadlines, cancellation and GC controls.
+Decoded typed/argv/job graph comparisons validate generated IDs separately;
+their bytes depend on encoded content. Package markers now decode streams and
+single-output marker checks are explicit.
+
+Next-unit characterization adds 432 name/candidate observations and 48 copied
+filter-reference observations. The latter match decoded outputs but expose
+36 unexpected warning exits: copied Filter/DecodeParms references use source
+numbering in the initial transform. Destination-pool resolution and candidate
+encoding must share the governed transformer; these findings remain open.
+
+The unchanged 96 resource observations now match all compared outputs/exits.
+Twenty catalog/page XML and empty-stream comparisons match across all four routes.
+The expanded 868 observations match all exits, 788 encoded headers and 676
+decoded outputs; all 660 configuration observations match. Eighty created-image
+encoding differences and 192 decoded differences remain: page resource-name
+prefixes during inline rewriting and linearized hint payloads. These results
+keep broader transformation/default/context parity open. Independent allocation
+samples preserve all six plan/request carrier sizes after byte-state storage;
+whole-job ownership and earlier process measurements remain separate obligations.
+
+Fresh full reference/parser, focused 358 comparisons / 500 rereads, package/symbol
+checks, 50 qualified consumer smokes and both specific negatives pass on frozen
+sources. All 908 public signature entries remain. The first raw marker observation,
+typed/job consumer observation, special-harness input-directory error and initial
+struct carrier growth are retained. Strict dependency gates remain unmet on the
+required ImageSharp pin; qualification changes no lock, version or audit policy.
+Continue created-image encoding/name preservation, hint payloads, later copier/
+publication, whole-job ownership/diagnostics and M11/A01–A07.
+
 ## Inline resource preparation and failure outcomes
 
 Inline externalization repairs missing/invalid page Resources before selection,

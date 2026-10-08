@@ -45,6 +45,7 @@ internal static class ArgvParser
         GlobalOptions globals = ExtractGlobalOptions(ref argv);
         return ParseCore(argv, globals) with
         {
+            CompressionState = globals.CompressionState,
             MaxStreamFilters = globals.MaxStreamFilters,
             ParserMaxNesting = globals.ParserMaxNesting,
             MaxContainerSize = globals.MaxContainerSize,
@@ -1184,7 +1185,10 @@ internal static class ArgvParser
         return found;
     }
 
-    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, bool RemoveStructure, List<int> Collate, List<OutputRotation> Rotations, bool NoDefaultLimits, long? ParserMaxErrors);
+    private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, bool RemoveStructure, List<int> Collate, List<OutputRotation> Rotations, bool NoDefaultLimits, long? ParserMaxErrors)
+    {
+        internal byte CompressionState { get; init; }
+    }
 
     private static bool IsGlobalOptionToken(string token)
     {
@@ -1293,15 +1297,11 @@ internal static class ArgvParser
         string? objectStreams = null;
         bool seenPreserveUnreferenced = false;
         bool preserveUnreferenced = false;
-        bool seenStreamData = false;
+        CompressionSettings compressionSettings = CompressionSettings.NativeDefault;
         string? streamData = null;
-        bool seenCompressStreams = false;
         string? compressStreams = null;
-        bool seenDecodeLevel = false;
         string? decodeLevel = null;
-        bool seenRecompressFlate = false;
         bool recompressFlate = false;
-        bool seenCompressionLevel = false;
         string? compressionLevel = null;
         bool removeAcroform = false;
         bool removeStructure = false;
@@ -1348,7 +1348,6 @@ internal static class ArgvParser
         string? linearizePass1 = null;
         bool seenNoDefaultLimits = false;
         bool noDefaultLimits = false;
-        bool seenMaxStreamFilters = false;
         long? maxStreamFilters = null;
         bool seenParserMaxNesting = false;
         long? parserMaxNesting = null;
@@ -1618,48 +1617,27 @@ internal static class ArgvParser
 
             if (argv[i] == "--stream-data" || argv[i].StartsWith("--stream-data=", StringComparison.Ordinal))
             {
-                if (seenStreamData)
-                {
-                    throw new QpdfParseException("Duplicate --stream-data is outside the narrow profile.", i, null);
-                }
-
-                seenStreamData = true;
                 streamData = ParseStreamChoice(argv, ref i, "--stream-data", new string[] { "compress", "preserve", "uncompress" });
+                compressionSettings = compressionSettings.WithStreamData(streamData);
                 continue;
             }
 
             if (argv[i] == "--compress-streams" || argv[i].StartsWith("--compress-streams=", StringComparison.Ordinal))
             {
-                if (seenCompressStreams)
-                {
-                    throw new QpdfParseException("Duplicate --compress-streams is outside the narrow profile.", i, null);
-                }
-
-                seenCompressStreams = true;
                 compressStreams = ParseOptionalChoice(argv, ref i, "--compress-streams", new string[] { "y", "n" }, "y");
+                compressionSettings = compressionSettings.WithCompressStreams(compressStreams);
                 continue;
             }
 
             if (argv[i] == "--decode-level" || argv[i].StartsWith("--decode-level=", StringComparison.Ordinal))
             {
-                if (seenDecodeLevel)
-                {
-                    throw new QpdfParseException("Duplicate --decode-level is outside the narrow profile.", i, null);
-                }
-
-                seenDecodeLevel = true;
                 decodeLevel = ParseStreamChoice(argv, ref i, "--decode-level", new string[] { "none", "generalized", "specialized", "all" });
+                compressionSettings = compressionSettings.WithDecodeLevel(decodeLevel);
                 continue;
             }
 
             if (argv[i] == "--recompress-flate")
             {
-                if (seenRecompressFlate)
-                {
-                    throw new QpdfParseException("Duplicate --recompress-flate is outside the narrow profile.", i, null);
-                }
-
-                seenRecompressFlate = true;
                 recompressFlate = true;
                 continue;
             }
@@ -1671,13 +1649,8 @@ internal static class ArgvParser
 
             if (argv[i] == "--compression-level" || argv[i].StartsWith("--compression-level=", StringComparison.Ordinal))
             {
-                if (seenCompressionLevel)
-                {
-                    throw new QpdfParseException("Duplicate --compression-level is outside the narrow profile.", i, null);
-                }
-
-                seenCompressionLevel = true;
                 compressionLevel = ParseRequiredChoiceValue(argv, ref i, "--compression-level");
+                CompressionRequest.ParseLevel(compressionLevel, "--compression-level");
                 continue;
             }
 
@@ -1931,6 +1904,7 @@ internal static class ArgvParser
 
                 seenQdf = true;
                 qdf = true;
+                compressionSettings = compressionSettings.WithQdf();
                 continue;
             }
 
@@ -1965,12 +1939,6 @@ internal static class ArgvParser
 
             if (argv[i] == "--max-stream-filters" || argv[i].StartsWith("--max-stream-filters=", StringComparison.Ordinal))
             {
-                if (seenMaxStreamFilters)
-                {
-                    throw new QpdfParseException("Duplicate --max-stream-filters is outside the narrow profile.", i, null);
-                }
-
-                seenMaxStreamFilters = true;
                 maxStreamFilters = ParseMaxStreamFilters(argv, ref i);
                 continue;
             }
@@ -2237,7 +2205,10 @@ internal static class ArgvParser
 
         argv = kept;
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
-        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits, parserMaxErrors);
+        return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits, parserMaxErrors)
+        {
+            CompressionState = compressionSettings.State,
+        };
     }
 
     private static long ParseIiMinBytes(IReadOnlyList<string> argv, ref int i)
@@ -2949,8 +2920,8 @@ internal static class ArgvParser
         int jsonVersion = 0;
         List<string> keys = new();
         List<string> objects = new();
-        string? streamData = null;
         bool seenStreamData = false;
+        string? streamData = null;
         string? streamPrefix = null;
         bool seenStreamPrefix = false;
         bool minimalOutput = false;

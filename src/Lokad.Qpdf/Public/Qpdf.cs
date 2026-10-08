@@ -350,9 +350,9 @@ public static partial class Qpdf
         string? singlePageMode = ReadInputPageMode(document.Engine);
 
         (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(compression, qdf.Enabled);
-        if (singleCompress || singleDecode != "none")
+        if (singleCompress || singleDecode != "none" || (singleMetadata is not null && compression.CompressStreams is not null))
         {
-            TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken);
+            TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
         }
 
         List<int> occurrenceIds = new(occurrences.Count);
@@ -921,9 +921,9 @@ public static partial class Qpdf
                 primaryPageMode = ReadInputPageMode(document.Engine);
             }
 
-            if (multiCompress || multiDecode != "none")
+            if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && compression.CompressStreams is not null))
             {
-                TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken);
+                TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
             }
 
             List<int> takenIds = new(taken.Count);
@@ -2688,39 +2688,13 @@ public static partial class Qpdf
             : request.StreamData == "compress";
         string decode = request.DecodeLevel
             ?? ((request.StreamData == "compress" || request.StreamData == "uncompress") ? "generalized" : (qdf ? "generalized" : "none"));
+        // Compression asks the writer to filter generalized encodings even at decode level none.
+        if (compress && decode == "none") { decode = "generalized"; }
         return (compress, decode, level);
     }
 
     private static int ParseCompressionLevel(string text, string option)
-    {
-        if (text is null)
-        {
-            throw new ArgumentNullException(nameof(text));
-        }
-
-        if (text.Length == 0 || text.Length > 10)
-        {
-            throw new QpdfParseException(option + " must be an integer 1..9.", 0L, null);
-        }
-
-        long value = 0L;
-        foreach (char c in text)
-        {
-            if (c < (char)48 || c > (char)57)
-            {
-                throw new QpdfParseException(option + " must be an integer 1..9.", 0L, null);
-            }
-
-            value = checked(value * 10L + (c - (char)48));
-        }
-
-        if (value < 1L || value > 9L)
-        {
-            throw new QpdfParseException(option + " must be an integer 1..9.", 0L, null);
-        }
-
-        return (int)value;
-    }
+        => CompressionRequest.ParseLevel(text, option);
 
     private static bool StreamFilterInLevel(string name, string decode)
     {
@@ -2738,6 +2712,21 @@ public static partial class Qpdf
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => TransformCopierStreams(copier, engine, compress, decode, recompressFlate, level,
+            limits, governor, diagnostics, cancellationToken, null);
+
+    private static void TransformCopierStreams(
+        GraphCopier copier,
+        DocumentEngine engine,
+        bool compress,
+        string decode,
+        bool recompressFlate,
+        int? level,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken,
+        PdfReference? metadata)
     {
         if (copier is null)
         {
@@ -2758,7 +2747,13 @@ public static partial class Qpdf
                 continue;
             }
 
-            QpdfObject? replacement = TransformStream(stream, id, engine, compress, decode, recompressFlate, level, limits, governor, diagnostics);
+            bool xmlMetadata = metadata?.ObjectNumber == id
+                && PdfDictionaryLookup.TryGet(stream.Dictionary, "Type"u8, governor, cancellationToken, out QpdfObject type)
+                && type is PdfName typeName && PdfDictionaryLookup.NameEquals(typeName, "Metadata"u8, governor, cancellationToken)
+                && PdfDictionaryLookup.TryGet(stream.Dictionary, "Subtype"u8, governor, cancellationToken, out QpdfObject subtype)
+                && subtype is PdfName subtypeName && PdfDictionaryLookup.NameEquals(subtypeName, "XML"u8, governor, cancellationToken);
+            QpdfObject? replacement = TransformStream(stream, id, engine, xmlMetadata ? false : compress,
+                xmlMetadata ? "all" : decode, recompressFlate, level, limits, governor, diagnostics);
             if (replacement is not null)
             {
                 copier.ReplaceCopiedObject(id, replacement);
@@ -2792,7 +2787,7 @@ public static partial class Qpdf
 
         if (stages.Count == 0)
         {
-            if (!compress)
+            if (!compress || ((byte[])stream.AllocationCarrier).Length == 0)
             {
                 return null;
             }

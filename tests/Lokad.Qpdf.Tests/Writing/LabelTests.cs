@@ -611,7 +611,7 @@ public sealed class LabelTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv.pdf"), out byte[] b));
-        Assert.Equal(a, b);
+        await StreamObservation.SameDecodedGraph(a, b);
         InMemoryQpdfHost jobHost = HostWith("inputs/a.pdf", labeled);
         QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
             jobHost,
@@ -619,7 +619,7 @@ public sealed class LabelTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/job.pdf"), out byte[] c));
-        Assert.Equal(a, c);
+        await StreamObservation.SameDecodedGraph(a, c);
     }
 
     [Fact]

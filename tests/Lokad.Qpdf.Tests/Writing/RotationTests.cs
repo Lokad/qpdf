@@ -576,7 +576,7 @@ await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.SelectPageAsync(
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv.pdf"), out byte[] b));
-        Assert.Equal(a, b);
+        await StreamObservation.SameDecodedGraph(a, b);
     }
 
     [Fact]
@@ -599,6 +599,6 @@ await Assert.ThrowsAsync<ArgumentNullException>(() => Qpdf.SelectPageAsync(
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/job.pdf"), out byte[] b));
-        Assert.Equal(a, b);
+        await StreamObservation.SameDecodedGraph(a, b);
     }
 }
