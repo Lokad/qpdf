@@ -1891,7 +1891,7 @@ public static partial class Qpdf
         return inverted;
     }
 
-    private sealed record PageImage(string Name, int Number, int Generation, long Width, long Height);
+    private readonly record struct PageImage(PdfName Name, int Number, int Generation, long Width, long Height);
 
     private static List<PageImage> ListPageImages(
         DocumentEngine engine,
@@ -1899,9 +1899,11 @@ public static partial class Qpdf
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ParserMemoryScope memory)
     {
-        List<PageImage> images = new();
+        memory.CheckOwner(governor);
+        List<PageImage> images = ParserContainers.CreateList<PageImage>(memory);
         PdfDictionary? resources = EffectivePageResources(engine, location, limits, governor, cancellationToken);
         if (resources is null)
         {
@@ -1925,8 +1927,15 @@ public static partial class Qpdf
             return images;
         }
 
-        List<PdfName> names = new(xobjects.Keys);
-        names.Sort(static (left, right) => string.CompareOrdinal(left.DisplayText, right.DisplayText));
+        List<PdfName> names = ParserContainers.CreateList<PdfName>(memory);
+        foreach (PdfName name in xobjects.Keys)
+        {
+            governor.CheckCancellation();
+            governor.ChargeWork(1L);
+            if (names.Count == names.Capacity) { governor.ChargeWork(checked(3L * (names.Count + 4L))); }
+            ParserContainers.AddItem(memory, names, name, IntPtr.Size);
+        }
+        GovernedCollections.SortNames(memory, governor, names);
         foreach (PdfName key in names)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1941,14 +1950,15 @@ public static partial class Qpdf
                 continue;
             }
 
-            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || subtypeName.DisplayText != "Image")
+            if (!stream.Dictionary.TryGet(PdfName.FromAscii("Subtype"), out QpdfObject subtype) || subtype is not PdfName subtypeName || !subtypeName.RawSpan.SequenceEqual("Image"u8))
             {
                 continue;
             }
 
             long width = ImageDimension(stream.Dictionary, "Width", reference, engine, diagnostics, governor, cancellationToken);
             long height = ImageDimension(stream.Dictionary, "Height", reference, engine, diagnostics, governor, cancellationToken);
-            images.Add(new PageImage(key.DisplayText, reference.ObjectNumber, reference.Generation, width, height));
+            if (images.Count == images.Capacity) { governor.ChargeWork(checked(3L * (images.Count + 4L))); }
+            ParserContainers.AddItem(memory, images, new PageImage(key, reference.ObjectNumber, reference.Generation, width, height), 32L);
         }
 
         return images;
@@ -1961,10 +1971,11 @@ public static partial class Qpdf
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        HashSet<int> visited = new();
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        HashSet<int> visited = ParserContainers.CreateSet<int>(memory);
         if (location.Source is not null)
         {
-            visited.Add(location.Source.ObjectNumber);
+            GovernedCollections.AddNumber(memory, governor, visited, location.Source.ObjectNumber);
         }
 
         PdfDictionary current = location.Page;
@@ -1997,7 +2008,7 @@ public static partial class Qpdf
             PdfDictionary parent;
             if (parentRaw is PdfReference parentReference)
             {
-                if (!visited.Add(parentReference.ObjectNumber))
+                if (!GovernedCollections.AddNumber(memory, governor, visited, parentReference.ObjectNumber))
                 {
                     throw new QpdfParseException($"Page ancestry cycle at object {parentReference.ObjectNumber}.", null, parentReference.ObjectNumber);
                 }
@@ -2055,7 +2066,7 @@ public static partial class Qpdf
             }
         }
 
-        diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, $"Image {reference.ObjectNumber} is missing /{key}; using 0.");
+        diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Image ", reference.ObjectNumber, " is missing /", key, "; using 0."]);
         return 0L;
     }
 
@@ -4386,7 +4397,7 @@ public static partial class Qpdf
     private static void AddPageCountDiagnostic(QpdfDocument document, QpdfPath input, DiagnosticBag diagnostics)
     {
         long count = document.ReadDeclaredPageCount();
-        diagnostics.Add(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, $"{input.Value}: {count.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        diagnostics.AddParts(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, [input.Value, ": ", DiagnosticPart.Invariant(count)]);
     }
 
     private static async ValueTask InspectLinearizationAsync(

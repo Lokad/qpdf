@@ -188,6 +188,13 @@ internal static class CatalogCopy
                 continue;
             }
 
+            // Name-valued PageMode is rebuilt by attachment handling. Preserve
+            // other values, including indirect roots, through the ordinary copier.
+            if (key.RawSpan.SequenceEqual("PageMode"u8) && raw is PdfName)
+            {
+                continue;
+            }
+
             try
             {
                 extras[key] = copier.CopyValue(raw, 0);
@@ -210,7 +217,6 @@ internal static class CatalogCopy
             || name == "MarkInfo"
             || name == "Metadata"
             || name == "Names"
-            || name == "PageMode"
             || name == "AcroForm"
             || name == "Version"
             || name == "Extensions";

@@ -78,8 +78,9 @@ internal sealed class LinearizedWriter
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
         }
 
-        LinearizedParts parts = LinearizedParts.Classify(model, _governor, cancellationToken);
-        Dictionary<int, QpdfObject> emitted = RemapModel(parts, cancellationToken);
+        using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
+        using LinearizedParts parts = LinearizedParts.Classify(model, classificationMemory, _governor, cancellationToken);
+        using RemappedModel emitted = RemappedModel.Create(parts.Lookup, parts.Renumber, _governor, cancellationToken);
         int? infoNew = null;
         if (infoRef.HasValue)
         {
@@ -98,12 +99,12 @@ internal sealed class LinearizedWriter
             countingSink = new TeeSink(counter, pass1Sink);
         }
 
-        LinearLayout counted = await EmitPassAsync(
+        using LinearizedLayout counted = await EmitPassAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         byte[] hintObject = BuildHintObject(parts, counted, compressHints, compressionLevel, cancellationToken);
         long hintLength = hintObject.LongLength;
 
-        LinearLayout finalLayout = await EmitPassAsync(
+        using LinearizedLayout finalLayout = await EmitPassAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
         long written = finalLayout.FileSize;
         if (written != checked(counted.FileSize + hintLength))
@@ -112,23 +113,6 @@ internal sealed class LinearizedWriter
         }
 
         return written;
-    }
-
-    private Dictionary<int, QpdfObject> RemapModel(LinearizedParts parts, CancellationToken cancellationToken)
-    {
-        Dictionary<int, QpdfObject> emitted = new(parts.Renumber.Count);
-        foreach (KeyValuePair<int, int> entry in parts.Renumber)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!parts.Lookup.TryGetValue(entry.Key, out QpdfObject? value) || value is null)
-            {
-                throw new QpdfException($"Linearized publication lost object {entry.Key}.");
-            }
-
-            emitted[entry.Value] = ObjectRemap.RemapIds(value, parts.Renumber, _governor);
-        }
-
-        return emitted;
     }
 
     private sealed class TeeSink : IByteSink
@@ -151,128 +135,117 @@ internal sealed class LinearizedWriter
         }
     }
 
-    private sealed class LinearLayout
-    {
-        internal long FirstXref;
-        internal long HintPosition;
-        internal long Part6End;
-        internal long MainXref;
-        internal long MainXrefTable;
-        internal long FileSize;
-        internal readonly Dictionary<int, long> Starts = new();
-        internal readonly Dictionary<int, long> Lengths = new();
-    }
-
-    private async ValueTask<LinearLayout> EmitPassAsync(
+    private async ValueTask<LinearizedLayout> EmitPassAsync(
         PdfVersion version,
         LinearizedParts parts,
-        Dictionary<int, QpdfObject> emitted,
+        RemappedModel emitted,
         int? infoNew,
         byte[] id1,
         byte[] id2,
         bool newlineBeforeEndstream,
         bool final,
         byte[]? hintObject,
-        LinearLayout? counted,
+        LinearizedLayout? counted,
         IByteSink sink,
         CancellationToken cancellationToken)
     {
-        LinearLayout layout = new();
-        string idHex1 = ToHex(id1);
-        string idHex2 = ToHex(id2);
-        _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        int catalogNew = parts.Renumber[1];
-
-        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
-
-        string lindictInner = LindictInner(parts.Renumber, parts.Pages, parts.LindictNumber, counted, hintObject, final);
-        layout.Starts[parts.LindictNumber] = sink.Length;
-        await AppendAsciiAsync($"{parts.LindictNumber} 0 obj\n<<", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync(lindictInner, sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync(">>\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
-        layout.Lengths[parts.LindictNumber] = checked(sink.Length - layout.Starts[parts.LindictNumber]);
-
-        layout.FirstXref = sink.Length;
-        List<int> firstHalf = FirstHalfNumbers(parts);
-        await AppendAsciiAsync($"xref\n{firstHalf[0]} {firstHalf.Count}\n", sink, cancellationToken).ConfigureAwait(false);
-        foreach (int number in firstHalf)
+        LinearizedLayout layout = LinearizedLayout.Create(_governor, false, cancellationToken);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            long offset = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
-            if (offset > MaxOffsetField)
+
+            int catalogNew = parts.Renumber[1];
+
+            await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
+
+            using (WriterFormatting lindictInner = LindictInner(parts.Renumber, parts.Pages, counted, hintObject, final, cancellationToken))
             {
-                throw new QpdfException($"Object offset {offset} exceeds the classic xref field width.");
+                layout.RecordStart(parts.LindictNumber, sink.Length);
+                await AppendFormattedAsync([WriterPart.Number(parts.LindictNumber), WriterPart.Text(" 0 obj\n<<")], sink, cancellationToken).ConfigureAwait(false);
+                await AppendBytesAsync(lindictInner.Data, sink, cancellationToken).ConfigureAwait(false);
             }
-            await AppendAsciiAsync($"{offset:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
-        }
+            await AppendAsciiAsync(">>\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
+            layout.RecordLength(parts.LindictNumber, checked(sink.Length - layout.Starts[parts.LindictNumber]));
 
-        await AppendAsciiAsync($"trailer << /Root {catalogNew} 0 R", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync($" /Size {firstHalf[^1] + 1}", sink, cancellationToken).ConfigureAwait(false);
-        long prevValue = final && counted is not null ? checked(counted.MainXrefTable + HintLength(hintObject)) : 0L;
-        string prevDigits = prevValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        if (prevDigits.Length > PrevFieldWidth)
-        {
-            throw new QpdfException("Linearized cross-reference exceeds its reserved space.");
-        }
-        await AppendAsciiAsync($" /Prev {prevValue}{new string(' ', PrevFieldWidth - prevDigits.Length)}", sink, cancellationToken).ConfigureAwait(false);
-        if (infoNew.HasValue)
-        {
-            await AppendAsciiAsync($" /Info {infoNew.Value} 0 R", sink, cancellationToken).ConfigureAwait(false);
-        }
-
-        await AppendAsciiAsync($" /ID [<{idHex1}><{idHex2}>] >>\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync("startxref\n0\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
-
-        await EmitObjectsAsync(parts, parts.Part4, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
-        if (hintObject is not null)
-        {
-            layout.HintPosition = sink.Length;
-            layout.Starts[parts.HintNumber] = sink.Length;
-            await AppendBytesAsync(hintObject, sink, cancellationToken).ConfigureAwait(false);
-            layout.Lengths[parts.HintNumber] = checked(sink.Length - layout.Starts[parts.HintNumber]);
-        }
-        else
-        {
-            layout.HintPosition = sink.Length;
-            layout.Starts[parts.HintNumber] = sink.Length;
-            layout.Lengths[parts.HintNumber] = 0L;
-        }
-
-        await EmitObjectsAsync(parts, parts.Part6, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
-        layout.Part6End = sink.Length;
-        foreach (IReadOnlyList<int> run in parts.Part7)
-        {
-            await EmitObjectsAsync(parts, run, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
-        }
-
-        await EmitObjectsAsync(parts, parts.Part8, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
-        await EmitObjectsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
-
-        layout.MainXrefTable = sink.Length;
-        List<int> secondHalf = SecondHalfNumbers(parts);
-        await AppendAsciiAsync($"xref\n0 {secondHalf.Count + 1}", sink, cancellationToken).ConfigureAwait(false);
-        layout.MainXref = sink.Length;
-        await AppendAsciiAsync("\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
-        foreach (int number in secondHalf)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            long position = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
-            if (position > MaxOffsetField)
+            layout.FirstXref = sink.Length;
+            using WriterOrder<int> firstHalf = FirstHalfNumbers(parts, cancellationToken);
+            await AppendFormattedAsync([WriterPart.Text("xref\n"), WriterPart.Number(firstHalf[0]), WriterPart.Text(" "), WriterPart.Number(firstHalf.Count), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
+            foreach (int number in firstHalf)
             {
-                throw new QpdfException($"Object offset {position} exceeds the classic xref field width.");
+                cancellationToken.ThrowIfCancellationRequested();
+                long offset = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
+                if (offset > MaxOffsetField)
+                {
+                    throw new QpdfException($"Object offset {offset} exceeds the classic xref field width.");
+                }
+                await AppendFormattedAsync([WriterPart.ZeroPaddedNumber(offset, 10), WriterPart.Text(" 00000 n \n")], sink, cancellationToken).ConfigureAwait(false);
             }
 
-            await AppendAsciiAsync($"{position:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
-        }
+            await AppendFormattedAsync([WriterPart.Text("trailer << /Root "), WriterPart.Number(catalogNew), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Text(" /Size "), WriterPart.Number(firstHalf[^1] + 1)], sink, cancellationToken).ConfigureAwait(false);
+            firstHalf.Dispose();
+            long prevValue = final && counted is not null ? checked(counted.MainXrefTable + HintLength(hintObject)) : 0L;
+            await AppendFormattedAsync([WriterPart.Text(" /Prev "), WriterPart.RightPaddedNumber(prevValue, PrevFieldWidth)], sink, cancellationToken).ConfigureAwait(false);
+            if (infoNew.HasValue)
+            {
+                await AppendFormattedAsync([WriterPart.Text(" /Info "), WriterPart.Number(infoNew.Value), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
+            }
 
-        await AppendAsciiAsync($"trailer << /Size {secondHalf[^1] + 1} /ID [<{idHex1}><{idHex2}>] >>\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync($"startxref\n{layout.FirstXref}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
-        layout.FileSize = sink.Length;
-        return layout;
+            await AppendFormattedAsync([WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
+            await AppendAsciiAsync("startxref\n0\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
+
+            await EmitObjectsAsync(parts, parts.Part4, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            if (hintObject is not null)
+            {
+                layout.HintPosition = sink.Length;
+                layout.RecordStart(parts.HintNumber, sink.Length);
+                await AppendBytesAsync(hintObject, sink, cancellationToken).ConfigureAwait(false);
+                layout.RecordLength(parts.HintNumber, checked(sink.Length - layout.Starts[parts.HintNumber]));
+            }
+            else
+            {
+                layout.HintPosition = sink.Length;
+                layout.RecordStart(parts.HintNumber, sink.Length);
+                layout.RecordLength(parts.HintNumber, 0L);
+            }
+
+            await EmitObjectsAsync(parts, parts.Part6, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            layout.Part6End = sink.Length;
+            foreach (IReadOnlyList<int> run in parts.Part7)
+            {
+                await EmitObjectsAsync(parts, run, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            }
+
+            await EmitObjectsAsync(parts, parts.Part8, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitObjectsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
+
+            layout.MainXrefTable = sink.Length;
+            using WriterOrder<int> secondHalf = SecondHalfNumbers(parts, cancellationToken);
+            await AppendFormattedAsync([WriterPart.Text("xref\n0 "), WriterPart.Number(secondHalf.Count + 1)], sink, cancellationToken).ConfigureAwait(false);
+            layout.MainXref = sink.Length;
+            await AppendAsciiAsync("\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
+            foreach (int number in secondHalf)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                long position = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
+                if (position > MaxOffsetField)
+                {
+                    throw new QpdfException($"Object offset {position} exceeds the classic xref field width.");
+                }
+
+                await AppendFormattedAsync([WriterPart.ZeroPaddedNumber(position, 10), WriterPart.Text(" 00000 n \n")], sink, cancellationToken).ConfigureAwait(false);
+            }
+
+            await AppendFormattedAsync([WriterPart.Text("trailer << /Size "), WriterPart.Number(secondHalf[^1] + 1), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
+            secondHalf.Dispose();
+            await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(layout.FirstXref), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
+            layout.FileSize = sink.Length;
+            return layout;
+        }
+        catch { layout.Dispose(); throw; }
     }
 
-    private static long XrefOffset(int hintNumber, LinearLayout? counted, byte[]? hintObject, bool final, int number)
+    private static long XrefOffset(int hintNumber, LinearizedLayout? counted, byte[]? hintObject, bool final, int number)
     {
         if (!final || counted is null || !counted.Starts.TryGetValue(number, out long recorded))
         {
@@ -287,75 +260,69 @@ internal sealed class LinearizedWriter
         return recorded;
     }
 
-    private static List<int> FirstHalfNumbers(LinearizedParts parts)
+    private WriterOrder<int> FirstHalfNumbers(LinearizedParts parts, CancellationToken cancellationToken)
     {
-        List<int> numbers = new();
-        numbers.Add(parts.LindictNumber);
-        foreach (int old in parts.Part4)
+        WriterOrder<int> numbers = WriterOrder<int>.Create(checked(2 + parts.Part4.Count + parts.Part6.Count), sizeof(int), _governor, cancellationToken);
+        try
         {
-            numbers.Add(parts.Renumber[old]);
+            numbers.Add(parts.LindictNumber);
+            foreach (int old in parts.Part4) { numbers.Add(parts.Renumber[old]); }
+            numbers.Add(parts.HintNumber);
+            foreach (int old in parts.Part6) { numbers.Add(parts.Renumber[old]); }
+            numbers.Sort(new WriterNumberOrder());
+            return numbers;
         }
-
-        numbers.Add(parts.HintNumber);
-        foreach (int old in parts.Part6)
-        {
-            numbers.Add(parts.Renumber[old]);
-        }
-        numbers.Sort();
-        return numbers;
+        catch {numbers.Dispose(); throw;}
     }
 
-    private static List<int> SecondHalfNumbers(LinearizedParts parts)
+    private WriterOrder<int> SecondHalfNumbers(LinearizedParts parts, CancellationToken cancellationToken)
     {
-        List<int> numbers = new();
+        int capacity = checked(parts.Part8.Count + parts.Part9.Count);
         foreach (IReadOnlyList<int> run in parts.Part7)
         {
-            foreach (int old in run)
+            cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+            capacity = checked(capacity + run.Count);
+        }
+        WriterOrder<int> numbers = WriterOrder<int>.Create(capacity, sizeof(int), _governor, cancellationToken);
+        try
+        {
+            foreach (IReadOnlyList<int> run in parts.Part7)
             {
-                numbers.Add(parts.Renumber[old]);
+                cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+                foreach (int old in run) { numbers.Add(parts.Renumber[old]); }
             }
+            foreach (int old in parts.Part8) { numbers.Add(parts.Renumber[old]); }
+            foreach (int old in parts.Part9) { numbers.Add(parts.Renumber[old]); }
+            numbers.Sort(new WriterNumberOrder());
+            return numbers;
         }
-
-        foreach (int old in parts.Part8)
-        {
-            numbers.Add(parts.Renumber[old]);
-        }
-
-        foreach (int old in parts.Part9)
-        {
-            numbers.Add(parts.Renumber[old]);
-        }
-        numbers.Sort();
-        return numbers;
+        catch {numbers.Dispose(); throw;}
     }
 
-    private static string LindictInner(Dictionary<int, int> renumber, IReadOnlyList<int> pages, int lindictNumber, LinearLayout? counted, byte[]? hintObject, bool final)
+    private WriterFormatting LindictInner(GovernedIntDictionary<int> renumber, IReadOnlyList<int> pages,
+        LinearizedLayout? counted, byte[]? hintObject, bool final, CancellationToken cancellationToken)
     {
         if (!final || counted is null || hintObject is null)
         {
-            return new string(' ', LindictPad);
+            return WriterFormatting.Create([WriterPart.Spaces(LindictPad)], _limits, _governor, cancellationToken);
         }
-
         long hintLength = hintObject.LongLength;
         long fileSize = checked(counted.FileSize + hintLength);
         long part6End = checked(counted.Part6End + hintLength);
         long mainXref = checked(counted.MainXref + hintLength);
-        string inner = $" /Linearized 1 /L {fileSize} /H [ {counted.HintPosition} {hintLength} ]"
-            + $" /O {renumber[pages[0]]} /E {part6End} /N {pages.Count} /T {mainXref}";
-        if (inner.Length > LindictPad)
-        {
-            throw new QpdfParseException("Linearization dictionary exceeds its reserved space.", null, null);
-        }
-
-        return inner + new string(' ', LindictPad - inner.Length);
+        return WriterFormatting.CreatePadded([WriterPart.Text(" /Linearized 1 /L "), WriterPart.Number(fileSize),
+            WriterPart.Text(" /H [ "), WriterPart.Number(counted.HintPosition), WriterPart.Text(" "), WriterPart.Number(hintLength),
+            WriterPart.Text(" ] /O "), WriterPart.Number(renumber[pages[0]]), WriterPart.Text(" /E "), WriterPart.Number(part6End),
+            WriterPart.Text(" /N "), WriterPart.Number(pages.Count), WriterPart.Text(" /T "), WriterPart.Number(mainXref)],
+            LindictPad, "Linearization dictionary exceeds its reserved space.", _limits, _governor, cancellationToken);
     }
 
     private async ValueTask EmitObjectsAsync(
         LinearizedParts parts,
         IReadOnlyList<int> olds,
-        Dictionary<int, QpdfObject> emitted,
+        RemappedModel emitted,
         bool newlineBeforeEndstream,
-        LinearLayout layout,
+        LinearizedLayout layout,
         IByteSink sink,
         CancellationToken cancellationToken)
     {
@@ -373,39 +340,41 @@ internal sealed class LinearizedWriter
                 throw new QpdfException($"Linearized publication lost object {number}.");
             }
 
-            layout.Starts[number] = sink.Length;
+            layout.RecordStart(number, sink.Length);
             await _serializer.AppendNumberedObjectAsync(number, value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-            layout.Lengths[number] = checked(sink.Length - layout.Starts[number]);
+            layout.RecordLength(number, checked(sink.Length - layout.Starts[number]));
+        }
+    }
+
+    private ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)
+        => AppendFormattingAsync(WriterFormatting.Create(parts, _limits, _governor, cancellationToken), sink, cancellationToken);
+
+    private async ValueTask AppendFormattingAsync(WriterFormatting formatted, IByteSink sink, CancellationToken cancellationToken)
+    {
+        using (formatted)
+        {
+            await AppendBytesAsync(formatted.Data, sink, cancellationToken).ConfigureAwait(false);
         }
     }
 
     private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
     {
-        await AppendBytesAsync(System.Text.Encoding.ASCII.GetBytes(text), sink, cancellationToken).ConfigureAwait(false);
+        using WriterEncoding encoded = WriterEncoding.Ascii(text, _limits, _governor, cancellationToken);
+        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask AppendBytesAsync(byte[] chunk, IByteSink sink, CancellationToken cancellationToken)
+    private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
     {
         int offset = 0;
         while (offset < chunk.Length)
         {
             cancellationToken.ThrowIfCancellationRequested();
             int take = System.Math.Min(8192, chunk.Length - offset);
-            await sink.AppendAsync(new ReadOnlyMemory<byte>(chunk, offset, take), cancellationToken).ConfigureAwait(false);
+            await sink.AppendAsync(chunk.Slice(offset, take), cancellationToken).ConfigureAwait(false);
             offset += take;
         }
     }
 
-    private static string ToHex(byte[] bytes)
-    {
-        System.Text.StringBuilder builder = new(bytes.Length * 2);
-        foreach (byte b in bytes)
-        {
-            builder.Append(b.ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
-        }
-
-        return builder.ToString();
-    }
 
     private static long HintLength(byte[]? hintObject)
     {
@@ -414,7 +383,7 @@ internal sealed class LinearizedWriter
 
     private byte[] BuildHintObject(
         LinearizedParts parts,
-        LinearLayout counted,
+        LinearizedLayout counted,
         bool compressHints,
         int? compressionLevel,
         CancellationToken cancellationToken)
@@ -424,7 +393,7 @@ internal sealed class LinearizedWriter
 
     private byte[] BuildHintObject(
         StreamedParts parts,
-        LinearLayout counted,
+        LinearizedLayout counted,
         bool compressHints,
         int? compressionLevel,
         CancellationToken cancellationToken)
@@ -437,12 +406,12 @@ internal sealed class LinearizedWriter
         IReadOnlyList<int> part8,
         IReadOnlyList<IReadOnlyList<int>> part7,
         IReadOnlyList<int> pages,
-        IReadOnlyList<HashSet<int>> pageUsers,
+        IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         IReadOnlyList<int> outlines,
-        Dictionary<int, int> renumber,
+        GovernedIntDictionary<int> renumber,
         int hintNumber,
         bool outlinesDirect,
-        LinearLayout counted,
+        LinearizedLayout counted,
         bool compressHints,
         int? compressionLevel,
         CancellationToken cancellationToken)
@@ -525,38 +494,24 @@ internal sealed class LinearizedWriter
             data = FlateFilter.Encode(tables, compressionLevel, _limits, _governor);
         }
 
-        System.Text.StringBuilder head = new();
-        head.Append(hintNumber);
-        head.Append(" 0 obj\n<<");
-        if (flate)
-        {
-            head.Append(" /Filter /FlateDecode");
-        }
-
-        head.Append(" /S ");
-        head.Append(sharedAt.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        if (outlineNew.Count > 0 && outlinesDirect)
-        {
-            head.Append(" /O ");
-            head.Append(outlineAt.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        }
-
-        head.Append(" /Length ");
-        head.Append(data.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        head.Append(" >>\nstream\n");
-        byte[] prefix = System.Text.Encoding.ASCII.GetBytes(head.ToString());
-        byte[] tail = data.Length == 0 || data[data.Length - 1] != 10
-            ? System.Text.Encoding.ASCII.GetBytes("\nendstream\nendobj\n")
-            : System.Text.Encoding.ASCII.GetBytes("endstream\nendobj\n");
+        using WriterFormatting head = WriterFormatting.Create([WriterPart.Number(hintNumber), WriterPart.Text(" 0 obj\n<<"),
+            WriterPart.Text(flate ? " /Filter /FlateDecode" : ""), WriterPart.Text(" /S "), WriterPart.Number(sharedAt),
+            WriterPart.Text(outlineNew.Count > 0 && outlinesDirect ? " /O " : ""),
+            outlineNew.Count > 0 && outlinesDirect ? WriterPart.Number(outlineAt) : default,
+            WriterPart.Text(" /Length "), WriterPart.Number(data.Length), WriterPart.Text(" >>\nstream\n")],
+            _limits, _governor, cancellationToken);
+        ReadOnlyMemory<byte> prefix = head.Data;
+        ReadOnlySpan<byte> tail = data.Length == 0 || data[data.Length - 1] != 10
+            ? "\nendstream\nendobj\n"u8 : "endstream\nendobj\n"u8;
         _governor.ReserveMemory(checked((long)prefix.Length + data.Length + tail.Length));
         byte[] hintObject = new byte[checked(prefix.Length + data.Length + tail.Length)];
-        Buffer.BlockCopy(prefix, 0, hintObject, 0, prefix.Length);
+        GovernedBufferStream.CopyBytes(prefix.Span, hintObject, _governor, cancellationToken, CancellationToken.None);
         Buffer.BlockCopy(data, 0, hintObject, prefix.Length, data.Length);
-        Buffer.BlockCopy(tail, 0, hintObject, prefix.Length + data.Length, tail.Length);
+        GovernedBufferStream.CopyBytes(tail, hintObject.AsSpan(prefix.Length + data.Length), _governor, cancellationToken, CancellationToken.None);
         return hintObject;
     }
 
-    private static long ObjectLength(LinearLayout counted, int number)
+    private static long ObjectLength(LinearizedLayout counted, int number)
     {
         if (!counted.Lengths.TryGetValue(number, out long length))
         {
@@ -566,7 +521,7 @@ internal sealed class LinearizedWriter
         return length;
     }
 
-    private static long RunLength(LinearLayout counted, IReadOnlyList<int> run)
+    private static long RunLength(LinearizedLayout counted, IReadOnlyList<int> run)
     {
         if (run.Count == 0)
         {
@@ -578,7 +533,7 @@ internal sealed class LinearizedWriter
         return checked(counted.Starts[last] + ObjectLength(counted, last) - start);
     }
 
-    private static List<int> SortedShared(IReadOnlyList<HashSet<int>> pageUsers, Dictionary<int, int> renumber, int page, Dictionary<int, int> groupIndex)
+    private static List<int> SortedShared(IReadOnlyList<IReadOnlyCollection<int>> pageUsers, GovernedIntDictionary<int> renumber, int page, Dictionary<int, int> groupIndex)
     {
         List<int> olds = new(pageUsers[page]);
         olds.Sort();
@@ -889,28 +844,16 @@ internal sealed class LinearizedWriter
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
         }
 
-        StreamedParts parts = LinearizedParts.ClassifyStreamed(model, objectStreamGroups, _governor, cancellationToken);
+        using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(_governor);
+        using StreamedParts parts = LinearizedParts.ClassifyStreamed(model, objectStreamGroups, classificationMemory, _governor, cancellationToken);
         if (parts.Containers.Count == 0)
         {
+            parts.Dispose();
+            classificationMemory.Dispose();
             return await WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, sink, pass1Sink, cancellationToken).ConfigureAwait(false);
         }
 
-        Dictionary<int, QpdfObject> emitted = new(parts.Renumber.Count);
-        foreach (KeyValuePair<int, QpdfObject> entry in parts.Lookup)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!parts.Renumber.TryGetValue(entry.Key, out int number))
-            {
-                throw new QpdfException($"Linearized publication lost object {entry.Key}.");
-            }
-
-            emitted[number] = ObjectRemap.RemapIds(entry.Value, parts.Renumber, _governor);
-        }
-
-        if (emitted.Count != parts.Lookup.Count)
-        {
-            throw new QpdfException("Linearized publication lost objects while remapping.");
-        }
+        using RemappedModel emitted = RemappedModel.Create(parts.Lookup, parts.Renumber, _governor, cancellationToken);
 
         int? infoNew = null;
         if (infoRef.HasValue)
@@ -948,12 +891,12 @@ internal sealed class LinearizedWriter
             countingSink = new TeeSink(counter, pass1Sink);
         }
 
-        LinearLayout counted = await EmitPassStreamedAsync(
+        using LinearizedLayout counted = await EmitPassStreamedAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         byte[] hintObject = BuildHintObject(parts, counted, compressStreams, compressionLevel, cancellationToken);
         long hintLength = hintObject.LongLength;
 
-        LinearLayout finalLayout = await EmitPassStreamedAsync(
+        using LinearizedLayout finalLayout = await EmitPassStreamedAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
         long written = finalLayout.FileSize;
         if (written != checked(counted.FileSize + hintLength))
@@ -964,10 +907,10 @@ internal sealed class LinearizedWriter
         return written;
     }
 
-    private async ValueTask<LinearLayout> EmitPassStreamedAsync(
+    private async ValueTask<LinearizedLayout> EmitPassStreamedAsync(
         PdfVersion version,
         StreamedParts parts,
-        Dictionary<int, QpdfObject> emitted,
+        RemappedModel emitted,
         int? infoNew,
         byte[] id1,
         byte[] id2,
@@ -978,75 +921,79 @@ internal sealed class LinearizedWriter
         int field2,
         bool final,
         byte[]? hintObject,
-        LinearLayout? counted,
+        LinearizedLayout? counted,
         IByteSink sink,
         CancellationToken cancellationToken)
     {
-        LinearLayout layout = new();
-        string idHex1 = ToHex(id1);
-        string idHex2 = ToHex(id2);
-        _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        int catalogNew = parts.Renumber[1];
-        Dictionary<int, (int Container, int Index)> memberEntries = new(parts.Members.Count);
-        foreach (KeyValuePair<int, (int Container, int Index)> entry in parts.Members)
+        LinearizedLayout layout = LinearizedLayout.Create(_governor, true, cancellationToken);
+        try
         {
-            memberEntries[parts.Renumber[entry.Key]] = entry.Value;
+
+            int catalogNew = parts.Renumber[1];
+            foreach (KeyValuePair<int, (int Container, int Index)> entry in parts.Members)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                layout.RecordMember(parts.Renumber[entry.Key], entry.Value);
+            }
+
+            await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
+
+            using (WriterFormatting lindictInner = LindictInner(parts.Renumber, parts.Pages, counted, hintObject, final, cancellationToken))
+            {
+                layout.RecordStart(parts.LindictNumber, sink.Length);
+                await AppendFormattedAsync([WriterPart.Number(parts.LindictNumber), WriterPart.Text(" 0 obj\n<<")], sink, cancellationToken).ConfigureAwait(false);
+                await AppendBytesAsync(lindictInner.Data, sink, cancellationToken).ConfigureAwait(false);
+            }
+            await AppendAsciiAsync(">>\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
+            layout.RecordLength(parts.LindictNumber, checked(sink.Length - layout.Starts[parts.LindictNumber]));
+
+            long? firstPrev = final && counted is not null ? checked(counted.MainXrefTable + HintLength(hintObject)) : 0L;
+            await AppendXrefStreamAsync(parts, counted, hintObject, final, parts.XrefFirstNumber, parts.LindictNumber, parts.FirstSize - parts.LindictNumber, parts.FirstSize, catalogNew, infoNew, firstPrev, id1, id2, field1, field2, layout, sink, cancellationToken).ConfigureAwait(false);
+
+            await EmitUnitsAsync(parts, parts.Part4, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            if (hintObject is not null)
+            {
+                layout.HintPosition = sink.Length;
+                layout.RecordStart(parts.HintNumber, sink.Length);
+                await AppendBytesAsync(hintObject, sink, cancellationToken).ConfigureAwait(false);
+                layout.RecordLength(parts.HintNumber, checked(sink.Length - layout.Starts[parts.HintNumber]));
+            }
+            else
+            {
+                layout.HintPosition = sink.Length;
+                layout.RecordStart(parts.HintNumber, sink.Length);
+                layout.RecordLength(parts.HintNumber, 0L);
+            }
+
+            await EmitUnitsAsync(parts, parts.Part6, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            layout.Part6End = sink.Length;
+            foreach (IReadOnlyList<int> run in parts.Part7)
+            {
+                await EmitUnitsAsync(parts, run, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            }
+
+            await EmitUnitsAsync(parts, parts.Part8, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+            await EmitUnitsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
+
+            await AppendXrefStreamAsync(parts, counted, hintObject, final, parts.XrefMainNumber, 0, parts.MainSize, parts.MainSize, null, null, null, id1, id2, field1, field2, layout, sink, cancellationToken).ConfigureAwait(false);
+            layout.MainXrefTable = layout.Starts[parts.XrefMainNumber];
+            layout.MainXref = checked(layout.Starts[parts.XrefMainNumber] - 1L);
+
+            await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(layout.Starts[parts.XrefFirstNumber]), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
+            layout.FileSize = sink.Length;
+            return layout;
         }
-
-        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
-
-        string lindictInner = LindictInner(parts.Renumber, parts.Pages, parts.LindictNumber, counted, hintObject, final);
-        layout.Starts[parts.LindictNumber] = sink.Length;
-        await AppendAsciiAsync($"{parts.LindictNumber} 0 obj\n<<", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync(lindictInner, sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync(">>\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
-        layout.Lengths[parts.LindictNumber] = checked(sink.Length - layout.Starts[parts.LindictNumber]);
-
-        long? firstPrev = final && counted is not null ? checked(counted.MainXrefTable + HintLength(hintObject)) : 0L;
-        await AppendXrefStreamAsync(parts, memberEntries, counted, hintObject, final, parts.XrefFirstNumber, parts.LindictNumber, parts.FirstSize - parts.LindictNumber, parts.FirstSize, catalogNew, infoNew, firstPrev, idHex1, idHex2, field1, field2, layout, sink, cancellationToken).ConfigureAwait(false);
-
-        await EmitUnitsAsync(parts, parts.Part4, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
-        if (hintObject is not null)
-        {
-            layout.HintPosition = sink.Length;
-            layout.Starts[parts.HintNumber] = sink.Length;
-            await AppendBytesAsync(hintObject, sink, cancellationToken).ConfigureAwait(false);
-            layout.Lengths[parts.HintNumber] = checked(sink.Length - layout.Starts[parts.HintNumber]);
-        }
-        else
-        {
-            layout.HintPosition = sink.Length;
-            layout.Starts[parts.HintNumber] = sink.Length;
-            layout.Lengths[parts.HintNumber] = 0L;
-        }
-
-        await EmitUnitsAsync(parts, parts.Part6, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
-        layout.Part6End = sink.Length;
-        foreach (IReadOnlyList<int> run in parts.Part7)
-        {
-            await EmitUnitsAsync(parts, run, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
-        }
-
-        await EmitUnitsAsync(parts, parts.Part8, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
-        await EmitUnitsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, layout, sink, cancellationToken).ConfigureAwait(false);
-
-        await AppendXrefStreamAsync(parts, memberEntries, counted, hintObject, final, parts.XrefMainNumber, 0, parts.MainSize, parts.MainSize, null, null, null, idHex1, idHex2, field1, field2, layout, sink, cancellationToken).ConfigureAwait(false);
-        layout.MainXrefTable = layout.Starts[parts.XrefMainNumber];
-        layout.MainXref = checked(layout.Starts[parts.XrefMainNumber] - 1L);
-
-        await AppendAsciiAsync($"startxref\n{layout.Starts[parts.XrefFirstNumber]}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
-        layout.FileSize = sink.Length;
-        return layout;
+        catch { layout.Dispose(); throw; }
     }
 
     private async ValueTask EmitUnitsAsync(
         StreamedParts parts,
         IReadOnlyList<int> olds,
-        Dictionary<int, QpdfObject> emitted,
+        RemappedModel emitted,
         bool newlineBeforeEndstream,
         bool compressStreams,
         int? compressionLevel,
-        LinearLayout layout,
+        LinearizedLayout layout,
         IByteSink sink,
         CancellationToken cancellationToken)
     {
@@ -1059,7 +1006,7 @@ internal sealed class LinearizedWriter
                 throw new QpdfException($"Linearized publication lost object {old}.");
             }
 
-            layout.Starts[number] = sink.Length;
+            layout.RecordStart(number, sink.Length);
             if (parts.Containers.Contains(old))
             {
                 await AppendContainerAsync(parts, old, number, emitted, newlineBeforeEndstream, compressStreams, compressionLevel, sink, cancellationToken).ConfigureAwait(false);
@@ -1074,7 +1021,7 @@ internal sealed class LinearizedWriter
                 await _serializer.AppendNumberedObjectAsync(number, value, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             }
 
-            layout.Lengths[number] = checked(sink.Length - layout.Starts[number]);
+            layout.RecordLength(number, checked(sink.Length - layout.Starts[number]));
         }
     }
 
@@ -1082,7 +1029,7 @@ internal sealed class LinearizedWriter
         StreamedParts parts,
         int containerOld,
         int containerNew,
-        Dictionary<int, QpdfObject> emitted,
+        RemappedModel emitted,
         bool newlineBeforeEndstream,
         bool compressStreams,
         int? compressionLevel,
@@ -1094,7 +1041,7 @@ internal sealed class LinearizedWriter
             throw new QpdfException($"Linearized publication lost an object-stream container.");
         }
 
-        List<byte[]> members = new(memberOlds.Count);
+        using ObjectStreamCapture members = ObjectStreamCapture.Create(memberOlds.Count, _limits, _governor, cancellationToken);
         foreach (int memberOld in memberOlds)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1105,57 +1052,17 @@ internal sealed class LinearizedWriter
                 throw new QpdfException($"Linearized publication lost object-stream member {memberOld}.");
             }
 
-            CaptureSink capture = new(_limits, _governor);
-            await _serializer.AppendValueAsync(value, capture, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-            members.Add(capture.ToArray());
+            await members.AppendAsync(_serializer, value, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
         }
 
-        System.Text.StringBuilder header = new();
-        long running = 0L;
-        for (int m = 0; m < memberOlds.Count; m++)
+        using ObjectStreamPayload payload = ObjectStreamPayload.CreateLinearized(memberOlds, parts.Renumber, members,
+            compressStreams, compressionLevel, _limits, _governor, cancellationToken);
+        using (ObjectStreamHeader header = ObjectStreamHeader.Create(containerNew, memberOlds.Count, payload.Data.Length,
+            payload.First, payload.Compressed, false, _limits, _governor, cancellationToken))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (m > 0)
-            {
-                header.Append((char)32);
-            }
-
-            header.Append(parts.Renumber[memberOlds[m]].ToString(System.Globalization.CultureInfo.InvariantCulture));
-            header.Append((char)32);
-            header.Append(running.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            checked
-            {
-                running += members[m].Length;
-            }
+            await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
         }
-
-        header.Append((char)10);
-        byte[] headerBytes = System.Text.Encoding.ASCII.GetBytes(header.ToString());
-        checked
-        {
-            running += headerBytes.Length;
-        }
-
-        _governor.ReserveMemory(running);
-        List<byte> payload = new(checked((int)System.Math.Min(running, int.MaxValue)));
-        payload.AddRange(headerBytes);
-        int first = headerBytes.Length;
-        foreach (byte[] member in members)
-        {
-            payload.AddRange(member);
-        }
-
-        byte[] payloadBytes = [.. payload];
-        byte[] storedPayload = payloadBytes;
-        string containerFilter = string.Empty;
-        if (compressStreams)
-        {
-            storedPayload = FlateFilter.Encode(payloadBytes, compressionLevel, _limits, _governor);
-            containerFilter = " /Filter /FlateDecode";
-        }
-
-        await AppendAsciiAsync($"{containerNew} 0 obj\n<< /Type /ObjStm /Length {storedPayload.Length}" + containerFilter + $" /N {memberOlds.Count} /First {first} >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendBytesAsync(storedPayload, sink, cancellationToken).ConfigureAwait(false);
+        await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
         if (newlineBeforeEndstream)
         {
             await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -1170,8 +1077,7 @@ internal sealed class LinearizedWriter
 
     private async ValueTask AppendXrefStreamAsync(
         StreamedParts parts,
-        Dictionary<int, (int Container, int Index)> memberEntries,
-        LinearLayout? counted,
+        LinearizedLayout? counted,
         byte[]? hintObject,
         bool final,
         int number,
@@ -1181,41 +1087,46 @@ internal sealed class LinearizedWriter
         int? rootNew,
         int? infoNew,
         long? prevValue,
-        string idHex1,
-        string idHex2,
+        byte[] id1,
+        byte[] id2,
         int field1,
         int field2,
-        LinearLayout layout,
+        LinearizedLayout layout,
         IByteSink sink,
         CancellationToken cancellationToken)
     {
-        if (memberEntries is null)
+        using ParserMemoryScope dataMemory = ParserMemoryScope.Create(_governor);
+        int entryWidth = checked(1 + field1 + field2);
+        int dataLength = checked(count * entryWidth);
+        if (dataLength > _limits.MaxOutputBytes)
         {
-            throw new ArgumentNullException(nameof(memberEntries));
+            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), dataLength, _limits.MaxOutputBytes);
         }
-
-        List<byte> data = new(checked(count * (1 + field1 + field2)));
+        dataMemory.Reserve(checked(32L + dataLength));
+        _governor.ChargeWork(dataLength);
+        byte[] raw = new byte[dataLength];
         long capacity = field1 >= 8 ? long.MaxValue : 1L << (8 * field1);
         for (int n = first; n < first + count; n++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
+            int offsetInData = checked((n - first) * entryWidth);
             if (n == 0)
             {
-                data.Add(0);
-                PdfSerializer.AppendUInt(data, 0L, field1);
-                PdfSerializer.AppendUInt(data, 0L, field2);
+                raw[offsetInData] = 0;
+                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), 0L);
+                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
             }
-            else if (memberEntries.TryGetValue(n, out (int Container, int Index) packed))
+            else if (layout.TryGetMember(n, out (int Container, int Index) packed))
             {
                 if (packed.Container < 0 || (field1 < 8 && packed.Container >= (1L << (8 * field1))))
                 {
                     throw new QpdfException("Linearized cross-reference exceeds its reserved space.");
                 }
 
-                data.Add(2);
-                PdfSerializer.AppendUInt(data, packed.Container, field1);
-                PdfSerializer.AppendUInt(data, packed.Index, field2);
+                raw[offsetInData] = 2;
+                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), packed.Container);
+                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), packed.Index);
             }
             else
             {
@@ -1225,108 +1136,28 @@ internal sealed class LinearizedWriter
                     throw new QpdfException("Linearized cross-reference exceeds its reserved space.");
                 }
 
-                data.Add(1);
-                PdfSerializer.AppendUInt(data, offset, field1);
-                PdfSerializer.AppendUInt(data, 0L, field2);
+                raw[offsetInData] = 1;
+                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1, field1), offset);
+                PdfSerializer.WriteUInt(raw.AsSpan(offsetInData + 1 + field1, field2), 0L);
             }
+            _governor.ChargeWork(entryWidth);
         }
-
-        byte[] raw = [.. data];
-        _governor.ReserveMemory(raw.LongLength);
-        System.Text.StringBuilder head = new();
-        head.Append(number.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        head.Append(" 0 obj\n<< /Type /XRef /Length ");
-        head.Append(raw.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        if (first != 0 || first + count != size)
-        {
-            head.Append(" /Index [ ");
-            head.Append(first.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            head.Append((char)32);
-            head.Append(count.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            head.Append(" ]");
-        }
-
-        if (rootNew.HasValue)
-        {
-            head.Append(" /Root ");
-            head.Append(rootNew.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            head.Append(" 0 R");
-        }
-
-        if (infoNew.HasValue)
-        {
-            head.Append(" /Info ");
-            head.Append(infoNew.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            head.Append(" 0 R");
-        }
-
-        head.Append(" /Size ");
-        head.Append(size.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        if (prevValue.HasValue)
-        {
-            string prevDigits = prevValue.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (prevDigits.Length > PrevFieldWidth)
-            {
-                throw new QpdfException("Linearized cross-reference exceeds its reserved space.");
-            }
-
-            head.Append(" /Prev ");
-            head.Append(prevDigits);
-            head.Append(new string((char)32, PrevFieldWidth - prevDigits.Length));
-        }
-
-        head.Append(" /ID [<");
-        head.Append(idHex1);
-        head.Append("><");
-        head.Append(idHex2);
-        head.Append(">] /W [1 ");
-        head.Append(field1.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        head.Append((char)32);
-        head.Append(field2.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        head.Append("] >>\nstream\n");
-        byte[] prefix = System.Text.Encoding.ASCII.GetBytes(head.ToString());
-        layout.Starts[number] = sink.Length;
-        await AppendBytesAsync(prefix, sink, cancellationToken).ConfigureAwait(false);
+        bool index = first != 0 || first + count != size;
+        layout.RecordStart(number, sink.Length);
+        await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n<< /Type /XRef /Length "), WriterPart.Number(raw.Length),
+            WriterPart.Text(index ? " /Index [ " : ""), index ? WriterPart.Number(first) : default, WriterPart.Text(index ? " " : ""),
+            index ? WriterPart.Number(count) : default, WriterPart.Text(index ? " ]" : ""),
+            WriterPart.Text(rootNew.HasValue ? " /Root " : ""), rootNew.HasValue ? WriterPart.Number(rootNew.Value) : default,
+            WriterPart.Text(rootNew.HasValue ? " 0 R" : ""), WriterPart.Text(infoNew.HasValue ? " /Info " : ""),
+            infoNew.HasValue ? WriterPart.Number(infoNew.Value) : default, WriterPart.Text(infoNew.HasValue ? " 0 R" : ""),
+            WriterPart.Text(" /Size "), WriterPart.Number(size), WriterPart.Text(prevValue.HasValue ? " /Prev " : ""),
+            prevValue.HasValue ? WriterPart.RightPaddedNumber(prevValue.Value, PrevFieldWidth) : default,
+            WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2),
+            WriterPart.Text(">] /W [1 "), WriterPart.Number(field1), WriterPart.Text(" "), WriterPart.Number(field2),
+            WriterPart.Text("] >>\nstream\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(raw, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nendstream\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
-        layout.Lengths[number] = checked(sink.Length - layout.Starts[number]);
+        layout.RecordLength(number, checked(sink.Length - layout.Starts[number]));
     }
 
-    private sealed class CaptureSink : IByteSink
-    {
-        private readonly List<byte> _bytes = new();
-        private readonly QpdfLimits _limits;
-        private readonly ResourceGovernor _governor;
-
-        internal CaptureSink(QpdfLimits limits, ResourceGovernor governor)
-        {
-            _limits = limits ?? throw new ArgumentNullException(nameof(limits));
-            _governor = governor ?? throw new ArgumentNullException(nameof(governor));
-        }
-
-        public long Length => _bytes.Count;
-
-        public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
-            if ((long)_bytes.Count + chunk.Length > _limits.MaxOutputBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), (long)_bytes.Count + chunk.Length, _limits.MaxOutputBytes);
-            }
-
-            ReadOnlySpan<byte> span = chunk.Span;
-            for (int i = 0; i < span.Length; i++)
-            {
-                _bytes.Add(span[i]);
-            }
-
-            return ValueTask.CompletedTask;
-        }
-
-        internal byte[] ToArray()
-        {
-            return [.. _bytes];
-        }
-    }
 }

@@ -27,7 +27,7 @@ public sealed class LinearizedStreamedPartsTests
         return new PdfReference(number, 0);
     }
 
-    private static List<NumberedObject> OnePageModel()
+    internal static List<NumberedObject> OnePageModel()
     {
         byte[] content = System.Text.Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
         return new List<NumberedObject>
@@ -48,10 +48,13 @@ public sealed class LinearizedStreamedPartsTests
     [Fact]
     public void ContainerLandsInFirstPagePart()
     {
-        StreamedParts parts = LinearizedParts.ClassifyStreamed(
+        ResourceGovernor governor = Governor();
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using StreamedParts parts = LinearizedParts.ClassifyStreamed(
             OnePageModel(),
             new List<IReadOnlyList<int>> { new List<int> { 5 } },
-            Governor(),
+            memory,
+            governor,
             CancellationToken.None);
         int container = Assert.Single(parts.Containers);
         Assert.Equal(new List<int> { 3, 4, container }, parts.Part6);
@@ -76,10 +79,13 @@ public sealed class LinearizedStreamedPartsTests
     [Fact]
     public void PagesAndCatalogStayDirect()
     {
-        StreamedParts parts = LinearizedParts.ClassifyStreamed(
+        ResourceGovernor governor = Governor();
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using StreamedParts parts = LinearizedParts.ClassifyStreamed(
             OnePageModel(),
             new List<IReadOnlyList<int>> { new List<int> { 1, 2, 3, 5 } },
-            Governor(),
+            memory,
+            governor,
             CancellationToken.None);
         int container = Assert.Single(parts.Containers);
         Assert.Equal(new List<int> { 5 }, parts.ContainerMembers[container]);
@@ -91,10 +97,13 @@ public sealed class LinearizedStreamedPartsTests
     [Fact]
     public void EmptyGroupsYieldNoContainers()
     {
-        StreamedParts parts = LinearizedParts.ClassifyStreamed(
+        ResourceGovernor governor = Governor();
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using StreamedParts parts = LinearizedParts.ClassifyStreamed(
             OnePageModel(),
             new List<IReadOnlyList<int>>(),
-            Governor(),
+            memory,
+            governor,
             CancellationToken.None);
         Assert.Empty(parts.Containers);
         Assert.Empty(parts.Members);

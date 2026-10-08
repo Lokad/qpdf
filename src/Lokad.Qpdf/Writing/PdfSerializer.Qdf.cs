@@ -88,7 +88,7 @@ internal sealed partial class PdfSerializer
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
         }
 
-        List<NumberedObject> sorted = new(model.Count);
+        using WriterOrder<NumberedObject> sorted = WriterOrder<NumberedObject>.Create(model.Count, 16L, _governor, cancellationToken);
         foreach (NumberedObject numbered in model)
         {
             if (!IsDiscardedXRefStream(numbered.Value))
@@ -97,63 +97,21 @@ internal sealed partial class PdfSerializer
             }
         }
 
-        sorted.Sort(static (left, right) => left.Number.CompareTo(right.Number));
-        Dictionary<int, int> renumber = new(sorted.Count * 2);
-        List<QdfEmission> emissions = new(sorted.Count * 2);
-        int next = 1;
-        foreach (NumberedObject numbered in sorted)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            renumber[numbered.Number] = next;
-            int? source = null;
-            if (originalIds is not null && originalIds.TryGetValue(numbered.Number, out int found))
-            {
-                source = found;
-            }
+        sorted.Sort(new WriterObjectOrder());
+        using QdfEmissionPlan emissions = QdfEmissionPlan.Create(sorted, originalIds, _governor, cancellationToken);
+        WriterIndex<int> renumber = emissions.Renumber;
+        int lastLengthNumber = emissions.LastLengthNumber;
+        int emissionCount = emissions.Count;
 
-            emissions.Add(new QdfEmission(next, numbered.Value, source, null));
-            next = checked(next + 1);
-            if (numbered.Value is PdfStream)
-            {
-                emissions.Add(new QdfEmission(next, null, null, numbered.Number));
-                next = checked(next + 1);
-            }
-        }
-
-        List<QdfEmission> remapped = new(emissions.Count);
-        foreach (QdfEmission emission in emissions)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (emission.LengthFor is not null)
-            {
-                remapped.Add(emission);
-                continue;
-            }
-
-            if (emission.Value is null)
-            {
-                throw new QpdfException($"QDF publication lost object {emission.Number}.");
-            }
-
-            if (emission.Value is PdfStream rawStream)
-            {
-                int lengthId = FindLengthId(emissions, renumber, emission.Number);
-                PdfDictionary header = AssertDictionary(StreamHeaderWithLength(rawStream, lengthId, renumber));
-                remapped.Add(emission with { Value = new PdfStream(header, rawStream.Data) });
-                continue;
-            }
-
-            QpdfObject value = ObjectRemap.RemapIds(emission.Value, renumber, _governor);
-            remapped.Add(emission with { Value = value });
-        }
-
-        Dictionary<int, QpdfObject> classicLookup = new(sorted.Count);
+        using WriterIndex<QpdfObject> classicLookup = WriterIndex<QpdfObject>.Create(IntPtr.Size, _governor, cancellationToken);
         foreach (NumberedObject numbered in sorted)
         {
             classicLookup[numbered.Number] = numbered.Value;
         }
 
-        Dictionary<int, string> marks = QdfPageMarksSorted(classicLookup, renumber);
+        using WriterIndex<QdfMark> marks = QdfPageMarksSorted(classicLookup, renumber, cancellationToken);
+        classicLookup.Dispose();
+        sorted.Dispose();
         int? mappedInfo = null;
         if (infoRef.HasValue)
         {
@@ -165,35 +123,38 @@ internal sealed partial class PdfSerializer
             mappedInfo = mapped;
         }
 
-        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
+        if (lastLengthNumber == 0) { renumber.Dispose(); }
+        await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(QdfBinaryLine, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("%QDF-1.0\n\n", sink, cancellationToken).ConfigureAwait(false);
-        List<long> offsets = new(remapped.Count);
-        foreach (QdfEmission emission in remapped)
+        using WriterOrder<long> offsets = WriterOrder<long>.Create(emissionCount, sizeof(long), _governor, cancellationToken);
+        foreach (QdfEmission emission in emissions)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
             if (emission.LengthFor is not null)
             {
                 offsets.Add(sink.Length);
-                await AppendAsciiAsync($"{emission.Number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
-                await AppendAsciiAsync(StreamLength(emission, remapped, renumber).ToString(System.Globalization.CultureInfo.InvariantCulture), sink, cancellationToken).ConfigureAwait(false);
+                await AppendFormattedAsync([WriterPart.Number(emission.Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
+                long lengthValue = emissions.StreamLength(emission);
+                if (emission.Number == lastLengthNumber) { renumber.Dispose(); }
+                await AppendFormattedAsync([WriterPart.Number(lengthValue)], sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            if (marks.TryGetValue(emission.Number, out string? mark) && mark is not null)
+            if (marks.TryGetValue(emission.Number, out QdfMark mark))
             {
-                await AppendAsciiAsync(mark + "\n", sink, cancellationToken).ConfigureAwait(false);
+                await AppendQdfMarkAsync(mark, sink, cancellationToken).ConfigureAwait(false);
             }
 
             if (emission.OriginalSource.HasValue && !qdf.NoOriginalIds)
             {
-                await AppendAsciiAsync($"%% Original object ID: {emission.OriginalSource.Value} 0\n", sink, cancellationToken).ConfigureAwait(false);
+                await AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(emission.OriginalSource.Value), WriterPart.Text(" 0\n")], sink, cancellationToken).ConfigureAwait(false);
             }
 
             offsets.Add(sink.Length);
-            await AppendAsciiAsync($"{emission.Number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Number(emission.Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
             if (emission.Value is PdfStream stream)
             {
                 bool addedNewline = await AppendQdfStreamAsync(stream, sink, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
@@ -213,8 +174,9 @@ internal sealed partial class PdfSerializer
             await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
+        renumber.Dispose(); marks.Dispose(); emissions.Dispose();
         long xrefOffset = sink.Length;
-        await AppendAsciiAsync($"xref\n0 {remapped.Count + 1}\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("xref\n0 "), WriterPart.Number(emissionCount + 1), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
         for (int i = 0; i < offsets.Count; i++)
         {
@@ -224,23 +186,21 @@ internal sealed partial class PdfSerializer
                 throw new QpdfException($"Object offset {offsets[i]} exceeds the classic xref field width.");
             }
 
-            await AppendAsciiAsync($"{offsets[i]:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.ZeroPaddedNumber(offsets[i], 10), WriterPart.Text(" 00000 n \n")], sink, cancellationToken).ConfigureAwait(false);
         }
 
-        string idHex1 = ToHex(id1);
-        string idHex2 = ToHex(id2);
-        _governor.ChargeWork(idHex1.Length + idHex2.Length);
+        offsets.Dispose();
         await AppendAsciiAsync("trailer <<\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("  /Root 1 0 R\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync($"  /Size {remapped.Count + 1}\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("  /Size "), WriterPart.Number(emissionCount + 1), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         if (mappedInfo.HasValue)
         {
-            await AppendAsciiAsync($"  /Info {mappedInfo.Value} 0 R\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Text("  /Info "), WriterPart.Number(mappedInfo.Value), WriterPart.Text(" 0 R\n")], sink, cancellationToken).ConfigureAwait(false);
         }
 
-        await AppendAsciiAsync("  /ID [<" + idHex1 + "><" + idHex2 + ">]\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("  /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">]\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync(">>\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
     }
 
@@ -257,7 +217,7 @@ internal sealed partial class PdfSerializer
         IByteSink sink,
         CancellationToken cancellationToken)
     {
-        Dictionary<int, QpdfObject> lookup = new(model.Count);
+        using WriterIndex<QpdfObject> lookup = WriterIndex<QpdfObject>.Create(IntPtr.Size, _governor, cancellationToken);
         foreach (NumberedObject numbered in model)
         {
             if (!IsDiscardedXRefStream(numbered.Value) && !lookup.ContainsKey(numbered.Number))
@@ -274,26 +234,28 @@ internal sealed partial class PdfSerializer
             }
         }
 
-        HashSet<int> members = new();
+        using WriterIndex<byte> members = WriterIndex<byte>.Create(sizeof(byte), _governor, cancellationToken);
         foreach (IReadOnlyList<int> group in objectStreamGroups)
         {
             foreach (int member in group)
             {
-                members.Add(member);
+                members.TryAdd(member, 0);
             }
         }
 
-        List<int> ordered = new(lookup.Keys);
-        ordered.Sort();
-        Dictionary<int, int> combined = new(ordered.Count * 2);
-        Dictionary<int, int> memberContainer = new();
-        Dictionary<int, int> memberIndex = new();
-        List<(int Old, int New, QpdfObject Value, int? Original)> regulars = new();
+        using WriterOrder<int> ordered = WriterOrder<int>.Create(lookup.Count, sizeof(int), _governor, cancellationToken);
+        foreach (KeyValuePair<int, QpdfObject> entry in lookup) { ordered.Add(entry.Key); }
+        ordered.Sort(new WriterNumberOrder());
+        using WriterIndex<int> combined = WriterIndex<int>.Create(sizeof(int), _governor, cancellationToken);
+        using WriterIndex<int> memberContainer = WriterIndex<int>.Create(sizeof(int), _governor, cancellationToken);
+        using WriterIndex<int> memberIndex = WriterIndex<int>.Create(sizeof(int), _governor, cancellationToken);
+        using WriterOrder<(int Old, int New, QpdfObject Value, int? Original)> regulars =
+            WriterOrder<(int Old, int New, QpdfObject Value, int? Original)>.Create(lookup.Count, 32L, _governor, cancellationToken);
         int next = 1;
         foreach (int old in ordered)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (members.Contains(old))
+            if (members.ContainsKey(old))
             {
                 continue;
             }
@@ -313,7 +275,9 @@ internal sealed partial class PdfSerializer
             }
         }
 
-        List<(int Container, IReadOnlyList<int> Group)> containers = new(objectStreamGroups.Count);
+        ordered.Dispose(); members.Dispose();
+        using WriterOrder<(int Container, IReadOnlyList<int> Group)> containers =
+            WriterOrder<(int Container, IReadOnlyList<int> Group)>.Create(objectStreamGroups.Count, 16L, _governor, cancellationToken);
         foreach (IReadOnlyList<int> group in objectStreamGroups)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -348,37 +312,40 @@ internal sealed partial class PdfSerializer
         int xrefNumber = next;
         next = checked(next + 1);
         int size = xrefNumber + 1;
-        Dictionary<int, string> marks = QdfPageMarksSorted(lookup, combined);
+        using WriterIndex<QdfMark> marks = QdfPageMarksSorted(lookup, combined, cancellationToken);
 
-        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(QdfBinaryLine, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("%QDF-1.0\n\n", sink, cancellationToken).ConfigureAwait(false);
-        Dictionary<int, long> offsets = new();
+        using WriterIndex<long> offsets = WriterIndex<long>.Create(sizeof(long), _governor, cancellationToken);
         foreach ((int old, int number, QpdfObject value, int? source) in regulars)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
-            QpdfObject remapped = ObjectRemap.RemapIds(value, combined, _governor);
-            if (marks.TryGetValue(number, out string? mark) && mark is not null)
+            using WriterValue remapped = value is PdfStream originalStream
+                ? WriterValue.StreamHeader(originalStream.Dictionary, number + 1, combined, _governor, cancellationToken)
+                : WriterValue.Remap(value, combined, _governor, cancellationToken);
+            if (marks.TryGetValue(number, out QdfMark mark))
             {
-                await AppendAsciiAsync(mark + "\n", sink, cancellationToken).ConfigureAwait(false);
+                await AppendQdfMarkAsync(mark, sink, cancellationToken).ConfigureAwait(false);
             }
 
             if (source.HasValue && !qdf.NoOriginalIds)
             {
-                await AppendAsciiAsync($"%% Original object ID: {source.Value} 0\n", sink, cancellationToken).ConfigureAwait(false);
+                await AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(source.Value), WriterPart.Text(" 0\n")], sink, cancellationToken).ConfigureAwait(false);
             }
 
             offsets.Add(number, sink.Length);
-            await AppendAsciiAsync($"{number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
-            if (remapped is PdfStream stream)
+            await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
+            if (value is PdfStream stream)
             {
                 int lengthNumber = number + 1;
-                QpdfObject header = StreamHeaderWithLength(stream, lengthNumber, combined);
-                await AppendQdfDictionaryAsync(AssertDictionary(header), sink, 0, cancellationToken).ConfigureAwait(false);
+                await AppendQdfDictionaryAsync(AssertDictionary(remapped.Value), sink, 0, cancellationToken).ConfigureAwait(false);
+                remapped.Dispose();
+                ReadOnlyMemory<byte> data = stream.RawMemory;
                 await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-                await AppendBytesAsync(stream.Data, sink, cancellationToken).ConfigureAwait(false);
-                bool addedNewline = newlineBeforeEndstream || stream.Data.Length == 0 || stream.Data[stream.Data.Length - 1] != 0x0A;
+                await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
+                bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
                 if (addedNewline)
                 {
                     await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -395,80 +362,61 @@ internal sealed partial class PdfSerializer
                 }
 
                 offsets.Add(lengthNumber, sink.Length);
-                await AppendAsciiAsync($"{lengthNumber} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
-                await AppendAsciiAsync(stream.Data.Length.ToString(System.Globalization.CultureInfo.InvariantCulture), sink, cancellationToken).ConfigureAwait(false);
+                await AppendFormattedAsync([WriterPart.Number(lengthNumber), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
+                await AppendFormattedAsync([WriterPart.Number(data.Length)], sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            await AppendQdfValueAsync(remapped, sink, 0, cancellationToken).ConfigureAwait(false);
+            await AppendQdfValueAsync(remapped.Value, sink, 0, cancellationToken).ConfigureAwait(false);
+            remapped.Dispose();
             await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
+        regulars.Dispose();
         foreach ((int container, IReadOnlyList<int> group) in containers)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
-            List<byte[]> headers = new(group.Count);
-            List<byte[]> bodies = new(group.Count);
-            List<int> blockNumbers = new(group.Count);
+            using ObjectStreamCapture headers = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
+            using ObjectStreamCapture bodies = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
             foreach (int member in group)
             {
-                QpdfObject memberValue = ObjectRemap.RemapIds(lookup[member], combined, _governor);
-                BufferSink head = new(_limits, _governor);
-                await AppendAsciiAsync($"%% Object stream: object {combined[member]}, index {memberIndex[member]}", head, cancellationToken).ConfigureAwait(false);
+                using WriterValue memberValue = WriterValue.Remap(lookup[member], combined, _governor, cancellationToken);
+                using BufferedSink head = BufferedSink.Create(_limits, _governor, cancellationToken);
+                await AppendFormattedAsync([WriterPart.Text("%% Object stream: object "), WriterPart.Number(combined[member]), WriterPart.Text(", index "), WriterPart.Number(memberIndex[member])], head, cancellationToken).ConfigureAwait(false);
                 if (originalIds is not null && originalIds.TryGetValue(member, out int memberSource) && !qdf.NoOriginalIds)
                 {
-                    await AppendAsciiAsync($"; original object ID: {memberSource}", head, cancellationToken).ConfigureAwait(false);
+                    await AppendFormattedAsync([WriterPart.Text("; original object ID: "), WriterPart.Number(memberSource)], head, cancellationToken).ConfigureAwait(false);
                 }
 
                 await AppendAsciiAsync("\n", head, cancellationToken).ConfigureAwait(false);
-                if (marks.TryGetValue(combined[member], out string? memberMark) && memberMark is not null)
+                if (marks.TryGetValue(combined[member], out QdfMark memberMark))
                 {
-                    await AppendAsciiAsync(memberMark + "\n", head, cancellationToken).ConfigureAwait(false);
+                    await AppendQdfMarkAsync(memberMark, head, cancellationToken).ConfigureAwait(false);
                 }
 
-                BufferSink body = new(_limits, _governor);
-                await AppendQdfValueAsync(memberValue, body, 0, cancellationToken).ConfigureAwait(false);
+                headers.Append(head, cancellationToken);
+                head.Dispose();
+                using BufferedSink body = BufferedSink.Create(_limits, _governor, cancellationToken);
+                await AppendQdfValueAsync(memberValue.Value, body, 0, cancellationToken).ConfigureAwait(false);
+                memberValue.Dispose();
                 await AppendAsciiAsync("\n", body, cancellationToken).ConfigureAwait(false);
-                headers.Add(head.ToArray());
-                bodies.Add(body.ToArray());
-                blockNumbers.Add(combined[member]);
+                bodies.Append(body, cancellationToken);
             }
 
             // Upstream QDF keeps each member comment ahead of its value in the payload,
             // counts the first comment in /First, and records member offsets at value
             // starts so readers land on objects rather than comments.
-            StringBuilder table = new();
-            long prefix = 0L;
-            for (int m = 0; m < headers.Count; m++)
-            {
-                long atValue = checked(prefix + headers[m].Length - headers[0].Length);
-                table.Append(blockNumbers[m].ToString(System.Globalization.CultureInfo.InvariantCulture));
-                table.Append((char)32);
-                table.Append(atValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                table.Append((char)10);
-                checked
-                {
-                    prefix += headers[m].Length + bodies[m].Length;
-                }
-            }
-
-            byte[] tableBytes = System.Text.Encoding.ASCII.GetBytes(table.ToString());
-            long first = checked(tableBytes.Length + headers[0].Length);
-            _governor.ReserveMemory(checked(tableBytes.Length + prefix));
-            List<byte> payload = new(checked((int)System.Math.Min(checked(tableBytes.Length + prefix), int.MaxValue)));
-            payload.AddRange(tableBytes);
-            for (int m = 0; m < headers.Count; m++)
-            {
-                payload.AddRange(headers[m]);
-                payload.AddRange(bodies[m]);
-            }
-
-            byte[] payloadBytes = [.. payload];
+            using ObjectStreamPayload payload = ObjectStreamPayload.CreateQdfIndexed(group, combined, headers, bodies,
+                _limits, _governor, cancellationToken);
             offsets.Add(container, sink.Length);
-            await AppendAsciiAsync($"{container} 0 obj\n<<\n  /Type /ObjStm\n  /Length {payloadBytes.Length}\n  /N {group.Count}\n  /First {first}\n>>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-            await AppendBytesAsync(payloadBytes, sink, cancellationToken).ConfigureAwait(false);
+            using (ObjectStreamHeader header = ObjectStreamHeader.Create(container, group.Count, payload.Data.Length,
+                payload.First, false, true, _limits, _governor, cancellationToken))
+            {
+                await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
+            }
+            await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
             if (newlineBeforeEndstream)
             {
                 await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -481,10 +429,13 @@ internal sealed partial class PdfSerializer
             await AppendAsciiAsync("\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
-        offsets[xrefNumber] = sink.Length;
+        containers.Dispose(); lookup.Dispose(); marks.Dispose();
+        long xrefOffset = sink.Length;
+        offsets[xrefNumber] = xrefOffset;
         long maxOffset = 0L;
-        foreach (long offset in offsets.Values)
+        foreach (KeyValuePair<int, long> entry in offsets)
         {
+            long offset = entry.Value;
             if (offset > maxOffset)
             {
                 maxOffset = offset;
@@ -492,8 +443,9 @@ internal sealed partial class PdfSerializer
         }
 
         int maxIndex = 0;
-        foreach (int index in memberIndex.Values)
+        foreach (KeyValuePair<int, int> entry in memberIndex)
         {
+            int index = entry.Value;
             if (index > maxIndex)
             {
                 maxIndex = index;
@@ -502,21 +454,17 @@ internal sealed partial class PdfSerializer
 
         int f1 = System.Math.Max(BytesNeeded(maxOffset), BytesNeeded(size));
         int f2 = BytesNeeded(maxIndex);
-        List<byte> xrefData = new(checked(size * (1 + f1 + f2)));
+        using WriterXref xref = WriterXref.Create(size, f1, f2, _limits, _governor, cancellationToken);
         for (int number = 0; number < size; number++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (number == 0)
             {
-                AppendUInt(xrefData, 0L, 1);
-                AppendUInt(xrefData, 0L, f1);
-                AppendUInt(xrefData, 0L, f2);
+                xref.Append(0, 0L, 0L);
             }
             else if (offsets.TryGetValue(number, out long offset))
             {
-                AppendUInt(xrefData, 1L, 1);
-                AppendUInt(xrefData, offset, f1);
-                AppendUInt(xrefData, 0L, f2);
+                xref.Append(1, offset, 0L);
             }
             else
             {
@@ -537,23 +485,19 @@ internal sealed partial class PdfSerializer
                     throw new QpdfException($"Object {number} is missing from the QDF streamed model.");
                 }
 
-                AppendUInt(xrefData, 2L, 1);
-                AppendUInt(xrefData, foundContainer, f1);
-                AppendUInt(xrefData, foundIndex, f2);
+                xref.Append(2, foundContainer, foundIndex);
             }
         }
 
-        byte[] xrefBytes = [.. xrefData];
-        _governor.ReserveMemory(xrefBytes.Length);
+        offsets.Dispose(); memberContainer.Dispose(); memberIndex.Dispose();
+        xref.Finish(false, null, _limits);
         int qdfRoot = 1;
         if (combined.TryGetValue(1, out int catalogNumber))
         {
             qdfRoot = catalogNumber;
         }
-        string idHex1 = ToHex(id1);
-        string idHex2 = ToHex(id2);
-        _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        await AppendAsciiAsync($"{xrefNumber} 0 obj\n<<\n  /Type /XRef\n  /Length {xrefBytes.Length}\n  /W [ 1 {f1.ToString(System.Globalization.CultureInfo.InvariantCulture)} {f2.ToString(System.Globalization.CultureInfo.InvariantCulture)} ]\n  /Root {qdfRoot} 0 R\n  /Size {size}\n", sink, cancellationToken).ConfigureAwait(false);
+        if (!infoRef.HasValue) { combined.Dispose(); }
+        await AppendFormattedAsync([WriterPart.Number(xrefNumber), WriterPart.Text(" 0 obj\n<<\n  /Type /XRef\n  /Length "), WriterPart.Number(xref.Data.Length), WriterPart.Text("\n  /W [ 1 "), WriterPart.Number(f1), WriterPart.Text(" "), WriterPart.Number(f2), WriterPart.Text(" ]\n  /Root "), WriterPart.Number(qdfRoot), WriterPart.Text(" 0 R\n  /Size "), WriterPart.Number(size), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         if (infoRef.HasValue)
         {
             if (!combined.TryGetValue(infoRef.Value, out int mappedInfo))
@@ -561,15 +505,17 @@ internal sealed partial class PdfSerializer
                 throw new QpdfException($"QDF publication reached unmapped info object {infoRef.Value}.");
             }
 
-            await AppendAsciiAsync($"  /Info {mappedInfo} 0 R\n", sink, cancellationToken).ConfigureAwait(false);
+            combined.Dispose();
+            await AppendFormattedAsync([WriterPart.Text("  /Info "), WriterPart.Number(mappedInfo), WriterPart.Text(" 0 R\n")], sink, cancellationToken).ConfigureAwait(false);
         }
 
-        await AppendAsciiAsync("  /ID [<" + idHex1 + "><" + idHex2 + ">]\n", sink, cancellationToken).ConfigureAwait(false);
+        combined.Dispose();
+        await AppendFormattedAsync([WriterPart.Text("  /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">]\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync(">>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendBytesAsync(xrefBytes, sink, cancellationToken).ConfigureAwait(false);
+        await AppendBytesAsync(xref.Data, sink, cancellationToken).ConfigureAwait(false);
+        xref.Dispose();
         await AppendAsciiAsync("\nendstream\nendobj\n\n", sink, cancellationToken).ConfigureAwait(false);
-        long xrefOffset = offsets[xrefNumber];
-        await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
     }
 
@@ -583,108 +529,78 @@ internal sealed partial class PdfSerializer
         throw new QpdfException("QDF publication reached a non-dictionary stream header.");
     }
 
-    private QpdfObject StreamHeaderWithLength(PdfStream stream, int lengthNumber, Dictionary<int, int> renumber)
+    private WriterIndex<QdfMark> QdfPageMarksSorted(
+        WriterIndex<QpdfObject> lookup,
+        WriterIndex<int> combined, CancellationToken cancellationToken)
     {
-        Dictionary<PdfName, QpdfObject> stripped = new();
-        foreach (PdfName key in stream.Dictionary.Keys)
+        WriterIndex<QdfMark> marks = WriterIndex<QdfMark>.Create(2L * sizeof(int), _governor, cancellationToken);
+        try
         {
-            if (key.DisplayText == "Length")
+            if (!lookup.TryGetValue(2, out QpdfObject? pagesRaw) || pagesRaw is not PdfDictionary pages)
             {
-                continue;
+                return marks;
             }
 
-            if (stream.Dictionary.TryGet(key, out QpdfObject? kept) && kept is not null)
+            if (!pages.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is not PdfArray kids)
             {
-                stripped[key] = kept;
-            }
-        }
-
-        QpdfObject remapped = ObjectRemap.RemapIds(new PdfDictionary(stripped), renumber, _governor);
-        if (remapped is not PdfDictionary header)
-        {
-            throw new QpdfException("QDF publication reached a non-dictionary stream header.");
-        }
-
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in header.Keys)
-        {
-            if (header.TryGet(key, out QpdfObject? kept) && kept is not null)
-            {
-                entries[key] = kept;
-            }
-        }
-
-        _governor.ReserveMemory(64L);
-        entries[PdfName.FromAscii("Length")] = new PdfReference(lengthNumber, 0);
-        return new PdfDictionary(entries);
-    }
-
-    private static Dictionary<int, string> QdfPageMarksSorted(
-        Dictionary<int, QpdfObject> lookup,
-        Dictionary<int, int> combined)
-    {
-        Dictionary<int, string> marks = new();
-        if (!lookup.TryGetValue(2, out QpdfObject? pagesRaw) || pagesRaw is not PdfDictionary pages)
-        {
-            return marks;
-        }
-
-        if (!pages.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is not PdfArray kids)
-        {
-            return marks;
-        }
-
-        int seq = 0;
-        foreach (QpdfObject kid in kids.Items)
-        {
-            if (kid is not PdfReference kidReference)
-            {
-                continue;
+                return marks;
             }
 
-            if (!combined.TryGetValue(kidReference.ObjectNumber, out int pageNumber))
+            int seq = 0;
+            foreach (QpdfObject kid in kids.Items)
             {
-                continue;
-            }
-
-            seq += 1;
-            marks[pageNumber] = $"%% Page {seq}";
-            if (!lookup.TryGetValue(kidReference.ObjectNumber, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary pageDict)
-            {
-                continue;
-            }
-
-            if (!pageDict.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null)
-            {
-                continue;
-            }
-
-            if (contents is PdfReference contentReference)
-            {
-                if (combined.TryGetValue(contentReference.ObjectNumber, out int contentNumber) && !marks.ContainsKey(contentNumber))
+                cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+                if (kid is not PdfReference kidReference)
                 {
-                    marks[contentNumber] = $"%% Contents for page {seq}";
+                    continue;
                 }
 
-                continue;
-            }
-
-            if (contents is PdfArray contentArray)
-            {
-                foreach (QpdfObject item in contentArray.Items)
+                if (!combined.TryGetValue(kidReference.ObjectNumber, out int pageNumber))
                 {
-                    if (item is PdfReference itemReference
-                        && combined.TryGetValue(itemReference.ObjectNumber, out int itemNumber)
-                        && !marks.ContainsKey(itemNumber))
+                    continue;
+                }
+
+                seq += 1;
+                marks[pageNumber] = new QdfMark(seq, false);
+                if (!lookup.TryGetValue(kidReference.ObjectNumber, out QpdfObject? pageRaw) || pageRaw is not PdfDictionary pageDict)
+                {
+                    continue;
+                }
+
+                if (!pageDict.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null)
+                {
+                    continue;
+                }
+
+                if (contents is PdfReference contentReference)
+                {
+                    if (combined.TryGetValue(contentReference.ObjectNumber, out int contentNumber) && !marks.ContainsKey(contentNumber))
                     {
-                        marks[itemNumber] = $"%% Contents for page {seq}";
+                        marks[contentNumber] = new QdfMark(seq, true);
+                    }
+
+                    continue;
+                }
+
+                if (contents is PdfArray contentArray)
+                {
+                    foreach (QpdfObject item in contentArray.Items)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+                        if (item is PdfReference itemReference
+                            && combined.TryGetValue(itemReference.ObjectNumber, out int itemNumber)
+                            && !marks.ContainsKey(itemNumber))
+                        {
+                            marks[itemNumber] = new QdfMark(seq, true);
+                        }
                     }
                 }
             }
-        }
 
-        return marks;
-    }    private sealed record QdfEmission(int Number, QpdfObject? Value, int? OriginalSource, int? LengthFor);
+            return marks;
+        }
+        catch { marks.Dispose(); throw; }
+    }
 
     private static bool IsDiscardedXRefStream(QpdfObject value)
     {
@@ -694,41 +610,13 @@ internal sealed partial class PdfSerializer
             && name.DisplayText == "XRef";
     }
 
-    private static int FindLengthId(List<QdfEmission> emissions, Dictionary<int, int> renumber, int streamNumber)
-    {
-        foreach (QdfEmission emission in emissions)
-        {
-            if (emission.LengthFor is not null && renumber.TryGetValue(emission.LengthFor.Value, out int mapped) && mapped == streamNumber)
-            {
-                return emission.Number;
-            }
-        }
-
-        throw new QpdfException($"QDF publication lost the length object for stream {streamNumber}.");
-    }
-
-    private static long StreamLength(QdfEmission lengthEmission, List<QdfEmission> emissions, Dictionary<int, int> renumber)
-    {
-        int target = lengthEmission.LengthFor is null ? -1 : (renumber.TryGetValue(lengthEmission.LengthFor.Value, out int mapped) ? mapped : -1);
-        foreach (QdfEmission emission in emissions)
-        {
-            if (emission.Number == target && emission.Value is PdfStream stream)
-            {
-                return stream.Data.Length;
-            }
-        }
-
-        throw new QpdfException("QDF publication lost a length object stream.");
-    }
-
-
     private async ValueTask<bool> AppendQdfStreamAsync(PdfStream stream, IByteSink sink, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
-        byte[] data = stream.Data;
+        ReadOnlyMemory<byte> data = stream.RawMemory;
         await AppendQdfDictionaryAsync(stream.Dictionary, sink, 0, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
-        bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data[data.Length - 1] != 0x0A;
+        bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
         if (addedNewline)
         {
             await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -780,13 +668,13 @@ internal sealed partial class PdfSerializer
 
         if (value is PdfName name)
         {
-            await AppendBytesAsync(EncodeName(name), sink, cancellationToken).ConfigureAwait(false);
+            await AppendNameAsync(name, sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         if (value is PdfByteString text)
         {
-            await AppendBytesAsync(EncodeString(text), sink, cancellationToken).ConfigureAwait(false);
+            await AppendStringAsync(text, sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -795,11 +683,11 @@ internal sealed partial class PdfSerializer
             await AppendAsciiAsync("[", sink, cancellationToken).ConfigureAwait(false);
             for (int i = 0; i < array.Count; i++)
             {
-                await AppendAsciiAsync(QdfIndent(level, true), sink, cancellationToken).ConfigureAwait(false);
+                await AppendQdfIndentAsync(level, true, "", sink, cancellationToken).ConfigureAwait(false);
                 await AppendQdfValueAsync(array[i], sink, level + 1, cancellationToken).ConfigureAwait(false);
             }
 
-            await AppendAsciiAsync(QdfIndent(level, false) + "]", sink, cancellationToken).ConfigureAwait(false);
+            await AppendQdfIndentAsync(level, false, "]", sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -811,7 +699,7 @@ internal sealed partial class PdfSerializer
 
         if (value is PdfReference reference)
         {
-            await AppendAsciiAsync($"{reference.ObjectNumber} 0 R", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Number(reference.ObjectNumber), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -819,7 +707,7 @@ internal sealed partial class PdfSerializer
         {
             await AppendQdfDictionaryAsync(stream.Dictionary, sink, level, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-            await AppendBytesAsync(stream.Data, sink, cancellationToken).ConfigureAwait(false);
+            await AppendBytesAsync(stream.RawMemory, sink, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("endstream", sink, cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -830,36 +718,50 @@ internal sealed partial class PdfSerializer
     private async ValueTask AppendQdfDictionaryAsync(PdfDictionary dictionary, IByteSink sink, int level, CancellationToken cancellationToken)
     {
         await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
-        List<PdfName> ordered = new();
-        foreach (PdfName key in dictionary.Keys)
+        if (dictionary.Count <= 1)
         {
-            ordered.Add(key);
+            using PdfDictionary.EntryEnumerator single = dictionary.GetEntryEnumerator();
+            if (single.MoveNext())
+            {
+                await AppendQdfEntryAsync(single.Current.Key, single.Current.Value, sink, level, cancellationToken).ConfigureAwait(false);
+            }
+            await AppendQdfIndentAsync(level, false, ">>", sink, cancellationToken).ConfigureAwait(false);
+            return;
         }
-
-        ordered.Sort(static (left, right) => string.CompareOrdinal(left.DisplayText, right.DisplayText));
+        using WriterOrder<PdfName> ordered = WriterOrder<PdfName>.Create(dictionary.Count, IntPtr.Size, _governor, cancellationToken);
+        using (PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator())
+        {
+            while (entries.MoveNext()) { ordered.Add(entries.Current.Key); }
+        }
+        ordered.Sort(new WriterNameOrder(_governor, cancellationToken));
         foreach (PdfName key in ordered)
         {
-            if (!dictionary.TryGet(key, out QpdfObject? entry) || entry is null || entry is PdfNull)
+            if (!dictionary.TryGet(key, out QpdfObject? entry) || entry is null)
             {
                 continue;
             }
 
-            await AppendAsciiAsync(QdfIndent(level, true), sink, cancellationToken).ConfigureAwait(false);
-            await AppendBytesAsync(EncodeName(key), sink, cancellationToken).ConfigureAwait(false);
-            await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
-            await AppendQdfValueAsync(entry, sink, level + 1, cancellationToken).ConfigureAwait(false);
+            await AppendQdfEntryAsync(key, entry, sink, level, cancellationToken).ConfigureAwait(false);
         }
 
-        await AppendAsciiAsync(QdfIndent(level, false) + ">>", sink, cancellationToken).ConfigureAwait(false);
+        ordered.Dispose();
+        await AppendQdfIndentAsync(level, false, ">>", sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private static string QdfIndent(int level, bool large)
+    private async ValueTask AppendQdfEntryAsync(PdfName key, QpdfObject entry, IByteSink sink, int level, CancellationToken cancellationToken)
     {
-        if (large)
-        {
-            return "\n" + new string(' ', checked(2 * (level + 1)));
-        }
-
-        return "\n" + new string(' ', checked(2 * level));
+        if (entry is PdfNull) { return; }
+        await AppendQdfIndentAsync(level, true, "", sink, cancellationToken).ConfigureAwait(false);
+        await AppendNameAsync(key, sink, cancellationToken).ConfigureAwait(false);
+        await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
+        await AppendQdfValueAsync(entry, sink, level + 1, cancellationToken).ConfigureAwait(false);
     }
+
+    private ValueTask AppendQdfIndentAsync(int level, bool large, string suffix, IByteSink sink, CancellationToken cancellationToken)
+        => AppendFormattedAsync([WriterPart.Text("\n"), WriterPart.Spaces(checked(2 * (large ? level + 1 : level))), WriterPart.Text(suffix)], sink, cancellationToken);
+
+    private ValueTask AppendQdfMarkAsync(QdfMark mark, IByteSink sink, CancellationToken cancellationToken)
+        => AppendFormattedAsync([WriterPart.Text(mark.Contents ? "%% Contents for page " : "%% Page "), WriterPart.Number(mark.Page), WriterPart.Text("\n")], sink, cancellationToken);
+
+    private readonly record struct QdfMark(int Page, bool Contents);
 }

@@ -35,6 +35,13 @@ layout. Complete native hints and independent byte-boundary checks distinguish
 those layout differences from encoding choices. Hint parsing, buffers, shared
 metadata and replay ownership remain under audit.
 
+Document-open traversal starts at catalog values, so direct containers retain
+indirect descendants and indirect roots retain their own physical identities.
+Page boundaries are tested before assigning object-stream owners. The ordering
+pass includes generated container IDs when placing document-open objects.
+The catalog copier preserves non-name PageMode values through its existing graph
+copy path. Physical checker cross-checking and hint ownership remain open.
+
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and
 attachment listings, in native inspection order. Serialization-only QDF/linearize
@@ -104,3 +111,13 @@ development probe and synthetic benchmark harness. Benchmarks are development
 tools; resource claims require independent allocation/retention measurements
 bound to the tested source tree. Do not create duplicate engines or empty
 project layers solely to match the eventual architecture.
+
+The integrated diagnostic engine admits record/text/list storage and future export
+work before accepting a warning. The retained-value ledger tracks independently
+escaping aliases without anchoring completed jobs. JSON stages warnings through
+input closure before publication. Parser/recovery/copier/remapper raw-name tables
+share bounded collision work and immutable backing ownership. Writer row/index,
+object-stream capture/header/payload, encoding/order/xref/remap and layout owners
+drop dead backing before retiring admission across awaited outcomes. Hint bodies,
+parsing/shared/group scratch and complete public-job ownership remain under audit;
+these integrated consumers do not establish the wider containment verdict.

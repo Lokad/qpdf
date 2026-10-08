@@ -4,6 +4,22 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+Document-open hint classification now handles direct containers, indirect roots,
+page boundaries and generated object-stream containers. The original two-page
+form invocations retain their fixtures/settings/routes. Non-name PageMode values
+are preserved through catalog copying. Additional structural controls retain all
+native hint fields; array-valued AcroForm still has eight explicit schema-rejection
+differences. These controls establish no complete catalog-schema/default parity.
+The combined implementation passes 9767 Release cases; all 9597 preceding
+occurrences remain. Of 152 retained native document-open observations, 144
+outputs pass native linearization and match assignments with zero warnings;
+eight array-AcroForm schema rejections retain the native-success difference.
+The checker still passes the eight preserved invalid form outputs, so HINT-02
+remains open independently of the corrected writer. See the finite public-route
+checks and pass conditions in [AUDIT-CLOSURE](AUDIT-CLOSURE.md).
+Physical checker validation and hint ownership remain open. The numerator evidence
+below describes the preceding checkpoint and its then-preserved eight warnings.
+
 Linearization shared numerators now use native width zero. The original 64
 single-page hint differences retain complete payloads and fields: independent
 physical checks validate both files' offsets, lengths and derived group widths,
@@ -56,7 +72,7 @@ a one-handle ceiling. Tighter original memory ceilings and meaningful failed/
 canceled counters have regressions. This unit passes 6,440 offline tests, 189
 native comparisons, the full pinned differential/parser lane and 50 fresh packed
 consumer smokes plus both specific rejection controls. These are local Windows
-results with preceding-commit package metadata. Diagnostic record/list admission
+results bound to archived runtime/build evidence. Diagnostic record/list admission
 and owned-message retirement, cold/native state, other codecs, all-route counters
 and broader public repair/recovery nesting remain open.
 Header-rejected and unmatched/trailing compressed-member values now have public ownership regressions,
@@ -87,6 +103,50 @@ exclude Length/Resources/identities; deflater bitstreams are recorded separately
 The remaining 64 decoded differences are complete linearized hint payloads.
 Full warning context, whole-job ownership and wider grammar/defaults remain
 open; inventory labels are unchanged.
+
+Bare argv input/output pairs now use the same whole-file rewrite plan as job
+JSON, with an optional `--` output separator. Writer options apply without page
+selection. Linearization/object-stream modes have public parity and source-bound
+native/independent-reader evidence; malformed positional arguments reject before
+input access. This does not close the remaining default/context audit.
+
+Owned PDF name storage now has a verified integrated parser/recovery/copier/
+remapper implementation with charged collision work and explicit immutable
+backing ownership. Shared raw-name lookup now governs stream-length, object-stream,
+xref and page-inheritance metadata, with independent component/reader controls;
+broader owned-storage/dispatch auditing remains open. Predictor fields and LZW EarlyChange
+now use governed borrowed metadata operations, with the predictor result funded
+through codec use. Filter-stage metadata now uses an admitted disposable owner
+across reader/checker/JSON/content/attachment/inspection/writer consumers; unknown
+name aliases transfer to retained storage. Activated retained-value receipts now
+share an admitted weak ledger link: active governors fund surviving aliases,
+while completed jobs release ledger/index/retirement-queue metadata. Independent
+component and compatible preceding-runtime controls cover this prerequisite;
+broader codec and diagnostic ownership remain open.
+Checker field/widget classification and parent-link metadata now use governed
+borrowed raw-name operations, preserving field truth/short-circuit order and
+parent warning behavior. Catalog/form registration, child arrays, annotations and
+page contents now use borrowed raw-name lookup and bounded resolver boundaries.
+Indexed traversal avoids array copies; admitted stream-reference/form-index
+owners drop backing and execution state before retiring admission. Original form
+failure/work/cancellation controls remain, including two diagnostic-dependent
+growth controls now tested with the integrated diagnostic storage. Remaining resource,
+inspection, JSON, content and writer name consumers/collections stay open.
+The shared-resource decision now owns its indexes/pending nodes, borrows child
+arrays and dictionary cursors, and governs raw metadata/form classification and
+resolver boundaries. Explicit `auto` uses the same heuristic as the default;
+three resource shapes have argv/job/mixed regressions and fresh native evidence.
+Pages-block argv now preserves option context before main extraction, requires
+named file/range values with equals signs and matches native replacement/trailing
+block boundaries. Main labels share the job parser, including empty-block no-op
+behavior. Legal argv/job/mixed positions and failure priority have 81 controls
+and 73 fresh native comparisons; the full current reference lane passes.
+Broader grammar/default/interaction, frontend ownership/counters, resource
+pruning/storage and scheduling observations remain open.
+Scoped tests, independent measurements and fresh focused
+native/package evidence are recorded in docs/PROGRESS.md. Legacy unowned
+construction and broader runtime lookup/collection audits remain open; this
+correction does not close parser ownership or any broader compatibility gate.
 
 Form resource traversal now admits its scopes, form references and visited-number
 index through pruning and inline-image externalization. An iterative, admitted

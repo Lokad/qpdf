@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -13,16 +14,34 @@ namespace Lokad.Qpdf.Writing;
 /// first page when the catalog requests outline mode and close part 9
 /// otherwise.
 /// </summary>
-internal sealed record ClassifiedGraph(
-    IReadOnlyList<int> Part4,
-    IReadOnlyList<int> Part6,
-    IReadOnlyList<IReadOnlyList<int>> Part7,
-    IReadOnlyList<int> Part8,
-    IReadOnlyList<int> Part9,
-    IReadOnlyList<int> Pages,
-    IReadOnlyList<HashSet<int>> PageUsers,
-    IReadOnlyList<int> Outlines,
-    bool OutlinesInFirstPage);
+internal sealed class ClassifiedGraph : IDisposable
+{
+    internal ClassifiedGraph(IReadOnlyList<int> part4, IReadOnlyList<int> part6,
+        IReadOnlyList<IReadOnlyList<int>> part7, IReadOnlyList<int> part8, IReadOnlyList<int> part9,
+        IReadOnlyList<int> pages, IReadOnlyList<IReadOnlyCollection<int>> pageUsers, IReadOnlyList<int> outlines,
+        bool outlinesInFirstPage)
+    {
+        Part4 = part4; Part6 = part6; Part7 = part7; Part8 = part8; Part9 = part9;
+        Pages = pages; PageUsers = pageUsers; Outlines = outlines; OutlinesInFirstPage = outlinesInFirstPage;
+    }
+
+    internal IReadOnlyList<int> Part4 { get; private set; }
+    internal IReadOnlyList<int> Part6 { get; private set; }
+    internal IReadOnlyList<IReadOnlyList<int>> Part7 { get; private set; }
+    internal IReadOnlyList<int> Part8 { get; private set; }
+    internal IReadOnlyList<int> Part9 { get; private set; }
+    internal IReadOnlyList<int> Pages { get; private set; }
+    internal IReadOnlyList<IReadOnlyCollection<int>> PageUsers { get; private set; }
+    internal IReadOnlyList<int> Outlines { get; private set; }
+    internal bool OutlinesInFirstPage { get; }
+
+    public void Dispose()
+    {
+        Part4 = Array.Empty<int>(); Part6 = Array.Empty<int>();
+        Part7 = Array.Empty<IReadOnlyList<int>>(); Part8 = Array.Empty<int>(); Part9 = Array.Empty<int>();
+        Pages = Array.Empty<int>(); PageUsers = Array.Empty<IReadOnlyCollection<int>>(); Outlines = Array.Empty<int>();
+    }
+}
 
 /// <summary>
 /// Compressed-object layout for streamed linearized publication. Parts hold
@@ -31,8 +50,13 @@ internal sealed record ClassifiedGraph(
 /// take type-2 cross-reference entries. Page dictionaries and the catalog
 /// never compress, mirroring upstream exclusions.
 /// </summary>
-internal sealed class StreamedParts
+internal sealed class StreamedParts : IDisposable
 {
+    private GovernedIntDictionary<int>? _renumber;
+    private GovernedIntDictionary<(int Container, int Index)>? _members;
+    private GovernedIntDictionary<IReadOnlyList<int>>? _containerMembers;
+    private GovernedIntSet? _containers;
+    private GovernedIntDictionary<QpdfObject>? _lookup;
     internal StreamedParts(
         IReadOnlyList<int> part4,
         IReadOnlyList<int> part6,
@@ -40,14 +64,14 @@ internal sealed class StreamedParts
         IReadOnlyList<int> part8,
         IReadOnlyList<int> part9,
         IReadOnlyList<int> pages,
-        IReadOnlyList<HashSet<int>> pageUsers,
+        IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         IReadOnlyList<int> outlines,
         bool outlinesInFirstPage,
         bool outlinesDirect,
-        Dictionary<int, int> renumber,
-        Dictionary<int, (int Container, int Index)> members,
-        Dictionary<int, IReadOnlyList<int>> containerMembers,
-        HashSet<int> containers,
+        GovernedIntDictionary<int> renumber,
+        GovernedIntDictionary<(int Container, int Index)> members,
+        GovernedIntDictionary<IReadOnlyList<int>> containerMembers,
+        GovernedIntSet containers,
         int lindictNumber,
         int hintNumber,
         int xrefFirstNumber,
@@ -56,7 +80,7 @@ internal sealed class StreamedParts
         int mainSize,
         int maxNumber,
         int maxMemberIndex,
-        Dictionary<int, QpdfObject> lookup)
+        GovernedIntDictionary<QpdfObject> lookup)
     {
         Part4 = part4;
         Part6 = part6;
@@ -68,10 +92,10 @@ internal sealed class StreamedParts
         Outlines = outlines;
         OutlinesInFirstPage = outlinesInFirstPage;
         OutlinesDirect = outlinesDirect;
-        Renumber = renumber;
-        Members = members;
-        ContainerMembers = containerMembers;
-        Containers = containers;
+        _renumber = renumber;
+        _members = members;
+        _containerMembers = containerMembers;
+        _containers = containers;
         LindictNumber = lindictNumber;
         HintNumber = hintNumber;
         XrefFirstNumber = xrefFirstNumber;
@@ -80,36 +104,36 @@ internal sealed class StreamedParts
         MainSize = mainSize;
         MaxNumber = maxNumber;
         MaxMemberIndex = maxMemberIndex;
-        Lookup = lookup;
+        _lookup = lookup;
     }
 
-    internal IReadOnlyList<int> Part4 { get; }
+    internal IReadOnlyList<int> Part4 { get; private set; }
 
-    internal IReadOnlyList<int> Part6 { get; }
+    internal IReadOnlyList<int> Part6 { get; private set; }
 
-    internal IReadOnlyList<IReadOnlyList<int>> Part7 { get; }
+    internal IReadOnlyList<IReadOnlyList<int>> Part7 { get; private set; }
 
-    internal IReadOnlyList<int> Part8 { get; }
+    internal IReadOnlyList<int> Part8 { get; private set; }
 
-    internal IReadOnlyList<int> Part9 { get; }
+    internal IReadOnlyList<int> Part9 { get; private set; }
 
-    internal IReadOnlyList<int> Pages { get; }
+    internal IReadOnlyList<int> Pages { get; private set; }
 
-    internal IReadOnlyList<HashSet<int>> PageUsers { get; }
+    internal IReadOnlyList<IReadOnlyCollection<int>> PageUsers { get; private set; }
 
-    internal IReadOnlyList<int> Outlines { get; }
+    internal IReadOnlyList<int> Outlines { get; private set; }
 
     internal bool OutlinesInFirstPage { get; }
 
     internal bool OutlinesDirect { get; }
 
-    internal Dictionary<int, int> Renumber { get; }
+    internal GovernedIntDictionary<int> Renumber => _renumber ?? throw new ObjectDisposedException(nameof(StreamedParts));
 
-    internal Dictionary<int, (int Container, int Index)> Members { get; }
+    internal GovernedIntDictionary<(int Container, int Index)> Members => _members ?? throw new ObjectDisposedException(nameof(StreamedParts));
 
-    internal Dictionary<int, IReadOnlyList<int>> ContainerMembers { get; }
+    internal GovernedIntDictionary<IReadOnlyList<int>> ContainerMembers => _containerMembers ?? throw new ObjectDisposedException(nameof(StreamedParts));
 
-    internal HashSet<int> Containers { get; }
+    internal GovernedIntSet Containers => _containers ?? throw new ObjectDisposedException(nameof(StreamedParts));
 
     internal int LindictNumber { get; }
 
@@ -127,7 +151,15 @@ internal sealed class StreamedParts
 
     internal int MaxMemberIndex { get; }
 
-    internal IReadOnlyDictionary<int, QpdfObject> Lookup { get; }
+    internal GovernedIntDictionary<QpdfObject> Lookup => _lookup ?? throw new ObjectDisposedException(nameof(StreamedParts));
+
+    public void Dispose()
+    {
+        Part4 = Array.Empty<int>(); Part6 = Array.Empty<int>();
+        Part7 = Array.Empty<IReadOnlyList<int>>(); Part8 = Array.Empty<int>(); Part9 = Array.Empty<int>();
+        Pages = Array.Empty<int>(); PageUsers = Array.Empty<IReadOnlyCollection<int>>(); Outlines = Array.Empty<int>();
+        _renumber = null; _members = null; _containerMembers = null; _containers = null; _lookup = null;
+    }
 }
 
 /// <summary>
@@ -139,8 +171,10 @@ internal sealed class StreamedParts
 /// page order; outlines ride the first page when the catalog requests
 /// outline mode and close part 9 otherwise.
 /// </summary>
-internal sealed class LinearizedParts
+internal sealed class LinearizedParts : IDisposable
 {
+    private GovernedIntDictionary<int>? _renumber;
+    private GovernedIntDictionary<QpdfObject>? _lookup;
     internal LinearizedParts(
         IReadOnlyList<int> part4,
         IReadOnlyList<int> part6,
@@ -148,13 +182,13 @@ internal sealed class LinearizedParts
         IReadOnlyList<int> part8,
         IReadOnlyList<int> part9,
         IReadOnlyList<int> pages,
-        IReadOnlyList<HashSet<int>> pageUsers,
+        IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         IReadOnlyList<int> outlines,
         bool outlinesInFirstPage,
-        Dictionary<int, int> renumber,
+        GovernedIntDictionary<int> renumber,
         int lindictNumber,
         int hintNumber,
-        Dictionary<int, QpdfObject> lookup)
+        GovernedIntDictionary<QpdfObject> lookup)
     {
         Part4 = part4;
         Part6 = part6;
@@ -165,240 +199,246 @@ internal sealed class LinearizedParts
         PageUsers = pageUsers;
         Outlines = outlines;
         OutlinesInFirstPage = outlinesInFirstPage;
-        Renumber = renumber;
+        _renumber = renumber;
         LindictNumber = lindictNumber;
         HintNumber = hintNumber;
-        Lookup = lookup;
+        _lookup = lookup;
     }
 
-    internal IReadOnlyList<int> Part4 { get; }
+    internal IReadOnlyList<int> Part4 { get; private set; }
 
-    internal IReadOnlyList<int> Part6 { get; }
+    internal IReadOnlyList<int> Part6 { get; private set; }
 
-    internal IReadOnlyList<IReadOnlyList<int>> Part7 { get; }
+    internal IReadOnlyList<IReadOnlyList<int>> Part7 { get; private set; }
 
-    internal IReadOnlyList<int> Part8 { get; }
+    internal IReadOnlyList<int> Part8 { get; private set; }
 
-    internal IReadOnlyList<int> Part9 { get; }
+    internal IReadOnlyList<int> Part9 { get; private set; }
 
-    internal IReadOnlyList<int> Pages { get; }
+    internal IReadOnlyList<int> Pages { get; private set; }
 
-    internal IReadOnlyList<HashSet<int>> PageUsers { get; }
+    internal IReadOnlyList<IReadOnlyCollection<int>> PageUsers { get; private set; }
 
-    internal IReadOnlyList<int> Outlines { get; }
+    internal IReadOnlyList<int> Outlines { get; private set; }
 
     internal bool OutlinesInFirstPage { get; }
 
-    internal Dictionary<int, int> Renumber { get; }
+    internal GovernedIntDictionary<int> Renumber => _renumber ?? throw new ObjectDisposedException(nameof(LinearizedParts));
 
     internal int LindictNumber { get; }
 
     internal int HintNumber { get; }
 
-    internal IReadOnlyDictionary<int, QpdfObject> Lookup { get; }
+    internal GovernedIntDictionary<QpdfObject> Lookup => _lookup ?? throw new ObjectDisposedException(nameof(LinearizedParts));
 
-    internal static LinearizedParts Classify(
-        List<NumberedObject> model,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+    public void Dispose()
     {
-        if (model is null)
-        {
-            throw new ArgumentNullException(nameof(model));
-        }
+        Part4 = Array.Empty<int>(); Part6 = Array.Empty<int>();
+        Part7 = Array.Empty<IReadOnlyList<int>>(); Part8 = Array.Empty<int>(); Part9 = Array.Empty<int>();
+        Pages = Array.Empty<int>(); PageUsers = Array.Empty<IReadOnlyCollection<int>>(); Outlines = Array.Empty<int>();
+        _renumber = null; _lookup = null;
+    }
 
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        Dictionary<int, QpdfObject> lookup = new(model.Count);
-        foreach (NumberedObject numbered in model)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!lookup.ContainsKey(numbered.Number))
-            {
-                lookup[numbered.Number] = numbered.Value;
-            }
-        }
-
-        ClassifiedGraph graph = ClassifyGraph(lookup, 1, governor, cancellationToken);
-        Dictionary<int, int> renumber = AssignNumbers(graph.Part7, graph.Part8, graph.Part9, graph.Part4, graph.Part6, out int lindictNumber, out int hintNumber);
+    internal static LinearizedParts Classify(List<NumberedObject> model, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(governor);
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        using ParserMemoryScope retained = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> lookup = ModelLookup(model, retained, governor, cancellationToken);
+        using ClassifiedGraph graph = ClassifyGraph(lookup, 1, retained, governor, cancellationToken);
+        GovernedIntDictionary<int> renumber = AssignNumbers(graph.Part7, graph.Part8, graph.Part9, graph.Part4,
+            graph.Part6, retained, governor, cancellationToken, out int lindictNumber, out int hintNumber);
         if (renumber.Count != lookup.Count)
         {
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
-
-        return new LinearizedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, renumber, lindictNumber, hintNumber, lookup);
+        retained.Reserve(128L);
+        LinearizedParts result = new(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9,
+            graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, renumber, lindictNumber, hintNumber, lookup);
+        retained.TransferTo(memory);
+        return result;
     }
 
-    internal static StreamedParts ClassifyStreamed(
-        List<NumberedObject> model,
-        IReadOnlyList<IReadOnlyList<int>> groups,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+    internal static StreamedParts ClassifyStreamed(List<NumberedObject> model,
+        IReadOnlyList<IReadOnlyList<int>> groups, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (model is null)
-        {
-            throw new ArgumentNullException(nameof(model));
-        }
-
-        if (groups is null)
-        {
-            throw new ArgumentNullException(nameof(groups));
-        }
-
-        if (governor is null)
-        {
-            throw new ArgumentNullException(nameof(governor));
-        }
-
-        Dictionary<int, QpdfObject> lookup = new(model.Count);
-        foreach (NumberedObject numbered in model)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!lookup.ContainsKey(numbered.Number))
-            {
-                lookup[numbered.Number] = numbered.Value;
-            }
-        }
-
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(groups);
+        ArgumentNullException.ThrowIfNull(governor);
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        using ParserMemoryScope retained = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> lookup = ModelLookup(model, retained, governor, cancellationToken);
         if (!lookup.TryGetValue(1, out QpdfObject? catalogRaw) || catalogRaw is not PdfDictionary catalog)
         {
             throw new QpdfParseException("Linearized output needs object 1 to hold the catalog.", null, 1);
         }
-
-        List<int> pages = CollectPages(catalog, lookup, governor, cancellationToken);
-        if (pages.Count == 0)
-        {
-            throw new QpdfParseException("Linearized output needs at least one page.", null, 1);
-        }
-
-        PlanContainers(lookup, pages, groups, governor, cancellationToken, out List<int> containers, out Dictionary<int, int> owners, out Dictionary<int, List<int>> containerMembers);
-        ClassifiedGraph graph = ClassifyGraph(lookup, 1, owners, containers, governor, cancellationToken);
-        AssignStreamedNumbers(graph, containerMembers, out Dictionary<int, int> renumber, out Dictionary<int, (int Container, int Index)> members, out int lindictNumber, out int hintNumber, out int xrefFirstNumber, out int xrefMainNumber, out int firstSize, out int mainSize, out int maxNumber, out int maxMemberIndex);
+        List<int> pages = CollectPages(catalog, lookup, temporary, governor, cancellationToken);
+        if (pages.Count == 0) { throw new QpdfParseException("Linearized output needs at least one page.", null, 1); }
+        PlanContainers(lookup, pages, groups, retained, temporary, governor, cancellationToken,
+            out List<int> containers, out GovernedIntDictionary<int> owners, out GovernedIntDictionary<List<int>> containerMembers);
+        using ClassifiedGraph graph = ClassifyGraph(lookup, 1, owners, containers, retained, governor, cancellationToken);
+        AssignStreamedNumbers(graph, containerMembers, retained, governor, cancellationToken,
+            out GovernedIntDictionary<int> renumber, out GovernedIntDictionary<(int Container, int Index)> members,
+            out int lindictNumber, out int hintNumber, out int xrefFirstNumber, out int xrefMainNumber,
+            out int firstSize, out int mainSize, out int maxNumber, out int maxMemberIndex);
         if (renumber.Count != lookup.Count + containers.Count)
         {
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
-
         bool outlinesDirect = true;
-        HashSet<int> containerSet = new(containers);
-        foreach (int outline in graph.Outlines)
-        {
-            if (containerSet.Contains(outline))
-            {
-                outlinesDirect = false;
-                break;
-            }
-        }
-
-        Dictionary<int, IReadOnlyList<int>> readonlyMembers = new(containerMembers.Count);
-        foreach (KeyValuePair<int, List<int>> entry in containerMembers)
-        {
-            readonlyMembers[entry.Key] = entry.Value;
-        }
-
-        return new StreamedParts(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9, graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, outlinesDirect, renumber, members, readonlyMembers, containerSet, lindictNumber, hintNumber, xrefFirstNumber, xrefMainNumber, firstSize, mainSize, maxNumber, maxMemberIndex, lookup);
-    }
-
-    private static void PlanContainers(
-        Dictionary<int, QpdfObject> lookup,
-        IReadOnlyList<int> pages,
-        IReadOnlyList<IReadOnlyList<int>> groups,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken,
-        out List<int> containers,
-        out Dictionary<int, int> owners,
-        out Dictionary<int, List<int>> containerMembers)
-    {
-        HashSet<int> pageSet = new(pages);
-        int max = 0;
-        foreach (int number in lookup.Keys)
-        {
-            if (number > max)
-            {
-                max = number;
-            }
-        }
-
-        containers = new();
-        owners = new();
-        containerMembers = new();
-        int next = checked(max + 1);
-        foreach (IReadOnlyList<int> group in groups)
+        GovernedIntSet containerSet = CopySet(containers, retained, governor, cancellationToken);
+        for (int index = 0; index < graph.Outlines.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (group is null)
-            {
-                continue;
-            }
+            governor.ChargeWork(1L);
+            if (containerSet.Contains(graph.Outlines[index])) { outlinesDirect = false; break; }
+        }
+        GovernedIntDictionary<IReadOnlyList<int>> readonlyMembers = GovernedIntDictionary<IReadOnlyList<int>>.Create(retained, governor, IntPtr.Size, cancellationToken);
+        foreach (KeyValuePair<int, List<int>> entry in containerMembers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(retained, governor, readonlyMembers, entry.Key, (IReadOnlyList<int>)entry.Value);
+        }
+        retained.Reserve(168L);
+        StreamedParts result = new(graph.Part4, graph.Part6, graph.Part7, graph.Part8, graph.Part9,
+            graph.Pages, graph.PageUsers, graph.Outlines, graph.OutlinesInFirstPage, outlinesDirect, renumber,
+            members, readonlyMembers, containerSet, lindictNumber, hintNumber, xrefFirstNumber, xrefMainNumber,
+            firstSize, mainSize, maxNumber, maxMemberIndex, lookup);
+        retained.TransferTo(memory);
+        return result;
+    }
 
-            List<int> kept = new(group.Count);
-            foreach (int member in group)
+    private static GovernedIntDictionary<QpdfObject> ModelLookup(List<NumberedObject> model,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        GovernedIntDictionary<QpdfObject> lookup = GovernedIntDictionary<QpdfObject>.Create(memory, governor, IntPtr.Size, cancellationToken);
+        foreach (NumberedObject numbered in model)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            lookup.TryAdd(memory, numbered.Number, numbered.Value);
+        }
+        return lookup;
+    }
+
+    private static void PlanContainers(GovernedIntDictionary<QpdfObject> lookup, IReadOnlyList<int> pages,
+        IReadOnlyList<IReadOnlyList<int>> groups, ParserMemoryScope memory, ParserMemoryScope temporary,
+        ResourceGovernor governor, CancellationToken cancellationToken, out List<int> containers,
+        out GovernedIntDictionary<int> owners, out GovernedIntDictionary<List<int>> containerMembers)
+    {
+        GovernedIntSet pageSet = CopySet(pages, temporary, governor, cancellationToken);
+        int max = 0;
+        foreach (KeyValuePair<int, QpdfObject> entry in lookup)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (entry.Key > max) { max = entry.Key; }
+        }
+        containers = ParserContainers.CreateList<int>(temporary);
+        owners = GovernedIntDictionary<int>.Create(temporary, governor, sizeof(int), cancellationToken);
+        containerMembers = GovernedIntDictionary<List<int>>.Create(temporary, governor, IntPtr.Size, cancellationToken);
+        int next = checked(max + 1);
+        for (int index = 0; index < groups.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            IReadOnlyList<int> group = groups[index];
+            if (group is null) { continue; }
+            using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
+            List<int> kept = ParserContainers.CreateList<int>(groupMemory);
+            for (int memberIndex = 0; memberIndex < group.Count; memberIndex++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 governor.ChargeWork(1L);
-                if (!lookup.TryGetValue(member, out QpdfObject? value) || value is null)
-                {
-                    continue;
-                }
-
-                if (member == 1 || member == 2 || pageSet.Contains(member))
-                {
-                    continue;
-                }
-
-                if (value is PdfStream)
-                {
-                    continue;
-                }
-
-                if (owners.ContainsKey(member))
-                {
-                    continue;
-                }
-
-                kept.Add(member);
+                int member = group[memberIndex];
+                if (!lookup.TryGetValue(member, out QpdfObject? value) || value is null
+                    || member == 1 || member == 2 || pageSet.Contains(member) || value is PdfStream || owners.ContainsKey(member)) { continue; }
+                Add(groupMemory, governor, kept, member);
             }
-
-            if (kept.Count == 0)
-            {
-                continue;
-            }
-
-            if (kept.Count > 100)
-            {
-                throw new QpdfException("Object-stream groups must hold 1..100 members.");
-            }
-
+            if (kept.Count == 0) { continue; }
+            if (kept.Count > 100) { throw new QpdfException("Object-stream groups must hold 1..100 members."); }
             int container = next;
             next = checked(next + 1);
-            containers.Add(container);
-            List<int> stored = new(kept.Count);
-            for (int i = 0; i < kept.Count; i++)
+            Add(temporary, governor, containers, container);
+            List<int> stored = ParserContainers.CreateList<int>(memory);
+            for (int memberIndex = 0; memberIndex < kept.Count; memberIndex++)
             {
-                owners[kept[i]] = container;
-                stored.Add(kept[i]);
+                cancellationToken.ThrowIfCancellationRequested();
+                int member = kept[memberIndex];
+                GovernedCollections.Assign(temporary, governor, owners, member, container);
+                Add(memory, governor, stored, member);
             }
-
-            containerMembers[container] = stored;
+            GovernedCollections.Assign(temporary, governor, containerMembers, container, stored);
         }
+    }
+
+    // Copy only the borrowed index. Its PDF values keep their existing owners.
+    internal static ClassifiedGraph ClassifyGraph(Dictionary<int, QpdfObject> lookup, int catalogNumber,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(lookup);
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> indexed = CopyIndex(lookup, temporary, governor, IntPtr.Size, cancellationToken);
+        return ClassifyGraph(indexed, catalogNumber, memory, governor, cancellationToken);
+    }
+
+    internal static ClassifiedGraph ClassifyGraph(Dictionary<int, QpdfObject> lookup, int catalogNumber,
+        Dictionary<int, int> owners, IReadOnlyList<int> extraIds, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(lookup);
+        ArgumentNullException.ThrowIfNull(owners);
+        ArgumentNullException.ThrowIfNull(extraIds);
+        memory.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<QpdfObject> indexed = CopyIndex(lookup, temporary, governor, IntPtr.Size, cancellationToken);
+        GovernedIntDictionary<int> indexedOwners = CopyIndex(owners, temporary, governor, sizeof(int), cancellationToken);
+        return ClassifyGraph(indexed, catalogNumber, indexedOwners, extraIds, memory, governor, cancellationToken);
+    }
+
+    private static GovernedIntDictionary<T> CopyIndex<T>(Dictionary<int, T> source, ParserMemoryScope memory,
+        ResourceGovernor governor, long valueBytes, CancellationToken cancellationToken)
+    {
+        GovernedIntDictionary<T> result = GovernedIntDictionary<T>.Create(memory, governor, valueBytes, cancellationToken);
+        foreach (KeyValuePair<int, T> entry in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            result.TryAdd(memory, entry.Key, entry.Value);
+        }
+        return result;
     }
 
     internal static ClassifiedGraph ClassifyGraph(
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
         int catalogNumber,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        return ClassifyGraph(lookup, catalogNumber, EmptyOwners(), EmptyExtras(), governor, cancellationToken);
+        memory.CheckOwner(governor);
+        lookup.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        GovernedIntDictionary<int> owners = GovernedIntDictionary<int>.Create(temporary, governor, sizeof(int), cancellationToken);
+        return ClassifyGraph(lookup, catalogNumber, owners, Array.Empty<int>(), memory, governor, cancellationToken);
     }
 
     internal static ClassifiedGraph ClassifyGraph(
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
         int catalogNumber,
-        IReadOnlyDictionary<int, int> owners,
+        GovernedIntDictionary<int> owners,
         IReadOnlyList<int> extraIds,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
@@ -422,82 +462,105 @@ internal sealed class LinearizedParts
             throw new ArgumentNullException(nameof(governor));
         }
 
+        memory.CheckOwner(governor);
+        lookup.CheckOwner(governor);
+        owners.CheckOwner(governor);
+        cancellationToken.ThrowIfCancellationRequested();
+        using ParserMemoryScope retained = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
         if (!lookup.TryGetValue(catalogNumber, out QpdfObject? catalogRaw) || catalogRaw is not PdfDictionary catalog)
         {
             throw new QpdfParseException($"Linearized output needs object {catalogNumber} to hold the catalog.", null, catalogNumber);
         }
 
-        List<int> pages = CollectPages(catalog, lookup, governor, cancellationToken);
+        List<int> pages = CollectPages(catalog, lookup, retained, governor, cancellationToken);
         if (pages.Count == 0)
         {
             throw new QpdfParseException("Linearized output needs at least one page.", null, catalogNumber);
         }
 
-        List<HashSet<int>> closures = new(pages.Count);
-        List<int> thumbImages = new(pages.Count);
+        List<GovernedIntSet> closures = ParserContainers.CreateList<GovernedIntSet>(retained);
+        List<int> thumbImages = ParserContainers.CreateList<int>(temporary);
         for (int i = 0; i < pages.Count; i++)
         {
-            PageWalk walk = WalkPage(lookup, pages[i], owners, governor, cancellationToken);
-            closures.Add(walk.Closure);
-            thumbImages.Add(walk.Thumb);
+            PageWalk walk = WalkPage(lookup, pages[i], owners, retained, governor, cancellationToken);
+            GovernedCollections.AddItem(retained, governor, closures, walk.Closure, IntPtr.Size);
+            Add(temporary, governor, thumbImages, walk.Thumb);
         }
 
-        Dictionary<int, HashSet<int>> users = new();
+        GovernedIntDictionary<GovernedIntSet> users = GovernedIntDictionary<GovernedIntSet>.Create(temporary, governor, IntPtr.Size, cancellationToken);
         for (int i = 0; i < pages.Count; i++)
         {
             foreach (int number in closures[i])
             {
-                if (!users.TryGetValue(number, out HashSet<int>? set))
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (!users.TryGetValue(number, out GovernedIntSet? set))
                 {
-                    set = new HashSet<int>();
-                    users[number] = set;
+                    set = GovernedIntSet.Create(temporary, governor, cancellationToken);
+                    GovernedCollections.Assign(temporary, governor, users, number, set);
                 }
 
-                set.Add(i);
+                GovernedCollections.AddNumber(temporary, governor, set, i);
             }
         }
 
-        HashSet<int> openDocuments = CollectOpenDocuments(lookup, catalog, owners, governor, cancellationToken);
-        HashSet<int> pageSet = new(pages);
-        List<int> tree = CollectTree(catalog, lookup, pageSet, owners, governor, cancellationToken);
-        tree.Sort();
-        tree.RemoveAll(number => users.ContainsKey(number));
-        HashSet<int> treeSet = new(tree);
-        List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, owners, governor, cancellationToken);
-        HashSet<int> outlinePlaced = new(outlineOrder);
-        bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog);
-        List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, closures, users, openDocuments, treeSet, outlinePlaced, owners, governor, cancellationToken);
-        HashSet<int> thumbPlaced = new();
+        GovernedIntSet openDocuments = CollectOpenDocuments(lookup, catalog, owners, temporary, governor, cancellationToken);
+        GovernedIntSet pageSet = CopySet(pages, temporary, governor, cancellationToken);
+        List<int> tree = CollectTree(catalog, lookup, pageSet, owners, temporary, governor, cancellationToken);
+        GovernedCollections.SortNumbers(temporary, governor, tree);
+        int treeCount = 0;
+        for (int index = 0; index < tree.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (!users.ContainsKey(tree[index])) { tree[treeCount++] = tree[index]; }
+        }
+        tree.RemoveRange(treeCount, tree.Count - treeCount);
+        GovernedIntSet treeSet = CopySet(tree, temporary, governor, cancellationToken);
+        List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, owners, retained, governor, cancellationToken);
+        GovernedIntSet outlinePlaced = CopySet(outlineOrder, temporary, governor, cancellationToken);
+        bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog, governor, cancellationToken);
+        List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, closures, users, openDocuments, treeSet, outlinePlaced, owners, temporary, governor, cancellationToken);
+        GovernedIntSet thumbPlaced = GovernedIntSet.Create(temporary, governor, cancellationToken);
         foreach (List<int> run in thumbRuns)
         {
             foreach (int number in run)
             {
-                thumbPlaced.Add(number);
+                cancellationToken.ThrowIfCancellationRequested();
+                GovernedCollections.AddNumber(temporary, governor, thumbPlaced, number);
             }
         }
-        List<int> part4 = new() { catalogNumber };
-        foreach (int number in SortedKeys(lookup))
+        // Physical object-stream owners can be extra IDs absent from lookup.
+        List<int> ordered = SortedKeys(lookup, temporary, governor, cancellationToken);
+        AddRange(temporary, governor, ordered, extraIds, cancellationToken);
+        GovernedCollections.SortNumbers(temporary, governor, ordered);
+        List<int> part4 = ParserContainers.CreateList<int>(retained);
+        Add(retained, governor, part4, catalogNumber);
+        foreach (int number in ordered)
         {
-            if (number != catalogNumber && openDocuments.Contains(number))
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            if (number != catalogNumber && !owners.ContainsKey(number) && openDocuments.Contains(number))
             {
-                part4.Add(number);
+                Add(retained, governor, part4, number);
             }
         }
 
-        List<int> part6 = new() { pages[0] };
-        List<int> part6Private = new();
-        List<int> part6Shared = new();
-        List<List<int>> part7 = new(pages.Count - 1);
+        List<int> part6 = ParserContainers.CreateList<int>(retained);
+        Add(retained, governor, part6, pages[0]);
+        List<int> part6Private = ParserContainers.CreateList<int>(temporary);
+        List<int> part6Shared = ParserContainers.CreateList<int>(temporary);
+        List<List<int>> part7 = ParserContainers.CreateList<List<int>>(retained);
         for (int i = 1; i < pages.Count; i++)
         {
-            part7.Add(new List<int>() { pages[i] });
+            List<int> run = ParserContainers.CreateList<int>(retained);
+            Add(retained, governor, run, pages[i]);
+            GovernedCollections.AddItem(retained, governor, part7, run, IntPtr.Size);
         }
 
-        List<int> part8 = new();
-        List<int> part9Rest = new();
-        List<int> ordered = SortedKeys(lookup);
-        ordered.AddRange(extraIds);
-        ordered.Sort();
+        List<int> part8 = ParserContainers.CreateList<int>(retained);
+        List<int> part9Rest = ParserContainers.CreateList<int>(temporary);
         foreach (int number in ordered)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -512,9 +575,9 @@ internal sealed class LinearizedParts
                 continue;
             }
 
-            if (!users.TryGetValue(number, out HashSet<int>? use) || use.Count == 0)
+            if (!users.TryGetValue(number, out GovernedIntSet? use) || use.Count == 0)
             {
-                part9Rest.Add(number);
+                Add(temporary, governor, part9Rest, number);
                 continue;
             }
 
@@ -522,123 +585,133 @@ internal sealed class LinearizedParts
             {
                 if (use.Count == 1)
                 {
-                    part6Private.Add(number);
+                    Add(temporary, governor, part6Private, number);
                 }
                 else
                 {
-                    part6Shared.Add(number);
+                    Add(temporary, governor, part6Shared, number);
                 }
             }
             else if (use.Count >= 2)
             {
-                part8.Add(number);
+                Add(retained, governor, part8, number);
             }
             else
             {
-                part7[FirstOf(use) - 1].Add(number);
+                Add(retained, governor, part7[FirstOf(use) - 1], number);
             }
         }
 
-        part6.AddRange(part6Private);
-        part6.AddRange(part6Shared);
+        AddRange(retained, governor, part6, part6Private, cancellationToken);
+        AddRange(retained, governor, part6, part6Shared, cancellationToken);
         if (outlinesInFirstPage)
         {
-            part6.AddRange(outlineOrder);
+            AddRange(retained, governor, part6, outlineOrder, cancellationToken);
         }
 
-        List<int> part9 = new(tree);
+        List<int> part9 = CopyNumbers(tree, retained, governor, cancellationToken);
         foreach (List<int> run in thumbRuns)
         {
-            part9.AddRange(run);
+            AddRange(retained, governor, part9, run, cancellationToken);
         }
 
         if (!outlinesInFirstPage)
         {
-            part9.AddRange(outlineOrder);
+            AddRange(retained, governor, part9, outlineOrder, cancellationToken);
         }
 
-        part9.AddRange(part9Rest);
+        AddRange(retained, governor, part9, part9Rest, cancellationToken);
 
-        int placed = part4.Count + part6.Count + part8.Count + part9.Count;
+        int placed = checked(part4.Count + part6.Count + part8.Count + part9.Count);
         foreach (IReadOnlyList<int> run in part7)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
             placed = checked(placed + run.Count);
         }
 
-        if (placed != lookup.Count - owners.Count + extraIds.Count)
+        if (placed != checked(lookup.Count - owners.Count + extraIds.Count))
         {
             throw new QpdfParseException("Linearized output lost objects while ordering parts.", null, null);
         }
 
-        return new ClassifiedGraph(part4, part6, part7, part8, part9, pages, closures, outlineOrder, outlinesInFirstPage);
+        retained.Reserve(96L);
+        ClassifiedGraph result = new(part4, part6, part7, part8, part9, pages, closures, outlineOrder, outlinesInFirstPage);
+        retained.TransferTo(memory);
+        return result;
     }
 
     private static List<List<int>> CollectThumbs(
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
         IReadOnlyList<int> thumbImages,
-        IReadOnlyList<HashSet<int>> closures,
-        Dictionary<int, HashSet<int>> users,
-        HashSet<int> openDocuments,
-        HashSet<int> treeSet,
-        HashSet<int> outlinePlaced,
-        IReadOnlyDictionary<int, int> owners,
+        IReadOnlyList<GovernedIntSet> closures,
+        GovernedIntDictionary<GovernedIntSet> users,
+        GovernedIntSet openDocuments,
+        GovernedIntSet treeSet,
+        GovernedIntSet outlinePlaced,
+        GovernedIntDictionary<int> owners,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
         if (owners is null)
         {
             throw new ArgumentNullException(nameof(owners));
         }
 
-        List<HashSet<int>> thumbClosures = new(thumbImages.Count);
-        Dictionary<int, HashSet<int>> thumbUsers = new();
+        List<GovernedIntSet> thumbClosures = ParserContainers.CreateList<GovernedIntSet>(temporary);
+        GovernedIntDictionary<GovernedIntSet> thumbUsers = GovernedIntDictionary<GovernedIntSet>.Create(temporary, governor, IntPtr.Size, cancellationToken);
         for (int i = 0; i < thumbImages.Count; i++)
         {
-            HashSet<int> thumbClosure = new();
+            GovernedIntSet thumbClosure = GovernedIntSet.Create(temporary, governor, cancellationToken);
             if (thumbImages[i] > 0 && lookup.TryGetValue(thumbImages[i], out QpdfObject? image) && image is not null)
             {
-                thumbClosure.Add(thumbImages[i]);
-                WalkSubtree(lookup, image, false, thumbClosure, owners, governor, cancellationToken);
+                GovernedCollections.AddNumber(temporary, governor, thumbClosure, thumbImages[i]);
+                WalkSubtree(lookup, image, false, thumbClosure, owners, temporary, governor, cancellationToken);
             }
 
-            foreach (HashSet<int> closure in closures)
+            for (int pageIndex = 0; pageIndex < closures.Count; pageIndex++)
             {
-                thumbClosure.ExceptWith(closure);
+                Except(thumbClosure, closures[pageIndex], governor, cancellationToken);
             }
 
-            thumbClosure.ExceptWith(openDocuments);
-            thumbClosure.ExceptWith(treeSet);
-            thumbClosure.ExceptWith(outlinePlaced);
-            thumbClosures.Add(thumbClosure);
+            Except(thumbClosure, openDocuments, governor, cancellationToken);
+            Except(thumbClosure, treeSet, governor, cancellationToken);
+            Except(thumbClosure, outlinePlaced, governor, cancellationToken);
+            GovernedCollections.AddItem(temporary, governor, thumbClosures, thumbClosure, IntPtr.Size);
             foreach (int number in thumbClosure)
             {
-                if (!thumbUsers.TryGetValue(number, out HashSet<int>? set))
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                if (!thumbUsers.TryGetValue(number, out GovernedIntSet? set))
                 {
-                    set = new HashSet<int>();
-                    thumbUsers[number] = set;
+                    set = GovernedIntSet.Create(temporary, governor, cancellationToken);
+                    GovernedCollections.Assign(temporary, governor, thumbUsers, number, set);
                 }
 
-                set.Add(i);
+                GovernedCollections.AddNumber(temporary, governor, set, i);
             }
         }
 
-        HashSet<int> thumbShared = new();
-        foreach (int number in SortedKeys(lookup))
+        GovernedIntSet thumbShared = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        foreach (int number in SortedKeys(lookup, temporary, governor, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            if (thumbUsers.TryGetValue(number, out HashSet<int>? use) && use.Count >= 2)
+            if (thumbUsers.TryGetValue(number, out GovernedIntSet? use) && use.Count >= 2)
             {
-                thumbShared.Add(number);
+                GovernedCollections.AddNumber(temporary, governor, thumbShared, number);
             }
         }
 
-        List<List<int>> runs = new(thumbImages.Count);
+        List<List<int>> runs = ParserContainers.CreateList<List<int>>(memory);
         for (int i = 0; i < thumbImages.Count; i++)
         {
-            List<int> run = new();
-            List<int> ordered = new(thumbClosures[i]);
-            ordered.Sort();
+            List<int> run = ParserContainers.CreateList<int>(memory);
+            using ParserMemoryScope rowMemory = ParserMemoryScope.Create(governor);
+            List<int> ordered = CopyNumbers(thumbClosures[i], rowMemory, governor, cancellationToken);
+            GovernedCollections.SortNumbers(rowMemory, governor, ordered);
             foreach (int number in ordered)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -650,49 +723,61 @@ internal sealed class LinearizedParts
 
                 if (number == thumbImages[i])
                 {
-                    run.Insert(0, number);
+                    Add(memory, governor, run, number);
+                    for (int position = run.Count - 1; position > 0; position--)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        governor.ChargeWork(1L);
+                        run[position] = run[position - 1];
+                    }
+                    run[0] = number;
                 }
                 else
                 {
-                    run.Add(number);
+                    Add(memory, governor, run, number);
                 }
             }
 
-            runs.Add(run);
+            GovernedCollections.AddItem(memory, governor, runs, run, IntPtr.Size);
         }
 
-        List<int> shared = new(thumbShared);
-        shared.Sort();
-        List<int> tail = new();
+        List<int> shared = CopyNumbers(thumbShared, temporary, governor, cancellationToken);
+        GovernedCollections.SortNumbers(temporary, governor, shared);
+        List<int> tail = ParserContainers.CreateList<int>(memory);
         foreach (int number in shared)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
             if (!users.ContainsKey(number))
             {
-                tail.Add(number);
+                cancellationToken.ThrowIfCancellationRequested();
+                Add(memory, governor, tail, number);
             }
         }
 
         if (tail.Count > 0)
         {
-            runs.Add(tail);
+            GovernedCollections.AddItem(memory, governor, runs, tail, IntPtr.Size);
         }
 
         return runs;
     }
 
     private static List<int> CollectOutlines(
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
         PdfDictionary catalog,
         int catalogNumber,
-        IReadOnlyList<HashSet<int>> closures,
-        HashSet<int> openDocuments,
-        HashSet<int> treeSet,
-        IReadOnlyDictionary<int, int> owners,
+        IReadOnlyList<GovernedIntSet> closures,
+        GovernedIntSet openDocuments,
+        GovernedIntSet treeSet,
+        GovernedIntDictionary<int> owners,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        List<int> ordered = new();
-        if (!catalog.TryGet(PdfName.FromAscii("Outlines"), out QpdfObject? outlinesRaw) || outlinesRaw is null || outlinesRaw is PdfNull)
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        List<int> ordered = ParserContainers.CreateList<int>(memory);
+        if (!GovernedCollections.TryGet(catalog, "Outlines"u8, governor, cancellationToken, out QpdfObject? outlinesRaw) || outlinesRaw is null || outlinesRaw is PdfNull)
         {
             return ordered;
         }
@@ -712,98 +797,100 @@ internal sealed class LinearizedParts
             throw new ArgumentNullException(nameof(owners));
         }
 
-        HashSet<int> outlineSet = new();
-        WalkSubtree(lookup, outlinesReference, true, outlineSet, owners, governor, cancellationToken);
+        GovernedIntSet outlineSet = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        WalkSubtree(lookup, outlinesReference, true, outlineSet, owners, temporary, governor, cancellationToken);
         int outlineRoot = OwnerOf(owners, outlinesReference.ObjectNumber);
         if (!outlineSet.Contains(outlineRoot))
         {
             throw new QpdfParseException("Linearized output with fragmented outlines is not implemented.", null, catalogNumber);
         }
 
-        HashSet<int> placedElsewhere = new();
-        foreach (HashSet<int> closure in closures)
+        GovernedIntSet placedElsewhere = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        for (int pageIndex = 0; pageIndex < closures.Count; pageIndex++)
         {
-            placedElsewhere.UnionWith(closure);
+            Union(temporary, governor, placedElsewhere, closures[pageIndex], cancellationToken);
         }
 
-        placedElsewhere.UnionWith(openDocuments);
-        placedElsewhere.UnionWith(treeSet);
-        placedElsewhere.Add(catalogNumber);
-        HashSet<int> orderedAdded = new();
+        Union(temporary, governor, placedElsewhere, openDocuments, cancellationToken);
+        Union(temporary, governor, placedElsewhere, treeSet, cancellationToken);
+        GovernedCollections.AddNumber(temporary, governor, placedElsewhere, catalogNumber);
+        GovernedIntSet orderedAdded = GovernedIntSet.Create(temporary, governor, cancellationToken);
         if (!placedElsewhere.Contains(outlineRoot))
         {
-            ordered.Add(outlineRoot);
-            orderedAdded.Add(outlineRoot);
+            Add(memory, governor, ordered, outlineRoot);
+            GovernedCollections.AddNumber(temporary, governor, orderedAdded, outlineRoot);
         }
 
-        foreach (int number in SortedKeys(lookup))
+        foreach (int number in SortedKeys(lookup, temporary, governor, cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
             int resolved = OwnerOf(owners, number);
-            if (!outlineSet.Contains(resolved) || placedElsewhere.Contains(resolved) || !orderedAdded.Add(resolved))
+            if (!outlineSet.Contains(resolved) || placedElsewhere.Contains(resolved) || !GovernedCollections.AddNumber(temporary, governor, orderedAdded, resolved))
             {
                 continue;
             }
 
-            ordered.Add(resolved);
+            cancellationToken.ThrowIfCancellationRequested();
+            Add(memory, governor, ordered, resolved);
         }
 
         return ordered;
     }
 
-    private static bool IsUseOutlines(PdfDictionary catalog)
+    private static bool IsUseOutlines(PdfDictionary catalog, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        return catalog.TryGet(PdfName.FromAscii("PageMode"), out QpdfObject? mode)
+        return GovernedCollections.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject? mode)
             && mode is PdfName modeName
-            && modeName.DisplayText == "UseOutlines";
+            && modeName.RawSpan.SequenceEqual("UseOutlines"u8);
     }
 
-    private static HashSet<int> CollectOpenDocuments(
-        Dictionary<int, QpdfObject> lookup,
-        PdfDictionary catalog,
-        IReadOnlyDictionary<int, int> owners,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+    private static GovernedIntSet CollectOpenDocuments(GovernedIntDictionary<QpdfObject> lookup,
+        PdfDictionary catalog, GovernedIntDictionary<int> owners, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        HashSet<int> open = new();
-        string[] keys = ["ViewerPreferences", "PageMode", "Threads", "OpenAction", "AcroForm"];
-        foreach (string key in keys)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!catalog.TryGet(PdfName.FromAscii(key), out QpdfObject? value) || value is null || value is PdfNull)
-            {
-                continue;
-            }
-
-            if (value is PdfReference reference)
-            {
-                if (!lookup.TryGetValue(reference.ObjectNumber, out QpdfObject? target) || target is null)
-                {
-                    continue;
-                }
-
-                WalkSubtree(lookup, target, false, open, owners, governor, cancellationToken);
-            }
-        }
-
+        GovernedIntSet open = GovernedIntSet.Create(memory, governor, cancellationToken);
+        CollectOpen(lookup, catalog, owners, open, "ViewerPreferences"u8, memory, governor, cancellationToken);
+        CollectOpen(lookup, catalog, owners, open, "PageMode"u8, memory, governor, cancellationToken);
+        CollectOpen(lookup, catalog, owners, open, "Threads"u8, memory, governor, cancellationToken);
+        CollectOpen(lookup, catalog, owners, open, "OpenAction"u8, memory, governor, cancellationToken);
+        CollectOpen(lookup, catalog, owners, open, "AcroForm"u8, memory, governor, cancellationToken);
         return open;
     }
 
+    private static void CollectOpen(GovernedIntDictionary<QpdfObject> lookup, PdfDictionary catalog,
+        GovernedIntDictionary<int> owners, GovernedIntSet open, ReadOnlySpan<byte> key,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (GovernedCollections.TryGet(catalog, key, governor, cancellationToken, out QpdfObject value)
+            && value is not PdfNull)
+        {
+            // Walk the catalog value itself: direct containers have indirect
+            // descendants, and an indirect root belongs to the open-document part.
+            WalkSubtree(lookup, value, false, open, owners, memory, governor, cancellationToken);
+        }
+    }
+
     private static void WalkSubtree(
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
         QpdfObject seed,
         bool top,
-        HashSet<int> seen,
-        IReadOnlyDictionary<int, int> owners,
+        GovernedIntSet seen,
+        GovernedIntDictionary<int> owners,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
         if (owners is null)
         {
             throw new ArgumentNullException(nameof(owners));
         }
 
-        HashSet<int> visited = new();
-        List<(QpdfObject Value, bool Top)> stack = new() { (seed, top) };
+        GovernedIntSet visited = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        List<(QpdfObject Value, bool Top)> stack = ParserContainers.CreateList<(QpdfObject Value, bool Top)>(temporary);
+        Push(temporary, governor, stack, seed, top);
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -817,22 +904,22 @@ internal sealed class LinearizedParts
                     continue;
                 }
 
-                if (!visited.Add(reference.ObjectNumber))
+                if (!GovernedCollections.AddNumber(temporary, governor, visited, reference.ObjectNumber))
                 {
                     continue;
                 }
-
-                seen.Add(OwnerOf(owners, reference.ObjectNumber));
 
                 if (!currentTop && target is PdfDictionary dict
-                    && dict.TryGet(PdfName.FromAscii("Type"), out QpdfObject kind)
+                    && GovernedCollections.TryGet(dict, "Type"u8, governor, cancellationToken, out QpdfObject kind)
                     && kind is PdfName name
-                    && name.DisplayText == "Page")
+                    && name.RawSpan.SequenceEqual("Page"u8))
                 {
                     continue;
                 }
 
-                stack.Add((target, false));
+                GovernedCollections.AddNumber(memory, governor, seen, OwnerOf(owners, reference.ObjectNumber));
+                cancellationToken.ThrowIfCancellationRequested();
+                Push(temporary, governor, stack, target, false);
                 continue;
             }
 
@@ -840,7 +927,8 @@ internal sealed class LinearizedParts
             {
                 for (int i = 0; i < array.Count; i++)
                 {
-                    stack.Add((array[i], false));
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Push(temporary, governor, stack, array[i], false);
                 }
 
                 continue;
@@ -854,17 +942,23 @@ internal sealed class LinearizedParts
 
             if (dictionary is not null)
             {
-                foreach (PdfName key in dictionary.Keys)
+                using PdfDictionary.EntryEnumerator dictionaryEntries = dictionary.GetEntryEnumerator();
+                while (dictionaryEntries.MoveNext())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    PdfName key = dictionaryEntries.Current.Key;
                     if (current is PdfStream
-                        && (key.DisplayText == "Length" || key.DisplayText == "Filter" || key.DisplayText == "DecodeParms"))
+                        && (key.RawSpan.SequenceEqual("Length"u8) || key.RawSpan.SequenceEqual("Filter"u8) || key.RawSpan.SequenceEqual("DecodeParms"u8)))
                     {
                         continue;
                     }
 
-                    if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null && entry is not PdfNull)
+                    QpdfObject entry = dictionaryEntries.Current.Value;
+                    if (entry is not PdfNull)
                     {
-                        stack.Add((entry, false));
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Push(temporary, governor, stack, entry, false);
                     }
                 }
             }
@@ -872,26 +966,29 @@ internal sealed class LinearizedParts
     }
     private static List<int> CollectPages(
         PdfDictionary catalog,
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        if (!catalog.TryGet(PdfName.FromAscii("Pages"), out QpdfObject pagesRaw)
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        if (!GovernedCollections.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw)
             || pagesRaw is not PdfReference pagesReference)
         {
             throw new QpdfParseException("Linearized output needs a reachable pages tree.", null, 1);
         }
 
-        List<int> pages = new();
-        HashSet<int> seen = new();
-        List<int> stack = new() { pagesReference.ObjectNumber };
+        List<int> pages = ParserContainers.CreateList<int>(memory);
+        GovernedIntSet seen = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        List<int> stack = ParserContainers.CreateList<int>(temporary);
+        Add(temporary, governor, stack, pagesReference.ObjectNumber);
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
             int number = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
-            if (!seen.Add(number))
+            if (!GovernedCollections.AddNumber(temporary, governor, seen, number))
             {
                 continue;
             }
@@ -901,21 +998,24 @@ internal sealed class LinearizedParts
                 continue;
             }
 
-            if (node.TryGet(PdfName.FromAscii("Type"), out QpdfObject kind)
+            if (GovernedCollections.TryGet(node, "Type"u8, governor, cancellationToken, out QpdfObject kind)
                 && kind is PdfName name
-                && name.DisplayText == "Page")
+                && name.RawSpan.SequenceEqual("Page"u8))
             {
-                pages.Add(number);
+                Add(memory, governor, pages, number);
                 continue;
             }
 
-            if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject kids) && kids is PdfArray array)
+            if (GovernedCollections.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kids) && kids is PdfArray array)
             {
                 for (int i = array.Count - 1; i >= 0; i--)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
                     if (array[i] is PdfReference kid)
                     {
-                        stack.Add(kid.ObjectNumber);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Add(temporary, governor, stack, kid.ObjectNumber);
                     }
                 }
             }
@@ -924,27 +1024,30 @@ internal sealed class LinearizedParts
         return pages;
     }
 
-    private sealed record PageWalk(HashSet<int> Closure, int Thumb);
+    private readonly record struct PageWalk(GovernedIntSet Closure, int Thumb);
 
     private static PageWalk WalkPage(
-        Dictionary<int, QpdfObject> lookup,
+        GovernedIntDictionary<QpdfObject> lookup,
         int pageNumber,
-        IReadOnlyDictionary<int, int> owners,
+        GovernedIntDictionary<int> owners,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
         if (owners is null)
         {
             throw new ArgumentNullException(nameof(owners));
         }
 
-        HashSet<int> seen = new() { pageNumber };
-        HashSet<int> visited = new();
+        GovernedIntSet seen = GovernedIntSet.Create(memory, governor, cancellationToken);
+        GovernedCollections.AddNumber(memory, governor, seen, pageNumber);
+        GovernedIntSet visited = GovernedIntSet.Create(temporary, governor, cancellationToken);
         int thumb = -1;
-        List<(QpdfObject Value, bool Top)> stack = new();
+        List<(QpdfObject Value, bool Top)> stack = ParserContainers.CreateList<(QpdfObject Value, bool Top)>(temporary);
         if (lookup.TryGetValue(pageNumber, out QpdfObject? page))
         {
-            stack.Add((page, true));
+            Push(temporary, governor, stack, page, true);
         }
 
         while (stack.Count > 0)
@@ -960,32 +1063,31 @@ internal sealed class LinearizedParts
                     continue;
                 }
 
-                if (!visited.Add(reference.ObjectNumber))
+                if (!GovernedCollections.AddNumber(temporary, governor, visited, reference.ObjectNumber))
                 {
                     continue;
                 }
 
-                seen.Add(OwnerOf(owners, reference.ObjectNumber));
-
                 if (target is PdfDictionary dict)
                 {
-                    if (dict.TryGet(PdfName.FromAscii("Type"), out QpdfObject kind)
+                    if (GovernedCollections.TryGet(dict, "Type"u8, governor, cancellationToken, out QpdfObject kind)
                         && kind is PdfName name)
                     {
-                        if (name.DisplayText == "Page" && !top)
+                        if (name.RawSpan.SequenceEqual("Page"u8) && !top)
                         {
                             continue;
                         }
 
-                        if (name.DisplayText == "Pages")
+                        if (name.RawSpan.SequenceEqual("Pages"u8))
                         {
-                            seen.Remove(OwnerOf(owners, reference.ObjectNumber));
                             continue;
                         }
                     }
                 }
 
-                stack.Add((target, false));
+                GovernedCollections.AddNumber(memory, governor, seen, OwnerOf(owners, reference.ObjectNumber));
+                cancellationToken.ThrowIfCancellationRequested();
+                Push(temporary, governor, stack, target, false);
                 continue;
             }
 
@@ -993,7 +1095,8 @@ internal sealed class LinearizedParts
             {
                 for (int i = 0; i < array.Count; i++)
                 {
-                    stack.Add((array[i], false));
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Push(temporary, governor, stack, array[i], false);
                 }
 
                 continue;
@@ -1001,16 +1104,22 @@ internal sealed class LinearizedParts
 
             if (current is PdfStream contentStream)
             {
-                foreach (PdfName key in contentStream.Dictionary.Keys)
+                using PdfDictionary.EntryEnumerator streamEntries = contentStream.Dictionary.GetEntryEnumerator();
+                while (streamEntries.MoveNext())
                 {
-                    if (key.DisplayText == "Length" || key.DisplayText == "Filter" || key.DisplayText == "DecodeParms")
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    PdfName key = streamEntries.Current.Key;
+                    if (key.RawSpan.SequenceEqual("Length"u8) || key.RawSpan.SequenceEqual("Filter"u8) || key.RawSpan.SequenceEqual("DecodeParms"u8))
                     {
                         continue;
                     }
 
-                    if (contentStream.Dictionary.TryGet(key, out QpdfObject? entry) && entry is not null && entry is not PdfNull)
+                    QpdfObject entry = streamEntries.Current.Value;
+                    if (entry is not PdfNull)
                     {
-                        stack.Add((entry, false));
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Push(temporary, governor, stack, entry, false);
                     }
                 }
 
@@ -1020,19 +1129,23 @@ internal sealed class LinearizedParts
             if (current is PdfDictionary dictionary)
             {
                 bool topPage = top
-                    && dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject pageKind)
+                    && GovernedCollections.TryGet(dictionary, "Type"u8, governor, cancellationToken, out QpdfObject pageKind)
                     && pageKind is PdfName pageName
-                    && pageName.DisplayText == "Page";
-                foreach (PdfName key in dictionary.Keys)
+                    && pageName.RawSpan.SequenceEqual("Page"u8);
+                using PdfDictionary.EntryEnumerator dictionaryEntries = dictionary.GetEntryEnumerator();
+                while (dictionaryEntries.MoveNext())
                 {
-                    if (topPage && key.DisplayText == "Parent")
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    PdfName key = dictionaryEntries.Current.Key;
+                    if (topPage && key.RawSpan.SequenceEqual("Parent"u8))
                     {
                         continue;
                     }
 
-                    if (topPage && key.DisplayText == "Thumb")
+                    if (topPage && key.RawSpan.SequenceEqual("Thumb"u8))
                     {
-                        if (dictionary.TryGet(key, out QpdfObject? thumbRef) && thumbRef is PdfReference thumbReference)
+                        if (dictionaryEntries.Current.Value is PdfReference thumbReference)
                         {
                             thumb = thumbReference.ObjectNumber;
                         }
@@ -1040,9 +1153,11 @@ internal sealed class LinearizedParts
                         continue;
                     }
 
-                    if (dictionary.TryGet(key, out QpdfObject? entry) && entry is not null && entry is not PdfNull)
+                    QpdfObject entry = dictionaryEntries.Current.Value;
+                    if (entry is not PdfNull)
                     {
-                        stack.Add((entry, false));
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Push(temporary, governor, stack, entry, false);
                     }
                 }
             }
@@ -1052,34 +1167,37 @@ internal sealed class LinearizedParts
     }
     private static List<int> CollectTree(
         PdfDictionary catalog,
-        Dictionary<int, QpdfObject> lookup,
-        HashSet<int> pageSet,
-        IReadOnlyDictionary<int, int> owners,
+        GovernedIntDictionary<QpdfObject> lookup,
+        GovernedIntSet pageSet,
+        GovernedIntDictionary<int> owners,
+        ParserMemoryScope memory,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
         if (owners is null)
         {
             throw new ArgumentNullException(nameof(owners));
         }
 
-        List<int> tree = new();
-        HashSet<int> added = new();
-        if (!catalog.TryGet(PdfName.FromAscii("Pages"), out QpdfObject pagesRaw)
+        List<int> tree = ParserContainers.CreateList<int>(memory);
+        GovernedIntSet added = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        if (!GovernedCollections.TryGet(catalog, "Pages"u8, governor, cancellationToken, out QpdfObject pagesRaw)
             || pagesRaw is not PdfReference pagesReference)
         {
             return tree;
         }
 
-        HashSet<int> visited = new();
-        List<int> stack = new() { pagesReference.ObjectNumber };
+        GovernedIntSet visited = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        List<int> stack = ParserContainers.CreateList<int>(temporary);
+        Add(temporary, governor, stack, pagesReference.ObjectNumber);
         while (stack.Count > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
             int number = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
-            if (!visited.Add(number))
+            if (!GovernedCollections.AddNumber(temporary, governor, visited, number))
             {
                 continue;
             }
@@ -1094,17 +1212,20 @@ internal sealed class LinearizedParts
                 continue;
             }
 
-            if (added.Add(OwnerOf(owners, number)))
+            if (GovernedCollections.AddNumber(temporary, governor, added, OwnerOf(owners, number)))
             {
-                tree.Add(OwnerOf(owners, number));
+                Add(memory, governor, tree, OwnerOf(owners, number));
             }
-            if (node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject kids) && kids is PdfArray array)
+            if (GovernedCollections.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kids) && kids is PdfArray array)
             {
                 for (int i = array.Count - 1; i >= 0; i--)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
                     if (array[i] is PdfReference kid)
                     {
-                        stack.Add(kid.ObjectNumber);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Add(temporary, governor, stack, kid.ObjectNumber);
                     }
                 }
             }
@@ -1113,29 +1234,95 @@ internal sealed class LinearizedParts
         return tree;
     }
 
-    private static int OwnerOf(IReadOnlyDictionary<int, int> owners, int number)
+    private static int OwnerOf(GovernedIntDictionary<int> owners, int number)
     {
         return owners.TryGetValue(number, out int container) ? container : number;
     }
 
-    private static IReadOnlyDictionary<int, int> EmptyOwners()
+    private static List<int> SortedKeys(GovernedIntDictionary<QpdfObject> lookup, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        return new Dictionary<int, int>();
-    }
-
-    private static IReadOnlyList<int> EmptyExtras()
-    {
-        return Array.Empty<int>();
-    }
-
-    private static List<int> SortedKeys(Dictionary<int, QpdfObject> lookup)
-    {
-        List<int> keys = new(lookup.Keys);
-        keys.Sort();
+        List<int> keys = ParserContainers.CreateList<int>(memory);
+        foreach (KeyValuePair<int, QpdfObject> entry in lookup)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Add(memory, governor, keys, entry.Key);
+        }
+        GovernedCollections.SortNumbers(memory, governor, keys);
         return keys;
     }
 
-    private static int FirstOf(HashSet<int> set)
+    private static void Add(ParserMemoryScope memory, ResourceGovernor governor, List<int> values, int value)
+        => GovernedCollections.AddItem(memory, governor, values, value, sizeof(int));
+
+    private static void Push(ParserMemoryScope memory, ResourceGovernor governor,
+        List<(QpdfObject Value, bool Top)> values, QpdfObject value, bool top)
+        => GovernedCollections.AddItem(memory, governor, values, (value, top), 16L);
+
+    private static void AddRange(ParserMemoryScope memory, ResourceGovernor governor, List<int> target,
+        IReadOnlyList<int> source, CancellationToken cancellationToken)
+    {
+        for (int index = 0; index < source.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Add(memory, governor, target, source[index]);
+        }
+    }
+
+    private static List<int> CopyNumbers(IReadOnlyList<int> source, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        List<int> result = ParserContainers.CreateList<int>(memory);
+        AddRange(memory, governor, result, source, cancellationToken);
+        return result;
+    }
+
+    private static List<int> CopyNumbers(GovernedIntSet source, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        List<int> result = ParserContainers.CreateList<int>(memory);
+        foreach (int number in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Add(memory, governor, result, number);
+        }
+        return result;
+    }
+
+    private static GovernedIntSet CopySet(IReadOnlyList<int> source, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        GovernedIntSet result = GovernedIntSet.Create(memory, governor, cancellationToken);
+        for (int index = 0; index < source.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.AddNumber(memory, governor, result, source[index]);
+        }
+        return result;
+    }
+
+    private static void Union(ParserMemoryScope memory, ResourceGovernor governor, GovernedIntSet target,
+        GovernedIntSet source, CancellationToken cancellationToken)
+    {
+        foreach (int number in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.AddNumber(memory, governor, target, number);
+        }
+    }
+
+    private static void Except(GovernedIntSet target, GovernedIntSet source,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        foreach (int number in source)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            target.Remove(number);
+        }
+    }
+
+    private static int FirstOf(GovernedIntSet set)
     {
         foreach (int value in set)
         {
@@ -1145,51 +1332,63 @@ internal sealed class LinearizedParts
         throw new QpdfParseException("Linearized output reached an empty page set.", null, null);
     }
 
-    private static Dictionary<int, int> AssignNumbers(
+    private static GovernedIntDictionary<int> AssignNumbers(
         IReadOnlyList<IReadOnlyList<int>> part7,
         IReadOnlyList<int> part8,
         IReadOnlyList<int> part9,
         IReadOnlyList<int> part4,
         IReadOnlyList<int> part6,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken,
         out int lindictNumber,
         out int hintNumber)
     {
-        Dictionary<int, int> renumber = new();
+        GovernedIntDictionary<int> renumber = GovernedIntDictionary<int>.Create(memory, governor, sizeof(int), cancellationToken);
         int next = 1;
-        foreach (IReadOnlyList<int> run in part7)
+        for (int runIndex = 0; runIndex < part7.Count; runIndex++)
         {
-            foreach (int number in run)
+            IReadOnlyList<int> run = part7[runIndex];
+            for (int index = 0; index < run.Count; index++)
             {
-                renumber[number] = next;
+                int number = run[index];
+                cancellationToken.ThrowIfCancellationRequested();
+                GovernedCollections.Assign(memory, governor, renumber, number, next);
                 next = checked(next + 1);
             }
         }
 
-        foreach (int number in part8)
+        for (int index = 0; index < part8.Count; index++)
         {
-            renumber[number] = next;
+            int number = part8[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
-        foreach (int number in part9)
+        for (int index = 0; index < part9.Count; index++)
         {
-            renumber[number] = next;
+            int number = part9[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
         lindictNumber = next;
         next = checked(next + 1);
-        foreach (int number in part4)
+        for (int index = 0; index < part4.Count; index++)
         {
-            renumber[number] = next;
+            int number = part4[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
         hintNumber = next;
         next = checked(next + 1);
-        foreach (int number in part6)
+        for (int index = 0; index < part6.Count; index++)
         {
-            renumber[number] = next;
+            int number = part6[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
@@ -1198,9 +1397,10 @@ internal sealed class LinearizedParts
 
     private static void AssignStreamedNumbers(
         ClassifiedGraph graph,
-        Dictionary<int, List<int>> containerMembers,
-        out Dictionary<int, int> renumber,
-        out Dictionary<int, (int Container, int Index)> members,
+        GovernedIntDictionary<List<int>> containerMembers,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken,
+        out GovernedIntDictionary<int> renumber,
+        out GovernedIntDictionary<(int Container, int Index)> members,
         out int lindictNumber,
         out int hintNumber,
         out int xrefFirstNumber,
@@ -1210,62 +1410,74 @@ internal sealed class LinearizedParts
         out int maxNumber,
         out int maxMemberIndex)
     {
-        renumber = new();
-        members = new();
+        renumber = GovernedIntDictionary<int>.Create(memory, governor, sizeof(int), cancellationToken);
+        members = GovernedIntDictionary<(int Container, int Index)>.Create(memory, governor, 8L, cancellationToken);
         int next = 1;
-        foreach (IReadOnlyList<int> run in graph.Part7)
+        for (int runIndex = 0; runIndex < graph.Part7.Count; runIndex++)
         {
-            foreach (int number in run)
+            IReadOnlyList<int> run = graph.Part7[runIndex];
+            for (int index = 0; index < run.Count; index++)
             {
-                renumber[number] = next;
+                int number = run[index];
+                cancellationToken.ThrowIfCancellationRequested();
+                GovernedCollections.Assign(memory, governor, renumber, number, next);
                 next = checked(next + 1);
             }
         }
 
-        foreach (int number in graph.Part8)
+        for (int index = 0; index < graph.Part8.Count; index++)
         {
-            renumber[number] = next;
+            int number = graph.Part8[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
-        foreach (int number in graph.Part9)
+        for (int index = 0; index < graph.Part9.Count; index++)
         {
-            renumber[number] = next;
+            int number = graph.Part9[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
         int xrefMain = next;
         next = checked(next + 1);
         maxMemberIndex = 0;
-        foreach (IReadOnlyList<int> run in graph.Part7)
+        for (int runIndex = 0; runIndex < graph.Part7.Count; runIndex++)
         {
-            NumberMembers(run, containerMembers, renumber, members, ref next, ref maxMemberIndex);
+            IReadOnlyList<int> run = graph.Part7[runIndex];
+            NumberMembers(run, containerMembers, renumber, members, memory, governor, cancellationToken, ref next, ref maxMemberIndex);
         }
 
-        NumberMembers(graph.Part8, containerMembers, renumber, members, ref next, ref maxMemberIndex);
-        NumberMembers(graph.Part9, containerMembers, renumber, members, ref next, ref maxMemberIndex);
+        NumberMembers(graph.Part8, containerMembers, renumber, members, memory, governor, cancellationToken, ref next, ref maxMemberIndex);
+        NumberMembers(graph.Part9, containerMembers, renumber, members, memory, governor, cancellationToken, ref next, ref maxMemberIndex);
         mainSize = next;
 
         int lindict = next;
         next = checked(next + 1);
         int xrefFirst = next;
         next = checked(next + 1);
-        foreach (int number in graph.Part4)
+        for (int index = 0; index < graph.Part4.Count; index++)
         {
-            renumber[number] = next;
+            int number = graph.Part4[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
         int hint = next;
         next = checked(next + 1);
-        foreach (int number in graph.Part6)
+        for (int index = 0; index < graph.Part6.Count; index++)
         {
-            renumber[number] = next;
+            int number = graph.Part6[index];
+            cancellationToken.ThrowIfCancellationRequested();
+            GovernedCollections.Assign(memory, governor, renumber, number, next);
             next = checked(next + 1);
         }
 
-        NumberMembers(graph.Part4, containerMembers, renumber, members, ref next, ref maxMemberIndex);
-        NumberMembers(graph.Part6, containerMembers, renumber, members, ref next, ref maxMemberIndex);
+        NumberMembers(graph.Part4, containerMembers, renumber, members, memory, governor, cancellationToken, ref next, ref maxMemberIndex);
+        NumberMembers(graph.Part6, containerMembers, renumber, members, memory, governor, cancellationToken, ref next, ref maxMemberIndex);
         lindictNumber = lindict;
         hintNumber = hint;
         xrefFirstNumber = xrefFirst;
@@ -1276,14 +1488,18 @@ internal sealed class LinearizedParts
 
     private static void NumberMembers(
         IReadOnlyList<int> units,
-        Dictionary<int, List<int>> containerMembers,
-        Dictionary<int, int> renumber,
-        Dictionary<int, (int Container, int Index)> members,
+        GovernedIntDictionary<List<int>> containerMembers,
+        GovernedIntDictionary<int> renumber,
+        GovernedIntDictionary<(int Container, int Index)> members,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken cancellationToken,
         ref int next,
         ref int maxMemberIndex)
     {
-        foreach (int unit in units)
+        for (int unitIndex = 0; unitIndex < units.Count; unitIndex++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.ChargeWork(1L);
+            int unit = units[unitIndex];
             if (!containerMembers.TryGetValue(unit, out List<int>? owned) || owned is null)
             {
                 continue;
@@ -1296,8 +1512,9 @@ internal sealed class LinearizedParts
 
             for (int i = 0; i < owned.Count; i++)
             {
-                renumber[owned[i]] = next;
-                members[owned[i]] = (containerNew, i);
+                cancellationToken.ThrowIfCancellationRequested();
+                GovernedCollections.Assign(memory, governor, renumber, owned[i], next);
+                GovernedCollections.Assign(memory, governor, members, owned[i], (containerNew, i));
                 if (i > maxMemberIndex)
                 {
                     maxMemberIndex = i;

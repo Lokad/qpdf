@@ -129,8 +129,8 @@ internal sealed partial class PdfSerializer
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
         }
 
-        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
-        Dictionary<int, long> offsets = new(objects.Count);
+        await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
+        using WriterIndex<long> offsets = WriterIndex<long>.Create(sizeof(long), _governor, cancellationToken);
         int maxNumber = 0;
         for (int i = 0; i < objects.Count; i++)
         {
@@ -147,13 +147,13 @@ internal sealed partial class PdfSerializer
                 maxNumber = objects[i].Number;
             }
 
-            await AppendAsciiAsync($"{objects[i].Number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Number(objects[i].Number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
             await AppendValueAsync(objects[i].Value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
         long xrefOffset = sink.Length;
-        await AppendAsciiAsync($"xref\n0 {maxNumber + 1}\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("xref\n0 "), WriterPart.Number(maxNumber + 1), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
         for (int number = 1; number <= maxNumber; number++)
         {
@@ -169,15 +169,13 @@ internal sealed partial class PdfSerializer
                 throw new QpdfException($"Object offset {offset} exceeds the classic xref field width.");
             }
 
-            await AppendAsciiAsync($"{offset:D10} 00000 n \n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.ZeroPaddedNumber(offset, 10), WriterPart.Text(" 00000 n \n")], sink, cancellationToken).ConfigureAwait(false);
         }
 
-        string idHex1 = ToHex(id1);
-        string idHex2 = ToHex(id2);
-        _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        string infoText = infoRef.HasValue ? $" /Info {infoRef.Value} 0 R" : string.Empty;
-        await AppendAsciiAsync($"trailer\n<< /Size {maxNumber + 1} /Root 1 0 R" + infoText + " /ID [<" + idHex1 + "><" + idHex2 + ">] >>\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
+        offsets.Dispose();
+
+        await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(maxNumber + 1), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
     }
 
@@ -203,7 +201,7 @@ internal sealed partial class PdfSerializer
             throw new ArgumentNullException(nameof(sink));
         }
 
-        await AppendAsciiAsync($"{number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendValueAsync(value, sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
     }
@@ -273,7 +271,7 @@ internal sealed partial class PdfSerializer
             throw new QpdfException("Object-stream plan holds no groups.");
         }
 
-        Dictionary<int, QpdfObject> lookup = new(objects.Count);
+        using WriterIndex<QpdfObject> lookup = WriterIndex<QpdfObject>.Create(IntPtr.Size, _governor, cancellationToken);
         int maxNumber = 0;
         foreach (NumberedObject numbered in objects)
         {
@@ -294,7 +292,7 @@ internal sealed partial class PdfSerializer
             throw new QpdfException("Streamed output requires dense object numbering from 1.");
         }
 
-        Dictionary<int, (int Container, int Index)> compressed = new();
+        using WriterIndex<(int Container, int Index)> compressed = WriterIndex<(int Container, int Index)>.Create(2L * sizeof(int), _governor, cancellationToken);
         foreach (IReadOnlyList<int> group in groups)
         {
             if (group is null || group.Count == 0 || group.Count > 100)
@@ -303,37 +301,38 @@ internal sealed partial class PdfSerializer
             }
         }
 
-        await AppendAsciiAsync($"%PDF-{version}\n", sink, cancellationToken).ConfigureAwait(false);
-        Dictionary<int, long> offsets = new(maxNumber + groups.Count + 2);
-        List<int> regular = new(objects.Count);
-        HashSet<int> hidden = new();
+        await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
+        using WriterIndex<long> offsets = WriterIndex<long>.Create(sizeof(long), _governor, cancellationToken);
+        using WriterOrder<int> regular = WriterOrder<int>.Create(objects.Count, sizeof(int), _governor, cancellationToken);
+        using WriterIndex<byte> hidden = WriterIndex<byte>.Create(sizeof(byte), _governor, cancellationToken);
         foreach (IReadOnlyList<int> group in groups)
         {
             foreach (int number in group)
             {
-                hidden.Add(number);
+                hidden.TryAdd(number, 0);
             }
         }
 
         foreach (NumberedObject numbered in objects)
         {
-            if (!hidden.Contains(numbered.Number))
+            if (!hidden.ContainsKey(numbered.Number))
             {
                 regular.Add(numbered.Number);
             }
         }
 
+        hidden.Dispose();
         foreach (int number in regular)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
             offsets[number] = sink.Length;
-            await AppendAsciiAsync($"{number} 0 obj\n", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Number(number), WriterPart.Text(" 0 obj\n")], sink, cancellationToken).ConfigureAwait(false);
             await AppendValueAsync(lookup[number], sink, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
-        List<int> containers = new(groups.Count);
+        regular.Dispose();
         int nextId = maxNumber + 1;
         foreach (IReadOnlyList<int> group in groups)
         {
@@ -344,8 +343,7 @@ internal sealed partial class PdfSerializer
                 nextId += 1;
             }
 
-            containers.Add(containerId);
-            List<byte[]> members = new(group.Count);
+            using ObjectStreamCapture members = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
             foreach (int number in group)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -359,56 +357,24 @@ internal sealed partial class PdfSerializer
                     throw new QpdfException($"Object {number} cannot be compressed into an object stream.");
                 }
 
-                members.Add(await SerializeMemberAsync(value, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false));
+                await members.AppendAsync(this, value, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             }
 
-            StringBuilder header = new();
-            long running = 0L;
-            for (int m = 0; m < group.Count; m++)
+            for (int index = 0; index < group.Count; index++)
             {
-                if (m > 0)
-                {
-                    header.Append((char)32);
-                }
-
-                header.Append(group[m].ToString(System.Globalization.CultureInfo.InvariantCulture));
-                header.Append((char)32);
-                header.Append(running.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                checked
-                {
-                    running += members[m].Length;
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                _governor.ChargeWork(1L);
+                compressed[group[index]] = (containerId, index);
             }
-
-            header.Append((char)10);
-            byte[] headerBytes = System.Text.Encoding.ASCII.GetBytes(header.ToString());
-            checked
-            {
-                running += headerBytes.Length;
-            }
-
-            _governor.ReserveMemory(running);
-            List<byte> payload = new(checked((int)Math.Min(running, int.MaxValue)));
-            payload.AddRange(headerBytes);
-            int first = headerBytes.Length;
-            for (int m = 0; m < group.Count; m++)
-            {
-                compressed[group[m]] = (containerId, m);
-                payload.AddRange(members[m]);
-            }
-
-            byte[] payloadBytes = [.. payload];
-            byte[] storedPayload = payloadBytes;
-            string containerFilter = string.Empty;
-            if (compressStreams)
-            {
-                storedPayload = FlateFilter.Encode(payloadBytes, compressionLevel, _limits, _governor);
-                containerFilter = " /Filter /FlateDecode";
-            }
-
+            using ObjectStreamPayload payload = ObjectStreamPayload.Create(group, null, members,
+                compressStreams, compressionLevel, _limits, _governor, cancellationToken);
             offsets[containerId] = sink.Length;
-            await AppendAsciiAsync($"{containerId} 0 obj\n<< /Type /ObjStm /Length {storedPayload.Length}" + containerFilter + $" /N {group.Count} /First {first} >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-            await AppendBytesAsync(storedPayload, sink, cancellationToken).ConfigureAwait(false);
+            using (ObjectStreamHeader header = ObjectStreamHeader.Create(containerId, group.Count, payload.Data.Length,
+                payload.First, payload.Compressed, false, _limits, _governor, cancellationToken))
+            {
+                await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
+            }
+            await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
             if (newlineBeforeEndstream)
             {
                 await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -421,12 +387,14 @@ internal sealed partial class PdfSerializer
             await AppendAsciiAsync("\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         }
 
+        lookup.Dispose();
         int xrefId = nextId;
         int size = xrefId + 1;
         offsets[xrefId] = sink.Length;
         long maxOffset = 0L;
-        foreach (long offset in offsets.Values)
+        foreach (KeyValuePair<int, long> entry in offsets)
         {
+            long offset = entry.Value;
             if (offset > maxOffset)
             {
                 maxOffset = offset;
@@ -434,8 +402,9 @@ internal sealed partial class PdfSerializer
         }
 
         int maxIndex = 0;
-        foreach ((int _, int index) in compressed.Values)
+        foreach (KeyValuePair<int, (int Container, int Index)> entry in compressed)
         {
+            int index = entry.Value.Index;
             if (index > maxIndex)
             {
                 maxIndex = index;
@@ -444,101 +413,39 @@ internal sealed partial class PdfSerializer
 
         int f1 = Math.Max(BytesNeeded(maxOffset), BytesNeeded(size));
         int f2 = BytesNeeded(maxIndex);
-        List<byte> xrefData = new(checked((size) * (1 + f1 + f2)));
+        using WriterXref xref = WriterXref.Create(size, f1, f2, _limits, _governor, cancellationToken);
         for (int number = 0; number < size; number++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (number == 0)
             {
-                AppendUInt(xrefData, 0L, 1);
-                AppendUInt(xrefData, 0L, f1);
-                AppendUInt(xrefData, 0L, f2);
+                xref.Append(0, 0L, 0L);
             }
             else if (compressed.TryGetValue(number, out (int Container, int Index) packed))
             {
-                AppendUInt(xrefData, 2L, 1);
-                AppendUInt(xrefData, packed.Container, f1);
-                AppendUInt(xrefData, packed.Index, f2);
+                xref.Append(2, packed.Container, packed.Index);
             }
             else if (offsets.TryGetValue(number, out long offset))
             {
-                AppendUInt(xrefData, 1L, 1);
-                AppendUInt(xrefData, offset, f1);
-                AppendUInt(xrefData, 0L, f2);
+                xref.Append(1, offset, 0L);
             }
             else
             {
-                AppendUInt(xrefData, 0L, 1);
-                AppendUInt(xrefData, 0L, f1);
-                AppendUInt(xrefData, 0L, f2);
+                xref.Append(0, 0L, 0L);
             }
         }
 
-        byte[] xrefBytes = [.. xrefData];
-        byte[] storedXref = xrefBytes;
-        string xrefFilter = string.Empty;
-        if (compressStreams)
-        {
-            storedXref = FlateFilter.Encode(xrefBytes, compressionLevel, _limits, _governor);
-            xrefFilter = " /Filter /FlateDecode";
-        }
-
-        _governor.ReserveMemory(storedXref.Length);
+        xref.Finish(compressStreams, compressionLevel, _limits);
+        string xrefFilter = compressStreams ? " /Filter /FlateDecode" : string.Empty;
         long xrefOffset = offsets[xrefId];
-        string idHex1 = ToHex(id1);
-        string idHex2 = ToHex(id2);
-        _governor.ChargeWork(idHex1.Length + idHex2.Length);
-        string infoText = infoRef.HasValue ? $" /Info {infoRef.Value} 0 R" : string.Empty;
-        await AppendAsciiAsync($"{xrefId} 0 obj\n<< /Type /XRef /Length {storedXref.Length}" + xrefFilter + $" /Size {size} /Root 1 0 R" + infoText + " /ID [<" + idHex1 + "><" + idHex2 + ">] /W [1 " + f1.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + f2.ToString(System.Globalization.CultureInfo.InvariantCulture) + "] >>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendBytesAsync(storedXref, sink, cancellationToken).ConfigureAwait(false);
+        compressed.Dispose(); offsets.Dispose();
+
+        await AppendFormattedAsync([WriterPart.Number(xrefId), WriterPart.Text(" 0 obj\n<< /Type /XRef /Length "), WriterPart.Number(xref.Data.Length), WriterPart.Text(xrefFilter), WriterPart.Text(" /Size "), WriterPart.Number(size), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] /W [1 "), WriterPart.Number(f1), WriterPart.Text(" "), WriterPart.Number(f2), WriterPart.Text("] >>\nstream\n")], sink, cancellationToken).ConfigureAwait(false);
+        await AppendBytesAsync(xref.Data, sink, cancellationToken).ConfigureAwait(false);
+        xref.Dispose();
         await AppendAsciiAsync("\nendstream\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendAsciiAsync($"startxref\n{xrefOffset}\n%%EOF\n", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
-    }
-
-    private async ValueTask<byte[]> SerializeMemberAsync(QpdfObject value, bool newlineBeforeEndstream, CancellationToken cancellationToken)
-    {
-        BufferSink buffer = new(_limits, _governor);
-        await AppendValueAsync(value, buffer, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-        return buffer.ToArray();
-    }
-
-    private sealed class BufferSink : IByteSink
-    {
-        private readonly List<byte> _bytes = new();
-        private readonly QpdfLimits _limits;
-        private readonly ResourceGovernor _governor;
-
-        internal BufferSink(QpdfLimits limits, ResourceGovernor governor)
-        {
-            _limits = limits ?? throw new ArgumentNullException(nameof(limits));
-            _governor = governor ?? throw new ArgumentNullException(nameof(governor));
-        }
-
-        public long Length => _bytes.Count;
-
-        public byte[] ToArray()
-        {
-            return [.. _bytes];
-        }
-
-        public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
-            if ((long)_bytes.Count + chunk.Length > _limits.MaxOutputBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), (long)_bytes.Count + chunk.Length, _limits.MaxOutputBytes);
-            }
-
-            ReadOnlySpan<byte> span = chunk.Span;
-            for (int i = 0; i < span.Length; i++)
-            {
-                _bytes.Add(span[i]);
-            }
-
-            return ValueTask.CompletedTask;
-        }
     }
 
     internal static int BytesNeeded(long value)
@@ -553,13 +460,8 @@ internal sealed partial class PdfSerializer
         return bytes;
     }
 
-    internal static void AppendUInt(List<byte> output, long value, int width)
-    {
-        for (int i = width - 1; i >= 0; i--)
-        {
-            output.Add((byte)((value >> (8 * i)) & 0xFFL));
-        }
-    }
+    internal static void WriteUInt(Span<byte> output, long value)
+        => WriterNumber.WriteUInt(output, value);
 
 
     internal async ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
@@ -596,13 +498,13 @@ internal sealed partial class PdfSerializer
 
         if (value is PdfName name)
         {
-            await AppendBytesAsync(EncodeName(name), sink, cancellationToken).ConfigureAwait(false);
+            await AppendNameAsync(name, sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         if (value is PdfByteString text)
         {
-            await AppendBytesAsync(EncodeString(text), sink, cancellationToken).ConfigureAwait(false);
+            await AppendStringAsync(text, sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -633,7 +535,7 @@ internal sealed partial class PdfSerializer
                     continue;
                 }
 
-                await AppendBytesAsync(EncodeName(key), sink, cancellationToken).ConfigureAwait(false);
+                await AppendNameAsync(key, sink, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
                 await AppendValueAsync(entry, sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
@@ -645,7 +547,7 @@ internal sealed partial class PdfSerializer
 
         if (value is PdfReference reference)
         {
-            await AppendAsciiAsync($"{reference.ObjectNumber} 0 R", sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Number(reference.ObjectNumber), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -674,13 +576,13 @@ internal sealed partial class PdfSerializer
                 continue;
             }
 
-            await AppendBytesAsync(EncodeName(key), sink, cancellationToken).ConfigureAwait(false);
+            await AppendNameAsync(key, sink, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
             await AppendValueAsync(entry, sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
         }
 
-        await AppendAsciiAsync($"/Length {data.Length} ", sink, cancellationToken).ConfigureAwait(false);
+        await AppendFormattedAsync([WriterPart.Text("/Length "), WriterPart.Number(data.Length), WriterPart.Text(" ")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync(">>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
         if (newlineBeforeEndstream)
@@ -693,9 +595,21 @@ internal sealed partial class PdfSerializer
         }
     }
 
+    private ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)
+        => AppendFormattingAsync(WriterFormatting.Create(parts, _limits, _governor, cancellationToken), sink, cancellationToken);
+
+    private async ValueTask AppendFormattingAsync(WriterFormatting formatted, IByteSink sink, CancellationToken cancellationToken)
+    {
+        using (formatted)
+        {
+            await AppendBytesAsync(formatted.Data, sink, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
     {
-        await AppendBytesAsync(System.Text.Encoding.ASCII.GetBytes(text), sink, cancellationToken).ConfigureAwait(false);
+        using WriterEncoding encoded = WriterEncoding.Ascii(text, _limits, _governor, cancellationToken);
+        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
@@ -710,127 +624,17 @@ internal sealed partial class PdfSerializer
         }
     }
 
-    private static byte[] EncodeName(PdfName name)
+    private async ValueTask AppendNameAsync(PdfName name, IByteSink sink, CancellationToken cancellationToken)
     {
-        byte[] raw = name.RawBytes;
-        List<byte> output = new(raw.Length + 1) { (byte)'/' };
-        foreach (byte b in raw)
-        {
-            if (b == 0)
-            {
-                output.Add((byte)'#');
-                continue;
-            }
-            if (IsRegular(b))
-            {
-                output.Add(b);
-                continue;
-            }
-
-            output.Add((byte)'#');
-            output.Add(HexDigit(b >> 4));
-            output.Add(HexDigit(b & 0x0F));
-        }
-
-        return [.. output];
+        using WriterEncoding encoded = WriterEncoding.Name(name, _limits, _governor, cancellationToken);
+        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private static bool IsRegular(byte b)
+    private async ValueTask AppendStringAsync(PdfByteString text, IByteSink sink, CancellationToken cancellationToken)
     {
-        if (b < 0x21 || b > 0x7E)
-        {
-            return false;
-        }
-
-        return b != (byte)'#' && b != (byte)'(' && b != (byte)')' && b != (byte)'<'
-            && b != (byte)'>' && b != (byte)'[' && b != (byte)']' && b != (byte)'{'
-            && b != (byte)'}' && b != (byte)'/' && b != (byte)'%';
+        using WriterEncoding encoded = WriterEncoding.String(text, _limits, _governor, cancellationToken);
+        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private static byte[] EncodeString(PdfByteString text)
-    {
-        byte[] raw = text.Value;
-        if (text.Hex)
-        {
-            byte[] hex = new byte[(raw.Length * 2) + 2];
-            hex[0] = (byte)'<';
-            for (int i = 0; i < raw.Length; i++)
-            {
-                hex[1 + (i * 2)] = HexDigit(raw[i] >> 4);
-                hex[1 + (i * 2) + 1] = HexDigit(raw[i] & 0x0F);
-            }
 
-            hex[hex.Length - 1] = (byte)'>';
-            return hex;
-        }
-
-        List<byte> output = new(raw.Length + 2) { (byte)'(' };
-        foreach (byte b in raw)
-        {
-            switch (b)
-            {
-                case (byte)'\n':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'n');
-                    break;
-                case (byte)'\r':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'r');
-                    break;
-                case (byte)'\t':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'t');
-                    break;
-                case (byte)'\b':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'b');
-                    break;
-                case (byte)'\f':
-                    output.Add((byte)'\\');
-                    output.Add((byte)'f');
-                    break;
-                case (byte)'(':
-                case (byte)')':
-                case (byte)'\\':
-                    output.Add((byte)'\\');
-                    output.Add(b);
-                    break;
-                default:
-                    if (b < 0x20 || b > 0x7E)
-                    {
-                        output.Add((byte)'\\');
-                        output.Add((byte)('0' + ((b >> 6) & 0x07)));
-                        output.Add((byte)('0' + ((b >> 3) & 0x07)));
-                        output.Add((byte)('0' + (b & 0x07)));
-                    }
-                    else
-                    {
-                        output.Add(b);
-                    }
-
-                    break;
-            }
-        }
-
-        output.Add((byte)')');
-        return [.. output];
-    }
-
-    private static string ToHex(byte[] data)
-    {
-        char[] chars = new char[checked(data.Length * 2)];
-        const string digits = "0123456789ABCDEF";
-        for (int i = 0; i < data.Length; i++)
-        {
-            chars[i * 2] = digits[data[i] >> 4];
-            chars[(i * 2) + 1] = digits[data[i] & 0x0F];
-        }
-
-        return new string(chars);
-    }
-
-    private static byte HexDigit(int value)
-    {
-        return (byte)(value < 10 ? '0' + value : 'A' + value - 10);
-    }
 }

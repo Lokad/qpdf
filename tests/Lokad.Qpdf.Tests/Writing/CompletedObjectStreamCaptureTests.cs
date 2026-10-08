@@ -1,0 +1,147 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Writing;
+
+namespace Lokad.Qpdf.Tests.Writing;
+
+public sealed class CompletedObjectStreamCaptureTests
+{
+    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    private static void FindOwners(Task writing, List<ObjectStreamCapture> owners, int depth)
+    {
+        if (depth > 24) { return; }
+        object? state = writing.GetType().GetField("StateMachine", Instance)?.GetValue(writing);
+        if (state is null) { return; }
+        foreach (FieldInfo field in state.GetType().GetFields(Instance))
+        {
+            if (field.FieldType == typeof(ObjectStreamCapture) && field.GetValue(state) is ObjectStreamCapture owner
+                && !owners.Any(value => ReferenceEquals(value, owner))) { owners.Add(owner); }
+            if (field.Name.StartsWith("<>u__", StringComparison.Ordinal) && field.GetValue(state) is object awaiter)
+            {
+                FindAwaitedOwners(awaiter, owners, depth + 1);
+            }
+        }
+    }
+
+    private static void FindAwaitedOwners(object value, List<ObjectStreamCapture> owners, int depth)
+    {
+        if (depth > 24) { return; }
+        if (value is Task task) { FindOwners(task, owners, depth + 1); return; }
+        if (value.GetType().IsValueType && !value.GetType().IsPrimitive && !value.GetType().IsEnum)
+        {
+            foreach (FieldInfo field in value.GetType().GetFields(Instance))
+            {
+                if (field.GetValue(value) is object nested) { FindAwaitedOwners(nested, owners, depth + 1); }
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (ObjectStreamCapture[] Owners, ParserMemoryScope[] Scopes, WeakReference[] Arrays) FundedStorage(Task writing, string route)
+    {
+        List<ObjectStreamCapture> owners = new();
+        FindOwners(writing, owners, 0);
+        Assert.Equal(route == "qdf" ? 2 : 1, owners.Count);
+        List<ParserMemoryScope> scopes = new();
+        List<WeakReference> arrays = new();
+        long totalCaptured = 0L;
+        foreach (ObjectStreamCapture owner in owners)
+        {
+            byte[]?[] members = typeof(ObjectStreamCapture).GetField("_members", Instance)?.GetValue(owner) as byte[]?[]
+                ?? throw new InvalidOperationException("Expected member table.");
+            ParserMemoryScope scope = typeof(ObjectStreamCapture).GetField("_memory", Instance)?.GetValue(owner) as ParserMemoryScope
+                ?? throw new InvalidOperationException("Expected capture scope.");
+            long reserved = 64L + 32L + members.Length * (long)IntPtr.Size;
+            arrays.Add(new WeakReference(members));
+            foreach (byte[]? bytes in members)
+            {
+                Assert.NotNull(bytes);
+                if (bytes is null) { throw new InvalidOperationException("Expected completed member."); }
+                reserved += bytes.Length + 32L;
+                totalCaptured += bytes.Length;
+                arrays.Add(new WeakReference(bytes));
+            }
+            Assert.Equal(reserved, scope.ReservedBytes);
+            scopes.Add(scope);
+        }
+        Assert.True(totalCaptured >= 4096L * 4L);
+        return (owners.ToArray(), scopes.ToArray(), arrays.ToArray());
+    }
+
+    [Theory]
+    [InlineData("ordinary", "success")]
+    [InlineData("ordinary", "failure")]
+    [InlineData("ordinary", "cancellation")]
+    [InlineData("qdf", "success")]
+    [InlineData("qdf", "failure")]
+    [InlineData("qdf", "cancellation")]
+    [InlineData("linearized", "success")]
+    [InlineData("linearized", "failure")]
+    [InlineData("linearized", "cancellation")]
+    [InlineData("counting", "success")]
+    [InlineData("counting", "failure")]
+    [InlineData("counting", "cancellation")]
+    public async Task CapturesStayFundedThroughOutputAndDieWithRetainedTasks(string route, string outcome)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using CancellationTokenSource cancellation = new();
+        PausedContainerSink sink = new(outcome == "failure");
+        Task<long> writing = ObjectStreamWriterCaptureTests.Start(route, ObjectStreamWriterCaptureTests.Model(false),
+            QpdfLimits.Default, governor, sink, cancellation.Token);
+        await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            (ObjectStreamCapture[] owners, ParserMemoryScope[] scopes, WeakReference[] arrays) = FundedStorage(writing, route);
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            Assert.All(arrays, value => Assert.True(value.IsAlive));
+            if (outcome == "cancellation") { cancellation.Cancel(); }
+            else { sink.Resume(); }
+            if (outcome == "success") { Assert.True(await writing > 0L); }
+            else if (outcome == "failure")
+            {
+                QpdfException failure = await Assert.ThrowsAsync<QpdfException>(async () => await writing);
+                Assert.Equal("Authored captured-member output failure.", failure.Message);
+            }
+            else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
+            Assert.All(scopes, scope => Assert.Equal(0L, scope.ReservedBytes));
+            Assert.All(owners, owner => Assert.Null(typeof(ObjectStreamCapture).GetField("_members", Instance)?.GetValue(owner)));
+            for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+            Assert.All(arrays, value => Assert.False(value.IsAlive));
+            GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owners); GC.KeepAlive(scopes);
+        }
+        finally
+        {
+            sink.Resume();
+            try { await writing; }
+            catch (QpdfException) { }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    private sealed class PausedContainerSink(bool fail) : IByteSink
+    {
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool _next;
+        private bool _paused;
+        internal Task Entered => _entered.Task;
+        public long Length { get; private set; }
+        internal void Resume() => _resume.TrySetResult();
+
+        public async ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
+        {
+            if (_next && !_paused)
+            {
+                _paused = true;
+                _entered.TrySetResult();
+                await _resume.Task.WaitAsync(cancellationToken);
+                if (fail) { throw new QpdfException("Authored captured-member output failure."); }
+            }
+            _next |= chunk.Span.IndexOf("/Type /ObjStm"u8) >= 0;
+            cancellationToken.ThrowIfCancellationRequested();
+            Length += chunk.Length;
+        }
+    }
+}

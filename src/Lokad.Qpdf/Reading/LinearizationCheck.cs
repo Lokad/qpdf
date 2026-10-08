@@ -14,7 +14,7 @@ internal enum LinearizationStatus
 }
 
 /// <summary>Tri-state outcome of linearization inspection.</summary>
-internal sealed record LinearizationInspection(LinearizationStatus Status, int SharedGroups, string Detail);
+internal readonly record struct LinearizationInspection(LinearizationStatus Status, int SharedGroups, string ErrorMessage);
 
 /// <summary>Retained linearization parameter and hint-table values.</summary>
 internal sealed record LinearizationData(
@@ -97,12 +97,17 @@ internal static class LinearizationCheck
         CancellationToken cancellationToken)
     {
         LinearizationInspection inspection = Inspect(engine, pageCount, limits, governor, cancellationToken);
+        if (inspection.Status == LinearizationStatus.NotLinearized)
+        {
+            return CheckOutcome.Literal(governor, "linearization", QpdfCheckStatus.Passed, "File is not linearized.");
+        }
         if (inspection.Status == LinearizationStatus.Invalid)
         {
-            return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Failed, inspection.Detail);
+            return CheckOutcome.Create(governor, "linearization", QpdfCheckStatus.Failed, [inspection.ErrorMessage]);
         }
 
-        return new QpdfCheckOutcome("linearization", QpdfCheckStatus.Passed, inspection.Detail);
+        return CheckOutcome.Create(governor, "linearization", QpdfCheckStatus.Passed,
+            ["Linearized file with ", pageCount, " pages; ", inspection.SharedGroups, " shared groups; hint tables valid."]);
     }
 
     internal static LinearizationInspection Inspect(
@@ -132,14 +137,14 @@ internal static class LinearizationCheck
             LinearizationData? data = TryReadData(engine, pageCount, limits, governor, cancellationToken);
             if (data is null)
             {
-                return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, "File is not linearized.");
+                return new LinearizationInspection(LinearizationStatus.NotLinearized, 0, string.Empty);
             }
 
             int shared = data.SharedTable.TotalCount;
             return new LinearizationInspection(
                 LinearizationStatus.Valid,
                 shared,
-                $"Linearized file with {pageCount} pages; {shared} shared groups; hint tables valid.");
+                string.Empty);
         }
         catch (QpdfException ex)
         {

@@ -27,14 +27,14 @@ internal sealed class ObjectStreamPayload : IDisposable
     internal static ObjectStreamPayload Create(IReadOnlyList<int> numbers, IReadOnlyDictionary<int, int>? renumber,
         ObjectStreamCapture members, bool compress, int? compressionLevel, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken cancellationToken)
-        => CreateCore(numbers, renumber, null, null, members, compress, compressionLevel, limits, governor, cancellationToken);
+        => CreateCore(numbers, renumber, null, null, null, members, compress, compressionLevel, limits, governor, cancellationToken);
 
     internal static ObjectStreamPayload CreateLinearized(IReadOnlyList<int> numbers, GovernedIntDictionary<int> renumber,
         ObjectStreamCapture members, bool compress, int? compressionLevel, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(renumber);
-        return CreateCore(numbers, null, renumber, null, members, compress, compressionLevel, limits, governor, cancellationToken);
+        return CreateCore(numbers, null, renumber, null, null, members, compress, compressionLevel, limits, governor, cancellationToken);
     }
 
     internal static ObjectStreamPayload CreateQdf(IReadOnlyList<int> numbers, IReadOnlyDictionary<int, int>? renumber,
@@ -42,11 +42,22 @@ internal sealed class ObjectStreamPayload : IDisposable
         ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(headers);
-        return CreateCore(numbers, renumber, null, headers, bodies, false, null, limits, governor, cancellationToken);
+        return CreateCore(numbers, renumber, null, null, headers, bodies, false, null, limits, governor, cancellationToken);
+    }
+
+    internal static ObjectStreamPayload CreateQdfIndexed(IReadOnlyList<int> numbers, WriterIndex<int> renumber,
+        ObjectStreamCapture headers, ObjectStreamCapture bodies, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(renumber);
+        ArgumentNullException.ThrowIfNull(headers);
+        renumber.CheckOwner(governor);
+        return CreateCore(numbers, null, null, renumber, headers, bodies, false, null, limits, governor, cancellationToken);
     }
 
     private static ObjectStreamPayload CreateCore(IReadOnlyList<int> numbers, IReadOnlyDictionary<int, int>? renumber,
-        GovernedIntDictionary<int>? governedRenumber, ObjectStreamCapture? headers, ObjectStreamCapture bodies, bool compress, int? compressionLevel,
+        GovernedIntDictionary<int>? governedRenumber, WriterIndex<int>? writerRenumber,
+        ObjectStreamCapture? headers, ObjectStreamCapture bodies, bool compress, int? compressionLevel,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(numbers);
@@ -81,6 +92,10 @@ internal sealed class ObjectStreamPayload : IDisposable
                     throw new QpdfException("Object-stream payload lost a member number.");
                 }
                 if (governedRenumber is not null && !governedRenumber.TryGetValue(number, out number))
+                {
+                    throw new QpdfException("Object-stream payload lost a member number.");
+                }
+                if (writerRenumber is not null && !writerRenumber.TryGetValue(number, out number))
                 {
                     throw new QpdfException("Object-stream payload lost a member number.");
                 }

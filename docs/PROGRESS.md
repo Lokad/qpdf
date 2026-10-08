@@ -1,35 +1,51 @@
 # Progress
 
-## Integrated storage foundation
+## Combined implementation
 
-The shared parser/recovery/copier now uses governed raw-name storage with charged
-collision work and immutable backing ownership. Diagnostics admit text/records
-and future presentation work before acceptance; staged JSON warnings remain
-funded through input closure, then export without consuming their reserved work.
-Escaping value/check/diagnostic aliases stay funded while completed readers/jobs
-release ledger metadata. Borrowed values and prior output targets survive failures.
+The owned parser/diagnostic/copier and inspection/writer changes are integrated
+in coherent buildable commits. Raw-name tables charge collision work; diagnostic
+storage and future export work are admitted before acceptance; JSON stages warnings
+through input closure. Escaping value/check/diagnostic aliases remain funded while
+completed jobs release ledger metadata. Writer row/index/capture/header/payload,
+encoding/order/xref/remap/layout owners detach dead backing at their last consumer.
+Hint bodies and broader complete-job ownership remain open.
 
-The intermediate Release solution builds with zero warnings/errors and **380
-focused checks pass**, including all four public JSON repair controls under their
-original 247494/247489-byte ceilings. Splitting integration first exposed missing
-recovery-helper/collection dependencies and then the required JSON staging calls;
-those build failures and four failed public jobs are retained, with no relaxed
-fixture, budget, deadline, cancellation or GC controls.
+Document-open traversal now includes direct containers/indirect roots, stops at
+neighboring pages before assigning physical owners and orders generated object-stream
+containers with catalog objects. Catalog copying preserves non-name PageMode.
+The original eight native form warnings disappear. All **152** native observations
+remain: **144** outputs pass native linearization and match physical assignments,
+zero warnings; **eight** array-AcroForm schema rejections/native successes remain
+explicit (HINT-05). The checker still passes eight preserved invalid old form
+outputs: **HINT-02 is the next public failure**, followed by hint ownership HINT-03.
 
-Inspection/classifier/writer integration follows in INT-01. The already tested
-combined runtime is `4972E00D`, tests `BDA364D9`: 9767 full-suite passes and fresh
-full reference/differential with 1846 parser comparisons/432 rewrite trios.
-That wider evidence remains bound to its exact combined source freeze; it does
-not claim that this intermediate tree closes all audit obligations.
+The combined runtime `4972E00D` / tests `BDA364D9` passes **9767** Release cases,
+retaining all **9597** preceding occurrences; 170 new controls. Identical tests
+on preceding `8941BF8C` yield **120 fail / 9647 preserve / 9767 eligible**, no
+loader failures/exclusions. The intermediate foundation builds with zero warnings
+and passes **380** focused checks, including four public JSON repair jobs at their
+original 247494/247489-byte ceilings. Draft dependency/build/public failures are
+retained; fixtures, budgets, deadlines, cancellation and GC controls are unchanged.
 
-ImageSharp remains 3.1.12 with all five locks unchanged. The five advisories have
-explicit temporary URL-specific exclusions; audit/other warnings remain enabled.
-Strict restore/build and fresh consumer restore pass without warning overrides.
-The [assessment](DEVELOPMENT.md) records the accepted paths and review triggers.
+Fresh full reference/differential passes **1846** exact parser comparisons and
+**432** rewrite trios on the combined runtime. Original native results remain
+**868 headers / 804 decoded / 868 exits**; all 64 hint pairs/128 physical layouts
+are independently valid. Raw byte equality remains separate. The 908 public
+signatures and independently sampled carrier sizes are unchanged.
 
-The [finite checklist](AUDIT-CLOSURE.md) names all remaining public-route checks
-and pass conditions. Next demonstrated defects: the checker passes eight invalid
-form linearizations (HINT-02); the 4 KiB hint encoder retains 4047 bytes after
-28 calls with dead returned bodies (HINT-03). M11/A01–A07 and both completion
-verdicts remain open. Original history, failures and measurement qualifications
-are preserved in [PROGRESS-HISTORY](PROGRESS-HISTORY.md).
+The five ImageSharp 3.1.12 advisories have explicit temporary URL-specific
+exclusions; audit and other warnings remain enabled, all five locks unchanged.
+Strict restore/build and fresh artifact-consumer restore pass without overrides.
+The [assessment](DEVELOPMENT.md) records reachability and review triggers.
+
+Measured phases: combined test execution 4m57s (TRX interval 5m05s); full reference/
+differential/parser 39m41s; strict build 37s. Intermediate focused execution 12s
+(process 17s), build 34s. Final package/consumer timings and exact source/artifact
+identities are retained with terminal verification evidence.
+
+The [finite checklist](AUDIT-CLOSURE.md) names every remaining route/check/pass
+condition. Keep the 4 KiB/28-call/4047-byte hint finding, grouped +24 bytes,
+1768-byte failed zero-allocation sample and unchanged passing repeats explicit.
+Original controls, qualifications and history remain in
+[PROGRESS-HISTORY](PROGRESS-HISTORY.md). M11/A01–A07, overlay/form/default/context,
+cold/codec/RSS/CPU/host, visual/reference CI and both completion verdicts stay open.

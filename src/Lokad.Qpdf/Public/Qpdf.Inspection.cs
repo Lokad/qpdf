@@ -30,7 +30,7 @@ public static partial class Qpdf
 
         if (infos.Count == 0)
         {
-            diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} has no embedded files");
+            diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [inputPath.Value, " has no embedded files"]);
             return infos;
         }
 
@@ -44,40 +44,40 @@ public static partial class Qpdf
                 generation = entry.Second;
             }
 
-            diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"{info.Key} -> {info.StreamObjectNumber},{generation}");
+            diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [info.Key, " -> ", info.StreamObjectNumber, ",", generation]);
             if (info.FileName.Length > 0)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  filename: {info.FileName}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  filename: ", info.FileName]);
             }
 
             if (info.Description.Length > 0)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  description: {info.Description}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  description: ", info.Description]);
             }
 
             if (info.MimeType.Length > 0)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  mime type: {info.MimeType}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  mime type: ", info.MimeType]);
             }
 
             if (info.CreationDate.Length > 0)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  creation date: {info.CreationDate}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  creation date: ", info.CreationDate]);
             }
 
             if (info.ModDate.Length > 0)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  modification date: {info.ModDate}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  modification date: ", info.ModDate]);
             }
 
             if (info.Checksum.Length > 0)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  checksum: {info.Checksum}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  checksum: ", info.Checksum]);
             }
 
             if (info.Size >= 0L)
             {
-                diagnostics.Add(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, $"  size: {info.Size}");
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  size: ", info.Size]);
             }
         }
 
@@ -95,17 +95,17 @@ public static partial class Qpdf
         LinearizationInspection inspection = LinearizationCheck.Inspect(document.Engine, document.PageCount, limits, governor, cancellationToken);
         if (inspection.Status == LinearizationStatus.NotLinearized)
         {
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} is not linearized");
+            diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
             return;
         }
 
         if (inspection.Status == LinearizationStatus.Valid)
         {
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value}: no linearization errors");
+            diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, ": no linearization errors"]);
             return;
         }
 
-        diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"Check 'linearization' failed: {inspection.Detail}");
+        diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ["Check 'linearization' failed: ", inspection.ErrorMessage]);
     }
 
     private static void ShowLinearization(
@@ -123,21 +123,22 @@ public static partial class Qpdf
         }
         catch (QpdfException ex)
         {
-            diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"{inputPath.Value}: error encountered while checking linearization data: {ex.Message}");
+            diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, [inputPath.Value, ": error encountered while checking linearization data: ", ex.Message]);
             return;
         }
 
         if (data is null)
         {
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, $"{inputPath.Value} is not linearized");
+            diagnostics.AddParts(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, [inputPath.Value, " is not linearized"]);
             return;
         }
 
+        using ParserMemoryScope classificationMemory = ParserMemoryScope.Create(governor);
         ClassifiedGraph graph;
         try
         {
-            System.Collections.Generic.HashSet<int> excluded = new() { data.LindictObject, data.HintObject };
-            graph = LinearizationReport.ClassifyDocument(document.Engine, excluded, governor, cancellationToken);
+            graph = LinearizationReport.ClassifyDocument(document.Engine, data.LindictObject, data.HintObject,
+                classificationMemory, governor, cancellationToken);
         }
         catch (QpdfException ex)
         {
@@ -145,10 +146,9 @@ public static partial class Qpdf
             return;
         }
 
-        foreach (string line in LinearizationReport.Build(inputPath.Value, data, graph))
+        using (graph)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            diagnostics.Add(QpdfDiagnosticCode.LinearizationReport, QpdfDiagnosticSeverity.Info, line);
+            LinearizationReport.Write(inputPath.Value, data, graph, governor, diagnostics, cancellationToken);
         }
     }
 
@@ -248,19 +248,7 @@ public static partial class Qpdf
             governor.ChargeWork(1L);
             ParserContainers.AddItem(memory, numbers, number, sizeof(int));
         }
-        try
-        {
-            numbers.Sort((left, right) =>
-            {
-                governor.CheckCancellation();
-                governor.ChargeWork(1L);
-                return left.CompareTo(right);
-            });
-        }
-        catch (InvalidOperationException ex) when (ex.InnerException is QpdfException or OperationCanceledException)
-        {
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex.InnerException ?? ex).Throw();
-        }
+        GovernedCollections.SortNumbers(memory, governor, numbers);
         foreach (int number in numbers)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -271,10 +259,16 @@ public static partial class Qpdf
                 continue;
             }
 
-            string line = entry.Kind == Reading.XrefEntryKind.Compressed
-                ? $"{number}/0: compressed; stream = {entry.First}, index = {entry.Second}"
-                : $"{number}/{entry.Second}: uncompressed; offset = {entry.First}";
-            diagnostics.Add(QpdfDiagnosticCode.XrefListing, QpdfDiagnosticSeverity.Info, line);
+            if (entry.Kind == Reading.XrefEntryKind.Compressed)
+            {
+                diagnostics.AddParts(QpdfDiagnosticCode.XrefListing, QpdfDiagnosticSeverity.Info,
+                    [number, "/0: compressed; stream = ", entry.First, ", index = ", entry.Second]);
+            }
+            else
+            {
+                diagnostics.AddParts(QpdfDiagnosticCode.XrefListing, QpdfDiagnosticSeverity.Info,
+                    [number, "/", entry.Second, ": uncompressed; offset = ", entry.First]);
+            }
         }
     }
 
@@ -290,16 +284,17 @@ public static partial class Qpdf
                 throw new QpdfException("Page dictionary is not an indirect object.");
             }
 
-            diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"page {index}: {location.Source.ObjectNumber} {location.Source.Generation} R");
+            diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["page ", index, ": ", location.Source.ObjectNumber, " ", location.Source.Generation, " R"]);
             if (plan.WithImages)
             {
-                List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken);
+                using ParserMemoryScope imageMemory = ParserMemoryScope.Create(governor);
+                List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken, imageMemory);
                 if (images.Count > 0)
                 {
                     diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  images:");
                     foreach (PageImage image in images)
                     {
-                        diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    /{image.Name}: {image.Number} {image.Generation} R, {image.Width} x {image.Height}");
+                        diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    /", DiagnosticPart.Name(image.Name), ": ", image.Number, " ", image.Generation, " R, ", image.Width, " x ", image.Height]);
                     }
                 }
             }
@@ -309,7 +304,7 @@ public static partial class Qpdf
             foreach (PdfReference content in PageContentRefs(location.Page, governor, contentMemory))
             {
                 governor.ChargeWork(1L);
-                diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, $"    {content.ObjectNumber} {content.Generation} R");
+                diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    ", content.ObjectNumber, " ", content.Generation, " R"]);
             }
 
             index = checked(index + 1);
