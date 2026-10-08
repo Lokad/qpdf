@@ -48,16 +48,16 @@ internal static class InlineImages
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        PoolResolver resolver = new(copier.CopiedObjects);
-        List<byte[]>? chunks = CollectDecodedContents(copier, page, resolver, limits, governor, cancellationToken);
+        using AnalysisChunks? chunks = CollectDecodedContents(copier, page, limits, governor, cancellationToken);
         if (chunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to filter content stream; not attempting to externalize inline images.");
             return page;
         }
 
-        byte[] joined = JoinBytes(chunks, governor);
-        RewriteResult rewritten = RewriteContent(copier, page, joined, minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
+        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, cancellationToken);
+        chunks.Dispose();
+        RewriteResult rewritten = RewriteContent(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
         if (!rewritten.Changed || rewritten.Stream is null || rewritten.Resources is null)
         {
             return page;
@@ -115,14 +115,17 @@ internal static class InlineImages
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        PoolResolver resolver = new(copier.CopiedObjects);
-        byte[]? decoded = DecodeStream(form, resolver, limits, governor);
-        if (decoded is null)
+        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
+        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
+        if (!chunks.TryAddForInlineImages(form, resolver, limits))
         {
             return;
         }
 
-        RewriteResult rewritten = RewriteContent(copier, null, decoded, minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
+        RewriteResult rewritten = RewriteContent(copier, null, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken);
+        chunks.Dispose();
+        resolverMemory.Dispose();
         if (!rewritten.Changed || rewritten.Stream is null || rewritten.Resources is null)
         {
             return;
@@ -158,138 +161,49 @@ internal static class InlineImages
 
     private sealed record RewriteResult(bool Changed, PdfStream? Stream, PdfDictionary? Resources, byte[] Data);
 
-    private static List<byte[]>? CollectDecodedContents(
+    private static AnalysisChunks? CollectDecodedContents(
         GraphCopier copier,
         PdfDictionary page,
-        PoolResolver resolver,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null || contents is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) ||
+            contents is PdfNull || contents is not (PdfArray or PdfReference or PdfStream))
         {
-            return new List<byte[]>();
+            return AnalysisChunks.Create(governor, cancellationToken);
         }
 
-        List<PdfStream> streams = new();
-        if (contents is PdfArray array)
+        using ContentEntries streams = ContentEntries.Create(governor, cancellationToken);
+        PdfArray? array = contents as PdfArray;
+        int count = array?.Count ?? 1;
+        // Validate every entry before decoding any stream, preserving failure order.
+        for (int index = 0; index < count; index++)
         {
-            foreach (QpdfObject item in array.Items)
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            QpdfObject? item = array is null ? contents : array[index];
+            int? objectId = null;
+            if (item is PdfReference reference)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                QpdfObject target = item is PdfReference reference
-                    ? ResolveOrNull(resolver, reference) ?? item
-                    : item;
-                if (target is not PdfStream stream)
-                {
-                    return null;
-                }
-
-                streams.Add(stream);
+                objectId = reference.ObjectNumber;
+                PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out item);
             }
+            if (item is not PdfStream stream) { return null; }
+            streams.Add(new(objectId, index, stream));
         }
-        else if (contents is PdfReference singleReference)
-        {
-            QpdfObject? target = ResolveOrNull(resolver, singleReference);
-            if (target is not PdfStream stream)
-            {
-                return null;
-            }
-
-            streams.Add(stream);
-        }
-        else if (contents is PdfStream single)
-        {
-            streams.Add(single);
-        }
-        else
-        {
-            return new List<byte[]>();
-        }
-
-        List<byte[]> chunks = new(streams.Count);
-        foreach (PdfStream stream in streams)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            byte[]? decoded = DecodeStream(stream, resolver, limits, governor);
-            if (decoded is null)
-            {
-                return null;
-            }
-
-            chunks.Add(decoded);
-        }
-
-        return chunks;
-    }
-
-    private static byte[]? DecodeStream(
-        PdfStream stream,
-        PoolResolver resolver,
-        QpdfLimits limits,
-        ResourceGovernor governor)
-    {
-        FilterPlan stages;
+        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
+        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         try
         {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
-        }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
-        {
-            return stream.Data;
-        }
-        using FilterPlan stageOwner = stages;
-
-        if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, "specialized"))
-        {
-            return stream.Data;
-        }
-
-        try
-        {
-            return FilterChain.Decode(stream.Data, stages, limits, governor);
-        }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
-        {
-            return null;
-        }
-    }
-    private static byte[] JoinBytes(List<byte[]> parts, ResourceGovernor governor)
-    {
-        List<byte[]> joined = new(parts.Count * 2);
-        bool needNewline = false;
-        foreach (byte[] part in parts)
-        {
-            governor.ChargeWork(1L);
-            if (needNewline)
+            for (int index = 0; index < streams.Count; index++)
             {
-                joined.Add([(byte)'\n']);
+                if (!chunks.TryAddForInlineImages(streams.Get(index).Stream, resolver, limits))
+                { chunks.Dispose(); return null; }
             }
-
-            joined.Add(part);
-            needNewline = part.Length == 0 || part[part.Length - 1] != (byte)'\n';
+            return chunks;
         }
-
-        int total = 0;
-        foreach (byte[] part in joined)
-        {
-            checked
-            {
-                total += part.Length;
-            }
-        }
-
-        governor.ReserveMemory(total);
-        byte[] output = new byte[total];
-        int at = 0;
-        foreach (byte[] part in joined)
-        {
-            Buffer.BlockCopy(part, 0, output, at, part.Length);
-            at += part.Length;
-        }
-
-        return output;
+        catch { chunks.Dispose(); throw; }
     }
 
     private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, PdfName key, QpdfObject value, ResourceGovernor governor)

@@ -295,6 +295,31 @@ Windows checkpoint closes no inventory context or audit verdict. Inline images,
 legacy inspection output, broader integration/defaults/contexts, measurements,
 undefined form-font mismatch, M11/A01–A07 and both verdicts remain open.
 
+## Inline-image input storage
+
+Page entry metadata, decoded chunks, scoped filter names and exact joined bytes
+now have owners through their consumers; forms share the decode owner. Raw
+fallbacks borrow immutable payloads. Validation precedes decoding, missing/null/
+generation behavior remains, and page warning/form silence on supported decode
+failure is preserved. Limits and both cancellation routes propagate.
+
+Isolated 7679 and pending 8402 offline cases pass, including 37 new controls.
+All preceding stable identities, 226 original test sources and five locks remain.
+Identical compatible controls on preceding pending 624EED12 fail 15 / preserve
+13 / 28 eligible, zero loaders; nine new owner controls are excluded. Fresh
+358 native comparisons / 500 rereads, full reference with 1846 parser comparisons
+and 432 rewrite trios, and package/symbol/50-smoke/two-negative checks pass for
+pending 8FE9C3F9 / tests 6387A8E1 at build checkpoint e28e3fc, on local Windows.
+
+Per-mode fixed-JIT probes retain their measured allocation and raw process-heap
+differences; all 28 final comparisons fit admission and disposal releases it.
+Earlier positive excesses and a final negative 8224-byte delta stay explicit;
+exclusive helper/cold/default/grouped/runtime-state attribution remains open.
+An initial unchanged QDF header weak-buffer control failed; final/preceding
+focused 21-case runs and the unchanged full rerun pass. That observation remains
+open. Inline reconstruction, legacy inspection output, wider diagnostic/ownership
+integration, five partial contexts, M11/A01–A07 and both verdicts are still open.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

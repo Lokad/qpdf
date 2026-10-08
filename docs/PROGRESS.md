@@ -1,5 +1,44 @@
 # Progress
 
+## Scoped inline-image inputs
+
+Inline-image page inputs now own entry metadata, decoded chunks and exact joined
+bytes through their consumer. Raw fallbacks borrow immutable stream storage;
+forms share the same decode owner. All entries validate before decoding. Invalid
+or unsupported filter declarations keep raw bytes; supported decode failures
+keep the page with its original warning and keep forms silently. Limits and both
+cancellation routes propagate. Unknown filter names retire with the scoped plan;
+ordinary filter-plan name aliases retain their existing ownership contract.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7679 offline cases / 37 new controls** and pending **8402 / 37** pass. All
+7642 isolated / 8365 pending stable identities, 226 original test sources and
+five locks remain. Identical compatible controls on preceding pending 624EED12
+fail **15 / preserve 13 / 28 eligible**, zero loaders; nine new owner controls
+are excluded. Only private resolver-argument and borrowed-view binding differ.
+
+Independent fixed-JIT, fresh-per-mode probes record 128 operations per calibration
+and measured batch: all 28 net process-heap comparisons fit live admission and
+disposal releases it. 128 rooted disposed owners per process retain zero of six
+witnesses. Helper allocation includes input/filter/decoder/entry/buffer storage;
+prepared inputs/controllers/holders/binding/reflection/reporting are excluded.
+Earlier grouped/process observations exceed admission; the final record includes
+an unadjusted negative 8224-byte heap delta. These are net process observations,
+not exclusive helper-retention bounds. Default/grouped/cold/runtime-state and
+whole-job/RSS/CPU/host attribution remain open. Harness faults remain archived.
+
+The initial pending suite passes 8401 / fails one unchanged QDF header-buffer
+retirement control. Both final and preceding focused runs pass all 21 controls;
+the unchanged full rerun passes 8402. The original observation stays open.
+
+Fresh **358 native comparisons / 500 rereads**, full differential/reference,
+**1846 parser comparisons / 432 rewrite trios**, package/symbol checks, 50 consumer
+smokes and both specific negatives pass on pending 8FE9C3F9 / tests 6387A8E1 at
+build checkpoint e28e3fc. Local Windows evidence; no package source commit or URL.
+Inline reconstruction, legacy inspection output, remaining consumers/codecs/JPEG/
+replay/hints/presentation/diagnostics, broader integration, five partial contexts,
+undefined form-font mismatch, M11/A01–A07 and both verdicts remain open.
+
 ## Governed orphan removal
 
 Orphan removal now owns candidate/reference sets, traversal backing and removal

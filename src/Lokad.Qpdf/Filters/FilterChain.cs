@@ -16,17 +16,22 @@ internal readonly record struct FilterStage(string Name, PdfDictionary? Parms, I
 internal static class FilterChain
 {
     internal static FilterPlan Resolve(PdfDictionary streamDict, IIndirectResolver? resolver,
-        ResourceGovernor governor, CancellationToken token) => ResolveCore(streamDict, resolver, governor, token, null);
+        ResourceGovernor governor, CancellationToken token) => ResolveCore(streamDict, resolver, governor, token, null, true);
+
+    // Stage names are borrowed only while the returned plan is alive.
+    // Use when the consumer cannot return stage strings or name-bearing errors.
+    internal static FilterPlan ResolveScoped(PdfDictionary streamDict, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token) => ResolveCore(streamDict, resolver, governor, token, null, false);
 
     internal static FilterPlan ResolveObserved(PdfDictionary streamDict, IIndirectResolver? resolver,
         ResourceGovernor governor, CancellationToken token, Action observe)
     {
         ArgumentNullException.ThrowIfNull(observe);
-        return ResolveCore(streamDict, resolver, governor, token, observe);
+        return ResolveCore(streamDict, resolver, governor, token, observe, true);
     }
 
     private static FilterPlan ResolveCore(PdfDictionary streamDict, IIndirectResolver? resolver,
-        ResourceGovernor governor, CancellationToken token, Action? observe)
+        ResourceGovernor governor, CancellationToken token, Action? observe, bool retainNames)
     {
         ArgumentNullException.ThrowIfNull(streamDict);
         FilterPlan plan = FilterPlan.Create(governor, token);
@@ -34,7 +39,7 @@ internal static class FilterChain
         {
             ReadFilters(streamDict, resolver, plan, token, observe);
             ReadParms(streamDict, resolver, plan, token, observe);
-            for (int index = 0; index < plan.Count; index++)
+            for (int index = 0; retainNames && index < plan.Count; index++)
             {
                 string name = plan[index].Name;
                 if (!IsBorrowedName(name)) { plan.RetainName(name, GovernedText.StringBytes(name.Length)); }
