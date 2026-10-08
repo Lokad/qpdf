@@ -4,6 +4,18 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+Linearization shared numerators now use native width zero. The original 64
+single-page hint differences retain complete payloads and fields: independent
+physical checks validate both files' offsets, lengths and derived group widths,
+and the pinned oracle accepts all 128 linearization checks. Raw hint byte equality
+remains a separate observation because the emitted layouts differ. New offline
+controls preserve the original fixtures, setters and routes. Hint ownership,
+broader form/default classification and independent checker coverage remain open.
+Twenty-four additional shared-page observations match native numerator width;
+sixteen pass independent linearization checking. Eight forms/default observations
+warn on both the preceding and corrected runtimes while our checker passes.
+Their page-run/shared classification and checker coverage remain open.
+
 **Implemented PDF operations: the audited non-cryptographic subset.** 152 inventory entries
 are complete and 5 stay partial: `--job-json-file` still needs complete grammar,
 defaults and interaction auditing after mixed-argv/multiple-file configuration;

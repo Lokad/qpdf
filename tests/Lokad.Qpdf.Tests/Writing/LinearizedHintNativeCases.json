@@ -1,0 +1,2457 @@
+{
+  "Reference": "qpdf 12.4.2",
+  "OracleSHA256": "1BDAF878F37EAFFEA1EA3C30591214C77636A0F2FC7432427516B6E22E36C0FF",
+  "Qualification": "The complete native hint is retained. Only physical offsets/lengths and their derived group width/deltas are recalculated from actual output object boundaries; every remaining byte and padding bit must match.",
+  "Fixtures": {
+    "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFszIDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAxMCAxMF0gL0NvbnRlbnRzIDQgMCBSIC9SZXNvdXJjZXMgPDwgL1hPYmplY3QgPDwgL0ZtMSA1IDAgUiAvSW0xIDYgMCBSID4+ID4+ID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNTggL1Rlc3RLaW5kIC9QYWdlQ29udGVudCA+PgpzdHJlYW0KcSAvRm0xIERvIC9JbTEgRG8gUQpCSSAvVyA0IC9IIDEgL0JQQyA4IC9DUyAvRyBJRCBhYmNkIEVJCgplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL0xlbmd0aCA0MiAvVGVzdEtpbmQgL0Zvcm0gL1R5cGUgL1hPYmplY3QgL1N1YnR5cGUgL0Zvcm0gL0JCb3ggWzAgMCAxMCAxMF0gL1Jlc291cmNlcyA8PCA+PiA+PgpzdHJlYW0KcSBRCkJJIC9XIDQgL0ggMSAvQlBDIDggL0NTIC9HIElEIGFiY2QgRUkKCmVuZHN0cmVhbQplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDEgL1Rlc3RLaW5kIC9JbWFnZSAvVHlwZSAvWE9iamVjdCAvU3VidHlwZSAvSW1hZ2UgL1dpZHRoIDEgL0hlaWdodCAxIC9CaXRzUGVyQ29tcG9uZW50IDggL0NvbG9yU3BhY2UgL0RldmljZUdyYXkgPj4Kc3RyZWFtCn8KZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNwowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNTQgMDAwMDAgbiAKMDAwMDAwMDM4NSAwMDAwMCBuIAowMDAwMDAwNTU4IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNyAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNzE5CiUlRU9GCg==",
+    "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFszIDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAxMCAxMF0gL0NvbnRlbnRzIDQgMCBSIC9SZXNvdXJjZXMgPDwgL1hPYmplY3QgPDwgL0ZtMSA1IDAgUiAvSW0xIDYgMCBSID4+ID4+ID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggMTE3IC9UZXN0S2luZCAvUGFnZUNvbnRlbnQgL0ZpbHRlciAvQVNDSUlIZXhEZWNvZGUgPj4Kc3RyZWFtCjcxMjAyZjQ2NmQzMTIwNDQ2ZjIwMmY0OTZkMzEyMDQ0NmYyMDUxMGE0MjQ5MjAyZjU3MjAzNDIwMmY0ODIwMzEyMDJmNDI1MDQzMjAzODIwMmY0MzUzMjAyZjQ3MjA0OTQ0MjA2MTYyNjM2NDIwNDU0OTBhPgplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL0xlbmd0aCA4NSAvVGVzdEtpbmQgL0Zvcm0gL1R5cGUgL1hPYmplY3QgL1N1YnR5cGUgL0Zvcm0gL0JCb3ggWzAgMCAxMCAxMF0gL1Jlc291cmNlcyA8PCA+PiAvRmlsdGVyIC9BU0NJSUhleERlY29kZSA+PgpzdHJlYW0KNzEyMDUxMGE0MjQ5MjAyZjU3MjAzNDIwMmY0ODIwMzEyMDJmNDI1MDQzMjAzODIwMmY0MzUzMjAyZjQ3MjA0OTQ0MjA2MTYyNjM2NDIwNDU0OTBhPgplbmRzdHJlYW0KZW5kb2JqCjYgMCBvYmoKPDwgL0xlbmd0aCAzIC9UZXN0S2luZCAvSW1hZ2UgL1R5cGUgL1hPYmplY3QgL1N1YnR5cGUgL0ltYWdlIC9XaWR0aCAxIC9IZWlnaHQgMSAvQml0c1BlckNvbXBvbmVudCA4IC9Db2xvclNwYWNlIC9EZXZpY2VHcmF5IC9GaWx0ZXIgL0FTQ0lJSGV4RGVjb2RlID4+CnN0cmVhbQo3Zj4KZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNwowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNTQgMDAwMDAgbiAKMDAwMDAwMDQ2OSAwMDAwMCBuIAowMDAwMDAwNzA5IDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNyAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKODk2CiUlRU9GCg==",
+    "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFszIDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAxMCAxMF0gL0NvbnRlbnRzIDQgMCBSIC9SZXNvdXJjZXMgPDwgL1hPYmplY3QgPDwgL0ZtMSA1IDAgUiAvSW0xIDYgMCBSID4+ID4+ID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNjEgL1Rlc3RLaW5kIC9QYWdlQ29udGVudCAvRmlsdGVyIC9GbGF0ZURlY29kZSA+PgpzdHJlYW0KeJwrVNB3yzVUcMlX0PeE0IFcTp4K+uEKJgr6HgqGCvpOAc4KFgr6zsEK+u4Kni4KiUnJKQqunlwAkX4NbwplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL0xlbmd0aCA1MCAvVGVzdEtpbmQgL0Zvcm0gL1R5cGUgL1hPYmplY3QgL1N1YnR5cGUgL0Zvcm0gL0JCb3ggWzAgMCAxMCAxMF0gL1Jlc291cmNlcyA8PCA+PiAvRmlsdGVyIC9GbGF0ZURlY29kZSA+PgpzdHJlYW0KeJwrVAjkcvJU0A9XMFHQ91AwVNB3CnBWsFDQdw5W0HdX8HRRSExKTlFw9eQCAMNUCWAKZW5kc3RyZWFtCmVuZG9iago2IDAgb2JqCjw8IC9MZW5ndGggOSAvVGVzdEtpbmQgL0ltYWdlIC9UeXBlIC9YT2JqZWN0IC9TdWJ0eXBlIC9JbWFnZSAvV2lkdGggMSAvSGVpZ2h0IDEgL0JpdHNQZXJDb21wb25lbnQgOCAvQ29sb3JTcGFjZSAvRGV2aWNlR3JheSAvRmlsdGVyIC9GbGF0ZURlY29kZSA+PgpzdHJlYW0KeJyrBwAAgACACmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjU0IDAwMDAwIG4gCjAwMDAwMDA0MDkgMDAwMDAgbiAKMDAwMDAwMDYxMSAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDcgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjgwMQolJUVPRgo=",
+    "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9Db3VudCAxIC9LaWRzIFszIDAgUl0gPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAxMCAxMF0gL0NvbnRlbnRzIDQgMCBSIC9SZXNvdXJjZXMgPDwgL1hPYmplY3QgPDwgL0ZtMSA1IDAgUiAvSW0xIDYgMCBSID4+ID4+ID4+CmVuZG9iago0IDAgb2JqCjw8IC9MZW5ndGggNTggL1Rlc3RLaW5kIC9QYWdlQ29udGVudCA+PgpzdHJlYW0KcSAvRm0xIERvIC9JbTEgRG8gUQpCSSAvVyA0IC9IIDEgL0JQQyA4IC9DUyAvRyBJRCBhYmNkIEVJCgplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL0xlbmd0aCA0MiAvVGVzdEtpbmQgL0Zvcm0gL1R5cGUgL1hPYmplY3QgL1N1YnR5cGUgL0Zvcm0gL0JCb3ggWzAgMCAxMCAxMF0gL1Jlc291cmNlcyA8PCA+PiA+PgpzdHJlYW0KcSBRCkJJIC9XIDQgL0ggMSAvQlBDIDggL0NTIC9HIElEIGFiY2QgRUkKCmVuZHN0cmVhbQplbmRvYmoKNiAwIG9iago8PCAvTGVuZ3RoIDE1IC9UZXN0S2luZCAvSW1hZ2UgL1R5cGUgL1hPYmplY3QgL1N1YnR5cGUgL0ltYWdlIC9XaWR0aCAxIC9IZWlnaHQgMSAvQml0c1BlckNvbXBvbmVudCA4IC9Db2xvclNwYWNlIC9EZXZpY2VHcmF5IC9GaWx0ZXIgL0RDVERlY29kZSA+PgpzdHJlYW0KZmFrZS1qcGVnLWJ5dGVzCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAowMDAwMDAwMjU0IDAwMDAwIG4gCjAwMDAwMDAzODUgMDAwMDAgbiAKMDAwMDAwMDU1OCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDcgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjc1MwolJUVPRgo="
+  },
+  "Cases": [
+    {
+      "Id": "raw-lin-66-argv",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-66-job",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-66-mixed",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-66-chain",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-67-argv",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-67-job",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"streamData\": \"preserve\", \"compressStreams\": \"y\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-67-mixed",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-67-chain",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"streamData\": \"preserve\", \"compressStreams\": \"y\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-68-argv",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-68-job",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"compressStreams\": \"y\", \"streamData\": \"preserve\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-68-mixed",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-68-chain",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"compressStreams\": \"y\", \"streamData\": \"preserve\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAl0AAAAAAAAAAAAAAl0AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAGLAseAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-69-argv",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-69-job",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"decodeLevel\": \"none\", \"streamData\": \"compress\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-69-mixed",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "raw-lin-69-chain",
+      "Fixture": "5D1A4376EB6381E7CE9D5346CC166FF3B85257BBB209B29A61AE33B71E0CDA70",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"decodeLevel\": \"none\", \"streamData\": \"compress\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-66-argv",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-66-job",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-66-mixed",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-66-chain",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-67-argv",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-67-job",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"streamData\": \"preserve\", \"compressStreams\": \"y\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-67-mixed",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-67-chain",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"streamData\": \"preserve\", \"compressStreams\": \"y\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-68-argv",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-68-job",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"compressStreams\": \"y\", \"streamData\": \"preserve\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-68-mixed",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-68-chain",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"compressStreams\": \"y\", \"streamData\": \"preserve\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAw4AAAAAAAAAAAAAAw4AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAHASci0AA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-69-argv",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-69-job",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"decodeLevel\": \"none\", \"streamData\": \"compress\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-69-mixed",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "hex-lin-69-chain",
+      "Fixture": "927BC31939EB5FE376CE0D3BD82648F367E68F504BBD493905C94A68B31E01AE",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"decodeLevel\": \"none\", \"streamData\": \"compress\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-66-argv",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-66-job",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-66-mixed",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-66-chain",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-67-argv",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-67-job",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"streamData\": \"preserve\", \"compressStreams\": \"y\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-67-mixed",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-67-chain",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"streamData\": \"preserve\", \"compressStreams\": \"y\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-68-argv",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-68-job",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"compressStreams\": \"y\", \"streamData\": \"preserve\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-68-mixed",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-68-chain",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"compressStreams\": \"y\", \"streamData\": \"preserve\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-69-argv",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-69-job",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"decodeLevel\": \"none\", \"streamData\": \"compress\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-69-mixed",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "flate-lin-69-chain",
+      "Fixture": "2237E43E84DF92DA30769AC63E2F727A4887C6D660B47CD8A34BA81CFD72516D",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"decodeLevel\": \"none\", \"streamData\": \"compress\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAq8AAAAAAAAAAAAAAq8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+wAA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqb1DHAAZTMzgOXhgAXO72VgY7i/gQEAVdwD0w=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-66-argv",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-66-job",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-66-mixed",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--linearize",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-66-chain",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-67-argv",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-67-job",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"streamData\": \"preserve\", \"compressStreams\": \"y\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-67-mixed",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--stream-data=preserve",
+        "--compress-streams=y",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-67-chain",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"streamData\": \"preserve\", \"compressStreams\": \"y\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "sd",
+          "preserve"
+        ],
+        [
+          "cs",
+          "y"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-68-argv",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-68-job",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"compressStreams\": \"y\", \"streamData\": \"preserve\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-68-mixed",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--compress-streams=y",
+        "--stream-data=preserve",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-68-chain",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"compressStreams\": \"y\", \"streamData\": \"preserve\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "cs",
+          "y"
+        ],
+        [
+          "sd",
+          "preserve"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAAn8AAAAAAAAAAAAAAn8AAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAggAHFgFkAAA="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-69-argv",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--object-streams=disable",
+        "--remove-unreferenced-resources=no",
+        "--normalize-content=n",
+        "--ii-min-bytes=0",
+        "--linearize",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {},
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-69-job",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/job.json": "{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\", \"decodeLevel\": \"none\", \"streamData\": \"compress\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-69-mixed",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "inputs/a.pdf",
+        "--job-json-file=inputs/settings.json",
+        "--decode-level=none",
+        "--stream-data=compress",
+        "outputs/a.pdf"
+      ],
+      "Files": {
+        "inputs/settings.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    },
+    {
+      "Id": "dct-lin-69-chain",
+      "Fixture": "0ECBC56DF908D7D9677C71E843D40B8D041526022C4E74B8D3BD9C26B48A1EE9",
+      "Args": [
+        "--job-json-file=inputs/job.json"
+      ],
+      "Files": {
+        "inputs/child.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"linearize\": \"\"}",
+        "inputs/job.json": "{\"objectStreams\": \"disable\", \"removeUnreferencedResources\": \"no\", \"normalizeContent\": \"n\", \"iiMinBytes\": \"0\", \"decodeLevel\": \"none\", \"streamData\": \"compress\", \"jobJsonFile\": \"inputs/child.json\", \"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\"}"
+      },
+      "Setters": [
+        [
+          "lin",
+          ""
+        ],
+        [
+          "dl",
+          "none"
+        ],
+        [
+          "sd",
+          "compress"
+        ]
+      ],
+      "NativeHint": {
+        "Header": {
+          "/S": 36
+        },
+        "Data": "AAAABAAAAjkAAAAAArQAAAAAAAAAAAAAArQAAAAAAAMAAAAEAAAAAAAAAAAAAAAEAAAABAAAAAAAjQAGAN+1AA=="
+      },
+      "NativeEncodedHint": {
+        "Header": {
+          "/Filter": "/FlateDecode",
+          "/S": 36
+        },
+        "Data": "eJxjYGBgYWBgsmQAAqYtDHAAZTMzgOXhgAXO72VgY7i/lQEAV6gD4g=="
+      },
+      "NativeExit": 0
+    }
+  ]
+}

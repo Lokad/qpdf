@@ -641,7 +641,8 @@ internal sealed class LinearizedWriter
         pages.WriteBits(BitLength(maxLength - minLength), 16);
         pages.WriteBits(BitLength(maxShared), 16);
         pages.WriteBits(BitLength(totalShared), 16);
-        pages.WriteBits(BitLength(totalShared), 16);
+        // Every numerator is zero, so its native encoding has no payload bits.
+        pages.WriteBits(0, 16);
         pages.WriteBits(4L, 16);
         for (int i = 0; i < pageCounts.Count; i++)
         {
@@ -674,7 +675,7 @@ internal sealed class LinearizedWriter
         {
             for (int k = 0; k < pageShared[i].Count; k++)
             {
-                pages.WriteBits(0L, BitLength(totalShared));
+                pages.WriteBits(0L, 0);
             }
         }
 

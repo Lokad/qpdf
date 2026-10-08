@@ -29,6 +29,12 @@ created images use the same owned transformer and encoding policy. Rewritten
 content preserves encoded name bytes and their slash prefixes. Broader
 transformation defaults and whole-job ownership remain under compatibility audit.
 
+Linearization emits zero-width shared numerators because every numerator is zero.
+Hint offsets, lengths and derived widths describe each output's physical object
+layout. Complete native hints and independent byte-boundary checks distinguish
+those layout differences from encoding choices. Hint parsing, buffers, shared
+metadata and replay ownership remain under audit.
+
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and
 attachment listings, in native inspection order. Serialization-only QDF/linearize

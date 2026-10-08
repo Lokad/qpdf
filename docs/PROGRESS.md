@@ -1,5 +1,40 @@
 # Progress
 
+## Linearization numerator encoding and physical hint classification
+
+The writer emits native zero-width shared numerators, including pages with shared
+identifiers, in classic and object-stream modes. Complete frozen native hints
+remain available to offline tests; layout-dependent fields are independently
+recalculated from actual output byte boundaries and every payload byte is checked.
+
+Qualified Release suites pass **9597 pending / 8874 isolated cases**, with **88
+new controls** and all **9509 preceding case occurrences** retained. Identical
+final tests on the preceding runtime yield **88 fail / 9509 preserve / 9597
+eligible**, without loader failures/exclusions or changed existing controls.
+
+All original 64 hint pairs have independently valid physical offsets, lengths
+and derived widths; the pinned oracle accepts all 128 linearization checks.
+Their complete raw equality criterion remains separate from physical validity.
+The numerator-width difference is corrected. Twenty-four additional two-page
+observations all match native numerator width and reread as two pages. Sixteen
+pass the oracle's linearization check; **eight forms/default observations warn
+on both preceding and corrected runtimes**, while our checker passes. Correct
+the page-run/shared classification and strengthen independent checker evidence;
+no historical introduction claim is made from this preceding-DLL comparison.
+
+Fresh package/symbol checks, 50 qualified artifact-consumer smokes and both
+specific rejection controls pass. Strict locked/fresh-consumer restore remains
+unmet on the required pin; no dependency/lock/audit-policy change is made.
+Fresh full reference/differential, 1846 parser comparisons / 432 rewrite trios
+pass on the frozen runtime. All 908 public signatures and independently sampled
+carrier sizes remain unchanged. Local Windows evidence closes no wider audit.
+Hint parsing, bodies/buffers, groups/identifiers, compression and replay ownership,
+other JSON/resource consumers and every broader M11/A01–A07 gate remain open.
+An additional 4 KiB encoder probe fails after 28 calls despite no surviving
+returned bodies after four GC rounds; corrected admission remains 4047 bytes.
+Scope scratch/body cleanup on success/failure without replacing original controls.
+Subsequent sections retain earlier component evidence.
+
 ## Inline image names and shared stream filtering
 
 Inline and optimization rewrites preserve name slash prefixes and encoded name
