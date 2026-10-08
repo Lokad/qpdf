@@ -1,33 +1,60 @@
 # Progress
 
-## Final counter correction in progress
+## Final counter correction
 
-DIAG-02C addresses observed counters lost on direct argv/response failures and
-cancellation, and typed/companion snapshots captured before cleanup. Public
-boundaries now refresh the shared governor snapshot after their core and lease
-scopes finish. Loaded jobs retain their existing post-configuration snapshot;
-status, diagnostics, payloads and publication order are preserved. Private typed
-result copies retain existing warning/mapping/text references and readonly public
-properties; no public signatures are added.
+DIAG-02C is retired by `234de72`, runtime **`45E9997D`** / tests **`5CD7F8FC`**.
+Public boundaries refresh immutable snapshots after core/configuration/lease cleanup.
+Argv/response failures and cancellation retain observed work; typed selection/merge,
+JSON, attachments and QDF/zlib results retain final counters. Typed copies preserve
+warning/mapping/text references and readonly properties; all **908 signatures** are unchanged.
 
-All **413 complete public controls** pass: 376 raw/Flate read/write jobs,
-21 response/nested/mixed/multiple-file configuration jobs and 16 actual short-read
-host-budget failures after the first completed byte. Success, read/write/publish/
-close faults and after-start cancellation preserve immutable counters, fileless
-payloads, accepted output aliases and existing publication order; zero leases and
-handles remain. If disposal fails after commit, the published output stays
-published, preserving the existing host contract rather than implying rollback.
-All eight fields match the actual final governor in an exclusive 16 MiB no-GC
-observation window for the 376 read/write jobs; later weak retirement is not a
-snapshot mutation. Existing ownership GC controls remain unchanged.
+All **11421 Release cases** pass, retaining every **11008 prior occurrence**.
+The **413 new complete public jobs** comprise 376 raw/Flate read/write jobs,
+21 response/nested/mixed/multiple-file configurations and 16 real short-read
+host-budget failures after a completed byte. Success, read/write/publication/close
+faults and after-start cancellation preserve statuses, fileless payloads and prior
+aliases; handles/leases close. Post-commit close failure retains published output
+under the existing host contract. All eight fields match the actual final governor.
+Only exact observation in the 376 read/write jobs uses an exclusive 16 MiB no-GC
+window; later weak retirement is not snapshot mutation. Original ownership GC,
+fixtures, budgets, deadlines and cancellation controls remain unchanged.
 
-Identical final tests on preceding `858BEE55`: **149 fail / 264 preserve / 413
-eligible**, all failures are counter assertions, no loaders/skips/exclusions.
-The additional **331 affected existing checks** pass. Earlier draft build errors,
-ten early CPU-work assumptions and a later-GC observation remain separate.
-Original fixtures, budgets, deadlines and cancellation/GC controls are preserved.
-Final source/reference/package evidence is still pending; DIAG-02C and broader
-DIAG-01/02 remain open.
+Identical final tests on `858BEE55`: **149 fail / 264 preserve / 413 eligible**,
+all counter assertions, no loaders/skips/exclusions; 331 affected existing checks
+also pass. Draft build errors, ten early CPU-work assumptions and the later-GC
+observation remain separate harness findings.
+
+Strict locked restore/build have zero warnings and no overrides. The full pinned
+wrapper passes **1846 comparisons / 432 rewrite trios**. Exact DLL/changelog/PDB,
+**50 fresh consumer smokes** and both specific pre-smoke negatives pass.
+All **538 raw tracked paths / 515 core paths** match the verified commit;
+**527 unrelated paths**, **252 old test sources** (including consumers) and five
+locks stay unchanged. PLAN §§3–6 retain their canonical bytes; Git LF and raw
+identities are recorded separately. The seven original 1024-allocation carrier
+samples remain 296/352/352/368/384/56/40 bytes.
+
+Original native results remain **868 headers / 804 complete decoded / 868 exits**,
+with the same 64 differences and unchanged fixtures/settings/routes. Every stored
+managed header/raw/decoded observation matches the preceding freeze, preserving
+its established physical classification.
+
+Timings: test console **6m08s** (process 6m21s); native
+**7m02s**; full wrapper **35m18s**;
+parser artifact interval about **27m38s**.
+Restore/build 1.9s/5.9s; pack/inspection
+2.1s/3.9s; fresh consumer/negatives
+26.1s/10.3s. Independent tests/native/
+package lanes ran alongside reference. Total wrapper timing is exact; parser
+uses unmodified artifact timestamps. Each expensive lane ran once on this freeze.
+
+Next public failure: **DIAG-02P**. Nine retained argv/job/mixed rewrites with
+verbose/progress/memory summaries return six records / 235 UTF-8 bytes but record
+zero diagnostics. Six controls with MaxDiagnostics=1 or MaxDiagnosticBytes=16 still
+complete and publish. Admission before publication and result/list/text ownership
+remain open; DIAG-02C does not retire DIAG-01/02. Broader M11/A01–A07, eight
+AcroForm schema gaps, cross-platform/reference CI and both verdicts remain open.
+The five ImageSharp advisory exclusions remain the intentional temporary policy;
+the approved pin and five locks are unchanged.
 
 ## Hint ownership correction
 
@@ -90,8 +117,8 @@ unmodified script artifact timestamps, while total wrapper timing is exact.
 No expensive lane was repeated during this correction's final freeze. These are
 local Windows results; explicit cross-platform/reference CI remains REF-02.
 
-The next public failure is DIAG-02: direct argv failures/cancellation discard
-observed counters, while loaded jobs report the final governor snapshot. Broader
+This hint checkpoint led to DIAG-02C, now retired above. Presentation quota bypass
+(DIAG-02P) is the next public failure. Broader
 ownership/presentation/cold/BCL/codec/RSS/CPU/host audit entries, eight AcroForm
 schema gaps, M11/A01–A07 and both completion verdicts remain open.
 

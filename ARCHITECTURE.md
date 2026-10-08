@@ -76,8 +76,10 @@ counter snapshots after their core, configuration and input/output scopes finish
 Failures and cancellation retain observed work; typed throwing routes keep their
 existing exception contract. Counter copies preserve warning/mapping/text/binary
 references and readonly public properties. Later weak-receipt collection can reduce
-live governor memory after a returned snapshot. Broader presentation/storage and
-diagnostic ownership remain under audit.
+live governor memory after a returned snapshot. Complete public jobs and committed
+reference/package checks verify these counter boundaries. Verbose/progress/memory
+summaries still bypass diagnostic count/byte admission before publication
+(DIAG-02P); result/presentation storage and diagnostic ownership remain under audit.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.
