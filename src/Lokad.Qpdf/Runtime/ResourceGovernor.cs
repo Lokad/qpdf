@@ -108,6 +108,13 @@ internal sealed class ResourceGovernor
         catch { DisposeEmptyValueOwners(owners); throw; }
     }
 
+    internal long RetainAllocations(OwnedAllocationBatch allocations, long reservedBytes)
+    {
+        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        try { return owners.Retain(allocations, reservedBytes); }
+        catch { DisposeEmptyValueOwners(owners); throw; }
+    }
+
     internal void ChargeWork(long units)
     {
         if (units < 0)

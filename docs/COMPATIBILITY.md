@@ -185,6 +185,28 @@ combined final correction requires a fresh full lane. The inherited undefined
 form font mismatch, rebuilt resource graphs, broader ownership/diagnostic work,
 A01-A07/M11 and both completion verdicts stay open. No inventory context closes.
 
+## Resource-pruning graph ownership checkpoint
+
+Pruning now owns its fresh resource/header tables and wrappers through atomic
+acceptance, while borrowing original names, values and form payloads. Destination
+validation precedes transfer; construction/work/cancellation/receipt failures
+preserve the old pool and prior aliases. Escaping keys, names and buffers retain
+independent funding without anchoring completed execution metadata.
+
+Isolated **7508 / 50 new controls** and pending **8231 / 50** pass with locked
+restore and Release builds. All preceding 7458 / 8181 stable identities and 214
+original test sources remain. On preceding pending 86794DBF, identical final
+tests fail 12 / preserve 3 of 15 eligible cases, with zero loaders; 35 new
+batch/helper cases are excluded. Independent warmed probes cover construction,
+acceptance, escaped aliases and retirement, with explicit measurement exclusions.
+
+Fresh **358 focused native comparisons / 500 rereads**, the full differential
+wrapper and **1846 parser comparisons / 432 rewrite trios**, package/symbol checks,
+50 consumer smokes and both specific negatives pass on pending 72C30032 / tests
+2D257C47 at build checkpoint 01ab178. These are local Windows results, and nuspec
+exposes no source commit or URL. The known undefined form-font mismatch remains
+open. No inventory context, broader audit, release or completion gate is closed.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

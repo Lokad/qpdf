@@ -87,6 +87,18 @@ internal sealed class ParserMemoryScope : IDisposable
         }
     }
 
+    internal void RetainAllocations(OwnedAllocationBatch allocations)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        allocations.CheckOwner(this, _governor);
+        long bytes = allocations.Bytes;
+        if (bytes > _reservedBytes) { throw new InvalidOperationException("Allocation batch exceeds its scope's ownership."); }
+        long retained = _governor.RetainAllocations(allocations, bytes);
+        // Acceptance has already preflighted every receipt; the accounting
+        // handoff cannot fail and leaves scratch funded until this scope closes.
+        _reservedBytes -= retained;
+    }
+
     internal void Discard() { Release(_reservedBytes); }
 
     internal void TransferTo(ParserMemoryScope target)

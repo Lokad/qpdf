@@ -143,12 +143,16 @@ internal sealed class GraphCopier
             throw new ArgumentNullException(nameof(value));
         }
 
+        ValidateReplacement(id);
+        _copied[id] = value;
+    }
+
+    internal void ValidateReplacement(int id)
+    {
         if (!_copied.ContainsKey(id))
         {
             throw new QpdfException($"Destination object {id} does not exist.");
         }
-
-        _copied[id] = value;
     }
 
     /// <summary>

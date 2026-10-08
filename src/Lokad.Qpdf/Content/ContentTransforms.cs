@@ -1127,11 +1127,14 @@ internal static class ContentTransforms
             return;
         }
 
-        Dictionary<string, Dictionary<PdfName, QpdfObject>> rebuilt = new(StringComparer.Ordinal);
+        // Two sections, resources and the node header each own a table/wrapper.
+        // A form adds one stream wrapper; a synthetic header can add a name/buffer.
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 11, cancellationToken);
+        PdfNameTable<QpdfObject>? fonts = null, xobjects = null;
+        int fontAllocation = -1, xobjectAllocation = -1;
         bool changed = false;
         for (int sectionIndex = 0; sectionIndex < 2; sectionIndex++)
         {
-            string section = sectionIndex == 0 ? "Font" : "XObject";
             ReadOnlySpan<byte> sectionKey = sectionIndex == 0 ? "Font"u8 : "XObject"u8;
             if (!PdfDictionaryLookup.TryGet(resources, sectionKey, governor, cancellationToken, out QpdfObject sectionRaw) || sectionRaw is PdfNull)
             {
@@ -1146,7 +1149,9 @@ internal static class ContentTransforms
                 continue;
             }
 
-            Dictionary<PdfName, QpdfObject> kept = new();
+            PdfNameTable<QpdfObject> kept = ResourceRebuild.CreateEntries(graph, out int allocation);
+            if (sectionIndex == 0) { fonts = kept; fontAllocation = allocation; }
+            else { xobjects = kept; xobjectAllocation = allocation; }
             using var sectionEntries = sectionDict.GetEntryEnumerator();
             while (sectionEntries.MoveNext(governor, cancellationToken))
             {
@@ -1160,20 +1165,19 @@ internal static class ContentTransforms
 
                 if (isPage && unresolved.ContainsDecoded(key.RawSpan))
                 {
-                    kept[key] = held;
+                    kept.Assign(graph.Memory, governor, key, held, cancellationToken);
                     continue;
                 }
 
                 if (names.ContainsDecoded(key.RawSpan))
                 {
-                    kept[key] = held;
+                    kept.Assign(graph.Memory, governor, key, held, cancellationToken);
                     continue;
                 }
 
                 changed = true;
             }
 
-            rebuilt[section] = kept;
         }
 
         if (!changed || !nodeId.HasValue)
@@ -1181,24 +1185,32 @@ internal static class ContentTransforms
             return;
         }
 
-        Dictionary<PdfName, QpdfObject> resourcesEntries = new();
+        PdfNameTable<QpdfObject> resourcesEntries = ResourceRebuild.CreateEntries(graph, out int resourceAllocation);
+        PdfName? fontKey = null, xobjectKey = null;
         using var resourceEntries = resources.GetEntryEnumerator();
         while (resourceEntries.MoveNext(governor, cancellationToken))
         {
             QpdfObject found = resourceEntries.Current.Value;
             if (found is not null)
             {
-                resourcesEntries[resourceEntries.Current.Key] = found;
+                PdfName key = resourceEntries.Current.Key;
+                resourcesEntries.Assign(graph.Memory, governor, key, found, cancellationToken);
+                if (fonts is not null && PdfDictionaryLookup.NameEquals(key, "Font"u8, governor, cancellationToken)) { fontKey = key; }
+                if (xobjects is not null && PdfDictionaryLookup.NameEquals(key, "XObject"u8, governor, cancellationToken)) { xobjectKey = key; }
             }
         }
 
-        foreach (KeyValuePair<string, Dictionary<PdfName, QpdfObject>> section in rebuilt)
+        if (fonts is not null)
         {
-            governor.ReserveMemory(64L);
-            resourcesEntries[PdfName.FromAscii(section.Key)] = new PdfDictionary(section.Value);
+            PdfDictionary kept = ResourceRebuild.Complete(graph, fonts, fontAllocation);
+            resourcesEntries.Assign(graph.Memory, governor, fontKey ?? throw new InvalidOperationException("Font resource key is missing."), kept, cancellationToken);
         }
-
-        governor.ReserveMemory(128L);
+        if (xobjects is not null)
+        {
+            PdfDictionary kept = ResourceRebuild.Complete(graph, xobjects, xobjectAllocation);
+            resourcesEntries.Assign(graph.Memory, governor, xobjectKey ?? throw new InvalidOperationException("XObject resource key is missing."), kept, cancellationToken);
+        }
+        PdfDictionary rebuilt = ResourceRebuild.Complete(graph, resourcesEntries, resourceAllocation);
         if (isPage)
         {
             if (page is null)
@@ -1206,11 +1218,16 @@ internal static class ContentTransforms
                 return;
             }
 
-            copier.ReplaceCopiedObject(nodeId.Value, ReplaceEntry(page, PdfName.FromAscii("Resources"), new PdfDictionary(resourcesEntries), governor));
+            PdfDictionary replacement = ResourceRebuild.ReplaceResources(graph, page, rebuilt);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(3L);
+            copier.ValidateReplacement(nodeId.Value);
+            graph.Retain();
+            copier.ReplaceCopiedObject(nodeId.Value, replacement);
             return;
         }
 
         QpdfObject? current = null;
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         if (copier.CopiedObjects.TryGetValue(nodeId.Value, out QpdfObject? stored))
         {
             current = stored;
@@ -1218,8 +1235,11 @@ internal static class ContentTransforms
 
         if (current is PdfStream stream)
         {
-            governor.ReserveMemory(64L);
-            copier.ReplaceCopiedObject(nodeId.Value, new PdfStream(ReplaceEntry(stream.Dictionary, PdfName.FromAscii("Resources"), new PdfDictionary(resourcesEntries), governor), stream.Data));
+            PdfStream replacement = ResourceRebuild.ReplaceResources(graph, stream, rebuilt);
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(3L);
+            copier.ValidateReplacement(nodeId.Value);
+            graph.Retain();
+            copier.ReplaceCopiedObject(nodeId.Value, replacement);
         }
     }
     private static JoinedContent JoinContentBytes(IReadOnlyList<byte[]> parts, ResourceGovernor governor, CancellationToken token)

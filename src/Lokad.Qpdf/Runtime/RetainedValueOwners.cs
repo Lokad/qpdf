@@ -107,6 +107,7 @@ internal sealed class RetainedValueOwners
     {
         internal Receipt? First;
         internal long Bytes;
+        internal CancellationToken Token;
     }
 
     private RetainedValueOwners(ResourceGovernor governor)
@@ -177,6 +178,9 @@ internal sealed class RetainedValueOwners
         return RetainCore(wrapper, wrapperBytes, roots, reservedBytes);
     }
 
+    internal long Retain(OwnedAllocationBatch allocations, long reservedBytes)
+        => RetainCore(allocations, 0L, null, reservedBytes);
+
     private long RetainCore(object value, long wrapperBytes, IReadOnlyList<QpdfObject>? roots, long reservedBytes)
     {
         if (_busy) { throw new InvalidOperationException("Value ownership acceptance cannot be nested."); }
@@ -187,12 +191,25 @@ internal sealed class RetainedValueOwners
         {
             _governor.ReserveMemory(48L);
             fundedAcceptance = true;
-            acceptance = new Acceptance();
+            acceptance = new Acceptance { Token = value is OwnedAllocationBatch batch ? batch.Token : CancellationToken.None };
             Initialize();
             if (roots is null)
             {
-                if (value is not QpdfObject parsed) { throw new InvalidOperationException("Expected a parsed value."); }
-                Visit(parsed, acceptance);
+                if (value is OwnedAllocationBatch allocations)
+                {
+                    for (int index = 0; index < allocations.Count; index++)
+                    {
+                        OwnedAllocationBatch.Allocation allocation = allocations.Get(index);
+                        if (!Register(allocation.Carrier ?? throw new InvalidOperationException("Allocation batch has no carrier."), allocation.Bytes, acceptance))
+                        { throw new InvalidOperationException("Allocation carrier is already retained."); }
+                        allocations.ObserveAcceptedVisit();
+                    }
+                }
+                else
+                {
+                    if (value is not QpdfObject parsed) { throw new InvalidOperationException("Expected a parsed value."); }
+                    Visit(parsed, acceptance);
+                }
             }
             else
             {
@@ -212,6 +229,7 @@ internal sealed class RetainedValueOwners
             // no operation that may fail follows the first activation.
             for (Receipt? receipt = acceptance.First; receipt is not null; receipt = receipt.Next)
             {
+                acceptance.Token.ThrowIfCancellationRequested();
                 _governor.CheckCancellation();
                 _governor.ChargeWork(2L);
             }
@@ -303,12 +321,14 @@ internal sealed class RetainedValueOwners
 
     private bool Register(object carrier, long bytes, Acceptance acceptance)
     {
+        acceptance.Token.ThrowIfCancellationRequested();
         int hash = RuntimeHelpers.GetHashCode(carrier);
         if (Heads.Length > 0)
         {
             int current = Heads[hash & (Heads.Length - 1)] - 1;
             while (current >= 0)
             {
+                acceptance.Token.ThrowIfCancellationRequested();
                 _governor.ChargeWork(1L);
                 _governor.CheckCancellation();
                 Slot slot = GetSlot(current);

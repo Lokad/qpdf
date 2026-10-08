@@ -1,5 +1,43 @@
 # Progress
 
+## Owned rebuilt resource graphs
+
+Page/form pruning now builds fresh Font, XObject, resource and node-header
+containers in an admitted scope using shared name storage. A fixed allocation
+batch transfers only their own carriers through the existing atomic ledger;
+borrowed keys, values and immutable form payloads keep their original funding.
+Publication validates its destination before acceptance. Failed construction,
+receipt admission, work or either cancellation route preserves the old graph
+and previously accepted aliases. Disposed batches drop execution references;
+escaping dictionaries, key views, fresh names and bytes retain independent funding.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7508 offline cases / 50 new controls** and pending **8231 / 50** pass.
+All 7458 isolated / 8181 pending stable identities and 214 original test sources
+remain unchanged. Identical final tests on preceding pending 86794DBF fail
+**12 / preserve 3 / 15 eligible**, zero loaders; 35 new batch/helper cases are
+excluded. The pruning control covers every valid work budget from 1 through 511.
+
+Across 128 warmed empty/header/form/inherited-form batches, construction allocation
+is **39936 / 75776 / 79872 / 88064**, active forced-GC heap
+**39936 / 72704 / 76800 / 84992**, admission **45056 / 79360 / 83456 / 91776**.
+After acceptance, pending heap is **39936 / 227328 / 237568 / 260096** and
+isolated heap **39936 / 222208 / 232448 / 254976**, within common admission
+**45056 / 243200 / 254464 / 279168**. Last-alias retirement reaches zero.
+Scopes, batches, containers and ledgers are included; prepared borrowed inputs,
+controllers, holders, reflection and reporting are excluded. Cold/native/pool/
+codec/whole-job/RSS/CPU/host measurement obligations remain open.
+
+Fresh focused native evidence passes **358 comparisons / 500 rereads**; the full
+differential/reference wrapper and **1846 parser comparisons / 432 rewrite trios**
+pass. Package/symbol checks, **50 consumer smokes** and both specific negatives
+pass. These are local Windows results bound to pending 72C30032, tests 2D257C47,
+build checkpoint 01ab178; nuspec exposes no source commit or URL.
+The undefined form-font mismatch remains confirmed and open. Initial new-test
+import/budget/frame and probe-frame failures are archived; original controls
+were unchanged. Remaining consumers, codec aliases/JPEG, presentation and complete
+diagnostic integration, A01–A07/M11 and both completion verdicts remain open.
+
 ## Frozen table-backed dictionaries
 
 PdfDictionary can now adopt frozen shared name storage; mutable transfers fail
