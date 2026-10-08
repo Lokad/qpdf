@@ -37,14 +37,22 @@ internal static class PdfDictionaryRebuild
         {
             // The new name and its bytes can escape independently. Admit both
             // before allocation, without creating a temporary display string.
-            long bytes = checked(32L + rawKey.Length);
-            graph.Memory.Reserve(bytes); byte[] raw = new byte[rawKey.Length];
-            GovernedBufferStream.CopyBytes(rawKey, raw, graph.Governor, graph.Token, CancellationToken.None);
-            graph.Add(raw, bytes);
-            graph.Memory.Reserve(24L); PdfName key = PdfName.FromOwnedBytes(raw); graph.Add(key, 24L);
+            PdfName key = CreateName(graph, rawKey);
             entries.Assign(graph.Memory, graph.Governor, key, replacement, graph.Token);
         }
         return Complete(graph, entries, allocation);
+    }
+
+    internal static PdfName CreateName(OwnedAllocationBatch graph, ReadOnlySpan<byte> value)
+    {
+        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
+        long bytes = checked(32L + value.Length);
+        graph.Memory.Reserve(bytes); graph.Governor.ChargeWork(value.Length);
+        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation();
+        byte[] raw = new byte[value.Length];
+        GovernedBufferStream.CopyBytes(value, raw, graph.Governor, graph.Token, CancellationToken.None);
+        graph.Add(raw, bytes); graph.Memory.Reserve(24L);
+        PdfName name = PdfName.FromOwnedBytes(raw); graph.Add(name, 24L); return name;
     }
 
     internal static PdfDictionary StripStreamEncoding(OwnedAllocationBatch graph, PdfDictionary source)

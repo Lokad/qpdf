@@ -1,5 +1,43 @@
 # Progress
 
+## Owned transformed content buffers
+
+Engine coalescing and normalization now own decoded, joined, encoded and final
+buffers through their last consumer. Exact final arrays transfer into immutable
+streams without another clone; public construction/copies retain their behavior.
+Fresh stream/header graphs use shared atomic allocation acceptance. Replacement
+content arrays own one backing array and borrow original/replacement values.
+Temporary maps, codec output and encoding scratch carry scoped admission, bounded
+work and both cancellation routes. Fatal coalescing errors and normalization
+fallback/warning order remain distinct; inter-chunk newlines remain exact.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7616 offline cases / 40 new controls** and pending **8339 / 40** pass. All
+7576 isolated / 8299 pending stable identities and 221 original test sources
+remain. Identical compatible controls on preceding pending D227DD6C fail
+**17 / preserve 10 / 27 eligible**, zero loaders; 13 new builder/transfer/factory
+controls are excluded. Only private/scoped signatures and mapping type binding
+change in the adapter; inputs, budgets and assertions remain identical.
+
+Independent warmed probes cover 128 outputs per mode: raw/compressed coalescing,
+raw/filtered normalization and 1024-entry arrays. All ten active forced-GC heap
+observations lie within live admission; every last alias retires admission to
+zero. 640 completed contexts per runtime leave zero governors alive while all
+output aliases remain usable. Helper/buffer/graph/ledger and managed BCL codec
+allocation is included; prepared inputs/controllers/holders/delegates/reflection
+and reporting are excluded. Initial isolated probe dependency loading failed;
+the external harness was repaired without runtime/test changes. Cold/native/
+pool/whole-job/RSS/CPU/host measurements remain open.
+
+Fresh **358 native comparisons / 500 rereads**, full differential/reference,
+**1846 parser comparisons / 432 rewrite trios**, package/symbol checks, 50 consumer
+smokes and both specific negatives pass on pending 2164476D / tests 5CA2EC96 at
+build checkpoint 6205de0. This is local Windows evidence; nuspec exposes no source
+commit or URL. Orphan-removal graph scratch, inline images, legacy inspection
+output, remaining consumers/codecs/JPEG/replay/hints/presentation/diagnostics and
+the broader correction remain open, as do the undefined form-font mismatch,
+five partial contexts, M11/A01–A07 and both completion verdicts.
+
 ## Owned content traversal plans
 
 Coalescing and normalization now share scoped content-entry metadata and list

@@ -252,6 +252,28 @@ orphan-removal scratch, broader ownership/diagnostics, defaults/context auditing
 the known form-font mismatch, all five partial contexts, A01–A07/M11 and both
 completion verdicts remain open.
 
+## Transformed content ownership checkpoint
+
+Coalescing/normalization own final buffers and fresh stream/header graphs;
+replacement arrays borrow values and own exact backing storage. Scoped decode,
+join, encode and map storage retires at last use. Public stream construction still
+copies. Existing bytes, order, generations, actual-null handling, newline rules,
+fatal decode/fallback policy and warnings remain covered. Both cancellation
+routes, memory/work exhaustion, transfer and escaping aliases have controls.
+
+Frozen pending 2164476D / tests 5CA2EC96 passes 8339 offline cases; the isolated
+component passes 7616, including 40 new controls. All 8299/7576 preceding stable
+identities and 221 original test sources remain. Preceding D227DD6C fails 17 /
+preserves 10 of 27 eligible identical controls, with zero loaders; 13 new
+builder/transfer/factory controls are excluded. Fresh 358 native comparisons /
+500 rereads, full differential/reference, 1846 parser comparisons / 432 rewrite
+trios and package/symbol/50-consumer/two-negative gates pass at build checkpoint
+6205de0. Independent helper probes cover live managed admission and alias
+retirement; broader measurements remain open. This local Windows component
+checkpoint closes no inventory context or audit verdict. Orphan-removal scratch,
+inline images, legacy inspection output, broader integration/defaults/contexts,
+undefined form-font mismatch, M11/A01–A07 and both verdicts remain open.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string

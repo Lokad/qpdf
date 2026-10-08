@@ -234,33 +234,10 @@ internal static class ContentTransforms
         PdfStream stream,
         IIndirectResolver resolver,
         QpdfLimits limits,
-        ResourceGovernor governor)
-    {
-        FilterPlan stages;
-        try
-        {
-            stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
-        }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
-        {
-            return (stream.Data, false);
-        }
-        using FilterPlan stageOwner = stages;
-
-        if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, "specialized"))
-        {
-            return (stream.Data, false);
-        }
-
-        try
-        {
-            return (FilterChain.Decode(stream.Data, stages, limits, governor), true);
-        }
-        catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
-        {
-            return (stream.Data, false);
-        }
-    }
+        ResourceGovernor governor,
+        ParserMemoryScope memory,
+        CancellationToken cancellationToken)
+        => AnalysisChunks.DecodeForContent(stream, resolver, limits, governor, memory, cancellationToken);
 
     private static PdfDictionary StrippedContentDictionary(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken cancellationToken)
     {
@@ -327,58 +304,9 @@ internal static class ContentTransforms
             return page;
         }
 
-        PoolResolver resolver = new(copier.CopiedObjects);
-        List<byte[]> parts = new(entries.Count);
-        bool needNewline = false;
-        for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
-        {
-            ContentEntries.Entry entry = entries.Get(entryIndex);
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            (byte[] data, bool _) = DecodeForContent(entry.Stream, resolver, limits, governor);
-            if (needNewline)
-            {
-                parts.Add([(byte)'\n']);
-            }
-
-            parts.Add(data);
-            needNewline = data.Length == 0 || data[data.Length - 1] != (byte)'\n';
-        }
-
-        int total = 0;
-        foreach (byte[] part in parts)
-        {
-            checked
-            {
-                total += part.Length;
-            }
-        }
-
-        governor.ReserveMemory(total);
-        byte[] joined = new byte[total];
-        int at = 0;
-        foreach (byte[] part in parts)
-        {
-            Buffer.BlockCopy(part, 0, joined, at, part.Length);
-            at += part.Length;
-        }
-
-        PdfDictionary fresh = new(new Dictionary<PdfName, QpdfObject>());
-        PdfStream coalesced;
-        if (request.Compress && joined.Length > 0)
-        {
-            byte[] encoded = FlateFilter.Encode(joined, request.Level, limits, governor);
-            governor.ReserveMemory(64L);
-            Dictionary<PdfName, QpdfObject> filtered = new()
-            {
-                [PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode"),
-            };
-            coalesced = new PdfStream(new PdfDictionary(filtered), encoded);
-        }
-        else
-        {
-            coalesced = new PdfStream(fresh, joined);
-        }
+        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
+        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        PdfStream coalesced = BuildCoalescedContent(entries, resolver, request, limits, governor, cancellationToken);
 
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
         PdfDictionary replaced;
@@ -408,6 +336,36 @@ internal static class ContentTransforms
         copier.ReplaceCopiedObject(pageId, replaced);
         return replaced;
     }
+
+    private static PdfStream BuildCoalescedContent(ContentEntries entries, PoolResolver resolver, ContentTransformRequest request,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
+        for (int index = 0; index < entries.Count; index++) { chunks.AddForContent(entries.Get(index).Stream, resolver, limits); }
+        using JoinedContent joined = JoinedContent.Create(chunks.Parts, governor, token);
+        chunks.Dispose();
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 8, token);
+        bool compress = request.Compress && joined.RawBytes.Length > 0;
+        byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, request.Level, limits, governor, graph.Memory, token) : joined.TakeBytes(graph);
+        joined.Dispose(); AddContentBuffer(graph, data);
+        PdfNameTable<QpdfObject> header = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
+        if (compress)
+        {
+            PdfName key = PdfDictionaryRebuild.CreateName(graph, "Filter"u8), filter = PdfDictionaryRebuild.CreateName(graph, "FlateDecode"u8);
+            header.Assign(graph.Memory, governor, key, filter, token);
+        }
+        PdfDictionary dictionary = PdfDictionaryRebuild.Complete(graph, header, allocation);
+        PdfStream stream = CreateContentStream(graph, dictionary, data); graph.Retain(); return stream;
+    }
+
+    private static void AddContentBuffer(OwnedAllocationBatch graph, byte[] data)
+    { if (data.Length != 0) { graph.Add(data, checked(data.Length + GovernedBufferStream.ArrayOverheadBytes)); } }
+
+    private static PdfStream CreateContentStream(OwnedAllocationBatch graph, PdfDictionary dictionary, byte[] data)
+    {
+        graph.Token.ThrowIfCancellationRequested(); graph.Governor.CheckCancellation(); graph.Memory.Reserve(32L);
+        PdfStream stream = PdfStream.FromOwnedData(dictionary, data); graph.Add(stream, 32L); return stream;
+    }
     private static PdfDictionary NormalizePage(
         GraphCopier copier,
         int pageId,
@@ -424,76 +382,88 @@ internal static class ContentTransforms
             return page;
         }
 
-        PoolResolver resolver = new(copier.CopiedObjects);
-        Dictionary<int, PdfStream> rewritten = new();
-        for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+        using ParserMemoryScope rewriteMemory = ParserMemoryScope.Create(governor);
+        PoolResolver resolver = PoolResolver.Create(rewriteMemory, copier.CopiedObjects);
+        GovernedIntDictionary<PdfStream>? rewritten = GovernedIntDictionary<PdfStream>.Create(rewriteMemory, governor, IntPtr.Size, cancellationToken);
+        try
         {
-            ContentEntries.Entry entry = entries.Get(entryIndex);
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            byte[] data;
-            bool decoded;
+            for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+            {
+                ContentEntries.Entry entry = entries.Get(entryIndex);
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.ChargeWork(1L);
+                PdfStream? replacement = BuildNormalizedContent(entry.Stream, resolver, limits, governor, diagnostics, cancellationToken);
+                if (replacement is null) { continue; }
+                if (entry.ObjectId.HasValue)
+                {
+                    copier.ReplaceCopiedObject(entry.ObjectId.Value, replacement);
+                }
+                else
+                {
+                    rewritten.Assign(rewriteMemory, entry.ArrayIndex, replacement);
+                }
+            }
+
+            if (rewritten.Count == 0)
+            {
+                if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? untouched) && untouched is PdfDictionary untouchedPage)
+                {
+                    return untouchedPage;
+                }
+
+                return page;
+            }
+
+            PdfDictionary current = page;
+            if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? latest) && latest is PdfDictionary latestPage)
+            {
+                current = latestPage;
+            }
+
+            current = ReplaceContentEntries(current, rewritten, governor, cancellationToken);
+            copier.ReplaceCopiedObject(pageId, current);
+            return current;
+        }
+        finally { rewritten = null; }
+    }
+
+    private static PdfStream? BuildNormalizedContent(PdfStream original, PoolResolver resolver, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        bool contentError = false;
+        using (ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor))
+        {
+            byte[] data = Array.Empty<byte>(); bool decoded;
             try
             {
-                (data, decoded) = DecodeForContent(entry.Stream, resolver, limits, governor);
+                try { (data, decoded) = DecodeForContent(original, resolver, limits, governor, decodedMemory, token); }
+                catch (QpdfException exception) when (exception is not QpdfLimitException)
+                { data = (byte[])original.AllocationCarrier; decoded = false; }
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
+                byte[]? normalized = null;
+                try
+                {
+                    try { normalized = NormalizeContentBytesOwned(data, limits, governor, token, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), graph.Memory); }
+                    catch (QpdfException exception) when (exception is not QpdfLimitException) { contentError = true; }
+                    if (normalized is not null)
+                    {
+                        data = Array.Empty<byte>(); decodedMemory.Dispose(); AddContentBuffer(graph, normalized);
+                        PdfDictionary dictionary = decoded ? PdfDictionaryRebuild.StripStreamEncoding(graph, original.Dictionary) : original.Dictionary;
+                        PdfStream replacement = CreateContentStream(graph, dictionary, normalized); graph.Retain(); return replacement;
+                    }
+                }
+                finally { normalized = null; }
             }
-            catch (QpdfException ex) when (ex is not QpdfLimitException)
-            {
-                data = entry.Stream.Data;
-                decoded = false;
-            }
-
-            byte[]? normalized = null;
-            try
-            {
-                normalized = NormalizeContentBytes(data, limits, governor, cancellationToken, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes));
-            }
-            catch (QpdfException ex) when (ex is not QpdfLimitException)
-            {
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Left a content stream unnormalized after a content error.");
-            }
-
-            if (normalized is null)
-            {
-                continue;
-            }
-
-            PdfDictionary dictionary = decoded ? StrippedContentDictionary(entry.Stream.Dictionary, governor, cancellationToken) : entry.Stream.Dictionary;
-            PdfStream replacement = new(dictionary, normalized);
-            if (entry.ObjectId.HasValue)
-            {
-                copier.ReplaceCopiedObject(entry.ObjectId.Value, replacement);
-            }
-            else
-            {
-                rewritten[entry.ArrayIndex] = replacement;
-            }
+            finally { data = Array.Empty<byte>(); }
         }
-
-        if (rewritten.Count == 0)
-        {
-            if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? untouched) && untouched is PdfDictionary untouchedPage)
-            {
-                return untouchedPage;
-            }
-
-            return page;
-        }
-
-        PdfDictionary current = page;
-        if (copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? latest) && latest is PdfDictionary latestPage)
-        {
-            current = latestPage;
-        }
-
-        current = ReplaceContentEntries(current, rewritten, governor, cancellationToken);
-        copier.ReplaceCopiedObject(pageId, current);
-        return current;
+        if (contentError) { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Left a content stream unnormalized after a content error."); }
+        return null;
     }
 
     private static PdfDictionary ReplaceContentEntries(
         PdfDictionary page,
-        Dictionary<int, PdfStream> rewritten,
+        GovernedIntDictionary<PdfStream> rewritten,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
@@ -514,20 +484,28 @@ internal static class ContentTransforms
 
         if (contents is PdfArray array)
         {
-            QpdfObject[] items = array.Items;
-            List<QpdfObject> rebuilt = new(items.Length);
-            for (int i = 0; i < items.Length; i++)
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 6, cancellationToken);
+            QpdfObject[] items = Array.Empty<QpdfObject>();
+            if (array.Count != 0)
             {
+                long bytes = checked(32L + array.Count * (long)IntPtr.Size);
+                graph.Memory.Reserve(bytes); governor.ChargeWork(array.Count);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                items = new QpdfObject[array.Count]; graph.Add(items, bytes);
+            }
+            for (int i = 0; i < array.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
                 if (rewritten.TryGetValue(i, out PdfStream? replacement))
                 {
-                    rebuilt.Add(replacement);
+                    items[i] = replacement;
                     continue;
                 }
 
-                rebuilt.Add(items[i]);
+                items[i] = array[i];
             }
-
-            return ReplaceEntry(page, "Contents"u8, new PdfArray(rebuilt), governor, cancellationToken);
+            graph.Memory.Reserve(24L); PdfArray rebuilt = PdfArray.FromOwnedItems(items); graph.Add(rebuilt, 24L);
+            PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Contents"u8, rebuilt); graph.Retain(); return result;
         }
 
         return page;
@@ -538,13 +516,26 @@ internal static class ContentTransforms
         ResourceGovernor governor,
         CancellationToken cancellationToken,
         long maximumBytes, string limitName)
+        => NormalizeContentBytesCore(data, limits, governor, cancellationToken, maximumBytes, limitName, null);
+
+    internal static byte[] NormalizeContentBytesOwned(byte[] data, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, long maximumBytes, string limitName, ParserMemoryScope memory)
     {
-        ContentTokenizer tokenizer = new(data, limits, governor)
+        memory.CheckOwner(governor);
+        return NormalizeContentBytesCore(data, limits, governor, cancellationToken, maximumBytes, limitName, memory);
+    }
+
+    private static byte[] NormalizeContentBytesCore(byte[] data, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, long maximumBytes, string limitName, ParserMemoryScope? memory)
+    {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor); scratch.Reserve(192L);
+        ContentTokenizer tokenizer = new(data, limits, governor, cancellationToken)
         {
             IncludeComments = true,
             IncludeWhitespace = true,
         };
-        using GovernedBufferStream output = new(governor, maximumBytes, limitName);
+        using GovernedBufferStream output = new(governor, maximumBytes, limitName, cancellationToken, Math.Max(1, Math.Min(8192, data.Length)));
         while (tokenizer.TryReadToken(out ContentToken token))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -566,11 +557,11 @@ internal static class ContentTransforms
                 case ContentTokenKind.LiteralString:
                     using (ParserMemoryScope temporary = ParserMemoryScope.Create(governor))
                     {
-                        byte[] decoded = DecodeLiteral(token.Data, governor, temporary);
-                        byte[] encoded = EncodeLiteral(decoded, governor, temporary, maximumBytes, limitName);
+                        byte[] decoded = DecodeLiteral(token.Data, governor, temporary, cancellationToken);
+                        byte[] encoded = EncodeLiteral(decoded, governor, temporary, maximumBytes, limitName, cancellationToken);
                         output.Write(encoded);
                     }
-                    if (ContainsNewline(token.Data, governor))
+                    if (ContainsNewline(token.Data, governor, cancellationToken))
                     {
                         output.WriteByte((byte)'\n');
                     }
@@ -579,11 +570,11 @@ internal static class ContentTransforms
                 case ContentTokenKind.Name:
                     using (ParserMemoryScope temporary = ParserMemoryScope.Create(governor))
                     {
-                        byte[] resolved = ResolveNameBytes(token.Data, governor, temporary);
-                        byte[] encoded = EncodeName(resolved, governor, temporary, maximumBytes, limitName);
+                        byte[] resolved = ResolveNameBytes(token.Data, governor, temporary, cancellationToken);
+                        byte[] encoded = EncodeName(resolved, governor, temporary, maximumBytes, limitName, cancellationToken);
                         output.Write(encoded);
                     }
-                    if (ContainsNewline(token.Data, governor))
+                    if (ContainsNewline(token.Data, governor, cancellationToken))
                     {
                         output.WriteByte((byte)'\n');
                     }
@@ -605,7 +596,7 @@ internal static class ContentTransforms
             }
         }
 
-        return output.ToArray();
+        return memory is null ? output.ToArray() : output.ToArray(memory, cancellationToken);
     }
 
     private static void AppendRaw(GovernedBufferStream output, ContentToken token)
@@ -650,11 +641,12 @@ internal static class ContentTransforms
             position = absolute + 1;
         }
     }
-    private static bool ContainsNewline(ReadOnlyMemory<byte> raw, ResourceGovernor governor)
+    private static bool ContainsNewline(ReadOnlyMemory<byte> raw, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ReadOnlySpan<byte> span = raw.Span;
         for (int i = 0; i < span.Length; i += 8192)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int count = Math.Min(8192, span.Length - i);
             governor.ChargeWork(count);
             if (span.Slice(i, count).IndexOfAny((byte)'\n', (byte)'\r') >= 0)
@@ -666,10 +658,12 @@ internal static class ContentTransforms
         return false;
     }
 
-    private static byte[] DecodeLiteral(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory)
+    private static byte[] DecodeLiteral(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ReadOnlySpan<byte> span = raw.Span;
-        using GovernedBufferStream decoded = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes));
+        memory.Reserve(112L);
+        using GovernedBufferStream decoded = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes), cancellationToken);
         int i = 0;
         if (span.Length > 0 && span[0] == (byte)'(')
         {
@@ -751,15 +745,15 @@ internal static class ContentTransforms
             i += 1;
         }
 
-        byte[] result = decoded.ToArray();
-        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
-        return result;
+        return decoded.ToArray(memory, cancellationToken);
     }
 
     private static byte[] EncodeLiteral(byte[] value, ResourceGovernor governor, ParserMemoryScope memory,
-        long maximumBytes, string limitName)
+        long maximumBytes, string limitName, CancellationToken cancellationToken)
     {
-        using GovernedBufferStream output = new(governor, maximumBytes, limitName);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        memory.Reserve(112L);
+        using GovernedBufferStream output = new(governor, maximumBytes, limitName, cancellationToken, (int)Math.Min(8192L, value.Length + 2L));
         output.WriteByte((byte)'(');
         foreach (byte b in value)
         {
@@ -809,15 +803,15 @@ internal static class ContentTransforms
         }
 
         output.WriteByte((byte)')');
-        byte[] result = output.ToArray();
-        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
-        return result;
+        return output.ToArray(memory, cancellationToken);
     }
 
-    private static byte[] ResolveNameBytes(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory)
+    private static byte[] ResolveNameBytes(ReadOnlyMemory<byte> raw, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ReadOnlySpan<byte> span = raw.Span;
-        using GovernedBufferStream resolved = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes));
+        memory.Reserve(112L);
+        using GovernedBufferStream resolved = new(governor, Math.Max(1, span.Length), nameof(QpdfLimits.MaxDecodedBytes), cancellationToken);
         PdfNameBytes.Cursor cursor = new(span, true);
         while (cursor.TryRead(out byte value))
         {
@@ -825,15 +819,15 @@ internal static class ContentTransforms
             resolved.WriteByte(value);
         }
 
-        byte[] result = resolved.ToArray();
-        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
-        return result;
+        return resolved.ToArray(memory, cancellationToken);
     }
 
     private static byte[] EncodeName(byte[] resolved, ResourceGovernor governor, ParserMemoryScope memory,
-        long maximumBytes, string limitName)
+        long maximumBytes, string limitName, CancellationToken cancellationToken)
     {
-        using GovernedBufferStream output = new(governor, maximumBytes, limitName);
+        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        memory.Reserve(112L);
+        using GovernedBufferStream output = new(governor, maximumBytes, limitName, cancellationToken, (int)Math.Min(8192L, resolved.Length + 1L));
         output.WriteByte((byte)'/');
         foreach (byte b in resolved)
         {
@@ -852,9 +846,7 @@ internal static class ContentTransforms
             }
         }
 
-        byte[] result = output.ToArray();
-        if (result.Length > 0) { memory.AdoptReserved(result.Length + GovernedBufferStream.ArrayOverheadBytes); }
-        return result;
+        return output.ToArray(memory, cancellationToken);
     }
 
     private static bool IsHexDigit(byte b)

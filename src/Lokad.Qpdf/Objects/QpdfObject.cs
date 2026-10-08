@@ -602,6 +602,9 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
 
     internal ReadOnlyMemory<byte> RawMemory => _data;
 
+    // The caller admits this fresh buffer and relinquishes mutable access.
+    internal static PdfStream FromOwnedData(PdfDictionary dictionary, byte[] data) => new(dictionary, data, false);
+
     // Header-only rewrites keep the immutable payload's existing owner.
     internal PdfStream WithDictionary(PdfDictionary dictionary) => new(dictionary, _data, false);
 
