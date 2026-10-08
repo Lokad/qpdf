@@ -276,40 +276,18 @@ internal static class ContentTransforms
         }
     }
 
-    private static PdfDictionary StrippedContentDictionary(PdfDictionary dictionary, ResourceGovernor governor)
+    private static PdfDictionary StrippedContentDictionary(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName key in dictionary.Keys)
-        {
-            if (key.DisplayText == "Filter" || key.DisplayText == "DecodeParms" || key.DisplayText == "Length")
-            {
-                continue;
-            }
-
-            if (dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-            {
-                governor.ReserveMemory(32L);
-                entries[key] = found;
-            }
-        }
-
-        return new PdfDictionary(entries);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 2, cancellationToken);
+        PdfDictionary result = PdfDictionaryRebuild.StripStreamEncoding(graph, dictionary);
+        graph.Retain(); return result;
     }
 
-    private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, PdfName key, QpdfObject value, ResourceGovernor governor)
+    private static PdfDictionary ReplaceEntry(PdfDictionary dictionary, ReadOnlySpan<byte> key, QpdfObject value, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        foreach (PdfName existing in dictionary.Keys)
-        {
-            if (dictionary.TryGet(existing, out QpdfObject? found) && found is not null)
-            {
-                entries[existing] = found;
-            }
-        }
-
-        governor.ReserveMemory(64L);
-        entries[key] = value;
-        return new PdfDictionary(entries);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, cancellationToken);
+        PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, dictionary, key, value);
+        graph.Retain(); return result;
     }
 
     private static List<int> ReplacedContentIds(QpdfObject? value)
@@ -401,8 +379,7 @@ internal static class ContentTransforms
             coalesced = new PdfStream(fresh, joined);
         }
 
-        PdfName contentsKey = PdfName.FromAscii("Contents");
-        page.TryGet(contentsKey, out QpdfObject? contentsRaw);
+        PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contentsRaw);
         PdfDictionary replaced;
         if (contentsRaw is PdfReference contentsRef)
         {
@@ -417,7 +394,7 @@ internal static class ContentTransforms
                 return page;
             }
 
-            replaced = ReplaceEntry(page, contentsKey, link, governor);
+            replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
             List<int> orphaned = ReplacedContentIds(contentsRaw);
             if (orphaned.Count > 0)
             {
@@ -477,7 +454,7 @@ internal static class ContentTransforms
                 continue;
             }
 
-            PdfDictionary dictionary = decoded ? StrippedContentDictionary(entry.Stream.Dictionary, governor) : entry.Stream.Dictionary;
+            PdfDictionary dictionary = decoded ? StrippedContentDictionary(entry.Stream.Dictionary, governor, cancellationToken) : entry.Stream.Dictionary;
             PdfStream replacement = new(dictionary, normalized);
             if (entry.ObjectId.HasValue)
             {
@@ -505,7 +482,7 @@ internal static class ContentTransforms
             current = latestPage;
         }
 
-        current = ReplaceContentEntries(current, rewritten, governor);
+        current = ReplaceContentEntries(current, rewritten, governor, cancellationToken);
         copier.ReplaceCopiedObject(pageId, current);
         return current;
     }
@@ -513,9 +490,10 @@ internal static class ContentTransforms
     private static PdfDictionary ReplaceContentEntries(
         PdfDictionary page,
         Dictionary<int, PdfStream> rewritten,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        CancellationToken cancellationToken)
     {
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) || contents is null)
+        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) || contents is null)
         {
             return page;
         }
@@ -524,7 +502,7 @@ internal static class ContentTransforms
         {
             foreach (KeyValuePair<int, PdfStream> entry in rewritten)
             {
-                return ReplaceEntry(page, PdfName.FromAscii("Contents"), entry.Value, governor);
+                return ReplaceEntry(page, "Contents"u8, entry.Value, governor, cancellationToken);
             }
 
             return page;
@@ -545,7 +523,7 @@ internal static class ContentTransforms
                 rebuilt.Add(items[i]);
             }
 
-            return ReplaceEntry(page, PdfName.FromAscii("Contents"), new PdfArray(rebuilt), governor);
+            return ReplaceEntry(page, "Contents"u8, new PdfArray(rebuilt), governor, cancellationToken);
         }
 
         return page;

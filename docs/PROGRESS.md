@@ -1,5 +1,44 @@
 # Progress
 
+## Shared content-header reconstruction
+
+Resource pruning and content-header replacement/encoding stripping now share
+admitted dictionary construction. Helpers borrow original keys/values and use
+raw entry/name operations; new names have one admitted copied buffer and an
+independent wrapper receipt. Empty names own a fresh empty buffer. Atomic fresh
+allocation acceptance replaces job-wide BCL reservations; escaped dictionaries,
+keys, names and bytes remain funded while completed execution metadata can die.
+Replacement order, binary names, actual-null entries and encoding-key handling
+remain; raw Contents lookup carries work/cancellation into coalescing/normalization.
+
+Locked restores and Release builds pass with zero warnings/errors. Isolated
+**7547 offline cases / 39 new controls** and pending **8270 / 39** pass.
+All 7508 isolated / 8231 pending stable identities and 217 original test sources
+remain. Identical final header controls on preceding pending 72C30032 fail
+**18 / preserve 8 / 26 eligible**, zero loaders; 13 new kernel/caller-token cases
+are excluded. The declared private adapter changes only old signature binding.
+Both helpers cover every valid work budget from 1 through 511.
+
+Across 128 warmed existing-key/missing-key/stripped/empty-stripped headers,
+pending helper allocation is **253952 / 273408 / 218112 / 200704**, active heap
+**201728 / 221184 / 187392 / 169984**. Isolated allocation is
+**247808 / 267264 / 211968 / 194560**, heap **196608 / 216064 / 182272 / 164864**;
+both stay within admission **212480 / 235008 / 198144 / 179200**. Last-alias
+retirement is zero; 512 completed alias contexts per runtime retain zero governors.
+Scope/batch/container/name/ledger allocations are included; prepared borrowed
+inputs, governors/controllers, holders, delegates/reflection and reporting are
+excluded. Cold/native/pool/codec/whole-job/RSS/CPU/host evidence remains open.
+
+Fresh **358 native comparisons / 500 rereads**, the full differential wrapper
+(including normalization/coalescing) and **1846 parser comparisons / 432 rewrite
+trios**, package/symbol checks, 50 consumer smokes and both specific negatives
+pass on pending AC3D755A / tests 4D434434 at build checkpoint 49872d0.
+These are local Windows results; nuspec exposes no source commit or URL.
+Content lists/arrays, coalescing/normalization buffers and codec copies, inline
+image reconstruction, other consumers, presentation/diagnostics and broader
+audits remain open. The undefined form-font mismatch remains confirmed.
+A01–A07/M11, original scheduling/counter observations and both verdicts stay open.
+
 ## Owned rebuilt resource graphs
 
 Page/form pruning now builds fresh Font, XObject, resource and node-header

@@ -207,6 +207,30 @@ wrapper and **1846 parser comparisons / 432 rewrite trios**, package/symbol chec
 exposes no source commit or URL. The known undefined form-font mismatch remains
 open. No inventory context, broader audit, release or completion gate is closed.
 
+## Shared content-header ownership checkpoint
+
+Resource pruning and content-header replacement/encoding stripping share the
+same admitted table construction and atomic fresh-carrier acceptance. Original
+keys/values stay borrowed; inserted names and byte storage have independent
+receipts, including empty names. Raw lookup/entry visits carry work/cancellation.
+Ordering, actual-null entries, binary names and encoding removal remain.
+
+Isolated **7547 / 39 new controls** and pending **8270 / 39** pass with locked
+restores and Release builds. All preceding 7508 / 8231 stable identities and
+217 original test sources remain. Identical final controls on preceding pending
+72C30032 fail 18 / preserve 8 of 26 eligible cases, zero loaders; 13 new-kernel/
+caller-token cases are excluded. The private adapter changes signature binding
+only; fixtures, values, budgets and assertions stay identical.
+
+Fresh **358 native comparisons / 500 rereads**, full differential/reference
+(including normalization/coalescing), **1846 parser comparisons / 432 rewrite
+trios**, package/symbol/50-consumer/both-specific-negative gates pass on pending
+AC3D755A / tests 4D434434 at build checkpoint 49872d0. Independent warmed probes
+cover escaped header/name funding and zero retirement/completed governors, with
+explicit exclusions. These are local Windows results; no inventory context,
+broader audit or completion gate closes. The known form-font mismatch, content
+buffers/codec copies, other consumers and final combined correction remain open.
+
 ## Inventory
 
 The job `check` key now runs the shared checker with the native empty-string
