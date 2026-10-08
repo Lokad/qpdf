@@ -20,7 +20,10 @@ The committed physical checker rejects all eight preserved invalid form outputs
 and accepts the corrected/native layouts; HINT-02 is retired by final source-bound
 public, reference and package verification. See the finite public-route
 checks and pass conditions in [AUDIT-CLOSURE](AUDIT-CLOSURE.md).
-Broader checker coverage and complete hint ownership remain open. The numerator
+The combined hint ownership correction passes 11008 Release cases, the full pinned
+reference/parser lane and fresh package/consumer checks. Original 868 comparisons
+and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader
+checker/ownership/cold-state audits and the eight schema gaps remain open. The numerator
 evidence below describes the preceding checkpoint and its then-preserved eight warnings.
 
 Linearization shared numerators now use native width zero. The original 64

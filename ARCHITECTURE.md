@@ -40,7 +40,9 @@ decoding, overflow joins, bit cursors and temporary arrays. Check/show retain
 parsed tables only through classification, validation and reporting. Independently
 escaping tables, entries and identifier/numerator arrays receive separate receipts;
 discarded siblings and decoded scratch can collect while source values survive.
-Final combined verification and broader ownership remain under audit.
+The combined hint correction is verified through complete public jobs and the
+original native/reference/package controls. Broader ownership, cold state and
+BCL/codec physical-memory measurements remain under audit.
 
 Document-open traversal starts at catalog values, so direct containers retain
 indirect descendants and indirect roots retain their own physical identities.
@@ -51,7 +53,7 @@ copy path. Physical linearization checking uses the shared reader for object
 ends and the shared graph classifier for compressed owners. It verifies page
 runs, hint spans, shared groups and outlines against the actual input layout.
 Show-linearization retains parsed raw fields on physical failures. Broader checker
-coverage and complete hint ownership remain open.
+coverage and broader complete-job ownership remain open.
 
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and

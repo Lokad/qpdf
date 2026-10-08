@@ -1,41 +1,70 @@
 # Progress
 
-## Hint ownership correction in progress
+## Hint ownership correction
 
-HINT-03E/W now share owned bit buffers, raw tables and final hint objects across
-classic/streamed/fallback publication. Construction collections and optional
-Flate output use existing scopes; escaping encoder arrays keep independent receipts.
+HINT-03E/W/R/V and HINT-03 are retired by the combined correction at `4c60a78`
+and `b7e3b27`, runtime `858BEE55` / tests `E9BE4F1A`.
+Both writers scope construction collections, bit buffers, raw tables, compression
+and final objects through replay/publication. The shared reader borrows immutable
+raw streams and scopes decoding, overflow joins, cursors and temporary arrays.
+Check/show own parsed models through reporting; independent table/entry/array/
+outline aliases retain separate receipts without keeping discarded siblings or
+decoded scratch alive.
+
 The unchanged **4 KiB / 64 calls / four GC rounds** probe completes all 64 calls,
-zero surviving bodies, peak **1503 bytes**. Its final **1224 bytes** are owned weak
-ledger metadata pending job-thread maintenance; the extra maintenance control
-retires that metadata to zero without replacing the original probe.
+zero surviving bodies, peak **1503 bytes**. Its final **1224 bytes** remain owned
+weak-ledger metadata pending job-thread maintenance; the extra maintenance control
+retires it to zero. This qualification and the original 28-call/4047-byte failure
+remain explicit. Original fixtures, budgets, deadlines and GC controls are preserved.
 
-Release build has zero warnings. **1581** existing focused cases and **69** new
-checks pass, including **64 complete public jobs** over raw/decoded input, classic/
-streamed and raw/compressed hints. Hint receipts survive the paused append and
-retire before success, write/publication failure or cancellation returns. Prior
-output aliases survive; successful publications pass typed check and argv show.
-Same new tests on `9C5B832E`: **67 fail / 2 preserve / 69 eligible**, no loaders or
-skips, including a demonstrated ignored governor-token cancellation in the old
-encoder. A new reflection observer cycle was fixed; its aborted draft remains.
+All **11008** Release cases pass: every **10833** preceding occurrence plus
+**175** new controls, including **139 complete public jobs** and 36 component
+checks. The 64 writer jobs cover raw/decoded inputs, classic/streamed and raw/
+compressed hints, success/write fault/publication fault/cancellation; successful
+outputs pass typed check and argv show. The 75 read jobs cover typed/argv/job
+check/show on classic/streamed/primary/overflow/Flate inputs, success/input-close
+fault/cancellation after observed work. Late admission/work failures and both
+tokens retire only the attempt; source/prior output aliases survive and leases
+close. Original 32 KiB/32-cycle controls and 128 KiB inflate allowance remain.
+Identical writer tests on `9C5B832E`: **67 fail / 2 preserve / 69 eligible**;
+reader tests on committed writer `CA21671B`: **30 fail / 76 preserve / 106 eligible**.
+These are distinct baselines; no loader failures or skips. Draft build failures
+and the corrected reflection-observer cycle/aborted run remain separate.
 
-HINT-03R now scopes primary/overflow decoding and joins, bit cursors and temporary
-arrays. Check/show own parsed tables through reporting; independently escaping
-tables, entries, identifier/numerator arrays and outlines retain separate receipts.
-Decoded scratch dies while the parsed owner and borrowed source streams survive.
-The final focused build has zero warnings; **1756** cases pass, including **106**
-new reader controls: 31 ownership/failure/cancellation checks and **75 complete
-public reads** over classic, streamed, overflow and Flate inputs. Original
-32 KiB/32-cycle controls remain; the compressed supplement retains the existing
-128 KiB inflate allowance. Input-close faults and cancellation after observed work
-close all leases and preserve prior output aliases. Identical new tests on the
-committed writer runtime: **30 fail / 76 preserve / 106 eligible**, no loaders/skips.
-All preceding test sources, five locks and unrelated work remain unchanged.
+All **537** tracked raw paths / **514** implementation/test/tool/benchmark paths
+match the verified committed freeze; **524** unrelated raw paths, all **247**
+preceding test sources and five locks are preserved. Git identities match the
+existing LF policy and are recorded separately from raw identities. Strict locked
+restore/build have zero warnings and no overrides. The full pinned reference
+wrapper completes both differential and parser stages: **1846** exact comparisons
+and **432** rewrite trios. Fresh package/symbol inspection, **50** isolated consumer
+smokes and both specific pre-smoke negatives pass; DLL/changelog/PDB match exactly.
+All **908** public signatures and seven original carrier samples are unchanged.
 
-HINT-03R is a scoped correction; **HINT-03V** remains open until the final combined
-read/write tree passes the original native comparisons, full tests,
-reference/package/consumer/source checks and phase timings. No expensive lane has
-been repeated during debugging. M11/A01–A07 and both verdicts remain open.
+Original native results stay **868 headers / 804 complete decoded / 868 exits**,
+with every fixture/setter/route and all 64 differing pairs preserved.
+All 868 managed headers and complete raw/decoded streams are identical to their
+preceding observations; this ownership correction changes no compared payload.
+Independent physical checks validate all **128** layouts and **512** oracle checks; these valid
+layout differences do not redefine complete-byte equality.
+
+Phase timings: full test console **6m13s** (process 6m28s);
+native matrix 7m28s; full reference wrapper
+41m41s, including approximately
+33m13s parser artifact interval and
+8m28s before that stage.
+Strict restore/build 1.9s/1.5s;
+pack/inspection 2.0s/3.3s;
+fresh consumer/negatives 24.9s/11.2s.
+Full tests/native/package ran independently alongside reference; parser timing uses
+unmodified script artifact timestamps, while total wrapper timing is exact.
+No expensive lane was repeated during this correction's final freeze. These are
+local Windows results; explicit cross-platform/reference CI remains REF-02.
+
+The next public failure is DIAG-02: direct argv failures/cancellation discard
+observed counters, while loaded jobs report the final governor snapshot. Broader
+ownership/presentation/cold/BCL/codec/RSS/CPU/host audit entries, eight AcroForm
+schema gaps, M11/A01–A07 and both completion verdicts remain open.
 
 ## Physical linearization checker
 
@@ -77,10 +106,10 @@ The first full run's one outline-message regression, interrupted reference
 finished before its session disappeared during parser checking after an environment
 change; the interrupted log is retained, and only the unchanged parser lane was
 repeated. No original fixture, budget, deadline, cancellation or GC
-control changed. HINT-03 complete public-job/body ownership is next; the original
-4 KiB/28-call/4047-byte finding remains. M11/A01–A07 and both verdicts stay open.
+control changed. The original 4 KiB/28-call/4047-byte finding is preserved by the subsequent
+HINT-03 correction above. M11/A01–A07 and both verdicts stay open.
 
-HINT-03 baseline now includes **64 complete public jobs**, argv/job across classic/
+The preceding HINT-03 baseline includes **64 complete public jobs**, argv/job across classic/
 streamed and raw/compressed hints, success/write fault/publication fault/cancellation.
 All outcomes close leases and preserve prior targets; 16 successful publications
 pass typed checking. The compressed-input half performs 316/456 decoded bytes;
@@ -99,7 +128,7 @@ storage and future export work are admitted before acceptance; JSON stages warni
 through input closure. Escaping value/check/diagnostic aliases remain funded while
 completed jobs release ledger metadata. Writer row/index/capture/header/payload,
 encoding/order/xref/remap/layout owners detach dead backing at their last consumer.
-Hint bodies and broader complete-job ownership remain open.
+HINT-03 subsequently corrects hint bodies; broader complete-job ownership remains open.
 
 Document-open traversal now includes direct containers/indirect roots, stops at
 neighboring pages before assigning physical owners and orders generated object-stream
@@ -108,7 +137,7 @@ The original eight native form warnings disappear. All **152** native observatio
 remain: **144** outputs pass native linearization and match physical assignments,
 zero warnings; **eight** array-AcroForm schema rejections/native successes remain
 explicit (HINT-05). HINT-02 corrects the checker's false passes of eight preserved
-invalid old form outputs; hint ownership HINT-03 is the next public work unit.
+invalid old form outputs; hint ownership HINT-03 is subsequently retired above.
 
 The preceding combined runtime `4972E00D` / tests `BDA364D9` passed **9767** Release cases,
 retaining all **9597** preceding occurrences; 170 new controls. Identical tests
