@@ -99,12 +99,17 @@ underfunded result/counter carriers through 16 complete public jobs. Configurati
 import/update/resource walks and generic DTO admission remain separate obligations.
 The command-carrier correction replaces private command result/counter clones
 with value outcomes, prepares independent result/counter receipts before output
-creation and freezes final counters after cleanup. Its final 4384-case focused
-run passes all 736 new complete public rows; identical cases on the predecessor
-expose 378 failures and preserve 358 outcomes. Final proof is pending. Typed carriers
-and four complete work-exhaustion counter undercounts remain DIAG-01R-T/F;
-the original five-row comparison remains, with MaxWork=2048 now funded.
-neither correct snapshots nor healthy-job ownership retires those obligations.
+creation and freezes final counters after cleanup. DIAG-01R-C is retired at
+implementation `28b929a` / test integration `e426d00`: all 15020 Release
+cases retain all 14284 preceding occurrences, 4384 focused checks pass, and identical
+736 public rows on the predecessor expose 378 failures/358 preserved outcomes.
+Pinned 1846/432, all 868 complete native rows/same 64 differences, exact package/PDB,
+908 signatures and fresh 50-smoke/two-negative consumers pass. Five cleanup assertions
+now require exactly 1432 surviving result/counter/ledger bytes, preserving all 18
+original jobs and other assertions; 256 other old test sources/five locks stay exact.
+Typed carriers and four complete work-exhaustion counter undercounts remain
+DIAG-01R-T/F; the original five-row comparison remains, with MaxWork=2048 now funded.
+Neither correct snapshots nor healthy-job ownership retires those obligations.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
