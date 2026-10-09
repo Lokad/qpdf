@@ -1,94 +1,98 @@
 # Progress
 
-## Complete publication admission
+## Complete publication admission — DIAG-02P3H retired
 
-DIAG-02P3H integrates complete split/pass1 and JSON publication admission across
-argv/job/mixed/response and typed routes, with or without presentation flags.
-The eight unchanged host ceilings now reject before any output creation. Prepared
-batches admit future opens/writes and one sequential handle before first commit.
-The shared host wrapper counts writes as the public limit already requires.
-Input/output wrappers reserve measured 32/40-byte storage before allocation;
-a batch lends one prepaid output wrapper across transactions. Storage and handles
-remain charged through host close and retire once on success/fault/cancellation.
-Unexecuted reserved calls do not increase observed counters. External publication
-failures and post-commit close failures retain the host's existing contract.
+Code commits `c422c77` / `9fcc3f8` and assertion commit `451ce35` integrate the
+complete publication correction. The original eight split/pass1 and JSON host
+ceilings reject before output creation. Every configuration/typed route, with or
+without summaries, prepares split bytes and JSON lengths before publication.
+Batches admit future opens/writes, one sequential handle and reusable measured
+wrapper storage before first commit. Shared wrappers count actual writes, reserve
+32/40 bytes before allocation, keep storage/handles through host close and retire
+once on success/fault/cancellation. Reserved unexecuted calls do not inflate counters.
+One-handle sidecars, prior targets and surviving aliases remain supported. External
+host publication and post-commit close failures retain their declared semantics.
 
-After history admission, plain jobs retain accepted warnings on publication failure
-through the shared
-presentation owner. Plain JSON attaches that owner after its exclusive reader closes
-and staged warnings export, keeping the original 247489-byte parser control. Plain
-success uses its original projection; an empty failure view retires instead of
-escaping. All 12 original observed-read cancellation controls keep zero live bytes. Their prior informational-note omission remains: three unchanged
-schema/inspection assertions exposed and verified that policy during correction. Mixed
-hidden-record retirement remains P2F, including plain warning-history projections.
-Preparing all split bytes now also applies without summary flags and costs memory
-under existing limits; it introduces no contiguous-array/default product ceiling.
+After history admission, plain publication failures preserve accepted warnings and
+the prior informational-note omission. Plain JSON attaches history after its
+exclusive reader closes and staged warnings export, preserving the original
+247489-byte parser control. Plain success keeps its original projection; empty
+failure views retire. All 12 old observed-read cancellation controls keep zero
+live bytes. Failure before staged export/history admission remains P2F; mixed
+hidden-warning and hidden-info retirement also remains there. Prepared split
+storage costs memory under existing limits; no new default product ceiling exists.
 
-The correction adds 636 complete public controls and 15 lease/admission controls.
-They cover exact/short budgets, raw/Flate inputs, writer styles/pass1, one-handle
-sidecars, typed throwing contracts, read/write/open/commit/close faults, cancellation
-and surviving prior targets/aliases. Fifty-two additional fixed-ceiling plain jobs
-exercise genuine failure after split serialization. Same final public tests on
-`642C5096`: 508 fail / 128 preserve, no loaders/skips/exclusions. Keep the original
-eight partial publications and the separate test-driver/build-lock corrections.
-Independent 1024-allocation samples confirm 32/40/48-byte lease/batch owners;
-the governor stays 168 bytes and all 908 signatures remain. The unchanged original
-carrier helper records 393416 CheckPlan bytes on both predecessor and correction,
-including its still-unattributed +200 bytes; six other raw samples match. MEASURE-01
-retains the older 393216 passing samples and this repeated observation. All old fixtures, budgets and case occurrences remain. Of the 256 preceding test
-sources, 254 stay unchanged; two assertions now require accepted warning history
-alongside the original budget error, error exit and absent output. They also require
-exact diagnostic counts and zero handles/leases. Five locks, advisory policy and
-unrelated work remain unchanged.
+## Decisive committed-source evidence
 
-The 2664-case focused correction preserves every preceding 2007 occurrence.
-An added work-boundary control initially exhausted its budget during owner creation;
-it now fills the observed remaining capacity after creation. The other 2663 pass;
-final lease/old parser/cancellation controls verify the correction separately.
-The earlier broadened 2675-case run retains one 240/238-byte successful-summary
-variation, alongside the previous GC-interference finding. New lease-lifetime
-controls use the existing exclusive collection; original fixtures/limits stay fixed.
-Full verification exposed empty-view/parser-budget regressions; stale test/native/
-reference runs stopped at 174.3/168.2/about 175 seconds and remain recorded.
-The corrected committed runtime passes the complete pinned 1846/432 reference,
-original 868/804/868 native matrix and strict package/fresh 50-smoke/two-negative
-consumer checks. The first full run executes all 13460 cases: 13458 pass and two
-legacy assertions expect accepted warnings to disappear on budget failure. The
-assertion correction above retains the original failure/budget/no-output checks
-and requires that history. A final complete Release rerun remains; no runtime,
-probe, fixture, budget, lock or matrix scope changed after reference verification.
-P2F still requires staged-memory/pre-export plain JSON history, mixed suppression
-retirement and its full
-cancellation/lifetime evidence. DIAG-01, JSON-01, MEASURE-01, parent P2/P3/PV,
-M11/A01–A07 and both verdicts remain open. The five named ImageSharp 3.1.12
-exclusions remain the intentional temporary policy; audit stays enabled.
+Runtime `6751D369`, tests `107B6837`, probe
+`C98EA12D`: all **13460 Release cases pass**, retaining all 12809
+preceding occurrences and adding 636 complete public / 15 lease controls. Public
+controls cover exact/short budgets, raw/Flate inputs, writer styles/pass1, typed
+throwing routes, one-handle sidecars, read/write/open/commit/close faults,
+cancellation and surviving targets/aliases. Fifty-two fixed-ceiling plain jobs
+exercise failure after split staging. The identical final 636 public cases on
+`642C5096` give **508 fail / 128 preserve**, zero loaders/skips/exclusions.
 
-## Binding baseline and remaining work
+Full pinned reference passes **1846 parser comparisons / 432 rewrite trios**.
+Original native results remain **868 headers / 804 decoded / 868 exits**, with
+the same 64 classified valid physical-layout differences. All 868 original
+fixtures/settings/routes, headers, complete payloads, warnings and diagnostics
+are preserved. Exact package/DLL/changelog/PDB, 50 fresh consumer smokes and both
+specific pre-smoke negatives pass. All 908 signatures, five locks and unrelated
+work remain. Of 256 preceding test sources, 254 are byte-identical; two strengthened
+assertions preserve the same fixtures, ceilings, error/no-output conditions and
+require accepted warnings, exact diagnostic counts and closed handles/leases.
 
-The preceding `19337f6` implementation / `d28be74` evidence commit passed 12809
-Release cases, full pinned 1846 parser comparisons/432 rewrite trios, native
-868 headers/804 decoded/868 exits and the same 64 valid layout differences,
-exact package/PDB and 50 fresh consumer smokes/two specific negatives.
-All 868 managed headers and complete payloads were preserved. Parser reference
-work dominated: full reference 28m35s, broad/parser artifact intervals 7m10s/21m25s;
-full tests 8m06s and native 6m35s. Repeat expensive lanes once for the changed,
-completed correction; overlap independent lanes and record exact phase timings.
+Reference/native/package proof binds `9fcc3f8`. Assertion/progress-only changes at
+`451ce35` reproduce its byte-identical runtime, probe and PDB. The full suite binds
+that final committed test assembly; no reference matrix, fixture or budget changed.
+All 549 tracked / 526 implementation-test-tool-benchmark paths are frozen; 535
+preceding raw paths are unchanged. Evidence is in
+`external/reviews/2026-10-09-publication-admission/second-final/integrated-verification.json`.
+The final documentation commit changes no runtime/test source or shipped artifact.
 
-Next DIAG-02P2F controls remain concrete: four count=53 JSON/schema/NoWarn jobs
-accept 50 warnings plus one info note, return info/error only, and retain all 50
-hidden texts after four GC rounds. Retire that hidden storage while preserving
-independent visible view/record/text/iterator aliases. Add genuine future staged-
-warning memory exhaustion and cancellation after public observed acceptance.
-Keep the 144 original and 36 valid fifty-page warning sweeps qualified: none lost
-history; they do not prove late export. The fifty-duplicate catalog is an invalid
-complete baseline under the native/default per-object error cap.
+| Phase | Observed wall time |
+| --- | --- |
+| Locked restore / committed build | 1.5s / 1.4s |
+| Final assertion-tree restore / build | 1.6s / 1.6s |
+| Initial full / final full | 10m08s / 7m35s |
+| Reference total / broad-to-parser / parser artifact interval | 34m39s / 9m08s / 25m31s |
+| Native matrix | 8m33s |
+| Pack / inspection / fresh consumer / negatives | 2.7s / 4.2s / 23.0s / 15.7s |
 
-The [finite checklist](AUDIT-CLOSURE.md) gives every open route/check/pass condition.
-The inventory remains 140 flags/157 contexts, 152 complete/five partial; the 98 job
-root keys still need full grammar/default/interaction evidence. HINT-05 keeps eight
-array-AcroForm schema differences. Overlay/form/default/context, cold/codec/RSS/
-CPU/host, visual/reference CI and both completion verdicts stay open. Retain the
-original 4 KiB hint failure (28 calls/4047 live bytes), corrected 64 calls/1503 peak/
-1224-byte owned-ledger qualification, grouped +24 bytes, 1768-byte failed allocation
-sample and earlier unexplained +200 bytes. Full controls and history are archived
-in [PROGRESS-HISTORY](PROGRESS-HISTORY.md); no scoped closure erases them.
+Independent lanes overlapped; artifact intervals are not isolated CPU measurements.
+Parser work remains the bottleneck. Earlier stale runs stopped after actual
+empty-view/parser regressions (174.3/168.2/about 175 seconds) remain qualified.
+The corrected initial full run had exactly two assertions expecting lost warnings;
+the final rerun above follows their explicit assertion correction. Original eight
+partial publications, focused harness/build-lock failures, the 2663/2664 run and
+its corrected work-boundary control remain in the evidence/history.
+
+## Next public failure and remaining obligations
+
+Choose **DIAG-02P2F** next: four count=53 JSON/schema/NoWarn jobs accept 50 warnings
+plus one info note, return info/error only, and retain all 50 hidden texts after
+four GC rounds. Retire hidden storage while preserving independent visible
+view/record/text/iterator aliases. Add genuine staged-warning memory exhaustion
+and cancellation after public observed acceptance, including plain failure before
+staged export/history admission. Preserve original outcomes, targets and limits.
+The original 144 probes and 36 valid fifty-page sweeps remain qualified: no history
+loss there proves late export. Fifty duplicate catalog warnings are an invalid
+baseline under the native/default per-object error cap.
+
+MEASURE-01 retains the earlier 240/238 successful-summary variation and original
+carrier CheckPlan +200 raw bytes, repeated on predecessor and correction. The
+PreparedSplitPublication geometry sample similarly has +152 raw bytes on both;
+neither is a new fixed-owner size conclusion. Governor/input/output/batch samples
+are 168/32/40/48 bytes. Keep grouped +24, 1768 failed allocation, prior clean
+393216 CheckPlan samples and 4192/8224 qualifications. The original 4 KiB hint
+failure (28 calls/4047 live bytes), corrected 64 calls/1503 peak and 1224-byte
+owned-ledger qualification stay archived and binding.
+
+P2F, DIAG-01, JSON-01, MEASURE-01, parent P2/P3/PV, M11/A01–A07 and both verdicts
+remain open. The finite [checklist](AUDIT-CLOSURE.md) names their routes/checks/pass
+conditions. Inventory stays 140 flags/157 contexts, 152 complete/five partial;
+98 job keys, eight array-AcroForm gaps, overlay/form/default/context, cold/codec/
+RSS/CPU/host and visual/reference CI obligations remain. The five advisory-specific
+ImageSharp 3.1.12 exclusions are intentional and temporary; audit stays enabled.
+Full controls and qualifications remain in [PROGRESS-HISTORY](PROGRESS-HISTORY.md).

@@ -48,8 +48,10 @@ bytes match the shared writer across styles and segment boundaries; public fixed
 memory matrices exercise failure after staging without replacing prior targets.
 JSON warning-policy flags now reach the shared execution plan. Staged-warning
 future memory admission, public accepted-warning cancellation, mixed suppression
-retirement and future host/wrapper admission remain DIAG-02P2F/P3H; generic DTO
-admission and JSON data ownership stay DIAG-01/JSON-01. Full committed-source checks now pass: 12809 Release cases, pinned 1846 parser
+retirement remained DIAG-02P2F and future host/wrapper admission DIAG-02P3H
+at that checkpoint. Generic DTO admission and JSON data ownership stay
+DIAG-01/JSON-01. The preceding committed-source checks passed 12809 Release
+cases, pinned 1846 parser
 comparisons/432 rewrite trios, exact package/symbols and 50 fresh consumer smokes/two
 specific negatives. Original native 868/804/868, all 64 differences and complete
 managed payloads remain. DIAG-02P3H now integrates complete future host-call, handle and measured wrapper
@@ -59,7 +61,15 @@ controls/15 lease controls include fixed memory failures, fault/cancellation,
 post-commit-close semantics and surviving targets. Same public tests on `642C5096`:
 508 fail/128 preserve. Four mixed-info NoWarn views retaining 50 hidden texts remain
 P2F; plain warning-history projections need the same hidden-record retirement.
-Final source-bound proof for this new correction is pending.
+DIAG-02P3H is retired by committed-source proof: 13460 Release passes, all
+12809 preceding occurrences, pinned 1846/432 parser checks, original 868/804/868
+native results and strict package/PDB/fresh 50-smoke/two-negative checks.
+All 868 complete native/managed payloads, headers, warnings and diagnostics remain;
+the same 64 differences retain their physical classification. Two legacy assertions
+that expected warnings to disappear now require accepted history alongside the
+same error/no-output conditions and original budgets. The other 254 preceding
+test sources stay byte-identical. The test-only commit reproduces the verified runtime/probe/PDB exactly.
+Plain failures before staged export/history admission still require P2F proof.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons

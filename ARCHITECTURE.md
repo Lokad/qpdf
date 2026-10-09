@@ -104,14 +104,16 @@ handle and reusable output-wrapper storage before first commit. Shared input/out
 wrappers admit measured 32/40-byte storage before allocation and count each open,
 read and write attempt. Disposal drops references and keeps admission through host
 close, then retires once even on failure. Unexecuted reservations do not change
-observed counters. Plain publication failures preserve accepted warnings while retaining
-their existing informational-note omission. Plain success keeps its original
+observed counters. After history admission, plain publication failures preserve
+accepted warnings and their existing informational-note omission. Plain success keeps its original
 projection; empty failure views retire. Plain JSON attaches history after reader
-closure/staged export, avoiding overlap with exclusive-reader storage. External host publication and post-commit
-close behavior remains unchanged. Future staged-warning memory export and hidden
+closure/staged export, avoiding overlap with exclusive-reader storage. External
+host publication and post-commit close behavior remains unchanged. Future staged-warning memory export and hidden
 mixed-record retirement remain DIAG-02P2F; generic result/fatal storage and JSON
-payload admission remain DIAG-01/JSON-01. The combined correction requires final
-source-bound reference/package verification; wider ownership audits stay open.
+payload admission remain DIAG-01/JSON-01. Committed-source Release, pinned
+reference/native and exact package/fresh-consumer verification retire DIAG-02P3H;
+wider ownership audits stay open. Failure before staged export/history admission
+remains DIAG-02P2F.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.
