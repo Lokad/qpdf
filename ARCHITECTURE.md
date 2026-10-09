@@ -128,13 +128,17 @@ source/Release/reference/package proof; P3H remains retired and wider ownership
 stays open. JSON-01J now funds complete public inline JSON text/publication aliases with final
 combined proof; broader DOM/resource ownership remains JSON-01.
 
-Command cores carry private value outcomes. Before output creation, the governor
-prepares an execution result and counter snapshot with separate weak receipts.
-After operation/configuration/publication scopes close, it fills these private
-carriers once and drops its references. Exposed snapshots remain immutable.
-Completed-job ledger retirement stays bounded and can finish after cancellation;
-active execution still observes cancellation. Typed core/result carriers and
-exhausted-admission/fatal outcomes remain DIAG-01R-T/F and the generic DIAG-01 gate.
+Command cores carry private value outcomes. Before processing, the governor
+reserves fixed result/counter storage and construction/retirement work. Private
+carriers own dedicated weak receipts independently; they need no general
+value-ledger insertion. After operation/configuration/publication scopes close,
+the governor fills the carriers once and drops its references. Exposed snapshots
+remain immutable. Completed retirement is bounded and can finish after
+cancellation; active execution still observes cancellation. Limits that cannot
+admit the carriers borrow immutable outcomes before job or host work. Caller
+record copies preserve exposed values and aliases without copying receipt
+ownership. Typed core/result carriers and generic diagnostic/list/fatal storage
+remain DIAG-01R-T and DIAG-01.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

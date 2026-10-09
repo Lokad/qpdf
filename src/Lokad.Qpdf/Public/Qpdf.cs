@@ -4578,6 +4578,7 @@ public static partial class Qpdf
         }
 
         options.Limits.Validate();
+        if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(options.Limits, cancellationToken);
         governor.ExpectExecutionResult();
         DiagnosticBag diagnostics = new(governor);
@@ -4729,6 +4730,7 @@ public static partial class Qpdf
         }
 
         options.Limits.Validate();
+        if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(options.Limits, cancellationToken);
         governor.ExpectExecutionResult();
         DiagnosticBag diagnostics = new(governor);
@@ -5522,6 +5524,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
+        if (ExecutionResultAdmission.Reject(limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(limits, cancellationToken);
         governor.ExpectExecutionResult();
         ExecutionOutcome result;
@@ -5620,16 +5623,26 @@ public static partial class Qpdf
         }
 
         limits.Validate();
+        if (ExecutionResultAdmission.Reject(limits, cancellationToken) is QpdfExecutionResult rejection)
+        {
+            // Companion validation precedes cancellation/budget rejection, as
+            // it does for admitted jobs. These messages contain no job data.
+            if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
+            { return ExecutionResultAdmission.InvalidZlibMode; }
+            if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
+            { return ExecutionResultAdmission.InvalidZlibLevel; }
+            return rejection;
+        }
         ResourceGovernor governor = new(limits, cancellationToken);
         governor.ExpectExecutionResult();
         if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
         {
-            return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException("The zlib-flate mode is not supported.", null, null)));
+            return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibModeMessage, null, null)));
         }
 
         if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
         {
-            return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException("The zlib-flate compression level must be 1..9 while compressing.", null, null)));
+            return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibLevelMessage, null, null)));
         }
 
         ExecutionOutcome result;

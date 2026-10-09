@@ -34,6 +34,11 @@ internal sealed class ResourceGovernor
     private bool _finishingExecution;
     private bool _executionFinished;
     private QpdfExecutionResult? _preparedExecutionResult;
+    private WeakReference<ResourceGovernor>? _executionResultLink;
+    private long _retiredExecutionResultBytes;
+    private int _pendingExecutionResultRetirements;
+    private int _executionResultCarriers;
+    private bool _buildingExecutionResult;
     internal bool DeferredPlainHistory { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation;
 
@@ -53,7 +58,8 @@ internal sealed class ResourceGovernor
 
     internal long MaxNestingDepth => _limits.MaxNestingDepth;
 
-    private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L));
+    private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L)
+        - Interlocked.Read(ref _retiredExecutionResultBytes));
 
     internal void ReserveMemory(long bytes)
     {
@@ -87,11 +93,12 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Release must not be negative.");
         }
 
-        _liveMemoryBytes = Math.Max(_valueOwners?.RetiredBytes ?? 0L, _liveMemoryBytes - bytes);
+        _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + Interlocked.Read(ref _retiredExecutionResultBytes), _liveMemoryBytes - bytes);
     }
 
     private void ReconcileValueOwners()
     {
+        ReconcileExecutionResultMemory();
         RetainedValueOwners? owners = _valueOwners;
         if (owners is null || owners.Busy) { return; }
         bool finishing = _finishingExecution;
@@ -107,7 +114,7 @@ internal sealed class ResourceGovernor
         if (!owners.Empty) { return; }
         // Fold the atomic retirement total before detaching its storage. The
         // detached ledger has no live carrier or future collection notification.
-        _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - owners.RetiredBytes);
+        _liveMemoryBytes = Math.Max(Interlocked.Read(ref _retiredExecutionResultBytes), _liveMemoryBytes - owners.RetiredBytes);
         _valueOwners = null;
         owners.DisposeEmpty();
     }
@@ -287,15 +294,6 @@ internal sealed class ResourceGovernor
         }
         _totalWork = checked(_totalWork + units);
 
-        NoteOperation();
-    }
-
-    internal void ChargeRetirementWork(bool funded)
-    {
-        if (!funded) { ChargeWork(1L); return; }
-        if (_reservedResultWork == 0L) { throw new InvalidOperationException("Result retirement work is unavailable."); }
-        _reservedResultWork--;
-        _totalWork = checked(_totalWork + 1L);
         NoteOperation();
     }
 
@@ -480,77 +478,96 @@ internal sealed class ResourceGovernor
         _executionPresentation?.Prepare();
     }
 
-    internal void ExpectExecutionResult() => _returnsExecutionResult = true;
+    internal void ExpectExecutionResult()
+    {
+        CheckWorkCapacity(ExecutionResultAdmission.WorkUnits);
+        ReserveMemory(ExecutionResultAdmission.MemoryBytes);
+        _reservedResultWork = ExecutionResultAdmission.WorkUnits;
+        _returnsExecutionResult = true;
+    }
 
-    // Admission precedes output creation. The private carriers are populated
-    // once, after every operation/configuration scope has closed.
+    // The fixed reserve was admitted before any processing. Construction has
+    // no graph/index work and cannot consume publication or diagnostic credit.
     internal void PrepareExecutionResult()
     {
         if (!_returnsExecutionResult || _preparedExecutionResult is not null) { return; }
-        const long counterBytes = 80L;
-        const long resultBytes = 72L;
-        long publication = _publicationWork?.Remaining ?? 0L;
-        if (_reservedWork > long.MaxValue - publication || _reservedWork + publication > long.MaxValue - 2L)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-        CheckWorkCapacity(_reservedWork + publication + 2L);
-        _reservedResultWork = 2L;
-        QpdfExecutionCounters? counters = null;
-        RetainedValueOwners.Receipt? counterReceipt = null;
-        bool counterReserved = false;
-        bool resultReserved = false;
+        CheckCancellation();
+        ExecutionResultMemory? counterStorage = null;
+        ExecutionResultMemory? resultStorage = null;
+        _buildingExecutionResult = true;
         try
         {
-            ReserveMemory(counterBytes); counterReserved = true;
-            counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
-            counterReceipt = RetainAllocation(counters, counterBytes);
-            ReserveMemory(resultBytes); resultReserved = true;
+            WeakReference<ResourceGovernor> link = new(this);
+            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+            counterStorage = new(link, 88L + 32L);
+            counters.OwnStorage(counterStorage);
             QpdfExecutionResult result = new(QpdfExecutionStatus.Completed, QpdfExitCode.Success,
                 Array.Empty<QpdfDiagnostic>(), counters, true);
-            RetainedValueOwners.Receipt resultReceipt = RetainAllocation(result, resultBytes);
-            counterReceipt.RetirementFunded = true;
-            resultReceipt.RetirementFunded = true;
+            resultStorage = new(link, 80L + 32L);
+            result.OwnStorage(resultStorage);
+            ChargeExecutionResultWork(2L);
+            _executionResultLink = link;
+            _executionResultCarriers = 2;
             _preparedExecutionResult = result;
         }
         catch
         {
-            if (resultReserved) { ReleaseMemory(resultBytes); }
-            if (counters is not null && counterReceipt is not null) { DropAllocation(counters, counterReceipt); }
-            else if (counterReserved) { ReleaseMemory(counterBytes); }
-            _reservedResultWork = 0L;
+            counterStorage?.Cancel(); resultStorage?.Cancel();
+            ReleaseMemory(ExecutionResultAdmission.MemoryBytes);
             throw;
+        }
+        finally { _buildingExecutionResult = false; }
+        CheckCancellation();
+    }
+
+    private void ChargeExecutionResultWork(long units)
+    {
+        if (units > _reservedResultWork) { throw new InvalidOperationException("Execution result work is unavailable."); }
+        _reservedResultWork -= units;
+        _totalWork = checked(_totalWork + units);
+        NoteOperation();
+    }
+
+    internal void RetireExecutionResultMemory(long bytes)
+    {
+        Interlocked.Add(ref _retiredExecutionResultBytes, bytes);
+        Interlocked.Increment(ref _pendingExecutionResultRetirements);
+    }
+
+    private void ReconcileExecutionResultMemory()
+    {
+        int count = Interlocked.Exchange(ref _pendingExecutionResultRetirements, 0);
+        if (count == 0) { return; }
+        if (count > _executionResultCarriers || _executionResultLink is null)
+        { throw new InvalidOperationException("Execution result retirement exceeds its carriers."); }
+        bool finishing = _finishingExecution;
+        _finishingExecution = true;
+        try { ChargeExecutionResultWork(count); }
+        finally { _finishingExecution = finishing; }
+        _executionResultCarriers -= count;
+        if (_executionResultCarriers == 0)
+        {
+            _liveMemoryBytes = Math.Max(_valueOwners?.RetiredBytes ?? 0L,
+                _liveMemoryBytes - Interlocked.Exchange(ref _retiredExecutionResultBytes, 0L));
+            _executionResultLink = null;
+            ReleaseMemory(24L);
         }
     }
 
     internal QpdfExecutionResult FinishExecutionResult(ExecutionOutcome outcome)
     {
         _finishingExecution = true;
-        try { return FinishExecutionResultCore(outcome); }
-        finally { _finishingExecution = false; _executionFinished = true; }
-    }
-
-    private QpdfExecutionResult FinishExecutionResultCore(ExecutionOutcome outcome)
-    {
-        try { PrepareExecutionResult(); }
-        catch (Exception ex) when (ex is QpdfException or OperationCanceledException)
+        try
         {
-            // Generic fatal-result admission remains a separate audit gate.
-            // Preserve an existing failure; a successful fileless outcome must
-            // report failed admission rather than escape as a false success.
-            if (outcome.Status == QpdfExecutionStatus.Completed)
-            {
-                outcome = ex is OperationCanceledException ? ExecutionOutcome.Canceled(outcome.Diagnostics)
-                    : ExecutionOutcome.Failed([.. outcome.Diagnostics,
-                        new QpdfDiagnostic(QpdfDiagnosticCode.BudgetExceeded, QpdfDiagnosticSeverity.Error, ex.Message)]);
-            }
-            _returnsExecutionResult = false;
-            return new(outcome.Status, outcome.ExitCode, outcome.Diagnostics, Snapshot(), true);
+            PrepareExecutionResult();
+            QpdfExecutionResult result = _preparedExecutionResult
+                ?? throw new InvalidOperationException("Missing admitted execution result.");
+            _preparedExecutionResult = null; _returnsExecutionResult = false;
+            result.CompleteBeforeReturn(outcome);
+            result.Counters.CaptureBeforeReturn(CounterValues);
+            return result;
         }
-        QpdfExecutionResult result = _preparedExecutionResult
-            ?? throw new InvalidOperationException("Missing admitted execution result.");
-        _preparedExecutionResult = null; _returnsExecutionResult = false;
-        result.CompleteBeforeReturn(outcome);
-        result.Counters.CaptureBeforeReturn(CounterValues);
-        return result;
+        finally { _finishingExecution = false; _executionFinished = true; }
     }
 
     internal PresentedDiagnostics? CompleteExecutionPresentation()
@@ -621,7 +638,7 @@ internal sealed class ResourceGovernor
 
     internal void CheckCancellation()
     {
-        if (!_finishingDiagnosticFailure && !_finishingExecution) { _cancellationToken.ThrowIfCancellationRequested(); }
+        if (!_finishingDiagnosticFailure && !_finishingExecution && !_buildingExecutionResult) { _cancellationToken.ThrowIfCancellationRequested(); }
     }
 
     internal void NoteOperation()
@@ -634,7 +651,7 @@ internal sealed class ResourceGovernor
         if (_operationsSinceCheck >= _limits.CancellationCheckInterval)
         {
             _operationsSinceCheck = 0L;
-            if (!_finishingDiagnosticFailure && !_finishingExecution) { _cancellationToken.ThrowIfCancellationRequested(); }
+            if (!_finishingDiagnosticFailure && !_finishingExecution && !_buildingExecutionResult) { _cancellationToken.ThrowIfCancellationRequested(); }
         }
     }
 

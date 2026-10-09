@@ -1,0 +1,36 @@
+namespace Lokad.Qpdf.Runtime;
+
+/// <summary>Immutable rejection outcomes borrowed before any job is admitted.</summary>
+internal static class ExecutionResultAdmission
+{
+    // Result/counters are 80/88 bytes, their receipts 32 each, and the shared
+    // weak governor link 24. Two construction and two retirement units stay
+    // reserved until those exact operations execute.
+    internal const long MemoryBytes = 256L;
+    internal const long WorkUnits = 4L;
+    internal const string InvalidZlibModeMessage = "The zlib-flate mode is not supported.";
+    internal const string InvalidZlibLevelMessage = "The zlib-flate compression level must be 1..9 while compressing.";
+
+    private static readonly QpdfExecutionCounters Zero = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+    private static readonly QpdfExecutionResult MemoryFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
+        "MaxMemoryBytes cannot admit the execution outcome.");
+    private static readonly QpdfExecutionResult WorkFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
+        "MaxWork cannot admit the execution outcome.");
+    private static readonly QpdfExecutionResult Cancellation = new(QpdfExecutionStatus.Canceled,
+        QpdfExitCode.Error, Array.Empty<QpdfDiagnostic>(), Zero, true);
+
+    internal static readonly QpdfExecutionResult InvalidZlibMode = Failure(QpdfDiagnosticCode.InvalidArguments, InvalidZlibModeMessage);
+    internal static readonly QpdfExecutionResult InvalidZlibLevel = Failure(QpdfDiagnosticCode.InvalidArguments, InvalidZlibLevelMessage);
+
+    private static QpdfExecutionResult Failure(QpdfDiagnosticCode code, string message)
+        => new(QpdfExecutionStatus.Failed, QpdfExitCode.Error,
+            Array.AsReadOnly(new[] { new QpdfDiagnostic(code, QpdfDiagnosticSeverity.Error, message) }), Zero, true);
+
+    internal static QpdfExecutionResult? Reject(QpdfLimits limits, CancellationToken token)
+    {
+        if (token.IsCancellationRequested) { return Cancellation; }
+        if (limits.MaxMemoryBytes < MemoryBytes) { return MemoryFailure; }
+        if (limits.MaxWork < WorkUnits) { return WorkFailure; }
+        return null;
+    }
+}

@@ -31,7 +31,7 @@ public sealed class MixedJobGovernanceTests
         Assert.NotEmpty(host.Opens);
         Assert.DoesNotContain(QpdfPath.From("inputs/a.pdf"), host.Opens);
         Assert.Equal(0L, failed.Counters.OpenHandles);
-        Assert.Equal(1432L, failed.Counters.LiveMemoryBytes); // Only the result, counters and ownership ledger remain.
+        Assert.Equal(256L, failed.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);
         AssertPrior(source);
@@ -61,7 +61,7 @@ public sealed class MixedJobGovernanceTests
         Assert.Contains(QpdfPath.From("second.json"), host.Opens);
         Assert.DoesNotContain(QpdfPath.From("inputs/a.pdf"), host.Opens);
         Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(1432L, result.Counters.LiveMemoryBytes); // Only the result, counters and ownership ledger remain.
+        Assert.Equal(256L, result.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);
         AssertPrior(source);
@@ -118,7 +118,7 @@ public sealed class MixedJobGovernanceTests
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
         Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(1432L, result.Counters.LiveMemoryBytes); // Only the result, counters and ownership ledger remain.
+        Assert.Equal(256L, result.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);
         AssertPrior(source);

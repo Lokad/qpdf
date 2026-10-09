@@ -111,6 +111,15 @@ Typed carriers and four complete work-exhaustion counter undercounts remain
 DIAG-01R-T/F; the original five-row comparison remains, with MaxWork=2048 now funded.
 Neither correct snapshots nor healthy-job ownership retires those obligations.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
+The DIAG-01R-F carrier correction now passes all 294 new public cases and every
+4888 existing wider focused case. Its unchanged twelve-job probe funds the four
+original low-work counters at 144 bytes; the sixteen-job driver retains 256/144.
+Five cleanup assertions use the new 256-byte geometry with all other controls
+preserved. Tiny unadmitted jobs borrow immutable zero-counter outcomes before
+host/argv/job work; companion validation keeps its fixed-message precedence.
+The final integrated Release/reference/native/package proof remains required
+before retiring R-F. Typed carriers and generic/fatal allocations stay open.
+
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

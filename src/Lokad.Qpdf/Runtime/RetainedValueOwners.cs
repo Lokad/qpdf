@@ -67,7 +67,6 @@ internal sealed class RetainedValueOwners
         internal readonly int Index;
         internal long Bytes;
         private int _active;
-        internal bool RetirementFunded;
 
         internal Receipt(int index, long bytes, object carrier)
         {
@@ -686,9 +685,7 @@ internal sealed class RetainedValueOwners
                 Receipt? receipt = Volatile.Read(ref _pending);
                 if (receipt is null) { break; }
                 _governor.CheckCancellation();
-                bool funded = receipt.RetirementFunded;
-                receipt.RetirementFunded = false;
-                _governor.ChargeRetirementWork(funded);
+                _governor.ChargeWork(1L);
                 if (!ReferenceEquals(Interlocked.CompareExchange(ref _pending, receipt.Next, receipt), receipt)) { count--; continue; }
                 _messageMaintenance = true;
                 receipt.Detach();
