@@ -107,19 +107,23 @@ Pinned 1846/432, all 868 complete native rows/same 64 differences, exact package
 908 signatures and fresh 50-smoke/two-negative consumers pass. Five cleanup assertions
 now require exactly 1432 surviving result/counter/ledger bytes, preserving all 18
 original jobs and other assertions; 256 other old test sources/five locks stay exact.
-Typed carriers and four complete work-exhaustion counter undercounts remain
-DIAG-01R-T/F; the original five-row comparison remains, with MaxWork=2048 now funded.
+That proof left typed carriers and four work-exhaustion counter undercounts in
+DIAG-01R-T/F; the original five-row comparison remains, with MaxWork=2048 then funded.
 Neither correct snapshots nor healthy-job ownership retires those obligations.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
-The DIAG-01R-F carrier correction now passes all 294 new public cases and every
-4888 existing wider focused case. Its unchanged twelve-job probe funds the four
-original low-work counters at 144 bytes; the sixteen-job driver retains 256/144.
-Five cleanup assertions use the new 256-byte geometry with all other controls
-preserved. Tiny unadmitted jobs borrow immutable zero-counter outcomes before
-host/argv/job work; companion validation keeps its fixed-message precedence.
-The final integrated Release/reference/native/package proof remains required
-before retiring R-F. Typed carriers and generic/fatal allocations stay open.
-
+DIAG-01R-F is retired by integrated `53e0498`: all 15314 full passes preserve
+every 15020 preceding occurrence; 294 new public rows expose 158 predecessor
+failures/136 preserved outcomes, no loaders/skips. The unchanged twelve-job probe
+funds the four original low-work counters at 144 bytes; the sixteen-job driver
+retains 256/144. Five cleanup assertions use the 256-byte geometry with all other
+controls preserved; all other 258 old test sources/five locks remain. Tiny
+unadmitted jobs borrow immutable zero-counter outcomes before host/argv/job work;
+companion validation keeps fixed-message precedence. Final 1846/432 reference,
+all complete 868 native rows/same 64 differences, exact package/PDB/908 signatures
+and 50-smoke/two-negative fresh consumers pass. Generic/fatal owners stay open.
+Eight typed counter-only jobs retain 1276/1346/2247/2387/0/72/0/0 bytes; four
+check/JSON rows undercount their measured 88-byte carrier and remain R-T. Retain
+the masked page/merge observations without treating them as proof of ownership.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader
