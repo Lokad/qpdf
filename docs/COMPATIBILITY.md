@@ -84,6 +84,15 @@ package/PDB, 908 signatures and fresh 50-smoke/two-negative consumers. All 258
 old test sources/five locks remain. Broader parent gates stay open; eight complete
 inline JSON jobs demonstrate an output-text funding gap on both runtimes, recorded
 as JSON-01J without reopening established evidence.
+JSON-01J now funds escaping JSON text/main/sidecar buffers and the shared serializer
+through complete public success/failure/cancellation jobs. The unchanged eight
+1378-character aliases retain 4008 live bytes instead of 4–93. All 4298 focused
+cases pass; identical 360 new public rows expose 290 predecessor failures and
+preserve 70 outcomes. All four original 50-object/100-warning repair jobs retain
+their 247494/247489-byte ceilings. Typed JSON still rejects damaged input;
+command repairs preserve message order and reuse memoized nulls. The combined
+committed-source proof is pending, so JSON-01J remains open. Configuration DOM,
+import/update/resource walks and generic DTO admission remain separate obligations.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons

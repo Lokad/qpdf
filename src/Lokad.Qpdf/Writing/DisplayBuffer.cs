@@ -10,6 +10,7 @@ internal sealed class DisplayBuffer : IDisposable
     private const long OwnerBytes = 64L;
     private readonly ResourceGovernor _governor;
     private readonly bool _diagnostic;
+    private readonly bool _compact;
     private TextChunk? _head;
     private TextChunk? _current;
     private int _length;
@@ -18,19 +19,30 @@ internal sealed class DisplayBuffer : IDisposable
     private bool _highSurrogate;
     private bool _disposed;
 
-    private DisplayBuffer(ResourceGovernor governor, bool diagnostic)
+    internal ResourceGovernor Governor => _governor;
+
+    internal long Utf8Bytes => _utf8Bytes;
+
+    private DisplayBuffer(ResourceGovernor governor, bool diagnostic, bool compact)
     {
         _governor = governor;
         _diagnostic = diagnostic;
+        _compact = compact;
         _reservedBytes = OwnerBytes;
     }
 
     internal static DisplayBuffer Create(ResourceGovernor governor, bool diagnostic)
+        => CreateCore(governor, diagnostic, false);
+
+    internal static DisplayBuffer CreateJson(ResourceGovernor governor)
+        => CreateCore(governor, false, true);
+
+    private static DisplayBuffer CreateCore(ResourceGovernor governor, bool diagnostic, bool compact)
     {
         governor.CheckCancellation();
         if (diagnostic) { governor.CheckDiagnostic(0L); }
         governor.ReserveMemory(OwnerBytes);
-        try { return new DisplayBuffer(governor, diagnostic); }
+        try { return new DisplayBuffer(governor, diagnostic, compact); }
         catch { governor.ReleaseMemory(OwnerBytes); throw; }
     }
 
@@ -47,8 +59,8 @@ internal sealed class DisplayBuffer : IDisposable
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), checked(2L * (_length + 1L)), 2L * Array.MaxLength);
         }
-        TextChunk chunk = EnsureCapacity();
-        chunk.Buffer[chunk.Used++] = value;
+        TextChunk chunk = EnsureCapacity(value);
+        chunk.Append(value);
         _length++;
         _utf8Bytes = nextBytes;
         _highSurrogate = char.IsHighSurrogate(value);
@@ -62,7 +74,7 @@ internal sealed class DisplayBuffer : IDisposable
     internal void AppendText(string text)
         => AppendSpan(text.AsSpan());
 
-    private void AppendSpan(ReadOnlySpan<char> text)
+    internal void AppendSpan(ReadOnlySpan<char> text)
     {
         for (int offset = 0; offset < text.Length; offset += Math.Min(256, text.Length - offset))
         {
@@ -111,20 +123,23 @@ internal sealed class DisplayBuffer : IDisposable
         return GovernedText.Create(_governor, _head, _length, _utf8Bytes);
     }
 
-    private TextChunk EnsureCapacity()
+    private TextChunk EnsureCapacity(char value)
     {
-        if (_current is not null && _current.Used < _current.Buffer.Length) { return _current; }
+        if (_current is not null && _current.Used < _current.Capacity && _current.Accepts(value)) { return _current; }
         _governor.CheckCancellation();
-        int capacity = _current is null ? 128 : Math.Min(8192, 2 * _current.Buffer.Length);
+        // JSON overlaps a live reader and diagnostics. Bound the final chunk's
+        // slack to 511 characters while retaining linear allocation/copy work.
+        int capacity = _current is null || !_current.Accepts(value) ? 128 : Math.Min(_compact ? 512 : 8192, 2 * _current.Capacity);
         // Keep full chunks until final-copy completion. New chunks do not copy
         // or replace old capacities, avoiding quadratic work and large slack.
-        long reserved = checked(64L + 32L + 2L * capacity);
+        bool compact = _compact && value <= 255;
+        long reserved = checked(64L + 32L + (compact ? 1L : 2L) * capacity);
         _governor.ReserveMemory(reserved);
         try
         {
             _governor.ChargeWork(capacity);
             _governor.CheckCancellation();
-            TextChunk next = new(capacity);
+            TextChunk next = compact ? new CompactChunk(capacity) : new TextChunk(capacity);
             if (_current is null) { _head = next; }
             else { _current.Next = next; }
             _current = next;
@@ -135,6 +150,21 @@ internal sealed class DisplayBuffer : IDisposable
         {
             _governor.ReleaseMemory(reserved);
             throw;
+        }
+    }
+
+    // Preserve raw UTF-16 values in wide chunks, including unmatched
+    // surrogates. The usual ASCII/Latin-1 JSON fragments need only one byte
+    // per character while the reader and its repair scratch remain live.
+    private sealed class CompactChunk(int capacity) : TextChunk
+    {
+        private readonly byte[] _bytes = new byte[capacity];
+        internal override int Capacity => _bytes.Length;
+        internal override bool Accepts(char value) => value <= 255;
+        internal override void Append(char value) { _bytes[Used++] = (byte)value; }
+        internal override void CopyTo(int offset, Span<char> target)
+        {
+            for (int index = 0; index < target.Length; index++) { target[index] = (char)_bytes[offset + index]; }
         }
     }
 

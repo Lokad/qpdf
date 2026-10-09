@@ -131,7 +131,11 @@ internal static class ResponseFileExpander
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), input.Length, limits.MaxMemoryBytes);
             }
 
-            governor.ReserveMemory(input.Length);
+            // The decoded configuration text has a different lifetime from
+            // this private read copy. Retire only the byte attempt here;
+            // expanded-token/text ownership remains the controller audit.
+            using ParserMemoryScope bytesOwner = ParserMemoryScope.Create(governor);
+            bytesOwner.Reserve(input.Length == 0L ? 0L : checked(32L + input.Length));
             byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
             try
             {

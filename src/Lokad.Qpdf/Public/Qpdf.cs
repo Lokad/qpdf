@@ -3810,7 +3810,7 @@ public static partial class Qpdf
         DiagnosticBag diagnostics = new(governor);
         List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
         Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
-        QpdfJsonResult result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
+        QpdfJsonResult result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
         return result.WithCounters(governor.Snapshot());
     }
 
@@ -4260,6 +4260,7 @@ public static partial class Qpdf
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         bool testJsonSchema,
+        bool escapeText,
         CancellationToken cancellationToken)
     {
         ValidateJsonKeys(inspection.Version, inspection.Keys);
@@ -4293,26 +4294,34 @@ public static partial class Qpdf
         {
             await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
             Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
-            List<Json.JsonSidecar> sidecars = new();
-            string json = Json.DocumentJson.WriteDocument(document, request, sidecars, limits, governor, diagnostics, cancellationToken);
-            if (testJsonSchema) { CheckJsonSchema(json, inspection.Version, governor, diagnostics, cancellationToken); }
-            byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
-            if (data.Length > limits.MaxOutputBytes)
+            using Json.PreparedJsonOutput output = Json.PreparedJsonOutput.Create(governor);
+            using (DisplayBuffer builder = Json.DocumentJson.WriteDocument(document, request, output, limits, governor, diagnostics, cancellationToken))
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
+                if (builder.Utf8Bytes > limits.MaxOutputBytes)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), builder.Utf8Bytes, limits.MaxOutputBytes); }
+                // The chunks no longer refer to PDF values. Close the reader
+                // before allocating immutable text and publication copies.
+                if (!testJsonSchema) { await document.DisposeAsync().ConfigureAwait(false); }
+                using GovernedText text = builder.Finish();
+                if (testJsonSchema)
+                {
+                    // Preserve the schema note's acceptance before input close.
+                    CheckJsonSchema(text.Value, inspection.Version, governor, diagnostics, cancellationToken);
+                    await document.DisposeAsync().ConfigureAwait(false);
+                }
+                output.Prepare(text, outputPath.HasValue, escapeText, limits);
             }
+            List<Json.JsonPayload> sidecars = output.Sidecars;
+            long mainBytes = output.Main?.Data.Length ?? 0L;
 
-            // No PDF value escapes serialization. Close the input before publishing
-            // so a host close fault preserves the existing main and sidecar targets.
-            await document.DisposeAsync().ConfigureAwait(false);
             diagnosticStage?.Flush();
             if (governor.DeferredPlainHistory)
             {
                 _ = ExecutionPresentation.Create(governor, diagnostics, false, false, false, false, false, cancellationToken);
             }
-            long anticipatedBytes = outputPath.HasValue ? data.Length : 0L;
-            long publicationUnits = outputPath.HasValue ? 1L + (data.Length + 32767L) / 32768L : 0L;
-            foreach (Json.JsonSidecar sidecar in sidecars)
+            long anticipatedBytes = mainBytes;
+            long publicationUnits = outputPath.HasValue ? 1L + (mainBytes + 32767L) / 32768L : 0L;
+            foreach (Json.JsonPayload sidecar in sidecars)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
                 if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
@@ -4326,10 +4335,10 @@ public static partial class Qpdf
             governor.PrepareExecutionPresentation();
             publicationWork.Begin();
             if (outputPath.HasValue)
-            { await PublishPreparedBytesAsync(host, outputPath.Value, data, governor, cancellationToken).ConfigureAwait(false); }
-            foreach (Json.JsonSidecar sidecar in sidecars)
-            { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar.Data, governor, cancellationToken).ConfigureAwait(false); }
-            return new QpdfJsonResult(json, [.. diagnostics.Entries], governor.Snapshot());
+            { await PublishPreparedBytesAsync(host, outputPath.Value, output.Main ?? throw new InvalidOperationException("Missing JSON publication."), governor, cancellationToken).ConfigureAwait(false); }
+            foreach (Json.JsonPayload sidecar in sidecars)
+            { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar, governor, cancellationToken).ConfigureAwait(false); }
+            return new QpdfJsonResult(output.TransferText(), [.. diagnostics.Entries], governor.Snapshot());
         }
         catch (Exception ex) when (ex is QpdfException or OperationCanceledException)
         {
@@ -5059,6 +5068,7 @@ public static partial class Qpdf
                     governor,
                     diagnostics,
                     json.TestJsonSchema,
+                    !json.Output.HasValue,
                     cancellationToken).ConfigureAwait(false);
                 return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan, governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
             }

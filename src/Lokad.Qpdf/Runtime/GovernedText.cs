@@ -49,7 +49,7 @@ internal sealed class GovernedText : IDisposable
                         int count = Math.Min(256, chunk.Used - offset);
                         state.governor.ChargeWork(count);
                         state.governor.CheckCancellation();
-                        chunk.Buffer.AsSpan(offset, count).CopyTo(target.Slice(position, count));
+                        chunk.CopyTo(offset, target.Slice(position, count));
                         position += count;
                     }
                 }

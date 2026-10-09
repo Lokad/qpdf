@@ -81,25 +81,16 @@ internal static class PdfText
         StringBuilder output = new(value.Length);
         foreach (byte b in value)
         {
-            int unit = b;
-            if (b >= 24 && b <= 31)
-            {
-                unit = LowTable[b - 24];
-            }
-            else if (b >= 127 && b <= 160)
-            {
-                unit = HighTable[b - 127];
-            }
-            else if (b == 173)
-            {
-                unit = 0xFFFD;
-            }
-
-            output.Append((char)unit);
+            output.Append(DecodePdfDocByte(b));
         }
 
         return output.ToString();
     }
+
+    internal static char DecodePdfDocByte(byte value)
+        => (char)(value is >= 24 and <= 31 ? LowTable[value - 24]
+            : value is >= 127 and <= 160 ? HighTable[value - 127]
+            : value == 173 ? 0xFFFD : value);
 
     private static string DecodeUtf16(byte[] value)
     {

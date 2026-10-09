@@ -15,6 +15,14 @@ between files. The loader bounds cumulative bytes, work, nesting and storage.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.
+The JSON serializer shares governed text chunks across scalar/container encoders,
+borrows immutable PDF backing and scopes decoded payloads and sorted key vectors.
+Prepared JSON owns main/sidecar candidates and independently escaping text, host
+buffers and filenames. Its exclusive reader closes before immutable/publication
+copies; schema-note acceptance remains before input close. Exclusive null repair
+memoization uses an admitted number set, and aborted parser containers unwind
+before their concluding warning allocations. DOM/controller/resource ownership
+and generic returned DTO admission remain under audit.
 Whole-file selection closes its preliminary input before reopening through the
 shared copier, so replacement can publish after those input leases close.
 

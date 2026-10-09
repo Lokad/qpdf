@@ -84,7 +84,22 @@ internal sealed class PdfParser
         _integerSecondFollowingToken = -1L;
     }
 
-    private sealed class RepairAbort : Exception;
+    private sealed class RepairAbort(string detail, long offset, string? precedingWarning) : Exception
+    {
+        internal string Detail { get; } = detail;
+        internal long Offset { get; } = offset;
+        internal string? PrecedingWarning { get; } = precedingWarning;
+    }
+
+    private void FinishRepairAbort(RepairAbort abort)
+    {
+        // All exclusive container frames have unwound. Diagnostic growth must
+        // not overlap values that are already known to be discarded as null.
+        ObjectAborted = true;
+        Memory.Discard();
+        if (abort.PrecedingWarning is not null) { WarnRepair(abort.PrecedingWarning, abort.Offset); }
+        WarnRepair(abort.Detail, abort.Offset);
+    }
 
     private void WarnRepair(string detail, long offset)
     {
@@ -104,8 +119,7 @@ internal sealed class PdfParser
         ToleratedErrors = checked(ToleratedErrors + 1L);
         if (_limits.MaxParserErrors != 0L && ToleratedErrors >= _limits.MaxParserErrors)
         {
-            WarnRepair("limits error(parser-max-errors): too many errors; treating object as null.", offset);
-            throw new RepairAbort();
+            throw new RepairAbort("limits error(parser-max-errors): too many errors; treating object as null.", offset, null);
         }
 
         // The incoming token was counted optimistically. Four intervening good
@@ -124,8 +138,7 @@ internal sealed class PdfParser
         long remaining = _limits.MaxParserErrors == 0L ? 0L : _limits.MaxParserErrors - ToleratedErrors;
         if (_nearbyErrors > 5 || _dictionaryOrphans > remaining)
         {
-            WarnRepair("Too many nearby errors or orphan dictionary values; treating object as null.", offset);
-            throw new RepairAbort();
+            throw new RepairAbort("Too many nearby errors or orphan dictionary values; treating object as null.", offset, null);
         }
     }
 
@@ -157,8 +170,7 @@ internal sealed class PdfParser
             throw new QpdfParseException($"Unterminated {kind}.", offset, null);
         }
 
-        WarnRepair("Unterminated container; treating object as null.", offset);
-        throw new RepairAbort();
+        throw new RepairAbort("Unterminated container; treating object as null.", offset, null);
     }
 
     /// <summary>Parses one object-stream member with independent error state.</summary>
@@ -182,10 +194,9 @@ internal sealed class PdfParser
             {
                 return ParseValueCore(tokenizer, depth);
             }
-            catch (RepairAbort) when (TolerateObjectErrors)
+            catch (RepairAbort abort) when (TolerateObjectErrors)
             {
-                ObjectAborted = true;
-                memory.Discard();
+                FinishRepairAbort(abort);
                 return PdfNull.Instance;
             }
         }
@@ -293,8 +304,7 @@ internal sealed class PdfParser
                 {
                     // Numeric conversion failure invalidates the whole object in
                     // the reference, independently of the semantic error budget.
-                    WarnRepair("Numeric conversion failed; treating object as null.", token.Offset);
-                    throw new RepairAbort();
+                    throw new RepairAbort("Numeric conversion failed; treating object as null.", token.Offset, null);
                 }
             case PdfTokenKind.Real:
                 return ParseReal(token);
@@ -321,13 +331,18 @@ internal sealed class PdfParser
                 if (SanityChecks && token.Kind is PdfTokenKind.EndObject or PdfTokenKind.EndStream
                     or PdfTokenKind.ArrayClose or PdfTokenKind.DictionaryClose)
                 {
-                    WarnRepair("Unexpected terminator during xref trial parsing; treating object as null.", token.Offset);
-                    throw new RepairAbort();
+                    throw new RepairAbort("Unexpected terminator during xref trial parsing; treating object as null.", token.Offset, null);
                 }
 
                 bool word = (depth == 0 || !SanityChecks)
                     && token.Kind is not (PdfTokenKind.ArrayClose or PdfTokenKind.DictionaryClose or PdfTokenKind.BadToken);
-                WarnRepair(word ? "Unknown token treated as string." : "Unexpected token treated as null.", token.Offset);
+                string warning = word ? "Unknown token treated as string." : "Unexpected token treated as null.";
+                if (depth > 0 && _limits.MaxParserErrors != 0L && ToleratedErrors >= _limits.MaxParserErrors - 1L)
+                {
+                    ToleratedErrors = checked(ToleratedErrors + 1L);
+                    throw new RepairAbort("limits error(parser-max-errors): too many errors; treating object as null.", token.Offset, warning);
+                }
+                WarnRepair(warning, token.Offset);
                 if (depth > 0)
                 {
                     CountToleratedError(token.Offset);
@@ -407,9 +422,9 @@ internal sealed class PdfParser
         {
             value = ParseValueCore(tokenizer, depth);
         }
-        catch (RepairAbort) when (TolerateObjectErrors)
+        catch (RepairAbort abort) when (TolerateObjectErrors)
         {
-            ObjectAborted = true;
+            FinishRepairAbort(abort);
             return (number, generation, PdfNull.Instance);
         }
 

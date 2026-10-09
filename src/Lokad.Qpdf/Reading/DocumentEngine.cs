@@ -29,6 +29,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     private bool _ownsTable;
     private bool _valuesEscape = true;
     private Dictionary<int, CachedObject>? _cache;
+    private HashSet<int>? _cachedNulls;
     private HashSet<int>? _decodingStreams;
     private HashSet<int>? _loading;
     private IReadOnlyDictionary<int, QpdfObject>? _inspectionObjects;
@@ -103,6 +104,11 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
 
     private bool TryGetCached(int number, out QpdfObject value)
     {
+        if (_cachedNulls is not null && _cachedNulls.Contains(number))
+        {
+            value = PdfNull.Instance;
+            return true;
+        }
         if (Cache.TryGetValue(number, out CachedObject cached))
         {
             if (!cached.Borrowed && _valuesEscape)
@@ -124,6 +130,24 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         borrowed = borrowed && _valuesEscape;
         _governor.CheckCancellation();
         bool replacing = Cache.TryGetValue(number, out CachedObject previous);
+        if (value is PdfNull && !_valuesEscape)
+        {
+            // Null is shared and has no subtree receipt. Memoize its number
+            // in an admitted set, preserving repair warnings exactly once.
+            _cachedNulls ??= ParserContainers.CreateSet<int>(Metadata);
+            ParserContainers.AddSetItem(Metadata, _cachedNulls, number, sizeof(int));
+            parsed.Discard();
+            if (replacing)
+            {
+                Cache.Remove(number);
+                if (!previous.Borrowed)
+                {
+                    _unborrowedBytes = checked(_unborrowedBytes - previous.ReservedBytes);
+                    _governor.ReleaseMemory(previous.ReservedBytes);
+                }
+            }
+            return;
+        }
         if (!replacing) { ParserContainers.EnsureEntryCapacity(Metadata, Cache, 24L); }
         _governor.CheckCancellation();
         long discarded = replacing && !previous.Borrowed ? previous.ReservedBytes : 0L;
@@ -131,6 +155,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         long reservedBytes = parsed.ReservedBytes;
         if (borrowed) { parsed.Retain(value); }
         Cache[number] = new CachedObject(value, reservedBytes, borrowed);
+        _cachedNulls?.Remove(number);
         if (!borrowed) { parsed.Retain(); }
         _unborrowedBytes = nextUnborrowed;
         _governor.ReleaseMemory(discarded);
@@ -142,6 +167,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         // Drop backing storage before releasing metadata. Borrowed graphs have
         // escaped this owner; their admission and bytes remain independent.
         _cache = null;
+        _cachedNulls = null;
         _loading = null;
         _decodingStreams = null;
         _inspectionObjects = null;
@@ -418,7 +444,8 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
             for (int i = 0; i < pairs.Count; i++)
             {
                 _governor.ChargeWork(1L);
-                previouslyCached[i] = Cache.ContainsKey(pairs[i].Number);
+                previouslyCached[i] = Cache.ContainsKey(pairs[i].Number)
+                    || (_cachedNulls is not null && _cachedNulls.Contains(pairs[i].Number));
                 if (pairs[i].Offset <= lastOffset)
                 {
                     throw new QpdfParseException($"Object stream {streamNumber} offsets must ascend.", null, streamNumber);

@@ -181,15 +181,18 @@ public static partial class Qpdf
         await transaction.CommitAsync(token).ConfigureAwait(false);
     }
 
-    private static async ValueTask PublishPreparedBytesAsync(IQpdfHost host, QpdfPath path, ReadOnlyMemory<byte> bytes,
+    private static async ValueTask PublishPreparedBytesAsync(IQpdfHost host, QpdfPath path, Json.JsonPayload payload,
         ResourceGovernor governor, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        payload.ExposeName();
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
+        ReadOnlyMemory<byte> bytes = payload.Data;
         for (int offset = 0; offset < bytes.Length;)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             int count = Math.Min(32768, bytes.Length - offset);
+            payload.ExposeData();
             await transaction.WriteAsync(bytes.Slice(offset, count), token).ConfigureAwait(false);
             offset += count;
         }
