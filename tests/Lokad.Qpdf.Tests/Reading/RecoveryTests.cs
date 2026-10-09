@@ -295,7 +295,14 @@ public sealed class RecoveryTests
             new QpdfExecutionOptions(limits),
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded,
+            Assert.Single(result.Diagnostics, item => item.Severity == QpdfDiagnosticSeverity.Error).Code);
+        Assert.Equal(QpdfDiagnosticCode.RecoveryEngaged,
+            Assert.Single(result.Diagnostics, item => item.Severity == QpdfDiagnosticSeverity.Warning).Code);
+        Assert.Equal(2, result.Diagnostics.Count);
+        Assert.Equal(1L, result.Counters.DiagnosticCount);
+        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.OpenLeaseCount);
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] _));
     }
     private static byte[] WithErrorStorm(byte[] bytes, int count)
