@@ -35,6 +35,7 @@ internal sealed class PresentationCountReservation : IDisposable
     }
 
     internal long Pending => _pending;
+    internal long AnticipatedOutput => _anticipatedOutput;
 
     internal void BeginOutput(long outputBytes, long decodedBytes, long peakMemoryBytes)
     {

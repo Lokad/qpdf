@@ -84,15 +84,24 @@ or accepting a prepared positive-output length;
 fileless jobs with no charged output reserve none. Successful presentation accepts
 the held count once; failure/cancellation releases the scoped reservation. Summary
 messages reserve their exact UTF-8 quotas as output/decoded/peak counters grow.
-Split presentation prepares models and counts their output with the shared writers
-before opening transactions; its scoped owner clears plans on every outcome.
-JSON presentation reserves the serialized main/sidecar lengths before publication.
-Both paths keep sequential host leases, including one-handle sidecars. Split
-planning adds a serialization pass and holds model-list capacities through replay.
-It does not pre-admit all later work or memory. Formatting work, independently
-escaping result/list/record/text storage and accepted warning history on failure
-remain under audit (DIAG-02P). Count/byte corrections have focused public evidence;
-the combined presentation correction still requires final reference/package proof.
+Presentation prepares independently owned summary text, records, arrays and
+readonly views before commit. Formatting and traversal charge bounded work.
+Unexposed candidates retire immediately; escaping aliases keep separate receipts.
+A prepaid failure view borrows accepted warnings and terminal diagnostics without
+a failure-time list copy. JSON carries suppression/exit flags and admits schema
+notes before publishing. Failure cleanup exports already accepted staged warnings
+with held work, then restores ordinary cancellation checks.
+
+Split presentation serializes and hashes all main/pass1 outputs into governed
+segments before opening output transactions. Its batch owns bytes through
+sequential publication, including pass1. JSON prepares main/sidecar lengths and
+publication work from its serialized data. Publication-loop work is reserved
+before commit; unused steps are released without increasing observed work.
+Preparation holds more split bytes than streaming and obeys existing job limits.
+Future staged-warning memory export, mixed-info suppression retirement, all host
+operation/handle/wrapper admission and generic result/fatal storage remain explicit
+in DIAG-02P2F/P3H, DIAG-01 and JSON-01. The combined correction requires final
+source-bound reference/package verification; wider ownership audits stay open.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

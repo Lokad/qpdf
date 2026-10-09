@@ -1683,6 +1683,8 @@ internal static class JobJsonParser
                     StreamPrefix = jsonStreamPrefix,
                     Objects = wantedObjects,
                     MinimalOutput = seenJsonOutput,
+                    NoWarn = noWarn,
+                    WarningExitZero = warningExit0,
                 };
             }
 

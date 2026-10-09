@@ -1,5 +1,55 @@
 # Progress
 
+## Owned presentation and prepared split outputs
+
+Runtime **`642C5096`** / tests **`69C89149`** integrate DIAG-02P2S/P3S. Formatting
+work is charged before publication. Fresh summary text, records, reference arrays
+and readonly views have independent receipts; failed candidates release them
+immediately. A prepaid failure view preserves accepted warnings without creating
+a new projection during failure. JSON plans now carry both warning-policy flags;
+schema diagnostics enter the shared bag before publication. Accepted staged JSON
+warnings export after failure using held work; ordinary cancellation still applies.
+
+Split presentation serializes and hashes every main/pass1 output before opening
+transactions. Governed segments avoid a new contiguous-array ceiling. The prepared
+batch owns all bytes through sequential publication and reserves only executed
+publication-loop work. JSON uses its serialized main/sidecar data in the same
+order, preserving one-handle sidecars. Keeping prepared split bytes consumes more
+memory than streaming: this cost obeys the existing limits and is exercised by
+52 complete eight-output/pass1 jobs at fixed 2,000,000–2,600,000-byte ceilings.
+Each configuration route includes genuine failure after charged staged output,
+zero commits, all prior targets/aliases intact, accepted warnings and closed leases.
+Host publication and post-commit close semantics retain their existing contract.
+
+All **2007 focused cases** pass, preserving 1877 related occurrences and adding
+**120 public controls / ten storage, retirement and cancellation controls**.
+The public cases cover original JSON/split work ceilings, 48 warning-byte failures,
+16 JSON warning policies, 40 writer comparisons, four large segment-boundary
+comparisons and four memory matrices. Independent view/record/text/iterator aliases
+pass the unchanged 32 KiB/32-cycle/four-GC-round method. Lifetime controls use the
+existing exclusive collection; retain the initial exact-byte interference failure.
+Same final 120 public cases on `29914CCE`: **44 fail / 76 preserve**, no loaders,
+skips or exclusions: 24 lost byte-failure histories, 12 policy failures, four partial
+split publications and four lost histories on memory failure. The four fixed JSON
+work ceilings reject on this predecessor repeat too; preserve the original four
+unfunded-formatting observations separately, without counting new false completions.
+
+All 908 public signatures and 255 preceding test sources remain. Independent
+1024-allocation samples measure the new owners as 88/72/40/48/80/40/64 bytes;
+reference-array capacities and readonly views use their measured sizes. Original
+carrier samples remain 296/352/352/368/384/56/40; the earlier unexplained +200 bytes
+remain recorded under MEASURE-01. Focused build **18.0s**,
+test process **99.2s**. Final combined Release/reference/native/
+package/consumer checks follow this integrated source once, with phase timings.
+
+DIAG-02P2F still requires staged warning export when future memory admission fails,
+public after-acceptance cancellation and mixed-info suppression retirement.
+DIAG-02P3H still requires future host-operation/handle and wrapper-memory admission
+across outputs; JSON byte/sidecar storage remains JSON-01. Generic result/counter/
+fatal-outcome admission remains DIAG-01. These finite entries, parent DIAG-02P2/P3/PV,
+M11/A01–A07 and both verdicts remain open. The five advisory-specific ImageSharp
+exclusions remain the intentional temporary policy.
+
 ## Exact presentation message quotas
 
 DIAG-02P2Q fixes the three original bytes=16 false publications, runtime
@@ -41,16 +91,11 @@ Final focused build: **30.6s**; test console **6s**, process **12.6s**, TRX
 phases. Full reference/native/package/consumer checks await the completed combined
 DIAG-02P2/P3 correction, then run once with phase timings (DIAG-02PV).
 
-Next failures are retained as complete jobs using the same frozen public driver:
-four byte-short rewrites record two accepted warnings but return none; four JSON
-sidecar jobs exhaust charged work yet format/publish six summaries (236–238 bytes);
-four split jobs fail on work after one commit. Four whole-file exact-work jobs vary
-with core/ownership work and remain separate from formatting proof.
-DIAG-02P2 must admit formatting work and independently escaping records/text/list
-storage, including real late memory/work failures, both tokens and warning history.
-DIAG-02P3 must finish preparation before first commit across outputs under the
-existing limits. Parent DIAG-02P, M11/A01–A07 and both verdicts remain open.
-The five ImageSharp exclusions remain the intentional temporary policy.
+The retained complete-job failures selected the owned presentation correction
+above: four byte-short rewrites lost accepted warnings, four JSON jobs exhausted
+charged work while formatting summaries, and four split jobs failed after one
+commit. Their original observations stay source-bound. DIAG-02P2S/P3S now integrate
+the scoped correction; DIAG-02P2F/P3H and final combined proof remain explicit.
 
 ## Presentation count predecessor
 

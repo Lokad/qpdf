@@ -1276,7 +1276,6 @@ public static partial class Qpdf
         using PreparedSplitPublications? preparation = governor.HasPresentation ? PreparedSplitPublications.Create(governor) : null;
         ParserMemoryScope? presentationMemory = preparation?.Memory;
         List<PreparedSplitPublication>? prepared = preparation?.Items;
-        long anticipatedBytes = 0L;
         for (int g = 0; g < groups.Count; g++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1443,13 +1442,11 @@ public static partial class Qpdf
 
             if (prepared is not null && presentationMemory is not null)
             {
-                long bytes = await CountPresentationOutputAsync(effective, sub, groupStreams, multiCompress,
+                PreparedSplitPublication publication = await PreparePresentationOutputAsync(effective, sub, groupStreams, multiCompress,
                     multiLevel, groupInfo, originalId1, staticId, newlineBeforeEndstream, qdf, groupOriginalIds,
-                    linearize, linearizePass1.HasValue, limits, governor, cancellationToken).ConfigureAwait(false);
-                anticipatedBytes = checked(anticipatedBytes + bytes);
-                presentationMemory.Reserve(80L);
-                PreparedSplitPublication publication = new(path, sub, groupStreams, groupInfo, groupOriginalIds, bytes);
-                ParserContainers.AddItem(presentationMemory, prepared, publication, IntPtr.Size);
+                    linearize, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
+                try { ParserContainers.AddItem(presentationMemory, prepared, publication, IntPtr.Size); }
+                catch { publication.Dispose(); throw; }
             }
             else
             {
@@ -1460,16 +1457,15 @@ public static partial class Qpdf
 
         if (prepared is not null)
         {
-            governor.AnticipatePresentationOutput(anticipatedBytes);
+            long publicationUnits = 0L;
+            foreach (PreparedSplitPublication publication in prepared)
+            { governor.CheckCancellation(); governor.ChargeWork(1L); publicationUnits = checked(publicationUnits + publication.PublicationWork); }
+            using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits);
+            governor.PrepareExecutionPresentation();
+            publicationWork.Begin();
             foreach (PreparedSplitPublication publication in prepared)
             {
-                long before = governor.Snapshot().TotalOutputBytes;
-                await PublishModelAsync(host, effective, extensionLevel, publication.Model, publication.ObjectStreams,
-                    multiCompress, multiLevel, publication.InfoRef, originalId1, staticId, newlineBeforeEndstream,
-                    qdf, publication.OriginalIds, linearize, linearizePass1, publication.Path, limits, governor, cancellationToken).ConfigureAwait(false);
-                long written = governor.Snapshot().TotalOutputBytes - before;
-                if (written != publication.OutputBytes)
-                { throw new QpdfException($"Split presentation replay mismatch: counted {publication.OutputBytes} bytes but wrote {written}."); }
+                await publication.PublishAsync(host, governor, cancellationToken).ConfigureAwait(false);
                 outputPaths.Add(publication.Path);
             }
         }
@@ -2115,10 +2111,11 @@ public static partial class Qpdf
         return 0L;
     }
 
-    private static QpdfDiagnostic CheckJsonSchema(
+    private static void CheckJsonSchema(
         string json,
         int version,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         string help = version == 1 ? HelpText.JsonHelpV1 : HelpText.JsonHelpV2;
@@ -2149,10 +2146,13 @@ public static partial class Qpdf
 
         if (missing.Count > 0)
         {
-            return new QpdfDiagnostic(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, $"JSON output has keys missing from --json-help version {version}: {string.Join(", ", missing)}.");
+            diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error,
+                ["JSON output has keys missing from --json-help version ", version, ": ", string.Join(", ", missing), "."]);
+            return;
         }
 
-        return new QpdfDiagnostic(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, $"JSON schema check passed for version {version}.");
+        diagnostics.AddParts(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info,
+            ["JSON schema check passed for version ", version, "."]);
     }
 
     private static readonly PdfName InspectionContents = PdfName.FromAscii("Contents");
@@ -3827,7 +3827,7 @@ public static partial class Qpdf
         DiagnosticBag diagnostics = new(governor);
         List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
         Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
-        QpdfJsonResult result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        QpdfJsonResult result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, cancellationToken).ConfigureAwait(false);
         return result.WithCounters(governor.Snapshot());
     }
 
@@ -4276,6 +4276,7 @@ public static partial class Qpdf
         bool emptyDocument,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        bool testJsonSchema,
         CancellationToken cancellationToken)
     {
         ValidateJsonKeys(inspection.Version, inspection.Keys);
@@ -4305,54 +4306,79 @@ public static partial class Qpdf
         // JSON emits text and copied sidecar bytes. Its reader values remain
         // exclusive to this document until serialization completes.
         using DiagnosticStage? diagnosticStage = diagnostics.BeginStaging();
-        await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
-        Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
-        List<Json.JsonSidecar> sidecars = new();
-        string json = Json.DocumentJson.WriteDocument(document, request, sidecars, limits, governor, diagnostics, cancellationToken);
-        byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
-        if (data.Length > limits.MaxOutputBytes)
+        try
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
-        }
+            await using QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+            Json.JsonRequest request = new(inspection.Version, inspection.Keys, decodeLevel, inspection.StreamData, prefix, wanted, inspection.MinimalOutput);
+            List<Json.JsonSidecar> sidecars = new();
+            string json = Json.DocumentJson.WriteDocument(document, request, sidecars, limits, governor, diagnostics, cancellationToken);
+            if (testJsonSchema) { CheckJsonSchema(json, inspection.Version, governor, diagnostics, cancellationToken); }
+            byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
+            if (data.Length > limits.MaxOutputBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
+            }
 
-        // No PDF value escapes serialization. Close the input before publishing
-        // so a host close fault preserves the existing main and sidecar targets.
-        await document.DisposeAsync().ConfigureAwait(false);
-        diagnosticStage?.Flush();
-        if (governor.HasPresentation)
-        {
-            long anticipatedBytes = outputPath.HasValue ? data.Length : 0L;
+            // No PDF value escapes serialization. Close the input before publishing
+            // so a host close fault preserves the existing main and sidecar targets.
+            await document.DisposeAsync().ConfigureAwait(false);
+            diagnosticStage?.Flush();
+            if (governor.HasPresentation)
+            {
+                long anticipatedBytes = outputPath.HasValue ? data.Length : 0L;
+                long publicationUnits = outputPath.HasValue ? 1L + (data.Length + 32767L) / 32768L : 0L;
+                foreach (Json.JsonSidecar sidecar in sidecars)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                    if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
+                    { throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null); }
+                    _ = QpdfPath.From(sidecar.Name);
+                    anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
+                    publicationUnits = checked(publicationUnits + 1L + (sidecar.Data.Length + 32767L) / 32768L);
+                }
+                governor.ChargeOutputBytes(anticipatedBytes);
+                using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits);
+                governor.PrepareExecutionPresentation();
+                publicationWork.Begin();
+                if (outputPath.HasValue)
+                { await PublishPreparedBytesAsync(host, outputPath.Value, data, governor, cancellationToken).ConfigureAwait(false); }
+                foreach (Json.JsonSidecar sidecar in sidecars)
+                { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar.Data, governor, cancellationToken).ConfigureAwait(false); }
+                return new QpdfJsonResult(json, [.. diagnostics.Entries], governor.Snapshot());
+            }
+            if (outputPath.HasValue)
+            {
+                await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath.Value, governor, cancellationToken).ConfigureAwait(false);
+                TransactionSink sink = new(transaction, governor);
+                await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             foreach (Json.JsonSidecar sidecar in sidecars)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
-                anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
-            }
-            governor.AnticipatePresentationOutput(anticipatedBytes);
-        }
-        if (outputPath.HasValue)
-        {
-            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath.Value, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink sink = new(transaction, governor);
-            await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        }
+                cancellationToken.ThrowIfCancellationRequested();
+                if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
+                {
+                    throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null);
+                }
 
-        foreach (Json.JsonSidecar sidecar in sidecars)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(sidecar.Name, inputPath.Value, StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("A JSON stream file must differ from the input file.", 0L, null);
+                QpdfPath sidecarPath = QpdfPath.From(sidecar.Name);
+                await using IQpdfOutputTransaction staging = await GovernedHost.CreateOutputAsync(host, sidecarPath, governor, cancellationToken).ConfigureAwait(false);
+                TransactionSink sidecarSink = new(staging, governor);
+                await sidecarSink.AppendAsync(sidecar.Data, cancellationToken).ConfigureAwait(false);
+                await staging.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            QpdfPath sidecarPath = QpdfPath.From(sidecar.Name);
-            await using IQpdfOutputTransaction staging = await GovernedHost.CreateOutputAsync(host, sidecarPath, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink sidecarSink = new(staging, governor);
-            await sidecarSink.AppendAsync(sidecar.Data, cancellationToken).ConfigureAwait(false);
-            await staging.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return new QpdfJsonResult(json, [.. diagnostics.Entries], governor.Snapshot());
         }
-
-        return new QpdfJsonResult(json, [.. diagnostics.Entries], governor.Snapshot());
+        catch (Exception ex) when (ex is QpdfException or OperationCanceledException)
+        {
+            // The document's await-using closes first. Export only previously
+            // accepted warnings with their held work; summaries are abandoned.
+            governor.AbandonPresentationCount();
+            diagnosticStage?.FlushAcceptedAfterFailure();
+            throw;
+        }
     }
 
     private static async ValueTask<QpdfJsonImportResult> ImportCreateCoreAsync(
@@ -4882,23 +4908,34 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        PresentationCountReservation? presentation;
+        PresentationCountReservation? reservation = null;
+        ExecutionPresentation? presentation = null;
         try
         {
             limits = ResolveParserLimits(plan, limits, hostExplicit);
-            presentation = PresentationCountReservation.Create(governor, plan.Verbose,
+            reservation = PresentationCountReservation.Create(governor, plan.Verbose,
                 plan.ReportMemoryUsage, plan.Progress, cancellationToken);
+            presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
+                plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
+            QpdfExecutionResult result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            return result.Status == QpdfExecutionStatus.Completed || presentation is null ? result : presentation.Failure(result);
         }
         catch (QpdfException ex)
         {
-            return ToFailedResult(ex);
+            QpdfExecutionResult result = ToFailedResult(ex);
+            return presentation?.Failure(result) ?? result;
         }
         catch (OperationCanceledException)
         {
-            return QpdfExecutionResult.Canceled([], ZeroCounters());
+            QpdfExecutionResult result = QpdfExecutionResult.Canceled([], ZeroCounters());
+            return presentation?.Failure(result) ?? result;
         }
+        finally { presentation?.Dispose(); reservation?.Dispose(); }
+    }
 
-        using PresentationCountReservation? presentationScope = presentation;
+    private static async ValueTask<QpdfExecutionResult> RunPlanCoreAsync(IQpdfHost host, JobPlan plan,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    {
         if (plan.IgnoreXrefStreams)
         {
             limits = limits with { IgnoreXrefStreams = true };
@@ -5055,18 +5092,8 @@ public static partial class Qpdf
                     json.EmptyDocument,
                     governor,
                     diagnostics,
+                    json.TestJsonSchema,
                     cancellationToken).ConfigureAwait(false);
-                if (json.TestJsonSchema)
-                {
-                    QpdfDiagnostic schema = CheckJsonSchema(inspected.Json, json.Version, governor, cancellationToken);
-                    List<QpdfDiagnostic> warnings = new(inspected.Warnings)
-                    {
-                        schema,
-                    };
-
-                    return CompleteWithPresentation(warnings, inspected.Counters, plan, governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
-                }
-
                 return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan, governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
             }
             catch (QpdfException ex)
@@ -5378,6 +5405,11 @@ public static partial class Qpdf
         JobPlan plan,
         ResourceGovernor governor)
     {
+        if (governor.CompleteExecutionPresentation() is PresentedDiagnostics owned)
+        {
+            return new QpdfExecutionResult(owned.ExitCode == QpdfExitCode.Error ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed,
+                owned.ExitCode, owned.Diagnostics, counters, true);
+        }
         governor.PresentDiagnosticCount();
         List<QpdfDiagnostic> effective = new();
         foreach (QpdfDiagnostic diagnostic in diagnostics)

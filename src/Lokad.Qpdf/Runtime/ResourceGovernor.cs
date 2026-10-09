@@ -24,8 +24,11 @@ internal sealed class ResourceGovernor
     private RetainedValueOwners? _valueOwners;
     private DiagnosticStage? _diagnosticStage;
     private PresentationCountReservation? _presentationCount;
+    private ExecutionPresentation? _executionPresentation;
+    private PublicationWorkReservation? _publicationWork;
     private long _reservedWork;
     private bool _presentingDiagnostics;
+    private bool _finishingDiagnosticFailure;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)
     {
@@ -191,7 +194,10 @@ internal sealed class ResourceGovernor
     {
         if (!ReferenceEquals(_diagnosticStage, stage) || _presentingDiagnostics) { throw new InvalidOperationException("Diagnostic work cannot be changed in this phase."); }
         ArgumentOutOfRangeException.ThrowIfNegative(capacity);
-        CheckWorkCapacity(capacity);
+        long publication = _publicationWork?.Remaining ?? 0L;
+        if (capacity > long.MaxValue - publication)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(capacity + publication);
         _reservedWork = capacity;
     }
 
@@ -218,9 +224,15 @@ internal sealed class ResourceGovernor
         _presentingDiagnostics = true;
     }
 
+    internal void BeginDiagnosticFailurePresentation(DiagnosticStage stage)
+    {
+        BeginDiagnosticPresentation(stage);
+        _finishingDiagnosticFailure = true;
+    }
+
     internal void EndDiagnosticPresentation(DiagnosticStage stage)
     {
-        if (ReferenceEquals(_diagnosticStage, stage)) { _presentingDiagnostics = false; }
+        if (ReferenceEquals(_diagnosticStage, stage)) { _presentingDiagnostics = false; _finishingDiagnosticFailure = false; }
     }
 
     internal void DetachDiagnosticStage(DiagnosticStage stage)
@@ -228,6 +240,7 @@ internal sealed class ResourceGovernor
         if (!ReferenceEquals(_diagnosticStage, stage)) { return; }
         _diagnosticStage = null;
         _presentingDiagnostics = false;
+        _finishingDiagnosticFailure = false;
         _reservedWork = 0L;
     }
 
@@ -250,10 +263,16 @@ internal sealed class ResourceGovernor
             if (units > _reservedWork) { throw new InvalidOperationException("Diagnostic work exceeds its pre-admitted bound."); }
             _reservedWork -= units;
         }
+        else if (_publicationWork is PublicationWorkReservation publication && publication.Publishing)
+        {
+            publication.Consume(units);
+        }
         else
         {
-            if (units > long.MaxValue - _reservedWork) { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-            long capacity = units + _reservedWork;
+            long heldPublicationUnits = _publicationWork?.Remaining ?? 0L;
+            if (units > long.MaxValue - _reservedWork || units + _reservedWork > long.MaxValue - heldPublicationUnits)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+            long capacity = units + _reservedWork + heldPublicationUnits;
             CheckWorkCapacity(capacity);
         }
         _totalWork = checked(_totalWork + units);
@@ -384,6 +403,42 @@ internal sealed class ResourceGovernor
     internal void PresentDiagnosticCount() => _presentationCount?.Present();
 
     internal bool HasPresentation => _presentationCount is not null;
+    internal void AbandonPresentationCount() => _presentationCount?.Dispose();
+
+    internal long PresentationOutputBytes => Math.Max(_totalOutputBytes, _presentationCount?.AnticipatedOutput ?? 0L);
+    internal long PresentationDecodedBytes => _totalDecodedBytes;
+    internal long PresentationPeakBytes => _peakMemoryBytes;
+
+    internal void AttachExecutionPresentation(ExecutionPresentation presentation)
+    {
+        if (_executionPresentation is not null) { throw new InvalidOperationException("A job already has an execution presentation."); }
+        _executionPresentation = presentation;
+    }
+
+    internal void DetachExecutionPresentation(ExecutionPresentation presentation)
+    {
+        if (!ReferenceEquals(_executionPresentation, presentation)) { throw new InvalidOperationException("Execution presentation is unavailable."); }
+        _executionPresentation = null;
+    }
+
+    internal void PrepareExecutionPresentation() => _executionPresentation?.Prepare();
+
+    internal PresentedDiagnostics? CompleteExecutionPresentation() => _executionPresentation?.Complete();
+
+    internal void AttachPublicationWork(PublicationWorkReservation reservation)
+    {
+        if (_publicationWork is not null) { throw new InvalidOperationException("Publication work is already held."); }
+        if (_reservedWork > long.MaxValue - reservation.Remaining)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(_reservedWork + reservation.Remaining);
+        _publicationWork = reservation;
+    }
+
+    internal void DetachPublicationWork(PublicationWorkReservation reservation)
+    {
+        if (!ReferenceEquals(_publicationWork, reservation)) { throw new InvalidOperationException("Publication work is unavailable."); }
+        _publicationWork = null;
+    }
 
     internal void AnticipatePresentationOutput(long bytes)
     {
@@ -431,7 +486,7 @@ internal sealed class ResourceGovernor
 
     internal void CheckCancellation()
     {
-        _cancellationToken.ThrowIfCancellationRequested();
+        if (!_finishingDiagnosticFailure) { _cancellationToken.ThrowIfCancellationRequested(); }
     }
 
     internal void NoteOperation()
@@ -444,7 +499,7 @@ internal sealed class ResourceGovernor
         if (_operationsSinceCheck >= _limits.CancellationCheckInterval)
         {
             _operationsSinceCheck = 0L;
-            _cancellationToken.ThrowIfCancellationRequested();
+            if (!_finishingDiagnosticFailure) { _cancellationToken.ThrowIfCancellationRequested(); }
         }
     }
 

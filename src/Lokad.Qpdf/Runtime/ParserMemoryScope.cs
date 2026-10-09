@@ -78,6 +78,19 @@ internal sealed class ParserMemoryScope : IDisposable
         _governor.ReleaseMemory(bytes - retained);
     }
 
+    // An exclusive prepared owner needs the receipt to abandon an unexposed
+    // candidate immediately, without waiting for weak collection.
+    internal RetainedValueOwners.Receipt RetainAllocationReceipt(object carrier, long bytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(carrier);
+        if (bytes < 0L || bytes > _reservedBytes)
+        { throw new InvalidOperationException("Retained allocation exceeds its scope's ownership."); }
+        RetainedValueOwners.Receipt receipt = _governor.RetainAllocation(carrier, bytes);
+        _reservedBytes -= bytes;
+        return receipt;
+    }
+
     internal void CheckOwner(ResourceGovernor governor)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

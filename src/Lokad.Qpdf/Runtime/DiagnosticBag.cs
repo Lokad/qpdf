@@ -14,6 +14,7 @@ internal sealed class DiagnosticBag
     }
 
     internal bool ReportPageCountMismatch { get; set; } = true;
+    internal bool HasNonWarningEntries { get; private set; }
 
     internal IReadOnlyList<QpdfDiagnostic> Entries
     {
@@ -245,6 +246,7 @@ internal sealed class DiagnosticBag
         // enter this single-owner bag. The remaining handoff cannot allocate.
         if (countDiagnostic) { _governor.ReserveDiagnostic(utf8Bytes); }
         _entries?.Add(diagnostic);
+        HasNonWarningEntries |= diagnostic.Severity != QpdfDiagnosticSeverity.Warning;
         _governor.ReleaseMemory(payloadBytes - retained);
     }
 

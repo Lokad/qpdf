@@ -124,12 +124,17 @@ public sealed record QpdfExecutionResult
         QpdfExitCode exitCode,
         IReadOnlyList<QpdfDiagnostic> diagnostics,
         QpdfExecutionCounters counters)
+        : this(status, exitCode, diagnostics, counters, false)
+    { }
+
+    internal QpdfExecutionResult(QpdfExecutionStatus status, QpdfExitCode exitCode,
+        IReadOnlyList<QpdfDiagnostic> diagnostics, QpdfExecutionCounters counters, bool adoptDiagnostics)
     {
         Status = status;
         ExitCode = exitCode;
         Diagnostics = diagnostics is null
             ? throw new ArgumentNullException(nameof(diagnostics))
-            : [.. diagnostics];
+            : adoptDiagnostics ? diagnostics : [.. diagnostics];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 

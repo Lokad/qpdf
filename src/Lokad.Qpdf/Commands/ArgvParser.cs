@@ -3070,6 +3070,8 @@ internal static class ArgvParser
             Verbose = globals.Verbose,
             Progress = globals.Progress,
             MinimalOutput = minimalOutput,
+            NoWarn = globals.NoWarn,
+            WarningExitZero = globals.WarningExitZero,
         };
     }
 

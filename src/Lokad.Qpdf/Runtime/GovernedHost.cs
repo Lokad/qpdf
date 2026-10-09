@@ -131,6 +131,8 @@ internal static class GovernedHost
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            _governor.PrepareExecutionPresentation();
             return _inner.CommitAsync(cancellationToken);
         }
 

@@ -278,9 +278,16 @@ internal sealed class DiagnosticStage : IDisposable
     }
 
     internal void Flush()
+        => FlushCore(false);
+
+    internal void FlushAcceptedAfterFailure()
+        => FlushCore(true);
+
+    private void FlushCore(bool afterFailure)
     {
         if (_memory is null) { return; }
-        _governor.BeginDiagnosticPresentation(this);
+        if (afterFailure) { _governor.BeginDiagnosticFailurePresentation(this); }
+        else { _governor.BeginDiagnosticPresentation(this); }
         try
         {
             while (_promoted < Entries.Count)

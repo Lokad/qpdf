@@ -39,6 +39,18 @@ and 312 preserved results, with no loader failures or skips. The added split
 counting pass does not close future work/memory admission. DIAG-02P remains open
 for formatting work, storage ownership, accepted warning history, late multi-output
 preparation and final combined reference/package verification.
+DIAG-02P2S/P3S integrate owned summary formatting and prepared split publication:
+2007 focused cases pass, including 120 public controls and ten storage/cancellation
+controls. Same 120 public cases on the byte-only predecessor expose 44 failures,
+including four lost histories on genuine memory failure, and preserve 76 results.
+All four old split work ceilings now reject before commit. Prepared main/pass1
+bytes match the shared writer across styles and segment boundaries; public fixed
+memory matrices exercise failure after staging without replacing prior targets.
+JSON warning-policy flags now reach the shared execution plan. Staged-warning
+future memory admission, public accepted-warning cancellation, mixed suppression
+retirement and future host/wrapper admission remain DIAG-02P2F/P3H; generic DTO
+admission and JSON data ownership stay DIAG-01/JSON-01. Final combined checks remain
+DIAG-02PV, and the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

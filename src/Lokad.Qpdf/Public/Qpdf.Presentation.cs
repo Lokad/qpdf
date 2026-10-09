@@ -2,6 +2,7 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
+using System.Security.Cryptography;
 
 namespace Lokad.Qpdf;
 
@@ -36,29 +37,108 @@ public static partial class Qpdf
             ParserMemoryScope? memory = _memory;
             _items = null;
             _memory = null;
+            if (items is not null) { foreach (PreparedSplitPublication item in items) { item.Dispose(); } }
             items?.Clear();
             memory?.Dispose();
         }
     }
 
-    private sealed record PreparedSplitPublication(QpdfPath Path, List<NumberedObject> Model,
-        IReadOnlyList<IReadOnlyList<int>>? ObjectStreams, int? InfoRef,
-        IReadOnlyDictionary<int, int> OriginalIds, long OutputBytes);
+    private sealed class PreparedSplitPublication : IDisposable
+    {
+        private ParserMemoryScope? _memory;
+        private PreparedOutputSink? _main, _pass1;
+        internal readonly QpdfPath Path;
+        internal readonly QpdfPath? Pass1Path;
 
-    private static async ValueTask<long> CountPresentationOutputAsync(PdfVersion version,
+        private PreparedSplitPublication(ParserMemoryScope memory, PreparedOutputSink main, PreparedOutputSink? pass1,
+            QpdfPath path, QpdfPath? pass1Path)
+        { _memory = memory; _main = main; _pass1 = pass1; Path = path; Pass1Path = pass1Path; }
+
+        internal static PreparedSplitPublication Create(QpdfLimits limits, ResourceGovernor governor,
+            QpdfPath path, QpdfPath? pass1Path, CancellationToken token)
+        {
+            ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            PreparedOutputSink? main = null, pass1 = null;
+            try
+            {
+                memory.Reserve(64L);
+                main = PreparedOutputSink.Create(limits, governor, token);
+                if (pass1Path.HasValue) { pass1 = PreparedOutputSink.Create(limits, governor, token); }
+                return new(memory, main, pass1, path, pass1Path);
+            }
+            catch { pass1?.Dispose(); main?.Dispose(); memory.Dispose(); throw; }
+        }
+
+        internal PreparedOutputSink Main => _main ?? throw new ObjectDisposedException(nameof(PreparedSplitPublication));
+        internal PreparedOutputSink? Pass1 => _pass1;
+        internal long PublicationWork => 1L + Main.SegmentCount
+            + (_pass1 is null ? 0L : 1L + _pass1.SegmentCount);
+
+        internal async ValueTask PublishAsync(IQpdfHost host, ResourceGovernor governor, CancellationToken token)
+        {
+            await PublishPreparedOutputAsync(host, Path, Main, governor, token).ConfigureAwait(false);
+            if (_pass1 is PreparedOutputSink pass1 && Pass1Path is QpdfPath path)
+            { await PublishPreparedOutputAsync(host, path, pass1, governor, token).ConfigureAwait(false); }
+        }
+
+        public void Dispose()
+        {
+            PreparedOutputSink? main = _main, pass1 = _pass1;
+            _main = null; _pass1 = null;
+            pass1?.Dispose(); main?.Dispose();
+            ParserMemoryScope? memory = _memory; _memory = null; memory?.Dispose();
+        }
+    }
+
+    private static async ValueTask<PreparedSplitPublication> PreparePresentationOutputAsync(PdfVersion version,
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[]? originalId, bool staticId, bool newlineBeforeEndstream,
-        QdfOptions qdf, IReadOnlyDictionary<int, int> originalIds, bool linearize, bool pass1,
+        QdfOptions qdf, IReadOnlyDictionary<int, int> originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        PreparedSplitPublication publication = PreparedSplitPublication.Create(limits, governor, path, pass1, cancellationToken);
+        try
+        {
+            using ParserMemoryScope ids = ParserMemoryScope.Create(governor);
+            byte[] id2 = StaticIdBytes;
+            if (!staticId)
+            {
+                using PreparedOutputSink placeholder = PreparedOutputSink.Create(limits, governor, cancellationToken);
+                await SerializePresentationOutputAsync(version, model, objectStreams, compressStreams, compressionLevel,
+                    infoRef, originalId ?? PlaceholderIdBytes, PlaceholderIdBytes, newlineBeforeEndstream, qdf,
+                    originalIds, linearize, placeholder, null, limits, governor, cancellationToken).ConfigureAwait(false);
+                ids.Reserve(40L);
+                id2 = new byte[16];
+                // The hash borrows scoped segments; no joined output copy is needed.
+                ids.Reserve(128L);
+                using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+                for (PreparedOutputSink.Segment? segment = placeholder.First; segment is not null; segment = segment.Next)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    governor.ChargeWork(segment.Used); hash.AppendData(segment.Written.Span);
+                }
+                if (!hash.TryGetHashAndReset(id2, out int written) || written != id2.Length)
+                { throw new InvalidOperationException("Unexpected identifier hash length."); }
+            }
+            await SerializePresentationOutputAsync(version, model, objectStreams, compressStreams, compressionLevel,
+                infoRef, originalId ?? id2, id2, newlineBeforeEndstream, qdf, originalIds, linearize,
+                publication.Main, publication.Pass1, limits, governor, cancellationToken).ConfigureAwait(false);
+            governor.ChargeOutputBytes(checked(publication.Main.Length + (publication.Pass1?.Length ?? 0L)));
+            return publication;
+        }
+        catch { publication.Dispose(); throw; }
+    }
+
+    private static async ValueTask SerializePresentationOutputAsync(PdfVersion version,
+        List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
+        int? compressionLevel, int? infoRef, byte[] id1, byte[] id2, bool newlineBeforeEndstream,
+        QdfOptions qdf, IReadOnlyDictionary<int, int> originalIds, bool linearize, IByteSink counter, IByteSink? firstPass,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         // Two counters and the serializer/writer wrappers; the shared writers own
         // their dynamic scratch. The identifier arrays are borrowed, never changed.
         memory.Reserve(linearize ? 128L : 96L);
-        CountingSink counter = new();
-        CountingSink? firstPass = pass1 ? new() : null;
-        byte[] id2 = staticId ? StaticIdBytes : PlaceholderIdBytes;
-        byte[] id1 = originalId ?? id2;
         if (linearize)
         {
             LinearizedWriter writer = new(limits, governor);
@@ -86,6 +166,33 @@ public static partial class Qpdf
             { await serializer.SerializeStreamedAsync(version, model, objectStreams, compressStreams,
                 compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false); }
         }
-        return checked(counter.Length + (firstPass?.Length ?? 0L));
+    }
+
+    private static async ValueTask PublishPreparedOutputAsync(IQpdfHost host, QpdfPath path, PreparedOutputSink output,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
+        for (PreparedOutputSink.Segment? segment = output.First; segment is not null; segment = segment.Next)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            await transaction.WriteAsync(segment.Written, token).ConfigureAwait(false);
+        }
+        await transaction.CommitAsync(token).ConfigureAwait(false);
+    }
+
+    private static async ValueTask PublishPreparedBytesAsync(IQpdfHost host, QpdfPath path, ReadOnlyMemory<byte> bytes,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
+        for (int offset = 0; offset < bytes.Length;)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+            int count = Math.Min(32768, bytes.Length - offset);
+            await transaction.WriteAsync(bytes.Slice(offset, count), token).ConfigureAwait(false);
+            offset += count;
+        }
+        await transaction.CommitAsync(token).ConfigureAwait(false);
     }
 }
