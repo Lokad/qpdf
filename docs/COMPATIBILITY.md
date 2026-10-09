@@ -52,8 +52,14 @@ retirement and future host/wrapper admission remain DIAG-02P2F/P3H; generic DTO
 admission and JSON data ownership stay DIAG-01/JSON-01. Full committed-source checks now pass: 12809 Release cases, pinned 1846 parser
 comparisons/432 rewrite trios, exact package/symbols and 50 fresh consumer smokes/two
 specific negatives. Original native 868/804/868, all 64 differences and complete
-managed payloads remain. Eight host-operation failures after one commit and four
-mixed-info NoWarn views retaining 50 hidden texts are explicit P3H/P2F findings.
+managed payloads remain. DIAG-02P3H now integrates complete future host-call, handle and measured wrapper
+admission, including typed/plain split/JSON routes. Eight original host ceilings
+reject before output creation; exact budgets count real writes. Its 636 public
+controls/13 lease controls include fixed memory failures, fault/cancellation,
+post-commit-close semantics and surviving targets. Same public tests on `642C5096`:
+508 fail/128 preserve. Four mixed-info NoWarn views retaining 50 hidden texts remain
+P2F; plain warning-history projections need the same hidden-record retirement.
+Final source-bound proof for this new correction is pending.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons

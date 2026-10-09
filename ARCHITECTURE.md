@@ -98,9 +98,17 @@ sequential publication, including pass1. JSON prepares main/sidecar lengths and
 publication work from its serialized data. Publication-loop work is reserved
 before commit; unused steps are released without increasing observed work.
 Preparation holds more split bytes than streaming and obeys existing job limits.
-Future staged-warning memory export, mixed-info suppression retirement, all host
-operation/handle/wrapper admission and generic result/fatal storage remain explicit
-in DIAG-02P2F/P3H, DIAG-01 and JSON-01. The combined correction requires final
+Split/pass1 and JSON preparation now applies to every configuration and typed
+route, including plain jobs. Batches admit future host opens/writes, one sequential
+handle and reusable output-wrapper storage before first commit. Shared input/output
+wrappers admit measured 32/40-byte storage before allocation and count each open,
+read and write attempt. Disposal drops references and keeps admission through host
+close, then retires once even on failure. Unexecuted reservations do not change
+observed counters. Plain failure results preserve accepted warnings while retaining
+their existing informational-note omission. External host publication and post-commit
+close behavior remains unchanged. Future staged-warning memory export and hidden
+mixed-record retirement remain DIAG-02P2F; generic result/fatal storage and JSON
+payload admission remain DIAG-01/JSON-01. The combined correction requires final
 source-bound reference/package verification; wider ownership audits stay open.
 
 The host owns stable input identities and ranged reads, output staging and

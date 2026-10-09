@@ -19,20 +19,27 @@ internal sealed class ExecutionPresentation : IDisposable
     {
         private IReadOnlyList<QpdfDiagnostic> _accepted = Array.Empty<QpdfDiagnostic>();
         private IReadOnlyList<QpdfDiagnostic> _terminal = Array.Empty<QpdfDiagnostic>();
-        private bool _noWarn, _frozen;
+        private bool _noWarn, _frozen, _warningHistoryOnly;
 
-        internal void Freeze(IReadOnlyList<QpdfDiagnostic> accepted, IReadOnlyList<QpdfDiagnostic> terminal, bool noWarn, bool hasNonWarning)
+        internal void Freeze(IReadOnlyList<QpdfDiagnostic> accepted, IReadOnlyList<QpdfDiagnostic> terminal, bool noWarn, bool hasNonWarning, bool warningHistoryOnly)
         {
             if (_frozen) { throw new InvalidOperationException("Failure diagnostics were already frozen."); }
             _accepted = noWarn && !hasNonWarning ? Array.Empty<QpdfDiagnostic>() : accepted;
-            _terminal = terminal; _noWarn = noWarn; _frozen = true;
+            if (warningHistoryOnly)
+            {
+                bool hasWarning = false;
+                foreach (QpdfDiagnostic item in accepted) { if (item.Severity == QpdfDiagnosticSeverity.Warning) { hasWarning = true; break; } }
+                if (!hasWarning) { _accepted = Array.Empty<QpdfDiagnostic>(); }
+            }
+            _terminal = terminal; _noWarn = noWarn; _warningHistoryOnly = warningHistoryOnly; _frozen = true;
         }
 
         private bool Visible(QpdfDiagnostic item) => !_noWarn || item.Severity != QpdfDiagnosticSeverity.Warning;
+        private bool AcceptedVisible(QpdfDiagnostic item) => Visible(item) && (!_warningHistoryOnly || item.Severity == QpdfDiagnosticSeverity.Warning);
         private bool Prior(QpdfDiagnostic item)
         {
             foreach (QpdfDiagnostic accepted in _accepted)
-            { if (ReferenceEquals(item, accepted)) { return true; } }
+            { if (AcceptedVisible(accepted) && ReferenceEquals(item, accepted)) { return true; } }
             return false;
         }
 
@@ -43,7 +50,7 @@ internal sealed class ExecutionPresentation : IDisposable
             get
             {
                 int count = 0;
-                foreach (QpdfDiagnostic item in _accepted) { if (Visible(item)) { count++; } }
+                foreach (QpdfDiagnostic item in _accepted) { if (AcceptedVisible(item)) { count++; } }
                 foreach (QpdfDiagnostic item in _terminal) { if (Visible(item) && !Prior(item)) { count++; } }
                 return count;
             }
@@ -54,7 +61,7 @@ internal sealed class ExecutionPresentation : IDisposable
             get
             {
                 ArgumentOutOfRangeException.ThrowIfNegative(index);
-                foreach (QpdfDiagnostic item in _accepted) { if (Visible(item) && index-- == 0) { return item; } }
+                foreach (QpdfDiagnostic item in _accepted) { if (AcceptedVisible(item) && index-- == 0) { return item; } }
                 foreach (QpdfDiagnostic item in _terminal) { if (Visible(item) && !Prior(item) && index-- == 0) { return item; } }
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
@@ -62,7 +69,7 @@ internal sealed class ExecutionPresentation : IDisposable
 
         public IEnumerator<QpdfDiagnostic> GetEnumerator()
         {
-            foreach (QpdfDiagnostic item in _accepted) { if (Visible(item)) { yield return item; } }
+            foreach (QpdfDiagnostic item in _accepted) { if (AcceptedVisible(item)) { yield return item; } }
             foreach (QpdfDiagnostic item in _terminal) { if (Visible(item) && !Prior(item)) { yield return item; } }
         }
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -75,7 +82,6 @@ internal sealed class ExecutionPresentation : IDisposable
     internal static ExecutionPresentation? Create(ResourceGovernor governor, DiagnosticBag bag,
         bool verbose, bool memoryUsage, bool progress, bool noWarn, bool warningExitZero, CancellationToken token)
     {
-        if (!verbose && !memoryUsage && !progress && !noWarn) { return null; }
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         FailureProjection? failure = null;
@@ -141,7 +147,7 @@ internal sealed class ExecutionPresentation : IDisposable
     internal QpdfExecutionResult Failure(QpdfExecutionResult result)
     {
         FailureProjection failure = _failure ?? throw new InvalidOperationException("Missing failure diagnostics.");
-        failure.Freeze(Bag.Entries, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries);
+        failure.Freeze(Bag.Entries, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
         _failure = null; _failureReceipt = null;
         return new QpdfExecutionResult(result.Status, result.ExitCode, failure, result.Counters, true);
     }

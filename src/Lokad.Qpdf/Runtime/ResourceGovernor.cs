@@ -329,6 +329,12 @@ internal sealed class ResourceGovernor
 
     internal void NoteHostOperation()
     {
+        if (_publicationWork is PublicationWorkReservation held && !held.Publishing)
+        {
+            if (held.Remaining == long.MaxValue)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxHostOperations), long.MaxValue, _limits.MaxHostOperations); }
+            CheckHostOperationCapacity(held.Remaining + 1L);
+        }
         checked
         {
             long next = _hostOperations + 1L;
@@ -341,6 +347,33 @@ internal sealed class ResourceGovernor
         }
 
         NoteOperation();
+    }
+
+    internal void CheckHostOperationCapacity(long operations)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(operations);
+        if (operations <= _limits.MaxHostOperations - _hostOperations) { return; }
+        long requested = operations > long.MaxValue - _hostOperations ? long.MaxValue : _hostOperations + operations;
+        throw new QpdfLimitException(nameof(QpdfLimits.MaxHostOperations), requested, _limits.MaxHostOperations);
+    }
+
+    internal void CheckHandleCapacity(long handles)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(handles);
+        if (handles <= _limits.MaxOpenHandles - _openHandles) { return; }
+        long requested = handles > long.MaxValue - _openHandles ? long.MaxValue : _openHandles + handles;
+        throw new QpdfLimitException(nameof(QpdfLimits.MaxOpenHandles), requested, _limits.MaxOpenHandles);
+    }
+
+    internal PublicationWorkReservation? ReserveOutputWrapper()
+    {
+        if (_publicationWork is PublicationWorkReservation publication && publication.Publishing)
+        {
+            publication.AcquireTransaction();
+            return publication;
+        }
+        ReserveMemory(GovernedHost.OutputWrapperBytes);
+        return null;
     }
 
     internal void AcquireHandle()
