@@ -90,8 +90,12 @@ through complete public success/failure/cancellation jobs. The unchanged eight
 cases pass; identical 360 new public rows expose 290 predecessor failures and
 preserve 70 outcomes. All four original 50-object/100-warning repair jobs retain
 their 247494/247489-byte ceilings. Typed JSON still rejects damaged input;
-command repairs preserve message order and reuse memoized nulls. The combined
-committed-source proof is pending, so JSON-01J remains open. Configuration DOM,
+command repairs preserve message order and reuse memoized nulls. Final proof at
+`c0230dc` retires JSON-01J: all 14284 Release cases retain all 13924 prior occurrences;
+pinned 1846/432 parser checks, all 868 complete native rows/same 64 differences,
+exact package/PDB, 908 signatures and fresh 50-smoke/two-negative consumers pass.
+All 259 old test sources/five locks stay exact. DIAG-01R separately identifies
+underfunded result/counter carriers through 16 complete public jobs. Configuration DOM,
 import/update/resource walks and generic DTO admission remain separate obligations.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned

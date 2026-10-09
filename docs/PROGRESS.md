@@ -59,15 +59,58 @@ and returned DTO/fatal admission remain JSON-01/DIAG-01.
 
 ## Final source proof
 
-The coherent implementation is ready for its committed-source Release/reference/
-native/package/consumer sequence. JSON-01J remains open until that final proof
-passes. Preserve all 13924 preceding test occurrences, the pinned 1846 comparisons/
-432 rewrite trios, every field/payload/warning/diagnostic in the original 868 native
-observations and all 64 classified physical differences. No broad verdict is closed.
+Code **`c0230dc`**, runtime **`FF9D22EA`**, tests **`8D69C8E0`**, probe
+**`926F791D`**: all **14284 Release cases pass**, retaining every one of the
+13924 preceding occurrences. Identical final 360 public rows on the frozen
+predecessor give 290 failures/70 preserved outcomes, without loaders or skips.
+Pinned reference passes **1846 comparisons/432 rewrite trios**. All 868 complete
+native fixtures/settings/routes, payloads, headers, warnings and diagnostics
+remain exact, retaining **868/804/868** and all 64 valid physical differences.
+Packed DLL/changelog/PDB, all 908 signatures, 50 fresh consumer smokes and both
+specific pre-smoke negatives pass. All 552 tracked/529 core paths are frozen;
+534 preceding raw paths, all 259 old test sources, five locks and unrelated work
+remain exact. **JSON-01J is retired.** Parent/wider gates remain open.
+
+The combined proof is
+`external/reviews/2026-10-09-json-output-ownership/final/integrated-verification.json`.
+The documentation follow-up changes no core source or verified runtime/test/probe/
+PDB artifact. The final build/pack identity check is recorded alongside that proof.
+
+| Phase | Observed wall time |
+| --- | --- |
+| Locked restore / committed build | 1.5s / 1.3s |
+| Full Release | 17m17s |
+| Reference total / broad-to-parser / parser artifact interval | 32m59s / 8m45s / 24m13s |
+| Original native matrix | 7m30s |
+| Pack / inspection / fresh consumer / negatives | 2.0s / 4.5s / 25.3s / 14.3s |
+
+Lanes overlap; artifact intervals are not isolated CPU measurements. The first
+native launch failed on a runtimeconfig file lock caused by the reference build;
+its evidence remains archived. A frozen copy of the identical probe removes that
+launch contention. The full test/reference/package lanes ran once after correction.
+
+## Next demonstrated public failure — DIAG-01R
+
+Sixteen complete raw/Flate file-JSON jobs in argv/job/mixed/response routes retain
+a 72-byte execution result plus its 80-byte counters, or independently retain the
+80-byte counters after the result dies. Actual governor live storage is zero after
+one continuation yield, four GC rounds and four bounded maintenance boundaries;
+the host is collected in every case. The same driver on `707D7BDB` reports
+4–108 leaked bytes; its response/Flate counter-only case masks the 80-byte minimum.
+Keep those raw observations and the rejected stale-copy/inline-continuation runs.
+DIAG-01R requires admitted result/counter carriers and clones through complete
+success/failure/cancellation/publication jobs and independent aliases. It does not
+reopen the established observed-counter or JSON-payload corrections. Generic
+warning/list/fatal owners remain under DIAG-01.
+
+The existing JSON observation record also retains a result-counter snapshot.
+Its zero-total-live assertions apply to this source tree, where that carrier is
+unfunded. The later correction must separate the funded counter from serializer
+scratch while preserving the original fixtures, budgets and GC thresholds.
 
 ## Remaining obligations
 
-DIAG-01, JSON-01, CFG-01B, MEASURE-01, parent P2/P3/PV, M11/A01–A07 and both
+DIAG-01/DIAG-01R, JSON-01, CFG-01B, MEASURE-01, parent P2/P3/PV, M11/A01–A07 and both
 verdicts remain open. The [finite checklist](AUDIT-CLOSURE.md) names routes,
 executable checks and pass conditions. Inventory remains 140 flags/157 contexts,
 152 complete/five partial and 98 job keys; eight array-AcroForm gaps, overlay/form/
