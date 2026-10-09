@@ -160,7 +160,7 @@ signatures remain exact. All 3847 distinct focused occurrences pass. Final
 reference, all unchanged 868 complete native records/same 64 differences and
 exact package/PDB/changelog/fresh 50-smoke/two-negative consumers pass. No
 consumer source, external hashes, warning policy or binding scope changes.
-T4V has final frozen working-tree proof; its test/evidence commit and V4 remain pending. Both unchanged
+T4V/V1–V4 are retired on runtime `86df748` and test integration `44aa9fa`. Both unchanged
 raw/Flate version-only checks retain 88/160 bytes versus the original 0/72;
 independent version bodies are 32 bytes and the complete known receipt/link
 minimum is 88. Borrowed aliases share each owner; dead siblings/metadata retire
@@ -169,8 +169,9 @@ factory, while exclusive JSON emits validated value components without an unused
 public version carrier. All four original 247494/247489 repair ceilings pass.
 All 16704 final Release cases preserve every 16177 preceding occurrence; pinned
 1846/432, unchanged 868 complete native records/same 64 differences and exact
-package/API/fresh consumers pass. The managed environment makes .git read-only;
-the corrected test/evidence source is uncommitted, so T4V/V4 remain open.
+package/API/fresh consumers pass on committed source. Locked restore/build
+reproduce all six binaries. Repacked entry bytes remain exact; timestamp-only
+archive changes receive fresh inspection and 50-smoke/two-negative checks.
 527 new cases comprise 522 complete public rows/five admission/geometry rows;
 the identical predecessor comparison and every qualified original record remain.
 The eight counter-only live observations and other 24 wrapper live observations

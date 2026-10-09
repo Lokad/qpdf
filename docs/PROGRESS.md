@@ -1,21 +1,23 @@
 # Progress
 
-## Version ownership — final working-tree proof passed; commit pending
+## Version ownership — T4V/V1–V4 retired; T4 remains open
 
 Runtime correction `86df748` owns parsed/header/catalog/writer/import/update
-versions. Final frozen working-tree proof passes all 16704 Release cases and
-preserves every 16177 preceding occurrence. Pinned reference passes 1846 exact
+versions. Test integration `44aa9fa` binds the completed proof to committed
+source. All 16704 Release cases pass and preserve every 16177 preceding
+occurrence. Pinned reference passes 1846 exact
 object comparisons/432 rewrite trios. All 868 complete native records and the
 same 64 classified layout differences remain unchanged. Exact package/PDB/
 changelog, all 908 signatures and fresh 50-smoke/two-negative consumers pass.
 Native/package/consumer evidence binds the current tree through byte-identical
 production sources and artifacts; only justified failed/interrupted lanes repeat.
 
-T4V/V4 remain open because the GC-sensitive quota test/evidence updates are
-uncommitted: the managed environment makes .git read-only. No closure is claimed.
-All 540 core paths and eight artifacts remain exact after this documentation
-update. Preserve the reviewed diff and bind it to a local commit when permitted;
-repeat expensive checks only for changed artifacts, failures or unresolved concerns.
+T4V/V1–V4 are retired on committed-source proof. Locked restore and Release
+build reproduce all six binary artifacts exactly. Repacking changes only ZIP
+timestamps: every package entry remains byte-identical. The new archive passes
+inspection and fresh 50-smoke/two-negative consumer checks. Full/reference/native
+results bind unchanged production sources and binaries; no redundant rerun is
+needed. Preserve failed/interrupted lanes as historical evidence.
 Five locks and unrelated work stay exact; PLAN stays ignored and binding sections
 3–6 remain byte-identical. Both whole-library verdicts and M11/A01–A07 remain open.
 
@@ -78,7 +80,8 @@ Final phase seconds: locked restore 7.446, successful Release
 build 5.942, corrected full 2825.4, reference
 2094.6, native 464.3, pack 3.641,
 inspection 3.219, fresh consumer 18.844, negatives
-23.031. First full stopped at 1604.7s;
+23.031. Commit rebind: restore 2.031, build 16.984, pack 1.313; new-archive
+inspection 2.265, fresh consumer 11.813, negatives 8.250. First full stopped at 1604.7s;
 related focused 1379.5s. Lanes overlap. Largest full-suite
 summed case costs: ExecutionResultOwnershipTests 567.8s/736; TypedResultOwnershipTests 346.3s/447; DiagnosticFailureExportTests 326.6s/464. Case durations can overlap and are not CPU samples.
 
