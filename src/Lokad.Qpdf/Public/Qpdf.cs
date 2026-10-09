@@ -1273,6 +1273,10 @@ public static partial class Qpdf
         }
 
         List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value);
+        using PreparedSplitPublications? preparation = governor.HasPresentation ? PreparedSplitPublications.Create(governor) : null;
+        ParserMemoryScope? presentationMemory = preparation?.Memory;
+        List<PreparedSplitPublication>? prepared = preparation?.Items;
+        long anticipatedBytes = 0L;
         for (int g = 0; g < groups.Count; g++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1407,14 +1411,21 @@ public static partial class Qpdf
 
                 remappedLabels = remappedLabelsDictionary;
             }
-            List<NumberedObject> sub = new()
+            List<NumberedObject> sub = presentationMemory is null ? new()
+                : ParserContainers.CreateList<NumberedObject>(presentationMemory);
+            NumberedObject groupCatalog = new(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null));
+            NumberedObject groupPages = new(2, PagesNode(renumberedKids));
+            if (presentationMemory is null) { sub.Add(groupCatalog); sub.Add(groupPages); }
+            else
             {
-                new NumberedObject(1, NewCatalog(remappedLabels, effective, extensionLevel, groupMetadata, groupNames, multiAttached.PageMode, groupOutlines, remappedAcroForm, groupStructTree, groupMarkInfo, null)),
-                new NumberedObject(2, PagesNode(renumberedKids)),
-            };
+                ParserContainers.AddItem(presentationMemory, sub, groupCatalog, 16L);
+                ParserContainers.AddItem(presentationMemory, sub, groupPages, 16L);
+            }
             foreach (int id in kept)
             {
-                sub.Add(new NumberedObject(renumber[id], Writing.ObjectRemap.RemapIds(pool[id], renumber, governor)));
+                NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapIds(pool[id], renumber, governor));
+                if (presentationMemory is null) { sub.Add(item); }
+                else { ParserContainers.AddItem(presentationMemory, sub, item, 16L); }
             }
 
             QpdfPath path = QpdfPath.From(names[g]);
@@ -1430,8 +1441,37 @@ public static partial class Qpdf
                 }
             }
 
-            await PublishModelAsync(host, effective, extensionLevel, sub, groupStreams, multiCompress, multiLevel, groupInfo, originalId1, staticId, newlineBeforeEndstream, qdf, groupOriginalIds, linearize, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
-            outputPaths.Add(path);
+            if (prepared is not null && presentationMemory is not null)
+            {
+                long bytes = await CountPresentationOutputAsync(effective, sub, groupStreams, multiCompress,
+                    multiLevel, groupInfo, originalId1, staticId, newlineBeforeEndstream, qdf, groupOriginalIds,
+                    linearize, linearizePass1.HasValue, limits, governor, cancellationToken).ConfigureAwait(false);
+                anticipatedBytes = checked(anticipatedBytes + bytes);
+                presentationMemory.Reserve(80L);
+                PreparedSplitPublication publication = new(path, sub, groupStreams, groupInfo, groupOriginalIds, bytes);
+                ParserContainers.AddItem(presentationMemory, prepared, publication, IntPtr.Size);
+            }
+            else
+            {
+                await PublishModelAsync(host, effective, extensionLevel, sub, groupStreams, multiCompress, multiLevel, groupInfo, originalId1, staticId, newlineBeforeEndstream, qdf, groupOriginalIds, linearize, linearizePass1, path, limits, governor, cancellationToken).ConfigureAwait(false);
+                outputPaths.Add(path);
+            }
+        }
+
+        if (prepared is not null)
+        {
+            governor.AnticipatePresentationOutput(anticipatedBytes);
+            foreach (PreparedSplitPublication publication in prepared)
+            {
+                long before = governor.Snapshot().TotalOutputBytes;
+                await PublishModelAsync(host, effective, extensionLevel, publication.Model, publication.ObjectStreams,
+                    multiCompress, multiLevel, publication.InfoRef, originalId1, staticId, newlineBeforeEndstream,
+                    qdf, publication.OriginalIds, linearize, linearizePass1, publication.Path, limits, governor, cancellationToken).ConfigureAwait(false);
+                long written = governor.Snapshot().TotalOutputBytes - before;
+                if (written != publication.OutputBytes)
+                { throw new QpdfException($"Split presentation replay mismatch: counted {publication.OutputBytes} bytes but wrote {written}."); }
+                outputPaths.Add(publication.Path);
+            }
         }
 
         return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot()), multiAttached.FinalCount);
@@ -4279,6 +4319,16 @@ public static partial class Qpdf
         // so a host close fault preserves the existing main and sidecar targets.
         await document.DisposeAsync().ConfigureAwait(false);
         diagnosticStage?.Flush();
+        if (governor.HasPresentation)
+        {
+            long anticipatedBytes = outputPath.HasValue ? data.Length : 0L;
+            foreach (Json.JsonSidecar sidecar in sidecars)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
+            }
+            governor.AnticipatePresentationOutput(anticipatedBytes);
+        }
         if (outputPath.HasValue)
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath.Value, governor, cancellationToken).ConfigureAwait(false);

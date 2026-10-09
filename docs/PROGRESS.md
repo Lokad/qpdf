@@ -1,6 +1,58 @@
 # Progress
 
-## Presentation count correction
+## Exact presentation message quotas
+
+DIAG-02P2Q fixes the three original bytes=16 false publications, runtime
+**`29914CCE`** / tests **`DA7EA06E`**. The same nine-job characterization now
+rejects all six count/byte constrained jobs before publication; the three default
+jobs still return six summaries/235 UTF-8 bytes with recorded count six.
+Summary quotas use exact decimal widths and observed output/decoded/peak counters,
+without temporary formatting allocations. Suppressed warnings consume their
+accepted bytes. Positive planned output reserves progress slots before later
+warnings can spend them; zero-output progress-only jobs remain silent.
+
+Split presentation prepares models and counts exact lengths with the existing
+writers before opening transactions. Its scoped owner clears plans on every
+outcome; funded model-list capacities stay through replay. JSON reserves already
+serialized main/sidecar lengths. Publication remains sequential, including the
+original one-handle sidecar route. Split planning adds a serialization pass;
+it does not pre-admit every later memory/work cost or change the host's existing
+post-commit close behavior.
+
+All **1842 focused Release cases** pass: **675 new complete public jobs**, **60
+sizing/admission controls**, **1107 preceding related cases**, including all 523
+count-reservation and 413 final-counter cases. Public controls span 19 operations,
+argv/job/mixed/response, raw/Flate, default/exact/short/tiny byte quotas, selected
+flags, suppression/exit policy, one-handle sidecars and three cultures. Short
+quotas preserve every prior target/alias and close leases. The retained initial
+eight split failures committed one output before byte failure; unchanged checks
+now pass. Same final 675 public cases on `A788A4DB`: **363 false completions /
+312 preserved**, no loaders/skips/exclusions. Sixty internal controls remain
+outside that public comparison. Build findings remain separate from product failures.
+
+Strict locked restore/build pass with zero warnings or overrides; approved
+dependencies, five locks and unrelated work remain. The 908 public signatures
+match. Original 1024-allocation geometry values remain 296/352/352/368/384/56/40;
+**CheckPlan has an additional 200 measured bytes in three current runs**, while
+an unchanged predecessor repeat has none. Preserve all raw samples; attribution
+is open under MEASURE-01, rather than rounding this difference away.
+Final focused build: **30.6s**; test console **6s**, process **12.6s**, TRX
+**11.0s**. One earlier build took **46.5s**; compilation dominates these focused
+phases. Full reference/native/package/consumer checks await the completed combined
+DIAG-02P2/P3 correction, then run once with phase timings (DIAG-02PV).
+
+Next failures are retained as complete jobs using the same frozen public driver:
+four byte-short rewrites record two accepted warnings but return none; four JSON
+sidecar jobs exhaust charged work yet format/publish six summaries (236–238 bytes);
+four split jobs fail on work after one commit. Four whole-file exact-work jobs vary
+with core/ownership work and remain separate from formatting proof.
+DIAG-02P2 must admit formatting work and independently escaping records/text/list
+storage, including real late memory/work failures, both tokens and warning history.
+DIAG-02P3 must finish preparation before first commit across outputs under the
+existing limits. Parent DIAG-02P, M11/A01–A07 and both verdicts remain open.
+The five ImageSharp exclusions remain the intentional temporary policy.
+
+## Presentation count predecessor
 
 DIAG-02P1 fixes summary-count admission, runtime **`A788A4DB`** /
 tests **`A49FD5CB`**. A scoped 48-byte reservation holds verbose/memory slots
@@ -33,11 +85,11 @@ test sources. Final focused build: 17.3s; test console: 4s (TRX interval 8.6s);
 public predecessor process: 6.8s. Full reference/package/consumer lanes await the
 completed combined presentation correction; preceding full evidence remains.
 
-The unchanged nine-job characterization now rejects all three count=1 jobs before
-publication and records six summaries on successful jobs. **Three bytes=16 jobs
-still publish six records / 235 UTF-8 bytes.** That demonstrated failure selects
-DIAG-02P2. It must admit exact message bytes, formatting work and independently
-escaping record/text/list storage before publication, including genuine late
+The unchanged nine-job characterization then rejected all three count=1 jobs before
+publication and recorded six summaries on successful jobs. **Three bytes=16 jobs
+still published six records / 235 UTF-8 bytes.** That retained failure selected
+DIAG-02P2; DIAG-02P2Q now fixes its byte quotas above. DIAG-02P2 must admit
+formatting work and escaping record/text/list storage before publication, with late
 memory/work failures and retained warning history. DIAG-02P3 must cover split/
 sidecar publication preparation under the existing limits, including the original
 one-handle sidecar path. DIAG-02PV must bind the completed combined correction to

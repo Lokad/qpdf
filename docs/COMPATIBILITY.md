@@ -29,9 +29,16 @@ DIAG-02P1 corrects summary count admission across argv/job/mixed/response jobs.
 Its 516 new public controls and seven reservation controls pass with 499 existing
 related checks; exact limits preserve outputs, while short count limits prevent
 publication. The original three one-record jobs now fail before publication and
-successful jobs record six summaries. The three 16-byte jobs still falsely publish
-235 message bytes: DIAG-02P remains open for byte quotas, work, storage ownership
-and final combined reference/package verification.
+successful jobs record six summaries. DIAG-02P2Q now rejects the original three
+16-byte false publications before commit. Its 675 complete public controls and
+60 sizing/admission controls pass with 1107 preceding related checks. Exact byte
+limits retain output bytes, text, ordering and exits; short limits preserve all
+prior split/sidecar targets and aliases. One-handle sidecars remain supported.
+Identical 675 public cases on the count-only predecessor give 363 false completions
+and 312 preserved results, with no loader failures or skips. The added split
+counting pass does not close future work/memory admission. DIAG-02P remains open
+for formatting work, storage ownership, accepted warning history, late multi-output
+preparation and final combined reference/package verification.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

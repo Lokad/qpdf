@@ -79,11 +79,19 @@ references and readonly public properties. Later weak-receipt collection can red
 live governor memory after a returned snapshot. Complete public jobs and committed
 reference/package checks verify these counter boundaries. Argv/job execution holds
 verbose/memory diagnostic slots while ordinary diagnostics are accepted. The
-governor activates four progress slots before charging the first output byte;
+governor activates four progress slots before charging the first output byte
+or accepting a prepared positive-output length;
 fileless jobs with no charged output reserve none. Successful presentation accepts
 the held count once; failure/cancellation releases the scoped reservation. Summary
-byte quotas, formatting work and escaping result/list/record/text storage remain
-under audit (DIAG-02P). The count correction has focused public-job evidence;
+messages reserve their exact UTF-8 quotas as output/decoded/peak counters grow.
+Split presentation prepares models and counts their output with the shared writers
+before opening transactions; its scoped owner clears plans on every outcome.
+JSON presentation reserves the serialized main/sidecar lengths before publication.
+Both paths keep sequential host leases, including one-handle sidecars. Split
+planning adds a serialization pass and holds model-list capacities through replay.
+It does not pre-admit all later work or memory. Formatting work, independently
+escaping result/list/record/text storage and accepted warning history on failure
+remain under audit (DIAG-02P). Count/byte corrections have focused public evidence;
 the combined presentation correction still requires final reference/package proof.
 
 The host owns stable input identities and ranged reads, output staging and

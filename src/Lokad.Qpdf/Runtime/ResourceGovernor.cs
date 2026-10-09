@@ -61,6 +61,7 @@ internal sealed class ResourceGovernor
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), next, _limits.MaxMemoryBytes);
             }
 
+            CheckPresentationBytes(_totalOutputBytes, _totalDecodedBytes, Math.Max(next, _peakMemoryBytes));
             _liveMemoryBytes += bytes;
             if (next > _peakMemoryBytes)
             {
@@ -263,7 +264,9 @@ internal sealed class ResourceGovernor
     internal void ChargeDecodedBytes(long bytes)
     {
         CheckDecodedBytes(bytes);
-        _totalDecodedBytes = checked(_totalDecodedBytes + bytes);
+        long next = checked(_totalDecodedBytes + bytes);
+        CheckPresentationBytes(_totalOutputBytes, next, _peakMemoryBytes);
+        _totalDecodedBytes = next;
     }
 
     /// <summary>Checks a prospective stage result without committing its byte charge.</summary>
@@ -299,7 +302,8 @@ internal sealed class ResourceGovernor
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _limits.MaxOutputBytes);
             }
 
-            if (bytes > 0L) { _presentationCount?.BeginOutput(); }
+            if (bytes > 0L) { _presentationCount?.BeginOutput(next, _totalDecodedBytes, _peakMemoryBytes); }
+            CheckPresentationBytes(next, _totalDecodedBytes, _peakMemoryBytes);
             _totalOutputBytes = next;
         }
     }
@@ -357,6 +361,7 @@ internal sealed class ResourceGovernor
     internal void AttachPresentationCount(PresentationCountReservation reservation)
     {
         if (_presentationCount is not null) { throw new InvalidOperationException("A job already has presentation slots."); }
+        CheckDiagnosticBytes(reservation.MessageBytes(_totalOutputBytes, _totalDecodedBytes, _peakMemoryBytes));
         _presentationCount = reservation;
     }
 
@@ -370,10 +375,42 @@ internal sealed class ResourceGovernor
     {
         if (!ReferenceEquals(_presentationCount, reservation)) { throw new InvalidOperationException("Presentation slots are unavailable."); }
         CheckDiagnosticCount(pending);
+        long messageBytes = reservation.MessageBytes(_totalOutputBytes, _totalDecodedBytes, _peakMemoryBytes);
+        CheckDiagnosticBytes(messageBytes);
         _diagnosticCount = checked(_diagnosticCount + pending);
+        _diagnosticBytes = checked(_diagnosticBytes + messageBytes);
     }
 
     internal void PresentDiagnosticCount() => _presentationCount?.Present();
+
+    internal bool HasPresentation => _presentationCount is not null;
+
+    internal void AnticipatePresentationOutput(long bytes)
+    {
+        if (bytes < 0L) { throw new ArgumentOutOfRangeException(nameof(bytes)); }
+        CheckCancellation();
+        long output = checked(_totalOutputBytes + bytes);
+        if (output > _limits.MaxOutputBytes)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output, _limits.MaxOutputBytes); }
+        _presentationCount?.AnticipateOutput(output, _totalDecodedBytes, _peakMemoryBytes);
+    }
+
+    internal void CheckPendingDiagnosticBytes(long bytes) => CheckDiagnosticBytes(bytes);
+
+    private void CheckDiagnosticBytes(long bytes)
+    {
+        long next = checked(_diagnosticBytes + bytes);
+        if (next > _limits.MaxDiagnosticBytes)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnosticBytes), next, _limits.MaxDiagnosticBytes); }
+    }
+
+    private void CheckPresentationBytes(long output, long decoded, long peak)
+    {
+        PresentationCountReservation? presentation = _presentationCount;
+        if (presentation is null) { return; }
+        CheckCancellation();
+        CheckDiagnosticBytes(presentation.MessageBytes(output, decoded, peak));
+    }
 
     /// <summary>Checks a prospective message without charging it a second time.</summary>
     internal void CheckDiagnostic(long messageBytes)
@@ -387,11 +424,8 @@ internal sealed class ResourceGovernor
         {
             CheckDiagnosticCount(1L + (_presentationCount?.Pending ?? 0L));
 
-            long nextBytes = _diagnosticBytes + messageBytes;
-            if (nextBytes > _limits.MaxDiagnosticBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnosticBytes), nextBytes, _limits.MaxDiagnosticBytes);
-            }
+            long pendingBytes = _presentationCount?.MessageBytes(_totalOutputBytes, _totalDecodedBytes, _peakMemoryBytes) ?? 0L;
+            CheckDiagnosticBytes(checked(messageBytes + pendingBytes));
         }
     }
 
