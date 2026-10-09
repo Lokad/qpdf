@@ -121,18 +121,32 @@ unadmitted jobs borrow immutable zero-counter outcomes before host/argv/job work
 companion validation keeps fixed-message precedence. Final 1846/432 reference,
 all complete 868 native rows/same 64 differences, exact package/PDB/908 signatures
 and 50-smoke/two-negative fresh consumers pass. Generic/fatal owners stay open.
-Eight typed counter-only jobs retain 1276/1346/2247/2387/0/72/0/0 bytes; four
-check/JSON rows undercount their measured 88-byte carrier and remain R-T. Retain
-the masked page/merge observations without treating them as proof of ownership.
-The working typed-counter correction admits one final counter before each typed
-job and independently owns each document snapshot. The unchanged eight-row driver
-now retains 1420/1490/2391/2531/144/216/144/144 bytes; all original observations
-remain. Eleven facades share the counter helper; nine private snapshot sites and
-nine facade clone sites disappear. The 3163 focused checks pass; final source-bound
-proof is pending. Finite R-T1/T2 specify counters and document reads; R-T3–T5 retain
-wrapper/private DTO, backing/mapping/version and complete admission obligations.
-Original reader/parser budget/cancellation measurements use an independent
-observer; separate public jobs verify each snapshot's allocation/work/retirement.
+The eight original typed counter-only observations remain
+1276/1346/2247/2387/0/72/0/0 bytes; four check/JSON rows exposed the 88-byte
+carrier undercount while page/merge residuals masked it. DIAG-01R-T1/T2 are now
+retired at `7276b97` / `d7924e9`: eleven facades admit one counter before work,
+private cores share it, and every document read admits an independent immutable
+snapshot. First/additional survivors retain 144/120 bytes; reads consume budgets
+and honor cancellation, including after disposal. Nine raw snapshot and nine
+facade clone sites disappear. The unchanged driver now retains
+1420/1490/2391/2531/144/216/144/144 bytes. All original observations remain.
+All 15730 full cases preserve every 15314 preceding occurrence; 416 public rows
+expose 235 predecessor failures/181 preserved outcomes. Focused 3163, final ten
+document rows, pinned 1846/432 reference, unchanged 868 complete native records/
+same 64 differences, exact package/PDB/908 signatures and fresh 50-smoke/two-negative
+consumers pass. Consumer Program is the only source delta from the expensive
+freeze; all other 535 core paths and library/test/probe/PDB bytes are exact.
+Its equally observed public control keeps fifty header attempts and original
+ceilings. Independent parser observations and retained disposal snapshots keep
+their original fixtures/other assertions/limits; 256 other old test sources and
+five locks remain byte-identical.
+R-T3–T6 and the parent retain wrapper/private DTO, backing/mapping/version and
+complete admission obligations. T3E names both complete raw/Flate extraction
+jobs retaining 191 bytes against a measured 192-byte wrapper/counter/receipt/link
+minimum. Preserve all 26 retained-result observations; larger residual storage
+in the other 24 rows cannot establish ownership. Original reader/parser controls
+use an independent observer; separate public jobs verify each snapshot's actual
+allocation/work/retirement. No broader physical containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader
