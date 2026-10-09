@@ -160,20 +160,30 @@ signatures remain exact. All 3847 distinct focused occurrences pass. Final
 reference, all unchanged 868 complete native records/same 64 differences and
 exact package/PDB/changelog/fresh 50-smoke/two-negative consumers pass. No
 consumer source, external hashes, warning policy or binding scope changes.
-T4V is implemented with combined committed-source proof pending. Both unchanged
+T4V has final frozen working-tree proof; its test/evidence commit and V4 remain pending. Both unchanged
 raw/Flate version-only checks retain 88/160 bytes versus the original 0/72;
 independent version bodies are 32 bytes and the complete known receipt/link
 minimum is 88. Borrowed aliases share each owner; dead siblings/metadata retire
 with prepaid work. Writer/header/catalog/import/update versions use the shared
 factory, while exclusive JSON emits validated value components without an unused
 public version carrier. All four original 247494/247489 repair ceilings pass.
+All 16704 final Release cases preserve every 16177 preceding occurrence; pinned
+1846/432, unchanged 868 complete native records/same 64 differences and exact
+package/API/fresh consumers pass. The managed environment makes .git read-only;
+the corrected test/evidence source is uncommitted, so T4V/V4 remain open.
 527 new cases comprise 522 complete public rows/five admission/geometry rows;
 the identical predecessor comparison and every qualified original record remain.
 The eight counter-only live observations and other 24 wrapper live observations
 stay exact; checker wrappers now retain 6600/6672, 64 bytes more. Two old test
 sources account separately for document versions and version retirement credits;
-263 other old sources/five locks and all 908 signatures remain exact. T3/T3E
-proofs stay closed. T4 copied backing/mapping, T5/T6 and the parent remain open.
+A third legacy source controls GC across the original 608 paired summary-byte
+quota cases and adds successful peak equality; original ceilings/publication
+assertions remain. The first combined full run's sole failure is classified as
+valid peak variation; its byte rejection is correct. 262 other old sources/five
+locks and all 908 signatures remain exact. T3/T3E
+proofs stay closed. T4 copied backing/mapping, T5/T6 and the parent remain open. Ten completed
+public selection alias controls expose zero independent retirement after alias/
+backing collection (B1 four/B2 four/B3 two); preserve all lower bounds and positives.
 Governor growth to 248, private document component slots and task/async frames,
 cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned

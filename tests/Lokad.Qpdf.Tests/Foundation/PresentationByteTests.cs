@@ -8,6 +8,7 @@ using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class PresentationByteTests
 {
     private static readonly byte[] Prior = [17, 23, 41];
@@ -131,43 +132,51 @@ public sealed class PresentationByteTests
     [MemberData(nameof(Jobs))]
     public async Task PublicJobsHoldExactSummaryByteQuotas(string route, string operation, bool compressed, string ceiling)
     {
-        const string flags = "verbose progress report-memory-usage";
-        ByteHost baselineHost = await Prepare(operation, compressed, false);
-        QpdfExecutionResult baseline = await Run(baselineHost, route, operation, flags, QpdfLimits.Default, CancellationToken.None);
-        Assert.True(baseline.Status == QpdfExecutionStatus.Completed, string.Join("; ", baseline.Diagnostics.Select(diagnostic => diagnostic.Message)));
-        long bytes = MessageBytes(baseline);
-        QpdfLimits limits = ceiling == "default" ? QpdfLimits.Default : QpdfLimits.Default with
-        { MaxDiagnosticBytes = ceiling == "tiny" ? 16L : bytes - (ceiling == "short" ? 1L : 0L) };
-        ByteHost host = await Prepare(operation, compressed, false);
-        byte[][] aliases = Targets.Select(target =>
-        { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] old)); return old; }).ToArray();
-        QpdfExecutionResult result = await Run(host, route, operation, flags, limits, CancellationToken.None);
-        if (ceiling is "short" or "tiny")
+        // Both jobs must format the same peak: collection can retire owners
+        // between them and change the number of summary digits.
+        Assert.True(GC.TryStartNoGCRegion(16 * 1024 * 1024));
+        try
         {
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
-                && diagnostic.Message.Contains(nameof(QpdfLimits.MaxDiagnosticBytes), StringComparison.Ordinal));
-            Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code is QpdfDiagnosticCode.VerboseSummary
-                or QpdfDiagnosticCode.MemoryUsage or QpdfDiagnosticCode.ProgressReport);
-            Assert.Null(result.OutputText); Assert.Null(result.OutputBytes); Assert.Equal(0, host.Commits);
-            foreach (string target in Targets)
-            { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] current)); Assert.Equal(Prior, current); }
-        }
-        else
-        {
-            Assert.Equal(baseline.Status, result.Status); Assert.Equal(baseline.ExitCode, result.ExitCode);
-            Assert.Equal(bytes, MessageBytes(result)); Assert.InRange(MessageBytes(result), 0L, limits.MaxDiagnosticBytes);
-            Assert.Equal(baseline.Counters.DiagnosticCount, result.Counters.DiagnosticCount);
-            Assert.Equal(baselineHost.Commits, host.Commits);
-            Assert.Equal(baseline.OutputText, result.OutputText); Assert.Equal(baseline.OutputBytes?.ToArray(), result.OutputBytes?.ToArray());
-            foreach (string target in Targets)
+            const string flags = "verbose progress report-memory-usage";
+            ByteHost baselineHost = await Prepare(operation, compressed, false);
+            QpdfExecutionResult baseline = await Run(baselineHost, route, operation, flags, QpdfLimits.Default, CancellationToken.None);
+            Assert.True(baseline.Status == QpdfExecutionStatus.Completed, string.Join("; ", baseline.Diagnostics.Select(diagnostic => diagnostic.Message)));
+            long bytes = MessageBytes(baseline);
+            QpdfLimits limits = ceiling == "default" ? QpdfLimits.Default : QpdfLimits.Default with
+            { MaxDiagnosticBytes = ceiling == "tiny" ? 16L : bytes - (ceiling == "short" ? 1L : 0L) };
+            ByteHost host = await Prepare(operation, compressed, false);
+            byte[][] aliases = Targets.Select(target =>
+            { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] old)); return old; }).ToArray();
+            QpdfExecutionResult result = await Run(host, route, operation, flags, limits, CancellationToken.None);
+            if (ceiling is "short" or "tiny")
             {
-                Assert.True(baselineHost.Inner.TryGetOutput(QpdfPath.From(target), out byte[] expected));
-                Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] actual)); Assert.Equal(expected, actual);
+                Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+                Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
+                    && diagnostic.Message.Contains(nameof(QpdfLimits.MaxDiagnosticBytes), StringComparison.Ordinal));
+                Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code is QpdfDiagnosticCode.VerboseSummary
+                    or QpdfDiagnosticCode.MemoryUsage or QpdfDiagnosticCode.ProgressReport);
+                Assert.Null(result.OutputText); Assert.Null(result.OutputBytes); Assert.Equal(0, host.Commits);
+                foreach (string target in Targets)
+                { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] current)); Assert.Equal(Prior, current); }
             }
+            else
+            {
+                Assert.Equal(baseline.Counters.PeakMemoryBytes, result.Counters.PeakMemoryBytes);
+                Assert.Equal(baseline.Status, result.Status); Assert.Equal(baseline.ExitCode, result.ExitCode);
+                Assert.Equal(bytes, MessageBytes(result)); Assert.InRange(MessageBytes(result), 0L, limits.MaxDiagnosticBytes);
+                Assert.Equal(baseline.Counters.DiagnosticCount, result.Counters.DiagnosticCount);
+                Assert.Equal(baselineHost.Commits, host.Commits);
+                Assert.Equal(baseline.OutputText, result.OutputText); Assert.Equal(baseline.OutputBytes?.ToArray(), result.OutputBytes?.ToArray());
+                foreach (string target in Targets)
+                {
+                    Assert.True(baselineHost.Inner.TryGetOutput(QpdfPath.From(target), out byte[] expected));
+                    Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] actual)); Assert.Equal(expected, actual);
+                }
+            }
+            Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+            Assert.All(aliases, alias => Assert.Equal(Prior, alias)); GC.KeepAlive(result); GC.KeepAlive(aliases);
         }
-        Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
-        Assert.All(aliases, alias => Assert.Equal(Prior, alias)); GC.KeepAlive(result); GC.KeepAlive(aliases);
+        finally { GC.EndNoGCRegion(); }
     }
 
     [Theory]
