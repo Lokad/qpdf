@@ -14,6 +14,7 @@ internal sealed class OwnedAllocationBatch : IDisposable
     private long _bytes;
     private int _count;
     private bool _retaining, _accepted;
+    private bool _prepaidRetirement;
 
     private OwnedAllocationBatch(ParserMemoryScope memory, ResourceGovernor governor, Allocation[] items, CancellationToken token)
     { _memory = memory; _governor = governor; _items = items; _token = token; }
@@ -38,6 +39,7 @@ internal sealed class OwnedAllocationBatch : IDisposable
     internal CancellationToken Token => _token;
     internal int Count => _count;
     internal long Bytes => _bytes;
+    internal bool PrepaidRetirement => _prepaidRetirement;
 
     private void Step()
     { _token.ThrowIfCancellationRequested(); Governor.CheckCancellation(); Governor.ChargeWork(1L); }
@@ -85,6 +87,9 @@ internal sealed class OwnedAllocationBatch : IDisposable
     }
 
     internal void Retain() => RetainCore(null);
+
+    internal void RetainWithPrepaidRetirement()
+    { CheckMutable(); _prepaidRetirement = true; RetainCore(null); }
 
     internal void RetainParsed(QpdfObject parsed, ParserMemoryScope source)
     {

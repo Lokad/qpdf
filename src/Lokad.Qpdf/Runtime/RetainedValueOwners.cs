@@ -64,7 +64,11 @@ internal sealed class RetainedValueOwners
         // keeps that ledger alive while admission can still be spent.
         private object? _ownerOrCarrier;
         internal Receipt? Next;
-        internal readonly int Index;
+        // A negative complement denotes prepaid retirement without enlarging
+        // every receipt. Pending/ordinary receipts retain their positive index.
+        internal int Index;
+        internal int SlotIndex => Index < 0 ? ~Index : Index;
+        internal bool PrepaidRetirement => Index < 0;
         internal long Bytes;
         private int _active;
 
@@ -77,8 +81,9 @@ internal sealed class RetainedValueOwners
 
         internal object? PendingCarrier => _ownerOrCarrier;
 
-        internal void Activate(RetainedValueOwners owner)
+        internal void Activate(RetainedValueOwners owner, bool prepaidRetirement)
         {
+            if (prepaidRetirement) { Index = ~Index; }
             _ownerOrCarrier = owner._weakSelf;
             Volatile.Write(ref _active, 1);
         }
@@ -116,6 +121,7 @@ internal sealed class RetainedValueOwners
         internal Receipt? First;
         internal long Bytes;
         internal bool Diagnostics;
+        internal bool PrepaidRetirement;
         internal CancellationToken Token;
     }
 
@@ -291,10 +297,11 @@ internal sealed class RetainedValueOwners
         _busy = true;
         try
         {
-            Slot slot = GetSlot(receipt.Index);
+            Slot slot = GetSlot(receipt.SlotIndex);
             slot.Segment?.Values.Remove(carrier);
             receipt.Cancel();
-            RemoveSlot(receipt.Index);
+            RemoveSlot(receipt.SlotIndex);
+            if (receipt.PrepaidRetirement) { _governor.ReleaseAllocationRetirementWork(); }
         }
         finally { _busy = false; }
         GC.KeepAlive(carrier);
@@ -313,6 +320,7 @@ internal sealed class RetainedValueOwners
             _governor.ReserveMemory(48L);
             fundedAcceptance = true;
             acceptance = new Acceptance { Token = value is OwnedAllocationBatch batch ? batch.Token : CancellationToken.None,
+                PrepaidRetirement = value is OwnedAllocationBatch owned && owned.PrepaidRetirement,
                 Diagnostics = value is QpdfDiagnostic or IReadOnlyList<QpdfDiagnostic>
                 or QpdfCheckOutcome or IReadOnlyList<QpdfCheckOutcome> };
             Initialize();
@@ -366,17 +374,23 @@ internal sealed class RetainedValueOwners
             // Every carrier remains rooted by the argument until this atomic
             // handoff finishes. Preflight charges/checks every pending receipt;
             // no operation that may fail follows the first activation.
+            long retirements = 0L;
             for (Receipt? receipt = acceptance.First; receipt is not null; receipt = receipt.Next)
             {
                 acceptance.Token.ThrowIfCancellationRequested();
                 _governor.CheckCancellation();
                 _governor.ChargeWork(2L);
+                retirements++;
+            }
+            if (acceptance.PrepaidRetirement)
+            {
+                _governor.ReserveAllocationRetirementWork(retirements);
             }
             for (Receipt? receipt = acceptance.First; receipt is not null;)
             {
                 Receipt? next = receipt.Next;
                 receipt.Next = null;
-                receipt.Activate(this);
+                receipt.Activate(this, acceptance.PrepaidRetirement);
                 receipt = next;
             }
             acceptance.First = null;
@@ -684,12 +698,13 @@ internal sealed class RetainedValueOwners
             {
                 Receipt? receipt = Volatile.Read(ref _pending);
                 if (receipt is null) { break; }
-                _governor.CheckCancellation();
-                _governor.ChargeWork(1L);
+                if (!receipt.PrepaidRetirement)
+                { _governor.CheckCancellation(); _governor.ChargeWork(1L); }
                 if (!ReferenceEquals(Interlocked.CompareExchange(ref _pending, receipt.Next, receipt), receipt)) { count--; continue; }
-                _messageMaintenance = true;
+                if (receipt.PrepaidRetirement) { _governor.ChargeAllocationRetirementWork(); }
+                else { _messageMaintenance = true; }
                 receipt.Detach();
-                RemoveSlot(receipt.Index);
+                RemoveSlot(receipt.SlotIndex);
             }
             for (int count = 0; count < 64 && _messageMaintenance && _messageCursor is MessageNode node; count++)
             {

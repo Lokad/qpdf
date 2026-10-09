@@ -732,6 +732,30 @@ internal sealed class ResourceGovernor
         NoteOperation();
     }
 
+    internal void ReserveAllocationRetirementWork(long units)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(units);
+        long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
+        if (units > long.MaxValue - held)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(held + units);
+        _reservedResultWork = checked(_reservedResultWork + units);
+    }
+
+    internal void ChargeAllocationRetirementWork()
+    {
+        bool building = _buildingExecutionResult;
+        _buildingExecutionResult = true;
+        try { ChargeExecutionResultWork(1L); }
+        finally { _buildingExecutionResult = building; }
+    }
+
+    internal void ReleaseAllocationRetirementWork()
+    {
+        if (_reservedResultWork < 1L) { throw new InvalidOperationException("Allocation retirement work is unavailable."); }
+        _reservedResultWork--;
+    }
+
     internal void RetireExecutionResultMemory(long bytes)
     {
         Interlocked.Add(ref _retiredExecutionResultBytes, bytes);

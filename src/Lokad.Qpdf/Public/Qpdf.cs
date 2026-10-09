@@ -519,8 +519,11 @@ public static partial class Qpdf
         }
 
         Dictionary<int, int> singleOriginalIds = InvertOriginals(singleOriginalMaps);
+        using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, 2, cancellationToken);
+        IReadOnlyList<int> sourcePages = SelectionResultStorage.Copy(resultStorage, requested, sizeof(int));
+        resultStorage.RetainWithPrepaidRetirement();
         await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-        return new PageSelectionOutcome(total, [.. requested], kids.Count, [.. diagnostics.Entries]);
+        return new PageSelectionOutcome(total, sourcePages, kids.Count, [.. diagnostics.Entries]);
     }
 
     /// <summary>
@@ -809,7 +812,8 @@ public static partial class Qpdf
         bool emptyPrimary,
         CancellationToken cancellationToken)
     {
-        List<int> sourceCounts = new(sources.Count);
+        using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
+        List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
         List<List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)>> perSource = new(sources.Count);
         int nextId = 3;
         bool needAppearances = false;
@@ -849,7 +853,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested();
             await using QpdfDocument document = await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
-            sourceCounts.Add(document.PageReferences.Count);
+            ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
             if (version is null || IsNewerVersion(document.Version, version))
             {
                 version = document.Version;
@@ -986,14 +990,15 @@ public static partial class Qpdf
         }
 
         List<(int Source, int Slot)> order = CollateOrder(perSource, collation);
-        List<PdfPageSelectionMapping> mapping = new(order.Count);
+        List<PdfPageSelectionMapping> mapping = ParserContainers.CreateList<PdfPageSelectionMapping>(selectionMemory);
         List<PdfReference> kids = new(order.Count);
         List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(order.Count);
         foreach ((int source, int slot) in order)
         {
             (GraphCopier copier, int pageId, PdfDictionary page, int pageNumber) = perSource[source][slot];
             kids.Add(new PdfReference(pageId, 0));
-            mapping.Add(new PdfPageSelectionMapping(source, pageNumber));
+            selectionMemory.Reserve(24L);
+            ParserContainers.AddItem(selectionMemory, mapping, new PdfPageSelectionMapping(source, pageNumber), IntPtr.Size);
             occurrences.Add((copier, pageId, page));
         }
 
@@ -1261,7 +1266,6 @@ public static partial class Qpdf
             multiAcroForm = ClearNeedAppearances(multiAcroForm, governor);
         }
 
-        List<QpdfPath> outputPaths = new();
         if (!splitPages.HasValue)
         {
             List<NumberedObject> model = new()
@@ -1276,12 +1280,17 @@ public static partial class Qpdf
                 model.Add(new NumberedObject(orderedPoolId, pool[orderedPoolId]));
             }
 
+            using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, checked(mapping.Count + 6), cancellationToken);
+            SelectionResultStorage.AdoptMappings(resultStorage, selectionMemory, mapping);
+            IReadOnlyList<PdfPageSelectionMapping> resultMapping = SelectionResultStorage.Copy(resultStorage, mapping, IntPtr.Size);
+            IReadOnlyList<int> resultCounts = SelectionResultStorage.Copy(resultStorage, sourceCounts, sizeof(int));
+            IReadOnlyList<QpdfPath> resultPaths = SelectionResultStorage.Single(resultStorage, target, IntPtr.Size);
+            resultStorage.RetainWithPrepaidRetirement();
             await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, qdf, multiOriginalIds, linearize, linearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
-            outputPaths.Add(target);
-            return (new MultiPageSelectionOutcome(kids.Count, [.. mapping], [.. sourceCounts], [.. outputPaths], [.. diagnostics.Entries]), multiAttached.FinalCount);
+            return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, [.. diagnostics.Entries]), multiAttached.FinalCount);
         }
 
-        List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value);
+        List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
         HashSet<string> distinctInputs = new(StringComparer.Ordinal);
         foreach (PdfPageSource source in sources)
         {
@@ -1480,15 +1489,28 @@ public static partial class Qpdf
         foreach (PreparedSplitPublication publication in prepared)
         { governor.CheckCancellation(); governor.ChargeWork(1L); publicationUnits = checked(publicationUnits + publication.PublicationWork); }
         using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits);
+        using OwnedAllocationBatch splitResultStorage = OwnedAllocationBatch.Create(governor, checked(mapping.Count + 6 + names.Count), cancellationToken);
+        SelectionResultStorage.AdoptMappings(splitResultStorage, selectionMemory, mapping);
+        IReadOnlyList<PdfPageSelectionMapping> splitMapping = SelectionResultStorage.Copy(splitResultStorage, mapping, IntPtr.Size);
+        IReadOnlyList<int> splitCounts = SelectionResultStorage.Copy(splitResultStorage, sourceCounts, sizeof(int));
+        List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory);
+        foreach (string name in names)
+        {
+            long bytes = GovernedText.StringBytes(name.Length);
+            selectionMemory.TransferTo(splitResultStorage.Memory, bytes);
+            splitResultStorage.Add(name, bytes);
+            ParserContainers.AddItem(selectionMemory, outputPaths, QpdfPath.From(name), IntPtr.Size);
+        }
+        IReadOnlyList<QpdfPath> splitPaths = SelectionResultStorage.Copy(splitResultStorage, outputPaths, IntPtr.Size);
+        splitResultStorage.RetainWithPrepaidRetirement();
         governor.PrepareExecutionPresentation();
         publicationWork.Begin();
         foreach (PreparedSplitPublication publication in prepared)
         {
             await publication.PublishAsync(host, governor, cancellationToken).ConfigureAwait(false);
-            outputPaths.Add(publication.Path);
         }
 
-        return (new MultiPageSelectionOutcome(kids.Count, [.. mapping], [.. sourceCounts], [.. outputPaths], [.. diagnostics.Entries]), multiAttached.FinalCount);
+        return (new MultiPageSelectionOutcome(kids.Count, splitMapping, splitCounts, splitPaths, [.. diagnostics.Entries]), multiAttached.FinalCount);
     }
 
     private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
@@ -1846,37 +1868,67 @@ public static partial class Qpdf
         return groups;
     }
 
-    private static string PadGroupNumber(int value, int width)
+    private static List<string> GenerateSplitNames(string pattern, int total, int groupSize,
+        ParserMemoryScope memory, ResourceGovernor governor)
     {
-        return value.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(width, '0');
+        int width = 1;
+        for (int remaining = total; remaining >= 10; remaining /= 10) { width++; }
+        governor.CheckCancellation();
+        governor.ChargeWork(pattern.Length);
+        int marker = pattern.IndexOf("%d", StringComparison.Ordinal);
+        bool extension = marker < 0 && pattern.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+        int prefix = marker >= 0 ? marker : extension ? pattern.Length - 4 : pattern.Length;
+        int suffix = marker >= 0 ? marker + 2 : prefix;
+        List<string> names = ParserContainers.CreateList<string>(memory);
+        for (int first = 1; first <= total;)
+        {
+            governor.CheckCancellation();
+            int last = (int)Math.Min(total, (long)first + groupSize - 1L);
+            int length = checked(prefix + pattern.Length - suffix + (marker < 0 ? 1 : 0)
+                + width + (first == last ? 0 : width + 1));
+            if (length > QpdfPath.MaxLength)
+            { throw new QpdfParseException("A split output name exceeds the path budget.", null, null); }
+            memory.Reserve(GovernedText.StringBytes(length));
+            string name = string.Create(length, (pattern, prefix, suffix, marker, first, last, width, governor),
+                static (target, state) =>
+                {
+                    CopySplitNamePart(state.pattern.AsSpan(0, state.prefix), target, state.governor);
+                    int position = state.prefix;
+                    if (state.marker < 0) { target[position++] = '-'; }
+                    WriteSplitNumber(target.Slice(position, state.width), state.first, state.governor);
+                    position += state.width;
+                    if (state.first != state.last)
+                    {
+                        target[position++] = '-';
+                        WriteSplitNumber(target.Slice(position, state.width), state.last, state.governor);
+                        position += state.width;
+                    }
+                    CopySplitNamePart(state.pattern.AsSpan(state.suffix), target[position..], state.governor);
+                });
+            ParserContainers.AddItem(memory, names, name, IntPtr.Size);
+            first = checked(last + 1);
+        }
+        return names;
     }
 
-    private static List<string> GenerateSplitNames(string pattern, int total, int groupSize)
+    private static void CopySplitNamePart(ReadOnlySpan<char> source, Span<char> target, ResourceGovernor governor)
     {
-        int width = total.ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
-        List<string> names = new();
-        foreach ((int first, int last) in PartitionGroups(total, groupSize))
+        for (int offset = 0; offset < source.Length; offset += Math.Min(256, source.Length - offset))
         {
-            string range = first == last
-                ? PadGroupNumber(first, width)
-                : PadGroupNumber(first, width) + "-" + PadGroupNumber(last, width);
-            int marker = pattern.IndexOf("%d", StringComparison.Ordinal);
-            if (marker >= 0)
-            {
-                names.Add(pattern.Substring(0, marker) + range + pattern.Substring(marker + 2));
-                continue;
-            }
-
-            if (pattern.Length >= 4 && pattern.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
-            {
-                names.Add(pattern.Substring(0, pattern.Length - 4) + "-" + range + pattern.Substring(pattern.Length - 4));
-                continue;
-            }
-
-            names.Add(pattern + "-" + range);
+            int count = Math.Min(256, source.Length - offset);
+            governor.CheckCancellation(); governor.ChargeWork(count);
+            source.Slice(offset, count).CopyTo(target.Slice(offset, count));
         }
+    }
 
-        return names;
+    private static void WriteSplitNumber(Span<char> target, int value, ResourceGovernor governor)
+    {
+        governor.CheckCancellation(); governor.ChargeWork(target.Length);
+        target.Fill('0');
+        int digits = 1;
+        for (int remaining = value; remaining >= 10; remaining /= 10) { digits++; }
+        if (!value.TryFormat(target[(target.Length - digits)..], out _, provider: System.Globalization.CultureInfo.InvariantCulture))
+        { throw new InvalidOperationException("Split page number exceeds its prepared width."); }
     }
 
     private static HashSet<int> ReachableIds(Dictionary<int, QpdfObject> pool, List<int> roots,

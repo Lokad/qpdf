@@ -185,6 +185,14 @@ locks and all 908 signatures remain exact. T3/T3E
 proofs stay closed. T4 copied backing/mapping, T5/T6 and the parent remain open. Ten completed
 public selection alias controls expose zero independent retirement after alias/
 backing collection (B1 four/B2 four/B3 two); preserve all lower bounds and positives.
+The shared selection correction now admits copied source/count/mapping/path
+arrays/views, each mapping record and generated split names before publication.
+Independent weak receipts prepay retirement; caller-created copies keep their
+ownership distinction. The 188 new public rows expose 52 predecessor failures
+and preserve 136, including all ten original retirement defects; five separate
+admission controls retain original physical minima and bounds. Final committed
+full/reference/native/package/consumer proof remains required for B1–B3. Checker/
+warning backing B4, complete B5/T5/T6 and parent gates remain open.
 Governor growth to 248, private document component slots and task/async frames,
 cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
