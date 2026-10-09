@@ -23,6 +23,7 @@ internal sealed class ResourceGovernor
     private long _operationsSinceCheck;
     private RetainedValueOwners? _valueOwners;
     private DiagnosticStage? _diagnosticStage;
+    private PresentationCountReservation? _presentationCount;
     private long _reservedWork;
     private bool _presentingDiagnostics;
 
@@ -298,6 +299,7 @@ internal sealed class ResourceGovernor
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _limits.MaxOutputBytes);
             }
 
+            if (bytes > 0L) { _presentationCount?.BeginOutput(); }
             _totalOutputBytes = next;
         }
     }
@@ -344,6 +346,35 @@ internal sealed class ResourceGovernor
         _diagnosticBytes = checked(_diagnosticBytes + messageBytes);
     }
 
+    internal void CheckDiagnosticCount(long pending)
+    {
+        if (pending < 0L) { throw new ArgumentOutOfRangeException(nameof(pending)); }
+        long next = checked(_diagnosticCount + pending);
+        if (next > _limits.MaxDiagnostics)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnostics), next, _limits.MaxDiagnostics); }
+    }
+
+    internal void AttachPresentationCount(PresentationCountReservation reservation)
+    {
+        if (_presentationCount is not null) { throw new InvalidOperationException("A job already has presentation slots."); }
+        _presentationCount = reservation;
+    }
+
+    internal void DetachPresentationCount(PresentationCountReservation reservation)
+    {
+        if (!ReferenceEquals(_presentationCount, reservation)) { throw new InvalidOperationException("Presentation slots are unavailable."); }
+        _presentationCount = null;
+    }
+
+    internal void AcceptPresentationCount(PresentationCountReservation reservation, long pending)
+    {
+        if (!ReferenceEquals(_presentationCount, reservation)) { throw new InvalidOperationException("Presentation slots are unavailable."); }
+        CheckDiagnosticCount(pending);
+        _diagnosticCount = checked(_diagnosticCount + pending);
+    }
+
+    internal void PresentDiagnosticCount() => _presentationCount?.Present();
+
     /// <summary>Checks a prospective message without charging it a second time.</summary>
     internal void CheckDiagnostic(long messageBytes)
     {
@@ -354,11 +385,7 @@ internal sealed class ResourceGovernor
 
         checked
         {
-            long nextCount = _diagnosticCount + 1L;
-            if (nextCount > _limits.MaxDiagnostics)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnostics), nextCount, _limits.MaxDiagnostics);
-            }
+            CheckDiagnosticCount(1L + (_presentationCount?.Pending ?? 0L));
 
             long nextBytes = _diagnosticBytes + messageBytes;
             if (nextBytes > _limits.MaxDiagnosticBytes)

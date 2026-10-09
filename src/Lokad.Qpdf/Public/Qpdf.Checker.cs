@@ -59,7 +59,7 @@ public static partial class Qpdf
                     }
                 }
             }
-            QpdfExecutionResult result = CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+            QpdfExecutionResult result = CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             ReadOnlyMemory<byte>? bytes = null;
             if (result.Status == QpdfExecutionStatus.Completed && hasPayload)
             {

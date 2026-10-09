@@ -1,5 +1,50 @@
 # Progress
 
+## Presentation count correction
+
+DIAG-02P1 fixes summary-count admission, runtime **`A788A4DB`** /
+tests **`A49FD5CB`**. A scoped 48-byte reservation holds verbose/memory slots
+while ordinary diagnostics are accepted; the first charged output byte activates
+four progress slots. Fileless JSON without charged output reserves no progress
+slots. Successful presentation accepts the count once; failed/canceled jobs release
+pending slots. Default jobs create no reservation or additional charged work.
+
+All **1022 focused Release cases** pass: **516 new complete public jobs**, seven
+reservation/funding controls and **499 existing related checks**, including all
+413 preceding final-counter controls. The public matrix covers 15 operations over
+argv/job/mixed/response routes, raw/Flate inputs, default/exact/short limits,
+selected flags, warning suppression/exit policy and read/write/commit faults or
+after-start cancellation. Count failures precede commit in these controls;
+outputs/aliases survive and handles/leases close. Whole-file rewriting accepts
+both warnings from its two input openings, even when suppression hides them.
+The owner fits its admitted allowance over 1024 independent allocations; the
+default path allocates no reservation. The added governor reference and command
+scope remain part of the open cold-state measurement/admission obligation.
+
+Identical final **516 public tests** on `45E9997D`: **400 fail / 116 preserve**,
+with **139 false completions** and **261 count mismatches**, no loader failures,
+skips or exclusions. Seven new internal reservation checks are explicitly outside
+that public predecessor comparison. Retain the draft's 36 invalid command forms
+and 16 incorrect one-warning assumptions separately from product counterexamples.
+Strict locked restore/build pass without warnings or audit overrides; preceding
+tests, approved dependencies, five locks and unrelated work are preserved.
+The 540-path source freeze preserves 530 unrelated paths and all 253 preceding
+test sources. Final focused build: 17.3s; test console: 4s (TRX interval 8.6s);
+public predecessor process: 6.8s. Full reference/package/consumer lanes await the
+completed combined presentation correction; preceding full evidence remains.
+
+The unchanged nine-job characterization now rejects all three count=1 jobs before
+publication and records six summaries on successful jobs. **Three bytes=16 jobs
+still publish six records / 235 UTF-8 bytes.** That demonstrated failure selects
+DIAG-02P2. It must admit exact message bytes, formatting work and independently
+escaping record/text/list storage before publication, including genuine late
+memory/work failures and retained warning history. DIAG-02P3 must cover split/
+sidecar publication preparation under the existing limits, including the original
+one-handle sidecar path. DIAG-02PV must bind the completed combined correction to
+full Release/reference/native/package/consumer evidence once, with phase timings.
+Those entries, DIAG-02P and M11/A01–A07/both verdicts remain open. The five named
+ImageSharp exclusions remain the intentional temporary policy.
+
 ## Final counter correction
 
 DIAG-02C is retired by `234de72`, runtime **`45E9997D`** / tests **`5CD7F8FC`**.
@@ -47,10 +92,11 @@ Restore/build 1.9s/5.9s; pack/inspection
 package lanes ran alongside reference. Total wrapper timing is exact; parser
 uses unmodified artifact timestamps. Each expensive lane ran once on this freeze.
 
-Next public failure: **DIAG-02P**. Nine retained argv/job/mixed rewrites with
+The preceding **DIAG-02P** characterization retained nine argv/job/mixed rewrites with
 verbose/progress/memory summaries return six records / 235 UTF-8 bytes but record
-zero diagnostics. Six controls with MaxDiagnostics=1 or MaxDiagnosticBytes=16 still
-complete and publish. Admission before publication and result/list/text ownership
+zero diagnostics. Six controls with MaxDiagnostics=1 or MaxDiagnosticBytes=16 then
+completed and published. DIAG-02P1 corrects the count controls above; byte admission
+before publication and result/list/text ownership
 remain open; DIAG-02C does not retire DIAG-01/02. Broader M11/A01–A07, eight
 AcroForm schema gaps, cross-platform/reference CI and both verdicts remain open.
 The five ImageSharp advisory exclusions remain the intentional temporary policy;

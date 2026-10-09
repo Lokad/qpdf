@@ -4832,9 +4832,12 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
+        PresentationCountReservation? presentation;
         try
         {
             limits = ResolveParserLimits(plan, limits, hostExplicit);
+            presentation = PresentationCountReservation.Create(governor, plan.Verbose,
+                plan.ReportMemoryUsage, plan.Progress, cancellationToken);
         }
         catch (QpdfException ex)
         {
@@ -4845,6 +4848,7 @@ public static partial class Qpdf
             return QpdfExecutionResult.Canceled([], ZeroCounters());
         }
 
+        using PresentationCountReservation? presentationScope = presentation;
         if (plan.IgnoreXrefStreams)
         {
             limits = limits with { IgnoreXrefStreams = true };
@@ -4862,7 +4866,7 @@ public static partial class Qpdf
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showXref.Input, showXref.EmptyDocument, limits, governor, diagnostics, showXref.Recovery, cancellationToken).ConfigureAwait(false);
                 ShowXref(document, plan, limits, governor, diagnostics, cancellationToken);
 
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -4879,7 +4883,7 @@ public static partial class Qpdf
             try
             {
                 await ShowObjectCoreAsync(host, showObject, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -4899,7 +4903,7 @@ public static partial class Qpdf
                 await using QpdfDocument document = await OpenPlanInputAsync(host, showPages.Input, showPages.EmptyDocument, limits, governor, diagnostics, showPages.Recovery, cancellationToken).ConfigureAwait(false);
                 ShowPages(document, plan, limits, governor, diagnostics, cancellationToken);
 
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -4920,7 +4924,7 @@ public static partial class Qpdf
                 {
                     AddPageCountDiagnostic(document, npages.Input, diagnostics);
                 }
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -4947,7 +4951,7 @@ public static partial class Qpdf
                     await ShowLinearizationAsync(host, linearization.Input, limits, linearization.Recovery, linearization.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -4974,7 +4978,7 @@ public static partial class Qpdf
                     await ExtractAttachmentCoreAsync(host, attachments.Input, attachments.Key, output, limits, attachments.Recovery, attachments.EmptyDocument, governor, diagnostics, cancellationToken).ConfigureAwait(false);
                 }
 
-                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan);
+                return CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -5010,10 +5014,10 @@ public static partial class Qpdf
                         schema,
                     };
 
-                    return CompleteWithPresentation(warnings, inspected.Counters, plan).WithOutputText(json.Output.HasValue ? null : inspected.Json);
+                    return CompleteWithPresentation(warnings, inspected.Counters, plan, governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
                 }
 
-                return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan).WithOutputText(json.Output.HasValue ? null : inspected.Json);
+                return CompleteWithPresentation(inspected.Warnings, inspected.Counters, plan, governor).WithOutputText(json.Output.HasValue ? null : inspected.Json);
             }
             catch (QpdfException ex)
             {
@@ -5041,7 +5045,7 @@ public static partial class Qpdf
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(imported.Warnings, imported.Counters, plan);
+                return CompleteWithPresentation(imported.Warnings, imported.Counters, plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -5071,7 +5075,7 @@ public static partial class Qpdf
                     governor,
                     diagnostics,
                     cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(updated.Warnings, updated.Counters, plan);
+                return CompleteWithPresentation(updated.Warnings, updated.Counters, plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -5088,7 +5092,7 @@ public static partial class Qpdf
             try
             {
                 PdfMultiPageSelectionResult result = (await WholeFileCoreAsync(host, whole, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false)).Result;
-                return CompleteWithPresentation(result.Warnings, result.Counters, plan);
+                return CompleteWithPresentation(result.Warnings, result.Counters, plan, governor);
             }
             catch (QpdfException ex)
             {
@@ -5166,7 +5170,7 @@ public static partial class Qpdf
                         merge.LinearizePass1,
                         merge.EmptyInput,
                         cancellationToken).ConfigureAwait(false)).Result;
-                    return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
+                    return CompleteWithPresentation(merged.Warnings, merged.Counters, plan, governor);
                 }
                 catch (QpdfException ex)
                 {
@@ -5241,7 +5245,7 @@ public static partial class Qpdf
                         selection.LinearizePass1,
                         false,
                         cancellationToken).ConfigureAwait(false)).Result;
-                    return CompleteWithPresentation(merged.Warnings, merged.Counters, plan);
+                    return CompleteWithPresentation(merged.Warnings, merged.Counters, plan, governor);
                 }
                 catch (QpdfException ex)
                 {
@@ -5300,7 +5304,7 @@ public static partial class Qpdf
                 selection.Linearize,
                 selection.LinearizePass1,
                 cancellationToken).ConfigureAwait(false);
-            return CompleteWithPresentation(selected.Warnings, selected.Counters, plan);
+            return CompleteWithPresentation(selected.Warnings, selected.Counters, plan, governor);
         }
         catch (QpdfException ex)
         {
@@ -5321,8 +5325,10 @@ public static partial class Qpdf
     private static QpdfExecutionResult CompleteWithPresentation(
         IReadOnlyList<QpdfDiagnostic> diagnostics,
         QpdfExecutionCounters counters,
-        JobPlan plan)
+        JobPlan plan,
+        ResourceGovernor governor)
     {
+        governor.PresentDiagnosticCount();
         List<QpdfDiagnostic> effective = new();
         foreach (QpdfDiagnostic diagnostic in diagnostics)
         {

@@ -25,9 +25,13 @@ response failures/cancellation, typed results and QDF/zlib companions. All 11421
 Release cases pass, retaining 11008 preceding occurrences and adding 413 complete
 public controls. Final pinned reference/parser, package and fresh consumer checks
 pass; signatures and native 868/804/868 observations remain unchanged.
-Presentation quota bypass is DIAG-02P: six-record/235-byte summaries still publish
-under one-record or 16-byte limits in argv/job/mixed jobs. Diagnostic admission/
-ownership and broader gates remain open.
+DIAG-02P1 corrects summary count admission across argv/job/mixed/response jobs.
+Its 516 new public controls and seven reservation controls pass with 499 existing
+related checks; exact limits preserve outputs, while short count limits prevent
+publication. The original three one-record jobs now fail before publication and
+successful jobs record six summaries. The three 16-byte jobs still falsely publish
+235 message bytes: DIAG-02P remains open for byte quotas, work, storage ownership
+and final combined reference/package verification.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

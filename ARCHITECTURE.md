@@ -77,9 +77,14 @@ Failures and cancellation retain observed work; typed throwing routes keep their
 existing exception contract. Counter copies preserve warning/mapping/text/binary
 references and readonly public properties. Later weak-receipt collection can reduce
 live governor memory after a returned snapshot. Complete public jobs and committed
-reference/package checks verify these counter boundaries. Verbose/progress/memory
-summaries still bypass diagnostic count/byte admission before publication
-(DIAG-02P); result/presentation storage and diagnostic ownership remain under audit.
+reference/package checks verify these counter boundaries. Argv/job execution holds
+verbose/memory diagnostic slots while ordinary diagnostics are accepted. The
+governor activates four progress slots before charging the first output byte;
+fileless jobs with no charged output reserve none. Successful presentation accepts
+the held count once; failure/cancellation releases the scoped reservation. Summary
+byte quotas, formatting work and escaping result/list/record/text storage remain
+under audit (DIAG-02P). The count correction has focused public-job evidence;
+the combined presentation correction still requires final reference/package proof.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.
