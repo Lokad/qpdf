@@ -115,8 +115,10 @@ history owns its projection, so hidden informational records can retire. NoWarn
 preserves ordinary admissions and clears private warning references on the first
 visible record; independently escaping records/text keep their receipts. Accepted
 warning state preserves warning exits. Generic result/fatal storage and JSON
-payload admission remain DIAG-01/JSON-01. DIAG-02P2F requires final combined
-source/reference/package proof; P3H remains retired and wider ownership stays open.
+payload admission remain DIAG-01/JSON-01. DIAG-02P2F is retired by final combined
+source/Release/reference/package proof; P3H remains retired and wider ownership
+stays open. Complete public inline JSON jobs retain unfunded output text after
+collection; that demonstrated escape remains JSON-01J within broader JSON-01.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

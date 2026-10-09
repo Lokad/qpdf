@@ -59,8 +59,9 @@ admission, including typed/plain split/JSON routes. Eight original host ceilings
 reject before output creation; exact budgets count real writes. Its 636 public
 controls/15 lease controls include fixed memory failures, fault/cancellation,
 post-commit-close semantics and surviving targets. Same public tests on `642C5096`:
-508 fail/128 preserve. Four mixed-info NoWarn views retaining 50 hidden texts remain
-P2F; plain warning-history projections need the same hidden-record retirement.
+508 fail/128 preserve. That checkpoint left four mixed-info NoWarn views retaining
+50 hidden texts and plain hidden-info retirement to P2F; its subsequent proof below
+retires those obligations.
 DIAG-02P3H is retired by committed-source proof: 13460 Release passes, all
 12809 preceding occurrences, pinned 1846/432 parser checks, original 868/804/868
 native results and strict package/PDB/fresh 50-smoke/two-negative checks.
@@ -76,8 +77,13 @@ warning-only history retires hidden informational records and funds independent
 aliases. Identical final 452 public rows expose 88 predecessor defects and preserve
 364 outcomes, without loader failures/skips. The unchanged 288-job memory scan
 retains 74 failures after acceptance and corrects all 37 lost histories. The
-combined committed-source Release/reference/package proof remains required;
-these focused controls do not close P2F or the wider parent gates yet.
+combined committed-source proof now retires P2F: 13924 Release passes retain all
+13460 preceding occurrences, pinned 1846/432 parser checks, original 868/804/868
+native comparisons with complete fields/payloads/diagnostics unchanged, exact
+package/PDB, 908 signatures and fresh 50-smoke/two-negative consumers. All 258
+old test sources/five locks remain. Broader parent gates stay open; eight complete
+inline JSON jobs demonstrate an output-text funding gap on both runtimes, recorded
+as JSON-01J without reopening established evidence.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
