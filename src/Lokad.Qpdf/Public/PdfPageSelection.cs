@@ -157,17 +157,6 @@ public sealed record PdfPageSelectionOptions
 /// <summary>Outcome of a page selection.</summary>
 public sealed record PdfPageSelectionResult
 {
-    private PdfPageSelectionResult(PdfPageSelectionResult original, QpdfExecutionCounters counters)
-    {
-        SourcePageCount = original.SourcePageCount;
-        SourcePages = original.SourcePages;
-        PageCount = original.PageCount;
-        Warnings = original.Warnings;
-        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
-    }
-
-    internal PdfPageSelectionResult WithCounters(QpdfExecutionCounters counters) => new(this, counters);
-
     /// <summary>Creates a selection result.</summary>
     /// <exception cref="ArgumentNullException">Warnings or counters are null.</exception>
     public PdfPageSelectionResult(

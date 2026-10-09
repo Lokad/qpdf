@@ -175,11 +175,11 @@ public sealed class ParserOwnershipTests
             PdfInteger cached = Assert.IsType<PdfInteger>(failed.GetObject(6));
             Assert.Equal(3L, cached.Value);
             Assert.Same(cached, failed.GetObject(6));
-            Assert.Equal(control.Counters.LiveMemoryBytes, failed.Counters.LiveMemoryBytes);
+            Assert.Equal(CounterObservation.Snapshot(control).LiveMemoryBytes, CounterObservation.Snapshot(failed).LiveMemoryBytes);
             for (int i = 0; i < 20; i++)
             {
                 Assert.Throws<QpdfParseException>(() => failed.GetObject(5));
-                Assert.Equal(control.Counters.LiveMemoryBytes, failed.Counters.LiveMemoryBytes);
+                Assert.Equal(CounterObservation.Snapshot(control).LiveMemoryBytes, CounterObservation.Snapshot(failed).LiveMemoryBytes);
             }
         }
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -227,17 +227,17 @@ public sealed class ParserOwnershipTests
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token))
         {
-            long retained = document.Counters.LiveMemoryBytes;
-            long work = document.Counters.TotalWork;
+            long retained = CounterObservation.Snapshot(document).LiveMemoryBytes;
+            long work = CounterObservation.Snapshot(document).TotalWork;
             Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(5),
                 CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= retained + 4096L || loading.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = SpinWait.SpinUntil(() => CounterObservation.Snapshot(document).LiveMemoryBytes >= retained + 4096L || loading.IsCompleted, TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             Assert.True(observed);
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(document.Counters.TotalWork > work);
-            Assert.True(document.Counters.PeakMemoryBytes >= retained + 4096L);
-            Assert.Equal(retained, document.Counters.LiveMemoryBytes);
+            Assert.True(CounterObservation.Snapshot(document).TotalWork > work);
+            Assert.True(CounterObservation.Snapshot(document).PeakMemoryBytes >= retained + 4096L);
+            Assert.Equal(retained, CounterObservation.Snapshot(document).LiveMemoryBytes);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -254,18 +254,18 @@ public sealed class ParserOwnershipTests
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
         {
             Assert.Equal(bytes, Assert.IsType<PdfInteger>(control.GetObject(6)).Value);
-            long retained = control.Counters.LiveMemoryBytes;
+            long retained = CounterObservation.Snapshot(control).LiveMemoryBytes;
             bool interrupted = false;
             for (int attempt = 0; attempt < 8 && !interrupted; attempt++)
             {
                 using CancellationTokenSource cancellation = new();
                 await using QpdfDocument canceled = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token);
-                long work = canceled.Counters.TotalWork;
+                long work = CounterObservation.Snapshot(canceled).TotalWork;
                 Task<QpdfObject> loading = Task.Factory.StartNew(() => canceled.GetObject(5),
                     CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-                bool reached = SpinWait.SpinUntil(() => canceled.Counters.LiveMemoryBytes >= retained + 2L * bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
+                bool reached = SpinWait.SpinUntil(() => CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + 2L * bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
                 Assert.True(reached);
-                bool observed = canceled.Counters.LiveMemoryBytes >= retained + 2L * bytes;
+                bool observed = CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + 2L * bytes;
                 cancellation.Cancel();
                 try
                 {
@@ -274,9 +274,9 @@ public sealed class ParserOwnershipTests
                 catch (OperationCanceledException)
                 {
                     Assert.True(observed);
-                    Assert.True(canceled.Counters.TotalWork > work);
-                    Assert.True(canceled.Counters.PeakMemoryBytes >= retained + 2L * bytes);
-                    Assert.Equal(retained, canceled.Counters.LiveMemoryBytes);
+                    Assert.True(CounterObservation.Snapshot(canceled).TotalWork > work);
+                    Assert.True(CounterObservation.Snapshot(canceled).PeakMemoryBytes >= retained + 2L * bytes);
+                    Assert.Equal(retained, CounterObservation.Snapshot(canceled).LiveMemoryBytes);
                     interrupted = true;
                 }
             }
@@ -354,7 +354,7 @@ public sealed class ParserOwnershipTests
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/control.pdf"), limits, CancellationToken.None))
         {
             Assert.Equal(1, control.PageCount);
-            Assert.InRange(control.Counters.PeakMemoryBytes, pdf.Length, limits.MaxMemoryBytes);
+            Assert.InRange(CounterObservation.Snapshot(control).PeakMemoryBytes, pdf.Length, limits.MaxMemoryBytes);
         }
         QpdfExecutionOptions options = new(limits);
         QpdfExecutionResult result = job

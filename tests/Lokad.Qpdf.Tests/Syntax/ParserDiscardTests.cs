@@ -195,7 +195,7 @@ public sealed class ParserDiscardTests
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/control.pdf"), limits, CancellationToken.None))
         {
             Assert.Equal(1, control.PageCount);
-            Assert.InRange(control.Counters.PeakMemoryBytes, input.Length, limits.MaxMemoryBytes);
+            Assert.InRange(CounterObservation.Snapshot(control).PeakMemoryBytes, input.Length, limits.MaxMemoryBytes);
         }
         QpdfPath priorPath = QpdfPath.From("outputs/prior.pdf");
         await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(priorPath, CancellationToken.None))
@@ -238,12 +238,12 @@ public sealed class ParserDiscardTests
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/control.pdf"), limits, CancellationToken.None))
         await using (QpdfDocument discarded = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
         {
-            long controlBase = control.Counters.LiveMemoryBytes;
-            long discardedBase = discarded.Counters.LiveMemoryBytes;
+            long controlBase = CounterObservation.Snapshot(control).LiveMemoryBytes;
+            long discardedBase = CounterObservation.Snapshot(discarded).LiveMemoryBytes;
             Assert.Equal("abc"u8.ToArray(), Assert.IsType<PdfStream>(control.GetObject(5)).Data);
             Assert.Equal("abc"u8.ToArray(), Assert.IsType<PdfStream>(discarded.GetObject(5)).Data);
             DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(discarded).Entries);
-            Assert.Equal(control.Counters.LiveMemoryBytes - controlBase, discarded.Counters.LiveMemoryBytes - discardedBase);
+            Assert.Equal(CounterObservation.Snapshot(control).LiveMemoryBytes - controlBase, CounterObservation.Snapshot(discarded).LiveMemoryBytes - discardedBase);
             PdfInteger cached = Assert.IsType<PdfInteger>(discarded.GetObject(6));
             Assert.Equal(3L, cached.Value);
             Assert.Same(cached, discarded.GetObject(6));
@@ -284,15 +284,15 @@ public sealed class ParserDiscardTests
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/control.pdf"), limits, CancellationToken.None))
         await using (QpdfDocument discarded = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
         {
-            long controlBase = control.Counters.LiveMemoryBytes;
-            long discardedBase = discarded.Counters.LiveMemoryBytes;
+            long controlBase = CounterObservation.Snapshot(control).LiveMemoryBytes;
+            long discardedBase = CounterObservation.Snapshot(discarded).LiveMemoryBytes;
             Assert.IsType<PdfDictionary>(control.GetObject(5));
             Assert.Equal(3L, Assert.IsType<PdfInteger>(control.GetObject(6)).Value);
             PdfDictionary surviving = Assert.IsType<PdfDictionary>(discarded.GetObject(5));
             Assert.True(surviving.TryGet(PdfName.FromAscii("A"), out QpdfObject kept));
             Assert.Same(PdfNull.Instance, kept);
             DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(discarded).Entries);
-            Assert.Equal(control.Counters.LiveMemoryBytes - controlBase, discarded.Counters.LiveMemoryBytes - discardedBase);
+            Assert.Equal(CounterObservation.Snapshot(control).LiveMemoryBytes - controlBase, CounterObservation.Snapshot(discarded).LiveMemoryBytes - discardedBase);
             PdfInteger cached = Assert.IsType<PdfInteger>(discarded.GetObject(6));
             Assert.Equal(3L, cached.Value);
             Assert.Same(cached, discarded.GetObject(6));

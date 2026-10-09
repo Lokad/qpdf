@@ -137,8 +137,13 @@ remain immutable. Completed retirement is bounded and can finish after
 cancellation; active execution still observes cancellation. Limits that cannot
 admit the carriers borrow immutable outcomes before job or host work. Caller
 record copies preserve exposed values and aliases without copying receipt
-ownership. Typed core/result carriers and generic diagnostic/list/fatal storage
-remain DIAG-01R-T and DIAG-01.
+ownership. Typed facades admit one private counter before processing and capture
+its final values after cleanup. Private cores borrow that counter, or immutable
+zero counters when serving commands; redundant facade clones are removed.
+Each public document counter read independently admits snapshot/receipt storage,
+a shared weak governor link and construction/retirement work. Completed document
+retirement can reconcile after cancellation. Typed wrappers/copied backing remain
+DIAG-01R-T; generic diagnostic/list/fatal storage remains DIAG-01.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

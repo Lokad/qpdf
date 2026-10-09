@@ -8,6 +8,9 @@ namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class ReaderAcceptanceTests
 {
+    private static QpdfExecutionCounters Observe(QpdfDocument document)
+        => CounterObservation.Snapshot(document);
+
     private static byte[] BadHeader(string[] bodies, bool generation)
     {
         string pdf = Encoding.ASCII.GetString(TolerantObjectLoadingTests.Pdf(bodies, false));
@@ -36,16 +39,16 @@ public sealed class ReaderAcceptanceTests
         await using (QpdfDocument control = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, CancellationToken.None))
         {
             Assert.Equal(1, document.PageCount);
-            long baseline = document.Counters.LiveMemoryBytes;
-            long work = document.Counters.TotalWork;
+            long baseline = Observe(document).LiveMemoryBytes;
+            long work = Observe(document).TotalWork;
             for (int i = 0; i < 50; i++)
             {
                 Assert.Contains("header contradicts", Assert.Throws<QpdfParseException>(() => document.GetObject(5)).Message, StringComparison.Ordinal);
                 DiagnosticControl.Replay(DiagnosticControl.Read(control), DiagnosticControl.Read(document).Entries);
-                Assert.Equal(control.Counters.LiveMemoryBytes, document.Counters.LiveMemoryBytes);
+                Assert.Equal(Observe(control).LiveMemoryBytes, Observe(document).LiveMemoryBytes);
             }
-            Assert.True(document.Counters.TotalWork > work);
-            Assert.InRange(document.Counters.PeakMemoryBytes, baseline + 1L, limits.MaxMemoryBytes);
+            Assert.True(Observe(document).TotalWork > work);
+            Assert.InRange(Observe(document).PeakMemoryBytes, baseline + 1L, limits.MaxMemoryBytes);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -69,7 +72,7 @@ public sealed class ReaderAcceptanceTests
             for (int i = 0; i < 20; i++)
             {
                 Assert.Throws<QpdfParseException>(() => rejected.GetObject(5));
-                Assert.Equal(control.Counters.LiveMemoryBytes, rejected.Counters.LiveMemoryBytes);
+                Assert.Equal(Observe(control).LiveMemoryBytes, Observe(rejected).LiveMemoryBytes);
                 Assert.Same(cached, rejected.GetObject(6));
             }
         }
@@ -86,11 +89,11 @@ public sealed class ReaderAcceptanceTests
         {
             Assert.Throws<QpdfParseException>(() => document.GetObject(5));
             PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
-            long baseline = document.Counters.LiveMemoryBytes;
+            long baseline = Observe(document).LiveMemoryBytes;
             for (int i = 0; i < 20; i++)
             {
                 Assert.Throws<QpdfParseException>(() => document.GetObject(5));
-                Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+                Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
                 Assert.Same(kept, document.GetObject(6));
             }
             Assert.Equal("kept"u8.ToArray(), kept.Value);
@@ -106,9 +109,9 @@ public sealed class ReaderAcceptanceTests
         host.AddInput(QpdfPath.From("inputs/a.pdf"), input, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
         {
-            long baseline = document.Counters.LiveMemoryBytes;
+            long baseline = Observe(document).LiveMemoryBytes;
             Assert.Contains("endobj", Assert.Throws<QpdfParseException>(() => document.GetObject(5)).Message, StringComparison.Ordinal);
-            Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+            Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -203,16 +206,16 @@ public sealed class ReaderAcceptanceTests
             Assert.Contains("trailing bytes", Assert.Throws<QpdfParseException>(() => document.GetObject(7)).Message, StringComparison.Ordinal);
             PdfByteString cached = Assert.IsType<PdfByteString>(document.GetObject(6));
             PdfStream raw = Assert.IsType<PdfStream>(document.GetObject(5));
-            long baseline = document.Counters.LiveMemoryBytes;
-            long work = document.Counters.TotalWork;
+            long baseline = Observe(document).LiveMemoryBytes;
+            long work = Observe(document).TotalWork;
             for (int i = 0; i < 50; i++)
             {
                 Assert.Contains("trailing bytes", Assert.Throws<QpdfParseException>(() => document.GetObject(7)).Message, StringComparison.Ordinal);
-                Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+                Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
                 Assert.Same(cached, document.GetObject(6));
                 Assert.Same(raw, document.GetObject(5));
             }
-            Assert.True(document.Counters.TotalWork > work);
+            Assert.True(Observe(document).TotalWork > work);
             Assert.Equal(Encoding.ASCII.GetBytes(new string('K', 4096)), cached.Value);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -233,12 +236,12 @@ public sealed class ReaderAcceptanceTests
         {
             // Encoded sizes may differ; baseline after raw loading isolates the member work.
             control.GetObject(5); discardedDocument.GetObject(5);
-            long controlBase = control.Counters.LiveMemoryBytes;
-            long discardedBase = discardedDocument.Counters.LiveMemoryBytes;
+            long controlBase = Observe(control).LiveMemoryBytes;
+            long discardedBase = Observe(discardedDocument).LiveMemoryBytes;
             Assert.Equal("kept"u8.ToArray(), Assert.IsType<PdfByteString>(control.GetObject(6)).Value);
             Assert.Equal("kept"u8.ToArray(), Assert.IsType<PdfByteString>(discardedDocument.GetObject(6)).Value);
             Assert.Same(PdfNull.Instance, discardedDocument.GetObject(7));
-            Assert.Equal(control.Counters.LiveMemoryBytes - controlBase, discardedDocument.Counters.LiveMemoryBytes - discardedBase);
+            Assert.Equal(Observe(control).LiveMemoryBytes - controlBase, Observe(discardedDocument).LiveMemoryBytes - discardedBase);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -277,11 +280,11 @@ public sealed class ReaderAcceptanceTests
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
         {
             PdfStream raw = Assert.IsType<PdfStream>(document.GetObject(5));
-            long baseline = document.Counters.LiveMemoryBytes;
+            long baseline = Observe(document).LiveMemoryBytes;
             for (int i = 0; i < 20; i++)
             {
                 Assert.Throws<QpdfParseException>(() => document.GetObject(7));
-                Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+                Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
                 Assert.Same(raw, document.GetObject(5));
             }
         }
@@ -299,14 +302,14 @@ public sealed class ReaderAcceptanceTests
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token))
         {
             PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
-            long baseline = document.Counters.LiveMemoryBytes;
+            long baseline = Observe(document).LiveMemoryBytes;
             Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(5), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = SpinWait.SpinUntil(() => Observe(document).LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             Assert.True(observed);
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(document.Counters.PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
-            Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+            Assert.True(Observe(document).PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
+            Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
             Assert.Equal("kept"u8.ToArray(), kept.Value);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -326,14 +329,14 @@ public sealed class ReaderAcceptanceTests
         {
             Assert.Throws<QpdfParseException>(() => document.GetObject(7));
             PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
-            long baseline = document.Counters.LiveMemoryBytes;
+            long baseline = Observe(document).LiveMemoryBytes;
             Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(7), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => document.Counters.LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = SpinWait.SpinUntil(() => Observe(document).LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
             cancellation.Cancel();
             Assert.True(observed);
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(document.Counters.PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
-            Assert.Equal(baseline, document.Counters.LiveMemoryBytes);
+            Assert.True(Observe(document).PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
+            Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
             Assert.Equal("kept"u8.ToArray(), kept.Value);
         }
         Assert.Equal(0L, host.OpenLeaseCount);

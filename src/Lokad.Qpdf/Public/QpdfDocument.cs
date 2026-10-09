@@ -64,7 +64,11 @@ public sealed class QpdfDocument : IAsyncDisposable
     public int PageCount => _inspectionPages?.Count ?? _pageCount;
 
     /// <summary>Gets a live snapshot of the job counters.</summary>
-    public QpdfExecutionCounters Counters => _governor.Snapshot();
+    /// <remarks>Each read creates an immutable snapshot and charges its storage and work
+    /// to the document budgets. Snapshots remain valid after disposal.</remarks>
+    /// <exception cref="QpdfLimitException">Snapshot storage or work exceeds the job budget.</exception>
+    /// <exception cref="OperationCanceledException">The job cancellation token is canceled.</exception>
+    public QpdfExecutionCounters Counters => _governor.OwnedSnapshot();
 
     /// <summary>Gets the warnings recorded while opening (duplicate keys, count mismatches).</summary>
     public IReadOnlyList<QpdfDiagnostic> Warnings => [.. _diagnostics.Entries];
@@ -124,7 +128,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken) { OwnsDocumentCounters = true };
         DiagnosticBag diagnostics = new(governor);
         return await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
     }
@@ -342,7 +346,11 @@ public sealed class QpdfDocument : IAsyncDisposable
             finally
             {
                 try { engine?.Dispose(); }
-                finally { pageStorage?.Dispose(); }
+                finally
+                {
+                    try { pageStorage?.Dispose(); }
+                    finally { _governor.FinishDocumentCounters(); }
+                }
             }
         }
     }

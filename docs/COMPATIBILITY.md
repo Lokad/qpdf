@@ -124,6 +124,15 @@ and 50-smoke/two-negative fresh consumers pass. Generic/fatal owners stay open.
 Eight typed counter-only jobs retain 1276/1346/2247/2387/0/72/0/0 bytes; four
 check/JSON rows undercount their measured 88-byte carrier and remain R-T. Retain
 the masked page/merge observations without treating them as proof of ownership.
+The working typed-counter correction admits one final counter before each typed
+job and independently owns each document snapshot. The unchanged eight-row driver
+now retains 1420/1490/2391/2531/144/216/144/144 bytes; all original observations
+remain. Eleven facades share the counter helper; nine private snapshot sites and
+nine facade clone sites disappear. The 3163 focused checks pass; final source-bound
+proof is pending. Finite R-T1/T2 specify counters and document reads; R-T3–T5 retain
+wrapper/private DTO, backing/mapping/version and complete admission obligations.
+Original reader/parser budget/cancellation measurements use an independent
+observer; separate public jobs verify each snapshot's allocation/work/retirement.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

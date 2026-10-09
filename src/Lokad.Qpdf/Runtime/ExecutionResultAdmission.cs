@@ -12,6 +12,7 @@ internal static class ExecutionResultAdmission
     internal const string InvalidZlibLevelMessage = "The zlib-flate compression level must be 1..9 while compressing.";
 
     private static readonly QpdfExecutionCounters Zero = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+    internal static QpdfExecutionCounters EmptyCounters => Zero;
     private static readonly QpdfExecutionResult MemoryFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
         "MaxMemoryBytes cannot admit the execution outcome.");
     private static readonly QpdfExecutionResult WorkFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,

@@ -58,16 +58,6 @@ public sealed record QpdfAttachmentInfo
 /// <summary>Outcome of an attachment extraction.</summary>
 public sealed record QpdfAttachmentExtraction
 {
-    private QpdfAttachmentExtraction(QpdfAttachmentExtraction original, QpdfExecutionCounters counters)
-    {
-        Key = original.Key;
-        ByteCount = original.ByteCount;
-        Warnings = original.Warnings;
-        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
-    }
-
-    internal QpdfAttachmentExtraction WithCounters(QpdfExecutionCounters counters) => new(this, counters);
-
     /// <summary>Creates an extraction outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfAttachmentExtraction(

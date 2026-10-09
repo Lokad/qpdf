@@ -132,16 +132,21 @@ public sealed class DocumentCacheTests
         PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(5));
         for (int number = 6; number < 2005; number++) { document.GetObject(number); }
         WeakReference[] references = CollectionReferences(document.Engine);
-        long before = document.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters beforeSnapshot = document.Counters;
+        long before = beforeSnapshot.LiveMemoryBytes;
         await document.DisposeAsync();
-        long after = document.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters afterSnapshot = document.Counters;
+        long after = afterSnapshot.LiveMemoryBytes;
         await document.DisposeAsync();
         Assert.True(after < before);
-        Assert.Equal(after, document.Counters.LiveMemoryBytes);
+        QpdfExecutionCounters repeatSnapshot = document.Counters;
+        Assert.Equal(after + 120L, repeatSnapshot.LiveMemoryBytes);
+        Assert.Equal(afterSnapshot.TotalWork + 1L, repeatSnapshot.TotalWork);
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Assert.All(references, reference => Assert.False(reference.IsAlive));
         Assert.Equal("kept"u8.ToArray(), kept.Value);
         Assert.Equal(0L, host.OpenLeaseCount);
+        GC.KeepAlive(beforeSnapshot); GC.KeepAlive(afterSnapshot); GC.KeepAlive(repeatSnapshot);
         GC.KeepAlive(document);
     }
 

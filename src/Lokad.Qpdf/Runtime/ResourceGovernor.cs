@@ -39,6 +39,8 @@ internal sealed class ResourceGovernor
     private int _pendingExecutionResultRetirements;
     private int _executionResultCarriers;
     private bool _buildingExecutionResult;
+    private QpdfExecutionCounters? _preparedTypedCounters;
+    internal bool OwnsDocumentCounters { get; set; }
     internal bool DeferredPlainHistory { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation;
 
@@ -69,6 +71,11 @@ internal sealed class ResourceGovernor
         }
 
         ReconcileValueOwners();
+        ReserveReconciledMemory(bytes);
+    }
+
+    private void ReserveReconciledMemory(long bytes)
+    {
         checked
         {
             long next = LiveMemoryBytes + bytes;
@@ -484,6 +491,73 @@ internal sealed class ResourceGovernor
         ReserveMemory(ExecutionResultAdmission.MemoryBytes);
         _reservedResultWork = ExecutionResultAdmission.WorkUnits;
         _returnsExecutionResult = true;
+    }
+
+    // Typed cores also serve commands. They borrow immutable zero counters
+    // unless their public facade has admitted one final, private snapshot.
+    internal QpdfExecutionCounters TypedCounters => _preparedTypedCounters ?? ExecutionResultAdmission.EmptyCounters;
+
+    internal void PrepareTypedCounters()
+    {
+        if (_preparedTypedCounters is not null) { throw new InvalidOperationException("Typed counters are already prepared."); }
+        _preparedTypedCounters = OwnedSnapshot();
+    }
+
+    internal void FinishTypedCounters()
+    {
+        QpdfExecutionCounters counters = _preparedTypedCounters
+            ?? throw new InvalidOperationException("Missing admitted typed counters.");
+        counters.CaptureBeforeReturn(CounterValues);
+        _preparedTypedCounters = null;
+        _executionFinished = true;
+    }
+
+    internal void AbandonTypedCounters()
+    {
+        _preparedTypedCounters = null;
+        _executionFinished = true;
+    }
+
+    internal void FinishDocumentCounters()
+    {
+        if (OwnsDocumentCounters) { _executionFinished = true; }
+    }
+
+    // Each public document read owns an independent immutable snapshot. Its
+    // construction and eventual retirement are both admitted before allocation.
+    internal QpdfExecutionCounters OwnedSnapshot()
+    {
+        CheckCancellation();
+        ReconcileValueOwners();
+        long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
+        if (held > long.MaxValue - 2L)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(held + 2L);
+        int carriers = checked(_executionResultCarriers + 1);
+        long bytes = _executionResultLink is null ? 144L : 120L;
+        ReserveReconciledMemory(bytes);
+        ExecutionResultMemory? storage = null;
+        _buildingExecutionResult = true;
+        try
+        {
+            WeakReference<ResourceGovernor> link = _executionResultLink ?? new(this);
+            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+            storage = new(link, 120L);
+            counters.OwnStorage(storage);
+            _reservedResultWork += 2L;
+            ChargeExecutionResultWork(1L);
+            _executionResultLink = link;
+            _executionResultCarriers = carriers;
+            counters.CaptureBeforeReturn(CounterValues);
+            return counters;
+        }
+        catch
+        {
+            storage?.Cancel();
+            ReleaseMemory(bytes);
+            throw;
+        }
+        finally { _buildingExecutionResult = false; }
     }
 
     // The fixed reserve was admitted before any processing. Construction has

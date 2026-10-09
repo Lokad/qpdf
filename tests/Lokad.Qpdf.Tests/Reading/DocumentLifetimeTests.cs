@@ -96,11 +96,15 @@ public sealed class DocumentLifetimeTests
         else { leaf = Assert.IsType<PdfByteString>(returned); }
         DocumentEngine engine = document.Engine;
         WeakReference[] storage = Storage(document, engine);
-        long before = document.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters beforeSnapshot = document.Counters;
+        long before = beforeSnapshot.LiveMemoryBytes;
         await document.DisposeAsync();
-        long after = document.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters afterSnapshot = document.Counters;
+        long after = afterSnapshot.LiveMemoryBytes;
         await document.DisposeAsync();
-        Assert.Equal(after, document.Counters.LiveMemoryBytes);
+        QpdfExecutionCounters repeatSnapshot = document.Counters;
+        Assert.Equal(after + 120L, repeatSnapshot.LiveMemoryBytes);
+        Assert.Equal(afterSnapshot.TotalWork + 1L, repeatSnapshot.TotalWork);
         Collect();
         Assert.All(storage, item => Assert.False(item.IsAlive));
         Assert.True(before - after >= input.Length);
@@ -111,6 +115,7 @@ public sealed class DocumentLifetimeTests
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.Equal(0L, document.Counters.OpenHandles);
         Assert.Throws<ObjectDisposedException>(() => document.GetObject(5));
+        GC.KeepAlive(beforeSnapshot); GC.KeepAlive(afterSnapshot); GC.KeepAlive(repeatSnapshot);
         GC.KeepAlive(document); GC.KeepAlive(engine); GC.KeepAlive(leaf); GC.KeepAlive(keys);
     }
 

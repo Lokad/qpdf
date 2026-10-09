@@ -69,9 +69,15 @@ public static partial class Qpdf
 
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        PdfPageSelectionResult result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            PdfPageSelectionResult result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, [], [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -122,9 +128,15 @@ public static partial class Qpdf
         limits.Validate();
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        PdfPageSelectionResult result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, specifications, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            PdfPageSelectionResult result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, specifications, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -506,7 +518,7 @@ public static partial class Qpdf
 
         Dictionary<int, int> singleOriginalIds = InvertOriginals(singleOriginalMaps);
         await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-        return new PdfPageSelectionResult(total, [.. requested], kids.Count, [.. diagnostics.Entries], governor.Snapshot());
+        return new PdfPageSelectionResult(total, [.. requested], kids.Count, [.. diagnostics.Entries], governor.TypedCounters);
     }
 
     /// <summary>
@@ -569,9 +581,15 @@ public static partial class Qpdf
         }
 
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        PdfMultiPageSelectionResult result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            PdfMultiPageSelectionResult result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -636,9 +654,15 @@ public static partial class Qpdf
 
         List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        PdfMultiPageSelectionResult result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, specifications, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            PdfMultiPageSelectionResult result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, specifications, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -721,9 +745,15 @@ public static partial class Qpdf
         List<OutputRotation> specifications = ConvertRotations(mergeOptions.Rotations);
         List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        PdfMultiPageSelectionResult result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            PdfMultiPageSelectionResult result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     private static async ValueTask<(PdfMultiPageSelectionResult Result, int AttachmentCount)> SelectPagesCoreAsync(
@@ -1243,7 +1273,7 @@ public static partial class Qpdf
 
             await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, qdf, multiOriginalIds, linearize, linearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
             outputPaths.Add(target);
-            return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot()), multiAttached.FinalCount);
+            return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.TypedCounters), multiAttached.FinalCount);
         }
 
         List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value);
@@ -1453,7 +1483,7 @@ public static partial class Qpdf
             outputPaths.Add(publication.Path);
         }
 
-        return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.Snapshot()), multiAttached.FinalCount);
+        return (new PdfMultiPageSelectionResult(kids.Count, mapping, sourceCounts, outputPaths, [.. diagnostics.Entries], governor.TypedCounters), multiAttached.FinalCount);
     }
 
     private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
@@ -3595,7 +3625,7 @@ public static partial class Qpdf
         };
         byte[]? originalId = TryGetOriginalId(document.Engine);
         await PublishModelAsync(host, effective, extensionLevel, model, null, emptyCompress, emptyLevel, null, originalId, plan.StaticId, plan.NewlineBeforeEndstream, new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds), new Dictionary<int, int>(), plan.Linearize, plan.LinearizePass1, plan.Output, limits, governor, cancellationToken).ConfigureAwait(false);
-        PdfMultiPageSelectionResult result = new(0, [], [0], [plan.Output], [.. diagnostics.Entries], governor.Snapshot());
+        PdfMultiPageSelectionResult result = new(0, [], [0], [plan.Output], [.. diagnostics.Entries], governor.TypedCounters);
         return (result, 0);
     }
 
@@ -3670,8 +3700,15 @@ public static partial class Qpdf
 
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        return await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            QpdfCheckResult result = await CheckCoreAsync(host, inputPath, options, limits, QpdfRecoveryMode.Strict, false, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -3759,9 +3796,15 @@ public static partial class Qpdf
 
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        QpdfAttachmentExtraction result = await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            QpdfAttachmentExtraction result = await ExtractAttachmentCoreAsync(host, inputPath, key, outputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -3807,11 +3850,17 @@ public static partial class Qpdf
 
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
-        Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
-        QpdfJsonResult result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
+            Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
+            QpdfJsonResult result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -3850,9 +3899,15 @@ public static partial class Qpdf
 
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        QpdfJsonImportResult result = await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            QpdfJsonImportResult result = await ImportCreateCoreAsync(host, jsonPath, outputPath, null, null, false, false, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -3893,9 +3948,15 @@ public static partial class Qpdf
 
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        QpdfJsonImportResult result = await ImportUpdateCoreAsync(host, inputPath, jsonPath, outputPath, null, null, false, false, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        return result.WithCounters(governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            QpdfJsonImportResult result = await ImportUpdateCoreAsync(host, inputPath, jsonPath, outputPath, null, null, false, false, limits, QpdfRecoveryMode.Strict, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            governor.FinishTypedCounters();
+            return result;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     /// <summary>
@@ -4109,10 +4170,17 @@ public static partial class Qpdf
             AttachmentsToCopy = copies,
         };
         ResourceGovernor governor = new(limits, cancellationToken);
-        DiagnosticBag diagnostics = new(governor);
-        (PdfMultiPageSelectionResult result, int attachmentCount) = await WholeFileCoreAsync(
-            host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        return new QpdfAttachmentEditResult(attachmentCount, result.Warnings, governor.Snapshot());
+        governor.PrepareTypedCounters();
+        try
+        {
+            DiagnosticBag diagnostics = new(governor);
+            (PdfMultiPageSelectionResult result, int attachmentCount) = await WholeFileCoreAsync(
+                host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            QpdfAttachmentEditResult edited = new(attachmentCount, result.Warnings, governor.TypedCounters);
+            governor.FinishTypedCounters();
+            return edited;
+        }
+        finally { governor.AbandonTypedCounters(); }
     }
 
     private static async ValueTask<QpdfAttachmentExtraction> ExtractAttachmentCoreAsync(
@@ -4143,7 +4211,7 @@ public static partial class Qpdf
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return new QpdfAttachmentExtraction(key, data.Length, [.. diagnostics.Entries], governor.Snapshot());
+        return new QpdfAttachmentExtraction(key, data.Length, [.. diagnostics.Entries], governor.TypedCounters);
     }
 
     private static readonly string[] JsonKeys =
@@ -4338,7 +4406,7 @@ public static partial class Qpdf
             { await PublishPreparedBytesAsync(host, outputPath.Value, output.Main ?? throw new InvalidOperationException("Missing JSON publication."), governor, cancellationToken).ConfigureAwait(false); }
             foreach (Json.JsonPayload sidecar in sidecars)
             { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar, governor, cancellationToken).ConfigureAwait(false); }
-            return new QpdfJsonResult(output.TransferText(), [.. diagnostics.Entries], governor.Snapshot());
+            return new QpdfJsonResult(output.TransferText(), [.. diagnostics.Entries], governor.TypedCounters);
         }
         catch (Exception ex) when (ex is QpdfException or OperationCanceledException)
         {
@@ -4375,7 +4443,7 @@ public static partial class Qpdf
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-            return new QpdfJsonImportResult(renumbered.PageCount, [.. diagnostics.Entries], governor.Snapshot());
+            return new QpdfJsonImportResult(renumbered.PageCount, [.. diagnostics.Entries], governor.TypedCounters);
         }
     }
 
@@ -4413,7 +4481,7 @@ public static partial class Qpdf
             byte[]? originalId1 = TryGetOriginalId(document.Engine);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-            return new QpdfJsonImportResult(renumbered.PageCount, [.. diagnostics.Entries], governor.Snapshot());
+            return new QpdfJsonImportResult(renumbered.PageCount, [.. diagnostics.Entries], governor.TypedCounters);
         }
     }
 
@@ -4445,7 +4513,7 @@ public static partial class Qpdf
                 AddPageCountDiagnostic(document, inputPath, diagnostics);
             }
         }
-        return new QpdfCheckResult(pageCount, version, checks, [.. diagnostics.Entries], governor.Snapshot());
+        return new QpdfCheckResult(pageCount, version, checks, [.. diagnostics.Entries], governor.TypedCounters);
     }
 
     private static void AddPageCountDiagnostic(QpdfDocument document, QpdfPath input, DiagnosticBag diagnostics)

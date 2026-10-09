@@ -39,18 +39,6 @@ public sealed record PdfPageSelectionMapping
 /// <summary>Outcome of a multi-source page selection.</summary>
 public sealed record PdfMultiPageSelectionResult
 {
-    private PdfMultiPageSelectionResult(PdfMultiPageSelectionResult original, QpdfExecutionCounters counters)
-    {
-        PageCount = original.PageCount;
-        Mapping = original.Mapping;
-        SourcePageCounts = original.SourcePageCounts;
-        OutputPaths = original.OutputPaths;
-        Warnings = original.Warnings;
-        Counters = counters ?? throw new ArgumentNullException(nameof(counters));
-    }
-
-    internal PdfMultiPageSelectionResult WithCounters(QpdfExecutionCounters counters) => new(this, counters);
-
     /// <summary>Creates a merge result.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public PdfMultiPageSelectionResult(
