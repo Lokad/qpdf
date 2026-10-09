@@ -121,6 +121,9 @@ public sealed class TypedResultOwnershipTests
             // Observe wrapper credit independently of the versions created by
             // this completed public job; each live version holds one retirement.
             held -= (int)(Field(governor, "_versionCarriers") ?? 0);
+            // Selection arrays/mappings share the prepaid channel. They are
+            // separate owners from the wrapper/counter credits asserted here.
+            held -= PrepaidAllocationWork(governor);
             if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
             object? result = null;
             if (outcome == "cancel") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running); }
@@ -161,6 +164,22 @@ public sealed class TypedResultOwnershipTests
             try { try { await running; } catch (QpdfException) { } catch (OperationCanceledException) { } }
             finally { GC.EndNoGCRegion(); }
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static long PrepaidAllocationWork(ResourceGovernor governor)
+    {
+        object? owners = Field(governor, "_valueOwners");
+        if (owners is null) { return 0L; }
+        long count = 0L;
+        for (object? segment = Field(owners, "_segments"); segment is not null; segment = Field(segment, "Next"))
+        {
+            ConditionalWeakTable<object, RetainedValueOwners.Receipt> values =
+                (ConditionalWeakTable<object, RetainedValueOwners.Receipt>)(Field(segment, "Values") ?? throw new InvalidOperationException());
+            foreach (KeyValuePair<object, RetainedValueOwners.Receipt> pair in values)
+            { if (pair.Value.PrepaidRetirement) { count++; } }
+        }
+        return count;
     }
 
     private static void Collect(ResourceGovernor governor)

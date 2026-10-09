@@ -31,8 +31,26 @@ admission and pre-cancellation reject. Preserve qualified failed debugging lanes
 hash-bucket collisions vary paired work, and JIT-held aliases require a separate
 construction/validation scope. Original quotas/GC/maintenance controls stay fixed.
 
-Full/reference/native/package/fresh consumer checks must bind the final committed
-source before retiring B1–B3. B4/B5/T4/T5/T6 and the parent remain open; broader
+Pinned reference passes 1846 exact comparisons/432 rewrite trios; all 868
+complete native records and the same 64 physical-layout differences stay exact.
+Package inspection, 50 fresh consumer smokes/two negatives, DLL/PDB/changelog and
+908 signatures pass. Production sources/binaries remain frozen at `d850072`.
+
+Preserve three classified partial full runs without claiming complete counts.
+One legacy wrapper test separates prepaid selection allocation credits from its
+original three wrapper credits; all 447 cases pass with zero-credit retirement.
+A deeper isolated launch exceeded the existing eight-parent repository search;
+the unchanged 53 root/probe cases pass from a shallower folder. A formatting
+allocation sample grew 4544 bytes against its 4096-byte ceiling on both runtimes
+when one 8192-byte BCL pooled buffer was borrowed. The 8216-byte pool allocation
+explains the difference. Its test now warms two slots under serialized no-GC
+measurement, keeping the 128-byte diagnostic quota and 4096-byte ceiling; all
+three focused cases and 32 borrowed-buffer repetitions pass. No runtime source,
+quota, search bound, fixture, four-GC/four-maintenance control or assertion changes.
+
+A mapped isolated build reproduces the original test DLL exactly. The official
+build must reproduce the two corrected sources' mapped DLL before the final
+full run and committed B1–B3 closure. B4/B5/T4/T5/T6 and the parent remain open; broader
 admission and complete diagnostic/checker ownership are not inferred from these
 selection owners. Both verdicts, M11/A01–A07 and MEASURE-01 remain open.
 [AUDIT-CLOSURE](AUDIT-CLOSURE.md) records named routes/checks/pass conditions.

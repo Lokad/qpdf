@@ -190,8 +190,12 @@ arrays/views, each mapping record and generated split names before publication.
 Independent weak receipts prepay retirement; caller-created copies keep their
 ownership distinction. The 188 new public rows expose 52 predecessor failures
 and preserve 136, including all ten original retirement defects; five separate
-admission controls retain original physical minima and bounds. Final committed
-full/reference/native/package/consumer proof remains required for B1–B3. Checker/
+admission controls retain original physical minima and bounds. Pinned reference 1846/432, unchanged 868 complete native records/same 64
+and exact package/API/fresh consumers pass at `d850072`. Two legacy tests separate
+prepaid owner credits and stabilize the BCL pool allocation baseline; all 447
+wrapper/three formatting cases and 32 borrowed-buffer repetitions pass at the
+original limits. Preserve the three classified partial full trials. Official
+reproduction of the mapped test DLL and final full proof remain required for B1–B3. Checker/
 warning backing B4, complete B5/T5/T6 and parent gates remain open.
 Governor growth to 248, private document component slots and task/async frames,
 cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.

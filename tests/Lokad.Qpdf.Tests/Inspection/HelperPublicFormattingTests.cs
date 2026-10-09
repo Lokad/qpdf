@@ -1,7 +1,10 @@
+using System.Buffers;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class HelperPublicFormattingTests
 {
     private static long Reject(byte[] prepared, string name, string[] flags)
@@ -30,20 +33,32 @@ public sealed class HelperPublicFormattingTests
         string longName = new('P', QpdfPath.MaxLength);
         string[] flags = ["--show-linearization"];
         string[] control = ["--show-xref"];
-        _ = Reject(prepared, shortName, flags);
-        _ = Reject(prepared, longName, flags);
-        _ = Reject(prepared, shortName, control);
-        _ = Reject(prepared, longName, control);
-        long shortAllocation = Reject(prepared, shortName, flags);
-        long longAllocation = Reject(prepared, longName, flags);
-        long shortControl = Reject(prepared, shortName, control);
-        long longControl = Reject(prepared, longName, control);
-        // Both public routes copy the logical path through JSON configuration.
-        // Difference the same short/long path control to isolate report text.
-        long reportGrowth = longAllocation - shortAllocation;
-        long controlGrowth = longControl - shortControl;
-        Assert.True(reportGrowth - controlGrowth <= 4096L,
-            $"Report grew by {reportGrowth} bytes; the shared invocation control grew by {controlGrowth}.");
+        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
+        try
+        {
+            // Public invocation serialization can miss an 8 KiB BCL pool
+            // buffer. Warm two slots while collection is disabled so this
+            // paired measurement isolates report text at its original ceiling.
+            byte[] first = ArrayPool<byte>.Shared.Rent(8192);
+            byte[] second = ArrayPool<byte>.Shared.Rent(8192);
+            ArrayPool<byte>.Shared.Return(first);
+            ArrayPool<byte>.Shared.Return(second);
+            _ = Reject(prepared, shortName, flags);
+            _ = Reject(prepared, longName, flags);
+            _ = Reject(prepared, shortName, control);
+            _ = Reject(prepared, longName, control);
+            long shortAllocation = Reject(prepared, shortName, flags);
+            long longAllocation = Reject(prepared, longName, flags);
+            long shortControl = Reject(prepared, shortName, control);
+            long longControl = Reject(prepared, longName, control);
+            // Both public routes copy the logical path through JSON configuration.
+            // Difference the same short/long path control to isolate report text.
+            long reportGrowth = longAllocation - shortAllocation;
+            long controlGrowth = longControl - shortControl;
+            Assert.True(reportGrowth - controlGrowth <= 4096L,
+                $"Report grew by {reportGrowth} bytes; the shared invocation control grew by {controlGrowth}.");
+        }
+        finally { GC.EndNoGCRegion(); }
     }
 
     private static byte[] Images(int nameBytes)

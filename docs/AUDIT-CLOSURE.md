@@ -165,7 +165,13 @@ prepays retirement without increasing receipt/governor geometry. The 188 complet
 public rows expose 52 predecessor failures/preserve 136; five separate controls
 prove exact array/view memory and mapping work, short admission and cancellation.
 All ten original physical minima/fixtures/limits/GC controls remain. Combined
-committed full/reference/native/package/consumer proof is still required.
+committed full proof/reproduction remains required; pinned 1846/432, unchanged
+868 complete native records/same 64 and exact package/API/fresh consumers pass.
+Two legacy tests separate prepaid selection credits from the exact three wrapper
+credits and stabilize a reproduced BCL pool miss, preserving final zero-credit
+retirement, the 128-byte diagnostic quota and 4096-byte allocation ceiling. All
+447 wrapper/three formatting cases and 32 borrowed-buffer repetitions pass.
+Preserve three classified partial full trials; no complete counts are inferred.
 
 | Entry | Public routes | Executable check | Pass condition |
 | --- | --- | --- | --- |
