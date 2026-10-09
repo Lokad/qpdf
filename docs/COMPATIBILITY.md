@@ -49,8 +49,12 @@ memory matrices exercise failure after staging without replacing prior targets.
 JSON warning-policy flags now reach the shared execution plan. Staged-warning
 future memory admission, public accepted-warning cancellation, mixed suppression
 retirement and future host/wrapper admission remain DIAG-02P2F/P3H; generic DTO
-admission and JSON data ownership stay DIAG-01/JSON-01. Final combined checks remain
-DIAG-02PV, and the parent/wider gates stay open.
+admission and JSON data ownership stay DIAG-01/JSON-01. Full committed-source checks now pass: 12809 Release cases, pinned 1846 parser
+comparisons/432 rewrite trios, exact package/symbols and 50 fresh consumer smokes/two
+specific negatives. Original native 868/804/868, all 64 differences and complete
+managed payloads remain. Eight host-operation failures after one commit and four
+mixed-info NoWarn views retaining 50 hidden texts are explicit P3H/P2F findings.
+DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

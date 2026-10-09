@@ -2,7 +2,8 @@
 
 ## Owned presentation and prepared split outputs
 
-Runtime **`642C5096`** / tests **`69C89149`** integrate DIAG-02P2S/P3S. Formatting
+Commit **`19337f6`**, runtime **`642C5096`** / tests **`69C89149`**, integrates
+DIAG-02P2S/P3S. Formatting
 work is charged before publication. Fresh summary text, records, reference arrays
 and readonly views have independent receipts; failed candidates release them
 immediately. A prepaid failure view preserves accepted warnings without creating
@@ -39,8 +40,33 @@ All 908 public signatures and 255 preceding test sources remain. Independent
 reference-array capacities and readonly views use their measured sizes. Original
 carrier samples remain 296/352/352/368/384/56/40; the earlier unexplained +200 bytes
 remain recorded under MEASURE-01. Focused build **18.0s**,
-test process **99.2s**. Final combined Release/reference/native/
-package/consumer checks follow this integrated source once, with phase timings.
+test process **99.2s**. Final committed-source proof passes: **12809 Release cases**, all **11421**
+preceding full occurrences plus 523 count/735 byte/130 owned controls; full pinned
+**1846 comparisons / 432 rewrite trios**; exact package/PDB; **50 fresh consumer
+smokes / two specific negatives**. All 868 managed headers and complete stream
+payloads remain; native **868/804/868** and the same **64** differences are preserved.
+All **547 raw source paths** match the implementation commit, with 526 unrelated
+paths, 255 old test sources, five locks, 908 signatures and binding scope preserved.
+No audit/warning overrides. ImageSharp's five explicit temporary exclusions stay.
+
+Required phase timings: restore **2.4s**, committed build **2.1s**,
+full tests **8m06s**, native matrix **6m35s**, pack/inspection
+**2.0/3.1s**, fresh consumer/negatives **17.2/10.1s**,
+full reference **28m35s**. Its broad/parser artifact split is
+**7m10s/21m25s**; the parser is the main bottleneck.
+Independent test/native/package lanes overlap the reference process; the parser
+split uses original directory creation/result-write times, not isolated CPU time.
+Full lanes ran once on this source. Repeat for a changed correction or a failure.
+
+Follow-up complete jobs make remaining entries concrete. Eight MaxHostOperations
+ceilings (split 5/5/7/7; JSON sidecar 3/3/5/5, argv/job/mixed/response) fail after
+one commit with zero leases: DIAG-02P3H must pre-admit those future operations.
+Four count=53 JSON/schema/NoWarn jobs accept 50 warnings plus one info note,
+return only info/error, but the failure view retains all 50 hidden texts after
+four GC rounds: DIAG-02P2F must retire hidden-only storage. Preserve the qualified
+staged-memory sweeps: 144 original jobs and 36 valid fifty-page/50-warning jobs
+have no lost accepted history; the separate fifty-duplicate catalog exceeds the
+native/default per-object error cap and is not a valid complete-job baseline.
 
 DIAG-02P2F still requires staged warning export when future memory admission fails,
 public after-acceptance cancellation and mixed-info suppression retirement.
