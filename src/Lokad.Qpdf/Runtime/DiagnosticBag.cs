@@ -15,6 +15,8 @@ internal sealed class DiagnosticBag
 
     internal bool ReportPageCountMismatch { get; set; } = true;
     internal bool HasNonWarningEntries { get; private set; }
+    internal bool SuppressWarningStorage { get; set; }
+    internal bool HasAcceptedWarnings { get; private set; }
 
     internal IReadOnlyList<QpdfDiagnostic> Entries
     {
@@ -40,6 +42,8 @@ internal sealed class DiagnosticBag
     }
 
     internal int EntryCapacity => _entries?.Capacity ?? 0;
+    internal IReadOnlyList<QpdfDiagnostic> PromotedEntries
+        => _entries is null ? Array.Empty<QpdfDiagnostic>() : _entries;
 
     private RetainedValueOwners.Receipt Storage
         => _storage ?? throw new InvalidOperationException("Diagnostic storage is unavailable.");
@@ -101,6 +105,7 @@ internal sealed class DiagnosticBag
         {
             stage.Append(code, severity, message, messageHash, ascii, utf8Bytes);
             _governor.ReserveDiagnostic(utf8Bytes);
+            HasAcceptedWarnings |= severity == QpdfDiagnosticSeverity.Warning;
             return;
         }
         long messageBytes = GovernedText.StringBytes(message.Length);
@@ -172,6 +177,7 @@ internal sealed class DiagnosticBag
         {
             stage.AppendParts(code, severity, parts, info);
             _governor.ReserveDiagnostic(info.Utf8Bytes);
+            HasAcceptedWarnings |= severity == QpdfDiagnosticSeverity.Warning;
             return;
         }
         string? shared = info.Length == 0 ? string.Empty : _governor.FindDiagnosticMessage(parts, info);
@@ -239,14 +245,24 @@ internal sealed class DiagnosticBag
 
     private void Accept(QpdfDiagnostic diagnostic, long payloadBytes, long utf8Bytes, bool cacheMessage, int messageHash, bool countDiagnostic)
     {
+        List<QpdfDiagnostic>? discardedWarnings = SuppressWarningStorage && !HasNonWarningEntries
+            && diagnostic.Severity != QpdfDiagnosticSeverity.Warning ? _entries : null;
+        if (discardedWarnings is not null && discardedWarnings.Count != 0)
+        { _governor.ChargeWork(discardedWarnings.Count); _governor.CheckCancellation(); }
         long retained = cacheMessage
             ? _governor.RetainCachedDiagnostic(diagnostic, payloadBytes, messageHash)
             : _governor.RetainDiagnostic(diagnostic, payloadBytes);
+        // Before the first visible record, suppression can borrow the empty
+        // failure history. Once a visible record arrives, sever the private
+        // warning references while keeping independent record/text receipts.
+        discardedWarnings?.Clear();
         // Count/byte preflight already passed and no intervening diagnostic can
         // enter this single-owner bag. The remaining handoff cannot allocate.
         if (countDiagnostic) { _governor.ReserveDiagnostic(utf8Bytes); }
-        _entries?.Add(diagnostic);
+        if (!SuppressWarningStorage || !HasNonWarningEntries || diagnostic.Severity != QpdfDiagnosticSeverity.Warning)
+        { _entries?.Add(diagnostic); }
         HasNonWarningEntries |= diagnostic.Severity != QpdfDiagnosticSeverity.Warning;
+        HasAcceptedWarnings |= diagnostic.Severity == QpdfDiagnosticSeverity.Warning;
         _governor.ReleaseMemory(payloadBytes - retained);
     }
 

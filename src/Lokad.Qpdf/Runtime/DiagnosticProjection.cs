@@ -21,6 +21,13 @@ internal sealed class DiagnosticProjection : IDisposable
 
     internal static DiagnosticProjection Create(ResourceGovernor governor, IReadOnlyList<QpdfDiagnostic> source,
         bool noWarn, bool verbose, bool memoryUsage, bool progress, long output, long decoded, long peak)
+        => CreateCore(governor, source, noWarn, false, verbose, memoryUsage, progress, output, decoded, peak);
+
+    internal static DiagnosticProjection CreateWarningHistory(ResourceGovernor governor, IReadOnlyList<QpdfDiagnostic> source)
+        => CreateCore(governor, source, false, true, false, false, false, 0L, 0L, 0L);
+
+    private static DiagnosticProjection CreateCore(ResourceGovernor governor, IReadOnlyList<QpdfDiagnostic> source,
+        bool noWarn, bool warningsOnly, bool verbose, bool memoryUsage, bool progress, long output, long decoded, long peak)
     {
         int summaries = (verbose ? 1 : 0) + (memoryUsage ? 1 : 0) + (progress && output > 0L ? 4 : 0);
         int count = 0;
@@ -30,7 +37,8 @@ internal sealed class DiagnosticProjection : IDisposable
             governor.ChargeWork(1L); governor.CheckCancellation();
             warning |= diagnostic.Severity == QpdfDiagnosticSeverity.Warning;
             error |= diagnostic.Severity == QpdfDiagnosticSeverity.Error;
-            if (!noWarn || diagnostic.Severity != QpdfDiagnosticSeverity.Warning) { count++; }
+            if ((!noWarn || diagnostic.Severity != QpdfDiagnosticSeverity.Warning)
+                && (!warningsOnly || diagnostic.Severity == QpdfDiagnosticSeverity.Warning)) { count++; }
         }
         count = checked(count + summaries);
         if (count > Array.MaxLength) { throw new QpdfParseException("Diagnostic projection exceeds supported capacity.", null, null); }
@@ -49,7 +57,8 @@ internal sealed class DiagnosticProjection : IDisposable
             foreach (QpdfDiagnostic diagnostic in source)
             {
                 governor.ChargeWork(1L); governor.CheckCancellation();
-                if (!noWarn || diagnostic.Severity != QpdfDiagnosticSeverity.Warning) { entries[index++] = diagnostic; }
+                if ((!noWarn || diagnostic.Severity != QpdfDiagnosticSeverity.Warning)
+                    && (!warningsOnly || diagnostic.Severity == QpdfDiagnosticSeverity.Warning)) { entries[index++] = diagnostic; }
             }
             if (verbose)
             {

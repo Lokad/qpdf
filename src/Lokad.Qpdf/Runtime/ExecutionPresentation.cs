@@ -96,6 +96,7 @@ internal sealed class ExecutionPresentation : IDisposable
                 | (noWarn ? 8 : 0) | (warningExitZero ? 16 : 0));
             ExecutionPresentation presentation = new(governor, bag, memory, failure, receipt, flags);
             governor.AttachExecutionPresentation(presentation);
+            bag.SuppressWarningStorage = noWarn;
             return presentation;
         }
         catch
@@ -107,6 +108,14 @@ internal sealed class ExecutionPresentation : IDisposable
 
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(ExecutionPresentation));
     private DiagnosticBag Bag => _bag ?? throw new ObjectDisposedException(nameof(ExecutionPresentation));
+
+    internal void PreparePlainFailureHistory()
+    {
+        if ((_flags & 15) != 0 || !Bag.HasNonWarningEntries || !Bag.HasAcceptedWarnings) { return; }
+        IReadOnlyList<QpdfDiagnostic> source = Bag.PromotedEntries;
+        DiagnosticProjection history = DiagnosticProjection.CreateWarningHistory(Governor, source);
+        _prepared?.Dispose(); _prepared = history;
+    }
 
     internal void Prepare()
     {
@@ -143,7 +152,7 @@ internal sealed class ExecutionPresentation : IDisposable
         Prepare();
         DiagnosticProjection prepared = _prepared ?? throw new InvalidOperationException("Missing prepared diagnostics.");
         QpdfExitCode exit = prepared.HasError ? QpdfExitCode.Error
-            : prepared.HasWarning && (_flags & 16) == 0 ? QpdfExitCode.Warning : QpdfExitCode.Success;
+            : (prepared.HasWarning || Bag.HasAcceptedWarnings) && (_flags & 16) == 0 ? QpdfExitCode.Warning : QpdfExitCode.Success;
         Governor.PresentDiagnosticCount();
         IReadOnlyList<QpdfDiagnostic> diagnostics = prepared.Transfer(); _prepared = null;
         return new(diagnostics, exit);
@@ -152,7 +161,10 @@ internal sealed class ExecutionPresentation : IDisposable
     internal QpdfExecutionResult Failure(QpdfExecutionResult result)
     {
         FailureProjection failure = _failure ?? throw new InvalidOperationException("Missing failure diagnostics.");
-        bool hasAccepted = failure.Freeze(Bag.Entries, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
+        IReadOnlyList<QpdfDiagnostic> accepted = Bag.Entries;
+        if ((_flags & 15) == 0 && _prepared is DiagnosticProjection history)
+        { accepted = history.Transfer(); _prepared = null; }
+        bool hasAccepted = failure.Freeze(accepted, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
         if ((_flags & 15) == 0 && !hasAccepted) { return result; }
         _failure = null; _failureReceipt = null;
         return new QpdfExecutionResult(result.Status, result.ExitCode, failure, result.Counters, true);

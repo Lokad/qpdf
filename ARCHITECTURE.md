@@ -108,12 +108,15 @@ observed counters. After history admission, plain publication failures preserve
 accepted warnings and their existing informational-note omission. Plain success keeps its original
 projection; empty failure views retire. Plain JSON attaches history after reader
 closure/staged export, avoiding overlap with exclusive-reader storage. External
-host publication and post-commit close behavior remains unchanged. Future staged-warning memory export and hidden
-mixed-record retirement remain DIAG-02P2F; generic result/fatal storage and JSON
-payload admission remain DIAG-01/JSON-01. Committed-source Release, pinned
-reference/native and exact package/fresh-consumer verification retire DIAG-02P3H;
-wider ownership audits stay open. Failure before staged export/history admission
-remains DIAG-02P2F.
+host publication and post-commit close behavior remains unchanged.
+Staged failure export releases encoded scratch after promotion and attaches plain
+history within its admitted work and cancellation boundary. Warning-only plain
+history owns its projection, so hidden informational records can retire. NoWarn
+preserves ordinary admissions and clears private warning references on the first
+visible record; independently escaping records/text keep their receipts. Accepted
+warning state preserves warning exits. Generic result/fatal storage and JSON
+payload admission remain DIAG-01/JSON-01. DIAG-02P2F requires final combined
+source/reference/package proof; P3H remains retired and wider ownership stays open.
 
 The host owns stable input identities and ranged reads, output staging and
 publication, scratch storage, descriptors and any supplied environment values.

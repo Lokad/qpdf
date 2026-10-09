@@ -173,7 +173,11 @@ internal sealed class DiagnosticStage : IDisposable
                 // One record per entry, at most one string per nonempty entry,
                 // plus the list. Each register can scan every indexed carrier,
                 // charge its insertion, and charge two activation units.
-                long carriers = entries + nonempty + 1L;
+                // Plain execution also needs its deferred failure carrier and
+                // independently owned warning-only history after the reader
+                // closes. Admit their registrations while accepting the stage.
+                bool plainHistory = _governor.DeferredPlainHistory;
+                long carriers = entries + nonempty + 1L + (plainHistory ? 3L : 0L);
                 long index = carriers * (state.Carriers + carriers + 1L) + 2L * carriers + entries;
                 long slots = state.Slots + carriers;
                 long buckets = state.Buckets;
@@ -206,8 +210,10 @@ internal sealed class DiagnosticStage : IDisposable
                 long scan = state.Carriers > 0L || state.Messages > 0L || state.Maintenance ? Math.Min(64L, messages) : 0L;
                 // A failed pending-stack CAS requires a new finalizer publication;
                 // across the export there are at most the existing carrier count.
-                long maintenance = (3L * entries + growths + 2L) * (retirement + scan) + state.Carriers;
-                return text + memo + index + list + maintenance;
+                long maintenance = (3L * entries + growths + 2L + (plainHistory ? 8L : 0L)) * (retirement + scan) + state.Carriers;
+                long suppression = _bag.SuppressWarningStorage && !_bag.HasNonWarningEntries
+                    ? entries + _bag.PromotedEntries.Count : 0L;
+                return text + memo + index + list + maintenance + suppression + (plainHistory ? 8L + 4L * entries : 0L);
             }
         }
         catch (OverflowException)
@@ -299,6 +305,15 @@ internal sealed class DiagnosticStage : IDisposable
                 _characters -= entry.Length;
                 if (entry.Length != 0) { _nonempty--; }
             }
+            // Retire the private encoded text before admitting failure history.
+            // Held work and the failure cancellation boundary remain active.
+            ReleaseStorage();
+            if (_governor.DeferredPlainHistory && _bag.PromotedEntries.Count != 0)
+            {
+                ExecutionPresentation? presentation = ExecutionPresentation.Create(_governor, _bag,
+                    false, false, false, false, false, CancellationToken.None);
+                presentation?.PreparePlainFailureHistory();
+            }
         }
         finally { _governor.EndDiagnosticPresentation(this); }
         Dispose();
@@ -306,13 +321,15 @@ internal sealed class DiagnosticStage : IDisposable
 
     public void Dispose()
     {
-        ParserMemoryScope? memory = _memory;
-        _memory = null;
-        _entries = null;
-        _head = null;
-        _tail = null;
+        ReleaseStorage();
         _governor.DetachDiagnosticStage(this);
         _bag.EndStaging(this);
+    }
+
+    private void ReleaseStorage()
+    {
+        ParserMemoryScope? memory = _memory;
+        _memory = null; _entries = null; _head = null; _tail = null;
         memory?.Dispose();
     }
 }

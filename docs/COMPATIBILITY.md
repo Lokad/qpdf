@@ -69,7 +69,15 @@ the same 64 differences retain their physical classification. Two legacy asserti
 that expected warnings to disappear now require accepted history alongside the
 same error/no-output conditions and original budgets. The other 254 preceding
 test sources stay byte-identical. The test-only commit reproduces the verified runtime/probe/PDB exactly.
-Plain failures before staged export/history admission still require P2F proof.
+DIAG-02P2F now exports accepted warnings through input-close faults, cancellation
+and real fixed memory failures in main/inline/sidecar JSON across all configuration
+routes. NoWarn retires hidden warnings without changing admitted quotas; plain
+warning-only history retires hidden informational records and funds independent
+aliases. Identical final 452 public rows expose 88 predecessor defects and preserve
+364 outcomes, without loader failures/skips. The unchanged 288-job memory scan
+retains 74 failures after acceptance and corrects all 37 lost histories. The
+combined committed-source Release/reference/package proof remains required;
+these focused controls do not close P2F or the wider parent gates yet.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
