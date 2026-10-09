@@ -55,7 +55,7 @@ specific negatives. Original native 868/804/868, all 64 differences and complete
 managed payloads remain. DIAG-02P3H now integrates complete future host-call, handle and measured wrapper
 admission, including typed/plain split/JSON routes. Eight original host ceilings
 reject before output creation; exact budgets count real writes. Its 636 public
-controls/13 lease controls include fixed memory failures, fault/cancellation,
+controls/15 lease controls include fixed memory failures, fault/cancellation,
 post-commit-close semantics and surviving targets. Same public tests on `642C5096`:
 508 fail/128 preserve. Four mixed-info NoWarn views retaining 50 hidden texts remain
 P2F; plain warning-history projections need the same hidden-record retirement.

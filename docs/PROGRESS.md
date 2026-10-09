@@ -13,14 +13,18 @@ remain charged through host close and retire once on success/fault/cancellation.
 Unexecuted reserved calls do not increase observed counters. External publication
 failures and post-commit close failures retain the host's existing contract.
 
-Plain jobs also retain accepted warnings on failure through the shared presentation
-owner. Their prior informational-note omission remains: three unchanged schema/
+Plain jobs also retain accepted warnings on publication failure through the shared
+presentation owner. Plain JSON attaches that owner after its exclusive reader closes
+and staged warnings export, keeping the original 247489-byte parser control. Plain
+success uses its original projection; an empty failure view retires instead of
+escaping. All 12 original observed-read cancellation controls keep zero live bytes. Their prior informational-note omission remains: three unchanged schema/
+
 inspection assertions exposed and verified that policy during correction. Mixed
 hidden-record retirement remains P2F, including plain warning-history projections.
 Preparing all split bytes now also applies without summary flags and costs memory
 under existing limits; it introduces no contiguous-array/default product ceiling.
 
-The correction adds 636 complete public controls and 13 lease/admission controls.
+The correction adds 636 complete public controls and 15 lease/admission controls.
 They cover exact/short budgets, raw/Flate inputs, writer styles/pass1, one-handle
 sidecars, typed throwing contracts, read/write/open/commit/close faults, cancellation
 and surviving prior targets/aliases. Fifty-two additional fixed-ceiling plain jobs
@@ -28,13 +32,25 @@ exercise genuine failure after split serialization. Same final public tests on
 `642C5096`: 508 fail / 128 preserve, no loaders/skips/exclusions. Keep the original
 eight partial publications and the separate test-driver/build-lock corrections.
 Independent 1024-allocation samples confirm 32/40/48-byte lease/batch owners;
-all seven original carrier samples and 908 signatures remain. All 256 old test
+the governor stays 168 bytes and all 908 signatures remain. The unchanged original
+carrier helper records 393416 CheckPlan bytes on both predecessor and correction,
+including its still-unattributed +200 bytes; six other raw samples match. MEASURE-01
+retains the older 393216 passing samples and this repeated observation. All 256 old test
 sources, five locks, advisory policy and unrelated work remain unchanged.
 
-All **2662 focused cases** pass, preserving every preceding **2007** occurrence
-and adding 649 new controls plus six related cases. Test process **110.4s**.
+The 2664-case focused correction preserves every preceding 2007 occurrence.
+An added work-boundary control initially exhausted its budget during owner creation;
+it now fills the observed remaining capacity after creation. The other 2663 pass;
+final lease/old parser/cancellation controls verify the correction separately.
+The earlier broadened 2675-case run retains one 240/238-byte successful-summary
+variation, alongside the previous GC-interference finding. New lease-lifetime
+controls use the existing exclusive collection; old assertions/limits are unchanged.
+Full verification exposed empty-view/parser-budget regressions; stale test/native/
+reference runs stopped at 174.3/168.2/about 175 seconds and remain recorded.
+Restart expensive verification for the corrected tree; this is a justified repeat.
 Final committed-source Release/reference/native/package/consumer checks remain.
-P2F still requires staged-memory export, mixed suppression retirement and its full
+P2F still requires staged-memory/pre-export plain JSON history, mixed suppression
+retirement and its full
 cancellation/lifetime evidence. DIAG-01, JSON-01, MEASURE-01, parent P2/P3/PV,
 M11/A01–A07 and both verdicts remain open. The five named ImageSharp 3.1.12
 exclusions remain the intentional temporary policy; audit stays enabled.

@@ -21,7 +21,7 @@ internal sealed class ExecutionPresentation : IDisposable
         private IReadOnlyList<QpdfDiagnostic> _terminal = Array.Empty<QpdfDiagnostic>();
         private bool _noWarn, _frozen, _warningHistoryOnly;
 
-        internal void Freeze(IReadOnlyList<QpdfDiagnostic> accepted, IReadOnlyList<QpdfDiagnostic> terminal, bool noWarn, bool hasNonWarning, bool warningHistoryOnly)
+        internal bool Freeze(IReadOnlyList<QpdfDiagnostic> accepted, IReadOnlyList<QpdfDiagnostic> terminal, bool noWarn, bool hasNonWarning, bool warningHistoryOnly)
         {
             if (_frozen) { throw new InvalidOperationException("Failure diagnostics were already frozen."); }
             _accepted = noWarn && !hasNonWarning ? Array.Empty<QpdfDiagnostic>() : accepted;
@@ -32,6 +32,7 @@ internal sealed class ExecutionPresentation : IDisposable
                 if (!hasWarning) { _accepted = Array.Empty<QpdfDiagnostic>(); }
             }
             _terminal = terminal; _noWarn = noWarn; _warningHistoryOnly = warningHistoryOnly; _frozen = true;
+            return _accepted.Count > 0;
         }
 
         private bool Visible(QpdfDiagnostic item) => !_noWarn || item.Severity != QpdfDiagnosticSeverity.Warning;
@@ -109,6 +110,9 @@ internal sealed class ExecutionPresentation : IDisposable
 
     internal void Prepare()
     {
+        // Plain jobs keep their existing success projection. Only the prepaid
+        // warning-history view is needed if their execution later fails.
+        if ((_flags & 15) == 0) { return; }
         ResourceGovernor governor = Governor;
         governor.CheckCancellation();
         IReadOnlyList<QpdfDiagnostic> source = Bag.Entries;
@@ -133,8 +137,9 @@ internal sealed class ExecutionPresentation : IDisposable
         }
     }
 
-    internal PresentedDiagnostics Complete()
+    internal PresentedDiagnostics? Complete()
     {
+        if ((_flags & 15) == 0) { return null; }
         Prepare();
         DiagnosticProjection prepared = _prepared ?? throw new InvalidOperationException("Missing prepared diagnostics.");
         QpdfExitCode exit = prepared.HasError ? QpdfExitCode.Error
@@ -147,7 +152,8 @@ internal sealed class ExecutionPresentation : IDisposable
     internal QpdfExecutionResult Failure(QpdfExecutionResult result)
     {
         FailureProjection failure = _failure ?? throw new InvalidOperationException("Missing failure diagnostics.");
-        failure.Freeze(Bag.Entries, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
+        bool hasAccepted = failure.Freeze(Bag.Entries, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
+        if ((_flags & 15) == 0 && !hasAccepted) { return result; }
         _failure = null; _failureReceipt = null;
         return new QpdfExecutionResult(result.Status, result.ExitCode, failure, result.Counters, true);
     }

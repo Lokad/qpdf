@@ -4306,6 +4306,10 @@ public static partial class Qpdf
             // so a host close fault preserves the existing main and sidecar targets.
             await document.DisposeAsync().ConfigureAwait(false);
             diagnosticStage?.Flush();
+            if (governor.DeferredPlainHistory)
+            {
+                _ = ExecutionPresentation.Create(governor, diagnostics, false, false, false, false, false, cancellationToken);
+            }
             long anticipatedBytes = outputPath.HasValue ? data.Length : 0L;
             long publicationUnits = outputPath.HasValue ? 1L + (data.Length + 32767L) / 32768L : 0L;
             foreach (Json.JsonSidecar sidecar in sidecars)
@@ -4871,22 +4875,28 @@ public static partial class Qpdf
             limits = ResolveParserLimits(plan, limits, hostExplicit);
             reservation = PresentationCountReservation.Create(governor, plan.Verbose,
                 plan.ReportMemoryUsage, plan.Progress, cancellationToken);
-            presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
-                plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
+            if (plan is JsonPlan && !plan.Verbose && !plan.ReportMemoryUsage && !plan.Progress && !plan.NoWarn)
+            { governor.DeferredPlainHistory = true; }
+            else
+            {
+                presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
+                    plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
+            }
             QpdfExecutionResult result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-            return result.Status == QpdfExecutionStatus.Completed || presentation is null ? result : presentation.Failure(result);
+            ExecutionPresentation? active = presentation ?? governor.ExecutionPresentation;
+            return result.Status == QpdfExecutionStatus.Completed || active is null ? result : active.Failure(result);
         }
         catch (QpdfException ex)
         {
             QpdfExecutionResult result = ToFailedResult(ex);
-            return presentation?.Failure(result) ?? result;
+            return (presentation ?? governor.ExecutionPresentation)?.Failure(result) ?? result;
         }
         catch (OperationCanceledException)
         {
             QpdfExecutionResult result = QpdfExecutionResult.Canceled([], ZeroCounters());
-            return presentation?.Failure(result) ?? result;
+            return (presentation ?? governor.ExecutionPresentation)?.Failure(result) ?? result;
         }
-        finally { presentation?.Dispose(); reservation?.Dispose(); }
+        finally { (presentation ?? governor.ExecutionPresentation)?.Dispose(); reservation?.Dispose(); }
     }
 
     private static async ValueTask<QpdfExecutionResult> RunPlanCoreAsync(IQpdfHost host, JobPlan plan,

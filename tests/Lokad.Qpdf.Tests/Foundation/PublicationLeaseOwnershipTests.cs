@@ -3,8 +3,37 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class PublicationLeaseOwnershipTests
 {
+    [Fact]
+    public void PlainCancellationDoesNotExportOrRetainAnEmptyFailureView()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        DiagnosticBag bag = new(governor);
+        ExecutionPresentation? presentation = ExecutionPresentation.Create(governor, bag, false, false, false, false, false, CancellationToken.None);
+        Assert.NotNull(presentation);
+        QpdfExecutionResult canceled = QpdfExecutionResult.Canceled([], governor.Snapshot());
+        Assert.Same(canceled, presentation.Failure(canceled));
+        presentation.Dispose();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        GC.KeepAlive(canceled);
+    }
+
+    [Fact]
+    public void PlainCommitPreparationDoesNotSpendUnrequestedFormattingWork()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = 32768L }, CancellationToken.None);
+        DiagnosticBag bag = new(governor);
+        using ExecutionPresentation? presentation = ExecutionPresentation.Create(governor, bag, false, false, false, false, false, CancellationToken.None);
+        Assert.NotNull(presentation);
+        governor.ChargeWork(32768L - governor.Snapshot().TotalWork);
+        long peak = governor.Snapshot().PeakMemoryBytes;
+        governor.PrepareExecutionPresentation();
+        Assert.Null(governor.CompleteExecutionPresentation());
+        Assert.Equal(32768L, governor.Snapshot().TotalWork); Assert.Equal(peak, governor.Snapshot().PeakMemoryBytes);
+    }
+
     [Theory]
     [InlineData(false, 31L)]
     [InlineData(true, 39L)]

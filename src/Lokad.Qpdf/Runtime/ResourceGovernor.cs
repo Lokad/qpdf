@@ -29,6 +29,8 @@ internal sealed class ResourceGovernor
     private long _reservedWork;
     private bool _presentingDiagnostics;
     private bool _finishingDiagnosticFailure;
+    internal bool DeferredPlainHistory { get; set; }
+    internal ExecutionPresentation? ExecutionPresentation => _executionPresentation;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)
     {
@@ -446,6 +448,7 @@ internal sealed class ResourceGovernor
     {
         if (_executionPresentation is not null) { throw new InvalidOperationException("A job already has an execution presentation."); }
         _executionPresentation = presentation;
+        DeferredPlainHistory = false;
     }
 
     internal void DetachExecutionPresentation(ExecutionPresentation presentation)

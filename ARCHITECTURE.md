@@ -104,8 +104,10 @@ handle and reusable output-wrapper storage before first commit. Shared input/out
 wrappers admit measured 32/40-byte storage before allocation and count each open,
 read and write attempt. Disposal drops references and keeps admission through host
 close, then retires once even on failure. Unexecuted reservations do not change
-observed counters. Plain failure results preserve accepted warnings while retaining
-their existing informational-note omission. External host publication and post-commit
+observed counters. Plain publication failures preserve accepted warnings while retaining
+their existing informational-note omission. Plain success keeps its original
+projection; empty failure views retire. Plain JSON attaches history after reader
+closure/staged export, avoiding overlap with exclusive-reader storage. External host publication and post-commit
 close behavior remains unchanged. Future staged-warning memory export and hidden
 mixed-record retirement remain DIAG-02P2F; generic result/fatal storage and JSON
 payload admission remain DIAG-01/JSON-01. The combined correction requires final
