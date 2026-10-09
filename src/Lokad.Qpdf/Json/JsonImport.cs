@@ -130,7 +130,7 @@ internal static class JsonImport
             throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
         }
 
-        PdfVersion header = ReadHeaderVersion(qpdf[0], true);
+        PdfVersion header = ReadHeaderVersion(qpdf[0], true, governor);
         Dictionary<int, QpdfObject> objects = new();
         PdfDictionary? trailer = null;
         bool sawTrailer = false;
@@ -222,7 +222,7 @@ internal static class JsonImport
             throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
         }
 
-        PdfVersion? updateVersion = ReadUpdateMeta(qpdf[0]);
+        PdfVersion? updateVersion = ReadUpdateMeta(qpdf[0], governor);
         DocumentEngine engine = pdf.Engine;
         Dictionary<int, QpdfObject> merged = new();
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
@@ -262,7 +262,7 @@ internal static class JsonImport
         return new ImportedModel(updateVersion ?? pdf.HeaderVersion, merged, trailer);
     }
 
-    private static PdfVersion? ReadUpdateMeta(JsonElement meta)
+    private static PdfVersion? ReadUpdateMeta(JsonElement meta, ResourceGovernor governor)
     {
         PdfVersion? version = null;
         bool sawJsonVersion = false;
@@ -286,7 +286,7 @@ internal static class JsonImport
                     throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
                 }
 
-                version = ParsePdfVersion(text);
+                version = ParsePdfVersion(text, governor);
                 continue;
             }
 
@@ -324,7 +324,7 @@ internal static class JsonImport
         return version;
     }
 
-    internal static PdfVersion ReadHeaderVersion(JsonElement meta, bool required)
+    internal static PdfVersion ReadHeaderVersion(JsonElement meta, bool required, ResourceGovernor governor)
     {
         if (meta.ValueKind != JsonValueKind.Object)
         {
@@ -333,7 +333,7 @@ internal static class JsonImport
 
         bool sawJsonVersion = false;
         bool sawPdfVersion = false;
-        PdfVersion header = new(1, 4);
+        PdfVersion? header = null;
         foreach (JsonProperty property in meta.EnumerateObject())
         {
             if (property.Name == "jsonversion")
@@ -355,7 +355,7 @@ internal static class JsonImport
                     throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
                 }
 
-                header = ParsePdfVersion(text);
+                header = ParsePdfVersion(text, governor);
                 continue;
             }
 
@@ -380,10 +380,10 @@ internal static class JsonImport
             throw new QpdfParseException("qpdf JSON pdfversion was not seen.", 0L, null);
         }
 
-        return header;
+        return header ?? governor.OwnVersion(1, 4);
     }
 
-    internal static PdfVersion ParsePdfVersion(string text)
+    internal static PdfVersion ParsePdfVersion(string text, ResourceGovernor governor)
     {
         if (text is null)
         {
@@ -406,7 +406,7 @@ internal static class JsonImport
             throw new QpdfParseException("Unsupported PDF version " + major.ToString(CultureInfo.InvariantCulture) + "." + minor.ToString(CultureInfo.InvariantCulture) + ".", 0L, null);
         }
 
-        return new PdfVersion(major, minor);
+        return governor.OwnVersion(major, minor);
     }
 
     private static bool TryParseVersionPart(string text, out int value)

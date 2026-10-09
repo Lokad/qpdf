@@ -22,6 +22,10 @@ public sealed class QpdfDocument : IAsyncDisposable
     private readonly int _pageCount;
     private IReadOnlyList<PageLocation>? _inspectionPages;
     private bool _disposed;
+    private readonly PdfVersion? _version;
+    private readonly PdfVersion? _headerVersion;
+    internal readonly record struct VersionParts(int Major, int Minor);
+    internal VersionParts HeaderVersionParts { get; }
 
     private QpdfDocument(
         IQpdfInput input,
@@ -32,8 +36,9 @@ public sealed class QpdfDocument : IAsyncDisposable
         ParserMemoryScope pageStorage,
         QpdfPath path,
         QpdfLimits limits,
-        PdfVersion version,
-        PdfVersion headerVersion)
+        PdfVersion? version,
+        PdfVersion? headerVersion,
+        VersionParts headerVersionParts)
     {
         _input = input;
         _engine = engine;
@@ -44,8 +49,9 @@ public sealed class QpdfDocument : IAsyncDisposable
         _pageCount = pages.Count;
         Path = path;
         Limits = limits;
-        Version = version;
-        HeaderVersion = headerVersion;
+        _version = version;
+        _headerVersion = headerVersion;
+        HeaderVersionParts = headerVersionParts;
     }
 
     /// <summary>Gets the logical input path.</summary>
@@ -55,10 +61,10 @@ public sealed class QpdfDocument : IAsyncDisposable
     public QpdfLimits Limits { get; }
 
     /// <summary>Gets the effective version: catalog /Version overrides the header.</summary>
-    public PdfVersion Version { get; }
+    public PdfVersion Version => _version ?? throw new InvalidOperationException("Exclusive JSON reader has no public version carrier.");
 
     /// <summary>Gets the version from the file header.</summary>
-    public PdfVersion HeaderVersion { get; }
+    public PdfVersion HeaderVersion => _headerVersion ?? throw new InvalidOperationException("Exclusive JSON reader has no public version carrier.");
 
     /// <summary>Gets the page count from page-tree traversal.</summary>
     public int PageCount => _inspectionPages?.Count ?? _pageCount;
@@ -274,7 +280,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             data = bytes;
-            PdfVersion headerVersion = ParseHeader(data);
+            VersionParts headerParts = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
             engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape);
@@ -282,10 +288,15 @@ public sealed class QpdfDocument : IAsyncDisposable
             reservedInput = 0L;
             cancellationToken.ThrowIfCancellationRequested();
             RejectEncrypted(path, engine);
-            PdfVersion version = ResolveEffectiveVersion(headerVersion, engine);
+            VersionParts? effectiveParts = ResolveEffectiveVersion(engine);
             pageStorage = ParserMemoryScope.Create(governor);
             pages = ListPages(engine, diagnostics, governor, limits, pageStorage, cancellationToken);
-            QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion);
+            // Exclusive JSON emits components as text and never exports this
+            // document or a version alias. Public/shared readers own carriers.
+            PdfVersion? headerVersion = valuesEscape ? governor.OwnVersion(headerParts.Major, headerParts.Minor) : null;
+            PdfVersion? version = valuesEscape && effectiveParts.HasValue
+                ? governor.OwnVersion(effectiveParts.Value.Major, effectiveParts.Value.Minor) : headerVersion;
+            QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion, headerParts);
             pageStorage = null;
             return document;
         }
@@ -354,7 +365,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             }
         }
     }
-    private static PdfVersion ParseHeader(ReadOnlyMemory<byte> data)
+    private static VersionParts ParseHeader(ReadOnlyMemory<byte> data)
     {
         ReadOnlySpan<byte> prefix = [(byte)'%', (byte)'P', (byte)'D', (byte)'F', (byte)'-'];
         if (data.Length < 8 || !data.Span.Slice(0, 5).SequenceEqual(prefix))
@@ -375,7 +386,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             throw new QpdfParseException($"Unsupported PDF version {major}.{minor}.", 0L, null);
         }
 
-        return new PdfVersion(major, minor);
+        return new(major, minor);
     }
 
     private static bool IsDigit(byte b)
@@ -383,12 +394,12 @@ public sealed class QpdfDocument : IAsyncDisposable
         return b >= (byte)'0' && b <= (byte)'9';
     }
 
-    private static PdfVersion ResolveEffectiveVersion(PdfVersion header, DocumentEngine engine)
+    private static VersionParts? ResolveEffectiveVersion(DocumentEngine engine)
     {
         PdfName rootKey = new([(byte)'R', (byte)'o', (byte)'o', (byte)'t']);
         if (!engine.Trailer.TryGet(rootKey, out QpdfObject rootRaw))
         {
-            return header;
+            return null;
         }
 
         PdfDictionary root;
@@ -400,25 +411,25 @@ public sealed class QpdfDocument : IAsyncDisposable
         {
             if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfDictionary resolvedRoot)
             {
-                return header;
+                return null;
             }
 
             root = resolvedRoot;
         }
         else
         {
-            return header;
+            return null;
         }
 
         if (ReadType(root).Length != 0 && ReadType(root) != "Catalog")
         {
-            return header;
+            return null;
         }
 
         PdfName versionKey = new([(byte)'V', (byte)'e', (byte)'r', (byte)'s', (byte)'i', (byte)'o', (byte)'n']);
         if (!root.TryGet(versionKey, out QpdfObject raw) || raw is PdfNull)
         {
-            return header;
+            return null;
         }
 
         if (raw is PdfReference versionReference)
@@ -431,7 +442,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             raw = versionResolved;
             if (raw is PdfNull)
             {
-                return header;
+                return null;
             }
         }
 
@@ -443,7 +454,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         return ParseVersionName(versionName.DisplayText);
     }
 
-    private static PdfVersion ParseVersionName(string text)
+    private static VersionParts ParseVersionName(string text)
     {
         if (text is null || text.Length != 3 || text[1] != (char)46)
         {
@@ -462,7 +473,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             throw new QpdfParseException($"Unsupported PDF version {major}.{minor}.", null, null);
         }
 
-        return new PdfVersion(major, minor);
+        return new(major, minor);
     }
 
     private static void RejectEncrypted(QpdfPath path, DocumentEngine engine)

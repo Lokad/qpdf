@@ -41,6 +41,10 @@ internal sealed class ResourceGovernor
     private bool _buildingExecutionResult;
     private QpdfExecutionCounters? _preparedTypedCounters;
     private ExecutionResultMemory? _preparedTypedResultStorage;
+    private WeakReference<ResourceGovernor>? _versionLink;
+    private long _retiredVersionBytes;
+    private int _pendingVersionRetirements;
+    private int _versionCarriers;
     internal bool OwnsDocumentCounters { get; set; }
     internal bool DeferredPlainHistory { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation;
@@ -61,8 +65,8 @@ internal sealed class ResourceGovernor
 
     internal long MaxNestingDepth => _limits.MaxNestingDepth;
 
-    private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L)
-        - Interlocked.Read(ref _retiredExecutionResultBytes));
+    private long RetiredCarrierBytes => Interlocked.Read(ref _retiredExecutionResultBytes) + Interlocked.Read(ref _retiredVersionBytes);
+    private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L) - RetiredCarrierBytes);
 
     internal void ReserveMemory(long bytes)
     {
@@ -101,12 +105,13 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Release must not be negative.");
         }
 
-        _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + Interlocked.Read(ref _retiredExecutionResultBytes), _liveMemoryBytes - bytes);
+        _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + RetiredCarrierBytes, _liveMemoryBytes - bytes);
     }
 
     private void ReconcileValueOwners()
     {
         ReconcileExecutionResultMemory();
+        ReconcileVersionMemory();
         RetainedValueOwners? owners = _valueOwners;
         if (owners is null || owners.Busy) { return; }
         bool finishing = _finishingExecution;
@@ -122,7 +127,7 @@ internal sealed class ResourceGovernor
         if (!owners.Empty) { return; }
         // Fold the atomic retirement total before detaching its storage. The
         // detached ledger has no live carrier or future collection notification.
-        _liveMemoryBytes = Math.Max(Interlocked.Read(ref _retiredExecutionResultBytes), _liveMemoryBytes - owners.RetiredBytes);
+        _liveMemoryBytes = Math.Max(RetiredCarrierBytes, _liveMemoryBytes - owners.RetiredBytes);
         _valueOwners = null;
         owners.DisposeEmpty();
     }
@@ -583,6 +588,71 @@ internal sealed class ResourceGovernor
         if (OwnsDocumentCounters) { _executionFinished = true; }
     }
 
+    // Versions borrow an already funded result link, or fund their own link.
+    // Either retirement channel keeps a shared link until both are empty.
+    // A borrowed alias already carries this ownership; it needs no new receipt.
+    internal PdfVersion OwnVersion(int major, int minor)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(major);
+        ArgumentOutOfRangeException.ThrowIfNegative(minor);
+        CheckCancellation();
+        // Command storage/work is already reserved. Materialize that link now
+        // so versions do not need a second link during reading/serialization.
+        PrepareExecutionResult();
+        ReconcileValueOwners();
+        long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
+        if (held > long.MaxValue - 2L)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(held + 2L);
+        int carriers = checked(_versionCarriers + 1);
+        long ownedBytes = PdfVersion.StorageBytes + VersionMemory.StorageBytes;
+        long bytes = ownedBytes + (_versionLink is null && _executionResultLink is null ? 24L : 0L);
+        ReserveReconciledMemory(bytes);
+        VersionMemory? storage = null;
+        _buildingExecutionResult = true;
+        try
+        {
+            WeakReference<ResourceGovernor> link = _versionLink ?? _executionResultLink ?? new(this);
+            PdfVersion version = new(major, minor);
+            storage = new(link, ownedBytes);
+            version.OwnStorage(storage);
+            _reservedResultWork += 2L;
+            ChargeExecutionResultWork(1L);
+            _versionLink = link;
+            _versionCarriers = carriers;
+            return version;
+        }
+        catch { storage?.Cancel(); ReleaseMemory(bytes); throw; }
+        finally { _buildingExecutionResult = false; }
+    }
+
+    internal void RetireVersionMemory(long bytes)
+    {
+        Interlocked.Add(ref _retiredVersionBytes, bytes);
+        Interlocked.Increment(ref _pendingVersionRetirements);
+    }
+
+    private void ReconcileVersionMemory()
+    {
+        int count = Interlocked.Exchange(ref _pendingVersionRetirements, 0);
+        if (count == 0) { return; }
+        if (count > _versionCarriers || _versionLink is null)
+        { throw new InvalidOperationException("Version retirement exceeds its carriers."); }
+        bool finishing = _finishingExecution;
+        _finishingExecution = true;
+        try { ChargeExecutionResultWork(count); }
+        finally { _finishingExecution = finishing; }
+        _versionCarriers -= count;
+        if (_versionCarriers == 0)
+        {
+            _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + Interlocked.Read(ref _retiredExecutionResultBytes),
+                _liveMemoryBytes - Interlocked.Exchange(ref _retiredVersionBytes, 0L));
+            bool sharedLink = ReferenceEquals(_versionLink, _executionResultLink);
+            _versionLink = null;
+            if (!sharedLink) { ReleaseMemory(24L); }
+        }
+    }
+
     // Each public document read owns an independent immutable snapshot. Its
     // construction and eventual retirement are both admitted before allocation.
     internal QpdfExecutionCounters OwnedSnapshot()
@@ -681,10 +751,11 @@ internal sealed class ResourceGovernor
         _executionResultCarriers -= count;
         if (_executionResultCarriers == 0)
         {
-            _liveMemoryBytes = Math.Max(_valueOwners?.RetiredBytes ?? 0L,
+            _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + Interlocked.Read(ref _retiredVersionBytes),
                 _liveMemoryBytes - Interlocked.Exchange(ref _retiredExecutionResultBytes, 0L));
+            bool sharedLink = ReferenceEquals(_executionResultLink, _versionLink);
             _executionResultLink = null;
-            ReleaseMemory(24L);
+            if (!sharedLink) { ReleaseMemory(24L); }
         }
     }
 

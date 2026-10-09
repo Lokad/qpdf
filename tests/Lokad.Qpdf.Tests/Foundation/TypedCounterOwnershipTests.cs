@@ -351,13 +351,22 @@ public sealed class TypedCounterOwnershipTests
         return new(governor, snapshots, new(document), new(fixture));
     }
 
-    private static async Task<(long Work, long Peak)> ClosedDocumentBaseline(bool compressed)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<ResourceGovernor> ClosedDocumentGovernor(bool compressed)
     {
         object fixture = await Prepare("typed-check", compressed, "none", "success");
-        QpdfDocument document = await QpdfDocument.OpenAsync((IQpdfHost)fixture, Input, CancellationToken.None);
+        QpdfDocument? document = await QpdfDocument.OpenAsync((IQpdfHost)fixture, Input, CancellationToken.None);
         ResourceGovernor governor = (ResourceGovernor)(typeof(QpdfDocument).GetField("_governor", Members)?.GetValue(document)
             ?? throw new InvalidOperationException());
         await document.DisposeAsync();
+        document = null;
+        return governor;
+    }
+
+    private static async Task<(long Work, long Peak)> ClosedDocumentBaseline(bool compressed)
+    {
+        ResourceGovernor governor = await ClosedDocumentGovernor(compressed);
+        await Task.Yield();
         Collect(governor);
         QpdfExecutionCounters observation = governor.Snapshot();
         Assert.Equal(0L, observation.LiveMemoryBytes);
@@ -375,11 +384,17 @@ public sealed class TypedCounterOwnershipTests
             ?? throw new InvalidOperationException());
         await document.DisposeAsync();
         Collect(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        // The still-usable disposed document retains its public versions. Those
+        // carriers have separate ownership from subsequently read counters.
+        Assert.Equal("1.4", document.Version.ToString());
+        long retainedVersions = governor.Snapshot().LiveMemoryBytes;
+        Assert.True(retainedVersions >= PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(PdfVersion)));
+        long heldWork = (long)(typeof(ResourceGovernor).GetField("_reservedResultWork", Members)?.GetValue(governor)
+            ?? throw new InvalidOperationException("Missing actual reserved carrier work."));
         // Weak reader cleanup has its own observed work; a separate run cannot
         // predict it. Exhaust the actual remaining budget with live snapshots.
-        int expected = budget == "work" ? checked((int)((limits.MaxWork - governor.Snapshot().TotalWork) / 2L))
-            : checked((int)((limits.MaxMemoryBytes - 24L) / 120L));
+        int expected = budget == "work" ? checked((int)((limits.MaxWork - governor.Snapshot().TotalWork - heldWork) / 2L))
+            : checked((int)((limits.MaxMemoryBytes - retainedVersions - 24L) / 120L));
         Assert.InRange(expected, 1, 1024);
         QpdfExecutionCounters[] snapshots = new QpdfExecutionCounters[expected];
         for (int index = 0; index < expected; index++) { snapshots[index] = document.Counters; }

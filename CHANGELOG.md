@@ -2,6 +2,8 @@
 
 ## 0.1.0-alpha.1 - non-cryptographic subset, M11 audit in progress
 
+- Admit library-created PDF versions and their independent weak receipts before allocation. Keep shared header/catalog/check/writer aliases funded through disposal, cancellation and either retirement order; exclusive JSON emits validated version components without unused carriers at the original repair ceilings.
+
 - Pre-admit all seven typed result wrappers and their weak receipts before processing. Shared cores return private value outcomes; caller record copies preserve values and aliases without retaining original wrapper ownership. Copied backing/version and wider ownership remain under audit.
 
 - Implements qpdf 12.4.2 non-cryptographic structural operations in managed C#: strict reading with bounded recovery, page selection and merge, writer controls, content transforms, overlays, appearances, JPEG processing, QDF, and linearization, through typed, argv, and job JSON routes.

@@ -118,6 +118,9 @@ public sealed class TypedResultOwnershipTests
             WeakReference preparedReceipt = new(storage);
             storage = null;
             long held = (long)(Field(governor, "_reservedResultWork") ?? 0L);
+            // Observe wrapper credit independently of the versions created by
+            // this completed public job; each live version holds one retirement.
+            held -= (int)(Field(governor, "_versionCarriers") ?? 0);
             if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
             object? result = null;
             if (outcome == "cancel") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running); }

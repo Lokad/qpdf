@@ -1456,7 +1456,7 @@ internal static class DocumentJson
 
             builder.Append("[{");
             builder.Append("\"jsonversion\": 2,\"pdfversion\": ");
-            builder.Append('"'); builder.AppendInteger(document.HeaderVersion.Major); builder.Append('.'); builder.AppendInteger(document.HeaderVersion.Minor); builder.Append('"');
+            builder.Append('"'); builder.AppendInteger(document.HeaderVersionParts.Major); builder.Append('.'); builder.AppendInteger(document.HeaderVersionParts.Minor); builder.Append('"');
             builder.Append(",\"pushedinheritedpageresources\": false,\"calledgetallpages\": ");
             builder.Append(touchesPages ? "true" : "false");
             builder.Append(",\"maxobjectid\": ");

@@ -422,7 +422,7 @@ public static partial class Qpdf
         }
 
 
-        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion);
+        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion, governor);
         string streamMode = ResolveObjectStreamMode(objectStreams);
         if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
         {
@@ -448,7 +448,7 @@ public static partial class Qpdf
         int extensionLevel = negotiatedExtension;
         if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
         {
-            effective = new PdfVersion(1, 5);
+            effective = governor.OwnVersion(1, 5);
             extensionLevel = 0;
         }
 
@@ -1182,8 +1182,8 @@ public static partial class Qpdf
                 catalogLabels = verbatimCopied;
             }
         }
-        PdfVersion inputMax = version ?? new PdfVersion(1, 4);
-        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, minVersion, forceVersion);
+        PdfVersion inputMax = version ?? governor.OwnVersion(1, 4);
+        (PdfVersion negotiatedMulti, int negotiatedMultiExtension) = NegotiateVersion(inputMax, minVersion, forceVersion, governor);
         string multiStreamMode = ResolveObjectStreamMode(objectStreams);
         if (forceVersion is not null && CompareVersions(negotiatedMulti.Major, negotiatedMulti.Minor, 1, 5) < 0)
         {
@@ -1195,7 +1195,7 @@ public static partial class Qpdf
         int extensionLevel = negotiatedMultiExtension;
         if (multiCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
         {
-            effective = new PdfVersion(1, 5);
+            effective = governor.OwnVersion(1, 5);
             extensionLevel = 0;
         }
 
@@ -1658,11 +1658,6 @@ public static partial class Qpdf
     private static readonly byte[] StaticIdBytes = new byte[] { 0x31, 0x41, 0x59, 0x26, 0x53, 0x58, 0x97, 0x93, 0x23, 0x84, 0x62, 0x64, 0x33, 0x83, 0x27, 0x95 };
 
     private static readonly byte[] PlaceholderIdBytes = new byte[16];
-
-    private static PdfDictionary NewCatalog(QpdfObject? pageLabels)
-    {
-        return NewCatalog(pageLabels, new PdfVersion(1, 4), 0, null, null, null, null, null, null, null, null);
-    }
 
     private static PdfDictionary NewCatalog(QpdfObject? pageLabels, PdfVersion finalVersion, int extensionLevel, PdfReference? metadataRef, PdfReference? namesRef, string? pageMode, PdfReference? outlinesRef, PdfDictionary? acroForm, PdfReference? structTreeRef, QpdfObject? markInfo, IReadOnlyDictionary<PdfName, QpdfObject>? extras)
     {
@@ -2478,7 +2473,7 @@ public static partial class Qpdf
         return (int)value;
     }
 
-    private static (PdfVersion Version, int Extension) NegotiateVersion(PdfVersion inputMax, string? minText, string? forceText)
+    private static (PdfVersion Version, int Extension) NegotiateVersion(PdfVersion inputMax, string? minText, string? forceText, ResourceGovernor governor)
     {
         if (inputMax is null)
         {
@@ -2488,7 +2483,7 @@ public static partial class Qpdf
         if (forceText is not null)
         {
             (int major, int minor, int ext) = ParseWriterVersion(forceText, "--force-version");
-            return (new PdfVersion(major, minor), ext);
+            return (governor.OwnVersion(major, minor), ext);
         }
 
         if (minText is null)
@@ -2505,10 +2500,10 @@ public static partial class Qpdf
 
         if (order < 0)
         {
-            return (new PdfVersion(minMajor, minMinor), minExt);
+            return (governor.OwnVersion(minMajor, minMinor), minExt);
         }
 
-        return (new PdfVersion(minMajor, minMinor), minExt);
+        return (governor.OwnVersion(minMajor, minMinor), minExt);
     }
 
     private static int CompareVersions(int major1, int minor1, int major2, int minor2)
@@ -3618,7 +3613,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, plan.MinVersion, plan.ForceVersion);
+        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, plan.MinVersion, plan.ForceVersion, governor);
         (bool emptyCompress, string _, int? emptyLevel) = ResolveCompression(plan.Compression(), plan.Qdf);
         PdfVersion effective = negotiated;
         int extensionLevel = negotiatedExtension;
@@ -4452,7 +4447,7 @@ public static partial class Qpdf
         {
             Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, cancellationToken).ConfigureAwait(false);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
-            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion);
+            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, [.. diagnostics.Entries]);
         }
@@ -4490,7 +4485,7 @@ public static partial class Qpdf
             Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, cancellationToken).ConfigureAwait(false);
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
             byte[]? originalId1 = TryGetOriginalId(document.Engine);
-            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion);
+            (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, [.. diagnostics.Entries]);
         }

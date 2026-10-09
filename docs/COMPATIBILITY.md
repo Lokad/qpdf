@@ -160,15 +160,22 @@ signatures remain exact. All 3847 distinct focused occurrences pass. Final
 reference, all unchanged 868 complete native records/same 64 differences and
 exact package/PDB/changelog/fresh 50-smoke/two-negative consumers pass. No
 consumer source, external hashes, warning policy or binding scope changes.
-T4 copied backing/mapping, T4V version, T5 complete admission, T6 and the parent
-stay open. A separate completed raw CheckAsync job retaining only version 1.4
-leaves zero governed bytes against a measured 24-byte object; the Flate job's
-72-byte residual remains qualified. Hosts/results/counters collect and leases
-close after four GC/four maintenance rounds. Header/catalog parser versions are
-library-created per read. Independent document/version and negotiated writer
-alias/admission/fault/cancellation controls remain T4V, not established evidence.
-Private outcome slots in task/async frames, governor and cold/BCL/host containment
-remain MEASURE-01; no broader physical containment is claimed.
+T4V is implemented with combined committed-source proof pending. Both unchanged
+raw/Flate version-only checks retain 88/160 bytes versus the original 0/72;
+independent version bodies are 32 bytes and the complete known receipt/link
+minimum is 88. Borrowed aliases share each owner; dead siblings/metadata retire
+with prepaid work. Writer/header/catalog/import/update versions use the shared
+factory, while exclusive JSON emits validated value components without an unused
+public version carrier. All four original 247494/247489 repair ceilings pass.
+527 new cases comprise 522 complete public rows/five admission/geometry rows;
+the identical predecessor comparison and every qualified original record remain.
+The eight counter-only live observations and other 24 wrapper live observations
+stay exact; checker wrappers now retain 6600/6672, 64 bytes more. Two old test
+sources account separately for document versions and version retirement credits;
+263 other old sources/five locks and all 908 signatures remain exact. T3/T3E
+proofs stay closed. T4 copied backing/mapping, T5/T6 and the parent remain open.
+Governor growth to 248, private document component slots and task/async frames,
+cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

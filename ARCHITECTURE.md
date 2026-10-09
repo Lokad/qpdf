@@ -146,10 +146,20 @@ Each wrapper owns its own receipt without rooting completed job metadata. Caller
 copies omit that receipt and preserve exposed equality/hash and aliases. Failure
 drops unreturned references and only unused constructor credit; actual receipts
 retire with prepaid work. Private outcome slots in async/task frames remain under
-the physical MEASURE-01 qualification, and copied backing/mapping/version under T4/T4V.
+the physical MEASURE-01 qualification, and copied backing/mapping under T4.
+Library-created versions own independently prepaid weak receipts. Header and
+catalog aliases share each owner once; writer negotiation borrows an existing
+version or admits a new one before allocation. Versions can share the already
+funded result-channel weak link; either retirement channel keeps it alive until
+both are empty. Caller copies omit ownership and preserve component equality.
+An exclusive JSON reader validates header/catalog version components as value
+data and emits them directly, avoiding unused heap versions at the original
+repair ceilings. Public/shared documents allocate owned versions before returning;
+their header/effective aliases remain usable after disposal. Private document
+component fields, governor growth and async frames remain under MEASURE-01.
 Each public document counter read independently admits snapshot/receipt storage,
 a shared weak governor link and construction/retirement work. Completed document
-retirement can reconcile after cancellation. Copied backing/mapping/version remain
+retirement can reconcile after cancellation. Copied backing/mapping remain
 DIAG-01R-T; generic diagnostic/list/fatal storage remains DIAG-01.
 
 The host owns stable input identities and ranged reads, output staging and
