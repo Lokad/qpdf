@@ -442,9 +442,10 @@ internal static class Program
         InMemoryQpdfHost mismatchedHost = NewHost("inputs/mismatched.pdf", mismatchedInput);
         QpdfLimits mismatchedLimits = QpdfLimits.Default with { MaxMemoryBytes = 100000L };
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(mismatchedHost, QpdfPath.From("inputs/mismatched.pdf"), mismatchedLimits, CancellationToken.None))
+        await using (QpdfDocument control = await QpdfDocument.OpenAsync(mismatchedHost, QpdfPath.From("inputs/mismatched.pdf"), mismatchedLimits, CancellationToken.None))
         {
             Check(document.PageCount == 2, "wrong-header source fits the host memory ceiling");
-            long baseline = document.Counters.LiveMemoryBytes;
+            List<QpdfExecutionCounters> observed = [];
             for (int attempt = 0; attempt < 50; attempt++)
             {
                 try { document.GetObject(8); throw new InvalidOperationException("Wrong object header accepted."); }
@@ -452,8 +453,12 @@ internal static class Program
                 {
                     Check(error.Message.Contains("header contradicts", StringComparison.Ordinal), "wrong-header rejection is preserved");
                 }
-                Check(document.Counters.LiveMemoryBytes == baseline, "rejected object releases only its parser admission");
+                QpdfExecutionCounters rejected = document.Counters;
+                QpdfExecutionCounters unchanged = control.Counters;
+                observed.Add(rejected); observed.Add(unchanged);
+                Check(rejected.LiveMemoryBytes == unchanged.LiveMemoryBytes, "rejected object releases only its parser admission");
             }
+            GC.KeepAlive(observed);
         }
         Check(mismatchedHost.OpenLeaseCount == 0L, "wrong-header consumer leases closed");
         Console.WriteLine("PASS repeated rejected object headers under finite host memory (typed)");
@@ -509,11 +514,15 @@ internal static class Program
         try { for (int number = 9; number < 2008; number++) { cacheDocument.GetObject(number); } }
         catch (QpdfLimitException ex) when (ex.LimitName == nameof(QpdfLimits.MaxMemoryBytes)) { cacheRejected = true; }
         Check(cacheRejected && ReferenceEquals(cacheAlias, cacheDocument.GetObject(8)), "cache admission rejects growth while preserving the first object");
-        long cacheBeforeDisposal = cacheDocument.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters cacheBeforeSnapshot = cacheDocument.Counters;
+        long cacheBeforeDisposal = cacheBeforeSnapshot.LiveMemoryBytes;
         await cacheDocument.DisposeAsync();
-        long cacheAfterDisposal = cacheDocument.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters cacheAfterSnapshot = cacheDocument.Counters;
+        long cacheAfterDisposal = cacheAfterSnapshot.LiveMemoryBytes;
         await cacheDocument.DisposeAsync();
-        Check(cacheAfterDisposal < cacheBeforeDisposal && cacheDocument.Counters.LiveMemoryBytes == cacheAfterDisposal,
+        QpdfExecutionCounters cacheRepeatSnapshot = cacheDocument.Counters;
+        Check(cacheAfterDisposal < cacheBeforeDisposal && cacheRepeatSnapshot.LiveMemoryBytes == cacheAfterDisposal + 120L
+            && cacheRepeatSnapshot.TotalWork == cacheAfterSnapshot.TotalWork + 1L,
             "cache metadata is released once on disposal");
         Check(cacheAlias.Value.SequenceEqual(Encoding.ASCII.GetBytes(new string('A', 32))) && cacheHost.OpenLeaseCount == 0L,
             "returned cache bytes survive disposal and leases close");
@@ -533,21 +542,27 @@ internal static class Program
             Check(((PdfByteString)generousCache.GetObject(2007)).Value.Length == 32, "generous cache reopening preserves the last object");
         }
         Console.WriteLine("PASS document cache admission and disposal (typed/argv/job)");
+        GC.KeepAlive(cacheBeforeSnapshot); GC.KeepAlive(cacheAfterSnapshot); GC.KeepAlive(cacheRepeatSnapshot);
         byte[] lifetimeInput = TwoPagePdfWithAuditObjects(["(kept)", "null %" + new string('A', 1048576) + "\n"]);
         InMemoryQpdfHost lifetimeHost = NewHost("inputs/lifetime.pdf", lifetimeInput);
         QpdfLimits lifetimeLimits = QpdfLimits.Default with { MaxMemoryBytes = 2097152L };
         QpdfDocument lifetimeDocument = await QpdfDocument.OpenAsync(lifetimeHost, QpdfPath.From("inputs/lifetime.pdf"),
             lifetimeLimits, CancellationToken.None);
         PdfByteString lifetimeAlias = (PdfByteString)lifetimeDocument.GetObject(8);
-        long lifetimeBefore = lifetimeDocument.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters lifetimeBeforeSnapshot = lifetimeDocument.Counters;
+        long lifetimeBefore = lifetimeBeforeSnapshot.LiveMemoryBytes;
         await lifetimeDocument.DisposeAsync();
-        long lifetimeAfter = lifetimeDocument.Counters.LiveMemoryBytes;
+        QpdfExecutionCounters lifetimeAfterSnapshot = lifetimeDocument.Counters;
+        long lifetimeAfter = lifetimeAfterSnapshot.LiveMemoryBytes;
         await lifetimeDocument.DisposeAsync();
+        QpdfExecutionCounters lifetimeRepeatSnapshot = lifetimeDocument.Counters;
         Check(lifetimeBefore - lifetimeAfter >= lifetimeInput.Length && lifetimeAfter < lifetimeInput.Length
-            && lifetimeDocument.Counters.LiveMemoryBytes == lifetimeAfter, "exclusive document admission releases once");
+            && lifetimeRepeatSnapshot.LiveMemoryBytes == lifetimeAfter + 120L
+            && lifetimeRepeatSnapshot.TotalWork == lifetimeAfterSnapshot.TotalWork + 1L, "exclusive document admission releases once");
         Check(lifetimeAlias.Value.SequenceEqual("kept"u8.ToArray()) && lifetimeDocument.PageCount == 2
             && lifetimeHost.OpenLeaseCount == 0L, "returned bytes and page count survive document disposal");
         Console.WriteLine("PASS document input/table disposal with returned byte alias");
+        GC.KeepAlive(lifetimeBeforeSnapshot); GC.KeepAlive(lifetimeAfterSnapshot); GC.KeepAlive(lifetimeRepeatSnapshot);
         string retainedToken = new string('0', 100000) + "123";
         byte[] valueOwnerInput = TwoPagePdfWithAuditObjects(["[ " + retainedToken + " (" + new string('A', 1048576) + ") ]"]);
         InMemoryQpdfHost valueOwnerHost = NewHost("inputs/value-owner.pdf", valueOwnerInput);
