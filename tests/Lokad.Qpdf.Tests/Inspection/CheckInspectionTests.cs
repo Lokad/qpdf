@@ -270,7 +270,7 @@ public sealed class CheckInspectionTests
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
             Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
-            Assert.Equal(0L, result.Counters.LiveMemoryBytes);
+            Assert.Equal(1432L, result.Counters.LiveMemoryBytes); // Only the result, counters and ownership ledger remain.
             Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.DoesNotContain(result.Diagnostics, d => Listings.Contains(d.Code));
             Assert.Equal(0, host.OutputCreates);
