@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf;
 
 /// <summary>An embedded file listed from a document.</summary>
@@ -58,6 +60,9 @@ public sealed record QpdfAttachmentInfo
 /// <summary>Outcome of an attachment extraction.</summary>
 public sealed record QpdfAttachmentExtraction
 {
+    internal const long StorageBytes = 56L;
+    private ExecutionResultMemory? _storage;
+
     /// <summary>Creates an extraction outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfAttachmentExtraction(
@@ -65,10 +70,19 @@ public sealed record QpdfAttachmentExtraction
         long byteCount,
         IReadOnlyList<QpdfDiagnostic> warnings,
         QpdfExecutionCounters counters)
+        : this(key, byteCount, warnings, counters, false)
+    { }
+
+    internal QpdfAttachmentExtraction(
+        string key,
+        long byteCount,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters,
+        bool adoptBacking)
     {
         Key = key ?? throw new ArgumentNullException(nameof(key));
         ByteCount = byteCount;
-        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : adoptBacking ? warnings : [.. warnings];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 
@@ -83,6 +97,31 @@ public sealed record QpdfAttachmentExtraction
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
+
+    private QpdfAttachmentExtraction(QpdfAttachmentExtraction source)
+    {
+        Key = source.Key;
+        ByteCount = source.ByteCount;
+        Warnings = source.Warnings;
+        Counters = source.Counters;
+    }
+
+    /// <summary>Compares exposed values and aliases.</summary>
+    public bool Equals(QpdfAttachmentExtraction? other) => other is not null
+        && Key == other.Key
+        && ByteCount == other.ByteCount
+        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
+        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
+
+    /// <summary>Hashes exposed values and aliases.</summary>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, Key, ByteCount, Warnings, Counters);
+
+    internal void OwnStorage(ExecutionResultMemory storage)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
+        _storage = storage;
+    }
 }
 
 /// <summary>An attachment to embed from a host file.</summary>
@@ -156,15 +195,26 @@ public sealed record QpdfAttachmentCopy
 /// <summary>Outcome of an attachment edit.</summary>
 public sealed record QpdfAttachmentEditResult
 {
+    internal const long StorageBytes = 48L;
+    private ExecutionResultMemory? _storage;
+
     /// <summary>Creates an edit outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfAttachmentEditResult(
         int attachmentCount,
         IReadOnlyList<QpdfDiagnostic> warnings,
         QpdfExecutionCounters counters)
+        : this(attachmentCount, warnings, counters, false)
+    { }
+
+    internal QpdfAttachmentEditResult(
+        int attachmentCount,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters,
+        bool adoptBacking)
     {
         AttachmentCount = attachmentCount;
-        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : adoptBacking ? warnings : [.. warnings];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 
@@ -176,4 +226,27 @@ public sealed record QpdfAttachmentEditResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
+
+    private QpdfAttachmentEditResult(QpdfAttachmentEditResult source)
+    {
+        AttachmentCount = source.AttachmentCount;
+        Warnings = source.Warnings;
+        Counters = source.Counters;
+    }
+
+    /// <summary>Compares exposed values and aliases.</summary>
+    public bool Equals(QpdfAttachmentEditResult? other) => other is not null
+        && AttachmentCount == other.AttachmentCount
+        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
+        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
+
+    /// <summary>Hashes exposed values and aliases.</summary>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, AttachmentCount, Warnings, Counters);
+
+    internal void OwnStorage(ExecutionResultMemory storage)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
+        _storage = storage;
+    }
 }

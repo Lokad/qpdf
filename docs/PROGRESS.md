@@ -1,90 +1,74 @@
 # Progress
 
-## Typed/document counters — DIAG-01R-T1/T2 retired
+## Typed wrappers — T3/T3E implemented, combined proof pending
 
-Implementation `7276b97` and consumer `d7924e9` have final combined proof:
-15730 Release passes preserve every 15314 preceding occurrence; 3163 focused
-checks and ten final document rows pass. Identical 416 public cases on the
-preceding runtime expose 235 failures and preserve 181 outcomes, with no loaders,
-timeouts or skips. Complete jobs cover raw/Flate success, real memory/work/host
-failures, read/write/commit/close faults, cancellation and surviving aliases.
+Both original raw/Flate extraction jobs now retain 279 governed bytes against
+a measured 232-byte wrapper/counter/two-receipt/shared-link minimum. Preserve
+the original 191/192 observations and both exact failing predecessor jobs.
+The unchanged original driver reports 279/200 because its known minimum omits
+the new wrapper receipt; its complete records remain untouched. All 26-family
+observations survive closed leases, collected hosts and four GC/four maintenance
+rounds. The other 24 larger residuals cannot prove backing or frame ownership.
+Raw attachment-copy live storage is now 31031 versus 30567 before; its additional
+residual is qualified, not classified as a demonstrated defect or silently erased.
 
-Eleven typed facades admit one 88-byte counter before processing/publication.
-Its dedicated receipt is 32 bytes; the shared weak governor link is 24.
-Construction and retirement each reserve one future work unit and charge only
-when executed. Nine raw private-core snapshots and nine facade clone sites are
-removed; command cores borrow immutable zero counters. Final values are captured
-after input/copy/publication cleanup. Private references detach on every outcome.
+All seven public result wrappers own dedicated 32-byte weak receipts. Eleven
+facades pre-admit the wrapper, 88-byte counter, both receipts and 24-byte link
+before processing: page/extraction 232 bytes, multi-source 248, check 240,
+JSON/import/edit 224. Five work units cover counter construction, receipt
+preparation, the eventual wrapper constructor and two retirements. Failure
+releases the unused constructor credit; actual receipts retain prepaid retirement.
+Transfer adds no late allocation/admission/cancellation boundary after publication.
+Caller constructor/record copies omit ownership and preserve exposed values,
+equality/hash, readonly properties and original aliases.
 
-Every QpdfDocument.Counters read admits an independent immutable snapshot;
-first/additional survivors retain 144/120 bytes and consume construction/work
-budgets. Reads honor cancellation and remain supported after disposal subject
-to admission. Survivors do not root the document/host/governor. Caller counter
-copies omit receipts and preserve exposed values/equality/hash.
+Six readonly private value outcomes replace nine heap public-DTO sites, including
+the intermediate attachment-edit carrier. Typed boundaries adopt engine-created
+snapshot arrays; public constructors preserve their copying contract. Argv/job
+cores do not create public typed wrappers or counter snapshots. Private outcome
+slots in task/async frames remain under MEASURE-01; copied backing/mapping/version
+ownership stays T4. This correction does not claim complete physical containment.
 
-The unchanged eight-row raw/Flate page/merge/check/JSON driver now retains
-1420/1490/2391/2531/144/216/144/144 bytes after result/host collection and four
-GC/four maintenance rounds. Preserve its original
-1276/1346/2247/2387/0/72/0/0 measurements. Page/merge and Flate-check residual
-storage remains qualified; it cannot prove wrapper ownership.
+947 focused checks and two final original-extraction rows pass: 447 new controls,
+434 complete public rows and 13 shape/geometry controls. The identical final tests
+on the committed predecessor expose 420 failures/27 preserved outcomes, comprising
+407 public failures and 13 shape/geometry failures, with no loaders/timeouts/skips.
+Both original extraction failures state exactly 191 governed bytes below 192.
+Success/fault/cancellation, original 2048-byte/128-work real I/O failures,
+short admission, independent result/counter/caller-copy aliases and metadata
+collection keep original targets/leases and budgets. All 264 old test sources
+and five locks stay byte-identical; all 908 public signatures remain.
 
-All pinned 1846 parser comparisons/432 rewrite trios pass. All 868 complete native
-records equal the preceding proof, including 868 headers/804 decoded/868 exits
-and the same 64 classified differences. All 908 public signatures remain.
-Exact package DLL/PDB/changelog, 50 fresh consumer smokes and two specific
-negative consumers pass. Five locks, audit/Werror and binding PLAN scope remain.
-
-Runtime/test/probe/PDB prefixes: `14D079C0` / `DE8DB689` / `9F664E22` / `81119720`;
-package `FC58CDA1`. The producer freeze has 559 raw/536 core paths. Consumer Program
-is the sole integration delta; all 535 other core paths and those binary bytes
-remain exact. It is outside the solution, and the fresh consumer compiles its
-exact committed source against that DLL. Full/reference/native proof therefore
-remains bound; only the failed package/consumer lane repeats.
-
-The failed consumer's free-snapshot assertion is retained after 24 smokes.
-Its fix keeps all 50 smoke labels, fifty wrong-header attempts and original
-100000-byte/document and disposal limits using a paired public control and held
-snapshots. Five old disposal jobs account for an additional 120 bytes/one work;
-57 old reader/parser measurement reads use the original independent governor
-observer. Every other assertion/fixture/limit remains. Other 256 old test sources
-are byte-identical. Keep the five legacy assertions, six JIT-alias trials and two
-cross-run document-work predictions as failed evidence; none is a runtime fix.
-
-Final phase seconds: locked restore 1.547, Release build 1.813, focused 581,
-full 2197.9, full pinned reference 2142.5, native
-497.5, pack 1.062, inspection 2.203, fresh consumer 11.110 and
-two negatives 6.890. Full/reference/native lanes overlap. The full suite is
-the longest observed final phase; reference is close behind.
-
-## Next public correction — result wrappers, T3/T3E
-
-The complete retained-result probe preserves 26 raw/Flate observations across
-thirteen typed routes and all seven counter-bearing result types. Both extraction
-jobs retain 191 governed bytes against a measured 192-byte wrapper/counter/
-receipt/link minimum, with closed leases, collected hosts and four GC/four
-maintenance rounds. T3E must admit the wrapper before creation/publication and
-prove independent result/counter/caller-copy lifetimes under the original limits.
-Keep all other 24 observations, whose larger residuals mask missing ownership.
-T4 copied backing/mapping/version, T5 complete admission and T6 combined typed
-proof remain open; T1/T2 evidence cannot retire them or their parent.
+The wider 2898-case focused lane passes; all 3847 distinct focused occurrences
+pass. Commit the integrated correction and freeze its source/runtime/test/probe/
+PDB identities, then run full Release/reference/native/package/fresh consumer
+checks once. T3/T3E remain open
+until that source-bound proof; T4–T6 and the parent remain open afterward.
+Expected full scope: 16177 cases, preserving every 15730 prior occurrence.
+Focused TRX interval 371.0s; broader focused wall 478.6s; predecessor 115.9s. Measurement phase timings and
+every original row remain in the local review archive. Retain the initial
+CheckOutcome naming collision as a compilation trial, not a runtime correction.
 
 Warm result/counter/governor/general receipt/dedicated receipt/weak-link geometry
-is 80/88/216/48/32/24. Governor/frame, cold/global/BCL/codec/host containment,
-generic fatal/diagnostic owners and wider ownership remain qualified.
-[AUDIT-CLOSURE](AUDIT-CLOSURE.md) gives finite routes, checks and pass conditions.
+is 80/88/224/48/32/24. New typed wrapper geometry is 56/72/64/48/48/56/48 for
+page/multi/check/JSON/import/extract/edit. Governor/frame, cold/global/BCL/codec/
+host containment, generic fatal/diagnostic owners and wider audits stay qualified.
+[AUDIT-CLOSURE](AUDIT-CLOSURE.md) gives finite routes/checks/pass conditions.
 
 ## Established preceding evidence
 
-Command DIAG-01R-C/F and F1–F6 remain retired at 53e0498 / 4fa07ad:
-15314 full passes retain every 15020 prior occurrence; 294 new rows expose
-158 predecessor failures/136 preserved outcomes. All four original low-work
-aliases retain 144 bytes; original sixteen-job aliases retain 256/144.
-That full/reference/native proof took 1803.0/2079.0/398.3 seconds and its original
-source/artifact bindings remain. Hint/JSON-01J/P2F/P3H/DIAG-02C proofs remain.
-Keep hint 4 KiB/64-call/1503-peak/1224-ledger and every original repair ceiling.
+T1/T2 remain retired at 7276b97 / d7924e9 / a0e3114: 15730 full passes preserve
+every 15314 old occurrence, 416 public rows expose 235 predecessor failures/
+181 preserved outcomes, full 1846/432 reference and unchanged complete 868 native
+records/same 64 differences, exact package/PDB/908 signatures and fresh 50-smoke/
+two-negative consumers pass. Full/reference/native seconds: 2197.9/2142.5/497.5.
+The unchanged eight counter-only observations still retain
+1420/1490/2391/2531/144/216/144/144 bytes. First/additional public document reads
+remain 144/120 bytes with immutable values, admission and cancellation.
 
-Five intentional temporary ImageSharp 3.1.12 advisory-specific exclusions are
-verified by strict locked and fresh restores; audit and other warnings stay
-enabled. DIAG-01/JSON-01/CFG-01B, P2/P3/PV, MEASURE-01, M11/A01–A07 and both
-verdicts stay open. [PROGRESS-HISTORY](PROGRESS-HISTORY.md) retains preceding
-proofs and failed trials.
+Command C/F, hints, JSON-01J/P2F/P3H/DIAG-02C proofs remain; keep original
+hint 4 KiB/64-call/1503-peak/1224-ledger and all original repair limits/fixtures.
+Five intentional temporary ImageSharp 3.1.12 advisory exclusions remain, with
+audit/Werror enabled. DIAG-01/JSON-01/CFG-01B, P2/P3/PV, MEASURE-01, M11/A01–A07
+and both verdicts stay open. Binding PLAN sections and unrelated work remain.
+[PROGRESS-HISTORY](PROGRESS-HISTORY.md) preserves preceding proofs/failed trials.

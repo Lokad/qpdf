@@ -140,13 +140,27 @@ Its equally observed public control keeps fifty header attempts and original
 ceilings. Independent parser observations and retained disposal snapshots keep
 their original fixtures/other assertions/limits; 256 other old test sources and
 five locks remain byte-identical.
-R-T3–T6 and the parent retain wrapper/private DTO, backing/mapping/version and
-complete admission obligations. T3E names both complete raw/Flate extraction
-jobs retaining 191 bytes against a measured 192-byte wrapper/counter/receipt/link
-minimum. Preserve all 26 retained-result observations; larger residual storage
-in the other 24 rows cannot establish ownership. Original reader/parser controls
-use an independent observer; separate public jobs verify each snapshot's actual
-allocation/work/retirement. No broader physical containment is claimed.
+T3/T3E now implement wrapper admission across all seven public result types and
+eleven facades, with dedicated weak receipts and prepaid preparation/constructor/
+retirement work before processing. Six private readonly value outcomes eliminate
+nine heap public-DTO sites consumed by typed/argv/job routes. Internal boundaries
+adopt snapshot arrays while public constructors still copy caller input; caller
+record copies omit wrapper ownership and preserve exposed equality/hash/aliases.
+Both complete raw/Flate extraction jobs now hold 279 bytes against a measured
+232-byte wrapper/counter/two-receipt/link minimum. Preserve all 26 original/current
+rows and both predecessor 191/192 failures; larger residuals mask other ownership.
+Raw attachment-copy residual storage rises to 31031 from 30567 and remains an
+explicit qualified observation. The unchanged original driver's current 200-byte
+known minimum omits the newly owned wrapper receipt; do not rewrite its records.
+947 focused checks/two final physical rows pass. Identical 447 final predecessor
+rows expose 420 failures/27 preserved outcomes (407 public failures, 13 independent
+shape/geometry failures); no loaders/skips. All 264 old tests/five locks and 908
+signatures remain exact. All 2898 broader focused cases pass (3847 distinct
+focused occurrences in total). Final combined source/reference/
+native/package/consumer proof remain required before T3/T3E retirement. T4 copied
+backing/mapping/version, T5 complete admission, T6 and the parent stay open.
+Private outcome slots in task/async frames, governor and cold/BCL/host containment
+remain MEASURE-01; no broader physical containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons
 and all 64 valid layout differences remain unchanged; HINT-03 is retired. Broader

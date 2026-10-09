@@ -40,6 +40,7 @@ internal sealed class ResourceGovernor
     private int _executionResultCarriers;
     private bool _buildingExecutionResult;
     private QpdfExecutionCounters? _preparedTypedCounters;
+    private ExecutionResultMemory? _preparedTypedResultStorage;
     internal bool OwnsDocumentCounters { get; set; }
     internal bool DeferredPlainHistory { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation;
@@ -493,18 +494,70 @@ internal sealed class ResourceGovernor
         _returnsExecutionResult = true;
     }
 
-    // Typed cores also serve commands. They borrow immutable zero counters
-    // unless their public facade has admitted one final, private snapshot.
+    // Private value outcomes do not allocate public result/counter carriers.
+    // A typed facade owns one final counter and one prepaid result receipt.
     internal QpdfExecutionCounters TypedCounters => _preparedTypedCounters ?? ExecutionResultAdmission.EmptyCounters;
 
-    internal void PrepareTypedCounters()
+    internal void PrepareTypedResult(long resultBytes)
     {
-        if (_preparedTypedCounters is not null) { throw new InvalidOperationException("Typed counters are already prepared."); }
-        _preparedTypedCounters = OwnedSnapshot();
+        if (resultBytes <= 0L) { throw new ArgumentOutOfRangeException(nameof(resultBytes)); }
+        if (_preparedTypedCounters is not null || _preparedTypedResultStorage is not null
+            || _executionResultLink is not null || _returnsExecutionResult)
+        { throw new InvalidOperationException("Typed result storage is already prepared."); }
+        CheckCancellation();
+        ReconcileValueOwners();
+        long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
+        if (held > long.MaxValue - 5L)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(held + 5L);
+        long bytes = checked(resultBytes + 176L);
+        ReserveReconciledMemory(bytes);
+        ExecutionResultMemory? counterStorage = null;
+        ExecutionResultMemory? resultStorage = null;
+        _buildingExecutionResult = true;
+        try
+        {
+            WeakReference<ResourceGovernor> link = new(this);
+            QpdfExecutionCounters counters = new(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+            counterStorage = new(link, 120L);
+            counters.OwnStorage(counterStorage);
+            resultStorage = new(link, resultBytes + 32L);
+            // Counter construction and receipt preparation execute now. The
+            // wrapper constructor and two retirements remain prepaid.
+            _reservedResultWork += 5L;
+            ChargeExecutionResultWork(2L);
+            _executionResultLink = link;
+            _executionResultCarriers = 2;
+            _preparedTypedCounters = counters;
+            _preparedTypedResultStorage = resultStorage;
+            counters.CaptureBeforeReturn(CounterValues);
+        }
+        catch
+        {
+            counterStorage?.Cancel(); resultStorage?.Cancel();
+            ReleaseMemory(bytes);
+            throw;
+        }
+        finally { _buildingExecutionResult = false; }
+    }
+
+    internal ExecutionResultMemory TakeTypedResultStorage()
+    {
+        ExecutionResultMemory storage = _preparedTypedResultStorage
+            ?? throw new InvalidOperationException("Missing admitted typed result storage.");
+        // The bounded constructor has executed. Transfer cannot spend ordinary
+        // work or introduce a cancellation poll after completed publication.
+        _buildingExecutionResult = true;
+        try { ChargeExecutionResultWork(1L); }
+        finally { _buildingExecutionResult = false; }
+        _preparedTypedResultStorage = null;
+        return storage;
     }
 
     internal void FinishTypedCounters()
     {
+        if (_preparedTypedResultStorage is not null)
+        { throw new InvalidOperationException("Typed result storage has not transferred."); }
         QpdfExecutionCounters counters = _preparedTypedCounters
             ?? throw new InvalidOperationException("Missing admitted typed counters.");
         counters.CaptureBeforeReturn(CounterValues);
@@ -514,6 +567,13 @@ internal sealed class ResourceGovernor
 
     internal void AbandonTypedCounters()
     {
+        if (_preparedTypedResultStorage is not null)
+        {
+            // No public wrapper was constructed; release only its unexecuted
+            // constructor credit. The actual receipt still owns its retirement.
+            _reservedResultWork -= 1L;
+            _preparedTypedResultStorage = null;
+        }
         _preparedTypedCounters = null;
         _executionFinished = true;
     }

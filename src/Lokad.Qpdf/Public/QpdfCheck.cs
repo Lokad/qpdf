@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf;
 
 /// <summary>Status of one declared inspection check.</summary>
@@ -65,6 +67,9 @@ public sealed record QpdfCheckOptions
 /// </summary>
 public sealed record QpdfCheckResult
 {
+    internal const long StorageBytes = 64L;
+    private ExecutionResultMemory? _storage;
+
     /// <summary>Creates an inspection result.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfCheckResult(
@@ -73,11 +78,21 @@ public sealed record QpdfCheckResult
         IReadOnlyList<QpdfCheckOutcome> checks,
         IReadOnlyList<QpdfDiagnostic> diagnostics,
         QpdfExecutionCounters counters)
+        : this(pageCount, version, checks, diagnostics, counters, false)
+    { }
+
+    internal QpdfCheckResult(
+        int pageCount,
+        PdfVersion version,
+        IReadOnlyList<QpdfCheckOutcome> checks,
+        IReadOnlyList<QpdfDiagnostic> diagnostics,
+        QpdfExecutionCounters counters,
+        bool adoptBacking)
     {
         PageCount = pageCount;
         Version = version ?? throw new ArgumentNullException(nameof(version));
-        Checks = checks is null ? throw new ArgumentNullException(nameof(checks)) : [.. checks];
-        Diagnostics = diagnostics is null ? throw new ArgumentNullException(nameof(diagnostics)) : [.. diagnostics];
+        Checks = checks is null ? throw new ArgumentNullException(nameof(checks)) : adoptBacking ? checks : [.. checks];
+        Diagnostics = diagnostics is null ? throw new ArgumentNullException(nameof(diagnostics)) : adoptBacking ? diagnostics : [.. diagnostics];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 
@@ -128,5 +143,32 @@ public sealed record QpdfCheckResult
 
             return false;
         }
+    }
+
+    private QpdfCheckResult(QpdfCheckResult source)
+    {
+        PageCount = source.PageCount;
+        Version = source.Version;
+        Checks = source.Checks;
+        Diagnostics = source.Diagnostics;
+        Counters = source.Counters;
+    }
+
+    /// <summary>Compares exposed values and aliases.</summary>
+    public bool Equals(QpdfCheckResult? other) => other is not null
+        && PageCount == other.PageCount
+        && EqualityComparer<PdfVersion>.Default.Equals(Version, other.Version)
+        && EqualityComparer<IReadOnlyList<QpdfCheckOutcome>>.Default.Equals(Checks, other.Checks)
+        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Diagnostics, other.Diagnostics)
+        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
+
+    /// <summary>Hashes exposed values and aliases.</summary>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Version, Checks, Diagnostics, Counters);
+
+    internal void OwnStorage(ExecutionResultMemory storage)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
+        _storage = storage;
     }
 }

@@ -137,12 +137,19 @@ remain immutable. Completed retirement is bounded and can finish after
 cancellation; active execution still observes cancellation. Limits that cannot
 admit the carriers borrow immutable outcomes before job or host work. Caller
 record copies preserve exposed values and aliases without copying receipt
-ownership. Typed facades admit one private counter before processing and capture
-its final values after cleanup. Private cores borrow that counter, or immutable
-zero counters when serving commands; redundant facade clones are removed.
+ownership. Typed facades pre-admit their public wrapper, counter, dedicated weak receipts
+and construction/retirement work before processing, then capture final values
+after cleanup. Six private value outcomes replace nine heap public-DTO sites;
+command cores do not allocate typed public carriers or counters. Typed boundaries
+adopt engine-created snapshot arrays; public constructors still copy caller input.
+Each wrapper owns its own receipt without rooting completed job metadata. Caller
+copies omit that receipt and preserve exposed equality/hash and aliases. Failure
+drops unreturned references and only unused constructor credit; actual receipts
+retire with prepaid work. Private outcome slots in async/task frames remain under
+the physical MEASURE-01 qualification, and copied backing/mapping/version under T4.
 Each public document counter read independently admits snapshot/receipt storage,
 a shared weak governor link and construction/retirement work. Completed document
-retirement can reconcile after cancellation. Typed wrappers/copied backing remain
+retirement can reconcile after cancellation. Typed wrapper final proof/copied backing remain
 DIAG-01R-T; generic diagnostic/list/fatal storage remains DIAG-01.
 
 The host owns stable input identities and ranged reads, output staging and

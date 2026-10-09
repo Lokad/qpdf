@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf;
 
 /// <summary>JSON inspection options: format version plus key filter.</summary>
@@ -101,15 +103,26 @@ public sealed record QpdfJsonOptions
 /// <summary>Outcome of JSON inspection.</summary>
 public sealed record QpdfJsonResult
 {
+    internal const long StorageBytes = 48L;
+    private ExecutionResultMemory? _storage;
+
     /// <summary>Creates an inspection outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfJsonResult(
         string json,
         IReadOnlyList<QpdfDiagnostic> warnings,
         QpdfExecutionCounters counters)
+        : this(json, warnings, counters, false)
+    { }
+
+    internal QpdfJsonResult(
+        string json,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters,
+        bool adoptBacking)
     {
         Json = json ?? throw new ArgumentNullException(nameof(json));
-        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : adoptBacking ? warnings : [.. warnings];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 
@@ -121,19 +134,53 @@ public sealed record QpdfJsonResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
+
+    private QpdfJsonResult(QpdfJsonResult source)
+    {
+        Json = source.Json;
+        Warnings = source.Warnings;
+        Counters = source.Counters;
+    }
+
+    /// <summary>Compares exposed values and aliases.</summary>
+    public bool Equals(QpdfJsonResult? other) => other is not null
+        && Json == other.Json
+        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
+        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
+
+    /// <summary>Hashes exposed values and aliases.</summary>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, Json, Warnings, Counters);
+
+    internal void OwnStorage(ExecutionResultMemory storage)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
+        _storage = storage;
+    }
 }
 /// <summary>Outcome of a JSON import.</summary>
 public sealed record QpdfJsonImportResult
 {
+    internal const long StorageBytes = 48L;
+    private ExecutionResultMemory? _storage;
+
     /// <summary>Creates an import outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     public QpdfJsonImportResult(
         int pageCount,
         IReadOnlyList<QpdfDiagnostic> warnings,
         QpdfExecutionCounters counters)
+        : this(pageCount, warnings, counters, false)
+    { }
+
+    internal QpdfJsonImportResult(
+        int pageCount,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters,
+        bool adoptBacking)
     {
         PageCount = pageCount;
-        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : adoptBacking ? warnings : [.. warnings];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 
@@ -145,4 +192,27 @@ public sealed record QpdfJsonImportResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
+
+    private QpdfJsonImportResult(QpdfJsonImportResult source)
+    {
+        PageCount = source.PageCount;
+        Warnings = source.Warnings;
+        Counters = source.Counters;
+    }
+
+    /// <summary>Compares exposed values and aliases.</summary>
+    public bool Equals(QpdfJsonImportResult? other) => other is not null
+        && PageCount == other.PageCount
+        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
+        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
+
+    /// <summary>Hashes exposed values and aliases.</summary>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Warnings, Counters);
+
+    internal void OwnStorage(ExecutionResultMemory storage)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
+        _storage = storage;
+    }
 }

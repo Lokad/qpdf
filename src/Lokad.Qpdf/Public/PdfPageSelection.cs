@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf;
 
 /// <summary>Ordered page selection within the strict profile.</summary>
@@ -157,6 +159,9 @@ public sealed record PdfPageSelectionOptions
 /// <summary>Outcome of a page selection.</summary>
 public sealed record PdfPageSelectionResult
 {
+    internal const long StorageBytes = 56L;
+    private ExecutionResultMemory? _storage;
+
     /// <summary>Creates a selection result.</summary>
     /// <exception cref="ArgumentNullException">Warnings or counters are null.</exception>
     public PdfPageSelectionResult(
@@ -165,11 +170,21 @@ public sealed record PdfPageSelectionResult
         int pageCount,
         IReadOnlyList<QpdfDiagnostic> warnings,
         QpdfExecutionCounters counters)
+        : this(sourcePageCount, sourcePages, pageCount, warnings, counters, false)
+    { }
+
+    internal PdfPageSelectionResult(
+        int sourcePageCount,
+        IReadOnlyList<int> sourcePages,
+        int pageCount,
+        IReadOnlyList<QpdfDiagnostic> warnings,
+        QpdfExecutionCounters counters,
+        bool adoptBacking)
     {
         SourcePageCount = sourcePageCount;
-        SourcePages = sourcePages is null ? throw new ArgumentNullException(nameof(sourcePages)) : [.. sourcePages];
+        SourcePages = sourcePages is null ? throw new ArgumentNullException(nameof(sourcePages)) : adoptBacking ? sourcePages : [.. sourcePages];
         PageCount = pageCount;
-        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : [.. warnings];
+        Warnings = warnings is null ? throw new ArgumentNullException(nameof(warnings)) : adoptBacking ? warnings : [.. warnings];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
     }
 
@@ -187,4 +202,31 @@ public sealed record PdfPageSelectionResult
 
     /// <summary>Gets the final job counters.</summary>
     public QpdfExecutionCounters Counters { get; }
+
+    private PdfPageSelectionResult(PdfPageSelectionResult source)
+    {
+        SourcePageCount = source.SourcePageCount;
+        SourcePages = source.SourcePages;
+        PageCount = source.PageCount;
+        Warnings = source.Warnings;
+        Counters = source.Counters;
+    }
+
+    /// <summary>Compares exposed values and aliases.</summary>
+    public bool Equals(PdfPageSelectionResult? other) => other is not null
+        && SourcePageCount == other.SourcePageCount
+        && EqualityComparer<IReadOnlyList<int>>.Default.Equals(SourcePages, other.SourcePages)
+        && PageCount == other.PageCount
+        && EqualityComparer<IReadOnlyList<QpdfDiagnostic>>.Default.Equals(Warnings, other.Warnings)
+        && EqualityComparer<QpdfExecutionCounters>.Default.Equals(Counters, other.Counters);
+
+    /// <summary>Hashes exposed values and aliases.</summary>
+    public override int GetHashCode() => HashCode.Combine(EqualityContract, SourcePageCount, SourcePages, PageCount, Warnings, Counters);
+
+    internal void OwnStorage(ExecutionResultMemory storage)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
+        _storage = storage;
+    }
 }
