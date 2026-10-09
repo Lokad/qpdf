@@ -146,10 +146,10 @@ Each wrapper owns its own receipt without rooting completed job metadata. Caller
 copies omit that receipt and preserve exposed equality/hash and aliases. Failure
 drops unreturned references and only unused constructor credit; actual receipts
 retire with prepaid work. Private outcome slots in async/task frames remain under
-the physical MEASURE-01 qualification, and copied backing/mapping/version under T4.
+the physical MEASURE-01 qualification, and copied backing/mapping/version under T4/T4V.
 Each public document counter read independently admits snapshot/receipt storage,
 a shared weak governor link and construction/retirement work. Completed document
-retirement can reconcile after cancellation. Typed wrapper final proof/copied backing remain
+retirement can reconcile after cancellation. Copied backing/mapping/version remain
 DIAG-01R-T; generic diagnostic/list/fatal storage remains DIAG-01.
 
 The host owns stable input identities and ranged reads, output staging and

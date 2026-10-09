@@ -1,6 +1,6 @@
 # Progress
 
-## Typed wrappers — T3/T3E implemented, combined proof pending
+## Typed wrappers — T3/T3E retired; next T4V
 
 Both original raw/Flate extraction jobs now retain 279 governed bytes against
 a measured 232-byte wrapper/counter/two-receipt/shared-link minimum. Preserve
@@ -27,7 +27,7 @@ the intermediate attachment-edit carrier. Typed boundaries adopt engine-created
 snapshot arrays; public constructors preserve their copying contract. Argv/job
 cores do not create public typed wrappers or counter snapshots. Private outcome
 slots in task/async frames remain under MEASURE-01; copied backing/mapping/version
-ownership stays T4. This correction does not claim complete physical containment.
+ownership stays T4/T4V. This correction does not claim complete physical containment.
 
 947 focused checks and two final original-extraction rows pass: 447 new controls,
 434 complete public rows and 13 shape/geometry controls. The identical final tests
@@ -39,15 +39,42 @@ short admission, independent result/counter/caller-copy aliases and metadata
 collection keep original targets/leases and budgets. All 264 old test sources
 and five locks stay byte-identical; all 908 public signatures remain.
 
-The wider 2898-case focused lane passes; all 3847 distinct focused occurrences
-pass. Commit the integrated correction and freeze its source/runtime/test/probe/
-PDB identities, then run full Release/reference/native/package/fresh consumer
-checks once. T3/T3E remain open
-until that source-bound proof; T4–T6 and the parent remain open afterward.
-Expected full scope: 16177 cases, preserving every 15730 prior occurrence.
-Focused TRX interval 371.0s; broader focused wall 478.6s; predecessor 115.9s. Measurement phase timings and
-every original row remain in the local review archive. Retain the initial
-CheckOutcome naming collision as a compilation trial, not a runtime correction.
+All 3847 distinct focused occurrences pass. Preserve the initial CheckOutcome
+naming collision as a compilation trial.
+T3/T3E retire on implementation `3bd43f1`: all 16177 Release cases preserve
+every 15730 preceding occurrence. Pinned 1846 object comparisons/432 rewrite
+trios, all 868 complete native records/same 64 classified differences, exact
+package/PDB/changelog, all 908 public signatures and fresh 50-smoke/two-negative
+consumers pass. Consumer source and external hashes remain unchanged; no warning
+or audit overrides. T4/T4V, T5/T6 and the parent stay open.
+
+Implementation `3bd43f1` binds 561 source paths/538 core paths; 546 preceding
+raw paths, all 264 old test sources and all five locks remain exact. Runtime/test/
+probe/PDB SHA-256 prefixes are `7021C5D83F8FA3A6` /
+`8B02C107C6759926` / `94241A39F7979B94` /
+`C302987E62701B42`; package `69D6F859A7EE4539`.
+
+Final phase seconds: locked restore 2.422, Release build 1.765,
+full 2656.6, pinned reference 2244.6, native 582.4,
+pack 1.828, inspection 3.313, fresh consumer 21.031,
+two negatives 10.766. Independent final lanes overlap; the longest
+observed final phase is the full suite.
+Focused TRX interval 371.0s; broader focused 478.6s;
+predecessor 115.9s. Every original row and phase timing remains
+in the local review archive.
+
+The next unit is T4V. Two complete raw/Flate CheckAsync jobs retain only
+result.Version (1.4) after four GC/four bounded maintenance rounds. Raw input
+leaves zero governed bytes against an independently measured 24-byte version;
+Flate leaves 72 bytes, a preserved residual that cannot prove ownership. Hosts,
+results and counters collect; leases close. Header and catalog parser factories
+allocate a new version per read. Cover independently surviving document
+HeaderVersion/Version and check aliases, catalog overrides and negotiated writer
+versions with complete success/failure/cancellation/publication jobs under the
+original limits. Fund library-created versions before allocation, share each
+owner once across borrowed aliases and retire dead siblings without rooting the
+completed job. Add the missing independent alias/admission controls to ordinary
+tests; the current local probe establishes the failure, not T4V acceptance.
 
 Warm result/counter/governor/general receipt/dedicated receipt/weak-link geometry
 is 80/88/224/48/32/24. New typed wrapper geometry is 56/72/64/48/48/56/48 for

@@ -140,7 +140,7 @@ Its equally observed public control keeps fifty header attempts and original
 ceilings. Independent parser observations and retained disposal snapshots keep
 their original fixtures/other assertions/limits; 256 other old test sources and
 five locks remain byte-identical.
-T3/T3E now implement wrapper admission across all seven public result types and
+T3/T3E retire at `3bd43f1` with wrapper admission across all seven public result types and
 eleven facades, with dedicated weak receipts and prepaid preparation/constructor/
 retirement work before processing. Six private readonly value outcomes eliminate
 nine heap public-DTO sites consumed by typed/argv/job routes. Internal boundaries
@@ -155,10 +155,18 @@ known minimum omits the newly owned wrapper receipt; do not rewrite its records.
 947 focused checks/two final physical rows pass. Identical 447 final predecessor
 rows expose 420 failures/27 preserved outcomes (407 public failures, 13 independent
 shape/geometry failures); no loaders/skips. All 264 old tests/five locks and 908
-signatures remain exact. All 2898 broader focused cases pass (3847 distinct
-focused occurrences in total). Final combined source/reference/
-native/package/consumer proof remain required before T3/T3E retirement. T4 copied
-backing/mapping/version, T5 complete admission, T6 and the parent stay open.
+signatures remain exact. All 3847 distinct focused occurrences pass. Final
+16177 Release cases preserve every 15730 prior occurrence; pinned 1846/432
+reference, all unchanged 868 complete native records/same 64 differences and
+exact package/PDB/changelog/fresh 50-smoke/two-negative consumers pass. No
+consumer source, external hashes, warning policy or binding scope changes.
+T4 copied backing/mapping, T4V version, T5 complete admission, T6 and the parent
+stay open. A separate completed raw CheckAsync job retaining only version 1.4
+leaves zero governed bytes against a measured 24-byte object; the Flate job's
+72-byte residual remains qualified. Hosts/results/counters collect and leases
+close after four GC/four maintenance rounds. Header/catalog parser versions are
+library-created per read. Independent document/version and negotiated writer
+alias/admission/fault/cancellation controls remain T4V, not established evidence.
 Private outcome slots in task/async frames, governor and cold/BCL/host containment
 remain MEASURE-01; no broader physical containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
