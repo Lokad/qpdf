@@ -40,6 +40,7 @@ internal static class GovernedHost
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(governor);
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        governor.PrepareExecutionResult();
         PublicationWorkReservation? publication = governor.ReserveOutputWrapper();
         bool acquired = false;
         try

@@ -160,14 +160,26 @@ internal sealed class ExecutionPresentation : IDisposable
 
     internal QpdfExecutionResult Failure(QpdfExecutionResult result)
     {
+        IReadOnlyList<QpdfDiagnostic>? failure = FreezeFailure(result.Diagnostics);
+        return failure is null ? result : new QpdfExecutionResult(result.Status, result.ExitCode, failure, result.Counters, true);
+    }
+
+    internal ExecutionOutcome Failure(ExecutionOutcome result)
+    {
+        IReadOnlyList<QpdfDiagnostic>? failure = FreezeFailure(result.Diagnostics);
+        return failure is null ? result : new ExecutionOutcome(result.Status, result.ExitCode, failure);
+    }
+
+    private IReadOnlyList<QpdfDiagnostic>? FreezeFailure(IReadOnlyList<QpdfDiagnostic> diagnostics)
+    {
         FailureProjection failure = _failure ?? throw new InvalidOperationException("Missing failure diagnostics.");
         IReadOnlyList<QpdfDiagnostic> accepted = Bag.Entries;
         if ((_flags & 15) == 0 && _prepared is DiagnosticProjection history)
         { accepted = history.Transfer(); _prepared = null; }
-        bool hasAccepted = failure.Freeze(accepted, result.Diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
-        if ((_flags & 15) == 0 && !hasAccepted) { return result; }
+        bool hasAccepted = failure.Freeze(accepted, diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
+        if ((_flags & 15) == 0 && !hasAccepted) { return null; }
         _failure = null; _failureReceipt = null;
-        return new QpdfExecutionResult(result.Status, result.ExitCode, failure, result.Counters, true);
+        return failure;
     }
 
     public void Dispose()

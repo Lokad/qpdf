@@ -97,7 +97,7 @@ public sealed class JsonOutputOwnershipTests
     }
 
     private sealed record Observation(ResourceGovernor Governor, object? Alias, long Minimum,
-        WeakReference Result, WeakReference Host, QpdfExecutionCounters Counters);
+        WeakReference Result, WeakReference Host, long PeakMemoryBytes);
 
     private static async Task<Observation> CompletePublished(string route, bool compressed, int version, string mode, string alias)
     {
@@ -169,7 +169,7 @@ public sealed class JsonOutputOwnershipTests
             if (mode == "file") { Assert.Contains("side-4", host.Names); }
         }
         else { value = null; minimum = 0L; }
-        return new(governor, value, minimum, new(result), new(host), counters);
+        return new(governor, value, minimum, new(result), new(host), counters.PeakMemoryBytes);
     }
 
     private static async Task<object> RunPublished(CaptureHost host, string route, int version, string mode,
@@ -250,7 +250,7 @@ public sealed class JsonOutputOwnershipTests
         Collect(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
         Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
-        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes < observation.Counters.PeakMemoryBytes);
+        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes < observation.PeakMemoryBytes);
         using JsonDocument parsed = JsonDocument.Parse(Assert.IsType<string>(observation.Alias));
         Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32());
         GC.KeepAlive(observation.Alias);
@@ -486,7 +486,7 @@ public sealed class JsonOutputOwnershipTests
         if (budget || outcome is "input-close" or "cancel-input" or "create") { Assert.Empty(host.Writes); }
         ReadOnlyMemory<byte>[] alias = host.Writes.ToArray();
         long minimum = BufferMinimum(alias);
-        return new(governor, alias, minimum, new(result), new(host), governor.Snapshot());
+        return new(governor, alias, minimum, new(result), new(host), governor.Snapshot().PeakMemoryBytes);
     }
 
     [Theory]

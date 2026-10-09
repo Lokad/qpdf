@@ -97,6 +97,14 @@ exact package/PDB, 908 signatures and fresh 50-smoke/two-negative consumers pass
 All 259 old test sources/five locks stay exact. DIAG-01R separately identifies
 underfunded result/counter carriers through 16 complete public jobs. Configuration DOM,
 import/update/resource walks and generic DTO admission remain separate obligations.
+The command-carrier correction replaces private command result/counter clones
+with value outcomes, prepares independent result/counter receipts before output
+creation and freezes final counters after cleanup. Its final 4384-case focused
+run passes all 736 new complete public rows; identical cases on the predecessor
+expose 378 failures and preserve 358 outcomes. Final proof is pending. Typed carriers
+and four complete work-exhaustion counter undercounts remain DIAG-01R-T/F;
+the original five-row comparison remains, with MaxWork=2048 now funded.
+neither correct snapshots nor healthy-job ownership retires those obligations.
 DIAG-02PV requires final proof after those corrections; the parent/wider gates stay open.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
 reference/parser lane and fresh package/consumer checks. Original 868 comparisons

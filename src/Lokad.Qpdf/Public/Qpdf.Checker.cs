@@ -6,7 +6,7 @@ namespace Lokad.Qpdf;
 
 public static partial class Qpdf
 {
-    private static async ValueTask<QpdfExecutionResult> RunCheckPlanAsync(
+    private static async ValueTask<ExecutionOutcome> RunCheckPlanAsync(
         IQpdfHost host, CheckPlan plan, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
@@ -65,24 +65,24 @@ public static partial class Qpdf
                 bytes = new ReadOnlyMemory<byte>(output.ToArray());
             }
             output.Dispose();
-            QpdfExecutionResult result = CompleteWithPresentation(diagnostics.Entries, governor.Snapshot(), plan, governor);
+            ExecutionOutcome result = CompleteWithPresentation(diagnostics.Entries, plan, governor);
             if (result.Status != QpdfExecutionStatus.Completed) { bytes = null; }
-            return result.WithCounters(governor.Snapshot()).WithOutputBytes(bytes);
+            return result.WithOutputBytes(bytes);
         }
         catch (QpdfException ex)
         {
-            QpdfExecutionResult failure = ToFailedResult(ex);
+            ExecutionOutcome failure = ToFailedResult(ex);
             if (ex is QpdfLimitException limit && (limit.LimitName == nameof(QpdfLimits.MaxDiagnostics)
                 || limit.LimitName == nameof(QpdfLimits.MaxDiagnosticBytes)))
             {
-                return failure.WithCounters(governor.Snapshot());
+                return failure;
             }
-            return new QpdfExecutionResult(failure.Status, failure.ExitCode,
-                [.. diagnostics.Entries, .. failure.Diagnostics], governor.Snapshot());
+            return new ExecutionOutcome(failure.Status, failure.ExitCode,
+                [.. diagnostics.Entries, .. failure.Diagnostics]);
         }
         catch (OperationCanceledException)
         {
-            return QpdfExecutionResult.Canceled([], governor.Snapshot());
+            return ExecutionOutcome.Canceled([]);
         }
     }
 }

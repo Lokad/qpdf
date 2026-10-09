@@ -33,7 +33,7 @@ internal sealed class PublicationWorkReservation : IDisposable
     internal void Begin()
     {
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(PublicationWorkReservation));
-        governor.CheckCancellation(); Publishing = true;
+        governor.CheckCancellation(); governor.PrepareExecutionResult(); Publishing = true;
     }
 
     internal void Consume(long units)

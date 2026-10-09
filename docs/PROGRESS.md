@@ -1,126 +1,76 @@
 # Progress
 
-## Public JSON output ownership — JSON-01J
+## Command result ownership — DIAG-01R-C
 
-The shared serializer now admits output chunks, scalar/container traversal,
-sorted object/key vectors, immutable text, UTF-8 main bytes, base64 emission and
-sidecar bytes/names before allocation. It borrows immutable PDF backing rather
-than cloning names, strings, arrays or stream data. Decoded stream attempts use
-their own scope. Prepared output owns unexposed candidates through failure;
-host write buffers, host filenames and returned text receive separate receipts.
-Those aliases cannot keep the completed governor/index alive.
+Command cores now carry private value outcomes, rather than heap result/counter
+clones. The governor prepares a 72-byte execution result and 80-byte counter
+snapshot with separate weak receipts before output creation. Fileless completion
+also admits carriers before presentation finishes. The governor fills these
+private carriers once, after operation/configuration/publication scopes close,
+then drops its references. Public counter properties remain read-only and the
+snapshot never changes after exposure. Public constructor/record-copy storage
+created by callers remains caller-funded.
 
-JSON uses Latin-1 chunks where possible and preserves raw UTF-16 units in wide
-chunks. Maximum chunk slack is 511 characters; growth and copying remain linear.
-Serialization closes its exclusive reader before immutable/publication copies.
-Schema testing still accepts its informational note before input close, and
-output-byte limits still reject before input close. Original one-handle outputs,
-warning policies, schemas, ordering and byte escaping remain.
+The unchanged sixteen-job file-JSON driver now retains 1432 governed bytes for
+result/counters and 1304 for independent counters, versus zero on FF9D22EA.
+The 152/80-byte carriers and 1280/1224-byte ledger qualifications remain explicit.
+All hosts collect; counter-only results collect independently. Four GC rounds and
+four bounded maintenance boundaries remain. Completed-job receipt maintenance
+can finish after cancellation, without disabling cancellation during active work.
+Two receipt-retirement units are held before publication and charged only when
+used; the original mixed/inline MaxWork=5000 failure/GC control passes unchanged.
 
-The funded serializer exposed two regressions in the unchanged 50-object,
-100-warning repair jobs. Exclusive JSON readers now memoize shared nulls in an
-admitted number set. Parser aborts unwind abandoned container frames and retire
-that attempt before allocating its concluding warnings; both warning messages
-retain their order/offsets. Ordinary document caches retain their established
-behavior. All four original strict/reconstructed argv/job jobs pass at their
-unchanged 247494/247489-byte ceilings. New JSON v1 objects/objectinfo jobs reuse
-the repaired cache without duplicate warnings; typed JSON retains strict rejection.
+The final focused run passes 4384 cases, including 736 new complete public rows:
+sixteen original file-JSON alias controls, plus 356 carrier-lifetime and 356
+completed-metadata controls across thirteen command/companion profiles, raw/Flate,
+success/input/write/commit/output-close faults and observed cancellation. Prior
+outputs/aliases, statuses, payloads and final counters remain. Eight additional
+fixed memory/work alias controls complete the matrix. The identical 736 cases on
+the preceding FF9D22EA runtime expose 378 failures and preserve 358 outcomes, with
+no loader failures or skips. All 908 public signatures match. Final committed-
+source/Release/reference/native/package/consumer proof is pending; DIAG-01R-C is
+not yet retired.
 
-The unchanged eight-job alias driver now reports 4008 live bytes for each
-1378-character string: 2784 bytes of string plus 1224 bytes of owned ledger.
-Its original 4–93-byte undercounts remain archived. Shared empty diagnostic views
-remain alive on both versions and are not treated as ownership defects.
+The first development run retained 48 failures: 32 JSON observers rooted a now
+funded counter, and sixteen canceled jobs rejected later receipt maintenance.
+The observer now keeps only its peak value; fixtures, budgets, bytes, GC thresholds
+and zero-unescaped-storage assertions remain. All other old test sources stay
+byte-identical. The next ownership run passes those controls. Keep both runs.
 
-All **4298 focused cases pass**, including **360 new complete public rows**.
-The identical 360 rows on the frozen predecessor give **290 fail / 70 preserve**,
-zero loaders/skips. Success, real memory/work/output-byte failures, observed
-cancellation and input/create/write/commit/output-close faults retain prior targets
-and independent text/host-buffer/filename aliases. Four GC rounds/four bounded
-maintenance boundaries retire discarded siblings; escaped buffers cannot root
-completed metadata. Unicode, invalid UTF-8, UTF-16 and numeric boundaries preserve
-40 explicit byte/schema controls. The six repair-policy controls add four successful
-command jobs and two required typed rejections.
+## Explicit remaining returned-carrier obligations
 
-All 259 preceding test sources and five locks remain byte-identical. New success
-fixtures use 32 KiB raw, 64 KiB mixed and 256 KiB Flate ceilings; the Flate adapter's
-128 KiB workspace and mixed controller allowance remain explicit. These are new
-fixtures, not relaxed original controls. Retain every failed development TRX,
-including the rejected global null-cache optimization and incorrect typed repair
-expectations. Warm carriers measure builder/chunk/compact/text/prepared/payload
-at 64/40/48/48/72/64 bytes; their admitted allowances cover those carriers.
-DocumentEngine grows from 120 to 128 bytes; broader reader-wrapper/cold ownership
-remains open and this scope does not claim to close it.
+DIAG-01R-T names typed results and QpdfDocument counter snapshots; their wrappers,
+private clones and independently escaping counters still need admission across
+complete jobs and before publication. DIAG-01R-F names admission after exhausted
+work/memory and the generic fatal envelope. A twelve-job budget probe observes
+547 actual input bytes, prior target/alias preservation and collected hosts.
+Memory ceilings 2048/4096/8192 and a genuine MaxWork=1024 failure retain funded
+independent counters. The original probe also retained five unfunded work failures. With prepaid
+retirement, MaxWork=2048 now fails earlier and funds the final counter; retain
+that original comparison. MaxWork=64/128/256/512 still exhaust registration work
+and retain an unfunded 80-byte counter with zero live storage. Preserve every
+row, including the funded 1024 case. A healthy-job carrier correction does not
+retire the four remaining complete failure counterexamples or the generic fatal gate.
 
-Response-file byte attempts now retire before input close rather than leaking a
-reservation. Complete JSON response jobs prove success/output-failure cleanup;
-CFG-01B keeps response-read failure/cancellation proof and configuration text/token
-ownership explicit. Generic JSON DOM/controllers/import/update/resource walks
-and returned DTO/fatal admission remain JSON-01/DIAG-01.
+ResourceGovernor warm geometry grows from 168 to 184 bytes; physical governor/frame and
+cold-state containment remains MEASURE-01. Final warm geometry is result 72,
+counters 80, governor 184 and receipt 56 bytes, bound to runtime 069FC6C8.
+Final phase timings still need source binding. No new limit exception/allowance is granted.
+No expensive final lanes have been launched before the correction is frozen.
 
-## Final source proof
+## Preserved evidence and remaining gates
 
-Code **`c0230dc`**, runtime **`FF9D22EA`**, tests **`8D69C8E0`**, probe
-**`926F791D`**: all **14284 Release cases pass**, retaining every one of the
-13924 preceding occurrences. Identical final 360 public rows on the frozen
-predecessor give 290 failures/70 preserved outcomes, without loaders or skips.
-Pinned reference passes **1846 comparisons/432 rewrite trios**. All 868 complete
-native fixtures/settings/routes, payloads, headers, warnings and diagnostics
-remain exact, retaining **868/804/868** and all 64 valid physical differences.
-Packed DLL/changelog/PDB, all 908 signatures, 50 fresh consumer smokes and both
-specific pre-smoke negatives pass. All 552 tracked/529 core paths are frozen;
-534 preceding raw paths, all 259 old test sources, five locks and unrelated work
-remain exact. **JSON-01J is retired.** Parent/wider gates remain open.
+JSON-01J, P2F/P3H, DIAG-02C and hints remain retired within their recorded scopes.
+The preceding JSON proof at c0230dc passed 14284 Release cases, pinned 1846/432,
+all 868 complete native rows with the same 64 physical differences, exact package/
+PDB and fresh 50-smoke/two-negative consumers. Retain the four original repair
+ceilings 247494/247489, fifty damaged objects/one hundred warnings, original hint
+4 KiB failure and corrected 64 calls/1503 peak/1224 ledger qualification, all
+original measurement qualifications, five locks and unrelated work.
 
-The combined proof is
-`external/reviews/2026-10-09-json-output-ownership/final/integrated-verification.json`.
-The documentation follow-up changes no core source or verified runtime/test/probe/
-PDB artifact. The final build/pack identity check is recorded alongside that proof.
-
-| Phase | Observed wall time |
-| --- | --- |
-| Locked restore / committed build | 1.5s / 1.3s |
-| Full Release | 17m17s |
-| Reference total / broad-to-parser / parser artifact interval | 32m59s / 8m45s / 24m13s |
-| Original native matrix | 7m30s |
-| Pack / inspection / fresh consumer / negatives | 2.0s / 4.5s / 25.3s / 14.3s |
-
-Lanes overlap; artifact intervals are not isolated CPU measurements. The first
-native launch failed on a runtimeconfig file lock caused by the reference build;
-its evidence remains archived. A frozen copy of the identical probe removes that
-launch contention. The full test/reference/package lanes ran once after correction.
-
-## Next demonstrated public failure — DIAG-01R
-
-Sixteen complete raw/Flate file-JSON jobs in argv/job/mixed/response routes retain
-a 72-byte execution result plus its 80-byte counters, or independently retain the
-80-byte counters after the result dies. Actual governor live storage is zero after
-one continuation yield, four GC rounds and four bounded maintenance boundaries;
-the host is collected in every case. The same driver on `707D7BDB` reports
-4–108 leaked bytes; its response/Flate counter-only case masks the 80-byte minimum.
-Keep those raw observations and the rejected stale-copy/inline-continuation runs.
-DIAG-01R requires admitted result/counter carriers and clones through complete
-success/failure/cancellation/publication jobs and independent aliases. It does not
-reopen the established observed-counter or JSON-payload corrections. Generic
-warning/list/fatal owners remain under DIAG-01.
-
-The existing JSON observation record also retains a result-counter snapshot.
-Its zero-total-live assertions apply to this source tree, where that carrier is
-unfunded. The later correction must separate the funded counter from serializer
-scratch while preserving the original fixtures, budgets and GC thresholds.
-
-## Remaining obligations
-
-DIAG-01/DIAG-01R, JSON-01, CFG-01B, MEASURE-01, parent P2/P3/PV, M11/A01–A07 and both
-verdicts remain open. The [finite checklist](AUDIT-CLOSURE.md) names routes,
-executable checks and pass conditions. Inventory remains 140 flags/157 contexts,
-152 complete/five partial and 98 job keys; eight array-AcroForm gaps, overlay/form/
-default/context, cold/codec/RSS/CPU/host and visual/reference CI obligations remain.
-The five ImageSharp 3.1.12 advisory-specific exclusions are intentional and
-temporary; audit stays enabled and all five locks remain unchanged.
-
-P2F/P3H and hints remain retired by their recorded proof. Preserve the original
-CheckPlan +200, PreparedSplitPublication +152, 393216 samples, summary 240/238,
-grouped +24, 1768 failed allocation and 4192/8224 qualifications. Keep the original
-4 KiB hint failure, corrected 64 calls/1503 peak and 1224-byte ledger qualification.
-Full preceding controls and phase timings remain in
-[PROGRESS-HISTORY](PROGRESS-HISTORY.md).
+DIAG-01/DIAG-01R-C/T/F, JSON-01, CFG-01B, MEASURE-01, parent P2/P3/PV,
+M11/A01–A07 and both verdicts remain open. The [closure checklist](AUDIT-CLOSURE.md)
+names routes, executable checks and pass conditions. Inventory remains unchanged.
+Five intentional temporary ImageSharp 3.1.12 advisory-specific exclusions remain;
+audit and other warnings stay enabled. [PROGRESS-HISTORY](PROGRESS-HISTORY.md)
+retains the complete preceding proof and timing qualifications.

@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf;
 
 /// <summary>Library-level outcome of an executed operation.</summary>
@@ -32,6 +34,15 @@ public enum QpdfExitCode
 /// <summary>A point-in-time snapshot of per-job resource counters.</summary>
 public sealed record QpdfExecutionCounters
 {
+    private long _liveMemoryBytes;
+    private long _peakMemoryBytes;
+    private long _totalWork;
+    private long _totalDecodedBytes;
+    private long _totalOutputBytes;
+    private long _hostOperations;
+    private long _openHandles;
+    private long _diagnosticCount;
+
     /// <summary>Creates a counter snapshot.</summary>
     public QpdfExecutionCounters(
         long liveMemoryBytes,
@@ -43,50 +54,71 @@ public sealed record QpdfExecutionCounters
         long openHandles,
         long diagnosticCount)
     {
-        LiveMemoryBytes = liveMemoryBytes;
-        PeakMemoryBytes = peakMemoryBytes;
-        TotalWork = totalWork;
-        TotalDecodedBytes = totalDecodedBytes;
-        TotalOutputBytes = totalOutputBytes;
-        HostOperations = hostOperations;
-        OpenHandles = openHandles;
-        DiagnosticCount = diagnosticCount;
+        _liveMemoryBytes = liveMemoryBytes;
+        _peakMemoryBytes = peakMemoryBytes;
+        _totalWork = totalWork;
+        _totalDecodedBytes = totalDecodedBytes;
+        _totalOutputBytes = totalOutputBytes;
+        _hostOperations = hostOperations;
+        _openHandles = openHandles;
+        _diagnosticCount = diagnosticCount;
     }
 
     /// <summary>Gets the currently retained managed bytes.</summary>
-    public long LiveMemoryBytes { get; }
+    public long LiveMemoryBytes => _liveMemoryBytes;
 
     /// <summary>Gets the high-water mark of retained managed bytes.</summary>
-    public long PeakMemoryBytes { get; }
+    public long PeakMemoryBytes => _peakMemoryBytes;
 
     /// <summary>Gets the charged units of bounded work.</summary>
-    public long TotalWork { get; }
+    public long TotalWork => _totalWork;
 
     /// <summary>Gets the decoded stream payload bytes.</summary>
-    public long TotalDecodedBytes { get; }
+    public long TotalDecodedBytes => _totalDecodedBytes;
 
     /// <summary>Gets charged output bytes, including staged bytes discarded on failure.</summary>
-    public long TotalOutputBytes { get; }
+    public long TotalOutputBytes => _totalOutputBytes;
 
     /// <summary>Gets the host storage calls.</summary>
-    public long HostOperations { get; }
+    public long HostOperations => _hostOperations;
 
     /// <summary>Gets the currently open host handles.</summary>
-    public long OpenHandles { get; }
+    public long OpenHandles => _openHandles;
 
     /// <summary>Gets the recorded diagnostics.</summary>
-    public long DiagnosticCount { get; }
-}/// <summary>Explicit outcome of an executed operation.</summary>
+    public long DiagnosticCount => _diagnosticCount;
+
+    // Only a governor's private, prepaid snapshot is refreshed. No exposed
+    // counter or caller-created record enters this preparation path.
+    internal void CaptureBeforeReturn(ExecutionCounterValues counters)
+    {
+        _liveMemoryBytes = counters.LiveMemoryBytes;
+        _peakMemoryBytes = counters.PeakMemoryBytes;
+        _totalWork = counters.TotalWork;
+        _totalDecodedBytes = counters.TotalDecodedBytes;
+        _totalOutputBytes = counters.TotalOutputBytes;
+        _hostOperations = counters.HostOperations;
+        _openHandles = counters.OpenHandles;
+        _diagnosticCount = counters.DiagnosticCount;
+    }
+}
+
+/// <summary>Explicit outcome of an executed operation.</summary>
 public sealed record QpdfExecutionResult
 {
+    private QpdfExecutionStatus _status;
+    private QpdfExitCode _exitCode;
+    private IReadOnlyList<QpdfDiagnostic> _diagnostics;
+    private string? _outputText;
+    private ReadOnlyMemory<byte>? _outputBytes;
     /// <summary>Gets the execution status.</summary>
-    public QpdfExecutionStatus Status { get; }
+    public QpdfExecutionStatus Status => _status;
 
     /// <summary>Gets the command-adapter exit code.</summary>
-    public QpdfExitCode ExitCode { get; }
+    public QpdfExitCode ExitCode => _exitCode;
 
     /// <summary>Gets the recorded diagnostics.</summary>
-    public IReadOnlyList<QpdfDiagnostic> Diagnostics { get; }
+    public IReadOnlyList<QpdfDiagnostic> Diagnostics => _diagnostics;
 
     /// <summary>Gets the final resource counters.</summary>
     public QpdfExecutionCounters Counters { get; private init; }
@@ -96,9 +128,7 @@ public sealed record QpdfExecutionResult
     /// for operations that publish to a host path or have no text payload.
     /// The caller owns the returned immutable text; no ambient stdout is used.
     /// </summary>
-    public string? OutputText { get; private init; }
-
-    internal QpdfExecutionResult WithOutputText(string? text) => this with { OutputText = text };
+    public string? OutputText { get => _outputText; private init => _outputText = value; }
 
     /// <summary>
     /// Gets caller-owned binary inspection bytes when no host output path was
@@ -108,14 +138,7 @@ public sealed record QpdfExecutionResult
     /// Failed or canceled execution returns no binary payload, even if an
     /// earlier inspection produced staged bytes. No ambient stdout is used.
     /// </summary>
-    public ReadOnlyMemory<byte>? OutputBytes { get; private init; }
-
-    internal QpdfExecutionResult WithOutputBytes(ReadOnlyMemory<byte>? bytes) => this with { OutputBytes = bytes };
-
-    internal QpdfExecutionResult WithCounters(QpdfExecutionCounters counters) => this with
-    {
-        Counters = counters ?? throw new ArgumentNullException(nameof(counters)),
-    };
+    public ReadOnlyMemory<byte>? OutputBytes { get => _outputBytes; private init => _outputBytes = value; }
 
     /// <summary>Creates an execution result.</summary>
     /// <exception cref="ArgumentNullException">Diagnostics or counters are null.</exception>
@@ -130,12 +153,21 @@ public sealed record QpdfExecutionResult
     internal QpdfExecutionResult(QpdfExecutionStatus status, QpdfExitCode exitCode,
         IReadOnlyList<QpdfDiagnostic> diagnostics, QpdfExecutionCounters counters, bool adoptDiagnostics)
     {
-        Status = status;
-        ExitCode = exitCode;
-        Diagnostics = diagnostics is null
+        _status = status;
+        _exitCode = exitCode;
+        _diagnostics = diagnostics is null
             ? throw new ArgumentNullException(nameof(diagnostics))
             : adoptDiagnostics ? diagnostics : [.. diagnostics];
         Counters = counters ?? throw new ArgumentNullException(nameof(counters));
+    }
+
+    internal void CompleteBeforeReturn(ExecutionOutcome outcome)
+    {
+        _status = outcome.Status;
+        _exitCode = outcome.ExitCode;
+        _diagnostics = outcome.Diagnostics;
+        _outputText = outcome.OutputText;
+        _outputBytes = outcome.OutputBytes;
     }
 
     /// <summary>Builds a completed result, mapping diagnostics to an exit code.</summary>
