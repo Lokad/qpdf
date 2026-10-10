@@ -26,15 +26,15 @@ positive memory budgets 32768/262144 and work budgets 4096/65536. Genuine limits
 throw or produce a failed check containing the relevant limit diagnostic;
 all completed jobs must retire to zero governed memory and zero held work.
 
-Four preceding internal test files account for held retirement credits when
+Five preceding internal test files account for held retirement credits when
 exhausting their original budgets, and assert rejection of one further
-unit. The original index-growth controls retain their 64/160/184 available-work margins, failure location and rollback assertions. A fifth test file supplies the decoder's new private scope/token parameters; its six fixtures, ceilings and assertions stay unchanged. Preserve every other preceding test source, fixture, limit and occurrence.
+unit. The original index-growth controls retain their 64/160/184 available-work margins, failure location and rollback assertions. A sixth test file supplies the decoder's new private scope/token parameters; its six fixtures, ceilings and assertions stay unchanged. Preserve every other preceding test source, fixture, limit and occurrence.
 The development trials remain explicit: raw 25000 was not genuinely short;
 the first short-work test incorrectly required an exception; complete Flate
 jobs revealed unadopted decode reservations; generic quota exhaustion revealed
 unfunded retirement; staged diagnostic export required credit transfer. An
 overbroad debug lane was stopped after its failures were identified, and a
-concurrent build failed on its test-host DLL lock. Neither is acceptance proof. The first combined run exposed seven test-adapter failures (six private decoder signatures and one held-credit setup). It and its overlapping reference/native lanes were stopped before source changes; preserve those incomplete trials.
+concurrent build failed on its test-host DLL lock. Neither is acceptance proof. The first combined run exposed seven test-adapter failures (six private decoder signatures and one held-credit setup). It and its overlapping reference/native lanes were stopped before source changes; preserve those incomplete trials. The second full run stopped at 14311 passes and one plain-presentation credit-setup failure; 237 adjacent quota controls passed. Its 32768 ceiling now counts held retirement while asserting zero additional preparation/completion work. Full pinned reference/native/API/package results bind to unchanged runtime/probe/PDB; retain their completed evidence after the test-only adjustment.
 
 Run the required locked Release, full pinned reference, original 868 native
 comparisons, API and package/fresh-consumer checks once on committed final
