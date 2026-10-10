@@ -62,9 +62,9 @@ measurements record the method, original thresholds and terminal result separate
 | CFG-01B1 / retired independent read evidence | Response argv, direct job-file chains and mixed argv/job-file execution | `T 'ResponseOwnershipTests.CompleteResponseReadAttemptsRetireOnEveryTerminalOutcome'` | Complete actual one-page rewrite jobs, then observe success, read/close faults, invalid UTF-8, non-progressing reads and cancellation after observed I/O. Retire only the attempted byte/DOM storage; prior output bytes and caller argument aliases survive, all leases close, and four shared collection/four independent maintenance rounds leave only the independently held result channel. Keep missing-file and borrowed-empty semantics explicit. |
 | CFG-01B2 / retired decoded response storage correction | Every response file accepted by ExecuteAsync before ordinary/mixed parsing | `T 'ResponseOwnershipTests.DecodedTextStaysAdmittedThroughResponseInputClose'`; read-terminal controls and original response/job regressions | Both complete ASCII/UTF-8 rewrites retain 2112 decoded bytes at input close while the predecessor funds only 288 bytes. Admit exact decoded storage before allocation while encoded bytes overlap, keep its owner through close and splitting, then retire on success, decode/read/close failure and observed cancellation. Real short admission must fail before PDF input/publication under unchanged limits. |
 | CFG-01B3 / open expanded tokens and configuration controllers | Response-expanded arguments; ordinary/mixed argv parser plans; direct/nested job JSON sessions | Complete success/failure/cancellation jobs and independently surviving caller/host aliases; physical ownership observations | Enumerate and admit generated token strings, vector capacities/growth, syntax adapters, plan/controller/DOM state and overlap before allocation. Borrow caller-owned strings and shared empty views. Keep generated host/path/setting aliases independently funded after job cleanup, retire unescaped controller storage, preserve native setter ordering/duplicate/cycle rules and original configuration limits. New defects receive named controls rather than reopening established evidence. |
-| CFG-01B3T / pending generated token/name storage | Response-expanded argv, including ordinary and mixed parsing | `T 'ResponseArgumentOwnershipTests'`; original InvocationTests/ResponseOwnershipTests | Complete ASCII/UTF-8 one-page rewrites expose a 2080-byte live generated output token against predecessor admission 288 at the next response open. Admit substrings before allocation, retain names before host calls, borrow caller strings/shared empties, and transfer full decoded lines once. Original setter/missing/nested/CRLF behavior and fixed 6144-byte before-PDF rejection must pass. |
-| CFG-01B3V / pending expansion vector ownership | Every ExecuteAsync invocation through help, ordinary argv and mixed loading | `T 'ResponseArgumentOwnershipTests.ExpansionVectorGrowsWithinAdmissionAndBorrowsCallerStrings'`; affected result/configuration lanes | Observe actual list capacity and its independent owning reservation during a complete public rewrite. Grow before allocation, keep borrowed caller strings unchanged, clear private vector/controller storage before final counters, and retain every existing outcome/counter assertion. This entry covers expansion; parser-created vectors remain B3C. |
-| CFG-01B3H / pending surviving expansion aliases | Generated response/path tokens accepted by hosts and failed result diagnostics | `T 'ResponseArgumentOwnershipTests.CompleteExpansionJobsFundSurvivingAliasesAndRetirePrivateStorage'` | Thirteen complete jobs cover success, whole/empty/CRLF, empty tokens, open/read/close faults, invalid UTF-8, no progress, both cancellations and publication failure. Each independently surviving generated string has its own storage receipt. Preserve prior outputs/caller aliases and closed leases. Through four original collection/maintenance rounds per phase, private expansion dies, host/result aliases drop separately, counter-only storage is 144 and final storage zero. |
+| CFG-01B3T / retired generated token/name storage | Response-expanded argv, including ordinary and mixed parsing | `T 'ResponseArgumentOwnershipTests'`; original InvocationTests/ResponseOwnershipTests | Complete ASCII/UTF-8 one-page rewrites expose a 2080-byte live generated output token against predecessor admission 288 at the next response open. Admit substrings before allocation, retain names before host calls, borrow caller strings/shared empties, and transfer full decoded lines once. Original setter/missing/nested/CRLF behavior and fixed 6144-byte before-PDF rejection must pass. |
+| CFG-01B3V / retired expansion vector ownership | Every ExecuteAsync invocation through help, ordinary argv and mixed loading | `T 'ResponseArgumentOwnershipTests.ExpansionVectorGrowsWithinAdmissionAndBorrowsCallerStrings'`; affected result/configuration lanes | Observe actual list capacity and its independent owning reservation during a complete public rewrite. Grow before allocation, keep borrowed caller strings unchanged, clear private vector/controller storage before final counters, and retain every existing outcome/counter assertion. This entry covers expansion; parser-created vectors remain B3C. |
+| CFG-01B3H / retired surviving expansion aliases | Generated response/path tokens accepted by hosts and failed result diagnostics | `T 'ResponseArgumentOwnershipTests.CompleteExpansionJobsFundSurvivingAliasesAndRetirePrivateStorage'` | Thirteen complete jobs cover success, whole/empty/CRLF, empty tokens, open/read/close faults, invalid UTF-8, no progress, both cancellations and publication failure. Each independently surviving generated string has its own storage receipt. Preserve prior outputs/caller aliases and closed leases. Through four original collection/maintenance rounds per phase, private expansion dies, host/result aliases drop separately, counter-only storage is 144 and final storage zero. |
 | CFG-01B3C / open remaining configuration controllers | Ordinary/mixed argv syntax/parsers and direct/nested job JSON | Complete public jobs with physical overlap, failure/cancellation and surviving setting aliases | Enumerate/admit parser-created filtering vectors, global/context plans and adapters, job/session/DOM state, backing overlap and independently escaping settings before allocation. Preserve original native setter/duplicate/cycle/limit behavior. Expansion T/V/H evidence cannot close this entry or the parent. |
 | CFG-01B4 / open integrated configuration proof | Combined committed response/configuration correction | Required committed-source sequence below | Preserve every prior ordinary occurrence/named ownership cell, original budgets and pinned grammar/native comparisons. Run Release, reference, package and fresh-consumer checks on the completed correction, record timings and exact source/artifact bindings, and keep the full suite below ten minutes without concurrent verification. Retire only proved CFG entries; A04/A06/M11 and broader verdicts stay open. |
 | OWN-04 / A02,A04,A06 / open | Classic/streamed/QDF/linearized writers and companions, all routes | `T 'CompletedWriter\|CompletedObjectStream\|WriterValueOwnershipTests\|LinearizedCollectionOwnershipTests'` | Complete both passes/fallback, divergent replay, sink faults, close faults and publication/cancellation. Fund rows, containers, headers, encoding/copies and counting metadata through last use. Preserve numbering, binary escapes, D10 digits, 21-character Prev and the 200-byte replay region. HINT-03 covers hint-specific owners. |
@@ -438,3 +438,57 @@ discards failed-close candidates and funds empty private byte-array headers.
 It does not establish generated token/vector/controller admission or independently
 surviving settings/path aliases. CFG-01B3/B4, the parent CFG-01B, A04/A06/M11 and
 both verdicts remain open. No production forced GC is introduced.
+
+
+CFG-01B3T/V/H retire on integrated `4d08c35`. Seven new public controls expose
+seven behavioral predecessor failures; all five established response cases and
+24 independent read-terminal controls remain positive. Both ASCII/UTF-8 rewrites
+retain a 2080-byte generated output token at the next response open against the
+predecessor's actual 288-byte admission. Corrected observations hold 4336 bytes,
+peak 6416. Growing expansion vectors have a measured minimum of 576 and their
+independent scope holds 640; caller path strings remain borrowed. Both fixed
+6144-byte jobs reject before PDF opens and preserve prior outputs and leases.
+
+The 13-job cohort covers success, whole/empty/CRLF responses, empty tokens,
+open/read/close faults, invalid UTF-8, non-progress, both cancellation sources
+and publication failure. Every independently surviving generated host string has
+its own receipt. Private expansion storage retires while host/result aliases
+remain, then those roots drop separately; counter-only storage is 144 and final
+storage zero through four original collection/maintenance rounds per phase.
+Whole-line decoded storage transfers once; no duplicate string admission.
+
+All 1935 affected cases and 18638 unfiltered cases pass. The full wall time is
+487.2 seconds without overlapping verification, preserving every 18631 prior case
+and all 4535 named ownership observations, plus 24 configuration/13 argument
+controls. Release phases take restore 1.8, build
+6.7, focus 28.0, pack/inspection
+1.7/0.7, fresh consumer
+13.4 and negatives 4.7
+seconds. The separate pinned reference takes 1835.3 seconds and proves
+1846 exact comparisons/432 rewrite trios. All 868 native records remain identical,
+including the same 64 classified valid layout differences. API908 is unchanged;
+packaged DLL/PDB/XML/changelog match the committed tree, with 50 fresh smokes/two
+specific negatives. Five locks/advisory exclusions, binding scope and unrelated
+work stay exact. No production forced GC is introduced.
+
+Two old fixtures have explicit qualifications: the unchanged 3000-byte admission
+job observes input open because rejection may precede its first read; before-PDF
+and lease assertions remain. One wider trial caught a 40-byte immediate warning
+capture race; the existing short test-only no-GC phase preserves its original
+counter equality, 5000-work ceiling, accepted history and later lifetime rounds.
+All other old test source bytes remain exact. Earlier failed fixture/loader trials
+remain archived. Parser filtering vectors, global/context plans, syntax adapters,
+session/DOM state and their overlap/escaping settings remain CFG-01B3C. The B3/B4
+parents, A04/A06/M11, MEASURE-01 and both verdicts remain open.
+
+The next CFG-01B3C baseline isolates a generated setting-name defect on the same
+committed runtime. Twelve complete ordinary argv, response argv, mixed argv/job
+JSON and direct job JSON jobs preserve success, publication failure and caller
+cancellation. All eight successful/failed publication jobs expose a surviving
+2080-byte pass-one filename while actual live accounting holds only 256 and no
+string receipt. An independent positive string-receipt control verifies the
+observer. All private plans and leases retire; successes publish checked one-page
+PDFs/sidecars and failed main outputs preserve their previous bytes. Four caller
+cancellations never expose the sidecar name to the host and are separate controls.
+The remaining setting/parser/session obligations stay open and require an
+integrated correction; this discovery does not reopen expansion T/V/H evidence.

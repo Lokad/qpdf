@@ -1,6 +1,6 @@
 # Progress
 
-## Response argument ownership — CFG-01B3T/V/H combined proof pending
+## Response argument ownership — CFG-01B3T/V/H retired
 
 Two complete ASCII/UTF-8 rewrites retain a 2080-byte generated output token at
 the second response open while the predecessor funds only 288 bytes. Expansion
@@ -24,9 +24,14 @@ can reject before reading; its limits, before-PDF assertion and lease checks rem
 One wider trial retains a 40-byte immediate counter-capture race. The short warning
 producer/capture interval uses the existing test-only no-GC scope; original equality,
 5000-work ceiling, accepted warnings and later lifetime rounds remain unchanged.
-Committed combined Release/reference/package/consumer proof is still required.
+Integrated `4d08c35` passes all 18638 unfiltered Release cases in 487.2 seconds
+(8m07s), preserving all 18631 preceding cases and 4535 named observations. All
+1935 affected cases pass. Pinned 1846 comparisons/432 rewrite trios, identical
+868 native records/same 64 valid layout differences, API908, exact package and
+fresh 50 smokes/two specific negatives pass against the frozen committed tree.
+Five locks/advisory exclusions, binding scope and unrelated work remain exact.
 
-Only CFG-01B3T/V/H are candidates for retirement. B3C parser vectors/plans,
+Only CFG-01B3T/V/H retire. B3C parser vectors/plans,
 syntax/session/DOM controllers, parent CFG-01B3/B4, A04/A06/M11 and both verdicts
 remain open. Established CFG-01B1/B2 read/decoded-text evidence remains retired.
 
@@ -69,7 +74,14 @@ and full proofs remain in the closure checklist.
 
 ## Next finite work
 
-Resume CFG-01B3 generated token/vector/controller ownership through complete public jobs.
+Resume CFG-01B3C parser vectors/plans and configuration controllers through complete public jobs.
+The next concrete failure is generated setting text: eight complete ordinary/
+response/mixed/direct-JSON success and publication-fault jobs leave a 2080-byte
+pass-one filename alive in the host while actual accounting holds only 256 and
+no string receipt. Four separate input-boundary cancellation controls pass.
+All 12 jobs close leases; successful PDFs validate and failed main outputs stay
+intact. Correct text allocation/escape ownership, then close the remaining parser
+and session obligations; this does not reopen established expansion evidence.
 B5S1–B5S4 stay retired; wider B4/B5/T4/T5/T6, JSON-01, DIAG-01,
 MEASURE-01, M11/A01–A07 and both verdicts remain open. Binding ignored PLAN
 sections 3–6 and unrelated work remain unchanged.

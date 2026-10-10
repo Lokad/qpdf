@@ -7,8 +7,11 @@ https://github.com/qpdf/qpdf. This target must not move silently.
 The response-argument correction adds seven public controls and 13 terminal jobs.
 All seven controls expose behavioral predecessor failures; original response
 controls remain positive. Generated text/vector admission and surviving host/
-diagnostic aliases have focused proof. CFG-01B3T/V/H await combined committed
-verification; B3C parser vectors/plans and syntax/session/DOM ownership stay open.
+diagnostic aliases retire CFG-01B3T/V/H on integrated `4d08c35`: all 18638
+Release cases pass in 487.2 seconds, preserving all 18631 prior cases/4535 named
+observations. Pinned 1846/432 reference, identical 868 native records/same 64 valid
+layout differences, API908, exact package and fresh 50/two consumer checks pass.
+B3C parser vectors/plans, syntax/session/DOM owners and broader gates stay open.
 
 The preceding response-text correction preserves 1928 focused configuration/result/JSON
 checks and 24 complete terminal jobs. Exact decoded string admission precedes
