@@ -25,7 +25,7 @@ internal sealed class RetainedValueOwners
     // The receipt has one carrier/owner union and one queue link: measured
     // managed allocation is 48 bytes, with eight bytes of header allowance.
     private const long ReceiptBytes = 56L;
-    private const long SlotBytes = 24L;
+    private const long SlotBytes = 32L;
     private const int SlotsPerPage = 16;
     private readonly ResourceGovernor _governor;
     private readonly WeakReference<RetainedValueOwners> _weakSelf;
@@ -37,16 +37,15 @@ internal sealed class RetainedValueOwners
     private Segment? _diagnosticSegment;
     private Receipt? _pending;
     private MessageNode? _messages;
-    private MessageNode? _messageCursor;
     private long _messageCount;
     private long _retiredBytes;
     private int _free = -1;
     private int _count;
     private int _slotCount;
     private bool _busy;
-    private bool _messageMaintenance;
 
-    private readonly record struct Slot(Segment? Segment, int Hash, int Next, int Previous);
+    // The cached message link enlarges each physical slot from 24 to 32 bytes.
+    private readonly record struct Slot(Segment? Segment, int Hash, int Next, int Previous, MessageNode? Message);
 
     private sealed class Segment
     {
@@ -190,11 +189,10 @@ internal sealed class RetainedValueOwners
         try
         {
             MessageNode node = new(diagnostic.Message, messageHash);
-            long retained = RetainDiagnostic(diagnostic, reservedBytes);
+            long retained = RetainCore(diagnostic, 0L, null, reservedBytes, false, null, node, out _);
             node.Next = _messages;
             if (_messages is not null) { _messages.Previous = node; }
             _messages = node;
-            _messageCursor ??= node;
             _messageCount++;
             return retained;
         }
@@ -216,7 +214,7 @@ internal sealed class RetainedValueOwners
 
     internal long RetiredBytes => Interlocked.Read(ref _retiredBytes);
 
-    internal DiagnosticWorkState WorkState => new(_count, _slotCount, _heads?.Length ?? 0, _messageCount, _messageMaintenance);
+    internal DiagnosticWorkState WorkState => new(_count, _slotCount, _heads?.Length ?? 0, _messageCount, false);
 
     internal bool Busy => _busy;
 
@@ -263,31 +261,31 @@ internal sealed class RetainedValueOwners
 
     internal long Retain(QpdfObject value, long reservedBytes)
     {
-        return RetainCore(value, 0L, null, reservedBytes, false, null, out _);
+        return RetainCore(value, 0L, null, reservedBytes, false, null, null, out _);
     }
 
     internal long Retain(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
     {
-        return RetainCore(wrapper, wrapperBytes, roots, reservedBytes, false, null, out _);
+        return RetainCore(wrapper, wrapperBytes, roots, reservedBytes, false, null, null, out _);
     }
 
     internal long Retain(OwnedAllocationBatch allocations, long reservedBytes)
-        => RetainCore(allocations, 0L, null, reservedBytes, false, null, out _);
+        => RetainCore(allocations, 0L, null, reservedBytes, false, null, null, out _);
 
     internal long Retain(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
-        => RetainCore(allocations, 0L, null, reservedBytes, false, parsed, out _);
+        => RetainCore(allocations, 0L, null, reservedBytes, false, parsed, null, out _);
 
     internal Receipt RetainAllocation(object carrier, long reservedBytes)
     {
-        RetainCore(carrier, reservedBytes, null, reservedBytes, true, null, out Receipt? receipt);
+        RetainCore(carrier, reservedBytes, null, reservedBytes, true, null, null, out Receipt? receipt);
         return receipt ?? throw new InvalidOperationException("A new allocation needs its own receipt.");
     }
 
     internal long RetainDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes)
-        => RetainCore(diagnostic, 0L, null, reservedBytes, false, null, out _);
+        => RetainCore(diagnostic, 0L, null, reservedBytes, false, null, null, out _);
 
     internal long RetainCheckOutcome(QpdfCheckOutcome outcome, long detailBytes, long reservedBytes)
-        => RetainCore(outcome, detailBytes, null, reservedBytes, false, null, out _);
+        => RetainCore(outcome, detailBytes, null, reservedBytes, false, null, null, out _);
 
     // Failure cleanup for an exclusively owned allocation. Its owner still
     // roots the carrier, so collection cannot race this allocation-free removal.
@@ -308,7 +306,7 @@ internal sealed class RetainedValueOwners
     }
 
     private long RetainCore(object value, long wrapperBytes, IReadOnlyList<QpdfObject>? roots,
-        long reservedBytes, bool allocationOnly, QpdfObject? sourceParsed, out Receipt? allocationReceipt)
+        long reservedBytes, bool allocationOnly, QpdfObject? sourceParsed, MessageNode? cachedMessage, out Receipt? allocationReceipt)
     {
         allocationReceipt = null;
         if (_busy) { throw new InvalidOperationException("Value ownership acceptance cannot be nested."); }
@@ -320,7 +318,7 @@ internal sealed class RetainedValueOwners
             _governor.ReserveMemory(48L);
             fundedAcceptance = true;
             acceptance = new Acceptance { Token = value is OwnedAllocationBatch batch ? batch.Token : CancellationToken.None,
-                PrepaidRetirement = value is OwnedAllocationBatch owned && owned.PrepaidRetirement,
+                PrepaidRetirement = value is not OwnedAllocationBatch owned || owned.PrepaidRetirement,
                 Diagnostics = value is QpdfDiagnostic or IReadOnlyList<QpdfDiagnostic>
                 or QpdfCheckOutcome or IReadOnlyList<QpdfCheckOutcome> };
             Initialize();
@@ -346,7 +344,7 @@ internal sealed class RetainedValueOwners
                     }
                 }
                 else if (value is QpdfObject parsed) { Visit(parsed, acceptance); }
-                else if (value is QpdfDiagnostic diagnostic) { VisitDiagnostic(diagnostic, acceptance); }
+                else if (value is QpdfDiagnostic diagnostic) { VisitDiagnostic(diagnostic, acceptance, cachedMessage); }
                 else if (value is QpdfCheckOutcome outcome)
                 {
                     Register(outcome, 40L, acceptance);
@@ -354,7 +352,7 @@ internal sealed class RetainedValueOwners
                 }
                 else if (value is IReadOnlyList<QpdfDiagnostic> diagnostics)
                 {
-                    foreach (QpdfDiagnostic entry in diagnostics) { VisitDiagnostic(entry, acceptance); }
+                    foreach (QpdfDiagnostic entry in diagnostics) { VisitDiagnostic(entry, acceptance, null); }
                 }
                 else { throw new InvalidOperationException("Expected retained storage."); }
             }
@@ -410,7 +408,7 @@ internal sealed class RetainedValueOwners
         }
     }
 
-    private void VisitDiagnostic(QpdfDiagnostic diagnostic, Acceptance acceptance)
+    private void VisitDiagnostic(QpdfDiagnostic diagnostic, Acceptance acceptance, MessageNode? cachedMessage)
     {
         _governor.CheckCancellation();
         _governor.ChargeWork(1L);
@@ -419,7 +417,14 @@ internal sealed class RetainedValueOwners
         // It must not anchor a job's weak ownership ledger.
         if (diagnostic.Message.Length != 0)
         {
-            Register(diagnostic.Message, GovernedText.StringBytes(diagnostic.Message.Length), acceptance);
+            bool added = Register(diagnostic.Message, GovernedText.StringBytes(diagnostic.Message.Length), acceptance);
+            if (cachedMessage is not null)
+            {
+                if (!added || acceptance.First is not Receipt receipt)
+                { throw new InvalidOperationException("A cached message needs its own carrier receipt."); }
+                Slot slot = GetSlot(receipt.SlotIndex);
+                SetSlot(receipt.SlotIndex, slot with { Message = cachedMessage });
+            }
         }
     }
 
@@ -536,7 +541,7 @@ internal sealed class RetainedValueOwners
             segment.Count++;
             int bucket = hash & (Heads.Length - 1);
             int previous = Heads[bucket] - 1;
-            SetSlot(index, new Slot(segment, hash, previous, -1));
+            SetSlot(index, new Slot(segment, hash, previous, -1, null));
             if (previous >= 0) { SetSlot(previous, GetSlot(previous) with { Previous = index }); }
             Heads[bucket] = index + 1;
             _count++;
@@ -558,7 +563,7 @@ internal sealed class RetainedValueOwners
                 }
                 if (index >= 0 && index < _slotCount)
                 {
-                    SetSlot(index, new Slot(null, 0, _free, -1));
+                    SetSlot(index, new Slot(null, 0, _free, -1, null));
                     _free = index;
                 }
                 Storage.Release(ReceiptBytes);
@@ -681,7 +686,18 @@ internal sealed class RetainedValueOwners
         }
         if (removed.Next >= 0) { SetSlot(removed.Next, GetSlot(removed.Next) with { Previous = removed.Previous }); }
         if (removed.Segment is not null) { removed.Segment.Count--; }
-        SetSlot(index, new Slot(null, 0, _free, -1));
+        // Pending acceptance may roll back before the cache node is linked.
+        if (removed.Message is MessageNode node && (ReferenceEquals(_messages, node) || node.Previous is not null))
+        {
+            if (node.Previous is null) { _messages = node.Next; }
+            else { node.Previous.Next = node.Next; }
+            if (node.Next is not null) { node.Next.Previous = node.Previous; }
+            node.Next = null;
+            node.Previous = null;
+            _messageCount--;
+            Storage.Release(MessageNodeBytes);
+        }
+        SetSlot(index, new Slot(null, 0, _free, -1, null));
         _free = index;
         _count--;
         Storage.Release(ReceiptBytes);
@@ -702,27 +718,9 @@ internal sealed class RetainedValueOwners
                 { _governor.CheckCancellation(); _governor.ChargeWork(1L); }
                 if (!ReferenceEquals(Interlocked.CompareExchange(ref _pending, receipt.Next, receipt), receipt)) { count--; continue; }
                 if (receipt.PrepaidRetirement) { _governor.ChargeAllocationRetirementWork(); }
-                else { _messageMaintenance = true; }
                 receipt.Detach();
                 RemoveSlot(receipt.SlotIndex);
             }
-            for (int count = 0; count < 64 && _messageMaintenance && _messageCursor is MessageNode node; count++)
-            {
-                _governor.CheckCancellation();
-                _governor.ChargeWork(1L);
-                _messageCursor = node.Next;
-                if (!node.Message.TryGetTarget(out _))
-                {
-                    if (node.Previous is null) { _messages = node.Next; }
-                    else { node.Previous.Next = node.Next; }
-                    if (node.Next is not null) { node.Next.Previous = node.Previous; }
-                    node.Next = null;
-                    node.Previous = null;
-                    _messageCount--;
-                    Storage.Release(MessageNodeBytes);
-                }
-            }
-            if (_messageCursor is null) { _messageMaintenance = false; _messageCursor = _messages; }
         }
         finally { _busy = false; }
     }
@@ -749,9 +747,7 @@ internal sealed class RetainedValueOwners
         _valueSegment = null;
         _diagnosticSegment = null;
         _messages = null;
-        _messageCursor = null;
         _messageCount = 0L;
-        _messageMaintenance = false;
         _free = -1;
         _slotCount = 0;
         ParserMemoryScope? storage = _storage;

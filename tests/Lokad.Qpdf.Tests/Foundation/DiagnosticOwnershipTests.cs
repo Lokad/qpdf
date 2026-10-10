@@ -328,7 +328,11 @@ public sealed class DiagnosticOwnershipTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
         bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "prior");
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork);
+        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
+        Assert.True(retirement > 0L);
+        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - retirement);
+        Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() =>
             bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "next"));
         Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);

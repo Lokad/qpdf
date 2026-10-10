@@ -1796,3 +1796,9 @@ checks. Keep those entries partial until their dependencies are validated.
 Each implementation step includes limits, cancellation and failure behavior.
 Milestones need reproducible evidence, not just accepted option names. A known
 gap can permit independent later work, but cannot be declared complete.
+
+Checker B4C/B4CD/B4CF/T5R corrections are integrated for final combined proof.
+The ordinary public lane preserves original checker backing/alias bounds and
+scopes shared decode scratch; generic receipts fund retirement and diagnostic
+export transfers held capacity without counting unexecuted work. Broader checker,
+typed warning and generic ownership verdicts remain open.

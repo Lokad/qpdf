@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lokad.Qpdf.Objects;
@@ -223,10 +224,14 @@ public sealed class DiagnosticFormattingTests
         DiagnosticBag bag = new(governor);
         bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["accepted ", 7]);
         QpdfDiagnostic prior = Assert.Single(bag.Entries);
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork);
+        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
+        Assert.True(retirement > 0L);
+        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - retirement);
+        Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
         Assert.Same(prior, Assert.Single(bag.Entries));
         Assert.Equal("accepted 7", prior.Message);
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
+        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork + retirement);
     }
 
     private static string ThrowingField() => throw new InvalidOperationException("A later field failed.");

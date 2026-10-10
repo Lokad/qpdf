@@ -735,6 +735,15 @@ internal sealed class ResourceGovernor
     internal void ReserveAllocationRetirementWork(long units)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(units);
+        if (_presentingDiagnostics)
+        {
+            // Export already promised admission and retirement together. Move
+            // this capacity to the receipts without inventing executed work.
+            if (units > _reservedWork) { throw new InvalidOperationException("Diagnostic retirement exceeds its pre-admitted bound."); }
+            _reservedWork -= units;
+            _reservedResultWork = checked(_reservedResultWork + units);
+            return;
+        }
         long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
         if (units > long.MaxValue - held)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }

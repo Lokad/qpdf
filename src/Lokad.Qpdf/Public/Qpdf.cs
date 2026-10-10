@@ -4571,7 +4571,11 @@ public static partial class Qpdf
                 AddPageCountDiagnostic(document, inputPath, diagnostics);
             }
         }
-        return new TypedCheckOutcome(pageCount, version, [.. checks], [.. diagnostics.Entries]);
+        using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, 4, cancellationToken);
+        IReadOnlyList<QpdfCheckOutcome> resultChecks = ResultCollectionStorage.Copy(resultStorage, checks, IntPtr.Size);
+        IReadOnlyList<QpdfDiagnostic> resultDiagnostics = ResultCollectionStorage.Copy(resultStorage, diagnostics.Entries, IntPtr.Size);
+        resultStorage.RetainWithPrepaidRetirement();
+        return new TypedCheckOutcome(pageCount, version, resultChecks, resultDiagnostics);
     }
 
     private static void AddPageCountDiagnostic(QpdfDocument document, QpdfPath input, DiagnosticBag diagnostics)

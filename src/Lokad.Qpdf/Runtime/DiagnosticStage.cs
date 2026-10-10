@@ -172,13 +172,14 @@ internal sealed class DiagnosticStage : IDisposable
 
                 // One record per entry, at most one string per nonempty entry,
                 // plus the list. Each register can scan every indexed carrier,
-                // charge its insertion, and charge two activation units.
+                // charge its insertion and two activation units, and reserve
+                // one future retirement unit without counting it as executed.
                 // Plain execution also needs its deferred failure carrier and
                 // independently owned warning-only history after the reader
                 // closes. Admit their registrations while accepting the stage.
                 bool plainHistory = _governor.DeferredPlainHistory;
                 long carriers = entries + nonempty + 1L + (plainHistory ? 3L : 0L);
-                long index = carriers * (state.Carriers + carriers + 1L) + 2L * carriers + entries;
+                long index = carriers * (state.Carriers + carriers + 1L) + 3L * carriers + entries;
                 long slots = state.Slots + carriers;
                 long buckets = state.Buckets;
                 while (buckets < state.Carriers + carriers)
@@ -203,14 +204,14 @@ internal sealed class DiagnosticStage : IDisposable
 
                 // Each entry has outer string/record/memo reservations; list
                 // growth and first list/ledger creation add these boundaries.
-                // Each boundary drains at most 64 receipts and 64 memo nodes.
+                // Each boundary drains at most 64 receipts. Cached message
+                // nodes unlink with their string receipt, without a scan.
                 // New records remain rooted by the bag during the whole export;
                 // only existing carriers can retire or start memo maintenance.
                 long retirement = Math.Min(64L, state.Carriers);
-                long scan = state.Carriers > 0L || state.Messages > 0L || state.Maintenance ? Math.Min(64L, messages) : 0L;
                 // A failed pending-stack CAS requires a new finalizer publication;
                 // across the export there are at most the existing carrier count.
-                long maintenance = (3L * entries + growths + 2L + (plainHistory ? 8L : 0L)) * (retirement + scan) + state.Carriers;
+                long maintenance = (3L * entries + growths + 2L + (plainHistory ? 8L : 0L)) * retirement + state.Carriers;
                 long suppression = _bag.SuppressWarningStorage && !_bag.HasNonWarningEntries
                     ? entries + _bag.PromotedEntries.Count : 0L;
                 return text + memo + index + list + maintenance + suppression + (plainHistory ? 8L + 4L * entries : 0L);

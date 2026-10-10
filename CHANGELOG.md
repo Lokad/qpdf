@@ -2,6 +2,8 @@
 
 ## 0.1.0-alpha.1 - non-cryptographic subset, M11 audit in progress
 
+- Admit independent checker result collections, scope checker decode scratch, and reserve parser/record/text retirement before acceptance. Preserve surviving aliases, closed-input cancellation and exhausted-work cleanup; transfer diagnostic presentation credits without counting reserved work as executed.
+
 - Admit library-created PDF versions and their independent weak receipts before allocation. Keep shared header/catalog/check/writer aliases funded through disposal, cancellation and either retirement order; exclusive JSON emits validated version components without unused carriers at the original repair ceilings.
 
 - Pre-admit all seven typed result wrappers and their weak receipts before processing. Shared cores return private value outcomes; caller record copies preserve values and aliases without retaining original wrapper ownership. Copied backing/version and wider ownership remain under audit.
