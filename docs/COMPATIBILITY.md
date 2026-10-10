@@ -17,6 +17,10 @@ in 584.2 seconds. The correction retires unused decoded-copy admission at plan
 construction and observes exact inspection cancellation retirement after producer
 release. Original binary/listing suppression, prior targets, leases, all 100 repair
 warnings and the strict 247494/247489-byte ceilings remain required.
+The second 549.4-second trial passes the eleven corrected cases; one separate
+name-comparison allocation sample fails. Its exact zero assertion and original
+64-comparison body are preserved with isolated warmup/sampling. Final full proof
+is still required.
 Parser vectors/plans/derived normalization (C2), syntax/session/DOM controllers
 (C3), the parent B3C/B4 and broader gates stay open.
 

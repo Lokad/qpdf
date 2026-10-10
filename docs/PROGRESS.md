@@ -34,6 +34,12 @@ strings keep independent receipts. Inspection cancellation producers preserve
 every status/payload/lease/prior-output assertion and now prove exact 256-byte
 retirement after four bounded rounds. Those checks run in the existing isolated
 lifetime collection. The strict repair fixtures and ceilings remain unchanged.
+The second full trial passes all eleven corrected cases and 18640 total cases
+in 549.4 seconds, with one separate thread-allocation sampler failure (7504 bytes,
+expected zero) in unchanged name comparison. Its original 64-comparison body,
+zero allocation/storage assertions and default limits remain; warmup and sampling
+now share the existing isolated no-collection scope. This does not reopen runtime
+name-comparison behavior or established ownership evidence.
 
 C1 remains pending final committed Release/reference/native/package/consumer
 verification. C2 parser vectors/plans/derived strings and C3 syntax/session/DOM

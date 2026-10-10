@@ -3,6 +3,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class GovernedCollectionTests
 {
     [Fact]
@@ -42,6 +43,11 @@ public sealed class GovernedCollectionTests
         PdfName left = new(Enumerable.Repeat((byte)35, 4096).ToArray());
         PdfName right = new(Enumerable.Repeat((byte)35, 4096).ToArray());
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
+        // Warm the same comparison path before observing exact thread-local
+        // allocation, inside the isolated sampling phase.
+        for (int warmup = 0; warmup < 64; warmup++)
+        { Assert.Equal(0, GovernedCollections.CompareNames(governor, left, right)); }
         Assert.Equal(0, GovernedCollections.CompareNames(governor, left, right));
         long before = GC.GetAllocatedBytesForCurrentThread();
         int result = 0;
