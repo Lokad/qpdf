@@ -4,8 +4,9 @@ using Lokad.Qpdf.Hosting;
 namespace Lokad.Qpdf.Probe;
 
 // Runs the managed library over workdir files through the public API only:
-// every file under <workdir>/inputs becomes a logical input named by its
-// relative path, argv (or a job file) executes, and mapped logical outputs
+// every file under <workdir>/inputs is available by its relative logical name.
+// Requested inputs are registered lazily in a fresh in-memory host; argv (or
+// a job file) executes, and mapped logical outputs
 // are written back to disk. Lets reference scripts compare managed output
 // against the pinned oracle byte-for-byte at the validation level.
 internal static class EmitCommand
@@ -52,14 +53,15 @@ internal static class EmitCommand
         }
 
         InMemoryQpdfHost host = new();
+        Dictionary<string, string> available = new(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(inputsDir, "*", SearchOption.AllDirectories))
         {
             string logical = "inputs/" + Path.GetRelativePath(inputsDir, file).Replace(Path.DirectorySeparatorChar, '/');
-            host.AddInput(QpdfPath.From(logical), File.ReadAllBytes(file), QpdfInputOwnership.Copy);
+            available.Add(logical, file);
         }
 
         QpdfExecutionResult result;
-        IQpdfHost executionHost = new InputAliases(host);
+        IQpdfHost executionHost = new InputAliases(host, available);
         if (jobJson is not null)
         {
             result = Qpdf.ExecuteJobAsync(executionHost, jobJson, CancellationToken.None).GetAwaiter().GetResult();
@@ -123,12 +125,17 @@ internal static class EmitCommand
 
     // Development host policy: ./ names share the canonical input lease identity.
     // The library still receives the original filename key in its operation plan.
-    private sealed class InputAliases(InMemoryQpdfHost host) : IQpdfHost
+    private sealed class InputAliases(InMemoryQpdfHost host, Dictionary<string, string> available) : IQpdfHost
     {
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string name = path.Value;
             while (name.StartsWith("./", StringComparison.Ordinal)) { name = name[2..]; }
+            if (available.Remove(name, out string? file) && file is not null)
+            {
+                host.AddInput(QpdfPath.From(name), File.ReadAllBytes(file), QpdfInputOwnership.Copy);
+            }
             return host.OpenInputAsync(QpdfPath.From(name), cancellationToken);
         }
 

@@ -23,6 +23,7 @@ internal static class Program
                 "compare" => Compare(args[1..]),
                 "emit" => EmitCommand.RunEmit(args[1..]),
                 "emit-job" => EmitCommand.RunEmitJob(args[1..]),
+                "batch" => BatchCommand.Run(args[1..]),
                 "fix-qdf" => FixQdfCommand.RunFixQdf(args[1..]),
                 "zlib-flate" => ZlibFlateCommand.RunZlibFlate(args[1..]),
                 "probe-jpeg" => ProbeJpeg(),
@@ -59,6 +60,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe compare --qpdf-exe <path> --input <pdf> --expected-npages <N>");
         Console.WriteLine("  QpdfProbe emit --workdir <dir> --out <logical>=<physical> [--out ...] -- <argv...>");
         Console.WriteLine("  QpdfProbe emit-job --workdir <dir> --job <job.json> --out <logical>=<physical> [--out ...]");
+        Console.WriteLine("  QpdfProbe batch (bounded sequential JSON requests on stdin; developer harness only)");
         Console.WriteLine("  QpdfProbe fix-qdf --workdir <dir> --in <logical-input> --out <logical>=<physical>");
         Console.WriteLine("  QpdfProbe zlib-flate --workdir <dir> --in <logical-input> --out <logical>=<physical> --mode <compress|uncompress> [--level 1..9]");
         Console.WriteLine("  QpdfProbe probe-jpeg");

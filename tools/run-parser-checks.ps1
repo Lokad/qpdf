@@ -17,6 +17,10 @@ $runRoot = Join-Path $repoRoot ('external/parser-checks/' + [Guid]::NewGuid().To
 New-Item -ItemType Directory -Path (Join-Path $runRoot 'inputs') -Force | Out-Null
 $observations = [Collections.Generic.List[object]]::new()
 $rewriteObservations = [Collections.Generic.List[object]]::new()
+$observationIndex = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+. (Join-Path $repoRoot 'tools/ReferenceProbe.ps1')
+Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $runRoot
+try {
 
 function Write-Input {
   param([string] $Name, [string] $Body, [bool] $BrokenXref)
@@ -53,7 +57,7 @@ function Invoke-Managed {
     else { @($ProbeDll, 'emit', '--workdir', $runRoot) }
   foreach ($mapping in $Mappings) { $probeArgs += @('--out', $mapping) }
   if (-not $JobFile) { $probeArgs += @('--') + $Arguments }
-  $lines = @(& dotnet @probeArgs 2>&1)
+  $lines = @(Invoke-ReferenceProbe -Arguments ($probeArgs) 2>&1)
   $processExit = $LASTEXITCODE
   $lines | Set-Content -LiteralPath (Join-Path $runRoot "$Tag-managed.log") -Encoding utf8NoBOM
   $status = [regex]::Match(($lines -join "`n"), 'emit: status=(\w+) exit=(\d+)')
@@ -302,6 +306,7 @@ foreach ($spec in $specs) {
     $oracleExit = $oracle.Exit
     $oracleValue = $oracle.Value
     $observations.Add(@{ Case = $spec.Name; Budget = $budget; Managed = $managed; OracleExit = $oracleExit; OracleValue = $oracleValue; OracleStdoutBase64 = $oracle.StdoutBase64; OracleStderrBase64 = $oracle.StderrBase64 })
+    $observationIndex.Add("$($spec.Name)|$budget", $observations[$observations.Count - 1])
     $expectedExit = if ($spec.Clean -and -not $spec.Broken) { 0 } else { 3 }
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit -or $managed.Value -cne $oracleValue) {
       throw "Parser values or warning exits differ ($tag): managed='$($managed.Value)', oracle='$oracleValue'. See $runRoot."
@@ -310,11 +315,17 @@ foreach ($spec in $specs) {
   Write-Output "[parser/$($spec.Name)] $($budgets.Count) budget values and exits agree"
 }
 
+function Read-ObservedValue {
+  param([string] $Case, [int] $Budget)
+  [object] $row = $null
+  if (-not $observationIndex.TryGetValue("$Case|$Budget", [ref] $row)) { throw "Missing original parser observation: $Case/$Budget" }
+  return $row.OracleValue
+}
 function Read-RewrittenJson {
   param([string] $Tag, [string] $File, [int] $ExpectedExit)
   & $QpdfExe '--check' $File *> (Join-Path $runRoot "$Tag-$([IO.Path]::GetFileName($File))-check.log")
   if ($LASTEXITCODE -ne $ExpectedExit) { throw "Repaired output oracle check exit differs ($File)." }
-  $validation = @(& dotnet $ProbeDll 'validate' '--input' $File 2>&1)
+  $validation = @(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+@('validate')+@('--input')+@($File)) 2>&1)
   if ($LASTEXITCODE -ne 0 -or -not (($validation -join "`n") -match 'independent: npages=1')) {
     throw "Independent reader rejected repaired output ($File)."
   }
@@ -428,7 +439,7 @@ foreach ($spec in $lexicalSpecs) {
     $oracleExit = $LASTEXITCODE
     $expectedExit = if ($spec.Clean -and -not $broken) { 0 } else { 3 }
     if ($managed.Exit -ne $expectedExit -or $oracleExit -ne $expectedExit) { throw "Lexical rewrite exits differ ($tag)." }
-    $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq 3 })[0].OracleValue
+    $expectedValue = Read-ObservedValue $inputName 3
     foreach ($file in @($managedFile, $oracleFile)) {
       $actual = Read-RewrittenAudit $tag $file 0
       if ($actual -cne $expectedValue) { throw "Lexical value changed during rewrite ($tag)." }
@@ -453,7 +464,7 @@ foreach ($spec in $dictionarySpecs) {
       & $QpdfExe '--global' "--parser-max-errors=$budget" '--' (Join-Path $runRoot "inputs/$inputName.pdf") '--pages' '.' '1' '--' $oracleFile 2> (Join-Path $runRoot "$tag-oracle-stderr.log")
       $oracleExit = $LASTEXITCODE
       if ($managed.Exit -ne 3 -or $oracleExit -ne 3) { throw "Dictionary rewrite exits differ ($tag)." }
-      $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq $budget })[0].OracleValue
+      $expectedValue = Read-ObservedValue $inputName $budget
       foreach ($file in @($managedFile, $oracleFile)) {
         $actual = Read-RewrittenAudit $tag $file 0
         if ($actual -cne $expectedValue) { throw "Dictionary value changed during rewrite ($tag)." }
@@ -489,7 +500,7 @@ foreach ($spec in $damagedSpecs) {
       if ((Get-FileHash -LiteralPath $managedFile -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $jobFile -Algorithm SHA256).Hash) {
         throw "Damaged-value argv/job bytes differ ($tag)."
       }
-      $expectedValue = @($observations | Where-Object { $_.Case -eq $inputName -and $_.Budget -eq $budget })[0].OracleValue
+      $expectedValue = Read-ObservedValue $inputName $budget
       $checkExit = if ($spec.MalformedName) { 3 } else { 0 }
       foreach ($file in @($managedFile, $jobFile, $oracleFile)) {
         $actual = Read-RewrittenAudit $tag $file $checkExit
@@ -508,3 +519,5 @@ foreach ($spec in $damagedSpecs) {
   Rewrites = $rewriteObservations
 } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $runRoot 'results.json') -Encoding utf8NoBOM
 Write-Output "Parser lane passed: $($observations.Count) exact object comparisons and $($rewriteObservations.Count) rewrite trios. Evidence: $runRoot"
+
+} finally { Complete-ReferenceProbe }

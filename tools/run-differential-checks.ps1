@@ -35,29 +35,34 @@ New-Item -ItemType Directory -Path $diffRoot | Out-Null
 Write-Output "Differential artifacts: $diffRoot"
 $fixtureDir = Join-Path $repoRoot 'tests/Fixtures'
 $script:failures = 0
+$referenceTemp = Join-Path $diffRoot 'temp'
+New-Item -ItemType Directory -Path $referenceTemp | Out-Null
+. (Join-Path $repoRoot 'tools/ReferenceProbe.ps1')
+Initialize-ReferenceProbe -ProbeDll $probeDll -WorkRoot $diffRoot
+try {
 
 function Invoke-Oracle {
   param([string]$Workdir, [string[]]$OracleArgs)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList $OracleArgs -WorkingDirectory $Workdir -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/ora-stdout.txt" -RedirectStandardError "$Workdir/ora-stderr.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList $OracleArgs -WorkingDirectory $Workdir -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/ora-stdout.txt" -RedirectStandardError "$Workdir/ora-stderr.txt"
   return $p.ExitCode
 }
 
 function Invoke-Emit {
   param([string]$Workdir, [string[]]$EmitArgs)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -WorkingDirectory $Workdir -NoNewWindow -Wait -PassThru
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -WorkingDirectory $Workdir -NoNewWindow -Wait -PassThru
   return $p.ExitCode
 }
 
 function Get-OracleNpages {
   param([string]$File)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-npages', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qnp.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-npages', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qnp.txt"
   if ($p.ExitCode -ne 0) { throw "oracle --show-npages failed for $File" }
-  return [int]((Get-Content "$env:TEMP/qnp.txt" -Raw).Trim())
+  return [int]((Get-Content "$referenceTemp/qnp.txt" -Raw).Trim())
 }
 
 function Get-PigNpages {
   param([string]$File)
-  $out = & dotnet $probeDll validate --input $File 2>&1 | Out-String
+  $out = Invoke-ReferenceProbe -Arguments (@($probeDll)+@('validate')+@('--input')+@($File)) 2>&1 | Out-String
   $m = [regex]::Match($out, 'independent: npages=(\d+)')
   if (-not $m.Success) { throw "independent validate failed for $File : $out" }
   return [int]$m.Groups[1].Value
@@ -66,7 +71,7 @@ function Get-PigNpages {
 function Assert-Trio {
   param([string]$Case, [string]$LibFile, [string]$OraFile, [int]$ExpectedNpages)
   foreach ($f in @($LibFile, $OraFile)) {
-    $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', $f) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+    $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--check', $f) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qc.txt" -RedirectStandardError "$referenceTemp/qce.txt"
     if ($p.ExitCode -ne 0) { Write-Output "[$Case] FAIL: oracle --check exit $($p.ExitCode) for $f"; $script:failures++; return }
   }
   $libN = Get-OracleNpages $LibFile
@@ -194,19 +199,19 @@ if ($code -ne 0) { throw "empty-bare: oracle failed ($code)" }
 foreach ($pair in @(('lib-bare', "$case/lib-bare.pdf"), ('ora-bare', "$case/ora-bare.pdf"))) {
   $n = Get-OracleNpages $pair[1]
   if ($n -ne 0) { Write-Output "[empty-bare] FAIL: page count $($pair[0])=$n, expected 0"; $script:failures++ }
-  $c = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', $pair[1]) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+  $c = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--check', $pair[1]) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qc.txt" -RedirectStandardError "$referenceTemp/qce.txt"
   if ($c.ExitCode -ne 2) { Write-Output "[empty-bare] FAIL: oracle check exit $($pair[0])=$($c.ExitCode), expected 2"; $script:failures++ }
 }
 Write-Output "[empty-bare] zero-page outputs agree"
-$p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll, 'emit', '--workdir', $case, '--', '--empty', '--show-npages') ) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-npages.txt"
+$p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll, 'emit', '--workdir', $case, '--', '--empty', '--show-npages') ) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-npages.txt"
 $line = Select-String -Path "$case/managed-npages.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
 if ($null -eq $line) { throw "empty-npages: managed emit produced no status line" }
 $m = [int]$line.Matches[0].Groups[1].Value
-$o = Start-Process -FilePath $QpdfExe -ArgumentList @('--empty', '--show-npages') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/ora-npages.txt"
+$o = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--empty', '--show-npages') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/ora-npages.txt"
 if ($m -ne 0 -or $o.ExitCode -ne 0) { Write-Output "[empty-npages] FAIL: exits managed=$m oracle=$($o.ExitCode), expected 0/0"; $script:failures++ }
 elseif ((Get-Content "$case/ora-npages.txt" -Raw).Trim() -ne "0") { Write-Output "[empty-npages] FAIL: oracle page count is not 0"; $script:failures++ }
 else { Write-Output "[empty-npages] exit parity (0/0) with zero pages" }
-$p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll, 'emit', '--workdir', $case, '--', '--empty', '--check') ) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-check.txt"
+$p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll, 'emit', '--workdir', $case, '--', '--empty', '--check') ) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-check.txt"
 $line = Select-String -Path "$case/managed-check.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
 if ($null -eq $line) { throw "empty-check: managed emit produced no status line" }
 $m = [int]$line.Matches[0].Groups[1].Value
@@ -259,7 +264,7 @@ $libMarks = @()
 foreach ($m in [regex]::Matches($libText, '\((First|Second)\)')) { $libMarks += $m.Groups[1].Value }
 if (($libMarks -join ',') -ne 'First,Second,Second,First') { Write-Output "[collate-ranges] FAIL: lib order [$($libMarks -join ',')]"; $script:failures++ }
 else { Write-Output "[collate-ranges] lib order agrees ([First,Second,Second,First])" }
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', "$case/ora-r.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-r.txt" -RedirectStandardError "$case/show-ora-r-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-pages', "$case/ora-r.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-r.txt" -RedirectStandardError "$case/show-ora-r-err.txt"
 if ($p.ExitCode -ne 0) { Write-Output "[collate-ranges] FAIL: oracle show-pages exit $($p.ExitCode)"; $script:failures++ }
 else {
   $oraRefs = @()
@@ -586,7 +591,7 @@ function Get-AttachmentKeys {
 }
 function Invoke-ManagedList {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--list-attachments') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--list-attachments') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   return $p.ExitCode
 }
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib-add.pdf", '--', 'inputs/a.pdf', '--add-attachment', 'inputs/note.bin', '--key=note.txt', '--description=Hi', '--', '--', 'outputs/a.pdf')
@@ -692,9 +697,9 @@ if ($code -ne 0) { throw "labels/set: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--set-page-labels', '1:r', '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-labeled.pdf")
 if ($code -ne 0) { throw "labels/set: oracle failed ($code)" }
 Assert-Trio 'labels/set' "$case/lib-labeled.pdf" "$case/ora-labeled.pdf" 2
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-labeled.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-labeled.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
 $libCat = (Get-Content "$case/show-lib.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-labeled.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-labeled.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
 $oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
 if ($libCat -ne $oraCat) { Write-Output "[set-page-labels] FAIL: labeled catalogs differ"; $script:failures++ }
 elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[set-page-labels] FAIL: labels missing"; $script:failures++ }
@@ -706,9 +711,9 @@ foreach ($sub in @(@('pdfdoc', "1:D/1/$([char]0xC9)"), @('utf16', "1:D/1/$([char
   $code = Invoke-Oracle $case @('inputs/a.pdf', '--set-page-labels', $sub[1], '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-p-$name.pdf")
   if ($code -ne 0) { throw "labels/prefix-$name`: oracle failed ($code)" }
   Assert-Trio "labels-prefix-$name" "$case/lib-p-$name.pdf" "$case/ora-p-$name.pdf" 2
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-p-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-p-$name.txt" -RedirectStandardError "$case/show-lib-p-$name-err.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-p-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-p-$name.txt" -RedirectStandardError "$case/show-lib-p-$name-err.txt"
   $libCat = (Get-Content "$case/show-lib-p-$name.txt" -Raw).Trim()
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-p-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-p-$name.txt" -RedirectStandardError "$case/show-ora-p-$name-err.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-p-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-p-$name.txt" -RedirectStandardError "$case/show-ora-p-$name-err.txt"
   $oraCat = (Get-Content "$case/show-ora-p-$name.txt" -Raw).Trim()
   if ($libCat -ne $oraCat) { Write-Output "[labels-prefix-$name] FAIL: prefixed catalogs differ"; $script:failures++ }
   elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[labels-prefix-$name] FAIL: labels missing"; $script:failures++ }
@@ -720,9 +725,9 @@ if ($code -ne 0) { throw "labels/remove: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/labeled.pdf', '--remove-page-labels', '--', '--pages', '.', '1', '.', '2', '--', "$case/ora-plain.pdf")
 if ($code -ne 0) { throw "labels/remove: oracle failed ($code)" }
 Assert-Trio 'labels/remove' "$case/lib-plain.pdf" "$case/ora-plain.pdf" 2
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-plain.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-p.txt" -RedirectStandardError "$case/show-lib-p-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-plain.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-p.txt" -RedirectStandardError "$case/show-lib-p-err.txt"
 $libPlain = (Get-Content "$case/show-lib-p.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-plain.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-p.txt" -RedirectStandardError "$case/show-ora-p-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-plain.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-p.txt" -RedirectStandardError "$case/show-ora-p-err.txt"
 $oraPlain = (Get-Content "$case/show-ora-p.txt" -Raw).Trim()
 if ($libPlain -ne $oraPlain) { Write-Output "[remove-page-labels] FAIL: unlabeled catalogs differ"; $script:failures++ }
 elseif ($libPlain.Contains('/PageLabels')) { Write-Output "[remove-page-labels] FAIL: labels remain"; $script:failures++ }
@@ -737,9 +742,9 @@ if ($code -ne 0) { throw "labels-merge/merge: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--empty', '--pages', 'inputs/a.pdf', '1', 'inputs/a.pdf', '2', 'inputs/b.pdf', '1', '--', "$case/ora-m.pdf")
 if ($code -ne 0) { throw "labels-merge/merge: oracle failed ($code)" }
 Assert-Trio 'labels-merge' "$case/lib-m.pdf" "$case/ora-m.pdf" 3
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-m.txt" -RedirectStandardError "$case/show-lib-m-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-m.txt" -RedirectStandardError "$case/show-lib-m-err.txt"
 $libCat = (Get-Content "$case/show-lib-m.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-m.txt" -RedirectStandardError "$case/show-ora-m-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-m.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-m.txt" -RedirectStandardError "$case/show-ora-m-err.txt"
 $oraCat = (Get-Content "$case/show-ora-m.txt" -Raw).Trim()
 if ($libCat -ne $oraCat) { Write-Output "[labels-merge] FAIL: merged catalogs differ"; $script:failures++ }
 elseif (-not $libCat.Contains('/PageLabels')) { Write-Output "[labels-merge] FAIL: labels missing"; $script:failures++ }
@@ -749,9 +754,9 @@ if ($code -ne 0) { throw "labels-merge/subset: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '2', '--', "$case/ora-s.pdf")
 if ($code -ne 0) { throw "labels-merge/subset: oracle failed ($code)" }
 Assert-Trio 'labels-merge-subset' "$case/lib-s.pdf" "$case/ora-s.pdf" 1
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-s.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-s.txt" -RedirectStandardError "$case/show-lib-s-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-s.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-s.txt" -RedirectStandardError "$case/show-lib-s-err.txt"
 $libSub = (Get-Content "$case/show-lib-s.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-s.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-s.txt" -RedirectStandardError "$case/show-ora-s-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-s.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-s.txt" -RedirectStandardError "$case/show-ora-s-err.txt"
 $oraSub = (Get-Content "$case/show-ora-s.txt" -Raw).Trim()
 if ($libSub -ne $oraSub) { Write-Output "[labels-merge-subset] FAIL: subset catalogs differ"; $script:failures++ }
 elseif (-not $libSub.Contains('/PageLabels')) { Write-Output "[labels-merge-subset] FAIL: labels missing"; $script:failures++ }
@@ -783,9 +788,9 @@ $code = Invoke-Oracle $case @('--split-pages', 'inputs/a.pdf', '--pages', '.', '
 if ($code -ne 0) { throw "labels-merge/split: oracle failed ($code)" }
 Assert-Trio 'labels-merge-split-1' "$case/lib-sp-1.pdf" "$case/ora-sp-1.pdf" 1
 Assert-Trio 'labels-merge-split-2' "$case/lib-sp-2.pdf" "$case/ora-sp-2.pdf" 1
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-sp-1.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-sp1.txt" -RedirectStandardError "$case/show-lib-sp1-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-sp-1.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib-sp1.txt" -RedirectStandardError "$case/show-lib-sp1-err.txt"
 $libSp1 = (Get-Content "$case/show-lib-sp1.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-sp-1.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-sp1.txt" -RedirectStandardError "$case/show-ora-sp1-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-sp-1.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora-sp1.txt" -RedirectStandardError "$case/show-ora-sp1-err.txt"
 $oraSp1 = (Get-Content "$case/show-ora-sp1.txt" -Raw).Trim()
 if ($libSp1 -ne $oraSp1) { Write-Output "[labels-merge-split] FAIL: split catalogs differ"; $script:failures++ }
 elseif (-not $libSp1.Contains('/PageLabels')) { Write-Output "[labels-merge-split] FAIL: labels missing"; $script:failures++ }
@@ -1036,7 +1041,7 @@ $case = New-Case 'overlay-widgets'
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/overlay-widget-1page.pdf" "$case/inputs/o.pdf"
 $emitLog = "$case/emit-widgets.txt"
-$p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', '--', 'outputs/a.pdf')) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput $emitLog
+$p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll) + @('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', '--', 'outputs/a.pdf')) -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput $emitLog
 if ($p.ExitCode -ne 0) { throw "overlay-widgets: emit failed ($($p.ExitCode))" }
 $managedExit = [int]((Select-String -Path $emitLog -Pattern 'emit: status=\w+ exit=(\d+)').Matches[0].Groups[1].Value)
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--overlay', 'inputs/o.pdf', '--', "$case/ora.pdf")
@@ -1118,9 +1123,9 @@ if ($code -ne 0) { throw "writer-controls/ext: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--force-version=1.7.8', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-ext.pdf")
 if ($code -ne 0) { throw "writer-controls/ext: oracle failed ($code)" }
 Assert-Trio 'writer-controls/ext' "$case/lib-ext.pdf" "$case/ora-ext.pdf" 1
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-ext.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/lib-ext.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
 $libCat = (Get-Content "$case/show-lib.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-ext.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=1', "$case/ora-ext.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
 $oraCat = (Get-Content "$case/show-ora.txt" -Raw).Trim()
 if ($libCat -ne $oraCat) { Write-Output "[writer-versions] FAIL: extension catalogs differ"; $script:failures++ }
 elseif (-not $libCat.Contains('/ExtensionLevel 8')) { Write-Output "[writer-versions] FAIL: extension level missing"; $script:failures++ }
@@ -1130,9 +1135,9 @@ if ($code -ne 0) { throw "writer-controls/static: emit failed ($code)" }
 $code = Invoke-Oracle $case @('--static-id', 'inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora-static.pdf")
 if ($code -ne 0) { throw "writer-controls/static: oracle failed ($code)" }
 Assert-Trio 'writer-controls/static' "$case/lib-static.pdf" "$case/ora-static.pdf" 1
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=trailer', "$case/lib-static.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/trailer-lib.txt" -RedirectStandardError "$case/trailer-lib-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=trailer', "$case/lib-static.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/trailer-lib.txt" -RedirectStandardError "$case/trailer-lib-err.txt"
 $libTrailer = (Get-Content "$case/trailer-lib.txt" -Raw).Trim()
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=trailer', "$case/ora-static.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/trailer-ora.txt" -RedirectStandardError "$case/trailer-ora-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=trailer', "$case/ora-static.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/trailer-ora.txt" -RedirectStandardError "$case/trailer-ora-err.txt"
 $oraTrailer = (Get-Content "$case/trailer-ora.txt" -Raw).Trim()
 if ($libTrailer -ne $oraTrailer) { Write-Output "[writer-ids] FAIL: static trailers differ"; $script:failures++ }
 elseif (-not $libTrailer.Contains('31415926535897932384626433832795')) { Write-Output "[writer-ids] FAIL: test constant missing"; $script:failures++ }
@@ -1145,7 +1150,7 @@ $lh = (Get-FileHash "$case/lib-det.pdf" -Algorithm SHA256).Hash
 $ph = (Get-FileHash "$case/lib-plain.pdf" -Algorithm SHA256).Hash
 if ($lh -ne $ph) { Write-Output "[writer-ids] FAIL: deterministic flag changes default bytes"; $script:failures++ }
 else { Write-Output "[writer-ids] deterministic output matches default bytes" }
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', "$case/lib-det.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--check', "$case/lib-det.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qc.txt" -RedirectStandardError "$referenceTemp/qce.txt"
 if ($p.ExitCode -ne 0) { Write-Output "[writer-ids] FAIL: deterministic output check exit $($p.ExitCode)"; $script:failures++ }
 else { Write-Output "[writer-ids] deterministic output validates under oracle check" }
 $code = Invoke-Emit $case @('emit', '--workdir', $case, '--out', "outputs/nl.pdf=$case/lib-nl.pdf", '--', 'inputs/a.pdf', '--newline-before-endstream', '--pages', '.', '1', '--', 'outputs/nl.pdf')
@@ -1184,10 +1189,10 @@ foreach ($pair in @(('lib', "$case/lib.pdf"), ('ora', "$case/ora.pdf"))) {
 }
 $fixQdf = Join-Path (Split-Path $QpdfExe -Parent) 'fix-qdf.exe'
 if (Test-Path $fixQdf) {
-  $p = Start-Process -FilePath $fixQdf -ArgumentList @("$case/lib.pdf", "$case/fixed.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/fix-stdout.txt" -RedirectStandardError "$case/fix-stderr.txt"
+  $p = Start-ReferenceProcess -FilePath $fixQdf -ArgumentList @("$case/lib.pdf", "$case/fixed.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/fix-stdout.txt" -RedirectStandardError "$case/fix-stderr.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[qdf] FAIL: fix-qdf exit $($p.ExitCode) on library output"; $script:failures++ }
   else {
-    $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', "$case/fixed.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+    $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--check', "$case/fixed.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qc.txt" -RedirectStandardError "$referenceTemp/qce.txt"
     if ($p.ExitCode -ne 0) { Write-Output "[qdf] FAIL: oracle --check exit $($p.ExitCode) on fix-qdf output"; $script:failures++ }
     else { Write-Output "[qdf] fix-qdf round trip ok" }
   }
@@ -1236,9 +1241,9 @@ foreach ($sub in @(('classic', '(First)', '(First-Longer-Edit)'), ('streamed', '
   [Buffer]::BlockCopy($rep, 0, $edited, $at, $rep.Length)
   [Buffer]::BlockCopy($raw, $at + $needle.Length, $edited, $at + $rep.Length, $raw.Length - $at - $needle.Length)
   [IO.File]::WriteAllBytes("$case/inputs/e-$name.pdf", $edited)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'fix-qdf', '--workdir', $case, '--in', "inputs/e-$name.pdf", '--out', "outputs/f-$name.pdf=$case/lib-$name.pdf") -NoNewWindow -Wait -PassThru
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'fix-qdf', '--workdir', $case, '--in', "inputs/e-$name.pdf", '--out', "outputs/f-$name.pdf=$case/lib-$name.pdf") -NoNewWindow -Wait -PassThru
   if ($p.ExitCode -ne 0) { Write-Output "[fixqdf/$name] FAIL: managed fix exit $($p.ExitCode)"; $script:failures++; continue }
-  $p = Start-Process -FilePath $fixQdf -ArgumentList @("$case/inputs/e-$name.pdf", "$case/ora-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/fix-$name-out.txt" -RedirectStandardError "$case/fix-$name-err.txt"
+  $p = Start-ReferenceProcess -FilePath $fixQdf -ArgumentList @("$case/inputs/e-$name.pdf", "$case/ora-$name.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/fix-$name-out.txt" -RedirectStandardError "$case/fix-$name-err.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[fixqdf/$name] FAIL: oracle fix exit $($p.ExitCode)"; $script:failures++; continue }
   $lh = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes("$case/lib-$name.pdf")))
   $oh = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes("$case/ora-$name.pdf")))
@@ -1258,14 +1263,14 @@ for ($i = 0; $i -lt 4096; $i++) { $binary[$i] = [byte]($i % 256) }
 [IO.File]::WriteAllBytes("$case/inputs/binary.bin", $binary)
 function Invoke-ZlibFlateOracle {
   param([string]$Flags, [string]$InFile, [string]$OutFile, [string]$ErrFile)
-  $p = Start-Process -FilePath $zfExe -ArgumentList @($Flags) -NoNewWindow -Wait -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $OutFile -RedirectStandardError $ErrFile
+  $p = Start-ReferenceProcess -FilePath $zfExe -ArgumentList @($Flags) -NoNewWindow -Wait -PassThru -RedirectStandardInput $InFile -RedirectStandardOutput $OutFile -RedirectStandardError $ErrFile
   return $p.ExitCode
 }
 function Invoke-ManagedFlate {
   param([string]$In, [string]$OutLogical, [string]$OutFile, [string]$Mode, [string]$Level)
   $list = @($probeDll, 'zlib-flate', '--workdir', $case, '--in', $In, '--out', "$OutLogical=$case/$OutFile", '--mode', $Mode)
   if ($Level -ne "") { $list += @('--level', $Level) }
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList $list -NoNewWindow -Wait -PassThru
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList $list -NoNewWindow -Wait -PassThru
   return $p.ExitCode
 }
 foreach ($level in @('1', '9')) {
@@ -1389,7 +1394,7 @@ foreach ($item in $nestedCases) {
     elseif ($item.Route -eq 'joined') { @('emit', '--workdir', $case, '--', '--job-json-file=inputs/parent.json') }
     else { @('emit', '--workdir', $case, '--', '--job-json-file', 'inputs/parent.json') }
   if ($item.Write) { $emit = @('emit-job', '--workdir', $case, '--job', "$case/inputs/parent.json", '--out', "outputs/a.pdf=$case/lib.pdf") }
-  $managed = @(& dotnet $probeDll @emit 2>&1 | ForEach-Object ToString)
+  $managed = @(Invoke-ReferenceProbe -Arguments (@($probeDll)+$emit) 2>&1 | ForEach-Object ToString)
   $processExit = $LASTEXITCODE
   $reported = [regex]::Match(($managed -join "`n"), 'emit: status=(Completed|Failed|Canceled) exit=(\d+)')
   if (-not $reported.Success -or [int]$reported.Groups[2].Value -ne $item.Exit -or $processExit -ne $(if ($item.Exit -eq 0) { 0 } else { 2 })) {
@@ -1453,7 +1458,7 @@ foreach ($item in $jobCheckCases) {
   }
   foreach ($key in $item.Extra.Keys) { $job[$key] = $item.Extra[$key] }
   [IO.File]::WriteAllText("$case/job.json", ($job | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
-  $managedOutput = @(& dotnet $probeDll emit-job --workdir $case --job "$case/job.json" 2>&1 | ForEach-Object { $_.ToString() })
+  $managedOutput = @(Invoke-ReferenceProbe -Arguments (@($probeDll)+@('emit-job')+@('--workdir')+@($case)+@('--job')+@("$case/job.json")) 2>&1 | ForEach-Object { $_.ToString() })
   $managedProcessExit = $LASTEXITCODE
   $reported = [regex]::Match(($managedOutput -join "`n"), 'emit: status=(Completed|Failed|Canceled) exit=(\d+)')
   if (-not $reported.Success) { throw "job-check-$($item.Name): missing managed execution result (process $managedProcessExit)" }
@@ -1513,7 +1518,7 @@ if ($at -lt 0) { throw "recovery setup: startxref needle missing" }
 [IO.File]::WriteAllBytes("$case/inputs/b.pdf", $rawBytes)
 function Invoke-RecoveryExit {
   param([string]$Workdir, [string[]]$EmitArgs, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/recovery-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/recovery-$Tag.txt"
   $line = Select-String -Path "$Workdir/recovery-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "recovery: managed emit produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
@@ -1612,14 +1617,14 @@ $code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--'
 if ($code -ne 0) { throw "linearized setup: oracle linearize failed ($code)" }
 function Invoke-ManagedCheck {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--check') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--check') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "linearized: managed check produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
 }
 function Invoke-OracleCheck {
   param([string]$File)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qc.txt" -RedirectStandardError "$env:TEMP/qce.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--check', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qc.txt" -RedirectStandardError "$referenceTemp/qce.txt"
   return $p.ExitCode
 }
 function Edit-FirstBytes {
@@ -1665,14 +1670,14 @@ $case = New-Case 'identity'
 New-Item -ItemType Directory -Path "$case/inputs" -Force | Out-Null
 function Invoke-ManagedIdentity {
   param([string]$Workdir, [string]$Flag, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "identity: managed emit produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
 }
 function Invoke-OracleIdentity {
   param([string]$Workdir, [string]$Flag, [string]$Tag)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @($Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/oracle-$Tag.txt" -RedirectStandardError "$Workdir/oracle-$Tag-err.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @($Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/oracle-$Tag.txt" -RedirectStandardError "$Workdir/oracle-$Tag-err.txt"
   return $p.ExitCode
 }
 foreach ($sub in @(@('--version', '12.4.2', 'version'), @('--copyright', 'Copyright', 'copyright'), @('--help', 'qpdf', 'help'), @('--job-json-help', 'inputFile', 'job-json-help'), @('--json-help', 'acroform', 'json-help'), @('--completion-bash', 'completion', 'completion-bash'), @('--completion-zsh', 'compdef', 'completion-zsh'))) {
@@ -1780,7 +1785,7 @@ Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
 Edit-FirstBytes "$case/inputs/a.pdf" "startxref`n398" "startxref`n999"
 function Invoke-ManagedExit {
   param([string]$Workdir, [string[]]$EmitArgs, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "warnings: managed emit produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
@@ -1930,12 +1935,12 @@ $code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--'
 if ($code -ne 0) { throw "check-linearization setup: oracle linearize failed ($code)" }
 function Invoke-ManagedLinCheck {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--check-linearization') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--check-linearization') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   return $p.ExitCode
 }
 function Invoke-OracleLinCheck {
   param([string]$File)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--check-linearization', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/ql.txt" -RedirectStandardError "$env:TEMP/qle.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--check-linearization', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/ql.txt" -RedirectStandardError "$referenceTemp/qle.txt"
   return $p.ExitCode
 }
 foreach ($sub in @(@("valid", "inputs/lin.pdf", 0, 0, "no linearization errors"), @("plain", "inputs/a.pdf", 0, 0, "is not linearized"))) {
@@ -1944,7 +1949,7 @@ foreach ($sub in @(@("valid", "inputs/lin.pdf", 0, 0, "no linearization errors")
   $ora = Invoke-OracleLinCheck "$case/$($sub[1])"
   if ($code -ne $sub[2] -or $ora -ne $sub[3]) { Write-Output "[check-linearization/$tag] FAIL: exits managed=$code oracle=$ora, expected $($sub[2])/$($sub[3])"; $script:failures++; continue }
   $managedText = Get-Content "$case/managed-clin-$tag.txt" -Raw
-  $oracleText = (Get-Content "$env:TEMP/ql.txt" -Raw) + (Get-Content "$env:TEMP/qle.txt" -Raw)
+  $oracleText = (Get-Content "$referenceTemp/ql.txt" -Raw) + (Get-Content "$referenceTemp/qle.txt" -Raw)
   if (-not $managedText.Contains($sub[4]) -or -not $oracleText.Contains($sub[4])) { Write-Output "[check-linearization/$tag] FAIL: message mismatch"; $script:failures++ }
   else { Write-Output "[check-linearization/$tag] exits $($sub[2])/$($sub[3]) with matching message" }
 }
@@ -1962,12 +1967,12 @@ $code = Invoke-Oracle $case @('--linearize', '--static-id', 'inputs/a.pdf', '--'
 if ($code -ne 0) { throw "show-linearization setup: oracle linearize failed ($code)" }
 function Invoke-ManagedShow {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-linearization') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-linearization') -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   return $p.ExitCode
 }
 function Invoke-OracleShow {
   param([string]$File)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-linearization', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-linearization', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
   return $p.ExitCode
 }
 function Get-NormalizedDump {
@@ -1980,14 +1985,14 @@ $code = Invoke-ManagedShow $case "inputs/lin.pdf" "show-valid"
 $ora = Invoke-OracleShow "$case/inputs/lin.pdf"
 if ($code -ne 0 -or $ora -ne 0) { Write-Output "[show-linearization/valid] FAIL: exits managed=$code oracle=$ora, expected 0/0"; $script:failures++ }
 else {
-  $dumps = Get-NormalizedDump "$case/managed-show-valid.txt" "$env:TEMP/qs.txt"
+  $dumps = Get-NormalizedDump "$case/managed-show-valid.txt" "$referenceTemp/qs.txt"
   if ($dumps[0] -ne $dumps[1]) { Write-Output "[show-linearization/valid] FAIL: dump mismatch"; $script:failures++ }
   else { Write-Output "[show-linearization/valid] dumps match line for line" }
 }
 $code = Invoke-ManagedShow $case "inputs/a.pdf" "show-plain"
 $ora = Invoke-OracleShow "$case/inputs/a.pdf"
 if ($code -ne 0 -or $ora -ne 0) { Write-Output "[show-linearization/plain] FAIL: exits managed=$code oracle=$ora, expected 0/0"; $script:failures++ }
-elseif (-not (Select-String -Path "$case/managed-show-plain.txt" -Pattern 'is not linearized' -Quiet) -or -not (Select-String -Path "$env:TEMP/qs.txt" -Pattern 'is not linearized' -Quiet)) { Write-Output "[show-linearization/plain] FAIL: message mismatch"; $script:failures++ }
+elseif (-not (Select-String -Path "$case/managed-show-plain.txt" -Pattern 'is not linearized' -Quiet) -or -not (Select-String -Path "$referenceTemp/qs.txt" -Pattern 'is not linearized' -Quiet)) { Write-Output "[show-linearization/plain] FAIL: message mismatch"; $script:failures++ }
 else { Write-Output "[show-linearization/plain] both report not linearized" }
 Copy-Item "$case/inputs/lin.pdf" "$case/inputs/badH.pdf"
 Edit-FirstBytes "$case/inputs/badH.pdf" "[ 550 127 ]" "[ 550 999 ]"
@@ -2002,7 +2007,7 @@ Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
 function Invoke-ManagedNpages {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-npages') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-npages') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'PageCount Info \S+: (\d+)' | Select-Object -First 1
   if ($null -eq $line -or $p.ExitCode -ne 0) { throw "show-npages: managed inspection failed ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
@@ -2023,17 +2028,17 @@ Copy-Item "$fixtureDir/minimal-2page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/b.pdf"
 function Invoke-ManagedPages {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-pages') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-pages') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   return $p.ExitCode
 }
 foreach ($sub in @(@("two", "inputs/a.pdf"), @("one", "inputs/b.pdf"))) {
   $name = $sub[0]
   $mcode = Invoke-ManagedPages $case $sub[1] "pages-$name"
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-pages', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
   $ocode = $p.ExitCode
   if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[show-pages/$name] FAIL: show exits managed=$mcode oracle=$ocode"; $script:failures++; continue }
   $mLines = Get-Content "$case/managed-pages-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
-  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$referenceTemp/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
   if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-pages/$name] FAIL: page dump mismatch"; $script:failures++ }
   else { Write-Output "[show-pages/$name] page dumps match line for line" }
 }
@@ -2044,28 +2049,28 @@ Copy-Item "$fixtureDir/images-1page.pdf" "$case/inputs/i.pdf"
 Copy-Item "$fixtureDir/images-nodim-1page.pdf" "$case/inputs/n.pdf"
 function Invoke-ManagedPagesImages {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-pages', '--with-images') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-pages', '--with-images') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "show-pages-with-images: managed emit produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
 }
 $mcode = Invoke-ManagedPagesImages $case "inputs/i.pdf" "images-clean"
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', '--with-images', "$case/inputs/i.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-pages', '--with-images', "$case/inputs/i.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
 $ocode = $p.ExitCode
 if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[show-pages-with-images/clean] FAIL: exits managed=$mcode oracle=$ocode, expected 0/0"; $script:failures++ }
 else {
   $mLines = Get-Content "$case/managed-images-clean.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
-  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$referenceTemp/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
   if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-pages-with-images/clean] FAIL: dump mismatch"; $script:failures++ }
   else { Write-Output "[show-pages-with-images/clean] dumps match line for line" }
 }
 $mcode = Invoke-ManagedPagesImages $case "inputs/n.pdf" "images-nodim"
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-pages', '--with-images', "$case/inputs/n.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-pages', '--with-images', "$case/inputs/n.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
 $ocode = $p.ExitCode
 if ($mcode -ne 3 -or $ocode -ne 3) { Write-Output "[show-pages-with-images/nodim] FAIL: exits managed=$mcode oracle=$ocode, expected 3/3"; $script:failures++ }
 else {
   $mLines = Get-Content "$case/managed-images-nodim.txt" | Where-Object { $_ -match '^emit: diagnostic PageListing ' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
-  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$referenceTemp/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
   if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-pages-with-images/nodim] FAIL: listing mismatch"; $script:failures++ }
   else { Write-Output "[show-pages-with-images/nodim] listings match with warning exits 3/3" }
 }
@@ -2078,12 +2083,12 @@ Copy-Item "$fixtureDir/incr-samegen-1page.pdf" "$case/inputs/g.pdf"
 Copy-Item "$fixtureDir/incr-freereuse-1page.pdf" "$case/inputs/h.pdf"
 foreach ($sub in @(@("dict", "inputs/a.pdf", "3"), @("stream", "inputs/a.pdf", "4"), @("trailer", "inputs/a.pdf", "trailer"), @("missing", "inputs/a.pdf", "99"), @("compressed", "inputs/o.pdf", "1"), @("gen-same", "inputs/g.pdf", "4"), @("gen-same-explicit", "inputs/g.pdf", "4,0"), @("gen-absent", "inputs/g.pdf", "4,1"), @("gen-free", "inputs/h.pdf", "4"), @("gen-free-old", "inputs/h.pdf", "4,0"), @("gen-live", "inputs/h.pdf", "4,1"))) {
   $name = $sub[0]
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], "--show-object=$($sub[2])") -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-obj-$name.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], "--show-object=$($sub[2])") -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-obj-$name.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[show-object/$name] FAIL: managed exit $($p.ExitCode)"; $script:failures++; continue }
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @("--show-object=$($sub[2])", "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @("--show-object=$($sub[2])", "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[show-object/$name] FAIL: oracle exit $($p.ExitCode)"; $script:failures++; continue }
   $mLines = Get-Content "$case/managed-obj-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
-  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$referenceTemp/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
   if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-object/$name] FAIL: object dump mismatch"; $script:failures++ }
   else { Write-Output "[show-object/$name] object dumps match line for line" }
 }
@@ -2095,14 +2100,14 @@ $code = Invoke-Oracle $case @('--stream-data=compress', 'inputs/a.pdf', '--', "$
 if ($code -ne 0) { throw "show-object-stream-data setup: oracle compress failed ($code)" }
 function Invoke-ManagedStream {
   param([string]$Workdir, [string[]]$EmitArgs, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll) + $EmitArgs) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "show-object-stream-data: managed emit produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
 }
 function Invoke-OracleBytes {
   param([string[]]$OracleArgs, [string]$OutFile)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList $OracleArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $OutFile -RedirectStandardError "$env:TEMP/qse.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList $OracleArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $OutFile -RedirectStandardError "$referenceTemp/qse.txt"
   return $p.ExitCode
 }
 function Assert-StreamBytesEqual {
@@ -2128,12 +2133,12 @@ else {
 }
 foreach ($sub in @(@("missing", "inputs/a.pdf", "99", "trailerless"), @("trailer", "inputs/a.pdf", "trailer", "dictionary"))) {
   $name = $sub[0]
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], "--show-object=$($sub[2])", '--raw-stream-data') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-$name.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], "--show-object=$($sub[2])", '--raw-stream-data') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-$name.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[show-object-stream-data/$name] FAIL: managed exit $($p.ExitCode)"; $script:failures++; continue }
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @("--show-object=$($sub[2])", '--raw-stream-data', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @("--show-object=$($sub[2])", '--raw-stream-data', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[show-object-stream-data/$name] FAIL: oracle exit $($p.ExitCode)"; $script:failures++; continue }
   $mLines = Get-Content "$case/managed-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
-  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$referenceTemp/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
   if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-object-stream-data/$name] FAIL: dump mismatch"; $script:failures++ }
   else { Write-Output "[show-object-stream-data/$name] dumps match line for line" }
 }
@@ -2144,12 +2149,12 @@ Copy-Item "$fixtureDir/minimal-1page.pdf" "$case/inputs/a.pdf"
 Copy-Item "$fixtureDir/objstm-1page.pdf" "$case/inputs/o.pdf"
 foreach ($sub in @(@("classic", "inputs/a.pdf"), @("streams", "inputs/o.pdf"))) {
   $name = $sub[0]
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], '--show-xref') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-xref-$name.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $case, '--', $sub[1], '--show-xref') -NoNewWindow -Wait -PassThru -WorkingDirectory $case -RedirectStandardOutput "$case/managed-xref-$name.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[show-xref/$name] FAIL: managed exit $($p.ExitCode)"; $script:failures++; continue }
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-xref', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qs.txt" -RedirectStandardError "$env:TEMP/qse.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-xref', "$case/$($sub[1])") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qs.txt" -RedirectStandardError "$referenceTemp/qse.txt"
   if ($p.ExitCode -ne 0) { Write-Output "[show-xref/$name] FAIL: oracle exit $($p.ExitCode)"; $script:failures++; continue }
   $mLines = Get-Content "$case/managed-xref-$name.txt" | Where-Object { $_ -match '^emit: diagnostic' } | ForEach-Object { $_ -replace '^emit: diagnostic \S+ \S+ ', '' } | Where-Object { $_.Trim().Length -gt 0 }
-  $oLines = Get-Content "$env:TEMP/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
+  $oLines = Get-Content "$referenceTemp/qs.txt" | Where-Object { $_.Trim().Length -gt 0 }
   if (($mLines -join "`n") -ne ($oLines -join "`n")) { Write-Output "[show-xref/$name] FAIL: xref dump mismatch"; $script:failures++ }
   else { Write-Output "[show-xref/$name] xref dumps match line for line" }
 }
@@ -2590,14 +2595,14 @@ Copy-Item "$fixtureDir/xstm-classic.pdf" "$case/inputs/x.pdf"
 Copy-Item "$fixtureDir/objstm-1page.pdf" "$case/inputs/o.pdf"
 function Invoke-ManagedNpagesFlag {
   param([string]$Workdir, [string]$InFile, [string]$Tag)
-  $p = Start-Process -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-npages', '--ignore-xref-streams') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
+  $p = Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList @($probeDll, 'emit', '--workdir', $Workdir, '--', $InFile, '--show-npages', '--ignore-xref-streams') -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/managed-$Tag.txt"
   $line = Select-String -Path "$Workdir/managed-$Tag.txt" -Pattern 'emit: status=\w+ exit=(\d+)' | Select-Object -First 1
   if ($null -eq $line) { throw "ignore-xref-streams: managed emit produced no status line ($Tag)" }
   return [int]$line.Matches[0].Groups[1].Value
 }
 function Invoke-OracleNpagesFlag {
   param([string]$File)
-  $p = Start-Process -FilePath $QpdfExe -ArgumentList @('--ignore-xref-streams', '--show-npages', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$env:TEMP/qnp.txt"
+  $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--ignore-xref-streams', '--show-npages', $File) -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$referenceTemp/qnp.txt"
   return $p.ExitCode
 }
 foreach ($sub in @(@("hybrid", "inputs/h.pdf", 3), @("classic", "inputs/x.pdf", 0), @("objstm", "inputs/o.pdf", 3))) {
@@ -2666,13 +2671,13 @@ foreach ($sub in @(@("plain", "inputs/a.pdf"), @("use", "inputs/u.pdf"))) {
   $mcode = Invoke-ManagedShow $case "inputs/check-$tag.pdf" "olshow-lib-$tag"
   $ocode = Invoke-OracleShow "$case/lib-$tag.pdf"
   if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: show exits on managed output managed=$mcode oracle=$ocode"; $script:failures++; continue }
-  $dumps = Get-NormalizedDump "$case/managed-olshow-lib-$tag.txt" "$env:TEMP/qs.txt"
+  $dumps = Get-NormalizedDump "$case/managed-olshow-lib-$tag.txt" "$referenceTemp/qs.txt"
   if ($dumps[0] -ne $dumps[1]) { Write-Output "[linearize-outlines/$tag] FAIL: show dump mismatch on managed output"; $script:failures++; continue }
   Copy-Item "$case/ora-$tag.pdf" "$case/inputs/ora-$tag.pdf"
   $mcode = Invoke-ManagedShow $case "inputs/ora-$tag.pdf" "olshow-ora-$tag"
   $ocode = Invoke-OracleShow "$case/ora-$tag.pdf"
   if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-outlines/$tag] FAIL: show exits on oracle output managed=$mcode oracle=$ocode"; $script:failures++; continue }
-  $dumps = Get-NormalizedDump "$case/managed-olshow-ora-$tag.txt" "$env:TEMP/qs.txt"
+  $dumps = Get-NormalizedDump "$case/managed-olshow-ora-$tag.txt" "$referenceTemp/qs.txt"
   if ($dumps[0] -ne $dumps[1]) { Write-Output "[linearize-outlines/$tag] FAIL: show dump mismatch on oracle output"; $script:failures++ }
   else { Write-Output "[linearize-outlines/$tag] outputs validate and show dumps match on both files" }
 }
@@ -2698,7 +2703,7 @@ else {
         $ocode = Invoke-OracleShow "$case/lib-t.pdf"
         if ($mcode -ne 0 -or $ocode -ne 0) { Write-Output "[linearize-thumbs] FAIL: show exits managed=$mcode oracle=$ocode"; $script:failures++ }
         else {
-          $dumps = Get-NormalizedDump "$case/managed-thumbshow-lib.txt" "$env:TEMP/qs.txt"
+          $dumps = Get-NormalizedDump "$case/managed-thumbshow-lib.txt" "$referenceTemp/qs.txt"
           if ($dumps[0] -ne $dumps[1]) { Write-Output '[linearize-thumbs] FAIL: show dump mismatch'; $script:failures++ }
           else { Write-Output '[linearize-thumbs] outputs validate and show dumps match' }
         }
@@ -2764,9 +2769,9 @@ if ($code -ne 0) { throw "extends: emit failed ($code)" }
 $code = Invoke-Oracle $case @('inputs/a.pdf', '--pages', '.', '1', '--', "$case/ora.pdf")
 if ($code -ne 0) { throw "extends: oracle failed ($code)" }
 Assert-Trio 'extends' "$case/lib.pdf" "$case/ora.pdf" 1
-$p = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=6', "$case/lib.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
+$p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=6', "$case/lib.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-lib.txt" -RedirectStandardError "$case/show-lib-err.txt"
 $libShow = (Get-Content "$case/show-lib.txt" -Raw).Trim()
-$q = Start-Process -FilePath $QpdfExe -ArgumentList @('--show-object=6', "$case/ora.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
+$q = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @('--show-object=6', "$case/ora.pdf") -NoNewWindow -Wait -PassThru -RedirectStandardOutput "$case/show-ora.txt" -RedirectStandardError "$case/show-ora-err.txt"
 $oraShow = (Get-Content "$case/show-ora.txt" -Raw).Trim()
 if ($p.ExitCode -ne 0 -or $q.ExitCode -ne 0) { Write-Output '[extends] FAIL: show-object exits'; $script:failures++ }
 elseif ($libShow -ne $oraShow) { Write-Output '[extends] FAIL: object-6 dumps differ'; $script:failures++ }
@@ -2774,3 +2779,5 @@ elseif ($libShow -notmatch '/BaseFont') { Write-Output '[extends] FAIL: object-6
 else { Write-Output '[extends] trio ok with matching font object 6' }
 if ($script:failures -gt 0) { throw "Differential lane failed with $($script:failures) failure(s)." }
 Write-Output "Differential lane passed: library and oracle outputs validate across selection, merge, split, collate, ranges, rotate-ranges, empty, uncompress, normalize, coalesce, flatten-rotation, prune, preserve, preserve-unreferenced, json, json-images (page-image descriptors agree), json-import, json-update, json-modes, compress, writer-controls, attachments, metadata, labels, labels-merge (merged, subset, whole-file and split catalogs agree), catalog-extras (primary-merge, subset, whole-file and split catalogs agree), forms-collision (renamed field semantics agree), dr-encoding (WinAnsi-encoded values agree), dr-merge (merged DR fonts agree), parent-held (Parent-link lookup agrees with 3/3 unreachable warnings), generate-radio (radio sync warns 3/3 with states kept), generate-unreachable (unreachable-form selection drops and skips silently with 0/0 exits, whole-file warns and regenerates with 3/3 exits), progressive-jpeg (four authored grayscale/RGB fixtures with exact decoded samples agree), cmyk (four-component check/decode exits 0/3 with recorded oracle samples and opaque managed output), incr (freed-pair selection drops dead contents on both sides), direct-rename (direct-kid renames agree with 0/3 exit difference), forms, forms-check (--check exits warn 3/3 on unreachable widgets and direct objects while clean forms stay 0/0), overlay, overlay-ranges, overlay-annots (copied subtypes, contents, transformed rectangles, appearance matrices and nulled page-boundary destinations agree), overlay-file (long-form file trios and equals-form exit parity agree), overlay-widgets (imported field registration, values, parent links and default resources agree), overlay-widgets-dr (collision renames and DR conflict rewrites agree), overlay-widgets-repeat (repeated placements rename agree), flatten-dr (DR-font appearance stamping agrees), errors, job-file, replace, recovery, identity, hints, global, warnings, show-npages, show-pages, show-pages-with-images, diagnostics, optimize, optimize-masks (masked recompression with preserved masks agree), inline, ignore-xref-streams, show-object, show-object-stream-data, show-xref, remove-acroform, forms-preserve, outlines-preserve, structure-preserve, remove-structure, qdf, qdf-noids, fixqdf, zlibflate, linearized, check-linearization, show-linearization, linearize, linearize-streams, linearize-pass1, linearize-outlines, linearize-thumbs and extends."
+
+} finally { Complete-ReferenceProbe }

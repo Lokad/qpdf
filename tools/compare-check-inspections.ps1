@@ -13,6 +13,9 @@ $FixtureDirectory = (Resolve-Path -LiteralPath $FixtureDirectory).Path
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Path $WorkRoot -Force | Out-Null
+. (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
+try {
 
 function New-AuthoredPdf([bool] $Attachment) {
   $catalog = if ($Attachment) { '<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(payload) 5 0 R] >> >> >>' } else { '<< /Type /Catalog /Pages 2 0 R >>' }
@@ -106,7 +109,7 @@ $records = foreach ($item in $cases) {
     if ($route -eq 'job') { $emit = @('emit-job','--workdir',$case,'--job',"$case/inputs/job.json") } else { $emit += @('--') + $commandArgs }
     Push-Location $case
     try {
-      $managed = @(& dotnet $ProbeDll @emit 2>&1 | ForEach-Object { $_.ToString() }); $managedExit = $LASTEXITCODE
+      $managed = @(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$emit) 2>&1 | ForEach-Object { $_.ToString() }); $managedExit = $LASTEXITCODE
       & $QpdfExe @commandArgs 1> "$case/native.txt" 2> "$case/native-error.txt"; $nativeExit = $LASTEXITCODE
     } finally { Pop-Location }
     [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n") + "`n",$utf8)
@@ -133,3 +136,5 @@ $records = foreach ($item in $cases) {
 }
 [IO.File]::WriteAllText((Join-Path $WorkRoot 'results.json'),($records | ConvertTo-Json -Depth 5) + "`n",$utf8)
 Write-Host "Checker-inspection lane passed: $($records.Count) comparisons. Binary extraction and selection/transformation contexts remain open."
+
+} finally { Complete-ReferenceProbe }

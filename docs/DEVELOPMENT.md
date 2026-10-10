@@ -196,6 +196,25 @@ error limits and validate six rewrites with qpdf and PdfPig. Outputs/results
 live in unique ignored `external/parser-checks/` directories. It is an explicit
 external lane; ordinary tests use the same behavioral cases without an oracle.
 
+Reference scripts reuse the managed probe process sequentially for up to 64
+requests, then start another process. Each request still constructs a fresh
+in-memory host and public job with its original limits. Only opened inputs are
+read into that host. Request logs use exclusive files under the run workspace;
+the differential scratch files also belong to that workspace. Parser expected
+values index the existing observation rows. Native calls and every original
+comparison remain. The library and ordinary tests do not use this transport.
+
+The explicit transport controls need a freshly built probe and a fresh workspace:
+
+```powershell
+pwsh -File tools/test-reference-probe.ps1 -ProbeDll tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll -WorkRoot external/probe-controls/fresh-run
+```
+
+They compare cold and batched outputs/exits, check fresh rewritten bytes with the
+independent reader, reject cross-request output reuse, exercise lazy input access
+and worker rollover, and reject malformed/oversized protocol requests. Complete
+reference coverage and timing verification remains required for the speed change.
+
 
 ## Benchmarks
 

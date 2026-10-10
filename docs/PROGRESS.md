@@ -1,5 +1,30 @@
 # Progress
 
+## Reference execution reuse — implementation pending final verification
+
+The original reference comparisons and authored inputs remain intact. Measured
+differential wall time is 582.5 seconds: 996 managed calls take 510.9 seconds,
+1352 native calls 53.8 seconds and comparison conditions 15.3 seconds. The first
+238 parser jobs average 273 ms inside execution. The complete measured baseline
+passes in 2621.0 seconds: parser 2029.0, differential 582.5. Parser managed/native
+calls take 1729.1/283.0 seconds; comparisons/lookups take 1.8/5.8 seconds.
+Cold managed/native startup medians are 83/16 ms. No workers run in
+parallel.
+
+The development probe now supports sequential requests with a fresh public host
+and job each time. Workers retire after 64 requests; request text is bounded and
+stdout/stderr use exclusive files. Input registration reads only requested files,
+retaining the in-memory host and canonical alias identities. Parser expected-value
+lookups use the original observation rows through an index. Differential temporary
+files belong to each fresh run. Executable cold/batch, rollover, isolation and
+protocol controls pass: seven semantic cold/batch pairs, checked rewrite bytes,
+both invocation wrappers, 85 requests/two workers and two protocol negatives.
+All 45 mixed/60 inspection comparisons pass. Complete fresh coverage/timing proof
+remains required. The first raw-counter comparison differs by two maintenance
+work units; counter records remain and semantic comparisons exclude only that
+variable line, without changing any original reference assertion or limit.
+Runtime sources, dependencies and API remain unchanged by this speed work.
+
 ## Configuration setting text — CFG-01B3C1 implemented, combined proof pending
 
 The predecessor leaves eight public host-held pass-one names unfunded (2080-byte
@@ -45,6 +70,12 @@ C1 remains pending final committed Release/reference/native/package/consumer
 verification. C2 parser vectors/plans/derived strings and C3 syntax/session/DOM
 controllers, B3C/B4, A04/A06/M11 and both verdicts remain open. Established
 response expansion T/V/H evidence remains retired.
+
+The final committed ordinary proof on `bb18cf9` passes all 18641 cases in
+512.1 seconds (8m32s), with no failures/skips or overlapping verification jobs.
+All 18638 preceding occurrences and 4535 named observations remain. All 2727
+focused checks pass; the exact preceding runtime retains three new failures and
+twelve established positives. Reference/native/package/consumer proof is pending.
 
 ## Response argument ownership — CFG-01B3T/V/H retired
 

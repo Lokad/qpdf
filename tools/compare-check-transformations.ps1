@@ -13,6 +13,9 @@ $FixtureDirectory = (Resolve-Path -LiteralPath $FixtureDirectory).Path
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
+. (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
+try {
 
 function Write-AuthoredPdf([string]$Path, [bool]$ContentGenerations) {
   $first = if ($ContentGenerations) { '[5 3 R 6 4 R]' } else { '5 0 R' }
@@ -109,7 +112,7 @@ $records = foreach ($item in $cases) {
       Push-Location $case
       try {
         & $QpdfExe @nativeArgs 1> "$case/native.txt" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
-        $managed=@(& dotnet $ProbeDll @managedArgs 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
+        $managed=@(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$managedArgs) 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
       } finally { Pop-Location }
       [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
       $expected = if ($item.ContainsKey('Exit')) {$item.Exit} else {0}
@@ -149,7 +152,7 @@ foreach ($route in @('job','argv','mixed')) {
   Push-Location $case
   try {
     & $QpdfExe @argv 1> "$case/native.bin" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
-    $managed=@(& dotnet $ProbeDll @emit 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
+    $managed=@(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$emit) 2>&1|ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
   } finally { Pop-Location }
   [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
   [byte[]]$expected = [Text.Encoding]::ASCII.GetBytes('BT /F1 24 Tf 100 700 Td (First) Tj ET')
@@ -161,3 +164,5 @@ foreach ($route in @('job','argv','mixed')) {
 }
 [IO.File]::WriteAllText("$WorkRoot/results.json",($records|ConvertTo-Json -Depth 6)+"`n",$utf8)
 Write-Host "Checker transformation lane passed: $($records.Count) comparisons. Other contexts and audit gates remain open."
+
+} finally { Complete-ReferenceProbe }

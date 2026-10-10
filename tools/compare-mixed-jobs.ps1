@@ -17,6 +17,9 @@ $ProbeDll = (Resolve-Path -LiteralPath $ProbeDll).Path
 $FixtureDirectory = (Resolve-Path -LiteralPath $FixtureDirectory).Path
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 New-Item -ItemType Directory -Path $WorkRoot -Force | Out-Null
+. (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
+try {
 $cases = @(
   @{ Name='partial-before'; Args=@('--job-json-file=inputs/settings.json','inputs/a.pdf','outputs/a.pdf'); Version='1.5' },
   @{ Name='partial-between'; Args=@('inputs/a.pdf','--job-json-file=inputs/settings.json','outputs/a.pdf'); Version='1.5' },
@@ -98,7 +101,7 @@ foreach ($item in $cases) {
   $emit += @('--') + $item.Args
   Push-Location $case
   try {
-    $managed = @(& dotnet $ProbeDll @emit 2>&1 | ForEach-Object { $_.ToString() })
+    $managed = @(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$emit) 2>&1 | ForEach-Object { $_.ToString() })
     $processExit = $LASTEXITCODE
     [IO.File]::WriteAllText("$case/managed.txt", ($managed -join "`n") + "`n", $utf8)
     $nativeArgs = if ($item.ContainsKey('NativeArgs')) { $item.NativeArgs } else { $item.Args }
@@ -147,7 +150,7 @@ foreach ($item in $cases) {
       if ($LASTEXITCODE -ne 0 -or ($count -join '').Trim() -ne [string] $pages) { throw "$name native count differs: $stem" }
       $validate = @('validate', '--input', $file)
       if ($pages -eq 0) { $validate += '--allow-empty' }
-      $pig = @(& dotnet $ProbeDll @validate 2>&1 | ForEach-Object { $_.ToString() })
+      $pig = @(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$validate) 2>&1 | ForEach-Object { $_.ToString() })
       [IO.File]::WriteAllText("$case/$stem-independent.txt", ($pig -join "`n") + "`n", $utf8)
       if ($LASTEXITCODE -ne 0 -or ($pig -join "`n") -notmatch "independent: npages=$pages\b") { throw "$name independent count differs: $stem" }
       if ($item.Rotate -and $ascii -notmatch "/Rotate $($item.Rotate)\b") { throw "$name rotation differs" }
@@ -166,3 +169,5 @@ foreach ($item in $cases) {
 }
 [IO.File]::WriteAllText((Join-Path $WorkRoot 'results.json'), ($records | ConvertTo-Json -Depth 4) + "`n", $utf8)
 Write-Output "Mixed-job lane passed: $($records.Count) comparisons; $(@($records | Where-Object Rewrite).Count) independently checked rewrites."
+
+} finally { Complete-ReferenceProbe }

@@ -11,6 +11,9 @@ $ProbeDll = (Resolve-Path -LiteralPath $ProbeDll).Path
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Path $WorkRoot -Force | Out-Null
+. (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
+try {
 $payload = [byte[]] @(0,1,2,127,128,255,13,10,65)
 $attachment = [byte[]] @(66,0,255,10)
 
@@ -125,7 +128,7 @@ $records = foreach ($item in $cases) {
     Push-Location $case
     try {
       & $QpdfExe @nativeArgs 1> "$case/native.bin" 2> "$case/native-error.txt"; $nativeExit=$LASTEXITCODE
-      $managed = @(& dotnet $ProbeDll @emit 2>&1 | ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
+      $managed = @(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$emit) 2>&1 | ForEach-Object {$_.ToString()}); $managedExit=$LASTEXITCODE
     } finally { Pop-Location }
     [IO.File]::WriteAllText("$case/managed.txt",($managed -join "`n")+"`n",$utf8)
     $expected = if ($item.ContainsKey('Exit')) { $item.Exit } else { 0 }
@@ -153,7 +156,7 @@ $records = foreach ($item in $cases) {
       foreach ($file in @('written.pdf','managed-written.pdf')) {
         & $QpdfExe --check "$case/outputs/$file" *> "$case/$file-check.txt"
         if ($LASTEXITCODE -ne 0) { throw "$name rewritten output is invalid" }
-        $count = & dotnet $ProbeDll compare --qpdf-exe $QpdfExe --input "$case/outputs/$file" --expected-npages 1 2>&1
+        $count = Invoke-ReferenceProbe -Arguments (@($ProbeDll)+@('compare')+@('--qpdf-exe')+@($QpdfExe)+@('--input')+@("$case/outputs/$file")+@('--expected-npages')+@(1)) 2>&1
         if ($LASTEXITCODE -ne 0) { throw "$name independent rewritten-output validation failed: $count" }
       }
     }
@@ -164,3 +167,5 @@ $records = foreach ($item in $cases) {
 }
 [IO.File]::WriteAllText((Join-Path $WorkRoot 'results.json'),($records|ConvertTo-Json -Depth 5)+"`n",$utf8)
 Write-Host "Binary-inspection lane passed: $($records.Count) comparisons; $(@($records|Where-Object RewriteValidated).Count) independently checked rewrites. Failed/canceled caller payloads remain staged; native streaming prefixes are an explicit host difference."
+
+} finally { Complete-ReferenceProbe }
