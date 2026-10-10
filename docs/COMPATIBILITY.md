@@ -216,8 +216,20 @@ close faults/prior aliases, independent body/backing/sibling retirement and
 completed metadata collection pass at the original four-GC/four-maintenance bound.
 A scope-held validation reference explains the first alias trial; no original
 limit/assertion/collection bound changes. One old test only renames the shared
-helper. Final committed full/reference/package proof remains required for
-B4D/B4DE; broader B4/B5/T4/T5/T6/diagnostic/measurement gates remain open.
+helper. Commit `6afbe7e` retires B4D/B4DE on all 16944 Release cases, every
+16897 preceding occurrence, pinned 1846/432, unchanged 868 complete native
+records/same 64 classified differences, all 908 signatures, exact package/PDB/
+changelog and fresh 50-smoke/two-negative consumers. The four original public
+jobs now reject within 65536 bytes after 145/152 valid snapshots. Final evidence
+binds all 567 frozen source paths; phase timings are in PROGRESS. Broader
+B4/B5/T4/T5/T6/diagnostic/measurement gates remain open.
+
+B4C now records two independent raw/Flate checker backing failures: all nine
+outcomes remain in caller storage; after completed metadata and the 96-byte
+library array collect under four GC/four bounded maintenance rounds, zero
+governed bytes retire. Preserve earlier checker aggregate observations; backing
+admission, views/elements/siblings and complete fault/cancellation remain open.
+
 Governor growth to 248, private document component slots and task/async frames,
 cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
