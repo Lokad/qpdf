@@ -5,7 +5,7 @@ namespace Lokad.Qpdf.Runtime;
 internal readonly record struct PresentedDiagnostics(IReadOnlyList<QpdfDiagnostic> Diagnostics, QpdfExitCode ExitCode);
 
 /// <summary>Prepares owned diagnostics before publication and retains accepted failure history.</summary>
-internal sealed class ExecutionPresentation : IDisposable
+internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
 {
     private ResourceGovernor? _governor;
     private DiagnosticBag? _bag;
@@ -117,7 +117,7 @@ internal sealed class ExecutionPresentation : IDisposable
         _prepared?.Dispose(); _prepared = history;
     }
 
-    internal void Prepare()
+    internal override void Prepare()
     {
         // Plain jobs keep their existing success projection. Only the prepaid
         // warning-history view is needed if their execution later fails.

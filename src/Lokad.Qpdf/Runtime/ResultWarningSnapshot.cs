@@ -1,7 +1,7 @@
 namespace Lokad.Qpdf.Runtime;
 
 /// <summary>Admits immutable warning carriers at the shared publication boundary.</summary>
-internal sealed class ResultWarningSnapshot : IDisposable
+internal sealed class ResultWarningSnapshot : ExecutionPreparation, IDisposable
 {
     private ResourceGovernor? _governor;
     private DiagnosticBag? _diagnostics;
@@ -37,7 +37,7 @@ internal sealed class ResultWarningSnapshot : IDisposable
     internal static IReadOnlyList<QpdfDiagnostic> Read(ResultWarningSnapshot? snapshot, DiagnosticBag diagnostics)
         => snapshot?.Warnings ?? diagnostics.Entries;
 
-    internal void Prepare()
+    internal override void Prepare()
     {
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(ResultWarningSnapshot));
         IReadOnlyList<QpdfDiagnostic> source = (_diagnostics

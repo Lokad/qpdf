@@ -30,6 +30,17 @@ All 1356 correction controls pass, including the 187 warning cases and the
 original parser/diagnostic/JSON/failure controls. No preceding test source or
 ceiling was changed.
 
+The second full trial exposed the original 248-byte governor geometry guard:
+the separate warning hook added eight bytes. ExecutionPreparation now shares
+the existing command/typed preparation slot, preserving the 248-byte governor
+and measured 56-byte typed scope. All nine original wrapper/version/weak-link/
+warning-scope physical controls pass unchanged. Preserve the 30-minute
+one-geometry-failure trial and its interrupted reference lane; its completed
+native matrix remains evidence for that preceding runtime only.
+All 2778 combined correction controls pass, including original physical geometry,
+typed counters/results, command counters/presentation, diagnostics, parser/JSON
+limits, publication and all 187 warning cases. Preceding tests stay byte-identical.
+
 
 ## Checker ownership — B4C/B4CD/B4CF/T5R retired on integrated proof
 

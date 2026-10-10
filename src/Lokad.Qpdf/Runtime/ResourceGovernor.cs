@@ -24,8 +24,7 @@ internal sealed class ResourceGovernor
     private RetainedValueOwners? _valueOwners;
     private DiagnosticStage? _diagnosticStage;
     private PresentationCountReservation? _presentationCount;
-    private ExecutionPresentation? _executionPresentation;
-    private ResultWarningSnapshot? _resultWarnings;
+    private ExecutionPreparation? _executionPresentation;
     private PublicationWorkReservation? _publicationWork;
     private long _reservedWork;
     private long _reservedResultWork;
@@ -48,7 +47,7 @@ internal sealed class ResourceGovernor
     private int _versionCarriers;
     internal bool OwnsDocumentCounters { get; set; }
     internal bool DeferredPlainHistory { get; set; }
-    internal ExecutionPresentation? ExecutionPresentation => _executionPresentation;
+    internal ExecutionPresentation? ExecutionPresentation => _executionPresentation as ExecutionPresentation;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)
     {
@@ -490,19 +489,18 @@ internal sealed class ResourceGovernor
     {
         PrepareExecutionResult();
         _executionPresentation?.Prepare();
-        _resultWarnings?.Prepare();
     }
 
     internal void AttachResultWarnings(ResultWarningSnapshot snapshot)
     {
-        if (_resultWarnings is not null) { throw new InvalidOperationException("Result warnings are already attached."); }
-        _resultWarnings = snapshot;
+        if (_executionPresentation is not null) { throw new InvalidOperationException("Result preparation is already attached."); }
+        _executionPresentation = snapshot;
     }
 
     internal void DetachResultWarnings(ResultWarningSnapshot snapshot)
     {
-        if (!ReferenceEquals(_resultWarnings, snapshot)) { throw new InvalidOperationException("Result warnings are unavailable."); }
-        _resultWarnings = null;
+        if (!ReferenceEquals(_executionPresentation, snapshot)) { throw new InvalidOperationException("Result warnings are unavailable."); }
+        _executionPresentation = null;
     }
 
     internal void ExpectExecutionResult()
@@ -826,7 +824,7 @@ internal sealed class ResourceGovernor
     internal PresentedDiagnostics? CompleteExecutionPresentation()
     {
         PrepareExecutionResult();
-        return _executionPresentation?.Complete();
+        return ExecutionPresentation?.Complete();
     }
 
     internal void AttachPublicationWork(PublicationWorkReservation reservation)
