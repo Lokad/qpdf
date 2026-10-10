@@ -1,8 +1,8 @@
 # Progress
 
-## Collation preparation — CFG-01B3C2L implemented, combined proof pending
+## Collation preparation — CFG-01B3C2L retired
 
-Two complete argv jobs demonstrate the next C2 failure: 4096 collation values
+Two preserved complete argv jobs demonstrate the C2 failure: 4096 collation values
 under 128-work allocate 251880 bytes; 100000 values under 1024-work allocate
 6469584 bytes. Both return a count-mismatch error after uncharged parsing.
 The shared correction scans spans incrementally under the existing governor,
@@ -18,7 +18,24 @@ without loaders/skips. Original 251880/6469584-byte work failures now allocate
 independent overlap minima pass; all 48 complete jobs reach zero with the same
 four collection/maintenance rounds per phase and no extra calls. The 78 public
 jobs include two explicit first-touch controls, 24 value/default/error jobs and
-two inspection jobs. Combined committed proof is pending.
+two inspection jobs.
+
+Committed `aabe0a2` closes CFG-01B3C2L: all **18654 Release cases pass in 543.8
+seconds (9m04s)**, preserving every 18651 previous occurrence and all 4535 named
+observations. Fresh pinned **1846 parser comparisons/432 rewrite trios pass in
+343.1 seconds (5m43s)**. Original 283 parser input bytes, 2131 differential
+input paths/data, 617 case messages, budgets/outcomes and both negatives remain.
+All 868 complete native records retain the same 64 physical differences; API908,
+exact package DLL/PDB/XML/changelog and fresh 50-smoke/two-specific-negative
+consumers pass. Five locks, advisory exceptions, raw PLAN binding and unrelated
+work remain exact.
+
+Reference parser/differential filesystem intervals are 265.2/72.3 seconds;
+managed round trips total 40.4/17.3. Sequential setup reuse preserves all 4586
+fresh requests, with 64 per process and no parallel workers or production forced
+collection. The preserved complete baseline remains 2621.0 seconds.
+Final restore/build/native/API/pack/inspection/consumer/consumer-negative phases
+take 1.5/1.6/334.5/0.2/1.7/0.7/11.5/4.8 seconds.
 
 Fixture trials remain explicit: the initial top-level probe variable conflicted
 with generated args; the first correction still copied the long argv substring,
@@ -28,8 +45,9 @@ observer traversal missed nested structs/private inherited storage; observing
 the actual base property fixes it. The zero-size control now preserves native
 zero-page behavior. No production forced collections or new public surface.
 Keep the original probe, predecessor failures and fixture trials explicit. This
-child does not close other parser vectors/plans, cold-state or broader ledger/C3
-obligations; established C1/C2D1/C2T/LABEL-OWN1/REF-03 stay retired.
+child alone retires. Other parser vectors/plans, cold-state and broader ledger/C3
+obligations remain open; established C1/C2D1/C2T/LABEL-OWN1/REF-03 stay retired.
+Choose the next C2 unit from an independently demonstrated complete public failure.
 
 ## Typed selection preparation — CFG-01B3C2T retired
 

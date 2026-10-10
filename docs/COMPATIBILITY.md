@@ -4,15 +4,20 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-CFG-01B3C2L implements shared governed collation scans, actual vector growth
-and policy snapshots through complete public execution. The original 128/1024-work
-counterexamples and warmed 32 KiB bound remain; default/zero/max/invalid/count and
-inspection behavior stay explicit. Six routes exercise success, host faults,
-both cancellations and alias cleanup. All 2402 related checks/78 public jobs
-pass; exact final predecessor tests retain two failures/one semantic positive.
-Fixed allocations fall 251880/6469584→2944/4968; all 90 physical minima and
-48 final-zero checks pass. Combined committed proof remains pending;
-other parser vectors/plans, C3 and parent gates stay open.
+CFG-01B3C2L retires on committed `aabe0a2`: governed collation scans, actual
+vector growth and policy snapshots through complete public execution. The
+original 128/1024-work counterexamples and warmed 32 KiB bound remain;
+default/zero/max/invalid/count and inspection behavior stay explicit. Six routes
+exercise success, host faults, both cancellations and alias cleanup. All 2402
+related checks/78 public jobs pass; exact final predecessor tests retain two
+failures/one semantic positive. Fixed allocations fall 251880/6469584→2944/4968;
+all 90 physical minima and 48 final-zero checks pass. Combined proof passes all
+18654 Release cases in 9m04s, preserving every 18651 preceding occurrence/4535
+named observations, fresh pinned 1846/432 in 5m43s, all original
+input/comparison/limit/outcome/negative evidence, identical 868 native
+records/same 64 physical differences, API908 and exact package/fresh
+50-smoke/two-negative consumers. Other parser vectors/plans, C3 and parent gates
+stay open.
 
 CFG-01B3C2T retires on committed `280abb6`: scoped typed source snapshots and
 rotation/label conversions receive admission before allocation under the existing
