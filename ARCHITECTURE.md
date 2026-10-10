@@ -162,7 +162,14 @@ owned immutable view/backing snapshots through the shared result collection
 factory. Prepaid retirement preserves independent warning aliases and diagnostic
 identities after disposal without rooting completed metadata. Later warnings do
 not mutate earlier snapshots. Reads obey the original document token and limits;
-generic diagnostic/text and wider checker/typed-warning backing remain under audit.
+generic diagnostic/text and broader ownership remain under audit.
+Typed selection, JSON and attachment cores attach a scoped warning snapshot to
+the shared governor preparation boundary. Each immutable view and backing array
+has an independent prepaid receipt; records/text are borrowed. Snapshot
+admission occurs before commit and includes warnings accepted during preparation.
+Unchanged histories reuse their snapshot across commits. Completion detaches
+job references, and returning the prepared collection adds no allocation or
+cancellation poll after publication.
 Each public document counter read independently admits snapshot/receipt storage,
 a shared weak governor link and construction/retirement work. Completed document
 retirement can reconcile after cancellation. Copied backing/mapping remain

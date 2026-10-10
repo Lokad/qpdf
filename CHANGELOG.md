@@ -2,6 +2,8 @@
 
 ## 0.1.0-alpha.1 - non-cryptographic subset, M11 audit in progress
 
+- Admit independent immutable typed warning collections at the shared publication boundary. Preserve accepted diagnostic identities/order, output aliases and post-commit close behavior across selection, JSON and attachment jobs.
+
 - Admit independent checker result collections, scope checker decode scratch, and reserve parser/record/text retirement before acceptance. Preserve surviving aliases, closed-input cancellation and exhausted-work cleanup; transfer diagnostic presentation credits without counting reserved work as executed.
 
 - Admit library-created PDF versions and their independent weak receipts before allocation. Keep shared header/catalog/check/writer aliases funded through disposal, cancellation and either retirement order; exclusive JSON emits validated version components without unused carriers at the original repair ceilings.

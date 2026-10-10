@@ -25,6 +25,7 @@ internal sealed class ResourceGovernor
     private DiagnosticStage? _diagnosticStage;
     private PresentationCountReservation? _presentationCount;
     private ExecutionPresentation? _executionPresentation;
+    private ResultWarningSnapshot? _resultWarnings;
     private PublicationWorkReservation? _publicationWork;
     private long _reservedWork;
     private long _reservedResultWork;
@@ -489,6 +490,19 @@ internal sealed class ResourceGovernor
     {
         PrepareExecutionResult();
         _executionPresentation?.Prepare();
+        _resultWarnings?.Prepare();
+    }
+
+    internal void AttachResultWarnings(ResultWarningSnapshot snapshot)
+    {
+        if (_resultWarnings is not null) { throw new InvalidOperationException("Result warnings are already attached."); }
+        _resultWarnings = snapshot;
+    }
+
+    internal void DetachResultWarnings(ResultWarningSnapshot snapshot)
+    {
+        if (!ReferenceEquals(_resultWarnings, snapshot)) { throw new InvalidOperationException("Result warnings are unavailable."); }
+        _resultWarnings = null;
     }
 
     internal void ExpectExecutionResult()
