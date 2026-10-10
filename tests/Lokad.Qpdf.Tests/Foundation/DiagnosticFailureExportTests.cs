@@ -455,25 +455,27 @@ public sealed class DiagnosticFailureExportTests
         if (cancel) { Assert.Throws<OperationCanceledException>(() => governor.CheckCancellation()); }
     }
 
-    [Fact]
-    [Trait("Layer", "Stress")]
-    public async Task FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded()
-        => await OwnershipBatch.RunAsync(_output, (AliasJobs()).Select(row =>
-            (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests), nameof(FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded), row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                DiagnosticFailureExportTests fixture = new(_output) { _collection = observation };
-                await fixture.ObserveFailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded((bool)row[0], (string)row[1]);
-            }))));
-
-    [Fact]
-    [Trait("Layer", "Stress")]
-    public async Task PreviouslyEscapedSuppressedWarningAliasesRemainFunded()
-        => await OwnershipBatch.RunAsync(_output, (new object[][] { [false], [true] }).Select(row =>
-            (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests), nameof(PreviouslyEscapedSuppressedWarningAliasesRemainFunded), row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                DiagnosticFailureExportTests fixture = new(_output) { _collection = observation };
-                await fixture.ObservePreviouslyEscapedSuppressedWarningAliasesRemainFunded((bool)row[0]);
-            }))));
+    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases(ITestOutputHelper output)
+    {
+        foreach (object[] row in AliasJobs())
+        {
+            yield return (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests),
+                "FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded", row),
+                async observation =>
+                {
+                    DiagnosticFailureExportTests fixture = new(output) { _collection = observation };
+                    await fixture.ObserveFailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded((bool)row[0], (string)row[1]);
+                });
+        }
+        foreach (bool recordAlias in new[] { false, true })
+        {
+            yield return (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests),
+                "PreviouslyEscapedSuppressedWarningAliasesRemainFunded", [recordAlias]),
+                async observation =>
+                {
+                    DiagnosticFailureExportTests fixture = new(output) { _collection = observation };
+                    await fixture.ObservePreviouslyEscapedSuppressedWarningAliasesRemainFunded(recordAlias);
+                });
+        }
+    }
 }

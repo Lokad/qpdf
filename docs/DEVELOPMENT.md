@@ -54,7 +54,10 @@ pwsh -File tools/test-audit-lane.ps1 -Lane ResultsContract
 pwsh -File tools/test-audit-lane.ps1 -Lane ResultsOwnership
 pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsContract
 pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsOwnership
-pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticStress
+pwsh -File tools/test-audit-lane.ps1 -Lane CarriersContract
+pwsh -File tools/test-audit-lane.ps1 -Lane CarriersOwnership
+pwsh -File tools/test-audit-lane.ps1 -Lane WriterOwnership
+pwsh -File tools/test-audit-lane.ps1 -Lane LifetimeStress
 ```
 
 | Lane | Executed test cases | Observation scope |
@@ -65,7 +68,16 @@ pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticStress
 | ResultsOwnership | 131 | 1470 original lifetime scenarios in 119 batches, plus 12 independent extraction/document controls. |
 | DiagnosticsContract | 450 | Public warning histories, failure prefixes, prior targets and fixed memory ceilings. |
 | DiagnosticsOwnership | 4 | Original public hidden-warning regressions. |
-| DiagnosticStress | 2 | All ten original alias controls, each with 32 sequential cycles under the original 32 KiB limit. |
+| CarriersContract | 1660 | Version, JSON, failed-result, selection, warning and checker producer/admission contracts. |
+| CarriersOwnership | 32 | 1302 original observations in 22 bounded batches, plus ten independent GC controls. |
+| WriterOwnership | 10 | All 216 original paused/completed writer backing observations; dedicated encoding/outcome contracts stay independent. |
+| LifetimeStress | 1 | Seventeen independent diagnostic, presentation, ledger, checker-detail and form controls with original 32-cycle bodies and limits. |
+
+`DiagnosticStress` remains an alias of `LifetimeStress`. The single discovered
+stress case logs all 17 independent controls; it does not reduce their cycle counts.
+Forced collections belong to these tests. The shipped library has no
+`GC.Collect` or `GC.WaitForPendingFinalizers` calls. Test-only collection rounds
+are shared because they scan the whole test process and wait for finalizers.
 
 Add `-List` to inspect a lane without execution. Exact discovery/result counts
 reject empty or partial selections. Batch output names every original scenario
@@ -73,8 +85,10 @@ and records its phases and maintenance count; failures remain individually visib
 Jobs run independently to their original collection boundary. Global collections
 are shared, while every governor retains its own quotas and original bounded
 maintenance calls. Metadata observations retain no governor. Alias drop phases,
-no-GC admission controls and stress pressure remain intact. Extraction, document
-snapshot and public hidden-warning controls remain independent.
+no-GC admission controls and stress pressure remain intact. Up to 64 rows share
+one batch; paused writers retain independent sinks. Original one/three/four-round
+collection geometry, compaction and interleaved maintenance remain explicit.
+Extraction and original regression controls remain independent.
 
 Selection focused time fell 408.5 to 74.3 seconds (5.5 times faster), with all
 1532 predecessor outcomes preserved. The four additional matrices fall
@@ -86,10 +100,11 @@ snapshot comparisons failed in the first trial; equality assertions and job
 budgets stay unchanged. Private feature inspection supports older predecessor
 runtimes without treating missing members as behavioral failures.
 
-The combined unfiltered run on `b1afaae` passes all 18913 cases in
+The preceding combined unfiltered run on `b1afaae` passes all 18913 cases in
 33.8 minutes. The historical 77-minute run used another test layout and
 overlapped reference/native phases; compare the isolated focused runs for a
-controlled reduction.
+controlled reduction. TEST-03 targets the remaining measured lifetime hot spots;
+its completed source is awaiting the combined speed gate below ten minutes.
 
 Ordinary unfiltered `dotnet test` still executes every case. Run it once on the
 completed correction; repeat expensive checks for changed sources, failures or

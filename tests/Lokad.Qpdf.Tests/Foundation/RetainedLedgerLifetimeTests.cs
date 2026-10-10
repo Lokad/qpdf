@@ -12,6 +12,8 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(NameTableCollection))]
 public sealed class RetainedLedgerLifetimeTests
 {
+    private OwnershipBatch.Observation? _collection;
+
     private sealed class Alias(object value, WeakReference[] metadata, long minimumBytes)
     {
         internal object? Value = value;
@@ -204,17 +206,25 @@ public sealed class RetainedLedgerLifetimeTests
         Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive)); Verify(alias, "string"); GC.KeepAlive(alias);
     }
 
-    [Fact]
-    public void RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles()
+    internal async Task RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles()
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
         for (int cycle = 0; cycle < 32; cycle++)
         {
-            Alias alias = Capture(governor, "string"); Collect(governor); Verify(alias, "string");
+            Alias alias = Capture(governor, "string"); await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); Verify(alias, "string");
             Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.MinimumBytes);
-            alias.Value = null; Collect(governor); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            alias.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive));
         }
         GC.KeepAlive(governor);
     }
+
+    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
+        => (new object[][] { [] }).Select(row =>
+            (OwnershipBatch.Id(nameof(RetainedLedgerLifetimeTests), nameof(RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles), row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                RetainedLedgerLifetimeTests fixture = new() { _collection = observation };
+                await fixture.RetiredLedgersDoNotInterfereWithThirtyTwoLaterFiniteCycles();
+            })));
 }

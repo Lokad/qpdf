@@ -1,3 +1,4 @@
+using Xunit.Abstractions;
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -12,6 +13,11 @@ namespace Lokad.Qpdf.Tests.Reading;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class DocumentWarningSnapshotTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public DocumentWarningSnapshotTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private const string Message = "A /Pages /Count of 2 disagrees with traversal (1); traversal wins.";
@@ -58,6 +64,7 @@ public sealed class DocumentWarningSnapshotTests
 
     [Theory]
     [MemberData(nameof(Originals))]
+    [Trait("Layer", "Contract")]
     public async Task Original4096HeldSnapshotsRejectAtTheSame64KiBLimit(bool compressed, bool disposed)
     {
         InMemoryQpdfHost host = Host(compressed);
@@ -100,6 +107,7 @@ public sealed class DocumentWarningSnapshotTests
 
     [Theory]
     [MemberData(nameof(Originals))]
+    [Trait("Layer", "Contract")]
     public async Task HeldSnapshotsRejectFiniteWorkAfterPublicOpening(bool compressed, bool disposed)
     {
         InMemoryQpdfHost host = Host(compressed);
@@ -135,6 +143,7 @@ public sealed class DocumentWarningSnapshotTests
 
     [Theory]
     [MemberData(nameof(Cancellations))]
+    [Trait("Layer", "Contract")]
     public async Task CancellationAfterOpeningRejectsFreshSnapshotsAndPreservesPriorAliases(bool compressed, bool disposed, bool empty)
     {
         InMemoryQpdfHost host = new();
@@ -222,10 +231,14 @@ public sealed class DocumentWarningSnapshotTests
         return aliases;
     }
 
-    private static QpdfExecutionCounters Collect(Aliases aliases)
+    private async Task<QpdfExecutionCounters> CollectAsync(Aliases aliases)
     {
-        for (int i = 0; i < 4; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-        for (int i = 0; i < 4; i++) { aliases.Governor.ReserveMemory(0L); }
+        if (_collection is not null) { await _collection.CollectAsync(aliases.Governor, 4, 4, false, false); }
+        else
+        {
+            for (int i = 0; i < 4; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+            for (int i = 0; i < 4; i++) { aliases.Governor.ReserveMemory(0L); }
+        }
         return aliases.Governor.Snapshot();
     }
 
@@ -264,27 +277,30 @@ public sealed class DocumentWarningSnapshotTests
 
     [Theory]
     [MemberData(nameof(AliasCases))]
+    [Trait("Layer", "Contract")]
     public async Task WarningAliasesOwnIndependentPacketsAndReleaseDeadSiblings(bool compressed, bool disposed, string kind)
     {
         Aliases aliases = await CompleteAliases(compressed, disposed, kind);
         await Task.Yield();
-        QpdfExecutionCounters held = Collect(aliases);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters held = await CollectAsync(aliases);
         Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
         Check(aliases, kind);
         Drop(aliases);
-        QpdfExecutionCounters dropped = Collect(aliases);
+        QpdfExecutionCounters dropped = await CollectAsync(aliases);
         Assert.False(aliases.View.IsAlive); Assert.False(aliases.Backing.IsAlive);
         Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= aliases.Minimum);
         CheckSibling(aliases);
         DropSibling(aliases);
-        QpdfExecutionCounters final = Collect(aliases);
+        QpdfExecutionCounters final = await CollectAsync(aliases);
         Assert.Equal(0L, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
 
     [Theory]
     [MemberData(nameof(Originals))]
+    [Trait("Layer", "Contract")]
     public async Task EmptySnapshotsBorrowStorageWithoutConsumingMemoryOrWork(bool compressed, bool disposed)
     {
         InMemoryQpdfHost host = new();
@@ -314,6 +330,7 @@ public sealed class DocumentWarningSnapshotTests
     }
 
     [Fact]
+    [Trait("Layer", "Contract")]
     public async Task OldSnapshotsKeepTheirPrefixWhenLaterObjectLoadingAddsAWarning()
     {
         List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
@@ -402,20 +419,22 @@ public sealed class DocumentWarningSnapshotTests
 
     [Theory]
     [MemberData(nameof(CloseCases))]
+    [Trait("Layer", "Contract")]
     public async Task CloseFaultAndCancellationPreserveFundedAliasesAndPriorOutputs(bool compressed, string mode, string kind)
     {
         Aliases aliases = await CompleteClose(compressed, mode, kind);
         await Task.Yield();
-        QpdfExecutionCounters held = Collect(aliases);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters held = await CollectAsync(aliases);
         Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
         Check(aliases, kind); CheckSibling(aliases);
         Drop(aliases);
-        QpdfExecutionCounters dropped = Collect(aliases);
+        QpdfExecutionCounters dropped = await CollectAsync(aliases);
         Assert.False(aliases.View.IsAlive); Assert.False(aliases.Backing.IsAlive);
         Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= aliases.Minimum);
         CheckSibling(aliases); DropSibling(aliases);
-        QpdfExecutionCounters final = Collect(aliases);
+        QpdfExecutionCounters final = await CollectAsync(aliases);
         Assert.Equal(0L, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
@@ -438,14 +457,33 @@ public sealed class DocumentWarningSnapshotTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Contract")]
     public async Task SurvivingWarningsDoNotRootCompletedGovernorOrLedger(bool compressed)
     {
         Unrooted aliases = await CompleteUnrooted(compressed);
         await Task.Yield();
-        for (int i = 0; i < 4; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0);
         Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
         Assert.False(aliases.Governor.IsAlive); Assert.False(aliases.Ledger.IsAlive);
         Validate(aliases.Warnings); GC.KeepAlive(aliases);
     }
 
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(WarningAliasesOwnIndependentPacketsAndReleaseDeadSiblings), AliasCases()),
+            (nameof(CloseFaultAndCancellationPreserveFundedAliasesAndPriorOutputs), CloseCases()),
+            (nameof(SurvivingWarningsDoNotRootCompletedGovernorOrLedger), new object[][] { [false], [true] }),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new DocumentWarningSnapshotTests(_output) { _collection = observation });
 }

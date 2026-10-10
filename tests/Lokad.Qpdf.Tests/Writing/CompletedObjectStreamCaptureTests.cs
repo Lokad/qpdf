@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
@@ -5,8 +7,14 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class CompletedObjectStreamCaptureTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public CompletedObjectStreamCaptureTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static void FindOwners(Task writing, List<ObjectStreamCapture> owners, int depth)
@@ -70,20 +78,7 @@ public sealed class CompletedObjectStreamCaptureTests
         return (owners.ToArray(), scopes.ToArray(), arrays.ToArray());
     }
 
-    [Theory]
-    [InlineData("ordinary", "success")]
-    [InlineData("ordinary", "failure")]
-    [InlineData("ordinary", "cancellation")]
-    [InlineData("qdf", "success")]
-    [InlineData("qdf", "failure")]
-    [InlineData("qdf", "cancellation")]
-    [InlineData("linearized", "success")]
-    [InlineData("linearized", "failure")]
-    [InlineData("linearized", "cancellation")]
-    [InlineData("counting", "success")]
-    [InlineData("counting", "failure")]
-    [InlineData("counting", "cancellation")]
-    public async Task CapturesStayFundedThroughOutputAndDieWithRetainedTasks(string route, string outcome)
+    internal async Task CapturesStayFundedThroughOutputAndDieWithRetainedTasks(string route, string outcome)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using CancellationTokenSource cancellation = new();
@@ -94,7 +89,7 @@ public sealed class CompletedObjectStreamCaptureTests
         try
         {
             (ObjectStreamCapture[] owners, ParserMemoryScope[] scopes, WeakReference[] arrays) = FundedStorage(writing, route);
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            await ObserveAsync(governor, 1);
             Assert.All(arrays, value => Assert.True(value.IsAlive));
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
@@ -107,7 +102,7 @@ public sealed class CompletedObjectStreamCaptureTests
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.All(scopes, scope => Assert.Equal(0L, scope.ReservedBytes));
             Assert.All(owners, owner => Assert.Null(typeof(ObjectStreamCapture).GetField("_members", Instance)?.GetValue(owner)));
-            for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+            await ObserveAsync(governor, 3);
             Assert.All(arrays, value => Assert.False(value.IsAlive));
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owners); GC.KeepAlive(scopes);
         }
@@ -144,4 +139,23 @@ public sealed class CompletedObjectStreamCaptureTests
             Length += chunk.Length;
         }
     }
+
+    private Task ObserveAsync(ResourceGovernor governor, int rounds)
+        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
+            .CollectAsync(governor, 0, rounds, false, false);
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CapturesStayFundedThroughOutputAndDieWithRetainedTasks), new object[][] { ["ordinary", "success"], ["ordinary", "failure"], ["ordinary", "cancellation"], ["qdf", "success"], ["qdf", "failure"], ["qdf", "cancellation"], ["linearized", "success"], ["linearized", "failure"], ["linearized", "cancellation"], ["counting", "success"], ["counting", "failure"], ["counting", "cancellation"] }),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new CompletedObjectStreamCaptureTests(_output) { _collection = observation });
 }

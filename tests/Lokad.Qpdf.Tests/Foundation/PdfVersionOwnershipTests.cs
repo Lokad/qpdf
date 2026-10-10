@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Reflection;
+using Xunit.Abstractions;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -12,6 +13,11 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class PdfVersionOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public PdfVersionOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
@@ -65,10 +71,14 @@ public sealed class PdfVersionOwnershipTests
         return version;
     }
 
-    private static void Collect(ResourceGovernor governor)
+    private async Task CollectAsync(ResourceGovernor governor)
     {
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-        for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
+        if (_collection is not null) { await _collection.CollectAsync(governor, 4); }
+        else
+        {
+            for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+            for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
+        }
     }
 
     private sealed class ChannelAliases(ResourceGovernor governor, PdfVersion version, QpdfExecutionCounters counters,
@@ -101,11 +111,13 @@ public sealed class PdfVersionOwnershipTests
     [InlineData(true, "version")]
     [InlineData(false, "counter")]
     [InlineData(true, "counter")]
+    [Trait("Layer", "Contract")]
     public async Task CompleteCheckAliasesKeepTheSharedLinkUntilBothChannelsRetire(bool compressed, string first)
     {
         ChannelAliases aliases = await CompleteChannels(compressed);
         await Task.Yield();
-        Collect(aliases.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(aliases.Governor);
         Assert.False(aliases.Host.IsAlive); Assert.False(aliases.Result.IsAlive);
         long bodies = MeasurePhysicalSize(typeof(PdfVersion)) + MeasurePhysicalSize(typeof(QpdfExecutionCounters));
         Assert.True(aliases.Governor.Snapshot().LiveMemoryBytes >= bodies);
@@ -114,13 +126,13 @@ public sealed class PdfVersionOwnershipTests
         Assert.Equal(1, Field(aliases.Governor, "_versionCarriers"));
         Assert.Equal(1, Field(aliases.Governor, "_executionResultCarriers"));
         DropChannel(aliases, first);
-        Collect(aliases.Governor);
+        await CollectAsync(aliases.Governor);
         long surviving = first == "version" ? MeasurePhysicalSize(typeof(QpdfExecutionCounters))
             : MeasurePhysicalSize(typeof(PdfVersion));
         Assert.True(aliases.Governor.Snapshot().LiveMemoryBytes >= surviving + 32L + 24L);
         Assert.Equal(1L, Field(aliases.Governor, "_reservedResultWork"));
         DropChannel(aliases, first == "version" ? "counter" : "version");
-        Collect(aliases.Governor);
+        await CollectAsync(aliases.Governor);
         Assert.Equal(0, Field(aliases.Governor, "_versionCarriers"));
         Assert.Equal(0, Field(aliases.Governor, "_executionResultCarriers"));
         Assert.Equal(0L, Field(aliases.Governor, "_reservedResultWork"));
@@ -220,12 +232,14 @@ public sealed class PdfVersionOwnershipTests
 
     [Theory]
     [MemberData(nameof(DocumentCases))]
+    [Trait("Layer", "Contract")]
     public async Task HeaderCatalogAndCallerAliasesRetireIndependentlyAfterDisposal(bool compressed, string catalog, string kind)
     {
         DocumentAliases aliases = await CompleteDocument(compressed, catalog, kind);
         await Task.Yield();
         ResourceGovernor governor = aliases.Governor ?? throw new InvalidOperationException();
-        Collect(governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(governor);
         Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
         bool owned = kind is "header" or "effective" or "both";
         if (owned)
@@ -239,7 +253,7 @@ public sealed class PdfVersionOwnershipTests
             Assert.Equal(kind is "header" or "both" || aliases.Same, aliases.Header.IsAlive);
             Assert.Equal(kind is "effective" or "both" || aliases.Same, aliases.Effective.IsAlive);
             KeepFirst(aliases);
-            Collect(governor);
+            await CollectAsync(governor);
             Assert.Equal(1, Field(governor, "_versionCarriers"));
             Assert.True(governor.Snapshot().LiveMemoryBytes >= KnownMinimum(aliases.Versions));
         }
@@ -250,7 +264,7 @@ public sealed class PdfVersionOwnershipTests
             if (aliases.Versions.Length != 0) { Assert.Null(Storage(aliases.Versions[0])); }
         }
         DropVersions(aliases);
-        Collect(governor);
+        await CollectAsync(governor);
         Assert.Equal(0, Field(governor, "_versionCarriers")); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
         Assert.Null(typeof(ResourceGovernor).GetField("_versionLink", Members)?.GetValue(governor));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -265,12 +279,14 @@ public sealed class PdfVersionOwnershipTests
 
     [Theory]
     [MemberData(nameof(MetadataCases))]
+    [Trait("Layer", "Contract")]
     public async Task SurvivingVersionsDoNotRootCompletedDocumentsHostsOrGovernors(bool compressed, string catalog)
     {
         DocumentAliases aliases = await CompleteDocument(compressed, catalog, "both");
         await Task.Yield();
         WeakReference governor = DropGovernor(aliases);
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0);
         Assert.False(governor.IsAlive); Assert.False(aliases.Document.IsAlive); Assert.False(aliases.Host.IsAlive);
         Assert.Equal("1.4", aliases.Versions[0].ToString());
         foreach (PdfVersion version in aliases.Versions) { Assert.NotNull(Storage(version)); }
@@ -288,10 +304,10 @@ public sealed class PdfVersionOwnershipTests
         return task.GetType().GetProperty("Result", Members)?.GetValue(task) ?? throw new InvalidOperationException();
     }
 
-    private static void CheckRetirement(object captured)
+    private async Task CheckRetirementAsync(object captured)
     {
         ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor");
-        Collect(governor);
+        await CollectAsync(governor);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.Equal(0, Field(governor, "_versionCarriers"));
@@ -303,22 +319,26 @@ public sealed class PdfVersionOwnershipTests
 
     [Theory]
     [MemberData(nameof(TypedJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteTypedSuccessFaultAndCancellationRetireUnreturnedVersions(string route, bool compressed, string boundary, string outcome)
     {
         object captured = await CompleteTyped(route, compressed, boundary, outcome, QpdfLimits.Default);
         await Task.Yield();
-        CheckRetirement(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CheckRetirementAsync(captured);
     }
 
     [Theory]
     [MemberData(nameof(BudgetJobs))]
+    [Trait("Layer", "Contract")]
     public async Task OriginalMemoryAndWorkFailuresRetireVersionsAfterRealIO(string route, bool compressed, string budget)
     {
         QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 2048L }
             : QpdfLimits.Default with { MaxWork = 128L };
         object captured = await CompleteTyped(route, compressed, "read", "budget", limits);
         await Task.Yield();
-        CheckRetirement(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CheckRetirementAsync(captured);
         ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor");
         Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
         Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
@@ -428,12 +448,14 @@ public sealed class PdfVersionOwnershipTests
 
     [Theory]
     [MemberData(nameof(WriterCases))]
+    [Trait("Layer", "Contract")]
     public async Task PublicWriterNegotiationsAdmitVersionsBeforePublicationAndRetireEveryOutcome(
         string route, bool compressed, string profile, string boundary, string outcome)
     {
         WriterObservation observation = await CompleteWriter(route, compressed, profile, boundary, outcome);
         await Task.Yield();
-        Collect(observation.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(observation.Governor);
         Assert.True(observation.VersionsBeforePublication > 0);
         Assert.True(observation.WorkBeforePublication > 0L);
         Assert.False(observation.Host.IsAlive); Assert.False(observation.Result.IsAlive);
@@ -466,7 +488,8 @@ public sealed class PdfVersionOwnershipTests
     [InlineData("work-short")]
     [InlineData("admitted")]
     [InlineData("canceled")]
-    public void ScalarAdmissionRejectsBeforeConstructionAndRetirementUsesHeldWork(string boundary)
+    [Trait("Layer", "Ownership")]
+    public async Task ScalarAdmissionRejectsBeforeConstructionAndRetirementUsesHeldWork(string boundary)
     {
         using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with
@@ -477,7 +500,7 @@ public sealed class PdfVersionOwnershipTests
         {
             AdmitAndDiscard(governor);
             cancellation.Cancel();
-            Collect(governor);
+            await CollectAsync(governor);
             Assert.Equal(2L, governor.Snapshot().TotalWork);
         }
         else
@@ -494,6 +517,7 @@ public sealed class PdfVersionOwnershipTests
     }
 
     [Fact]
+    [Trait("Layer", "Contract")]
     public void VersionAndReceiptBudgetsEqualIndependentPhysicalGeometry()
     {
         Assert.Equal(32L, MeasurePhysicalSize(typeof(PdfVersion)));
@@ -507,6 +531,7 @@ public sealed class PdfVersionOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Ownership")]
     public async Task OriginalCompleteCheckVersionAliasMeetsTheIndependentPhysicalMinimum(bool compressed)
     {
         object captured = await CompleteCheck(compressed);
@@ -514,7 +539,7 @@ public sealed class PdfVersionOwnershipTests
         PdfVersion version = KeepOnlyVersion(captured);
         ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor");
         long minimum = MeasurePhysicalSize(version.GetType());
-        Collect(governor);
+        await CollectAsync(governor);
         Assert.Equal(1, version.Major); Assert.Equal(4, version.Minor);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
@@ -526,4 +551,24 @@ public sealed class PdfVersionOwnershipTests
             $"Retained version storage {governor.Snapshot().LiveMemoryBytes} is below measured minimum {minimum}.");
         GC.KeepAlive(version); GC.KeepAlive(captured);
     }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CompleteCheckAliasesKeepTheSharedLinkUntilBothChannelsRetire), new object[][] { [false, "version"], [true, "version"], [false, "counter"], [true, "counter"] }),
+            (nameof(HeaderCatalogAndCallerAliasesRetireIndependentlyAfterDisposal), DocumentCases()),
+            (nameof(SurvivingVersionsDoNotRootCompletedDocumentsHostsOrGovernors), MetadataCases()),
+            (nameof(CompleteTypedSuccessFaultAndCancellationRetireUnreturnedVersions), TypedJobs()),
+            (nameof(OriginalMemoryAndWorkFailuresRetireVersionsAfterRealIO), BudgetJobs()),
+            (nameof(PublicWriterNegotiationsAdmitVersionsBeforePublicationAndRetireEveryOutcome), WriterCases()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new PdfVersionOwnershipTests(_output) { _collection = observation });
 }

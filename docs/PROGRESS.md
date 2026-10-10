@@ -1,5 +1,20 @@
 # Progress
 
+## Full-suite target — TEST-03 focused proof
+
+The next test correction targets a full run below ten minutes. Seven carrier
+matrices retain all 1670 original scenarios; 1302 lifetime observations share
+22 bounded cohorts and ten GC controls remain independent. All 216 writer
+observations retain their original assertion bodies, paused sinks, tokens,
+faults and one/three-round collections in ten cohorts. Seventeen independent
+stress controls share collections while retaining every original 32-cycle body,
+limit and maintenance call. No runtime forcing of GC is introduced.
+
+Focused carrier, warning, writer and stress checks pass. Exact ordinary coverage,
+predecessor controls and the combined timed proof remain to bind before retiring
+TEST-03A–D. Runtime DLL/PDB, package and previous reference/consumer evidence
+remain unchanged; CFG-01B is deferred until the requested speed gate closes.
+
 ## Test orthogonality — TEST-02A–D retired
 
 The command-result, typed-counter, typed-wrapper and diagnostic matrices preserve
@@ -35,7 +50,8 @@ test layout; it is historical context, not a controlled whole-suite speedup rati
 
 ## Next finite work
 
-CFG-01B resumes complete response/configuration ownership jobs at existing limits.
+Close TEST-03D with the combined run below ten minutes, then resume CFG-01B
+complete response/configuration ownership jobs at existing limits.
 Broader test batching should use the remaining measured bottlenecks and retain
 independent controls; no additional test matrices are added merely for volume.
 B5S1–B5S4 and TEST-01 stay retired; wider B4/B5/T4/T5/T6,

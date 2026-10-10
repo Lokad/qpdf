@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
@@ -6,8 +8,14 @@ using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class CompletedLinearizedRemapTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public CompletedLinearizedRemapTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static object? ActiveOwner(Task writing, int depth)
@@ -65,17 +73,7 @@ public sealed class CompletedLinearizedRemapTests
         throw new InvalidOperationException("Expected rebuilt tail array.");
     }
 
-    [Theory]
-    [InlineData("classic", "success")]
-    [InlineData("classic", "failure")]
-    [InlineData("classic", "cancellation")]
-    [InlineData("streamed", "success")]
-    [InlineData("streamed", "failure")]
-    [InlineData("streamed", "cancellation")]
-    [InlineData("fallback", "success")]
-    [InlineData("fallback", "failure")]
-    [InlineData("fallback", "cancellation")]
-    public async Task RetainedCompletedTasksReleaseRebuiltStorage(string route, string outcome)
+    internal async Task RetainedCompletedTasksReleaseRebuiltStorage(string route, string outcome)
     {
         List<NumberedObject> model = LinearizedStreamedPartsTests.OnePageModel();
         PdfArray borrowed = new(Enumerable.Repeat<QpdfObject>(new PdfReference(5, 0), 1024).ToArray());
@@ -96,9 +94,7 @@ public sealed class CompletedLinearizedRemapTests
         try
         {
             WeakReference items = RebuiltItems(writing);
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
+            await ObserveAsync(governor, 1);
             Assert.True(items.IsAlive);
             if (outcome == "cancellation") { cancellation.Cancel(); }
             else { sink.Resume(); }
@@ -109,12 +105,7 @@ public sealed class CompletedLinearizedRemapTests
             }
             else if (outcome == "failure") { await Assert.ThrowsAsync<QpdfException>(async () => await writing); }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
-            for (int round = 0; round < 3; round++)
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-            }
+            await ObserveAsync(governor, 3);
             Assert.False(items.IsAlive);
             Assert.Same(borrowed, model[^1].Value);
             Assert.Equal(5, Assert.IsType<PdfReference>(borrowed[1023]).ObjectNumber);
@@ -154,4 +145,23 @@ public sealed class CompletedLinearizedRemapTests
             Length += chunk.Length;
         }
     }
+
+    private Task ObserveAsync(ResourceGovernor governor, int rounds)
+        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
+            .CollectAsync(governor, 0, rounds, false, false);
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(RetainedCompletedTasksReleaseRebuiltStorage), new object[][] { ["classic", "success"], ["classic", "failure"], ["classic", "cancellation"], ["streamed", "success"], ["streamed", "failure"], ["streamed", "cancellation"], ["fallback", "success"], ["fallback", "failure"], ["fallback", "cancellation"] }),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new CompletedLinearizedRemapTests(_output) { _collection = observation });
 }

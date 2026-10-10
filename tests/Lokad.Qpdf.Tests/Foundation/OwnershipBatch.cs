@@ -6,7 +6,8 @@ using Xunit.Abstractions;
 namespace Lokad.Qpdf.Tests.Foundation;
 
 // Each case runs to its next original collection boundary before another case
-// advances. Jobs never overlap; only the process-wide collection is shared.
+// advances. Paused operations use independent sinks and governors; only the
+// process-wide collection is shared.
 internal static class OwnershipBatch
 {
     internal sealed class Observation
@@ -15,8 +16,12 @@ internal static class OwnershipBatch
         private TaskCompletionSource? _release;
         internal ResourceGovernor? Governor;
         internal int Maintenance;
+        internal int Rounds;
+        internal bool Compacting;
+        internal bool Interleaved;
         internal int Phases;
         internal int Boundaries;
+        internal int RequestedCollections;
         internal bool Done;
         internal string? Error;
 
@@ -24,12 +29,22 @@ internal static class OwnershipBatch
             => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         internal Task CollectAsync(ResourceGovernor? governor, int maintenance)
+            => CollectAsync(governor, maintenance, 4, false, false);
+
+        internal Task CollectAsync(ResourceGovernor? governor, int maintenance,
+            int rounds, bool compacting, bool interleaved)
         {
             Assert.Null(_release);
+            Assert.InRange(rounds, 1, 4);
+            if (interleaved) { Assert.Equal(rounds, maintenance); }
             Governor = governor;
             Maintenance = maintenance;
+            Rounds = rounds;
+            Compacting = compacting;
+            Interleaved = interleaved;
             Phases++;
             Boundaries += maintenance;
+            RequestedCollections += checked(rounds * (compacting ? 1 : 2));
             _release = NewSignal();
             _arrived.SetResult();
             return _release.Task;
@@ -88,28 +103,52 @@ internal static class OwnershipBatch
             running.Add((id, state, completion));
         }
         CheckIndependentGovernors(running.Where(item => !item.State.Done).Select(item => item.State));
-        int phases = 0, maintenance = 0;
+        int phases = 0, maintenance = 0, collections = 0;
         while (running.Any(item => !item.State.Done))
         {
-            // Match the original four rounds, including both collections per
-            // round. Metadata-only cases intentionally pass no governor.
-            for (int round = 0; round < 4; round++)
-            { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-            phases++;
-            foreach (var item in running.Where(item => !item.State.Done))
+            CheckIndependentGovernors(running.Where(item => !item.State.Done).Select(item => item.State));
+            // Preserve each fixture's original collection geometry and the
+            // ordering of maintenance within or after its collection rounds.
+            var cohorts = running.Where(item => !item.State.Done)
+                .GroupBy(item => (item.State.Rounds, item.State.Compacting))
+                .Select(group => group.ToArray()).ToArray();
+            foreach (var cohort in cohorts)
             {
-                try
+                Observation plan = cohort[0].State;
+                int rounds = plan.Rounds;
+                bool compacting = plan.Compacting;
+                for (int round = 0; round < rounds; round++)
                 {
-                    for (int boundary = 0; boundary < item.State.Maintenance; boundary++)
+                    if (compacting) { GC.Collect(2, GCCollectionMode.Forced, true, true); }
+                    else { GC.Collect(); }
+                    GC.WaitForPendingFinalizers(); collections++;
+                    if (!compacting) { GC.Collect(); collections++; }
+                    foreach (var item in cohort.Where(item => !item.State.Done && item.State.Interleaved))
                     {
-                        (item.State.Governor ?? throw new InvalidOperationException("Missing maintenance governor.")).ReserveMemory(0L);
-                        maintenance++;
+                        try
+                        {
+                            (item.State.Governor ?? throw new InvalidOperationException("Missing maintenance governor.")).ReserveMemory(0L);
+                            maintenance++;
+                        }
+                        catch (Exception exception) { await item.State.RejectBoundaryAsync(exception); }
                     }
                 }
-                catch (Exception exception) { await item.State.RejectBoundaryAsync(exception); }
+                phases++;
+                foreach (var item in cohort.Where(item => !item.State.Done && !item.State.Interleaved))
+                {
+                    try
+                    {
+                        for (int boundary = 0; boundary < item.State.Maintenance; boundary++)
+                        {
+                            (item.State.Governor ?? throw new InvalidOperationException("Missing maintenance governor.")).ReserveMemory(0L);
+                            maintenance++;
+                        }
+                    }
+                    catch (Exception exception) { await item.State.RejectBoundaryAsync(exception); }
+                }
+                foreach (var item in cohort.Where(item => !item.State.Done))
+                { await item.State.AdvanceAsync(); }
             }
-            foreach (var item in running.Where(item => !item.State.Done))
-            { await item.State.AdvanceAsync(); }
         }
         List<string> failures = [];
         foreach (var item in running)
@@ -118,10 +157,12 @@ internal static class OwnershipBatch
             output.WriteLine("OWNERSHIP {0} {1}", item.State.Error is null ? "PASS" : "FAIL", item.Id);
             output.WriteLine("OWNERSHIP OBSERVATION {0} phases={1} maintenance={2}",
                 item.Id, item.State.Phases, item.State.Boundaries);
+            output.WriteLine("OWNERSHIP COLLECTION CONTROL {0} collections={1}",
+                item.Id, item.State.RequestedCollections);
             if (item.State.Error is not null) { failures.Add(item.Id + ": " + item.State.Error); }
         }
         output.WriteLine("OWNERSHIP BATCH cases={0} phases={1} collections={2} maintenance={3}",
-            running.Count, phases, phases * 8, maintenance);
+            running.Count, phases, collections, maintenance);
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 }

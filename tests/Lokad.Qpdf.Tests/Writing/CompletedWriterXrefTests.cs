@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
@@ -8,6 +10,11 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(WriterOrderCollection))]
 public sealed class CompletedWriterXrefTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public CompletedWriterXrefTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Instance=BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic;
     private static WriterXref? Find(Task task,int depth)
     {
@@ -47,11 +54,9 @@ public sealed class CompletedWriterXrefTests
         CancellationToken token=Assert.IsType<CancellationToken>(typeof(WriterXref).GetField("_token",Instance)?.GetValue(owner));
         Assert.False(token.CanBeCanceled);
     }
-    private static void Collected() {for (int round=0;round<3;round++) {GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();}}
 
-    [Theory]
-    [MemberData(nameof(WriterXrefOwnershipTests.Outcomes),MemberType=typeof(WriterXrefOwnershipTests))]
-    public async Task RootedCompletedTasksAndOwnersReleaseXrefBacking(string mode,string point,string outcome)
+
+    internal async Task RootedCompletedTasksAndOwnersReleaseXrefBacking(string mode,string point,string outcome)
     {
         var model=WriterIndexOwnershipTests.Model(513);
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);
@@ -68,13 +73,13 @@ public sealed class CompletedWriterXrefTests
                 Assert.Equal(128L+sink.BodyLength,witness.Scope.ReservedBytes);
                 if (mode=="compressed") {Assert.Null(witness.Raw);} else {Assert.NotNull(witness.Raw);}
             }
-            Collected();
+            await ObserveAsync(governor, 3);
             if (point=="retired") {Assert.NotNull(sink.Buffer);Assert.False(sink.Buffer.IsAlive);}
             else {Assert.NotNull(witness.Stored);Assert.True(witness.Stored.IsAlive);}
             if (outcome=="cancellation") {cancellation.Cancel();} else {sink.Resume();}
             await WriterIndexOwnershipTests.Finish(writing,outcome); Detached(witness.Owner);
             if (witness.Scope is not null) {Assert.Equal(0L,witness.Scope.ReservedBytes);}
-            Collected();
+            await ObserveAsync(governor, 3);
             if (witness.Stored is not null) {Assert.False(witness.Stored.IsAlive);}
             if (witness.Raw is not null) {Assert.False(witness.Raw.IsAlive);}
             if (sink.Buffer is not null) {Assert.False(sink.Buffer.IsAlive);}
@@ -83,4 +88,23 @@ public sealed class CompletedWriterXrefTests
         }
         finally {await WriterXrefOwnershipTests.Drain(writing,sink);}
     }
+
+    private Task ObserveAsync(ResourceGovernor governor, int rounds)
+        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
+            .CollectAsync(governor, 0, rounds, false, false);
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(RootedCompletedTasksAndOwnersReleaseXrefBacking), WriterXrefOwnershipTests.Outcomes()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new CompletedWriterXrefTests(_output) { _collection = observation });
 }

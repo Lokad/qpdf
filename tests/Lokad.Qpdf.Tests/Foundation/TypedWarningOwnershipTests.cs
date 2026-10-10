@@ -1,3 +1,4 @@
+using Xunit.Abstractions;
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -13,6 +14,11 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class TypedWarningOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public TypedWarningOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Output = QpdfPath.From("output.pdf");
     private static readonly string[] Routes = ["typed-page", "typed-page-rotation", "typed-pages", "typed-pages-rotation",
@@ -87,10 +93,14 @@ public sealed class TypedWarningOwnershipTests
         }
         return null;
     }
-    private static QpdfExecutionCounters Collect(ResourceGovernor governor)
+    private async Task<QpdfExecutionCounters> CollectAsync(ResourceGovernor governor)
     {
-        for (int i = 0; i < 4; i++)
-        { GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); governor.ReserveMemory(0L); }
+        if (_collection is not null) { await _collection.CollectAsync(governor, 4, 4, true, true); }
+        else
+        {
+            for (int i = 0; i < 4; i++)
+            { GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); governor.ReserveMemory(0L); }
+        }
         return governor.Snapshot();
     }
 
@@ -154,14 +164,16 @@ public sealed class TypedWarningOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteJobsFundWarningBackingIndependently(string route, bool compressed)
     {
         Aliases aliases = await Complete(route, compressed, "backing");
         Assert.True(aliases.Admitted, "Public warning view and backing need independent prepaid receipts.");
-        Collect(aliases.Governor); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(aliases.Governor); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
         long before = aliases.Governor.Snapshot().LiveMemoryBytes;
         Validate(aliases); aliases.Value = null;
-        long after = Collect(aliases.Governor).LiveMemoryBytes;
+        long after = (await CollectAsync(aliases.Governor)).LiveMemoryBytes;
         Assert.False(aliases.Storage.IsAlive); Assert.True(before - after >= aliases.Minimum);
         Assert.All(aliases.Elements, x => Assert.False(string.IsNullOrEmpty(x.Message)));
         GC.KeepAlive(aliases.Elements); GC.KeepAlive(aliases.Output);
@@ -170,6 +182,7 @@ public sealed class TypedWarningOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Ownership")]
     public async Task OriginalDefaultLimit32ByteBackingRetiresWhileItsDiagnosticSurvives(bool compressed)
     {
         Aliases aliases = await Complete("typed-page", compressed, "backing");
@@ -177,9 +190,9 @@ public sealed class TypedWarningOwnershipTests
         QpdfDiagnostic warning = Assert.Single(aliases.Elements);
         Assert.Equal(QpdfDiagnosticCode.PageCountMismatch, warning.Code);
         Assert.Equal("A /Pages /Count of 2 disagrees with traversal (1); traversal wins.", warning.Message);
-        Collect(aliases.Governor); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
+        await CollectAsync(aliases.Governor); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
         long before = aliases.Governor.Snapshot().LiveMemoryBytes; Validate(aliases); aliases.Value = null;
-        long after = Collect(aliases.Governor).LiveMemoryBytes;
+        long after = (await CollectAsync(aliases.Governor)).LiveMemoryBytes;
         Assert.False(aliases.Storage.IsAlive); Assert.True(before - after >= 32L);
         InMemoryQpdfHost validation = new(); validation.AddInput(Input, aliases.Output, QpdfInputOwnership.Copy);
         QpdfCheckResult check = await Qpdf.CheckAsync(validation, Input, CancellationToken.None);
@@ -196,10 +209,12 @@ public sealed class TypedWarningOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicJobs))]
+    [Trait("Layer", "Contract")]
     public async Task AWarningViewDoesNotRootTheCompletedJob(string route, bool compressed)
     {
         var aliases = await Metadata(route, compressed);
-        for (int i = 0; i < 4; i++) { GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); }
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0, 4, true, false);
         Assert.False(aliases.Governor.IsAlive); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
         Assert.NotEmpty(Assert.IsAssignableFrom<IReadOnlyList<QpdfDiagnostic>>(aliases.View)); GC.KeepAlive(aliases.View);
     }
@@ -219,17 +234,20 @@ public sealed class TypedWarningOwnershipTests
 
     [Theory]
     [MemberData(nameof(IndependentAliases))]
+    [Trait("Layer", "Contract")]
     public async Task SurvivingAliasesKeepRecordsTextAndSiblingValid(bool compressed, string kind)
     {
         Aliases aliases = await Complete("typed-page", compressed, kind);
-        Assert.True(aliases.Admitted); Collect(aliases.Governor); Validate(aliases);
+        Assert.True(aliases.Admitted);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(aliases.Governor); Validate(aliases);
         if (kind == "sibling")
         {
-            Assert.True(aliases.Metadata[2].IsAlive); aliases.Value = null; Collect(aliases.Governor);
+            Assert.True(aliases.Metadata[2].IsAlive); aliases.Value = null; await CollectAsync(aliases.Governor);
             Assert.True(aliases.Storage.IsAlive); aliases.Sibling = null;
         }
         else { Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive)); aliases.Value = null; }
-        Collect(aliases.Governor); Assert.False(aliases.Storage.IsAlive);
+        await CollectAsync(aliases.Governor); Assert.False(aliases.Storage.IsAlive);
         GC.KeepAlive(aliases.Elements); GC.KeepAlive(aliases.Output);
     }
 
@@ -243,6 +261,7 @@ public sealed class TypedWarningOwnershipTests
 
     [Theory]
     [MemberData(nameof(FaultJobs))]
+    [Trait("Layer", "Contract")]
     public async Task WarningJobsPreserveOutputAliasesAndCloseOnFaultOrCancellation(string route, bool compressed,
         string boundary, string outcome)
     {
@@ -272,6 +291,7 @@ public sealed class TypedWarningOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Contract")]
     public async Task JsonCreationBorrowsEmptyWarningStorage(bool compressed)
     {
         object host = await Prepare("typed-import", compressed, "read", "success");
@@ -293,6 +313,7 @@ public sealed class TypedWarningOwnershipTests
 
     [Theory]
     [MemberData(nameof(AdmissionJobs))]
+    [Trait("Layer", "Contract")]
     public async Task FixedAdmissionLimitsRejectBeforeCommitAndPositiveControlsPublish(bool compressed, string budget, bool shortBudget)
     {
         QpdfLimits limits = budget == "memory"
@@ -354,6 +375,7 @@ public sealed class TypedWarningOwnershipTests
 
     [Theory]
     [MemberData(nameof(PostCommitJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompletedPublicationDoesNotAddANewCancellationPoll(string route, bool compressed)
     {
         object host = await Prepare(route, compressed, "read", "success");
@@ -427,6 +449,7 @@ public sealed class TypedWarningOwnershipTests
     [InlineData("typed-page", true)]
     [InlineData("typed-json", false)]
     [InlineData("typed-json", true)]
+    [Trait("Layer", "Contract")]
     public async Task FinalPreparationPreservesEveryAcceptedWarningInOrder(string route, bool compressed)
     {
         object host = await Prepare(route, compressed, "read", "success");
@@ -451,6 +474,24 @@ public sealed class TypedWarningOwnershipTests
     }
 
     [Fact]
+    [Trait("Layer", "Contract")]
     public void WarningPreparationScopeFundsItsMeasuredPhysicalCarrier()
         => Assert.Equal(56L, PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(ResultWarningSnapshot)));
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CompleteJobsFundWarningBackingIndependently), PublicJobs()),
+            (nameof(AWarningViewDoesNotRootTheCompletedJob), PublicJobs()),
+            (nameof(SurvivingAliasesKeepRecordsTextAndSiblingValid), IndependentAliases()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new TypedWarningOwnershipTests(_output) { _collection = observation });
 }

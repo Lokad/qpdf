@@ -1,4 +1,5 @@
 using System.Reflection;
+using Xunit.Abstractions;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
@@ -8,6 +9,11 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class SelectionBackingOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public SelectionBackingOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     public static IEnumerable<object[]> Aliases()
@@ -66,11 +72,15 @@ public sealed class SelectionBackingOwnershipTests
         return new(captured, new(value), new(backing), Size(value) + (backing is null ? 0L : Size(backing)));
     }
 
-    private static QpdfExecutionCounters Collect(object captured)
+    private async Task<QpdfExecutionCounters> CollectAsync(object captured)
     {
         ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor");
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-        for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
+        if (_collection is not null) { await _collection.CollectAsync(governor, 4); }
+        else
+        {
+            for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+            for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
+        }
         return governor.Snapshot();
     }
 
@@ -102,19 +112,21 @@ public sealed class SelectionBackingOwnershipTests
 
     [Theory]
     [MemberData(nameof(Aliases))]
+    [Trait("Layer", "Contract")]
     public async Task OriginalPublicAliasesRetireTheirIndependentBodyAndBacking(string route, bool compressed, string property, bool element)
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
         Alias alias = Keep(captured, property, element);
-        QpdfExecutionCounters held = Collect(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters held = await CollectAsync(captured);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
         Assert.True(alias.Value.IsAlive);
         long packetMinimum = PacketMinimum(alias);
         Drop(alias);
-        QpdfExecutionCounters dropped = Collect(captured);
+        QpdfExecutionCounters dropped = await CollectAsync(captured);
         Assert.False(alias.Value.IsAlive);
         Assert.False(alias.Backing.IsAlive);
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= packetMinimum,
@@ -178,12 +190,14 @@ public sealed class SelectionBackingOwnershipTests
 
     [Theory]
     [MemberData(nameof(Siblings))]
+    [Trait("Layer", "Contract")]
     public async Task MappingAliasesReleaseIndependentSiblingsAndDistinguishCallerCopies(string route, bool compressed, string kind)
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
         MappingAliases aliases = KeepMapping(captured, kind);
-        Collect(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(captured);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive && kind != "result-copy");
@@ -196,12 +210,14 @@ public sealed class SelectionBackingOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicFailures))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteSelectionJobsKeepOriginalFaultCancellationAndPublicationControls(string route, bool compressed, string boundary, string outcome)
     {
         object captured = await Complete(route, compressed, boundary, outcome, QpdfLimits.Default);
         await Task.Yield();
         captured.GetType().GetField("Value", Members)?.SetValue(captured, null);
-        QpdfExecutionCounters counters = Collect(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters counters = await CollectAsync(captured);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
@@ -296,6 +312,7 @@ public sealed class SelectionBackingOwnershipTests
 
     [Theory]
     [MemberData(nameof(SplitJobs))]
+    [Trait("Layer", "Contract")]
     public async Task SplitJobsKeepPublishedAndPriorAliasesAcrossBothOutputs(bool compressed, string boundary, string outcome, bool second)
     {
         SplitCapture captured = await CompleteSplit(compressed, boundary, outcome, second);
@@ -303,17 +320,18 @@ public sealed class SelectionBackingOwnershipTests
         if (outcome == "success")
         {
             Alias alias = Keep(captured, "OutputPaths", false);
-            QpdfExecutionCounters held = Collect(captured);
+            if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+            QpdfExecutionCounters held = await CollectAsync(captured);
             long minimum = PacketMinimum(alias);
             Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
             Drop(alias);
-            QpdfExecutionCounters dropped = Collect(captured);
+            QpdfExecutionCounters dropped = await CollectAsync(captured);
             Assert.False(alias.Value.IsAlive); Assert.False(alias.Backing.IsAlive);
             Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= minimum);
         }
         else
         {
-            Collect(captured);
+            await CollectAsync(captured);
             Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
         }
         Assert.Equal(0L, captured.Governor.Snapshot().OpenHandles);
@@ -323,17 +341,19 @@ public sealed class SelectionBackingOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Contract")]
     public async Task AGeneratedSplitNameAloneOwnsItsStringAndReleasesSiblingNames(bool compressed)
     {
         SplitCapture captured = await CompleteSplit(compressed, "read", "success", false);
         await Task.Yield();
         Alias alias = KeepName(captured, out WeakReference sibling);
-        QpdfExecutionCounters held = Collect(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters held = await CollectAsync(captured);
         Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
         Assert.False(sibling.IsAlive);
         long minimum = PacketMinimum(alias);
         Drop(alias);
-        QpdfExecutionCounters dropped = Collect(captured);
+        QpdfExecutionCounters dropped = await CollectAsync(captured);
         Assert.False(alias.Value.IsAlive);
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= minimum);
         GC.KeepAlive(alias);
@@ -354,12 +374,14 @@ public sealed class SelectionBackingOwnershipTests
     [InlineData("typed-page", true)]
     [InlineData("typed-pages", false)]
     [InlineData("typed-pages", true)]
+    [Trait("Layer", "Contract")]
     public async Task CallerConstructorsCopyValueBackingWithoutBorrowingTheOriginalView(string route, bool compressed)
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
         Alias original = KeepCallerBacking(captured, route);
-        Collect(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(captured);
         Assert.False(original.Value.IsAlive); Assert.False(original.Backing.IsAlive);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
@@ -395,13 +417,15 @@ public sealed class SelectionBackingOwnershipTests
 
     [Theory]
     [MemberData(nameof(FixedBudgetJobs))]
+    [Trait("Layer", "Contract")]
     public async Task OriginalShortBudgetsFailAfterReadingAndKeepPriorTargets(string route, bool compressed, string budget)
     {
         QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 2048L }
             : QpdfLimits.Default with { MaxWork = 128L };
         object captured = await Complete(route, compressed, "read", "budget", limits);
         await Task.Yield();
-        QpdfExecutionCounters counters = Collect(captured);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters counters = await CollectAsync(captured);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
@@ -410,4 +434,25 @@ public sealed class SelectionBackingOwnershipTests
         Assert.Equal(0L, counters.OpenHandles);
         GC.KeepAlive(captured);
     }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(OriginalPublicAliasesRetireTheirIndependentBodyAndBacking), Aliases()),
+            (nameof(MappingAliasesReleaseIndependentSiblingsAndDistinguishCallerCopies), Siblings()),
+            (nameof(CompleteSelectionJobsKeepOriginalFaultCancellationAndPublicationControls), PublicFailures()),
+            (nameof(SplitJobsKeepPublishedAndPriorAliasesAcrossBothOutputs), SplitJobs()),
+            (nameof(AGeneratedSplitNameAloneOwnsItsStringAndReleasesSiblingNames), new object[][] { [false], [true] }),
+            (nameof(CallerConstructorsCopyValueBackingWithoutBorrowingTheOriginalView), new object[][] { ["typed-page", false], ["typed-page", true], ["typed-pages", false], ["typed-pages", true] }),
+            (nameof(OriginalShortBudgetsFailAfterReadingAndKeepPriorTargets), FixedBudgetJobs()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new SelectionBackingOwnershipTests(_output) { _collection = observation });
 }

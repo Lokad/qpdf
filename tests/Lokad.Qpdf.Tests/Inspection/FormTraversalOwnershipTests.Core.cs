@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
@@ -10,6 +11,8 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed partial class FormTraversalOwnershipTests
 {
+    private OwnershipBatch.Observation? _collection;
+
     private delegate QpdfCheckOutcome FormCheck(QpdfDocument document, ResourceGovernor governor,
         DiagnosticBag diagnostics, CancellationToken cancellationToken);
 
@@ -135,19 +138,27 @@ public sealed partial class FormTraversalOwnershipTests
         return new WeakReference(result.Detail);
     }
 
-    [Fact]
-    public void RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage()
+    internal async Task RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage()
     {
         using Prepared prepared = new(4);
-        Collect(prepared.Governor);
+        await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(prepared.Governor, 3, 3, false, true);
         long baseline = prepared.Governor.Snapshot().LiveMemoryBytes;
         for (int iteration = 0; iteration < 32; iteration++)
         {
             WeakReference detail = RunAndDrop(prepared);
-            Collect(prepared.Governor);
+            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(prepared.Governor, 3, 3, false, true);
             Assert.False(detail.IsAlive);
             Assert.Equal(baseline, prepared.Governor.Snapshot().LiveMemoryBytes);
             Assert.Same(prepared.Prior, Assert.Single(prepared.Diagnostics.Entries));
         }
     }
+
+    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
+        => (new object[][] { [] }).Select(row =>
+            (OwnershipBatch.Id(nameof(FormTraversalOwnershipTests), nameof(RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage), row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                FormTraversalOwnershipTests fixture = new() { _collection = observation };
+                await fixture.RepeatedSuccessfulTraversalRetiresOnlyItsTemporaryAndDiscardedStorage();
+            })));
 }

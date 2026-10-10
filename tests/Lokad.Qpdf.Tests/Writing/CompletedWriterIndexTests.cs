@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
@@ -9,6 +11,11 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(WriterOrderCollection))]
 public sealed class CompletedWriterIndexTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public CompletedWriterIndexTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private static void FindOwners(Task writing, List<object> owners, int depth)
     {
@@ -70,7 +77,7 @@ public sealed class CompletedWriterIndexTests
         return witnesses;
     }
 
-    private static void Collected() { for (int round=0;round<3;round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
+
     private static void Detached(object owner)
     {
         Assert.Null(owner.GetType().GetField("_memory",Instance)?.GetValue(owner));
@@ -84,9 +91,7 @@ public sealed class CompletedWriterIndexTests
         { if ((string)item[0] != "ordinary" || (string)item[1] != "version") { yield return item; } }
     }
 
-    [Theory]
-    [MemberData(nameof(CompletionOutcomes))]
-    public async Task CompletedTasksAndRootedWrappersReleaseIndexBacking(string route, string point, string outcome)
+    internal async Task CompletedTasksAndRootedWrappersReleaseIndexBacking(string route, string point, string outcome)
     {
         var model = WriterIndexOwnershipTests.Model(513);
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
@@ -98,14 +103,14 @@ public sealed class CompletedWriterIndexTests
         {
             List<Witness> witnesses = Capture(writing);
             Assert.NotEmpty(witnesses); Assert.Contains(witnesses,value => value.Scope is not null);
-            Collected();
+            await ObserveAsync(governor, 3);
             foreach (Witness witness in witnesses)
             { if (witness.Buckets is not null) { Assert.True(witness.Buckets.IsAlive); }; if (witness.Entries is not null) { Assert.True(witness.Entries.IsAlive); } }
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             foreach (Witness witness in witnesses)
             { Detached(witness.Owner); if (witness.Scope is not null) { Assert.Equal(0L,witness.Scope.ReservedBytes); } }
-            Collected();
+            await ObserveAsync(governor, 3);
             foreach (Witness witness in witnesses)
             { if (witness.Buckets is not null) { Assert.False(witness.Buckets.IsAlive); }; if (witness.Entries is not null) { Assert.False(witness.Entries.IsAlive); } }
             Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes); Assert.Equal(513,model.Count);
@@ -120,9 +125,7 @@ public sealed class CompletedWriterIndexTests
         { foreach (string outcome in new[] {"success","failure","cancellation"}) { yield return [route,outcome]; } }
     }
 
-    [Theory]
-    [MemberData(nameof(EarlyRetirementOutcomes))]
-    public async Task MetadataRetiresBeforeUnrelatedTrailerOrXrefOutput(string route, string outcome)
+    internal async Task MetadataRetiresBeforeUnrelatedTrailerOrXrefOutput(string route, string outcome)
     {
         var model = WriterIndexOwnershipTests.Model(513);
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
@@ -134,7 +137,7 @@ public sealed class CompletedWriterIndexTests
         {
             List<Witness> witnesses = Capture(writing); Assert.NotEmpty(witnesses);
             foreach (Witness witness in witnesses) { Detached(witness.Owner); Assert.Null(witness.Scope); }
-            Collected();
+            await ObserveAsync(governor, 3);
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);
@@ -153,9 +156,7 @@ public sealed class CompletedWriterIndexTests
         { foreach (string outcome in new[] {"success","failure","cancellation"}) { yield return [route,point,outcome]; } }
     }
 
-    [Theory]
-    [MemberData(nameof(StreamAndInfoOutcomes))]
-    public async Task StreamLengthAndInfoKeepRenumberingOnlyThroughLastConsumer(string route, string point, string outcome)
+    internal async Task StreamLengthAndInfoKeepRenumberingOnlyThroughLastConsumer(string route, string point, string outcome)
     {
         var model = WriterIndexOwnershipTests.StreamModel();
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
@@ -179,14 +180,14 @@ public sealed class CompletedWriterIndexTests
             else { foreach (Witness renumber in renumbers) { Detached(renumber.Owner); Assert.Null(renumber.Scope); } }
             if (point == "info-value")
             { foreach (Witness witness in witnesses) { Detached(witness.Owner); Assert.Null(witness.Scope); } }
-            Collected();
+            await ObserveAsync(governor, 3);
             foreach (Witness witness in witnesses)
             { if (witness.Buckets is not null) { Assert.True(witness.Buckets.IsAlive); } if (witness.Entries is not null) { Assert.True(witness.Entries.IsAlive); } }
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await WriterIndexOwnershipTests.Finish(writing,outcome);
             foreach (Witness witness in witnesses)
             { Detached(witness.Owner); if (witness.Scope is not null) { Assert.Equal(0L,witness.Scope.ReservedBytes); } }
-            Collected();
+            await ObserveAsync(governor, 3);
             foreach (Witness witness in witnesses)
             { if (witness.Buckets is not null) { Assert.False(witness.Buckets.IsAlive); } if (witness.Entries is not null) { Assert.False(witness.Entries.IsAlive); } }
             Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);
@@ -196,4 +197,25 @@ public sealed class CompletedWriterIndexTests
         }
         finally { await WriterIndexOwnershipTests.Drain(writing,sink); }
     }
+
+    private Task ObserveAsync(ResourceGovernor governor, int rounds)
+        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
+            .CollectAsync(governor, 0, rounds, false, false);
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CompletedTasksAndRootedWrappersReleaseIndexBacking), CompletionOutcomes()),
+            (nameof(MetadataRetiresBeforeUnrelatedTrailerOrXrefOutput), EarlyRetirementOutcomes()),
+            (nameof(StreamLengthAndInfoKeepRenumberingOnlyThroughLastConsumer), StreamAndInfoOutcomes()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new CompletedWriterIndexTests(_output) { _collection = observation });
 }

@@ -1,3 +1,4 @@
+using Lokad.Qpdf.Tests.Foundation;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lokad.Qpdf.Hosting;
@@ -8,6 +9,8 @@ namespace Lokad.Qpdf.Tests.Inspection;
 
 public sealed class CheckDetailOwnershipTests
 {
+    private OwnershipBatch.Observation? _collection;
+
     private static void Collect(ResourceGovernor governor)
     {
         // A carrier's ephemeron value can make its receipt finalizable in a
@@ -91,8 +94,7 @@ public sealed class CheckDetailOwnershipTests
         GC.KeepAlive(governor);
     }
 
-    [Fact]
-    public void ThirtyTwoChecksShareTheOriginal32KiBCeilingWithoutLeakedAdmission()
+    internal async Task ThirtyTwoChecksShareTheOriginal32KiBCeilingWithoutLeakedAdmission()
     {
         byte[] prepared = Fixture();
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
@@ -100,9 +102,9 @@ public sealed class CheckDetailOwnershipTests
         for (int iteration = 0; iteration < 32; iteration++)
         {
             Alias alias = Capture(governor, limits, prepared, "detail");
-            Collect(governor);
+            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 3, 3, false, true);
             VerifyAndClear(alias, governor, "detail");
-            Collect(governor);
+            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 3, 3, false, true);
             Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
             governor.ReserveMemory(0L);
             Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
@@ -165,4 +167,13 @@ public sealed class CheckDetailOwnershipTests
             && diagnostic.Message == "Check 'page-content' failed: " + outcome.Detail);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
+
+    internal static IEnumerable<(string Id, Func<OwnershipBatch.Observation, Task> Run)> StressCases()
+        => (new object[][] { [] }).Select(row =>
+            (OwnershipBatch.Id(nameof(CheckDetailOwnershipTests), nameof(ThirtyTwoChecksShareTheOriginal32KiBCeilingWithoutLeakedAdmission), row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                CheckDetailOwnershipTests fixture = new() { _collection = observation };
+                await fixture.ThirtyTwoChecksShareTheOriginal32KiBCeilingWithoutLeakedAdmission();
+            })));
 }

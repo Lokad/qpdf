@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+using Lokad.Qpdf.Tests.Foundation;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
@@ -9,6 +11,11 @@ namespace Lokad.Qpdf.Tests.Writing;
 [Collection(nameof(WriterOrderCollection))]
 public sealed class CompletedWriterOrderTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public CompletedWriterOrderTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private static void FindOwners(Task writing, List<object> owners, int depth)
@@ -57,14 +64,9 @@ public sealed class CompletedWriterOrderTests
         Assert.Null(owner.GetType().GetField("_memory", Instance)?.GetValue(owner));
     }
 
-    private static void Collect()
-    { for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } }
 
-    [Theory]
-    [InlineData("success")]
-    [InlineData("failure")]
-    [InlineData("cancellation")]
-    public async Task DictionaryOrderBackingDiesWithCompletedTasksAndBorrowedKeys(string outcome)
+
+    internal async Task DictionaryOrderBackingDiesWithCompletedTasksAndBorrowedKeys(string outcome)
     {
         PdfDictionary source = WriterOrderOwnershipTests.Names(6, 0);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -75,11 +77,11 @@ public sealed class CompletedWriterOrderTests
         try
         {
             Witness witness = Funded(writing, 6, IntPtr.Size);
-            Collect(); Assert.True(witness.Backing.IsAlive);
+            await ObserveAsync(governor, 3); Assert.True(witness.Backing.IsAlive);
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await Finish(writing, outcome);
             Assert.Equal(0L, witness.Scope.ReservedBytes); Detached(witness.Owner);
-            Collect(); Assert.False(witness.Backing.IsAlive); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            await ObserveAsync(governor, 3); Assert.False(witness.Backing.IsAlive); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(6, source.Count);
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(source); GC.KeepAlive(witness);
         }
@@ -117,9 +119,7 @@ public sealed class CompletedWriterOrderTests
                 id, id, false, false, null, sink, firstPass, token).AsTask();
     }
 
-    [Theory]
-    [MemberData(nameof(LinearizedOutcomes))]
-    public async Task BothClassicHalvesStayFundedAndDetachAcrossBothPasses(string route, bool firstPass, string half, string outcome)
+    internal async Task BothClassicHalvesStayFundedAndDetachAcrossBothPasses(string route, bool firstPass, string half, string outcome)
     {
         List<NumberedObject> source = Model();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -132,11 +132,11 @@ public sealed class CompletedWriterOrderTests
             int count = half == "first-half" ? 6 : 513;
             Witness witness = Funded(writing, count, sizeof(int));
             Assert.True(governor.Snapshot().LiveMemoryBytes >= 160L + count * sizeof(int));
-            Collect(); Assert.True(witness.Backing.IsAlive);
+            await ObserveAsync(governor, 3); Assert.True(witness.Backing.IsAlive);
             if (outcome == "cancellation") { cancellation.Cancel(); } else { paused.Resume(); }
             await Finish(writing, outcome);
             Assert.Equal(0L, witness.Scope.ReservedBytes); Detached(witness.Owner);
-            Collect(); Assert.False(witness.Backing.IsAlive);
+            await ObserveAsync(governor, 3); Assert.False(witness.Backing.IsAlive);
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             if (firstPass && outcome != "success") { Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); }
             Assert.Equal(517, source.Count); Assert.Same(PdfNull.Instance, source[^1].Value);
@@ -208,4 +208,24 @@ public sealed class CompletedWriterOrderTests
 
     private static async Task Drain(Task writing, WriterOrderOwnershipTests.PausedSink sink)
     { sink.Resume(); try { await writing; } catch (QpdfException) { } catch (OperationCanceledException) { } }
+
+    private Task ObserveAsync(ResourceGovernor governor, int rounds)
+        => (_collection ?? throw new InvalidOperationException("Missing ownership batch."))
+            .CollectAsync(governor, 0, rounds, false, false);
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(DictionaryOrderBackingDiesWithCompletedTasksAndBorrowedKeys), new object[][] { ["success"], ["failure"], ["cancellation"] }),
+            (nameof(BothClassicHalvesStayFundedAndDetachAcrossBothPasses), LinearizedOutcomes()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new CompletedWriterOrderTests(_output) { _collection = observation });
 }

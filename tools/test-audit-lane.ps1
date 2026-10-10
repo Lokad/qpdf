@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('SelectionContract', 'SelectionOwnership', 'ResultsContract', 'ResultsOwnership',
-        'DiagnosticsContract', 'DiagnosticsOwnership', 'DiagnosticStress')]
+        'DiagnosticsContract', 'DiagnosticsOwnership', 'DiagnosticStress',
+        'CarriersContract', 'CarriersOwnership', 'WriterOwnership', 'LifetimeStress')]
     [string] $Lane,
     [switch] $List
 )
@@ -22,8 +23,24 @@ switch ($Lane) {
         $expected = 74
     }
     'DiagnosticStress' {
-        $filter = 'FullyQualifiedName~DiagnosticFailureExportTests&Layer=Stress'
-        $expected = 2
+        $filter = 'FullyQualifiedName~OwnershipStressTests&Layer=Stress'
+        $expected = 1
+    }
+    'LifetimeStress' {
+        $filter = 'FullyQualifiedName~OwnershipStressTests&Layer=Stress'
+        $expected = 1
+    }
+    'CarriersContract' {
+        $filter = '(FullyQualifiedName~PdfVersionOwnershipTests|FullyQualifiedName~JsonOutputOwnershipTests|FullyQualifiedName~ExecutionResultFailureOwnershipTests|FullyQualifiedName~SelectionBackingOwnershipTests|FullyQualifiedName~TypedWarningOwnershipTests|FullyQualifiedName~CheckCollectionOwnershipTests|FullyQualifiedName~DocumentWarningSnapshotTests)&Layer=Contract'
+        $expected = 1660
+    }
+    'CarriersOwnership' {
+        $filter = '(FullyQualifiedName~PdfVersionOwnershipTests|FullyQualifiedName~JsonOutputOwnershipTests|FullyQualifiedName~ExecutionResultFailureOwnershipTests|FullyQualifiedName~SelectionBackingOwnershipTests|FullyQualifiedName~TypedWarningOwnershipTests|FullyQualifiedName~CheckCollectionOwnershipTests|FullyQualifiedName~DocumentWarningSnapshotTests)&Layer=Ownership'
+        $expected = 32
+    }
+    'WriterOwnership' {
+        $filter = 'FullyQualifiedName~Lokad.Qpdf.Tests.Writing.Completed&Layer=Ownership'
+        $expected = 10
     }
     'ResultsContract' {
         $filter = '(FullyQualifiedName~ExecutionResultOwnershipTests|FullyQualifiedName~TypedCounterOwnershipTests|FullyQualifiedName~TypedResultOwnershipTests)&Layer=Contract'

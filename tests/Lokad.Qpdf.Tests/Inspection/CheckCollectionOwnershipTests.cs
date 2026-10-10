@@ -1,3 +1,4 @@
+using Xunit.Abstractions;
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -11,6 +12,11 @@ namespace Lokad.Qpdf.Tests.Inspection;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class CheckCollectionOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public CheckCollectionOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Output = QpdfPath.From("output.pdf");
     private static object Field(object value, string name) => value.GetType().GetField(name, Members)?.GetValue(value)
@@ -119,16 +125,22 @@ public sealed class CheckCollectionOwnershipTests
         long bytes = GC.GetAllocatedBytesForCurrentThread() - before; GC.KeepAlive(roots);
         Assert.Equal(0L, bytes % roots.Length); return bytes / roots.Length;
     }
-    private static QpdfExecutionCounters Collect(ResourceGovernor governor)
+    private async Task<QpdfExecutionCounters> CollectAsync(ResourceGovernor governor)
     {
-        for (int i = 0; i < 4; i++)
+        if (_collection is not null) { await _collection.CollectAsync(governor, 4, 4, true, true); }
+        else
         {
-            GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); governor.ReserveMemory(0L);
+            for (int i = 0; i < 4; i++)
+            {
+                GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); governor.ReserveMemory(0L);
+        }
+
         }
         return governor.Snapshot();
     }
 
     [Fact]
+    [Trait("Layer", "Contract")]
     public void CachedMessageSlotAllowanceCoversMeasuredPhysicalStorage()
     {
         Type slot = typeof(RetainedValueOwners).GetNestedType("Slot", Members) ?? throw new InvalidOperationException();
@@ -248,11 +260,12 @@ public sealed class CheckCollectionOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Ownership")]
     public async Task Original96ByteBackingRetiresWhileAllNineElementsSurvive(bool compressed)
     {
         Aliases aliases = await Complete(compressed, false, "original"); await Task.Yield();
-        QpdfExecutionCounters held = Collect(aliases.Governor); Validate(aliases, "original"); aliases.Value = null;
-        QpdfExecutionCounters dropped = Collect(aliases.Governor);
+        QpdfExecutionCounters held = await CollectAsync(aliases.Governor); Validate(aliases, "original"); aliases.Value = null;
+        QpdfExecutionCounters dropped = await CollectAsync(aliases.Governor);
         Assert.False(aliases.Storage[1].IsAlive);
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= 96L,
             $"The original 96-byte public backing retired {held.LiveMemoryBytes - dropped.LiveMemoryBytes} bytes.");
@@ -268,15 +281,17 @@ public sealed class CheckCollectionOwnershipTests
     }
     [Theory]
     [MemberData(nameof(PublicAliases))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteFailedChecksOwnIndependentPublicAliasesAndSiblings(bool compressed, string kind)
     {
         Aliases aliases = await Complete(compressed, true, kind); await Task.Yield();
-        QpdfExecutionCounters held = Collect(aliases.Governor); Validate(aliases, kind); aliases.Value = null;
-        QpdfExecutionCounters dropped = Collect(aliases.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        QpdfExecutionCounters held = await CollectAsync(aliases.Governor); Validate(aliases, kind); aliases.Value = null;
+        QpdfExecutionCounters dropped = await CollectAsync(aliases.Governor);
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= aliases.Minimum);
         if (kind.StartsWith("diagnostics-", StringComparison.Ordinal))
         { Assert.Equal(0L, ((RetainedValueOwners)Field(aliases.Governor, "_valueOwners")).WorkState.Messages); }
-        ValidateSibling(aliases, kind); aliases.Sibling = null; Collect(aliases.Governor);
+        ValidateSibling(aliases, kind); aliases.Sibling = null; await CollectAsync(aliases.Governor);
         Assert.All(aliases.Storage, x => Assert.False(x.IsAlive));
         Assert.Equal(0L, aliases.Governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, aliases.Governor.Snapshot().OpenHandles);
@@ -303,10 +318,13 @@ public sealed class CheckCollectionOwnershipTests
 
     [Theory]
     [MemberData(nameof(Boundaries))]
+    [Trait("Layer", "Contract")]
     public async Task ClosedInputFaultOrCancellationRejectsBeforePublicSnapshots(bool compressed, bool failed, string outcome)
     {
         ResourceGovernor governor = await RejectBoundary(compressed, failed, outcome);
-        await Task.Yield(); Collect(governor);
+        await Task.Yield();
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(governor);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
@@ -357,13 +375,16 @@ public sealed class CheckCollectionOwnershipTests
     }
     [Theory]
     [MemberData(nameof(Budgets))]
+    [Trait("Layer", "Contract")]
     public async Task FixedPublicBudgetsPreserveGenuineRejectionAndCompleteRetirement(bool compressed, bool failed, string budget)
     {
         ResourceGovernor governor;
         Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         try { governor = await CompleteBudget(compressed, failed, budget); }
         finally { GC.EndNoGCRegion(); }
-        await Task.Yield(); Collect(governor);
+        await Task.Yield();
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(governor);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
 
@@ -390,10 +411,12 @@ public sealed class CheckCollectionOwnershipTests
     }
     [Theory]
     [MemberData(nameof(FixtureCases))]
+    [Trait("Layer", "Contract")]
     public async Task SurvivingCheckViewsDoNotRootCompletedGovernorsOrLedgerMetadata(bool compressed, bool failed)
     {
         MetadataAlias alias = await CompleteMetadata(compressed, failed); await Task.Yield();
-        for (int i = 0; i < 4; i++) { GC.Collect(2, GCCollectionMode.Forced, true, true); GC.WaitForPendingFinalizers(); }
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0, 4, true, false);
         Assert.All(alias.References, x => Assert.False(x.IsAlive));
         Assert.Equal(9, alias.Value.Count); Assert.Equal("header", alias.Value[0].Name); GC.KeepAlive(alias.Value);
     }
@@ -433,9 +456,12 @@ public sealed class CheckCollectionOwnershipTests
     }
     [Theory]
     [MemberData(nameof(SharedRoutes))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteTypedArgvJobAndMixedChecksRetireSharedDecoderScratch(bool compressed, bool failed, string route)
     {
-        ResourceGovernor governor = await CompleteRoute(compressed, failed, route); await Task.Yield(); Collect(governor);
+        ResourceGovernor governor = await CompleteRoute(compressed, failed, route); await Task.Yield();
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(governor);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
 
@@ -451,4 +477,23 @@ public sealed class CheckCollectionOwnershipTests
             ClosedLive = closed.LiveMemoryBytes, FinalLive = result.Counters.LiveMemoryBytes, Peak = result.Counters.PeakMemoryBytes,
             Checks = result.Checks.Count, Diagnostics = result.Diagnostics.Count };
     }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CompleteFailedChecksOwnIndependentPublicAliasesAndSiblings), PublicAliases()),
+            (nameof(ClosedInputFaultOrCancellationRejectsBeforePublicSnapshots), Boundaries()),
+            (nameof(FixedPublicBudgetsPreserveGenuineRejectionAndCompleteRetirement), Budgets()),
+            (nameof(SurvivingCheckViewsDoNotRootCompletedGovernorsOrLedgerMetadata), FixtureCases()),
+            (nameof(CompleteTypedArgvJobAndMixedChecksRetireSharedDecoderScratch), SharedRoutes()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new CheckCollectionOwnershipTests(_output) { _collection = observation });
 }

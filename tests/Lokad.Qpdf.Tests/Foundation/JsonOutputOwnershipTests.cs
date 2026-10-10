@@ -1,4 +1,5 @@
 using System.Reflection;
+using Xunit.Abstractions;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -12,6 +13,11 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class JsonOutputOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public JsonOutputOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
 
     public static IEnumerable<object[]> InlineJobs()
@@ -72,11 +78,12 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(InlineJobs))]
+    [Trait("Layer", "Contract")]
     public async Task IndependentInlineTextAliasKeepsItsActualStorageFunded(string route, bool compressed)
     {
         var captured = await CompleteInline(route, compressed);
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-        for (int boundary = 0; boundary < 4; boundary++) { captured.Governor.ReserveMemory(0L); }
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(captured.Governor);
         long minimum = (24L + 2L * (captured.Text.Length + 1) + 7L) & ~7L;
         Assert.Equal(2784L, minimum);
         Assert.True(captured.Governor.Snapshot().LiveMemoryBytes >= minimum,
@@ -199,10 +206,14 @@ public sealed class JsonOutputOwnershipTests
         return await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), new QpdfExecutionOptions(limits), token);
     }
 
-    private static void Collect(ResourceGovernor governor)
+    private async Task CollectAsync(ResourceGovernor governor)
     {
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-        for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
+        if (_collection is not null) { await _collection.CollectAsync(governor, 4); }
+        else
+        {
+            for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+            for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
+        }
     }
 
     private static long BufferMinimum(IEnumerable<ReadOnlyMemory<byte>> writes)
@@ -218,10 +229,12 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicationJobs))]
+    [Trait("Layer", "Contract")]
     public async Task IndependentPublishedBytesRemainFundedAfterReaderAndResultRetire(string route, bool compressed, int version, string mode)
     {
         Observation observation = await CompletePublished(route, compressed, version, mode, "bytes");
-        Collect(observation.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
         Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
         GC.KeepAlive(observation.Alias);
@@ -229,10 +242,12 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicationJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompletedPublishedJobsRetireUnescapedSerializationStorage(string route, bool compressed, int version, string mode)
     {
         Observation observation = await CompletePublished(route, compressed, version, mode, "none");
-        Collect(observation.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
         Assert.Equal(0L, observation.Governor.Snapshot().LiveMemoryBytes);
     }
@@ -244,10 +259,12 @@ public sealed class JsonOutputOwnershipTests
     [InlineData(true, "inline")]
     [InlineData(false, "file")]
     [InlineData(true, "file")]
+    [Trait("Layer", "Contract")]
     public async Task IndependentTypedTextDoesNotRootItsPublishedBuffers(bool compressed, string mode)
     {
         Observation observation = await CompletePublished("typed", compressed, 2, mode, "text");
-        Collect(observation.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
         Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
         Assert.True(observation.Governor.Snapshot().LiveMemoryBytes < observation.PeakMemoryBytes);
@@ -264,10 +281,12 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(SidecarJobs))]
+    [Trait("Layer", "Contract")]
     public async Task IndependentSidecarFilenameRemainsFunded(string route, bool compressed)
     {
         Observation observation = await CompletePublished(route, compressed, 2, "file", "name");
-        Collect(observation.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
         Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
         Assert.Contains("side-4", Assert.IsType<string[]>(observation.Alias));
@@ -285,10 +304,12 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(SidecarJobs))]
+    [Trait("Layer", "Contract")]
     public async Task EscapedHostBuffersDoNotRootTheCompletedGovernorOrIndex(string route, bool compressed)
     {
         var captured = await CompleteWithoutGovernorRoot(route, compressed);
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await (_collection ?? throw new InvalidOperationException()).CollectAsync(null, 0);
         Assert.All(captured.Metadata, weak => Assert.False(weak.IsAlive));
         Assert.NotEmpty(Assert.IsType<ReadOnlyMemory<byte>[]>(captured.Alias));
         GC.KeepAlive(captured.Alias);
@@ -308,6 +329,7 @@ public sealed class JsonOutputOwnershipTests
     [InlineData("argv", true)]
     [InlineData("job", false)]
     [InlineData("job", true)]
+    [Trait("Layer", "Contract")]
     public async Task PublicJsonRepairMemoizationPreservesTypedRejectionAndCommandWarningCounts(string route, bool recovered)
     {
         byte[] input = TolerantObjectLoadingTests.Pdf(Enumerable.Repeat("[ (" + new string('A', 4096) + ") @ ]", 50).ToArray(), recovered);
@@ -352,6 +374,7 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(TextEncodings))]
+    [Trait("Layer", "Contract")]
     public async Task PublicUnicodeNamesStringsAndNumericBytesSurviveChunkBoundaries(int version, string encoding, int padding)
     {
         string expected = new string('A', padding) + "\"\\\n\t" + string.Concat(Enumerable.Repeat("é😀", 1024));
@@ -491,10 +514,12 @@ public sealed class JsonOutputOwnershipTests
 
     [Theory]
     [MemberData(nameof(FailureJobs))]
+    [Trait("Layer", "Contract")]
     public async Task FailedAndCanceledPublicJobsPreserveTargetsAndEscapedHostBytes(string route, bool compressed, string mode, string outcome)
     {
         Observation observation = await FailPublished(route, compressed, mode, outcome);
-        Collect(observation.Governor);
+        if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
+        await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
         if (observation.Minimum == 0L) { Assert.Equal(0L, observation.Governor.Snapshot().LiveMemoryBytes); }
         else { Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum); }
@@ -540,4 +565,25 @@ public sealed class JsonOutputOwnershipTests
             }
         }
     }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(IndependentInlineTextAliasKeepsItsActualStorageFunded), InlineJobs()),
+            (nameof(IndependentPublishedBytesRemainFundedAfterReaderAndResultRetire), PublicationJobs()),
+            (nameof(CompletedPublishedJobsRetireUnescapedSerializationStorage), PublicationJobs()),
+            (nameof(IndependentTypedTextDoesNotRootItsPublishedBuffers), new object[][] { [false, "none"], [true, "none"], [false, "inline"], [true, "inline"], [false, "file"], [true, "file"] }),
+            (nameof(IndependentSidecarFilenameRemainsFunded), SidecarJobs()),
+            (nameof(EscapedHostBuffersDoNotRootTheCompletedGovernorOrIndex), SidecarJobs()),
+            (nameof(FailedAndCanceledPublicJobsPreserveTargetsAndEscapedHostBytes), FailureJobs()),
+        };
+
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new JsonOutputOwnershipTests(_output) { _collection = observation });
 }
