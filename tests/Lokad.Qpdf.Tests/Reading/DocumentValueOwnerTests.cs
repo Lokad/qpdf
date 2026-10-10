@@ -166,7 +166,9 @@ public sealed class DocumentValueOwnerTests
         long admitted = governor.Snapshot().LiveMemoryBytes;
         // Simulate preceding job work. The next acceptance reaches a full
         // ownership index with enough work for different growth boundaries.
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - remainingWork);
+        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
+        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - remainingWork - retirement);
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
             parser.ParseValue(new PdfTokenizer("(next)"u8.ToArray()), 0));
         Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);

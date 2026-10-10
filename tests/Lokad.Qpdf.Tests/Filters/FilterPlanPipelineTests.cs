@@ -6,8 +6,8 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
-// The checker helper signature and these object constructors precede FilterPlan.
-// These cases can run unchanged against the preceding DLL without new owner types.
+// Preserve the original filter fixtures and ceilings while supplying the
+// checker's explicit decoded-storage scope and cancellation token.
 public sealed class FilterPlanPipelineTests
 {
     private sealed class Resolver : IIndirectResolver
@@ -17,7 +17,9 @@ public sealed class FilterPlanPipelineTests
     {
         MethodInfo method = typeof(DocumentCheck).GetMethod("DecodeCheckStream", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Checker stream decoder is missing.");
-        return method.Invoke(null, [new PdfStream(dictionary, [7]), new Resolver(), QpdfStreamDecodeLevel.Generalized, limits, governor]);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        return method.Invoke(null, [new PdfStream(dictionary, [7]), new Resolver(), QpdfStreamDecodeLevel.Generalized,
+            limits, governor, memory, CancellationToken.None]);
     }
 
     [Theory]
