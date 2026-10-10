@@ -25,7 +25,7 @@ public sealed class SelectionStorageAdmissionTests
             storage.Add(entry, 24L);
             value = entry;
         }
-        else { value = SelectionResultStorage.Copy(storage, new[] { 2, 1 }, sizeof(int)); }
+        else { value = ResultCollectionStorage.Copy(storage, new[] { 2, 1 }, sizeof(int)); }
         storage.RetainWithPrepaidRetirement();
         return new(governor, value);
     }

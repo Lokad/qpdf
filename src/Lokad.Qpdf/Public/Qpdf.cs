@@ -520,7 +520,7 @@ public static partial class Qpdf
 
         Dictionary<int, int> singleOriginalIds = InvertOriginals(singleOriginalMaps);
         using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, 2, cancellationToken);
-        IReadOnlyList<int> sourcePages = SelectionResultStorage.Copy(resultStorage, requested, sizeof(int));
+        IReadOnlyList<int> sourcePages = ResultCollectionStorage.Copy(resultStorage, requested, sizeof(int));
         resultStorage.RetainWithPrepaidRetirement();
         await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
         return new PageSelectionOutcome(total, sourcePages, kids.Count, [.. diagnostics.Entries]);
@@ -1281,10 +1281,10 @@ public static partial class Qpdf
             }
 
             using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, checked(mapping.Count + 6), cancellationToken);
-            SelectionResultStorage.AdoptMappings(resultStorage, selectionMemory, mapping);
-            IReadOnlyList<PdfPageSelectionMapping> resultMapping = SelectionResultStorage.Copy(resultStorage, mapping, IntPtr.Size);
-            IReadOnlyList<int> resultCounts = SelectionResultStorage.Copy(resultStorage, sourceCounts, sizeof(int));
-            IReadOnlyList<QpdfPath> resultPaths = SelectionResultStorage.Single(resultStorage, target, IntPtr.Size);
+            ResultCollectionStorage.AdoptMappings(resultStorage, selectionMemory, mapping);
+            IReadOnlyList<PdfPageSelectionMapping> resultMapping = ResultCollectionStorage.Copy(resultStorage, mapping, IntPtr.Size);
+            IReadOnlyList<int> resultCounts = ResultCollectionStorage.Copy(resultStorage, sourceCounts, sizeof(int));
+            IReadOnlyList<QpdfPath> resultPaths = ResultCollectionStorage.Single(resultStorage, target, IntPtr.Size);
             resultStorage.RetainWithPrepaidRetirement();
             await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, qdf, multiOriginalIds, linearize, linearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
             return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, [.. diagnostics.Entries]), multiAttached.FinalCount);
@@ -1490,9 +1490,9 @@ public static partial class Qpdf
         { governor.CheckCancellation(); governor.ChargeWork(1L); publicationUnits = checked(publicationUnits + publication.PublicationWork); }
         using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits);
         using OwnedAllocationBatch splitResultStorage = OwnedAllocationBatch.Create(governor, checked(mapping.Count + 6 + names.Count), cancellationToken);
-        SelectionResultStorage.AdoptMappings(splitResultStorage, selectionMemory, mapping);
-        IReadOnlyList<PdfPageSelectionMapping> splitMapping = SelectionResultStorage.Copy(splitResultStorage, mapping, IntPtr.Size);
-        IReadOnlyList<int> splitCounts = SelectionResultStorage.Copy(splitResultStorage, sourceCounts, sizeof(int));
+        ResultCollectionStorage.AdoptMappings(splitResultStorage, selectionMemory, mapping);
+        IReadOnlyList<PdfPageSelectionMapping> splitMapping = ResultCollectionStorage.Copy(splitResultStorage, mapping, IntPtr.Size);
+        IReadOnlyList<int> splitCounts = ResultCollectionStorage.Copy(splitResultStorage, sourceCounts, sizeof(int));
         List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory);
         foreach (string name in names)
         {
@@ -1501,7 +1501,7 @@ public static partial class Qpdf
             splitResultStorage.Add(name, bytes);
             ParserContainers.AddItem(selectionMemory, outputPaths, QpdfPath.From(name), IntPtr.Size);
         }
-        IReadOnlyList<QpdfPath> splitPaths = SelectionResultStorage.Copy(splitResultStorage, outputPaths, IntPtr.Size);
+        IReadOnlyList<QpdfPath> splitPaths = ResultCollectionStorage.Copy(splitResultStorage, outputPaths, IntPtr.Size);
         splitResultStorage.RetainWithPrepaidRetirement();
         governor.PrepareExecutionPresentation();
         publicationWork.Begin();

@@ -76,8 +76,25 @@ public sealed class QpdfDocument : IAsyncDisposable
     /// <exception cref="OperationCanceledException">The job cancellation token is canceled.</exception>
     public QpdfExecutionCounters Counters => _governor.OwnedSnapshot();
 
-    /// <summary>Gets the warnings recorded while opening (duplicate keys, count mismatches).</summary>
-    public IReadOnlyList<QpdfDiagnostic> Warnings => [.. _diagnostics.Entries];
+    /// <summary>Gets an immutable snapshot of the recorded warnings.</summary>
+    /// <remarks>Fresh collection storage and work are charged to the document budgets.
+    /// Snapshots preserve diagnostic identities and remain valid after disposal.
+    /// Empty snapshots borrow shared storage.</remarks>
+    /// <exception cref="QpdfLimitException">Snapshot storage or work exceeds the job budget.</exception>
+    /// <exception cref="OperationCanceledException">The job cancellation token is canceled.</exception>
+    public IReadOnlyList<QpdfDiagnostic> Warnings
+    {
+        get
+        {
+            _governor.CheckCancellation();
+            IReadOnlyList<QpdfDiagnostic> warnings = _diagnostics.Entries;
+            if (warnings.Count == 0) { return Array.Empty<QpdfDiagnostic>(); }
+            using OwnedAllocationBatch storage = OwnedAllocationBatch.Create(_governor, 2, _governor.CancellationToken);
+            IReadOnlyList<QpdfDiagnostic> snapshot = ResultCollectionStorage.Copy(storage, warnings, IntPtr.Size);
+            storage.RetainWithPrepaidRetirement();
+            return snapshot;
+        }
+    }
 
     internal DocumentEngine Engine => _engine ?? throw new ObjectDisposedException(nameof(QpdfDocument));
 

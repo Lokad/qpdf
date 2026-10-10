@@ -157,6 +157,12 @@ data and emits them directly, avoiding unused heap versions at the original
 repair ceilings. Public/shared documents allocate owned versions before returning;
 their header/effective aliases remain usable after disposal. Private document
 component fields, governor growth and async frames remain under MEASURE-01.
+Public document warning reads borrow shared empty storage or admit independently
+owned immutable view/backing snapshots through the shared result collection
+factory. Prepaid retirement preserves independent warning aliases and diagnostic
+identities after disposal without rooting completed metadata. Later warnings do
+not mutate earlier snapshots. Reads obey the original document token and limits;
+generic diagnostic/text and wider checker/typed-warning backing remain under audit.
 Each public document counter read independently admits snapshot/receipt storage,
 a shared weak governor link and construction/retirement work. Completed document
 retirement can reconcile after cancellation. Copied backing/mapping remain

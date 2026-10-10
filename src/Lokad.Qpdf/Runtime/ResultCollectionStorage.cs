@@ -2,8 +2,8 @@ using System.Collections.ObjectModel;
 
 namespace Lokad.Qpdf.Runtime;
 
-/// <summary>Admits independently escaping selection arrays and readonly views.</summary>
-internal static class SelectionResultStorage
+/// <summary>Admits independently escaping result arrays and readonly views.</summary>
+internal static class ResultCollectionStorage
 {
     internal static IReadOnlyList<T> Copy<T>(OwnedAllocationBatch storage, IReadOnlyList<T> source, long itemBytes)
     {

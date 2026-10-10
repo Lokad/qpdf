@@ -206,6 +206,18 @@ B4D names four complete document-warning jobs before/after disposal, raw/Flate:
 the original 65536-byte limit with 229376 new bytes and flat memory/work counters.
 Shared records/strings and caller storage are excluded; leases close. Preserve
 these new failures without reopening retired selection/version evidence.
+The document-warning correction uses ResultCollectionStorage for independently
+admitted immutable view/backing snapshots and prepaid retirement; diagnostic
+identities/text are borrowed. Empty snapshots borrow shared storage. All 47
+complete public jobs pass; identical predecessor rows fail 44/preserve three.
+Four new empty-read B4DE jobs reveal 98304 unaccounted bytes on the predecessor,
+then zero new allocation currently. Original 64 KiB limits, finite work, cancel,
+close faults/prior aliases, independent body/backing/sibling retirement and
+completed metadata collection pass at the original four-GC/four-maintenance bound.
+A scope-held validation reference explains the first alias trial; no original
+limit/assertion/collection bound changes. One old test only renames the shared
+helper. Final committed full/reference/package proof remains required for
+B4D/B4DE; broader B4/B5/T4/T5/T6/diagnostic/measurement gates remain open.
 Governor growth to 248, private document component slots and task/async frames,
 cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
