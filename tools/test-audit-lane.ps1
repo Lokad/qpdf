@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('SelectionContract', 'SelectionOwnership', 'DiagnosticStress')]
+    [ValidateSet('SelectionContract', 'SelectionOwnership', 'ResultsContract', 'ResultsOwnership',
+        'DiagnosticsContract', 'DiagnosticsOwnership', 'DiagnosticStress')]
     [string] $Lane,
     [switch] $List
 )
@@ -21,8 +22,24 @@ switch ($Lane) {
         $expected = 74
     }
     'DiagnosticStress' {
-        $filter = 'FullyQualifiedName~DiagnosticFailureExportTests.FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded|FullyQualifiedName~DiagnosticFailureExportTests.PreviouslyEscapedSuppressedWarningAliasesRemainFunded'
-        $expected = 10
+        $filter = 'FullyQualifiedName~DiagnosticFailureExportTests&Layer=Stress'
+        $expected = 2
+    }
+    'ResultsContract' {
+        $filter = '(FullyQualifiedName~ExecutionResultOwnershipTests|FullyQualifiedName~TypedCounterOwnershipTests|FullyQualifiedName~TypedResultOwnershipTests)&Layer=Contract'
+        $expected = 1587
+    }
+    'ResultsOwnership' {
+        $filter = '(FullyQualifiedName~ExecutionResultOwnershipTests|FullyQualifiedName~TypedCounterOwnershipTests|FullyQualifiedName~TypedResultOwnershipTests)&Layer=Ownership'
+        $expected = 131
+    }
+    'DiagnosticsContract' {
+        $filter = 'FullyQualifiedName~DiagnosticFailureExportTests&Layer=Contract'
+        $expected = 450
+    }
+    'DiagnosticsOwnership' {
+        $filter = 'FullyQualifiedName~DiagnosticFailureExportTests&Layer=Ownership'
+        $expected = 4
     }
 }
 

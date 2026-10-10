@@ -4,6 +4,14 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+TEST-02 preserves all 2063 command/typed/diagnostic scenarios and their original
+assertions, alias phases, limits and 32-cycle stress controls. All 2174 focused
+cases pass; comparable wall time falls 965.7 to 141.6 seconds (6.8 times
+faster), with all compatible predecessor outcomes preserved. Original private
+feature compatibility and the added no-GC snapshot observation region are explicit
+in DEVELOPMENT. Runtime/package bytes remain unchanged. The combined full proof
+is pending; TEST-02A–D and library completion remain open.
+
 Selection test orthogonality is measured separately from runtime compatibility:
 all 1604 focused test cases preserve every 1532 original scenario ID and all
 1130 failing/402 preserved predecessor outcomes. Shared GC rounds retain

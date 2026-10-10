@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Xunit.Abstractions;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
@@ -10,6 +11,11 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class ExecutionResultOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public ExecutionResultOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly record struct CounterState(long Live, long Peak, long Work, long Decoded,
@@ -101,6 +107,9 @@ public sealed class ExecutionResultOwnershipTests
         }
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.json"), out byte[] prior));
         List<string> argv = ["input.pdf", "--json=2", "--json-stream-data=inline", "--", "output.json"];
+        // Keep the frozen public snapshot and its immediate governor read in
+        // one observation phase, as in the typed complete-job fixtures.
+        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         Task<QpdfExecutionResult> running;
         if (route == "job")
         {
@@ -148,7 +157,11 @@ public sealed class ExecutionResultOwnershipTests
             }
             return Capture(governor, host, result, kind);
         }
-        finally { Resume(host); await running; }
+        finally
+        {
+            try { Resume(host); await running; }
+            finally { GC.EndNoGCRegion(); }
+        }
     }
 
     private static async Task<Alias> CompleteJob(string kind, string route, bool compressed, string boundary, string outcome)
@@ -157,6 +170,9 @@ public sealed class ExecutionResultOwnershipTests
         object host = await Prepare(route, compressed, boundary, outcome);
         InMemoryQpdfHost inner = (InMemoryQpdfHost)Read(host, "Inner");
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] prior));
+        // Keep the frozen public snapshot and its immediate governor read in
+        // one observation phase, as in the typed complete-job fixtures.
+        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         Task<object> running = (Task<object>)(typeof(ExecutionCounterTests).GetMethod("Start", Members)?.Invoke(null,
             [host, route, QpdfLimits.Default, cancellation.Token]) ?? throw new InvalidOperationException("Missing public job driver."));
         try
@@ -175,7 +191,11 @@ public sealed class ExecutionResultOwnershipTests
             if (outcome != "success") { Assert.Null(result.OutputText); Assert.Null(result.OutputBytes); }
             return Capture(governor, host, result, kind);
         }
-        finally { Resume(host); await running; }
+        finally
+        {
+            try { Resume(host); await running; }
+            finally { GC.EndNoGCRegion(); }
+        }
     }
 
     private static void VerifyAlias(Alias alias, string kind)
@@ -192,14 +212,16 @@ public sealed class ExecutionResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(FileJsonAliases))]
+    [Trait("Layer", "Contract")]
     public async Task OriginalFileJsonResultsAndIndependentCountersStayFunded(string kind, string route, bool compressed)
     {
         Alias alias = await CompleteFileJson(kind, route, compressed, QpdfLimits.Default, false);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         VerifyAlias(alias, kind);
         alias.Value = null;
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
         Assert.Equal(0L, alias.Governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
@@ -207,17 +229,19 @@ public sealed class ExecutionResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(BudgetAliases))]
+    [Trait("Layer", "Contract")]
     public async Task AfterReadBudgetFailuresPreserveTargetsAndFundCarriers(string kind, string budget, long ceiling)
     {
         QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = ceiling }
             : QpdfLimits.Default with { MaxWork = ceiling };
         Alias alias = await CompleteFileJson(kind, "argv", false, limits, true);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         VerifyAlias(alias, kind);
         long retained = alias.Governor.Snapshot().LiveMemoryBytes;
         alias.Value = null;
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
         Assert.True(alias.Governor.Snapshot().LiveMemoryBytes <= retained - (kind == "result" ? 152L : 80L));
         GC.KeepAlive(alias);
@@ -225,15 +249,17 @@ public sealed class ExecutionResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(CommandJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteCommandOutcomesFundIndependentCarriers(string kind, string route, bool compressed, string boundary, string outcome)
     {
         Alias alias = await CompleteJob(kind, route, compressed, boundary, outcome);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         VerifyAlias(alias, kind);
         long retained = alias.Governor.Snapshot().LiveMemoryBytes;
         alias.Value = null;
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
         Assert.True(alias.Governor.Snapshot().LiveMemoryBytes <= retained - (kind == "result" ? 152L : 80L));
         GC.KeepAlive(alias);
@@ -266,16 +292,56 @@ public sealed class ExecutionResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(CommandJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CommandResultAliasesDoNotRootCompletedMetadata(string kind, string route, bool compressed, string boundary, string outcome)
     {
         Detached alias = await Detach(kind, route, compressed, boundary, outcome);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        await _collection.CollectAsync(null, 0);
         Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive));
         Assert.False(alias.Host.IsAlive);
         QpdfExecutionCounters counters = alias.Value is QpdfExecutionResult result ? result.Counters
             : Assert.IsType<QpdfExecutionCounters>(alias.Value);
         Assert.Equal(alias.Snapshot, Values(counters));
         GC.KeepAlive(alias);
+    }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(OriginalFileJsonResultsAndIndependentCountersStayFunded), FileJsonAliases()),
+            (nameof(AfterReadBudgetFailuresPreserveTargetsAndFundCarriers), BudgetAliases()),
+            (nameof(CompleteCommandOutcomesFundIndependentCarriers), CommandJobs()),
+            (nameof(CommandResultAliasesDoNotRootCompletedMetadata), CommandJobs()),
+        };
+
+    private static string BatchKey(string method, object[] row)
+        => method.Contains("Metadata", StringComparison.Ordinal) || method == "ReturnedWrappersDoNotRootCompletedJobs"
+            ? "metadata" : string.Join("/", row.Take(2));
+
+    public static IEnumerable<object[]> OwnershipBatches()
+    {
+        foreach (var cases in OwnershipCases())
+        foreach (string group in cases.Rows.Select(row => BatchKey(cases.Method, row)).Distinct())
+        { yield return [cases.Method, group]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public async Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(string method, string group)
+    {
+        IEnumerable<object[]> rows = OwnershipCases().Single(cases => cases.Method == method).Rows
+            .Where(row => BatchKey(method, row) == group);
+        await OwnershipBatch.RunAsync(_output, rows.Select(row =>
+            (OwnershipBatch.Id(nameof(ExecutionResultOwnershipTests), method, row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                ExecutionResultOwnershipTests fixture = new(_output) { _collection = observation };
+                Task running = (Task)(typeof(ExecutionResultOwnershipTests).GetMethod(method)?.Invoke(fixture, row)
+                    ?? throw new InvalidOperationException("Missing original observation."));
+                await running;
+            }))));
     }
 }

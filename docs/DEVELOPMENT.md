@@ -44,37 +44,54 @@ to a stable root. Inspect both `.nupkg` and `.snupkg` with the provided script.
 
 ## Focused contract, ownership and stress lanes
 
-After the locked Release restore/build, select a lane explicitly:
+After the locked Release restore/build, select the affected contract lane while
+debugging, then its ownership or stress lane after correcting behavior:
 
 ```powershell
 pwsh -File tools/test-audit-lane.ps1 -Lane SelectionContract
 pwsh -File tools/test-audit-lane.ps1 -Lane SelectionOwnership
+pwsh -File tools/test-audit-lane.ps1 -Lane ResultsContract
+pwsh -File tools/test-audit-lane.ps1 -Lane ResultsOwnership
+pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsContract
+pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsOwnership
 pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticStress
 ```
 
-`SelectionContract` runs 1530 complete public scenarios across 33 routes, both
-encodings, host faults, both cancellation sources and fixed admission limits.
-`SelectionOwnership` repeats those scenarios in 72 batches and keeps the two
-original raw/Flate regressions independent: 74 test cases observe all 1532
-original scenarios. Each job retains its own governor/budgets. Four global GC
-rounds are shared within a batch; each governor still receives four bounded
-maintenance calls. All cleanup checks precede output validation, and surviving
-PDF/attachment aliases undergo the original independent public checks.
+| Lane | Executed test cases | Observation scope |
+| --- | ---: | --- |
+| SelectionContract | 1530 | Complete public jobs across 33 routes, both encodings, faults, cancellation and fixed admission limits. |
+| SelectionOwnership | 74 | All 1532 original scenarios in 72 batches and two independent regressions. |
+| ResultsContract | 1587 | Command/typed producer contracts, pre-host rejection and physical shape checks. |
+| ResultsOwnership | 131 | 1470 original lifetime scenarios in 119 batches, plus 12 independent extraction/document controls. |
+| DiagnosticsContract | 450 | Public warning histories, failure prefixes, prior targets and fixed memory ceilings. |
+| DiagnosticsOwnership | 4 | Original public hidden-warning regressions. |
+| DiagnosticStress | 2 | All ten original alias controls, each with 32 sequential cycles under the original 32 KiB limit. |
 
-The combined pilot changed 6144 explicit compacting GC calls to 312, retaining
-all 6144 maintenance calls. Comparable focused runs took 408.5 seconds before
-and 74.3 seconds after (5.5 times faster). The separate commands passed in
-34.5/28.3 seconds. Every original scenario ID and every predecessor outcome
-(1130 failures/402 preserved results) matches. Runtime DLL/PDB bytes are unchanged.
+Add `-List` to inspect a lane without execution. Exact discovery/result counts
+reject empty or partial selections. Batch output names every original scenario
+and records its phases and maintenance count; failures remain individually visible.
+Jobs run independently to their original collection boundary. Global collections
+are shared, while every governor retains its own quotas and original bounded
+maintenance calls. Metadata observations retain no governor. Alias drop phases,
+no-GC admission controls and stress pressure remain intact. Extraction, document
+snapshot and public hidden-warning controls remain independent.
 
-`DiagnosticStress` exposes ten existing alias/cycle controls at their original
-32 KiB/32-cycle bounds. This pilot verified its discovery against the established
-full-run results; it did not repeat that unchanged stress run. Add `-List` to
-inspect any lane without execution. The runner checks exact discovery/result
-counts; an empty or partial selection fails. Ordinary unfiltered `dotnet test`
-still executes every test. These focused lanes supplement the full sequence;
-native/reference/package checks remain explicit. The other ownership matrices
-still need equivalent batching and timing evidence.
+Selection focused time fell 408.5 to 74.3 seconds (5.5 times faster), with all
+1532 predecessor outcomes preserved. The four additional matrices fall
+965.7 to 141.6 seconds (6.8 times faster) and preserve all 2063 current
+scenario outcomes and compatible predecessor failures. Their explicit GC calls
+fall 24960 to 2800, retaining all 9184 maintenance calls. The command snapshot
+fixture adds a 16 MiB no-GC completion/capture region after four asynchronous
+snapshot comparisons failed in the first trial; equality assertions and job
+budgets stay unchanged. Private feature inspection supports older predecessor
+runtimes without treating missing members as behavioral failures.
+
+Ordinary unfiltered `dotnet test` still executes every case. Run it once on the
+completed correction; repeat expensive checks for changed sources, failures or
+unresolved concerns. These lanes supplement that combined proof. Native/reference
+and package/consumer checks remain explicit; unchanged source and artifact hashes
+can retain established evidence with its scope recorded. The remaining ownership
+matrices are separate optimization candidates, selected from measured timings.
 
 ## Optional reference checkout and metadata regeneration
 

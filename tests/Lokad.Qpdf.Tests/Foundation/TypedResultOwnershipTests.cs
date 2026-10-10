@@ -3,12 +3,18 @@ using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
+using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class TypedResultOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public TypedResultOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
     private static readonly Dictionary<Type, long> Geometry = [];
@@ -172,12 +178,14 @@ public sealed class TypedResultOwnershipTests
         object? owners = Field(governor, "_valueOwners");
         if (owners is null) { return 0L; }
         long count = 0L;
+        // Older ownership controls predate stream-retirement prepayment.
+        PropertyInfo? prepaid = typeof(RetainedValueOwners.Receipt).GetProperty("PrepaidRetirement", Members);
         for (object? segment = Field(owners, "_segments"); segment is not null; segment = Field(segment, "Next"))
         {
             ConditionalWeakTable<object, RetainedValueOwners.Receipt> values =
                 (ConditionalWeakTable<object, RetainedValueOwners.Receipt>)(Field(segment, "Values") ?? throw new InvalidOperationException());
             foreach (KeyValuePair<object, RetainedValueOwners.Receipt> pair in values)
-            { if (pair.Value.PrepaidRetirement) { count++; } }
+            { if (prepaid?.GetValue(pair.Value) is true) { count++; } }
         }
         return count;
     }
@@ -207,6 +215,7 @@ public sealed class TypedResultOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Ownership")]
     public async Task OriginalExtractionJobsMeetTheIndependentCarrierMinimum(bool compressed)
     {
         Alias alias = await Complete("typed-extract", compressed, "read", "success", "result", QpdfLimits.Default);
@@ -226,22 +235,24 @@ public sealed class TypedResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompleteJobsPrepareWrapperOwnershipBeforeIOAndRetireEveryOutcome(string route, bool compressed, string boundary, string outcome)
     {
         Alias alias = await Complete(route, compressed, boundary, outcome, "counters", QpdfLimits.Default);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.True(alias.Prepared); Assert.Equal(3L, alias.HeldWork);
         Assert.False(alias.Host.IsAlive); Assert.False(alias.Result.IsAlive);
         Assert.False(alias.Receipt.IsAlive); Assert.False(alias.PreparedReceipt.IsAlive);
         if (outcome == "success") { CheckSurvivor(alias, "counters"); }
         alias.Value = null;
-        Retire(alias);
+        await RetireAsync(alias);
     }
 
-    private static void Retire(Alias alias)
+    private async Task RetireAsync(Alias alias)
     {
-        Collect(alias.Governor);
+        await (_collection ?? throw new InvalidOperationException("Missing ownership batch.")).CollectAsync(alias.Governor, 4);
         Assert.Null(Field(alias.Governor, "_preparedTypedResultStorage"));
         Assert.Null(Field(alias.Governor, "_preparedTypedCounters"));
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
@@ -254,11 +265,13 @@ public sealed class TypedResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(SuccessAliases))]
+    [Trait("Layer", "Contract")]
     public async Task IndependentResultCounterAndCallerCopiesPreserveTheirOwnReceipts(string route, bool compressed, string kind)
     {
         Alias alias = await Complete(route, compressed, "read", "success", kind, QpdfLimits.Default);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.True(alias.Prepared); Assert.Equal(3L, alias.HeldWork);
         Assert.False(alias.Host.IsAlive);
         Assert.Equal(kind == "result", alias.Result.IsAlive);
@@ -266,22 +279,24 @@ public sealed class TypedResultOwnershipTests
         Assert.Equal(kind == "result", alias.PreparedReceipt.IsAlive);
         CheckSurvivor(alias, kind);
         alias.Value = null;
-        Retire(alias);
+        await RetireAsync(alias);
     }
 
     [Theory]
     [MemberData(nameof(BudgetJobs))]
+    [Trait("Layer", "Contract")]
     public async Task RealMemoryAndWorkFailuresKeepPriorOutputsAndRetireUnconstructedWrappers(string route, bool compressed, string budget)
     {
         QpdfLimits limits = budget == "work" ? QpdfLimits.Default with { MaxWork = 128L }
             : QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         Alias alias = await Complete(route, compressed, "read", "budget", "counters", limits);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.True(alias.Prepared); Assert.Equal(3L, alias.HeldWork);
         Assert.False(alias.Host.IsAlive); Assert.False(alias.PreparedReceipt.IsAlive);
         Assert.Equal(0L, Field(alias.Governor, "_reservedResultWork"));
-        Retire(alias);
+        await RetireAsync(alias);
     }
 
     private sealed record Detached(object Value, WeakReference[] Metadata);
@@ -301,11 +316,13 @@ public sealed class TypedResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(MetadataJobs))]
+    [Trait("Layer", "Contract")]
     public async Task ReturnedWrappersDoNotRootCompletedJobs(string route, bool compressed)
     {
         Detached alias = await Detach(route, compressed);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        await _collection.CollectAsync(null, 0);
         Assert.All(alias.Metadata, weak => Assert.False(weak.IsAlive));
         Assert.NotNull(Field(alias.Value, "_storage"));
         GC.KeepAlive(alias);
@@ -331,6 +348,7 @@ public sealed class TypedResultOwnershipTests
 
     [Theory]
     [MemberData(nameof(TinyJobs))]
+    [Trait("Layer", "Contract")]
     public async Task WrapperAdmissionAndPrecancellationRejectBeforeHostAccess(string route, string budget, bool canceled)
     {
         long bytes = Size(ResultType(route)) + 176L;
@@ -357,6 +375,7 @@ public sealed class TypedResultOwnershipTests
     [InlineData(typeof(QpdfJsonImportResult))]
     [InlineData(typeof(QpdfAttachmentExtraction))]
     [InlineData(typeof(QpdfAttachmentEditResult))]
+    [Trait("Layer", "Contract")]
     public void WrapperAdmissionEqualsIndependentlyMeasuredPhysicalSize(Type type)
     {
         FieldInfo constant = type.GetField("StorageBytes", Members) ?? throw new InvalidOperationException("Missing wrapper admission.");
@@ -370,6 +389,7 @@ public sealed class TypedResultOwnershipTests
     [InlineData("JsonInspectionOutcome")]
     [InlineData("JsonImportOutcome")]
     [InlineData("TypedCheckOutcome")]
+    [Trait("Layer", "Contract")]
     public void SharedPrivateOutcomesAreReadonlyValues(string name)
     {
         Type type = typeof(Qpdf).Assembly.GetType("Lokad.Qpdf.Runtime." + name)
@@ -377,5 +397,43 @@ public sealed class TypedResultOwnershipTests
         Assert.True(type.IsValueType);
         Assert.True(type.IsDefined(typeof(IsReadOnlyAttribute)));
         Assert.False(type.IsPublic);
+    }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CompleteJobsPrepareWrapperOwnershipBeforeIOAndRetireEveryOutcome), PublicJobs()),
+            (nameof(IndependentResultCounterAndCallerCopiesPreserveTheirOwnReceipts), SuccessAliases()),
+            (nameof(RealMemoryAndWorkFailuresKeepPriorOutputsAndRetireUnconstructedWrappers), BudgetJobs()),
+            (nameof(ReturnedWrappersDoNotRootCompletedJobs), MetadataJobs()),
+        };
+
+    private static string BatchKey(string method, object[] row)
+        => method.Contains("Metadata", StringComparison.Ordinal) || method == "ReturnedWrappersDoNotRootCompletedJobs"
+            ? "metadata" : string.Join("/", row.Take(1));
+
+    public static IEnumerable<object[]> OwnershipBatches()
+    {
+        foreach (var cases in OwnershipCases())
+        foreach (string group in cases.Rows.Select(row => BatchKey(cases.Method, row)).Distinct())
+        { yield return [cases.Method, group]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public async Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(string method, string group)
+    {
+        IEnumerable<object[]> rows = OwnershipCases().Single(cases => cases.Method == method).Rows
+            .Where(row => BatchKey(method, row) == group);
+        await OwnershipBatch.RunAsync(_output, rows.Select(row =>
+            (OwnershipBatch.Id(nameof(TypedResultOwnershipTests), method, row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                TypedResultOwnershipTests fixture = new(_output) { _collection = observation };
+                Task running = (Task)(typeof(TypedResultOwnershipTests).GetMethod(method)?.Invoke(fixture, row)
+                    ?? throw new InvalidOperationException("Missing original observation."));
+                await running;
+            }))));
     }
 }

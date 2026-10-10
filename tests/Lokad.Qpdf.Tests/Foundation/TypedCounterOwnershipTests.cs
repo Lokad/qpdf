@@ -3,12 +3,18 @@ using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
+using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class TypedCounterOwnershipTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public TypedCounterOwnershipTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
@@ -81,6 +87,7 @@ public sealed class TypedCounterOwnershipTests
 
     [Theory]
     [MemberData(nameof(TinyJobs))]
+    [Trait("Layer", "Contract")]
     public async Task TinyAndPrecanceledTypedJobsRejectBeforeHostAccess(string route, string budget, bool canceled)
     {
         object fixture = await Prepare(route, false, "none", "success");
@@ -207,11 +214,13 @@ public sealed class TypedCounterOwnershipTests
 
     [Theory]
     [MemberData(nameof(PublicJobs))]
+    [Trait("Layer", "Contract")]
     public async Task CompletePublicJobsRetireUnreturnedCountersAndFundReturnedAliases(string route, bool compressed, string boundary, string outcome)
     {
         Alias alias = await Complete(route, compressed, boundary, outcome, "counters", QpdfLimits.Default);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Host.IsAlive); Assert.False(alias.Result.IsAlive);
         if (outcome == "success")
         {
@@ -221,38 +230,42 @@ public sealed class TypedCounterOwnershipTests
         }
         else { Assert.False(alias.Prepared.IsAlive); }
         alias.Value = null;
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Counters.IsAlive); Assert.False(alias.Prepared.IsAlive);
         GC.KeepAlive(alias);
     }
 
     [Theory]
     [MemberData(nameof(SuccessAliases))]
+    [Trait("Layer", "Contract")]
     public async Task EachTypedFamilyKeepsIndependentImmutableCountersAndCallerCopies(string route, bool compressed, string kind)
     {
         Alias alias = await Complete(route, compressed, "read", "success", kind, QpdfLimits.Default);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Host.IsAlive);
         Assert.Equal(kind == "result", alias.Result.IsAlive);
         Assert.Equal(kind != "copy", alias.Counters.IsAlive);
         CheckSnapshot(alias);
         if (kind != "copy") { Assert.True(alias.Governor.Snapshot().LiveMemoryBytes >= 88L); }
         alias.Value = null;
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Prepared.IsAlive); Assert.False(alias.Counters.IsAlive); Assert.False(alias.Result.IsAlive);
         GC.KeepAlive(alias);
     }
 
     [Theory]
     [MemberData(nameof(BudgetJobs))]
+    [Trait("Layer", "Contract")]
     public async Task RealPublicBudgetFailuresRetirePreparedCountersWithoutReplacingPriorOutputs(string route, bool compressed, string budget)
     {
         QpdfLimits limits = budget == "work" ? QpdfLimits.Default with { MaxWork = 128L }
             : QpdfLimits.Default with { MaxMemoryBytes = 2048L };
         Alias alias = await Complete(route, compressed, "read", "budget", "counters", limits);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        Collect(alias.Governor);
+        await _collection.CollectAsync(alias.Governor, 4);
         Assert.False(alias.Host.IsAlive); Assert.False(alias.Prepared.IsAlive);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
         GC.KeepAlive(alias);
@@ -281,11 +294,13 @@ public sealed class TypedCounterOwnershipTests
 
     [Theory]
     [MemberData(nameof(MetadataJobs))]
+    [Trait("Layer", "Contract")]
     public async Task TypedCounterAliasesDoNotRootCompletedMetadata(string route, bool compressed)
     {
         Detached alias = await DetachTyped(route, compressed);
+        if (_collection is null) { return; } // Contract lane: producer assertions only.
         await Task.Yield();
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        await _collection.CollectAsync(null, 0);
         Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive));
         GC.KeepAlive(alias.Value);
     }
@@ -412,6 +427,7 @@ public sealed class TypedCounterOwnershipTests
     [InlineData(true, "work")]
     [InlineData(false, "memory")]
     [InlineData(true, "memory")]
+    [Trait("Layer", "Ownership")]
     public async Task PublicDocumentSnapshotBudgetsRejectBeforeAllocationAndPrepayRetirement(bool compressed, string budget)
     {
         DocumentAliases aliases = await LimitedDocument(compressed, budget);
@@ -432,6 +448,7 @@ public sealed class TypedCounterOwnershipTests
     [InlineData(true, 32, false)]
     [InlineData(false, 4, true)]
     [InlineData(true, 4, true)]
+    [Trait("Layer", "Ownership")]
     public async Task RepeatedDocumentSnapshotsFundSurvivorsAndRetireDiscardedSiblings(bool compressed, int count, bool cancel)
     {
         DocumentAliases aliases = await RepeatedDocument(compressed, count, cancel);
@@ -447,5 +464,43 @@ public sealed class TypedCounterOwnershipTests
         Collect(aliases.Governor);
         Assert.Equal(0L, aliases.Governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(aliases);
+    }
+
+    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
+        => new (string, IEnumerable<object[]>)[]
+        {
+            (nameof(CompletePublicJobsRetireUnreturnedCountersAndFundReturnedAliases), PublicJobs()),
+            (nameof(EachTypedFamilyKeepsIndependentImmutableCountersAndCallerCopies), SuccessAliases()),
+            (nameof(RealPublicBudgetFailuresRetirePreparedCountersWithoutReplacingPriorOutputs), BudgetJobs()),
+            (nameof(TypedCounterAliasesDoNotRootCompletedMetadata), MetadataJobs()),
+        };
+
+    private static string BatchKey(string method, object[] row)
+        => method.Contains("Metadata", StringComparison.Ordinal) || method == "ReturnedWrappersDoNotRootCompletedJobs"
+            ? "metadata" : string.Join("/", row.Take(1));
+
+    public static IEnumerable<object[]> OwnershipBatches()
+    {
+        foreach (var cases in OwnershipCases())
+        foreach (string group in cases.Rows.Select(row => BatchKey(cases.Method, row)).Distinct())
+        { yield return [cases.Method, group]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(OwnershipBatches))]
+    [Trait("Layer", "Ownership")]
+    public async Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(string method, string group)
+    {
+        IEnumerable<object[]> rows = OwnershipCases().Single(cases => cases.Method == method).Rows
+            .Where(row => BatchKey(method, row) == group);
+        await OwnershipBatch.RunAsync(_output, rows.Select(row =>
+            (OwnershipBatch.Id(nameof(TypedCounterOwnershipTests), method, row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                TypedCounterOwnershipTests fixture = new(_output) { _collection = observation };
+                Task running = (Task)(typeof(TypedCounterOwnershipTests).GetMethod(method)?.Invoke(fixture, row)
+                    ?? throw new InvalidOperationException("Missing original observation."));
+                await running;
+            }))));
     }
 }

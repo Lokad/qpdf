@@ -6,12 +6,18 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
+using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class DiagnosticFailureExportTests
 {
+    private readonly ITestOutputHelper _output;
+    private OwnershipBatch.Observation? _collection;
+
+    public DiagnosticFailureExportTests(ITestOutputHelper output) => _output = output;
+
     private const BindingFlags Fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private const BindingFlags Methods = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
@@ -145,6 +151,7 @@ public sealed class DiagnosticFailureExportTests
     [InlineData("job")]
     [InlineData("mixed")]
     [InlineData("response")]
+    [Trait("Layer", "Ownership")]
     public async Task OriginalMixedNoWarnFailureDoesNotRootHiddenWarnings(string route)
     {
         object host = await Prepare();
@@ -175,6 +182,7 @@ public sealed class DiagnosticFailureExportTests
 
     [Theory]
     [MemberData(nameof(InputCloseJobs))]
+    [Trait("Layer", "Contract")]
     public async Task InputCloseAfterPublicWarningAcceptancePreservesHistory(string route, bool summaries, bool noWarn, string outcome)
         => await ExerciseInputClose(route, summaries, noWarn, outcome, "pages", false);
 
@@ -191,6 +199,7 @@ public sealed class DiagnosticFailureExportTests
 
     [Theory]
     [MemberData(nameof(OutputCloseJobs))]
+    [Trait("Layer", "Contract")]
     public async Task OutputJobsPreserveAcceptedWarningsAndEveryPriorTarget(string route, string mode,
         bool compressed, bool summaries, bool noWarn, string outcome)
         => await ExerciseInputClose(route, summaries, noWarn, outcome, mode, compressed);
@@ -260,6 +269,7 @@ public sealed class DiagnosticFailureExportTests
 
     [Theory]
     [MemberData(nameof(MemoryJobs))]
+    [Trait("Layer", "Contract")]
     public async Task FixedPublicMemoryFailuresExportEveryAcceptedVisibleWarning(string route, bool summaries, bool noWarn)
         => await ExerciseMemory(route, summaries, noWarn, "pages", false);
 
@@ -274,6 +284,7 @@ public sealed class DiagnosticFailureExportTests
 
     [Theory]
     [MemberData(nameof(OutputMemoryJobs))]
+    [Trait("Layer", "Contract")]
     public async Task OutputMemoryFailuresKeepTheAcceptedPrefixAndSurvivingTargets(string route, string mode,
         bool compressed, bool summaries, bool noWarn)
         => await ExerciseMemory(route, summaries, noWarn, mode, compressed);
@@ -341,7 +352,9 @@ public sealed class DiagnosticFailureExportTests
         { bag.Add(QpdfDiagnosticCode.JsonSchemaCheck, QpdfDiagnosticSeverity.Info, "visible note " + index); }
         WeakReference[] hiddenInfo = bag.Entries.Where(item => item.Severity == QpdfDiagnosticSeverity.Info)
             .SelectMany(item => new[] { new WeakReference(item), new WeakReference(item.Message) }).ToArray();
-        presentation.PreparePlainFailureHistory();
+        // The predecessor exported history directly, before this preparation
+        // method existed. Keep its original alias controls executable too.
+        typeof(ExecutionPresentation).GetMethod("PreparePlainFailureHistory", Fields)?.Invoke(presentation, []);
         QpdfExecutionResult result = presentation.Failure(QpdfExecutionResult.Canceled([], governor.Snapshot()));
         Assert.Equal(before + 52L, result.Counters.DiagnosticCount);
         Assert.Equal(noWarn ? 2 : 50, result.Diagnostics.Count);
@@ -357,22 +370,20 @@ public sealed class DiagnosticFailureExportTests
         foreach (string kind in new[] { "view", "record", "text", "iterator" }) { yield return [noWarn, kind]; }
     }
 
-    [Theory]
-    [MemberData(nameof(AliasJobs))]
-    public void FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded(bool noWarn, string kind)
+    private async Task ObserveFailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded(bool noWarn, string kind)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L, MaxDiagnostics = 52L * 32L }, CancellationToken.None);
         for (int cycle = 0; cycle < 32; cycle++)
         {
             Aliases aliases = CaptureAliases(governor, noWarn, kind);
-            Collect(); governor.ReserveMemory(0L);
+            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
             Assert.All(aliases.Hidden, item => Assert.False(item.IsAlive));
             Assert.Equal(kind is "view" or "iterator", aliases.Visible[0].IsAlive);
             Assert.Equal(kind != "text", aliases.Visible[1].IsAlive); Assert.True(aliases.Visible[2].IsAlive);
             Assert.Equal(kind is "view" or "iterator", aliases.Visible[3].IsAlive);
             Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(noWarn ? 14 : 18));
             GC.KeepAlive(aliases.Value); aliases.Value = null;
-            Collect(); governor.ReserveMemory(0L);
+            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
             Assert.All(aliases.Visible, item => Assert.False(item.IsAlive));
             // Fifty-two records and their independent texts exceed the ledger's
             // sixty-four-carrier maintenance boundary. Payloads have retired;
@@ -397,21 +408,18 @@ public sealed class DiagnosticFailureExportTests
         return new(recordAlias ? record : text, [new(record), new(text)], [new(result.Diagnostics), new(result.Diagnostics[0])]);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void PreviouslyEscapedSuppressedWarningAliasesRemainFunded(bool recordAlias)
+    private async Task ObservePreviouslyEscapedSuppressedWarningAliasesRemainFunded(bool recordAlias)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with
         { MaxMemoryBytes = 32768L, MaxDiagnosticBytes = (4096L + 12L) * 32L }, CancellationToken.None);
         for (int cycle = 0; cycle < 32; cycle++)
         {
             Aliases aliases = CaptureSuppressedWarningAlias(governor, recordAlias);
-            Collect(); governor.ReserveMemory(0L);
+            await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
             Assert.All(aliases.Hidden, item => Assert.False(item.IsAlive));
             Assert.Equal(recordAlias, aliases.Visible[0].IsAlive); Assert.True(aliases.Visible[1].IsAlive);
             Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(4096));
-            GC.KeepAlive(aliases.Value); aliases.Value = null; Collect(); governor.ReserveMemory(0L);
+            GC.KeepAlive(aliases.Value); aliases.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 0); governor.ReserveMemory(0L);
             Assert.All(aliases.Visible, item => Assert.False(item.IsAlive)); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, GovernedText.StringBytes(4096), 32768L);
@@ -420,6 +428,7 @@ public sealed class DiagnosticFailureExportTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Layer", "Contract")]
     public void DeferredPlainFailureHistoryFinishesWithinHeldWork(bool cancel)
     {
         using CancellationTokenSource cancellation = new();
@@ -445,4 +454,26 @@ public sealed class DiagnosticFailureExportTests
         Assert.InRange(result.Counters.PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         if (cancel) { Assert.Throws<OperationCanceledException>(() => governor.CheckCancellation()); }
     }
+
+    [Fact]
+    [Trait("Layer", "Stress")]
+    public async Task FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded()
+        => await OwnershipBatch.RunAsync(_output, (AliasJobs()).Select(row =>
+            (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests), nameof(FailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded), row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                DiagnosticFailureExportTests fixture = new(_output) { _collection = observation };
+                await fixture.ObserveFailureAliasesRetireOnlyUnescapedRecordsAndKeepTheirActualStorageFunded((bool)row[0], (string)row[1]);
+            }))));
+
+    [Fact]
+    [Trait("Layer", "Stress")]
+    public async Task PreviouslyEscapedSuppressedWarningAliasesRemainFunded()
+        => await OwnershipBatch.RunAsync(_output, (new object[][] { [false], [true] }).Select(row =>
+            (OwnershipBatch.Id(nameof(DiagnosticFailureExportTests), nameof(PreviouslyEscapedSuppressedWarningAliasesRemainFunded), row),
+            (Func<OwnershipBatch.Observation, Task>)(async observation =>
+            {
+                DiagnosticFailureExportTests fixture = new(_output) { _collection = observation };
+                await fixture.ObservePreviouslyEscapedSuppressedWarningAliasesRemainFunded((bool)row[0]);
+            }))));
 }
