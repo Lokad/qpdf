@@ -394,7 +394,9 @@ public sealed class TypedCounterOwnershipTests
         QpdfLimits limits = budget == "work" ? QpdfLimits.Default with { MaxWork = 2048L }
             : QpdfLimits.Default with { MaxMemoryBytes = baseline.Peak };
         object fixture = await Prepare("typed-check", compressed, "none", "success");
-        QpdfDocument document = await QpdfDocument.OpenAsync((IQpdfHost)fixture, Input, limits, CancellationToken.None);
+        QpdfDocument document;
+        using (OwnershipBatch.CaptureWithoutCollection())
+        { document = await QpdfDocument.OpenAsync((IQpdfHost)fixture, Input, limits, CancellationToken.None); }
         ResourceGovernor governor = (ResourceGovernor)(typeof(QpdfDocument).GetField("_governor", Members)?.GetValue(document)
             ?? throw new InvalidOperationException());
         await document.DisposeAsync();

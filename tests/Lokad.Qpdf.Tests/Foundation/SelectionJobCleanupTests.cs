@@ -244,6 +244,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     private static async Task<CompletedAliases> CompleteAffected(string route, bool compressed)
     {
         InMemoryQpdfHost host = new(); AddInputs(host, route, compressed);
+        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
         object result = await Start(host, route, QpdfLimits.Default, CancellationToken.None);
         return KeepAffected(host, result, route);
     }

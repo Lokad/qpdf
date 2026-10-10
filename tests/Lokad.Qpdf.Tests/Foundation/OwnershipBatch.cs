@@ -10,6 +10,20 @@ namespace Lokad.Qpdf.Tests.Foundation;
 // process-wide collection is shared.
 internal static class OwnershipBatch
 {
+    // A producer's immediate private accounting read precedes the lifetime
+    // observation. Keep incidental process-wide collection out of that phase;
+    // the fixture's explicit collection/maintenance boundaries still follow it.
+    internal static IDisposable CaptureWithoutCollection()
+    {
+        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
+        return new CaptureScope();
+    }
+
+    private sealed class CaptureScope : IDisposable
+    {
+        public void Dispose() => GC.EndNoGCRegion();
+    }
+
     internal sealed class Observation
     {
         private TaskCompletionSource _arrived = NewSignal();

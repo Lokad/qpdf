@@ -19,6 +19,13 @@ The refined tests preserve all 1033 failed/566 passing result predecessor outcom
 all 290 failed/24 passing JSON cells and four failed/six passing diagnostic stress
 controls. All 1310 affected original assertion expressions remain exact. The
 committed-tree full run must still pass below 600 seconds to retire TEST-03A–E.
+The refined full trial takes 506.6 seconds, with 18624 passes and two failures.
+TEST-03F isolates successful selection capture and document-open admission from
+incidental collection; all original assertions, limits and lifetime rounds remain.
+This trial meets the time target but does not close the passing full-suite gate.
+The corrected affected classes pass all 2026 cases. Exact current predecessor
+tests preserve all 1130 failed/402 passing selection outcomes and every result,
+JSON and diagnostic control. All 1375 affected assertion expressions stay exact.
 Runtime DLL/PDB, package and prior scoped verification remain unchanged;
 CFG-01B stays deferred until the requested speed gate closes.
 
