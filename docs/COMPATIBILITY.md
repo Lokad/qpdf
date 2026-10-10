@@ -10,7 +10,8 @@ cases pass; comparable wall time falls 965.7 to 141.6 seconds (6.8 times
 faster), with all compatible predecessor outcomes preserved. Original private
 feature compatibility and the added no-GC snapshot observation region are explicit
 in DEVELOPMENT. Runtime/package bytes remain unchanged. The combined full proof
-is pending; TEST-02A–D and library completion remain open.
+on `b1afaae` passes 18913 cases in 33.8 minutes, retaining all unchanged and
+focused occurrences. TEST-02A–D retire; library completion remains open.
 
 Selection test orthogonality is measured separately from runtime compatibility:
 all 1604 focused test cases preserve every 1532 original scenario ID and all
@@ -18,8 +19,9 @@ all 1604 focused test cases preserve every 1532 original scenario ID and all
 independent governors, original admission/alias controls and four maintenance
 calls; explicit compacting calls fall 6144 to 312. Comparable focused time falls
 408.5 to 74.3 seconds. Runtime DLL/PDB bytes and all other test sources remain
-unchanged; TEST-01 retires only this pilot. Suite-wide TEST-02 and library
-completion remain open. The preceding full proof below retains its test layout.
+unchanged; TEST-01 retires only this pilot. TEST-02A–D retire in the later combined
+proof above; wider optimization and library completion remain open. The preceding
+full proof below retains its test layout.
 
 The B5S copy/publication correction is integrated on `e382440`: all 18730
 Release cases preserve all 17198 preceding occurrences and prior test sources.

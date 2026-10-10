@@ -86,6 +86,11 @@ snapshot comparisons failed in the first trial; equality assertions and job
 budgets stay unchanged. Private feature inspection supports older predecessor
 runtimes without treating missing members as behavioral failures.
 
+The combined unfiltered run on `b1afaae` passes all 18913 cases in
+33.8 minutes. The historical 77-minute run used another test layout and
+overlapped reference/native phases; compare the isolated focused runs for a
+controlled reduction.
+
 Ordinary unfiltered `dotnet test` still executes every case. Run it once on the
 completed correction; repeat expensive checks for changed sources, failures or
 unresolved concerns. These lanes supplement that combined proof. Native/reference

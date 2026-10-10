@@ -4611,3 +4611,22 @@ B5S1–B5S4 remain retired on e382440/eacb61f; wider B4/B5/T4/T5/T6, JSON-01,
 DIAG-01, MEASURE-01, M11/A01–A07 and both library verdicts remain open.
 Binding ignored PLAN sections 3–6 and unrelated work remain unchanged.
 
+## TEST-02 combined closure — 2026-10-10
+
+`b1afaae` integrates shared original GC boundaries, cheap contract profiles and
+all per-case observations. Focused 2063/2174 before/after passes take
+965.7/141.6 seconds; explicit GC falls 24960/2800 with all 9184 maintenance calls.
+Compatible unfixed controls retain exactly 1125 failures/936 passes, including the
+original diagnostic layout with the same private-feature compatibility read.
+Incompatible loader trials and the four first snapshot failures stay retained;
+current snapshot equality uses an additional 16 MiB no-GC completion/capture region.
+No assertion, job ceiling, cancellation, alias phase or 32-cycle stress control is
+weakened. The two unchanged deferred-history controls require their later feature.
+All seven lane discovery/result bounds remain explicit and ordinary tests include
+all lanes. One combined unfiltered run passes 18913 cases in 2027.1 seconds
+(33.8 minutes), preserving all 17188 unchanged ordinary occurrences and every
+2174 focused occurrence. The earlier 77-minute layout overlapped reference/native
+jobs; no controlled whole-suite ratio is inferred. Runtime DLL/PDB, package,
+probe/reference/native/API evidence, all five locks/audit exclusions, unrelated work
+and binding ignored PLAN sections 3–6 remain exact. TEST-02A–D retire; broader
+audit/completion gates remain open. Resume CFG-01B with complete public jobs.

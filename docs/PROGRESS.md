@@ -1,6 +1,6 @@
 # Progress
 
-## Test orthogonality — TEST-02 implementation integrated
+## Test orthogonality — TEST-02A–D retired
 
 The command-result, typed-counter, typed-wrapper and diagnostic matrices preserve
 all 2063 original scenarios. Their 1480 lifetime observations run in 121 batches;
@@ -27,12 +27,17 @@ Locked restore and Release builds pass with zero warnings/errors. Runtime DLL/PD
 all other test/runtime sources, five locks/audit exclusions and established package,
 reference/native/API evidence are unchanged. Named lanes have exact count guards;
 their discovery partitions the focused proof. Ordinary tests include every lane.
-The combined unfiltered run is pending; TEST-02A–D remain open until it completes.
+The combined unfiltered run on `b1afaae` passes all 18913 cases without skips
+in 2027.1 seconds (33.8 minutes). It retains all 17188 unchanged ordinary
+occurrences, all 2174 focused occurrences and the original scenario manifests.
+The preceding 77-minute full run overlapped reference/native work and used the old
+test layout; it is historical context, not a controlled whole-suite speedup ratio.
 
 ## Next finite work
 
-Finish the combined full-suite proof once on the committed correction and record
-its phase duration. Then CFG-01B resumes complete response/configuration ownership
-jobs at existing limits. B5S1–B5S4 and TEST-01 stay retired; wider B4/B5/T4/T5/T6,
+CFG-01B resumes complete response/configuration ownership jobs at existing limits.
+Broader test batching should use the remaining measured bottlenecks and retain
+independent controls; no additional test matrices are added merely for volume.
+B5S1–B5S4 and TEST-01 stay retired; wider B4/B5/T4/T5/T6,
 JSON-01, DIAG-01, MEASURE-01, M11/A01–A07 and both verdicts remain open.
 Binding ignored PLAN sections 3–6 and unrelated work remain unchanged.
