@@ -1,80 +1,45 @@
 # Progress
 
-## Full-suite target — TEST-03 focused proof
+## Full suite below ten minutes — TEST-03A–G retired
 
-The next test correction targets a full run below ten minutes. Seven carrier
-matrices retain all 1670 original scenarios; 1302 lifetime observations share
-22 bounded cohorts and ten GC controls remain independent. All 216 writer
-observations retain their original assertion bodies, paused sinks, tokens,
-faults and one/three-round collections in ten cohorts. Seventeen independent
-stress controls share collections while retaining every original 32-cycle body,
-limit and maintenance call. No runtime forcing of GC is introduced.
+Integrated test commit `45e16c5` passes all 18626 unfiltered Release cases
+without failures/skips in 529.8 seconds (8.8 minutes), against the previous
+33.8-minute full run. All 18569 retained ordinary occurrences and 4535 named
+observation cells pass; every earlier scenario is accounted for. All
+1375 affected original assertion expressions remain unchanged.
 
-The first committed full run passes all 18721 cases and preserves all 18688
-ordinary occurrences, 4535 named cells and 1124 assertion expressions, but takes
-630.2 seconds. TEST-03E consolidates the earlier result matrices into 24 bounded
-batches and advances mixed stress rows after their own requested collection rounds.
-All 157 focused ownership/stress cases pass; result discovery is exactly 36.
-The refined tests preserve all 1033 failed/566 passing result predecessor outcomes,
-all 290 failed/24 passing JSON cells and four failed/six passing diagnostic stress
-controls. All 1310 affected original assertion expressions remain exact. The
-committed-tree full run must still pass below 600 seconds to retire TEST-03A–E.
-The refined full trial takes 506.6 seconds, with 18624 passes and two failures.
-TEST-03F isolates successful selection capture and document-open admission from
-incidental collection; all original assertions, limits and lifetime rounds remain.
-This trial meets the time target but does not close the passing full-suite gate.
-The corrected affected classes pass all 2026 cases. Exact current predecessor
-tests preserve all 1130 failed/402 passing selection outcomes and every result,
-JSON and diagnostic control. All 1375 affected assertion expressions stay exact.
-The capture correction full run takes 559.9 seconds with 18625 passes and one
-physical-sampler failure (200 extra bytes). TEST-03G protects warmup/sampling from
-collection and measures each fixed CLR type once. Original exact-size/divisibility
-assertions and complete public ownership jobs remain; combined proof is pending.
-All 1262 affected physical-sampler consumers pass. The final compiled tests keep
-every compatible selection/result/JSON/diagnostic predecessor outcome exact;
-1375 original assertion expressions and runtime/package identities remain.
-Runtime DLL/PDB, package and prior scoped verification remain unchanged;
-CFG-01B stays deferred until the requested speed gate closes.
+Seven carrier matrices retain 1670 scenarios: 1302 lifetime cells in 22 bounded
+batches and ten independent GC controls. Ten writer batches retain all 216 cells.
+Seventeen independent stress controls retain all original 32-cycle bodies, limits,
+alias drops and 1443 maintenance calls. Original collection geometry, compaction
+and maintenance order remain explicit. The final tests preserve all 290 failing/
+24 passing JSON predecessor cells and four failing/six passing diagnostic stress
+controls. The three refined result matrices retain all 1470 observations in
+24 batches plus 12 independent controls, with all 1033 failed/566 passing
+compatible predecessor outcomes exact. The first committed trial's 630.2-second
+full run remains explicit. Other evidence stays scoped to unchanged sources.
+The 506.6-second trial's two producer fixture failures remain explicit too.
+Short no-GC capture/open phases fix those observations; original limits and
+subsequent lifetime rounds remain. All 1130 failed/402 passing selection
+predecessor outcomes are exact on the final tests.
+The third 559.9-second trial retains one physical-sampler failure. Fixed CLR
+layouts are now calibrated once with warmup/sampling in one no-GC phase; exact
+1024-object divisibility/size assertions and independent public jobs remain.
 
-## Test orthogonality — TEST-02A–D retired
+Locked restore, Release build and exact lane discovery pass. Runtime DLL/PDB,
+probe, package, five locks/audit exclusions and reference/native/API/consumer
+evidence remain unchanged. No verification jobs overlap the timed full run.
+Forced collections exist only in tests; the shipped library does not force GC.
+Phase timings, manifests and remaining case costs are recorded for further work.
 
-The command-result, typed-counter, typed-wrapper and diagnostic matrices preserve
-all 2063 original scenarios. Their 1480 lifetime observations run in 121 batches;
-583 independent cases keep their bodies. Cheap producer contracts remain separate.
-All 2174 focused cases pass, without skips. Four original double-GC rounds are
-shared at each phase; governors, alias drops, limits, tokens and maintenance remain
-independent. Diagnostic stress retains ten governors and 32 sequential cycles each.
-
-Explicit GC calls in the changed observations fall 24960 to 2800; all 9184 bounded
-maintenance calls remain. Comparable isolated wall time falls 965.7 to 141.6
-seconds (6.8 times faster). Each matrix exceeds a twofold reduction in summed
-reported case time. Exact current tests preserve 1125 failed/936 passing
-predecessor outcomes across the compatible controls; the two unchanged deferred
-history tests use a later private feature and retain current-runtime proof.
-
-The first focused trial retains four GC-sensitive snapshot fixture failures.
-Command completion/capture now uses a 16 MiB no-GC observation region, preserving
-the original equality and governor budgets. Two private feature reads are reflective
-so older runtimes execute the original behavioral assertions. Incompatible loader
-trials remain explicit; the original diagnostic layout with that same compatibility
-read provides the before/after stress control. No loader is counted as a defect.
-
-Locked restore and Release builds pass with zero warnings/errors. Runtime DLL/PDB,
-all other test/runtime sources, five locks/audit exclusions and established package,
-reference/native/API evidence are unchanged. Named lanes have exact count guards;
-their discovery partitions the focused proof. Ordinary tests include every lane.
-The combined unfiltered run on `b1afaae` passes all 18913 cases without skips
-in 2027.1 seconds (33.8 minutes). It retains all 17188 unchanged ordinary
-occurrences, all 2174 focused occurrences and the original scenario manifests.
-The preceding 77-minute full run overlapped reference/native work and used the old
-test layout; it is historical context, not a controlled whole-suite speedup ratio.
+TEST-01 and TEST-02A–D remain retired. Their original observations and failures
+are preserved; the combined stress lane now contains their ten diagnostic cells
+plus seven independent presentation/ledger/checker/form cells. Historical focused
+and full proofs remain in the closure checklist.
 
 ## Next finite work
 
-Close TEST-03D with the combined run below ten minutes, then resume CFG-01B
-complete response/configuration ownership jobs at existing limits.
-Broader test batching should use the remaining measured bottlenecks and retain
-independent controls; no additional test matrices are added merely for volume.
-B5S1–B5S4 and TEST-01 stay retired; wider B4/B5/T4/T5/T6,
-JSON-01, DIAG-01, MEASURE-01, M11/A01–A07 and both verdicts remain open.
-Binding ignored PLAN sections 3–6 and unrelated work remain unchanged.
+Resume CFG-01B response/configuration ownership through complete public jobs.
+B5S1–B5S4 stay retired; wider B4/B5/T4/T5/T6, JSON-01, DIAG-01,
+MEASURE-01, M11/A01–A07 and both verdicts remain open. Binding ignored PLAN
+sections 3–6 and unrelated work remain unchanged.

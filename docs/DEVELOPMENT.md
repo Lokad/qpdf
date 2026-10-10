@@ -78,6 +78,11 @@ stress case logs all 17 independent controls; it does not reduce their cycle cou
 Forced collections belong to these tests. The shipped library has no
 `GC.Collect` or `GC.WaitForPendingFinalizers` calls. Test-only collection rounds
 are shared because they scan the whole test process and wait for finalizers.
+Compacting rounds preserve the original ownership stress controls. Finalizers
+report retirement of escaped storage; tests drive that retirement at a known
+boundary before checking accounting and surviving aliases. The library uses
+`GC.SuppressFinalize` and `GC.KeepAlive` for lifetime management; neither forces
+a collection.
 
 Add `-List` to inspect a lane without execution. Exact discovery/result counts
 reject empty or partial selections. Batch output names every original scenario
@@ -103,8 +108,10 @@ runtimes without treating missing members as behavioral failures.
 The preceding combined unfiltered run on `b1afaae` passes all 18913 cases in
 33.8 minutes. The historical 77-minute run used another test layout and
 overlapped reference/native phases; compare the isolated focused runs for a
-controlled reduction. TEST-03 targets the remaining measured lifetime hot spots;
-its completed source is awaiting the combined speed gate below ten minutes.
+controlled reduction. The TEST-03 run on `45e16c5` passes all
+18626 unfiltered cases in 529.8 seconds (8.8 minutes), with no
+failures/skips or concurrent verification jobs. All previous scenarios and
+assertions remain accounted for; batching changes discovery counts, not coverage.
 
 Ordinary unfiltered `dotnet test` still executes every case. Run it once on the
 completed correction; repeat expensive checks for changed sources, failures or

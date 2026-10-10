@@ -32,13 +32,13 @@ measurements record the method, original thresholds and terminal result separate
 | ID / gate / state | Affected public routes | Executable starting check | Finite pass condition / missing evidence |
 | --- | --- | --- | --- |
 | INT-01 / M11 / retired | All typed / argv / job readers, checkers, copiers and writers | Required Release sequence below | Commit the owned parser, diagnostic, copier, inspection and writer integration in buildable dependency order. Final committed sources equal the verified runtime sources; preserve unrelated work and all original controls. |
-| TEST-03A / M11,A07 / focused proof; full proof pending | Version, JSON, failed-result, selection and warning/check snapshot test matrices | `pwsh -File tools/test-audit-lane.ps1 -Lane CarriersContract`; `-Lane CarriersOwnership` | Preserve all 1670 original scenarios, all assertion bodies, independent governors, budgets, faults, tokens, aliases and exact GC/maintenance ordering. Batch the 1302 lifetime observations in 22 bounded cohorts; retain ten independent GC controls. Replay the original JSON predecessor failures through the new batches. |
-| TEST-03B / M11,A07 / focused proof; full proof pending | Writer/index/encoding/object-stream/linearized backing observations | `pwsh -File tools/test-audit-lane.ps1 -Lane WriterOwnership` | Execute all 216 original cells and 13 assertion bodies in ten cohorts. Retain original paused sinks, both tokens, faults, owner/task roots and one/three-round GC geometry. Dedicated encoding/outcome contract matrices remain unchanged; ordinary discovery includes every observation. |
-| TEST-03C / M11,A07 / focused proof; full proof pending | Diagnostic, presentation, ledger, checker detail and form traversal stress | `pwsh -File tools/test-audit-lane.ps1 -Lane LifetimeStress` | Preserve all 17 independent controls and original 32 sequential cycles, governors, limits, alias drops and 1443 maintenance calls. Share only collection rounds, retaining three/four-round geometry and interleaved maintenance. Preserve the original ten diagnostic stress outcomes. |
-| TEST-03D / M11,A07 / open combined speed gate | Ordinary unfiltered Release suite | `dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore` | Full wall time below 600 seconds without concurrent verification work, no failures/skips and every baseline scenario accounted for as an ordinary case or named observation. Preserve all runtime/package/reference/consumer/lock identities and unrelated work; record source and test hashes, phase timings and remaining bottlenecks. GC forcing remains test-only. |
-| TEST-03E / M11,A07 / pending refined coordinator | Earlier command/typed result matrices and mixed three/four-round stress | `pwsh -File tools/test-audit-lane.ps1 -Lane ResultsOwnership`; `-Lane LifetimeStress` | The first full run preserves all coverage but takes 630.2 seconds. Consolidate 1470 original result cells from 119 to 24 bounded batches without altering their bodies or independent controls. Resume each stress observation after its own exact requested rounds; preserve compaction, maintenance order and all 42774 requested collections. Replay the compatible result predecessor outcomes and meet TEST-03D on the new committed tree. |
-| TEST-03F / M11,A07 / pending producer observation isolation | Successful selection capture and disposed-document counter admission | SelectionOwnership and ResultsOwnership lanes; compatible result/selection predecessor controls | The refined full run takes 506.6 seconds but fails two fixtures: a weak governor dies before immediate capture, and document opening exhausts work 2048 before snapshot admission. Keep each short producer/capture phase free of incidental collection, retain every original fixture, limit and assertion, then execute the original lifetime rounds. Preserve every predecessor outcome and close TEST-03D only with a passing committed full run. |
-| TEST-03G / M11,A07 / pending physical sampler isolation | Version/counter/warning/check physical minima and document admission controls | Original physical-size assertions and affected carrier/result lanes | The capture correction full run takes 559.9 seconds, with 18625 passes and one sampled-allocation failure (200 extra bytes). Warm and sample each fixed CLR layout in the same no-GC phase, preserving nested phases and the original 1024-object exact divisibility/size assertions. Reuse each established type size across independent jobs. Preserve all previous scenarios and predecessor outcomes; retire the speed gate only on passing committed combined proof. |
+| TEST-03A / M11,A07 / retired | Version, JSON, failed-result, selection and warning/check snapshot test matrices | `pwsh -File tools/test-audit-lane.ps1 -Lane CarriersContract`; `-Lane CarriersOwnership` | Preserve all 1670 original scenarios, all assertion bodies, independent governors, budgets, faults, tokens, aliases and exact GC/maintenance ordering. Batch the 1302 lifetime observations in 22 bounded cohorts; retain ten independent GC controls. Replay the original JSON predecessor failures through the new batches. |
+| TEST-03B / M11,A07 / retired | Writer/index/encoding/object-stream/linearized backing observations | `pwsh -File tools/test-audit-lane.ps1 -Lane WriterOwnership` | Execute all 216 original cells and 13 assertion bodies in ten cohorts. Retain original paused sinks, both tokens, faults, owner/task roots and one/three-round GC geometry. Dedicated encoding/outcome contract matrices remain unchanged; ordinary discovery includes every observation. |
+| TEST-03C / M11,A07 / retired | Diagnostic, presentation, ledger, checker detail and form traversal stress | `pwsh -File tools/test-audit-lane.ps1 -Lane LifetimeStress` | Preserve all 17 independent controls and original 32 sequential cycles, governors, limits, alias drops and 1443 maintenance calls. Share only collection rounds, retaining three/four-round geometry and interleaved maintenance. Preserve the original ten diagnostic stress outcomes. |
+| TEST-03D / M11,A07 / retired combined speed gate | Ordinary unfiltered Release suite | `dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore` | Full wall time below 600 seconds without concurrent verification work, no failures/skips and every baseline scenario accounted for as an ordinary case or named observation. Preserve all runtime/package/reference/consumer/lock identities and unrelated work; record source and test hashes, phase timings and remaining bottlenecks. GC forcing remains test-only. |
+| TEST-03E / M11,A07 / retired refined coordinator | Earlier command/typed result matrices and mixed three/four-round stress | `pwsh -File tools/test-audit-lane.ps1 -Lane ResultsOwnership`; `-Lane LifetimeStress` | The first full run preserves all coverage but takes 630.2 seconds. Consolidate 1470 original result cells from 119 to 24 bounded batches without altering their bodies or independent controls. Resume each stress observation after its own exact requested rounds; preserve compaction, maintenance order and all 42774 requested collections. Replay the compatible result predecessor outcomes and meet TEST-03D on the new committed tree. |
+| TEST-03F / M11,A07 / retired producer observation isolation | Successful selection capture and disposed-document counter admission | SelectionOwnership and ResultsOwnership lanes; compatible result/selection predecessor controls | The refined full run takes 506.6 seconds but fails two fixtures: a weak governor dies before immediate capture, and document opening exhausts work 2048 before snapshot admission. Keep each short producer/capture phase free of incidental collection, retain every original fixture, limit and assertion, then execute the original lifetime rounds. Preserve every predecessor outcome and close TEST-03D only with a passing committed full run. |
+| TEST-03G / M11,A07 / retired physical sampler isolation | Version/counter/warning/check physical minima and document admission controls | Original physical-size assertions and affected carrier/result lanes | The capture correction full run takes 559.9 seconds, with 18625 passes and one sampled-allocation failure (200 extra bytes). Warm and sample each fixed CLR layout in the same no-GC phase, preserving nested phases and the original 1024-object exact divisibility/size assertions. Reuse each established type size across independent jobs. Preserve all previous scenarios and predecessor outcomes; retire the speed gate only on passing committed combined proof. |
 | TEST-01 / M11,A07 / retired selection pilot | Test coverage for all 33 selection/copy/overlay/attachment routes and their shared storage lifecycles | `T 'SelectionJobCleanupTests\|TypedWarningOwnershipTests'`; before/after scenario manifest and phase timings | Preserve every original fixture, limit, fault/token boundary, surviving output/diagnostic alias, four GC rounds and four bounded maintenance calls per governor. Separate route/encoding/fault checks from physical alias observations; batch independent ownership observations through shared GC rounds where equivalent. Retain the original two regressions independently. Account for every one of the 1532 current scenario IDs even if grouped differently; zero matched controls or lost cases cannot pass. Require at least a twofold focused wall-time reduction in a comparable run, with explicit GC counts and unchanged runtime/public behavior. Reference/native/package lanes stay explicit and run when affected or final correction proof requires them. |
 | TEST-02A / M11,A07 / retired | Complete public scenarios in ExecutionResultOwnershipTests | `T 'ExecutionResultOwnershipTests'`; before/after scenario and outcome manifests | Preserve all 736 original cases, every alias/phase and fixture, limits, both tokens, host fault/publication behavior, original four-round maintenance and sequential cycle pressure. Factor cheap contracts and batched lifetime observations; prove at least a twofold comparable focused reduction without losing any known predecessor failure. Final combined TEST-02 proof must execute the full suite once, retain all scope-specific evidence and record phase timings. |
 | TEST-02B / M11,A07 / retired | Complete public scenarios in TypedCounterOwnershipTests | `T 'TypedCounterOwnershipTests'`; before/after scenario and outcome manifests | Preserve all 416 original cases, every alias/phase and fixture, limits, both tokens, host fault/publication behavior, original four-round maintenance and sequential cycle pressure. Factor cheap contracts and batched lifetime observations; prove at least a twofold comparable focused reduction without losing any known predecessor failure. Final combined TEST-02 proof must execute the full suite once, retain all scope-specific evidence and record phase timings. |
@@ -345,3 +345,55 @@ work; it supplies historical context, not a controlled full-run speedup ratio.
 Runtime DLL/PDB, probe/reference sources, package, five locks and advisory policy
 remain exact. Their established reference/native/API/consumer proof stays scoped
 to those identities. Wider audit/completion gates remain open.
+
+TEST-03A–G retire on `45e16c5`. The unfiltered Release run passes
+all 18626 cases without failures/skips in 529.8 seconds
+(8.8 minutes), below the 600-second gate. All 18569 retained ordinary
+occurrences and all 4535 named observation cells pass; the manifest accounts for
+every one of the 1525 moved lifetime cells and 3010 earlier observation cells.
+All 1375 affected original assertion expressions remain unchanged. Exact final tests retain
+all 1033 failing/566 passing compatible result predecessor outcomes,
+all 290 failing/24 passing JSON predecessor cells and all four failing/six passing
+diagnostic stress controls, with no loader failures in those control scopes.
+The final selection predecessor check preserves all 1130 failing/402 passing
+original scenarios and both original 1276/1346-byte debt failures.
+
+Seven carrier matrices preserve 1670 original scenarios, with 1302 lifetime cells
+in 22 bounded batches and ten independent GC controls. Ten writer batches preserve
+all 216 cells and original paused/task/owner roots. Seventeen stress controls retain
+their original 32 sequential cycles, budgets and 1443 maintenance calls. Requested
+collection geometry, compaction and maintenance order remain explicit; the central
+coordinator shares 1204 collections across
+42774 original collection requests.
+This count covers coordinator observations, not independent/legacy GC controls.
+
+Locked restore and Release build pass with zero warnings/errors. All named lane
+counts are exact. Runtime DLL/PDB, probe, package, five locks/audit exclusions and
+previous runtime-scoped reference/native/API/consumer evidence remain unchanged.
+The full run overlaps no other verification job. The preceding full run took
+2027.1 seconds (33.8 minutes); phase timings and remaining case costs are retained.
+The first committed correction passed all 18721 cases in 630.2 seconds, so that
+trial did not close the speed gate. TEST-03E retains all 1470 result observations
+in 24 bounded batches instead of 119, plus 12 independent controls. Mixed stress
+observations now resume after their own original three/four collection rounds.
+The second committed trial takes 506.6 seconds but fails two producer fixtures.
+TEST-03F keeps only successful selection capture and document-open admission
+free of incidental collection, with all 2026 affected cases passing. Original
+limits, assertions and subsequent lifetime collections remain unchanged.
+The third committed trial takes 559.9 seconds with one physical-sampler failure
+(200 incidental bytes). TEST-03G calibrates each fixed CLR layout once with
+warmup and sampling in the same no-GC phase, preserving nested phases and the
+original 1024-object divisibility/size assertions. Independent ownership jobs
+reuse that physical fact; their limits, alias phases and accounting checks remain.
+Forced GC remains test-only. TEST-03 closes the speed work unit; CFG-01B and all
+broader ownership/audit/verdict entries remain open.
+
+Largest remaining summed case times (excluding runner overhead):
+
+| Class | Cases | Seconds |
+| --- | ---: | ---: |
+| SelectionJobCleanupTests | 1604 | 47.4 |
+| LinearizationPhysicalTests | 1058 | 47.2 |
+| TolerantObjectLoadingTests | 1530 | 43.1 |
+| LinearizedHintEncoderOwnershipTests | 5 | 35.6 |
+| OwnershipStressTests | 1 | 34.7 |
