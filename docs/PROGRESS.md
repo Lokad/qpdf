@@ -20,6 +20,7 @@ also includes receipt/index cleanup. Keep the four split-output assertion
 failures and probe dependency-loading trials as qualified development evidence.
 They are corrected; no loader result counts as public predecessor proof.
 
+
 ## Checker ownership — B4C/B4CD/B4CF/T5R retired on integrated proof
 
 Code `2a67533` and test adapters `ad3be03/0810475` admit immutable CheckAsync Checks/
