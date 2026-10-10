@@ -4,25 +4,27 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-The CFG-01B3C1 correction implements shared admission and independent ownership
-for decoded configuration strings and argv value substrings. Three new controls
-retain 56 complete public jobs and four fixed 4 KiB admission observations;
-the 24-case qualification passes. Host-held input/output/include/pass-one aliases
-remain funded, private plans collect and independently dropped channels reach
-zero. Original limits, success bytes, fault/cancellation outcomes and read-terminal
-conditions remain; stronger name admission makes the original 7000-byte nested
-control reject before child open. Combined committed proof remains pending.
-The first committed full trial preserves all cases but has 11 explicit failures
-in 584.2 seconds. The correction retires unused decoded-copy admission at plan
-construction and observes exact inspection cancellation retirement after producer
-release. Original binary/listing suppression, prior targets, leases, all 100 repair
-warnings and the strict 247494/247489-byte ceilings remain required.
-The second 549.4-second trial passes the eleven corrected cases; one separate
-name-comparison allocation sample fails. Its exact zero assertion and original
-64-comparison body are preserved with isolated warmup/sampling. Final full proof
-is still required.
-Parser vectors/plans/derived normalization (C2), syntax/session/DOM controllers
-(C3), the parent B3C/B4 and broader gates stay open.
+CFG-01B3C1 retires on integrated `6253cde` / `79f30c0` / `bb18cf9`, with
+development reference tools `07246d2`. Independent receipts fund host-held
+decoded names and argv value copies; the unused text pool retires after parsing.
+All 56 complete public jobs, four fixed 4 KiB controls, twelve independent jobs
+and original limits/outcomes remain. Exact final predecessor controls retain
+three new failures/twelve established positives; the independent probe corrects
+eight missing host-held receipts and preserves four cancellation controls.
+All 18641 Release cases pass in 512.1 seconds, retaining all 18638 preceding
+cases/4535 named observations. Fresh pinned 1846/432 reference, identical 868
+native records/same 64 valid physical differences, API908, exact package and
+50 fresh consumer smokes/two specific negatives pass. The original eleven full
+failures and later allocation-sampling failure remain explicit in PROGRESS;
+strict 247494/247489-byte repair controls and all 100 warnings remain unchanged.
+C2 parser vectors/plans/derived strings, C3 syntax/session/DOM controllers,
+parent B3C/B4 and broader gates stay open.
+
+Reference execution reuse retires REF-03: the complete fresh run takes 415.5
+seconds versus the measured 2621.0-second baseline, with sequential setup reuse.
+Every original comparison, authored input, limit, outcome and negative remains;
+generated JSON ordering/run paths and native PDF IDs/attachment dates are
+explicitly classified, with no assertion changes. REF-01/02 remain open.
 
 The response-argument correction adds seven public controls and 13 terminal jobs.
 All seven controls expose behavioral predecessor failures; original response

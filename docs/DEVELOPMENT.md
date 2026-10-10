@@ -212,8 +212,22 @@ pwsh -File tools/test-reference-probe.ps1 -ProbeDll tools/QpdfProbe/bin/Release/
 
 They compare cold and batched outputs/exits, check fresh rewritten bytes with the
 independent reader, reject cross-request output reuse, exercise lazy input access
-and worker rollover, and reject malformed/oversized protocol requests. Complete
-reference coverage and timing verification remains required for the speed change.
+and worker rollover, and reject malformed/oversized protocol requests. Eight
+cold/batch pairs include Unicode filenames; argv/job/Unicode-label rewrite bytes
+match. All 87 requests across two sequential processes and both negatives pass.
+
+The complete fresh measured run on `07246d2` takes 415.5 seconds (6m55s), versus
+2621.0 seconds (43m41s) for the unchanged instrumented baseline. Parser intervals
+fall 2029.0 to 326.7 seconds and differential 582.5 to 83.1. Before phase times
+use stopwatches; after phase intervals run from workspace creation through the
+terminal request record, and complete time uses the outer stopwatch. All 1846
+parser rows/432 rewrites, 283 authored PDF bytes, 617 differential case messages
+and complete 45/60/189/108 result inventories match. All 2131 differential input
+paths remain; byte variations are limited to equivalent generated JSON data,
+fresh paths and native PDF IDs/attachment timestamps inherited from their seed.
+Original raw hashes and comparisons remain. The library/test binaries, pinned
+oracle, limits and both deliberate negatives stay exact. Native process calls
+remain the largest evident cost; parallel execution was unnecessary.
 
 
 ## Benchmarks

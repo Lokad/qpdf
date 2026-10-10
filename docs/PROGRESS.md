@@ -1,89 +1,102 @@
 # Progress
 
-## Reference execution reuse — implementation pending final verification
+## Reference run below ten minutes — REF-03 retired
 
-The original reference comparisons and authored inputs remain intact. Measured
-differential wall time is 582.5 seconds: 996 managed calls take 510.9 seconds,
-1352 native calls 53.8 seconds and comparison conditions 15.3 seconds. The first
-238 parser jobs average 273 ms inside execution. The complete measured baseline
-passes in 2621.0 seconds: parser 2029.0, differential 582.5. Parser managed/native
-calls take 1729.1/283.0 seconds; comparisons/lookups take 1.8/5.8 seconds.
-Cold managed/native startup medians are 83/16 ms. No workers run in
-parallel.
+Committed `4483771` / `07246d2` preserve every original comparison, input
+authoring rule, limit, outcome and negative control. Fresh current managed and
+pinned qpdf 12.4.2 outputs pass the canonical complete runner in **415.5 seconds
+(6m55s)**, versus the fresh instrumented baseline's **2621.0 seconds (43m41s)**.
+The ordinary suite independently passes in 512.1 seconds. Neither timed suite
+overlaps another verification job.
 
-The development probe now supports sequential requests with a fresh public host
-and job each time. Workers retire after 64 requests; request text is bounded and
-stdout/stderr use exclusive files. Input registration reads only requested files,
-retaining the in-memory host and canonical alias identities. Parser expected-value
-lookups use the original observation rows through an index. Differential temporary
-files belong to each fresh run. Executable cold/batch, rollover, isolation and
-protocol controls pass: seven semantic cold/batch pairs, checked rewrite bytes,
-both invocation wrappers, 85 requests/two workers and two protocol negatives.
-All 45 mixed/60 inspection comparisons pass. Complete fresh coverage/timing proof
-remains required. The first raw-counter comparison differs by two maintenance
-work units; counter records remain and semantic comparisons exclude only that
-variable line, without changing any original reference assertion or limit.
-Runtime sources, dependencies and API remain unchanged by this speed work.
+| Reference phase | Before seconds | After seconds | Managed requests |
+| --- | ---: | ---: | ---: |
+| Parser | 2029.0 | 326.7 | 3590 |
+| Differential | 582.5 | 83.1 | 996 |
+| Complete runner | 2621.0 | 415.5 | 4586 |
 
-The first committed optimized trial completes differential work in 159.0 seconds
-but fails both original Unicode label-prefix comparisons. The protocol reader
-now decodes strict UTF-8; the probe initializes redirected output as UTF-8 once.
-Eight cold/batch semantic pairs include Unicode filenames, and argv/job/Unicode
-label rewrite bytes match. Both invocation wrappers, 87 requests/two workers and
-both protocol negatives pass. Original Unicode checks remain unchanged; the
-complete corrected run is still required.
+Baseline process costs are parser managed/native 1729.1/283.0 seconds and
+differential 510.9/53.8. Parser comparisons/original-row lookups take 1.8/5.8;
+differential conditions take 15.3. Cold managed/native startup medians are
+83/16 ms. After phase intervals run from fresh workspace creation through the
+terminal transport record; complete wall time uses the outer stopwatch.
+After managed round trips take parser/differential 49.0/18.8 seconds.
 
-## Configuration setting text — CFG-01B3C1 implemented, combined proof pending
+The development probe shares CLR/JIT setup sequentially, retiring each process
+after at most 64 requests. Each request creates a fresh host/job/governor and
+reads only requested inputs. Exclusive request files and per-run differential
+scratch isolate outputs and temporary files. An index reuses the original parser
+observation rows. No parallel execution or production forced collection is added.
 
-The predecessor leaves eight public host-held pass-one names unfunded (2080-byte
-string minimum, actual live 256, no receipt). The shared text factory now admits
-argv value copies and decoded JSON strings, including input/output/include names.
-JSON payload transfers from the established document budget; weak metadata is
-admitted independently. Caller-owned strings and fixed syntax literals stay borrowed.
-No production collection forcing or dependency/API change.
+All 1846 parser observations retain exact budgets, exits, values and raw stdout;
+432 rewrite rows and 283 authored PDF inputs remain exact. All 617 differential
+case messages and complete mixed/inspection/transformation/binary records
+(45/60/189/108) match. All 2131 differential input paths remain: 1469 byte-exact,
+649 equivalent JSON data with original property-order/format/run-path variation,
+six derived PDFs differing only in native IDs and seven attachment PDFs differing
+only in IDs and native-created timestamps inherited unchanged from their seed.
+Original hashes and every variation are retained and explicitly classified;
+no comparison normalizes these fields differently. Both deliberate negatives pass.
 
-Three ordinary controls cover 56 complete jobs across ordinary ASCII/UTF-8 argv,
-borrowed argv, response, mixed, direct JSON, file and nested routes, with success,
-publication/open/read/close faults and both cancellations. Successful one-page
-PDFs/sidecars validate; failures preserve prior main outputs and close all leases.
-Separate host/result/counter alias phases retain receipts, collect private plans,
-then leave 144 counter bytes and finally zero. Four fixed 4 KiB ASCII/UTF-8
-admission controls reject inline copies before PDF access and preserve borrowed
-next-argument access. The focused 24-case qualification passes.
+Eight cold/batch pairs include Unicode filenames; three rewritten PDFs match
+and validate independently. Fresh-host/lazy-input, both wrappers, 87-request
+two-process rollover and malformed/oversized protocol controls pass. The first
+159.0-second optimized trial retains both Unicode label-prefix failures;
+strict UTF-8 transport corrects them without changing either original comparison.
+Cold/batch raw counters retain a two-unit maintenance-work variation also seen
+between cold calls. Only this new transport equivalence control excludes that
+variable line; raw records remain and no original reference assertion or limit
+changes. Runtime sources, dependencies and API are unchanged by the speed work.
+The remaining substantial reference cost is native process invocation, consistent
+with the baseline's 7280 parser native calls. REF-01/02 and broader gates stay open.
 
-Old tracking hosts now retain admitted generated names, so their snapshot minima
-include those names. Loader zero-storage checks follow collection/maintenance;
-idempotence and weak DOM collection remain exact. The original 7000-byte nested
-limit now rejects before child open. The 24 read-terminal jobs keep their exact
-four-round/256-byte conditions through a separate producer/observer boundary.
-Reader-option forwarding keeps every flag and proves admitted input-name lifetime
-before collecting the plan and reaching zero. Earlier failed trials remain explicit.
+## Configuration setting text — CFG-01B3C1 retired
 
-The first committed full trial retains 11 failures/18630 passes in 584.2 seconds:
-nine inspection cancellation snapshots include pending decoded-name receipts,
-and two unchanged strict JSON repair jobs exhaust 247494/247489-byte ceilings.
-The text-copy pool now retires at plan construction, its last consumer; surviving
-strings keep independent receipts. Inspection cancellation producers preserve
-every status/payload/lease/prior-output assertion and now prove exact 256-byte
-retirement after four bounded rounds. Those checks run in the existing isolated
-lifetime collection. The strict repair fixtures and ceilings remain unchanged.
-The second full trial passes all eleven corrected cases and 18640 total cases
-in 549.4 seconds, with one separate thread-allocation sampler failure (7504 bytes,
-expected zero) in unchanged name comparison. Its original 64-comparison body,
-zero allocation/storage assertions and default limits remain; warmup and sampling
-now share the existing isolated no-collection scope. This does not reopen runtime
-name-comparison behavior or established ownership evidence.
+Integrated runtime `6253cde` / `79f30c0`, test isolation `bb18cf9` and reference
+tools `07246d2` complete the source-bound proof. The predecessor leaves eight
+host-held pass-one names unfunded: 2080-byte string minima, actual live 256,
+no receipt. Shared argv/JSON text admission now funds value copies before
+allocation, preserves borrowed caller/static strings and transfers decoded JSON
+payload from the existing document budget. Independent receipts fund escaped
+input/output/include/pass-one aliases. The unused copy pool retires immediately
+after plan construction; metadata is separately admitted.
 
-C1 remains pending final committed Release/reference/native/package/consumer
-verification. C2 parser vectors/plans/derived strings and C3 syntax/session/DOM
+Three ordinary controls retain 56 complete jobs across eight argv/response/mixed/
+JSON routes and seven success/fault/cancellation outcomes. Four fixed 4 KiB
+ASCII/UTF-8 controls preserve before-PDF rejection and borrowed next-argument
+access. Checked PDFs/sidecars, prior outputs, leases, four-round alias phases,
+144-byte counter-only admission and final zero remain exact. Twelve independent
+public jobs correct all eight host-held aliases and preserve four cancellation
+controls. The unchanged-source recompiled probe reproduces all twelve original
+predecessor observations with its exact final binary. Exact final ordinary tests
+retain three new predecessor failures and twelve established positives.
+
+The first full trial retains eleven failures in 584.2 seconds. Retiring unused
+copy admission and observing cancellation after producer release correct all
+eleven. The second trial retains one 7504-byte name-comparison sampling failure
+in 549.4 seconds; existing no-GC test isolation and warmup preserve its original
+64-comparison body and exact zero assertion. Final unfiltered Release passes all
+**18641 cases in 512.1 seconds (8m32s)**, preserving all 18638 preceding cases
+and 4535 named observations. All 2727 focused checks pass in 40.6 seconds.
+The original 7000-byte nested control rejects earlier; unchanged read-terminal,
+inspection, setter and strict 247494/247489-byte repair limits retain their
+documented qualification and all 100 repair warnings.
+
+Fresh pinned reference 1846/432, all 868 complete native records with the same
+64 valid physical differences (868 headers/804 decoded/868 exits), API908,
+exact packaged DLL/PDB/XML/changelog and fresh 50 consumer smokes/two specific
+negatives pass. Runtime/PDB/tests/probe SHA-256 prefixes are
+`933E7D02` / `B4676B60` / `25F23035` / `D47CBE63`; pinned oracle is `1BDAF878`.
+Five locks, five advisory exclusions, binding scope and unrelated work stay exact.
+
+Final phase seconds: restore 1.344, build 2.344, native 408.4, API 0.235,
+pack 2.812, inspection 1.547, consumer 21.766, negatives 8.985. Runtime/tests
+remain byte-identical through later development-tool builds; expensive ordinary
+proof is reused only for that explicit source/binary identity.
+
+Only C1 retires. C2 parser vectors/plans/derived strings, C3 syntax/session/DOM
 controllers, B3C/B4, A04/A06/M11 and both verdicts remain open. Established
-response expansion T/V/H evidence remains retired.
-
-The final committed ordinary proof on `bb18cf9` passes all 18641 cases in
-512.1 seconds (8m32s), with no failures/skips or overlapping verification jobs.
-All 18638 preceding occurrences and 4535 named observations remain. All 2727
-focused checks pass; the exact preceding runtime retains three new failures and
-twelve established positives. Reference/native/package/consumer proof is pending.
+response expansion T/V/H and read/decoded-text B1/B2 remain retired.
 
 ## Response argument ownership — CFG-01B3T/V/H retired
 
