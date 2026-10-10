@@ -35,16 +35,7 @@ internal sealed class ExpandedArguments : IDisposable
     }
 
     internal string CopySubstring(string source, int start, int length)
-    {
-        _governor.CheckCancellation();
-        _governor.ChargeWork(checked(length / 256L + 1L));
-        if (length == 0) { return string.Empty; }
-        long bytes = GovernedText.StringBytes(length);
-        Memory.Reserve(bytes);
-        string value = source.Substring(start, length);
-        Memory.RetainAllocation(value, bytes);
-        return value;
-    }
+        => GovernedText.CopySubstring(_governor, Memory, source, start, length);
 
     internal void AddResponseLines(GovernedText content)
     {

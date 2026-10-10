@@ -4,6 +4,17 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+The CFG-01B3C1 correction implements shared admission and independent ownership
+for decoded configuration strings and argv value substrings. Three new controls
+retain 56 complete public jobs and four fixed 4 KiB admission observations;
+the 24-case qualification passes. Host-held input/output/include/pass-one aliases
+remain funded, private plans collect and independently dropped channels reach
+zero. Original limits, success bytes, fault/cancellation outcomes and read-terminal
+conditions remain; stronger name admission makes the original 7000-byte nested
+control reject before child open. Combined committed proof remains pending.
+Parser vectors/plans/derived normalization (C2), syntax/session/DOM controllers
+(C3), the parent B3C/B4 and broader gates stay open.
+
 The response-argument correction adds seven public controls and 13 terminal jobs.
 All seven controls expose behavioral predecessor failures; original response
 controls remain positive. Generated text/vector admission and surviving host/

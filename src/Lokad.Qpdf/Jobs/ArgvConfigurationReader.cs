@@ -8,9 +8,9 @@ internal static class ArgvConfigurationReader
 {
     internal static async ValueTask ReadAsync(
         IReadOnlyList<string> argv, Action<string, object> setting,
-        Func<string, ValueTask> file, ResourceGovernor governor)
+        Func<string, ValueTask> file, ResourceGovernor governor, ConfigurationText textStorage)
     {
-        argv = new GovernedArguments(argv, governor);
+        argv = ConfigurationText.Wrap(new GovernedArguments(argv, governor), textStorage);
         // Excluded operations reject before any configuration/PDF/password input.
         ArgvParser.RejectCryptoOptions(argv, governor);
         bool gaveInput = false;
@@ -120,7 +120,7 @@ internal static class ArgvConfigurationReader
                     continue;
                 case "show-object":
                     int selectorEquals = token.IndexOf('=');
-                    setting("showObject", selectorEquals >= 0 ? token.Substring(selectorEquals + 1) : Value(argv, ref cursor, null));
+                    setting("showObject", selectorEquals >= 0 ? ConfigurationText.Slice(argv, token, selectorEquals + 1) : Value(argv, ref cursor, null));
                     cursor++;
                     continue;
                 case "collate":
@@ -180,7 +180,7 @@ internal static class ArgvConfigurationReader
         int equals = token.IndexOf('=');
         if (equals >= 0)
         {
-            string value = token.Substring(equals + 1);
+            string value = ConfigurationText.Slice(argv, token, equals + 1);
             if (value.Length == 0 && fallback is null) { throw Invalid("Empty option parameter.", cursor); }
             return value.Length == 0 ? fallback ?? string.Empty : value;
         }

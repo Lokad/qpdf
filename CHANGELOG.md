@@ -2,6 +2,8 @@
 
 ## 0.1.0-alpha.1 - non-cryptographic subset, M11 audit in progress
 
+- Admit decoded job-JSON strings and argv value substrings through the shared configuration text owner. Keep generated input, output, include and pass-one names independently funded after host calls; borrow caller strings and fixed syntax values, and retire private configuration text without forcing GC.
+
 - Admit response argument vectors, generated tokens and logical response names before allocation. Preserve caller-owned strings, transfer whole-line text once, retain independently surviving host/diagnostic aliases, and retire expansion storage before capturing final counters.
 
 - Admit decoded response text before allocation and keep it funded through input close and argument splitting. Release failed read/decode/close attempts, preserve prior outputs and caller arguments, and reject short memory admission before opening the PDF.

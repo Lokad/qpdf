@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -31,7 +32,7 @@ public sealed class MixedJobGovernanceTests
         Assert.NotEmpty(host.Opens);
         Assert.DoesNotContain(QpdfPath.From("inputs/a.pdf"), host.Opens);
         Assert.Equal(0L, failed.Counters.OpenHandles);
-        Assert.Equal(256L, failed.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
+        AssertRetainedNames(failed, host);
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);
         AssertPrior(source);
@@ -61,7 +62,7 @@ public sealed class MixedJobGovernanceTests
         Assert.Contains(QpdfPath.From("second.json"), host.Opens);
         Assert.DoesNotContain(QpdfPath.From("inputs/a.pdf"), host.Opens);
         Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(256L, result.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
+        AssertRetainedNames(result, host);
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);
         AssertPrior(source);
@@ -118,7 +119,7 @@ public sealed class MixedJobGovernanceTests
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
         Assert.True(result.Counters.TotalWork > 0 && result.Counters.PeakMemoryBytes > 0);
         Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(256L, result.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
+        AssertRetainedNames(result, host);
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);
         AssertPrior(source);
@@ -136,6 +137,13 @@ public sealed class MixedJobGovernanceTests
         Assert.Contains("cycle", result.Diagnostics[0].Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.Equal(0L, result.Counters.OpenHandles);
+    }
+
+    private static void AssertRetainedNames(QpdfExecutionResult result, TrackingHost host)
+    {
+        // The tracking host deliberately keeps the generated names after close.
+        long names = host.Opens.Sum(path => GovernedText.StringBytes(path.Value.Length));
+        Assert.InRange(result.Counters.LiveMemoryBytes, 256L + names, result.Counters.PeakMemoryBytes);
     }
 
     private static async Task PriorAsync(InMemoryQpdfHost source)

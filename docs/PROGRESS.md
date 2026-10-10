@@ -1,5 +1,36 @@
 # Progress
 
+## Configuration setting text — CFG-01B3C1 implemented, combined proof pending
+
+The predecessor leaves eight public host-held pass-one names unfunded (2080-byte
+string minimum, actual live 256, no receipt). The shared text factory now admits
+argv value copies and decoded JSON strings, including input/output/include names.
+JSON payload transfers from the established document budget; weak metadata is
+admitted independently. Caller-owned strings and fixed syntax literals stay borrowed.
+No production collection forcing or dependency/API change.
+
+Three ordinary controls cover 56 complete jobs across ordinary ASCII/UTF-8 argv,
+borrowed argv, response, mixed, direct JSON, file and nested routes, with success,
+publication/open/read/close faults and both cancellations. Successful one-page
+PDFs/sidecars validate; failures preserve prior main outputs and close all leases.
+Separate host/result/counter alias phases retain receipts, collect private plans,
+then leave 144 counter bytes and finally zero. Four fixed 4 KiB ASCII/UTF-8
+admission controls reject inline copies before PDF access and preserve borrowed
+next-argument access. The focused 24-case qualification passes.
+
+Old tracking hosts now retain admitted generated names, so their snapshot minima
+include those names. Loader zero-storage checks follow collection/maintenance;
+idempotence and weak DOM collection remain exact. The original 7000-byte nested
+limit now rejects before child open. The 24 read-terminal jobs keep their exact
+four-round/256-byte conditions through a separate producer/observer boundary.
+Reader-option forwarding keeps every flag and proves admitted input-name lifetime
+before collecting the plan and reaching zero. Earlier failed trials remain explicit.
+
+C1 remains pending final committed Release/reference/native/package/consumer
+verification. C2 parser vectors/plans/derived strings and C3 syntax/session/DOM
+controllers, B3C/B4, A04/A06/M11 and both verdicts remain open. Established
+response expansion T/V/H evidence remains retired.
+
 ## Response argument ownership — CFG-01B3T/V/H retired
 
 Two complete ASCII/UTF-8 rewrites retain a 2080-byte generated output token at
@@ -74,14 +105,10 @@ and full proofs remain in the closure checklist.
 
 ## Next finite work
 
-Resume CFG-01B3C parser vectors/plans and configuration controllers through complete public jobs.
-The next concrete failure is generated setting text: eight complete ordinary/
-response/mixed/direct-JSON success and publication-fault jobs leave a 2080-byte
-pass-one filename alive in the host while actual accounting holds only 256 and
-no string receipt. Four separate input-boundary cancellation controls pass.
-All 12 jobs close leases; successful PDFs validate and failed main outputs stay
-intact. Correct text allocation/escape ownership, then close the remaining parser
-and session obligations; this does not reopen established expansion evidence.
+Finish CFG-01B3C1 combined committed verification, then drive C2 parser vectors,
+plans and derived normalization and C3 syntax/session/DOM controllers through
+complete public jobs with physical overlap. Keep every remaining allocation and
+missing pass condition explicit; this does not reopen established expansion evidence.
 B5S1–B5S4 stay retired; wider B4/B5/T4/T5/T6, JSON-01, DIAG-01,
 MEASURE-01, M11/A01–A07 and both verdicts remain open. Binding ignored PLAN
 sections 3–6 and unrelated work remain unchanged.

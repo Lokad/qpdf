@@ -19,9 +19,16 @@ allocation header admission. Expansion admits its list and backing growth, borro
 caller strings/shared empties and admits generated substrings before allocation.
 Independent string receipts cover surviving host names and result diagnostics;
 single whole-line responses transfer their decoded string without double admission.
-The expansion vector clears and retires before final counter capture. Parser-created
-vectors, syntax adapters, plans and broader configuration/DOM controllers remain
-explicit ownership audit obligations.
+The expansion vector clears and retires before final counter capture. Configuration
+parsing shares one text factory across ordinary/mixed argv and direct/nested JSON.
+Argv value substrings receive exact admission before allocation; caller strings
+and fixed syntax literals remain borrowed. JSON decoded copies transfer their
+payload admission from the loader's existing document budget to independent weak
+receipts; receipt metadata is admitted separately. Generated input, output, include
+and pass-one names remain funded while a host retains them. Disposal releases
+private text admission; independently escaped strings retire with their aliases.
+Parser-created vectors, derived normalization strings, syntax adapters, plans
+and broader configuration/DOM controllers remain explicit ownership obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.

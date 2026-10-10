@@ -1,4 +1,5 @@
 using System.Text;
+using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Jobs;
@@ -118,8 +119,21 @@ public sealed class JobCheckTests
     [Fact]
     public void JobCheckForwardsReaderAndPresentationOptions()
     {
-        const string json = """{"inputFile":"inputs/a.pdf","check":"","verbose":"","reportMemoryUsage":"","ignoreXrefStreams":"","suppressRecovery":"","global":{"maxStreamFilters":5,"parserMaxNesting":13,"parserMaxContainerSize":21,"parserMaxContainerSizeDamaged":8,"parserMaxErrors":0,"noDefaultLimits":""}}""";
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        WeakReference plan = VerifyReaderAndPresentationOptions(governor);
+        for (int round = 0; round < 4; round++)
+        {
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            governor.ReserveMemory(0L);
+        }
+        Assert.False(plan.IsAlive);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference VerifyReaderAndPresentationOptions(ResourceGovernor governor)
+    {
+        const string json = """{"inputFile":"inputs/a.pdf","check":"","verbose":"","reportMemoryUsage":"","ignoreXrefStreams":"","suppressRecovery":"","global":{"maxStreamFilters":5,"parserMaxNesting":13,"parserMaxContainerSize":21,"parserMaxContainerSizeDamaged":8,"parserMaxErrors":0,"noDefaultLimits":""}}""";
         CheckPlan plan = Assert.IsType<CheckPlan>(JobJsonParser.Parse(json, QpdfLimits.Default, governor));
         Assert.Equal(QpdfRecoveryMode.Strict, plan.Recovery);
         Assert.Equal(5L, plan.MaxStreamFilters);
@@ -128,7 +142,9 @@ public sealed class JobCheckTests
         Assert.Equal(8L, plan.MaxContainerSizeDamaged);
         Assert.Equal(0L, plan.ParserMaxErrors);
         Assert.True(plan.NoDefaultLimits && plan.Verbose && plan.ReportMemoryUsage && plan.IgnoreXrefStreams);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.InRange(governor.Snapshot().LiveMemoryBytes,
+            GovernedText.StringBytes(plan.Input.Value.Length), governor.Snapshot().PeakMemoryBytes);
+        return new WeakReference(plan);
     }
 
     [Theory]

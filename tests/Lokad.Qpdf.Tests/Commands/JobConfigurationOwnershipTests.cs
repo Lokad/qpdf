@@ -20,11 +20,12 @@ public sealed class JobConfigurationOwnershipTests
             ["--job-json-file=child.json", "--show-npages"], QpdfLimits.Default, governor, CancellationToken.None);
         Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
         WeakReference[] documents = SnapshotAndDispose(loaded);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, host.OpenLeaseCount);
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
+        governor.ReserveMemory(0L);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.All(documents, document => Assert.False(document.IsAlive));
         GC.KeepAlive(loaded);
     }
@@ -39,13 +40,15 @@ public sealed class JobConfigurationOwnershipTests
         Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
         Assert.Equal(0L, host.OpenLeaseCount);
         WeakReference[] documents = SnapshotAndDispose(loaded);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Throws<ObjectDisposedException>(() => loaded.Plan);
+        long disposedMemory = governor.Snapshot().LiveMemoryBytes;
         loaded.Dispose();
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(disposedMemory, governor.Snapshot().LiveMemoryBytes);
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
         GC.WaitForPendingFinalizers();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
+        governor.ReserveMemory(0L);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.All(documents, document => Assert.False(document.IsAlive));
         GC.KeepAlive(loaded);
     }
@@ -73,6 +76,13 @@ public sealed class JobConfigurationOwnershipTests
         await Assert.ThrowsAsync<QpdfParseException>(async () => await JobJsonLoader.ParseAsync(host,
             """{"jobJsonFile":"child.json"}""", QpdfLimits.Default, governor, CancellationToken.None));
         Assert.True(governor.Snapshot().TotalWork > 0 && governor.Snapshot().PeakMemoryBytes > 0);
+        // Decoded names have independent weak receipts. Retire them after
+        // collection, while keeping the original exact zero-storage condition.
+        for (int round = 0; round < 4; round++)
+        {
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            governor.ReserveMemory(0L);
+        }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);

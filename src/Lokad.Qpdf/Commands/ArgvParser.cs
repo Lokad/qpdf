@@ -39,6 +39,8 @@ internal static class ArgvParser
             throw new QpdfParseException("No command arguments were supplied.", 0L, null);
         }
 
+        using ConfigurationText? textStorage = governor is null ? null : ConfigurationText.Create(governor);
+        argv = ConfigurationText.Wrap(argv, textStorage);
         RejectCryptoOptions(argv, governor);
         PagesArgumentBlock.Validate(argv, governor);
         argv = StripGlobalBlocks(argv);
@@ -105,7 +107,7 @@ internal static class ArgvParser
                 }
 
                 showObjectAt = showObjectScan;
-                showObjectSelector = showObjectToken.Substring("--show-object=".Length);
+                showObjectSelector = ConfigurationText.Slice(argv, showObjectToken, "--show-object=".Length);
                 if (showObjectSelector.Length == 0)
                 {
                     throw new QpdfParseException("Empty parameter for --show-object.", showObjectScan, null);
@@ -1053,7 +1055,7 @@ internal static class ArgvParser
                 }
 
                 at = i;
-                key = token.Substring("--show-attachment=".Length);
+                key = ConfigurationText.Slice(argv, token, "--show-attachment=".Length);
             }
         }
 
@@ -1266,7 +1268,7 @@ internal static class ArgvParser
             }
         }
 
-        return kept;
+        return ConfigurationText.Preserve(argv, kept);
     }
 
     private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
@@ -1461,7 +1463,7 @@ internal static class ArgvParser
                 string? collateValue = null;
                 if (argv[i].StartsWith("--collate=", StringComparison.Ordinal))
                 {
-                    collateValue = argv[i].Substring("--collate=".Length);
+                    collateValue = ConfigurationText.Slice(argv, argv[i], "--collate=".Length);
                 }
 
                 collate.AddRange(ParseCollateValue(collateValue, i));
@@ -1473,7 +1475,7 @@ internal static class ArgvParser
                 string? specification = null;
                 if (argv[i].StartsWith("--rotate=", StringComparison.Ordinal))
                 {
-                    specification = argv[i].Substring("--rotate=".Length);
+                    specification = ConfigurationText.Slice(argv, argv[i], "--rotate=".Length);
                     if (specification.Length == 0)
                     {
                         throw new QpdfParseException("Empty parameter for --rotate.", i, null);
@@ -2203,7 +2205,7 @@ internal static class ArgvParser
             kept.Add(argv[i]);
         }
 
-        argv = kept;
+        argv = ConfigurationText.Preserve(argv, kept);
         bool resolvedNormalize = normalizeContent || (qdf && !seenNormalizeContent);
         return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits, parserMaxErrors)
         {
@@ -2218,7 +2220,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2256,7 +2258,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2294,7 +2296,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2334,7 +2336,7 @@ internal static class ArgvParser
     {
         string token = argv[i];
         int equals = token.IndexOf((char)61);
-        string? value = equals >= 0 ? token.Substring(equals + 1) : null;
+        string? value = equals >= 0 ? ConfigurationText.Slice(argv, token, equals + 1) : null;
         if (value != "y" && value != "n")
         {
             throw new QpdfParseException("Option --keep-files-open must be --keep-files-open=y or --keep-files-open=n.", i, null);
@@ -2350,7 +2352,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2388,7 +2390,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2426,7 +2428,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2464,7 +2466,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2506,7 +2508,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2558,7 +2560,7 @@ internal static class ArgvParser
         int equals = token.IndexOf((char)61);
         if (equals >= 0)
         {
-            string inline = token.Substring(equals + 1);
+            string inline = ConfigurationText.Slice(argv, token, equals + 1);
             if (inline.Length == 0)
             {
                 throw new QpdfParseException("Empty parameter for --linearize-pass1.", i, null);
@@ -2589,7 +2591,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -2676,7 +2678,7 @@ internal static class ArgvParser
         int equals = token.IndexOf((char)61);
         if (equals >= 0)
         {
-            return token.Substring(equals + 1);
+            return ConfigurationText.Slice(argv, token, equals + 1);
         }
 
         if (i + 1 >= argv.Count)
@@ -2701,7 +2703,7 @@ internal static class ArgvParser
         string? value = null;
         if (equals >= 0)
         {
-            value = token.Substring(equals + 1);
+            value = ConfigurationText.Slice(argv, token, equals + 1);
         }
         else if (i + 1 < argv.Count)
         {
@@ -3272,7 +3274,7 @@ internal static class ArgvParser
 
             if (token.StartsWith("--remove-attachment=", StringComparison.Ordinal))
             {
-                string key = token.Substring("--remove-attachment=".Length);
+                string key = ConfigurationText.Slice(argv, token, "--remove-attachment=".Length);
                 if (key.Length == 0)
                 {
                     throw new QpdfParseException("Option --remove-attachment requires a non-empty key.", cursor, null);
@@ -3450,7 +3452,7 @@ internal static class ArgvParser
         string token = argv[cursor];
         int equals = token.IndexOf("=", StringComparison.Ordinal);
         cursor += 1;
-        return token.Substring(equals + 1);
+        return ConfigurationText.Slice(argv, token, equals + 1);
     }
 
     private static string TakeOverlayFrom(IReadOnlyList<string> argv, ref int cursor)
@@ -3957,7 +3959,7 @@ internal static class ArgvParser
         if (equals >= 0)
         {
             i += 1;
-            return token.Substring(equals + 1);
+            return ConfigurationText.Slice(argv, token, equals + 1);
         }
 
         if (i + 1 >= terminatorAt)
@@ -4089,7 +4091,7 @@ internal static class ArgvParser
         int equals = token.IndexOf('=');
         if (equals >= 0)
         {
-            string inline = token.Substring(equals + 1);
+            string inline = ConfigurationText.Slice(argv, token, equals + 1);
             if (inline.Length == 0)
             {
                 throw new QpdfParseException($"Empty parameter for {option}.", i, null);

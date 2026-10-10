@@ -229,7 +229,10 @@ public sealed class NestedJobTests
         };
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """{"jobJsonFile":"child.json"}""", new QpdfExecutionOptions(limits), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, Assert.Single(result.Diagnostics).Code);
-        Assert.Contains(QpdfPath.From("child.json"), host.Opens);
+        // At the original 7000-byte ceiling, the independently owned decoded
+        // child name now exhausts admission before its host open.
+        if (budget == "memory") { Assert.Empty(host.Opens); }
+        else { Assert.Contains(QpdfPath.From("child.json"), host.Opens); }
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, source.OpenLeaseCount);
         Assert.Equal(0, host.Outputs);

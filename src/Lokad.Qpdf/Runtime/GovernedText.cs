@@ -35,6 +35,18 @@ internal sealed class GovernedText : IDisposable
         return checked((2L * alignment + 6L + 2L * length + alignment - 1L) & ~(alignment - 1L));
     }
 
+    internal static string CopySubstring(ResourceGovernor governor, ParserMemoryScope memory, string source, int start, int length)
+    {
+        governor.CheckCancellation();
+        governor.ChargeWork(checked(length / 256L + 1L));
+        if (length == 0) { return string.Empty; }
+        long bytes = StringBytes(length);
+        memory.Reserve(bytes);
+        string value = source.Substring(start, length);
+        memory.RetainAllocation(value, bytes);
+        return value;
+    }
+
     internal static GovernedText DecodeUtf8(ResourceGovernor governor, ReadOnlySpan<byte> bytes)
     {
         governor.CheckCancellation();

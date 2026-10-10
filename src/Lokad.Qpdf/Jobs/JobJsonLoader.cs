@@ -47,7 +47,7 @@ internal static class JobJsonLoader
         {
             session.AdmitArguments(argv);
             await ArgvConfigurationReader.ReadAsync(argv, session.AddSetting,
-                name => session.LoadFileChainAsync(name, cancellationToken), governor).ConfigureAwait(false);
+                name => session.LoadFileChainAsync(name, cancellationToken), governor, session.TextStorage).ConfigureAwait(false);
             return new LoadedJob(session.ParsePlan(true), session);
         }
         catch { session.Dispose(); throw; }
@@ -78,6 +78,7 @@ internal static class JobJsonLoader
         private HashSet<string>? _identities;
         private long _bytes;
         private long _reserved;
+        private ConfigurationText? _textStorage;
 
         private Session(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor)
         {
@@ -88,6 +89,7 @@ internal static class JobJsonLoader
             _documents = new List<JsonDocument>();
             _fields = new List<JsonProperty>();
             _identities = new HashSet<string>(StringComparer.Ordinal);
+            _textStorage = ConfigurationText.Create(governor);
         }
 
         internal static Session Create(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor)
@@ -106,6 +108,7 @@ internal static class JobJsonLoader
         }
 
         private List<JsonDocument> Documents => _documents ?? throw new ObjectDisposedException(nameof(Session));
+        internal ConfigurationText TextStorage => _textStorage ?? throw new ObjectDisposedException(nameof(Session));
 
         internal void AdmitArguments(IReadOnlyList<string> argv)
         {
@@ -197,8 +200,10 @@ internal static class JobJsonLoader
             // Covers encoded storage, DOM/token tables, names and property sorting
             // before allocation. BCL pool retention remains part of the A06 audit.
             long reservation = checked(bytes * 32L + 4096L);
-            _governor.ReserveMemory(reservation);
-            _reserved = checked(_reserved + reservation);
+            long copies = ConfigurationText.JsonCopyBytes(bytes);
+            _governor.ReserveMemory(reservation - copies);
+            _reserved = checked(_reserved + reservation - copies);
+            TextStorage.AdmitJsonCopies(copies);
             _bytes = total;
             _governor.ChargeWork(bytes + 1L);
         }
@@ -267,18 +272,19 @@ internal static class JobJsonLoader
             while (Documents[^1].RootElement.TryGetProperty(FileKey, out JsonElement child))
             {
                 _governor.CheckCancellation();
-                if (child.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(child.GetString()))
+                if (child.ValueKind != JsonValueKind.String)
                 {
                     throw new QpdfParseException("Job jobJsonFile must be a nonempty string.", 0L, null);
                 }
-                string name = child.GetString() ?? throw new QpdfParseException("Job jobJsonFile must name a file.", 0L, null);
+                string name = TextStorage.ReadJsonString(child) ?? throw new QpdfParseException("Job jobJsonFile must name a file.", 0L, null);
+                if (name.Length == 0) { throw new QpdfParseException("Job jobJsonFile must be a nonempty string.", 0L, null); }
                 await AddFileAsync(SelectionPlan.CheckedPath(name), Documents.Count - first, cancellationToken).ConfigureAwait(false);
             }
         }
 
         internal JobPlan ParsePlan(bool configurationLayers)
             => JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
-                configurationLayers || Documents.Count > 1, _limits, _governor);
+                configurationLayers || Documents.Count > 1, _limits, _governor, TextStorage);
 
         internal void AppendChainFields(int first)
         {
@@ -322,6 +328,9 @@ internal static class JobJsonLoader
             _documents = null;
             _fields = null;
             _identities = null;
+            ConfigurationText? textStorage = _textStorage;
+            _textStorage = null;
+            textStorage?.Dispose();
             _governor.ReleaseMemory(_reserved);
             _reserved = 0L;
         }

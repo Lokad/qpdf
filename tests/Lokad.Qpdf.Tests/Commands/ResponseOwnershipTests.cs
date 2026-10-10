@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
@@ -172,6 +173,13 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
     [Fact]
     public async Task CompleteResponseReadAttemptsRetireOnEveryTerminalOutcome()
     {
+        var jobs = await CompleteReadAttempts();
+        ObserveReadAttempts(jobs);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private async Task<List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)>> CompleteReadAttempts()
+    {
         List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)> jobs = [];
         foreach (string route in new[] { "response", "job", "mixed" })
         foreach (string outcome in new[] { "success", "read-fault", "close-fault", "invalid-utf8", "cancel", "host-cancel", "no-progress", "empty" })
@@ -179,6 +187,12 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
             jobs.Add(await Execute(outcome, false, route, QpdfLimits.Default));
             output.WriteLine("CONFIGURATION CONTROL PASS {0}|{1}", route, outcome);
         }
+        return jobs;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ObserveReadAttempts(List<(BoundaryHost Host, QpdfExecutionResult Result, ResourceGovernor Governor, int Length)> jobs)
+    {
         for (int round = 0; round < 4; round++)
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
