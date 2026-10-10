@@ -1,37 +1,52 @@
 # Progress
 
-## Derived configuration text — CFG-01B3C2D1 implemented, combined proof pending
+## Derived configuration text — CFG-01B3C2D1 retired
 
-Complete public jobs expose unfunded label first-page/prefix strings, rotation
-ranges and normalized JSON selectors. The valid 4 KiB rotation job opens its
-PDF before rejecting. Shared configuration text now admits retained copies before
-allocation; span parsing avoids temporary split arrays/substrings, and typed JSON
-uses the same canonical selector factory. Existing source-text receipts remain
-independent. Parser vectors/plans and typed label/rotation conversion remain C2.
+Committed `d8050eb` funds parsed label first-page/prefix strings, rotation ranges
+and canonical JSON selectors, including typed JSON, through the shared text
+factory. Admission precedes allocation; span parsing avoids temporary split
+arrays/substrings. Typed normalization closes its temporary text owner before
+execution and final counter capture. The valid 4 KiB rotation job now rejects
+before opening its PDF. Parser vectors/plans and other conversions remain C2.
 
-The initial 84-job matrix preserves every checked PDF/JSON output, prior target,
-host fault and both cancellations but exposes 210 missing receipts at input and
-210 after completion. Its cleanup probe also finds twelve successful/publication-
-fault label jobs retaining 64 bytes after all aliases die. This is the existing
-unowned `ResolveLabelItems` reservation, now explicit LABEL-OWN1; exact original
-144/208-byte counter-only and 0/64-byte final observations remain qualified.
-The first controls retain an invalid rotation invocation and that separate
-retirement failure; corrected controls require valid pages syntax and record the
-label debt explicitly. Four collection/per-governor maintenance rounds remain.
+Three ordinary controls exercise 98 independent argv/Unicode/response/mixed/
+direct/file/nested jobs, seven typed JSON jobs and the fixed 4 KiB rejection.
+Success, open/read/close/publication faults, both cancellations, prior targets,
+checked PDF/JSON outputs and leases remain. Independently sampled CLR string
+sizes prove that instrumented setting aliases stay funded while private plans
+and inspection die; these private observations do not imply public string escape.
+Four shared collection/per-governor maintenance rounds retain separate hosts,
+governors, faults and aliases. The exact final tests on the predecessor expose
+three new failures while preserving fifteen established positives, without
+loaders/skips: 245 missing receipts at input and 245 after command completion,
+plus the typed selector failure and late 4 KiB rejection.
 
-The final controls pass three cases: 98 complete argv/response/mixed/direct/file/
-nested jobs, seven typed JSON jobs and the fixed 4 KiB before-input rejection.
-Unicode argv and independently sampled physical string sizes supplement the
-instrumented setting aliases while private plans collect. Those aliases are
-test observations, not a claim that private settings escape through a public API.
-All 2386 final focused cases pass in 32.7 seconds; the exact final test binary
-on the predecessor retains three new failures and fifteen established positives.
-The 98-job controls expose 245 missing receipts at input and 245 after completion;
-seven typed consumers retain their independent failure. All fourteen original
-64-byte label-output debts remain exact. Typed normalization retires its temporary
-text owner before execution/final counter capture. Committed full/reference/native/
-package/consumer proof remains required. C1, response ownership and speed evidence stay established;
-C2/C3/B4, LABEL-OWN1 and all parent gates remain open.
+All 2386 focused cases pass in 32.7 seconds. The combined committed tree passes
+all **18644 Release cases in 518.3 seconds (8m38s)**, retaining
+every 18641 preceding occurrence and all 4535 named observations. Fresh pinned
+**1846 object comparisons/432 rewrite trios** pass in **385.0
+seconds (6m25s)**, with all parser values/budgets/exits/raw stdout, 283 input
+PDFs, 617 differential case messages and complete 45/60/189/108 records exact.
+All 2131 differential input paths/data remain, with generated native IDs/dates
+and JSON ordering/run paths explicitly classified. Both original negatives pass.
+All 868 complete native records and the same 64 valid physical differences,
+API908, exact DLL/PDB/XML/changelog package and 50 fresh consumer smokes/two
+specific negatives pass. Locked restore and zero-warning Release build pass.
+Producer library/PDB/tests/probe SHA-256 prefixes are
+`53FA8DE3` / `33AD8BD6` / `99DBADB4` / `57B83E83`; pinned oracle `1BDAF878`.
+Timed full/reference runs have no overlapping verification work.
+Current parser/differential phase intervals are 306.8/73.0
+seconds, measured from fresh workspace creation through final transport records;
+managed round trips take 46.5/17.5 seconds. The original instrumented baseline
+remains unchanged below.
+
+The initial 84-job controls expose 210+210 missing receipts and twelve separate
+label-output debts. The first invalid rotation invocation and cleanup failure
+remain explicit; corrected controls preserve valid page syntax and the original
+144/208-byte counter-only and 0/64-byte final observations. Unicode adds two
+matching debts: all fourteen 64-byte unowned `ResolveLabelItems` reservations
+remain **LABEL-OWN1 open**. This text correction does not fund label output graphs.
+C1, response ownership and REF-03 remain retired. C2/C3/B4 and all parents stay open.
 
 ## Reference run below ten minutes — REF-03 retired
 
@@ -205,10 +220,12 @@ and full proofs remain in the closure checklist.
 
 ## Next finite work
 
-Finish CFG-01B3C1 combined committed verification, then drive C2 parser vectors,
-plans and derived normalization and C3 syntax/session/DOM controllers through
-complete public jobs with physical overlap. Keep every remaining allocation and
-missing pass condition explicit; this does not reopen established expansion evidence.
+Choose LABEL-OWN1 by its observed complete-job 64-byte retirement failure.
+Independently admit actual label graph/encoding/list/number-tree storage before
+construction and prove overlap/alias retirement through affected public jobs.
+Then drive remaining C2 parser vectors/plans/conversions and C3 syntax/session/
+DOM controllers through complete jobs with physical overlap. Keep missing pass
+conditions explicit; established text/expansion/reference evidence stays retired.
 B5S1–B5S4 stay retired; wider B4/B5/T4/T5/T6, JSON-01, DIAG-01,
 MEASURE-01, M11/A01–A07 and both verdicts remain open. Binding ignored PLAN
 sections 3–6 and unrelated work remain unchanged.

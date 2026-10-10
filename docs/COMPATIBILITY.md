@@ -4,15 +4,19 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-CFG-01B3C2D1 implements independent admission for parsed label first-page/prefix
-strings, rotation ranges and canonical JSON selectors, including typed JSON.
-Span parsing avoids temporary split strings/arrays while preserving syntax and
-native values. Three final controls pass 98 configuration jobs, seven typed JSON
-jobs and fixed 4 KiB before-input rejection, including Unicode argv and independent
-physical string samples. Combined proof remains pending. The existing 64-byte
-label-output reservation survives in successful/publication-fault jobs and stays
-explicit as LABEL-OWN1. C2 vectors/plans/other conversions, C3 and parent gates
-remain open.
+CFG-01B3C2D1 retires on committed `d8050eb`: parsed label first-page/prefix
+strings, rotation ranges and canonical JSON selectors receive independent
+admission before allocation, including typed JSON. Span parsing preserves syntax
+and native values. Three controls exercise 98 configuration jobs, seven typed
+JSON jobs and fixed 4 KiB before-input rejection, with Unicode and independent
+physical string samples. Exact final predecessor tests retain three new failures
+and fifteen established positives. All 18644 Release cases pass in 8m38s,
+preserving every 18641 prior occurrence and all 4535 named observations. Fresh
+pinned 1846/432 reference passes in 6m25s; all 868 native records/same 64
+physical differences, API908 and exact package/fresh 50-smoke/two-negative
+consumers pass. Existing label-output 64-byte reservations remain LABEL-OWN1;
+fourteen qualified complete-job observations retain that debt explicitly.
+C2 vectors/plans/other conversions, C3 and parent gates remain open.
 
 CFG-01B3C1 retires on integrated `6253cde` / `79f30c0` / `bb18cf9`, with
 development reference tools `07246d2`. Independent receipts fund host-held
