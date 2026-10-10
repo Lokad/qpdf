@@ -182,21 +182,30 @@ quota cases and adds successful peak equality; original ceilings/publication
 assertions remain. The first combined full run's sole failure is classified as
 valid peak variation; its byte rejection is correct. 262 other old sources/five
 locks and all 908 signatures remain exact. T3/T3E
-proofs stay closed. T4 copied backing/mapping, T5/T6 and the parent remain open. Ten completed
-public selection alias controls expose zero independent retirement after alias/
-backing collection (B1 four/B2 four/B3 two); preserve all lower bounds and positives.
-The shared selection correction now admits copied source/count/mapping/path
-arrays/views, each mapping record and generated split names before publication.
-Independent weak receipts prepay retirement; caller-created copies keep their
-ownership distinction. The 188 new public rows expose 52 predecessor failures
-and preserve 136, including all ten original retirement defects; five separate
-admission controls retain original physical minima and bounds. Pinned reference 1846/432, unchanged 868 complete native records/same 64
-and exact package/API/fresh consumers pass at `d850072`. Two legacy tests separate
-prepaid owner credits and stabilize the BCL pool allocation baseline; all 447
-wrapper/three formatting cases and 32 borrowed-buffer repetitions pass at the
-original limits. Preserve the three classified partial full trials. Official
-reproduction of the mapped test DLL and final full proof remain required for B1–B3. Checker/
-warning backing B4, complete B5/T5/T6 and parent gates remain open.
+proofs stay closed. T4 copied backing/mapping, T5/T6 and the parent remain open.
+Ten preserved predecessor public selection alias controls expose zero independent
+retirement after alias/backing collection (B1 four/B2 four/B3 two); preserve all
+lower bounds and positives.
+Runtime `d850072` and test integration `f353b51` retire B1–B3: all 16897
+Release cases preserve every 16704 established occurrence. Shared factories admit
+source/count/mapping/path arrays/views, mapping records and generated split names
+before publication with independent prepaid weak retirement. All ten original
+retirement defects correct at unchanged physical minima/GC/maintenance bounds.
+188 public rows expose 52 predecessor failures/preserve 136; five admission
+controls retain exact memory/work ceilings. Complete success/fault/cancel/sibling
+jobs preserve values, prior targets, caller copies and closed leases.
+Official build reproduces the corrected mapped test DLL exactly. Pinned 1846/432,
+every unchanged native record (868/same 64), exact package/PDB/changelog/API and
+fresh 50-smoke/two-negative consumers bind the combined committed tree. Preserve
+three classified partial full trials and both legacy test corrections; original
+128-byte diagnostic/4096-byte allocation limits and exact wrapper credits remain.
+B4 checker/warning backing, B5/T4/T5/T6 and parent gates remain open. Positive
+checker retirement is qualified; independent copied backing admission is unproved.
+B4D names four complete document-warning jobs before/after disposal, raw/Flate:
+4096 retained snapshots have measured 24-byte views/32-byte backing, exceeding
+the original 65536-byte limit with 229376 new bytes and flat memory/work counters.
+Shared records/strings and caller storage are excluded; leases close. Preserve
+these new failures without reopening retired selection/version evidence.
 Governor growth to 248, private document component slots and task/async frames,
 cold/BCL/host containment remain MEASURE-01; no wider containment is claimed.
 The combined hint ownership correction passes 11008 Release cases, the full pinned
