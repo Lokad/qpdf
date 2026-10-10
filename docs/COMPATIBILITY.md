@@ -4,6 +4,13 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+The response-text correction preserves 1928 focused configuration/result/JSON
+checks and 24 complete terminal jobs. Exact decoded string admission precedes
+allocation and survives input close/splitting; four final public controls expose
+the predecessor's missing storage/late short-admission defects. CFG-01B1/B2 await
+combined committed-source proof; token/vector/controller CFG-01B3 and broader
+configuration/default/context/ownership gates remain open.
+
 TEST-02 preserves all 2063 command/typed/diagnostic scenarios and their original
 assertions, alias phases, limits and 32-cycle stress controls. All 2174 focused
 cases pass; comparable wall time falls 965.7 to 141.6 seconds (6.8 times

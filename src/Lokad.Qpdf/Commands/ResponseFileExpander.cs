@@ -72,14 +72,14 @@ internal static class ResponseFileExpander
                 throw new QpdfParseException($"Response file name is not a valid logical path: {ex.Message}.", i, null, ex);
             }
 
-            string? content = await TryReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            using GovernedText? content = await TryReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false);
             if (content is null)
             {
                 expanded.Add(token);
                 continue;
             }
 
-            foreach (string line in SplitLines(content))
+            foreach (string line in SplitLines(content.Value))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.ChargeWork(1L);
@@ -90,7 +90,7 @@ internal static class ResponseFileExpander
         return expanded;
     }
 
-    internal static async ValueTask<string> ReadTextFileAsync(
+    internal static async ValueTask<GovernedText> ReadTextFileAsync(
         IQpdfHost host,
         QpdfPath path,
         QpdfLimits limits,
@@ -114,6 +114,7 @@ internal static class ResponseFileExpander
 
         limits.Validate();
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+        GovernedText? decoded = null;
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -131,15 +132,15 @@ internal static class ResponseFileExpander
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), input.Length, limits.MaxMemoryBytes);
             }
 
-            // The decoded configuration text has a different lifetime from
-            // this private read copy. Retire only the byte attempt here;
-            // expanded-token/text ownership remains the controller audit.
+            // Encoded bytes and decoded text have overlapping physical storage.
+            // Keep the text's independent owner through input close and splitting.
             using ParserMemoryScope bytesOwner = ParserMemoryScope.Create(governor);
-            bytesOwner.Reserve(input.Length == 0L ? 0L : checked(32L + input.Length));
+            bytesOwner.Reserve(checked(32L + input.Length));
             byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
             try
             {
-                return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);
+                decoded = GovernedText.DecodeUtf8(governor, bytes);
+                return decoded;
             }
             catch (DecoderFallbackException ex)
             {
@@ -148,11 +149,12 @@ internal static class ResponseFileExpander
         }
         finally
         {
-            await input.DisposeAsync().ConfigureAwait(false);
+            try { await input.DisposeAsync().ConfigureAwait(false); }
+            catch { decoded?.Dispose(); throw; }
         }
     }
 
-    private static async ValueTask<string?> TryReadTextFileAsync(
+    private static async ValueTask<GovernedText?> TryReadTextFileAsync(
         IQpdfHost host,
         QpdfPath path,
         QpdfLimits limits,

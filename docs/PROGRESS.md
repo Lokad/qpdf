@@ -1,5 +1,23 @@
 # Progress
 
+## Response text ownership — CFG-01B1/B2 combined proof pending
+
+Complete one-page ASCII/UTF-8 response jobs retained a 2112-byte decoded string
+at input close while only 288 bytes were funded. Decoding now admits exact text
+storage before allocation, holds it through close/splitting and drops failed close
+candidates. Empty private read copies admit their array header; decoding work is
+bounded before both passes. No production GC forcing is introduced.
+
+All 1928 focused response/configuration/result/JSON cases pass. The five final
+public tests preserve 24 independent terminal jobs across response, direct job-file
+and mixed execution in one shared collection cohort. Four exact predecessor tests
+fail: both decoded-string deficits and both late 3000-byte admission rejections;
+the 24 terminal jobs remain a positive control. Original caller arguments, prior
+output aliases, statuses, successful one-page PDFs and closed leases remain.
+CFG-01B1/B2 await committed combined Release/reference/package/consumer binding.
+CFG-01B3 token/vector/controller ownership remains the next separate obligation;
+the parent CFG-01B, A04/A06/M11 and broader verdicts remain open.
+
 ## Full suite below ten minutes — TEST-03A–G retired
 
 Integrated test commit `45e16c5` passes all 18626 unfiltered Release cases

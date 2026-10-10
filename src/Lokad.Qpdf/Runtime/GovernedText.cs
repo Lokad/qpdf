@@ -1,9 +1,12 @@
+using System.Text;
+
 namespace Lokad.Qpdf.Runtime;
 
 /// <summary>Owns an admitted immutable string until disposal or transfer to retained storage.</summary>
 internal sealed class GovernedText : IDisposable
 {
     private const long OwnerBytes = 64L;
+    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private readonly ResourceGovernor _governor;
     private string? _value;
     private long _reservedBytes;
@@ -30,6 +33,23 @@ internal sealed class GovernedText : IDisposable
         if (length == 0) { return 0L; }
         long alignment = IntPtr.Size;
         return checked((2L * alignment + 6L + 2L * length + alignment - 1L) & ~(alignment - 1L));
+    }
+
+    internal static GovernedText DecodeUtf8(ResourceGovernor governor, ReadOnlySpan<byte> bytes)
+    {
+        governor.CheckCancellation();
+        // Each bounded work unit covers at most 256 input bytes in each pass.
+        governor.ChargeWork(checked(2L * (bytes.Length / 256L + 1L)));
+        int length = StrictUtf8.GetCharCount(bytes);
+        governor.CheckCancellation();
+        long reserved = checked(OwnerBytes + StringBytes(length));
+        governor.ReserveMemory(reserved);
+        try
+        {
+            string value = StrictUtf8.GetString(bytes);
+            return new GovernedText(governor, value, reserved, bytes.Length);
+        }
+        catch { governor.ReleaseMemory(reserved); throw; }
     }
 
     internal static GovernedText Create(ResourceGovernor governor, TextChunk? head, int length, long utf8Bytes)

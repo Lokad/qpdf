@@ -2,6 +2,8 @@
 
 ## 0.1.0-alpha.1 - non-cryptographic subset, M11 audit in progress
 
+- Admit decoded response text before allocation and keep it funded through input close and argument splitting. Release failed read/decode/close attempts, preserve prior outputs and caller arguments, and reject short memory admission before opening the PDF.
+
 - Scope copied graphs, overlay decode/encode storage and attachment assembly through publication. Pair output-length admission with transaction cleanup, keep private reader values funded through their last consumer, and prepay transformed-stream retirement on exhausted jobs.
 
 - Admit independent immutable typed warning collections at the shared publication boundary. Preserve accepted diagnostic identities/order, output aliases and post-commit close behavior across selection, JSON and attachment jobs.

@@ -12,6 +12,11 @@ input identities for cycle checks. Sorted-key prefixes and reverse suffixes shar
 the existing operation parser and preserve native setter/duplicate semantics.
 Configuration storage stays admitted until execution finishes; input leases close
 between files. The loader bounds cumulative bytes, work, nesting and storage.
+Response decoding admits its exact UTF-16 string before allocation while encoded
+bytes overlap. Its independent text owner survives input close and line splitting;
+close failures discard that unreturned owner. Empty read-copy arrays retain their
+allocation header admission. Expanded-token/vector and broader controller ownership
+remain explicit configuration audit obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.
