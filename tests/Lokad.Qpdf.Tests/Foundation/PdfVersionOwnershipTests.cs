@@ -21,6 +21,7 @@ public sealed class PdfVersionOwnershipTests
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
     private static readonly QpdfPath Output = QpdfPath.From("output.pdf");
+    private static readonly Dictionary<Type, long> PhysicalSizes = [];
 
     private sealed class DocumentAliases(ResourceGovernor governor, PdfVersion[] versions, WeakReference document,
         WeakReference host, WeakReference header, WeakReference effective, bool same)
@@ -39,6 +40,23 @@ public sealed class PdfVersionOwnershipTests
 
     internal static long MeasurePhysicalSize(Type type)
     {
+        // A CLR type has one layout for this process. Establish that physical
+        // fact once, then reuse it in independent public ownership jobs.
+        lock (PhysicalSizes)
+        {
+            if (PhysicalSizes.TryGetValue(type, out long size)) { return size; }
+            long measured = MeasureUncachedPhysicalSize(type);
+            PhysicalSizes.Add(type, measured);
+            return measured;
+        }
+    }
+
+    private static long MeasureUncachedPhysicalSize(Type type)
+    {
+        // Collection can invalidate reflection caches between warmup and the
+        // sample. Preserve an existing no-GC phase when this helper is nested.
+        using IDisposable? capture = System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion
+            ? null : OwnershipBatch.CaptureWithoutCollection();
         ResourceGovernor observer = new(QpdfLimits.Default, CancellationToken.None);
         Func<object> create = type == typeof(WeakReference<ResourceGovernor>)
             ? () => new WeakReference<ResourceGovernor>(observer) : () => RuntimeHelpers.GetUninitializedObject(type);

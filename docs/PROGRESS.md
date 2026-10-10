@@ -26,6 +26,13 @@ This trial meets the time target but does not close the passing full-suite gate.
 The corrected affected classes pass all 2026 cases. Exact current predecessor
 tests preserve all 1130 failed/402 passing selection outcomes and every result,
 JSON and diagnostic control. All 1375 affected assertion expressions stay exact.
+The capture correction full run takes 559.9 seconds with 18625 passes and one
+physical-sampler failure (200 extra bytes). TEST-03G protects warmup/sampling from
+collection and measures each fixed CLR type once. Original exact-size/divisibility
+assertions and complete public ownership jobs remain; combined proof is pending.
+All 1262 affected physical-sampler consumers pass. The final compiled tests keep
+every compatible selection/result/JSON/diagnostic predecessor outcome exact;
+1375 original assertion expressions and runtime/package identities remain.
 Runtime DLL/PDB, package and prior scoped verification remain unchanged;
 CFG-01B stays deferred until the requested speed gate closes.
 
