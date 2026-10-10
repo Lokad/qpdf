@@ -1,5 +1,38 @@
 # Progress
 
+## Derived configuration text — CFG-01B3C2D1 implemented, combined proof pending
+
+Complete public jobs expose unfunded label first-page/prefix strings, rotation
+ranges and normalized JSON selectors. The valid 4 KiB rotation job opens its
+PDF before rejecting. Shared configuration text now admits retained copies before
+allocation; span parsing avoids temporary split arrays/substrings, and typed JSON
+uses the same canonical selector factory. Existing source-text receipts remain
+independent. Parser vectors/plans and typed label/rotation conversion remain C2.
+
+The initial 84-job matrix preserves every checked PDF/JSON output, prior target,
+host fault and both cancellations but exposes 210 missing receipts at input and
+210 after completion. Its cleanup probe also finds twelve successful/publication-
+fault label jobs retaining 64 bytes after all aliases die. This is the existing
+unowned `ResolveLabelItems` reservation, now explicit LABEL-OWN1; exact original
+144/208-byte counter-only and 0/64-byte final observations remain qualified.
+The first controls retain an invalid rotation invocation and that separate
+retirement failure; corrected controls require valid pages syntax and record the
+label debt explicitly. Four collection/per-governor maintenance rounds remain.
+
+The final controls pass three cases: 98 complete argv/response/mixed/direct/file/
+nested jobs, seven typed JSON jobs and the fixed 4 KiB before-input rejection.
+Unicode argv and independently sampled physical string sizes supplement the
+instrumented setting aliases while private plans collect. Those aliases are
+test observations, not a claim that private settings escape through a public API.
+All 2386 final focused cases pass in 32.7 seconds; the exact final test binary
+on the predecessor retains three new failures and fifteen established positives.
+The 98-job controls expose 245 missing receipts at input and 245 after completion;
+seven typed consumers retain their independent failure. All fourteen original
+64-byte label-output debts remain exact. Typed normalization retires its temporary
+text owner before execution/final counter capture. Committed full/reference/native/
+package/consumer proof remains required. C1, response ownership and speed evidence stay established;
+C2/C3/B4, LABEL-OWN1 and all parent gates remain open.
+
 ## Reference run below ten minutes — REF-03 retired
 
 Committed `4483771` / `07246d2` preserve every original comparison, input

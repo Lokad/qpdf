@@ -1657,7 +1657,7 @@ internal static class JobJsonParser
                 }
 
                 Qpdf.ValidateJsonKeys(jsonNumber, effectiveKeys);
-                List<string> wantedObjects = Qpdf.ValidateJsonObjects(jsonObjects, 0L);
+                List<string> wantedObjects = Qpdf.ValidateJsonObjects(jsonObjects, 0L, textStorage);
                 string jsonDecode = decodeLevel ?? (seenJsonOutput ? "none" : "generalized");
                 if (jsonDecode != "none" && jsonDecode != "generalized" && jsonDecode != "specialized" && jsonDecode != "all")
                 {
@@ -1966,7 +1966,7 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"rotate\" entries must be strings.", 0L, null);
             }
 
-            rotations.Add(OutputRotation.Parse(specification, 0L));
+            rotations.Add(OutputRotation.Parse(specification, 0L, textStorage));
         }
 
         return rotations;
@@ -1993,7 +1993,7 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job \"setPageLabels\" entries must be strings.", 0L, null);
             }
 
-            labels.Add(PageLabelSpec.Parse(specification, 0L));
+            labels.Add(PageLabelSpec.Parse(specification, 0L, textStorage));
         }
 
         return labels;

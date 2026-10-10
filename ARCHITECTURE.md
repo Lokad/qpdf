@@ -28,7 +28,12 @@ receipts; receipt metadata is admitted separately. Generated input, output, incl
 and pass-one names remain funded while a host retains them. Disposal releases
 the unused text-copy pool immediately after plan construction; independently
 escaped strings retire with their aliases.
-Parser-created vectors, derived normalization strings, syntax adapters, plans
+Page-label first-page/prefix copies, parsed rotation ranges and canonical JSON
+object selectors use that same independently retained text admission. Label,
+rotation and selector syntax scans borrow spans; temporary split arrays and
+numeric substrings are avoided. Typed JSON shares the selector factory.
+Parser-created vectors, typed label/rotation conversions, other derived strings,
+syntax adapters, plans
 and broader configuration/DOM controllers remain explicit ownership obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional

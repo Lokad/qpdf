@@ -93,6 +93,42 @@ internal sealed class ConfigurationText : IDisposable
     internal static IReadOnlyList<string> Preserve(IReadOnlyList<string> original, IReadOnlyList<string> values)
         => Wrap(values, (original as Arguments)?.Owner);
 
+    internal static ConfigurationText? OwnerOf(IReadOnlyList<string> arguments)
+        => (arguments as Arguments)?.Owner;
+
+    internal static string Slice(ConfigurationText? owner, string source, int start, int length)
+        => owner is null ? source.Substring(start, length) : owner.CopySubstring(source, start, length);
+
+    internal static string ObjectSelector(ConfigurationText? owner, int number, int generation)
+    {
+        owner?._governor.CheckCancellation();
+        owner?._governor.ChargeWork(2L);
+        int length = 7 + Digits(number) + Digits(generation);
+        long bytes = GovernedText.StringBytes(length);
+        owner?.Memory.Reserve(bytes);
+        string value = string.Create(length, (number, generation), static (target, state) =>
+        {
+            "obj:".AsSpan().CopyTo(target);
+            if (!state.number.TryFormat(target[4..], out int written, provider: System.Globalization.CultureInfo.InvariantCulture))
+            { throw new InvalidOperationException("Object selector number exceeds its admitted length."); }
+            int offset = 4 + written;
+            target[offset++] = ' ';
+            if (!state.generation.TryFormat(target[offset..], out written, provider: System.Globalization.CultureInfo.InvariantCulture))
+            { throw new InvalidOperationException("Object selector generation exceeds its admitted length."); }
+            offset += written;
+            target[offset++] = ' '; target[offset] = 'R';
+        });
+        owner?.Memory.RetainAllocation(value, bytes);
+        return value;
+    }
+
+    private static int Digits(int value)
+    {
+        int digits = 1;
+        while (value >= 10) { value /= 10; digits++; }
+        return digits;
+    }
+
     internal static string Slice(IReadOnlyList<string> arguments, string source, int start)
         => Slice(arguments, source, start, source.Length - start);
 

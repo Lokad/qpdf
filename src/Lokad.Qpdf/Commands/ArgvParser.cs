@@ -1497,7 +1497,7 @@ internal static class ArgvParser
                     throw new QpdfParseException("Missing parameter for --rotate.", i, null);
                 }
 
-                mainRotations.Add(OutputRotation.Parse(specification, i));
+                mainRotations.Add(OutputRotation.Parse(specification, i, ConfigurationText.OwnerOf(argv)));
                 continue;
             }
 
@@ -2963,7 +2963,7 @@ internal static class ArgvParser
             if (token == "--json-object" || token.StartsWith("--json-object=", StringComparison.Ordinal))
             {
                 string selector = TakeParameter(argv, argv.Count, ref cursor, "--json-object");
-                objects.AddRange(Qpdf.ValidateJsonObjects([selector], cursor));
+                objects.AddRange(Qpdf.ValidateJsonObjects([selector], cursor, ConfigurationText.OwnerOf(argv)));
                 continue;
             }
 

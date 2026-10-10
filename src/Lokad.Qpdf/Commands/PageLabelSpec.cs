@@ -12,6 +12,9 @@ namespace Lokad.Qpdf.Commands;
 internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style, int? Start, string? Prefix)
 {
     internal static PageLabelSpec Parse(string specification, long offset)
+        => Parse(specification, offset, null);
+
+    internal static PageLabelSpec Parse(string specification, long offset, ConfigurationText? textStorage)
     {
         if (specification is null)
         {
@@ -24,19 +27,17 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
             throw new QpdfParseException($"Invalid page label '{specification}': expected first-page:[type][/start[/prefix]].", offset, null);
         }
 
-        string firstPage = specification.Substring(0, colon);
-        CheckFirstPageSyntax(firstPage, specification, offset);
-        string rest = specification.Substring(colon + 1);
-        string[] parts = rest.Split('/', 3);
-        if (parts.Length > 3)
-        {
-            throw new QpdfParseException($"Invalid page label '{specification}'.", offset, null);
-        }
+        CheckFirstPageSyntax(specification.AsSpan(0, colon), specification, offset);
+        ReadOnlySpan<char> rest = specification.AsSpan(colon + 1);
+        int firstSlash = rest.IndexOf('/');
+        int secondSlash = firstSlash < 0 ? -1 : rest[(firstSlash + 1)..].IndexOf('/');
+        if (secondSlash >= 0) { secondSlash += firstSlash + 1; }
+        ReadOnlySpan<char> styleText = firstSlash < 0 ? rest : rest[..firstSlash];
 
         PdfPageLabelStyle? style = null;
-        if (parts.Length >= 1 && parts[0].Length > 0)
+        if (styleText.Length > 0)
         {
-            style = parts[0] switch
+            style = styleText switch
             {
                 "D" => PdfPageLabelStyle.Decimal,
                 "R" => PdfPageLabelStyle.UpperRoman,
@@ -48,12 +49,16 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         }
 
         int? start = null;
-        if (parts.Length >= 2)
+        if (firstSlash >= 0)
         {
-            start = ParseStart(parts[1], specification, offset);
+            ReadOnlySpan<char> startText = secondSlash < 0 ? rest[(firstSlash + 1)..] : rest[(firstSlash + 1)..secondSlash];
+            start = ParseStart(startText, specification, offset);
         }
 
-        string? prefix = parts.Length >= 3 && parts[2].Length > 0 ? parts[2] : null;
+        string firstPage = ConfigurationText.Slice(textStorage, specification, 0, colon);
+        int prefixAt = secondSlash < 0 ? specification.Length : colon + secondSlash + 2;
+        string? prefix = prefixAt < specification.Length
+            ? ConfigurationText.Slice(textStorage, specification, prefixAt, specification.Length - prefixAt) : null;
         return new PageLabelSpec(firstPage, style, start, prefix);
     }
 
@@ -80,7 +85,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
 
         if (FirstPage.Length > 1 && FirstPage[0] == 'r')
         {
-            long fromEnd = ParseDigits(FirstPage.Substring(1));
+            long fromEnd = ParseDigits(FirstPage.AsSpan(1));
             long resolved = (long)total - fromEnd + 1L;
             if (resolved < 1L || resolved > total)
             {
@@ -156,22 +161,22 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         return new PdfByteString(Encoding.BigEndianUnicode.GetBytes("\uFEFF" + prefix), hex: true);
     }
 
-    private static void CheckFirstPageSyntax(string firstPage, string specification, long offset)
+    private static void CheckFirstPageSyntax(ReadOnlySpan<char> firstPage, string specification, long offset)
     {
         if (firstPage.Length == 0)
         {
             throw new QpdfParseException($"Invalid page label '{specification}': the first page is missing.", offset, null);
         }
 
-        if (firstPage == "z")
+        if (firstPage.SequenceEqual("z"))
         {
             return;
         }
 
-        string digits = firstPage;
+        ReadOnlySpan<char> digits = firstPage;
         if (digits[0] == 'r')
         {
-            digits = digits.Substring(1);
+            digits = digits[1..];
         }
 
         if (digits.Length == 0 || digits.Length > 10)
@@ -193,7 +198,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         }
     }
 
-    private static int? ParseStart(string text, string specification, long offset)
+    private static int? ParseStart(ReadOnlySpan<char> text, string specification, long offset)
     {
         if (text.Length == 0 || text.Length > 10)
         {
@@ -217,7 +222,7 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         return (int)value;
     }
 
-    private static long ParseDigits(string text)
+    private static long ParseDigits(ReadOnlySpan<char> text)
     {
         long value = 0L;
         foreach (char digit in text)

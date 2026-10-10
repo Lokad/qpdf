@@ -13,23 +13,21 @@ namespace Lokad.Qpdf.Commands;
 internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? Range)
 {
     internal static OutputRotation Parse(string specification, long offset)
+        => Parse(specification, offset, null);
+
+    internal static OutputRotation Parse(string specification, long offset, ConfigurationText? textStorage)
     {
         if (specification is null)
         {
             throw new QpdfParseException("Null rotation specification.", offset, null);
         }
 
-        string angleText = specification;
+        ReadOnlySpan<char> angleText = specification.AsSpan();
         string? range = null;
         int colon = specification.IndexOf(':');
         if (colon >= 0)
         {
-            angleText = specification.Substring(0, colon);
-            range = specification.Substring(colon + 1);
-            if (range.Length == 0)
-            {
-                range = null;
-            }
+            angleText = specification.AsSpan(0, colon);
         }
 
         if (angleText.Length == 0)
@@ -41,12 +39,12 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         if (angleText[0] == '+')
         {
             mode = PdfRotationMode.Add;
-            angleText = angleText.Substring(1);
+            angleText = angleText[1..];
         }
         else if (angleText[0] == '-')
         {
             mode = PdfRotationMode.Subtract;
-            angleText = angleText.Substring(1);
+            angleText = angleText[1..];
         }
 
         if (angleText.Length == 0 || angleText.Length > 10)
@@ -71,8 +69,9 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
             throw new QpdfParseException($"Invalid rotation '{specification}': the angle must be a multiple of 90.", offset, null);
         }
 
-        if (range is not null)
+        if (colon >= 0 && colon + 1 < specification.Length)
         {
+            range = ConfigurationText.Slice(textStorage, specification, colon + 1, specification.Length - colon - 1);
             try
             {
                 Pages.PageRanges.CheckSyntax(range);

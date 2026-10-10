@@ -3924,7 +3924,9 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            List<string> wanted = ValidateJsonObjects(options.Objects, 0L);
+            List<string> wanted;
+            using (ConfigurationText? textStorage = options.Objects.Count == 0 ? null : ConfigurationText.Create(governor))
+            { wanted = ValidateJsonObjects(options.Objects, 0L, textStorage); }
             Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
             JsonInspectionOutcome result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
             QpdfJsonResult presented = result.Present(governor);
@@ -4321,6 +4323,9 @@ public static partial class Qpdf
     }
 
     internal static List<string> ValidateJsonObjects(IReadOnlyList<string> objects, long index)
+        => ValidateJsonObjects(objects, index, null);
+
+    internal static List<string> ValidateJsonObjects(IReadOnlyList<string> objects, long index, ConfigurationText? textStorage)
     {
         if (objects is null)
         {
@@ -4341,33 +4346,33 @@ public static partial class Qpdf
                 continue;
             }
 
-            string[] parts = spec.Split((char)44);
-            if (parts.Length > 2)
+            int comma = spec.IndexOf(',');
+            if (comma >= 0 && spec.AsSpan(comma + 1).Contains(','))
             {
                 throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
             }
 
-            if (!TryParseObjectNumber(parts[0], out int number))
+            if (!TryParseObjectNumber(comma < 0 ? spec.AsSpan() : spec.AsSpan(0, comma), out int number))
             {
                 throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
             }
 
             int generation = 0;
-            if (parts.Length == 2 && !TryParseObjectNumber(parts[1], out generation))
+            if (comma >= 0 && !TryParseObjectNumber(spec.AsSpan(comma + 1), out generation))
             {
                 throw new QpdfParseException("JSON object '" + spec + "' must be trailer or obj[,gen].", index, null);
             }
 
-            canonical.Add("obj:" + number.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " + generation.ToString(System.Globalization.CultureInfo.InvariantCulture) + " R");
+            canonical.Add(ConfigurationText.ObjectSelector(textStorage, number, generation));
         }
 
         return canonical;
     }
 
-    private static bool TryParseObjectNumber(string text, out int number)
+    private static bool TryParseObjectNumber(ReadOnlySpan<char> text, out int number)
     {
         number = 0;
-        if (text is null || text.Length == 0 || text.Length > 10)
+        if (text.Length == 0 || text.Length > 10)
         {
             return false;
         }
