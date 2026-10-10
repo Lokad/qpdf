@@ -1,6 +1,6 @@
 # Progress
 
-## Typed warning ownership â€” B4W correction, final proof pending
+## Typed warning ownership — B4W correction, final proof pending
 
 Shared ResultWarningSnapshot prepares independently funded warning views/backing
 at the existing governor publication boundary, after accepted diagnostic
@@ -8,7 +8,7 @@ presentation. Each affected shared core attaches one scoped snapshot; unchanged
 histories reuse it across commits, and return consumes no new quota or
 cancellation poll after publication. Original records/text/order are borrowed.
 The measured preparation carrier is scoped and completed references detach.
-Finite B4W1â€“B4W5 entries name routes, checks and pass conditions. Preserve the
+Finite B4W1–B4W5 entries name routes, checks and pass conditions. Preserve the
 two original zero-retirement observations and all preceding evidence; retirement
 stays pending until complete frozen-source verification.
 
@@ -20,7 +20,7 @@ also includes receipt/index cleanup. Keep the four split-output assertion
 failures and probe dependency-loading trials as qualified development evidence.
 They are corrected; no loader result counts as public predecessor proof.
 
-## Checker ownership â€” B4C/B4CD/B4CF/T5R retired on integrated proof
+## Checker ownership — B4C/B4CD/B4CF/T5R retired on integrated proof
 
 Code `2a67533` and test adapters `ad3be03/0810475` admit immutable CheckAsync Checks/
 Diagnostics views and backing independently through ResultCollectionStorage.
@@ -79,9 +79,9 @@ retire. Correct shared typed-warning copies across affected families with
 independent aliases, genuine admission, faults/cancellation and final proof.
 Keep other warning families as explicit prerequisites; no broader B4 inference.
 
-B4/B5/T4/T5/T6, DIAG-01, MEASURE-01, M11/A01â€“A07 and both library verdicts
-remain open. Established B1â€“B3, B4D/B4DE, T4V/V1â€“V4, T1/T2/T3/T3E, command C/F,
+B4/B5/T4/T5/T6, DIAG-01, MEASURE-01, M11/A01–A07 and both library verdicts
+remain open. Established B1–B3, B4D/B4DE, T4V/V1–V4, T1/T2/T3/T3E, command C/F,
 hints and JSON/DIAG scopes retain their evidence. Five locks, five intentional
 temporary ImageSharp 3.1.12 exclusions, audit/warnings as errors, binding ignored
-PLAN sections 3â€“6 and unrelated work remain unchanged. See
+PLAN sections 3–6 and unrelated work remain unchanged. See
 [AUDIT-CLOSURE](AUDIT-CLOSURE.md) and [PROGRESS-HISTORY](PROGRESS-HISTORY.md).
