@@ -18,7 +18,7 @@ internal static class BatchCommand
             throw new ProbeException("batch accepts no command-line arguments.", 1);
         }
 
-        TextReader input = Console.In;
+        using StreamReader input = new(Console.OpenStandardInput(), new UTF8Encoding(false, true), false);
         TextWriter protocol = Console.Out;
         TextWriter originalError = Console.Error;
         string originalDirectory = Directory.GetCurrentDirectory();

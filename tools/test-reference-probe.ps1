@@ -8,6 +8,8 @@ $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 if (Test-Path -LiteralPath $WorkRoot) { throw 'Probe test workspace already exists.' }
 New-Item -ItemType Directory -Path (Join-Path $WorkRoot 'inputs') | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../tests/Fixtures/minimal-1page.pdf') -Destination (Join-Path $WorkRoot 'inputs/a.pdf')
+$unicodeInput="inputs/$([char]0xC9)$([char]0x65E5)$([char]0x672C).pdf"
+Copy-Item -LiteralPath (Join-Path $WorkRoot 'inputs/a.pdf') -Destination (Join-Path $WorkRoot $unicodeInput)
 [IO.File]::WriteAllText((Join-Path $WorkRoot 'job.json'), '{"inputFile":"./inputs/a.pdf","outputFile":"outputs/a.pdf"}')
 
 function Invoke-ColdProbe {
@@ -33,6 +35,7 @@ Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {
     $cases = @(
         @('emit','--workdir',$WorkRoot,'--','inputs/a.pdf','--show-npages'),
+        @('emit','--workdir',$WorkRoot,'--',$unicodeInput,'--show-npages'),
         @('emit','--workdir',$WorkRoot,'--','./inputs/a.pdf','--show-object=1'),
         @('emit','--workdir',$WorkRoot,'--','inputs/missing.pdf','--show-npages'),
         @('emit','--workdir',$WorkRoot,'--','inputs/a.pdf','--bogus-flag'),
@@ -44,6 +47,8 @@ try {
         $cold = Invoke-ColdProbe -Arguments $arguments -InputText ''
         $warm = Invoke-ReferenceProbeRequest -Arguments $arguments -WorkingDirectory $WorkRoot
         $warmOutput = [IO.File]::ReadAllText($warm.StandardOutput)
+        [IO.File]::WriteAllText($warm.StandardOutput+'.cold',$cold.Output)
+        [IO.File]::WriteAllText($warm.StandardError+'.cold',$cold.Error)
         # Maintenance work may vary with ordinary CLR collection timing even
         # between two cold calls. Preserve the counter record, compare all
         # status/diagnostic bytes, and keep the original job limits unchanged.
@@ -58,6 +63,12 @@ try {
     $warm = Invoke-ReferenceProbeRequest -Arguments @('emit-job','--workdir',$WorkRoot,'--job','job.json','--out',"outputs/a.pdf=$warmPdf") -WorkingDirectory $WorkRoot
     if ($cold.ExitCode -ne 0 -or $warm.ExitCode -ne 0 -or
         (Get-FileHash $coldPdf).Hash -cne (Get-FileHash $warmPdf).Hash) { throw 'Relative job/alias rewrite differs.' }
+    $coldLabels=Join-Path $WorkRoot 'cold-labels.pdf'; $warmLabels=Join-Path $WorkRoot 'warm-labels.pdf'
+    $label="1:D/1/$([char]0xC9)$([char]0x65E5)$([char]0x672C)"
+    $tail=@('--','inputs/a.pdf','--set-page-labels',$label,'--','outputs/labels.pdf')
+    $cold=Invoke-ColdProbe -Arguments (@('emit','--workdir',$WorkRoot,'--out',"outputs/labels.pdf=$coldLabels")+$tail) -InputText ''
+    $warm=Invoke-ReferenceProbeRequest -Arguments (@('emit','--workdir',$WorkRoot,'--out',"outputs/labels.pdf=$warmLabels")+$tail) -WorkingDirectory $WorkRoot
+    if ($cold.ExitCode -ne 0 -or $warm.ExitCode -ne 0 -or (Get-FileHash $coldLabels).Hash -cne (Get-FileHash $warmLabels).Hash) { throw 'Unicode label bytes differ.' }
     $validation=Invoke-ReferenceProbeRequest -Arguments @('validate','--input',$warmPdf) -WorkingDirectory $WorkRoot
     if ($validation.ExitCode -ne 0 -or [IO.File]::ReadAllText($validation.StandardOutput) -notmatch 'independent: npages=1') { throw 'Fresh rewrite does not validate.' }
     $absent=Join-Path $WorkRoot 'absent.pdf'
@@ -70,12 +81,12 @@ try {
         if ($warm.ExitCode -ne 0) { throw 'Probe opened an unrelated input.' }
     } finally { $lock.Dispose() }
     foreach ($i in 0..69) {
-        $arguments = if (($i % 3) -eq 1) { $cases[2] } else { $cases[0] }
+        $arguments = if (($i % 3) -eq 1) { $cases[3] } else { $cases[0] }
         $expected = if (($i % 3) -eq 1) { 2 } else { 0 }
         $warm=Invoke-ReferenceProbeRequest -Arguments $arguments -WorkingDirectory $WorkRoot
         if ($warm.ExitCode -ne $expected) { throw "Worker rollover/state isolation failed at $i." }
     }
-    foreach ($index in @(0,2)) {
+    foreach ($index in @(0,3)) {
         $expected = if ($index -eq 0) { 0 } else { 2 }
         $lines = @(Invoke-ReferenceProbe -Arguments (@($ProbeDll)+$cases[$index]) 2>&1)
         if ($LASTEXITCODE -ne $expected -or ($lines -join "`n") -notmatch "emit: status=\w+ exit=$expected") { throw 'Pipeline transport changed output or native exit status.' }
@@ -85,9 +96,9 @@ try {
     }
 } finally { Complete-ReferenceProbe }
 $transport=Get-Content (Join-Path $WorkRoot 'managed-calls/results.json') -Raw | ConvertFrom-Json
-if ($transport.Workers -ne 2 -or $transport.Requests.Count -ne 85) { throw 'Bounded worker/request coverage changed.' }
+if ($transport.Workers -ne 2 -or $transport.Requests.Count -ne 87) { throw 'Bounded worker/request coverage changed.' }
 $bad=Invoke-ColdProbe -Arguments @('batch') -InputText "{bad}`n"
 if ($bad.ExitCode -ne 1 -or $bad.Error -notmatch 'Invalid batch JSON') { throw 'Malformed protocol did not fail explicitly.' }
 $large=Invoke-ColdProbe -Arguments @('batch') -InputText ((' ' * (4*1024*1024+1))+"`n")
 if ($large.ExitCode -ne 1 -or $large.Error -notmatch 'four MiB') { throw 'Protocol request bound did not reject.' }
-Write-Output 'Reference probe controls passed: seven cold/batch semantic pairs, checked argv/job bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 85 requests/two bounded workers and both protocol negatives.'
+Write-Output 'Reference probe controls passed: eight cold/batch semantic pairs including Unicode filenames, checked argv/job/Unicode-label bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 87 requests/two bounded workers and both protocol negatives.'

@@ -5,9 +5,15 @@ namespace Lokad.Qpdf.Probe;
 internal static class Program
 {
     private const string ExpectedQpdfVersion = "12.4.2";
+    private static bool _consoleEncodingInitialized;
 
     internal static int Main(string[] args)
     {
+        if (!_consoleEncodingInitialized)
+        {
+            Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+            _consoleEncodingInitialized = true;
+        }
         if (args.Length == 0 || IsHelp(args[0]))
         {
             PrintHelp();

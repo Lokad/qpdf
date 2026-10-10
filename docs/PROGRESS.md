@@ -25,6 +25,14 @@ work units; counter records remain and semantic comparisons exclude only that
 variable line, without changing any original reference assertion or limit.
 Runtime sources, dependencies and API remain unchanged by this speed work.
 
+The first committed optimized trial completes differential work in 159.0 seconds
+but fails both original Unicode label-prefix comparisons. The protocol reader
+now decodes strict UTF-8; the probe initializes redirected output as UTF-8 once.
+Eight cold/batch semantic pairs include Unicode filenames, and argv/job/Unicode
+label rewrite bytes match. Both invocation wrappers, 87 requests/two workers and
+both protocol negatives pass. Original Unicode checks remain unchanged; the
+complete corrected run is still required.
+
 ## Configuration setting text — CFG-01B3C1 implemented, combined proof pending
 
 The predecessor leaves eight public host-held pass-one names unfunded (2080-byte
