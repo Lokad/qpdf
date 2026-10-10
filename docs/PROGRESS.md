@@ -26,6 +26,15 @@ four-round/256-byte conditions through a separate producer/observer boundary.
 Reader-option forwarding keeps every flag and proves admitted input-name lifetime
 before collecting the plan and reaching zero. Earlier failed trials remain explicit.
 
+The first committed full trial retains 11 failures/18630 passes in 584.2 seconds:
+nine inspection cancellation snapshots include pending decoded-name receipts,
+and two unchanged strict JSON repair jobs exhaust 247494/247489-byte ceilings.
+The text-copy pool now retires at plan construction, its last consumer; surviving
+strings keep independent receipts. Inspection cancellation producers preserve
+every status/payload/lease/prior-output assertion and now prove exact 256-byte
+retirement after four bounded rounds. Those checks run in the existing isolated
+lifetime collection. The strict repair fixtures and ceilings remain unchanged.
+
 C1 remains pending final committed Release/reference/native/package/consumer
 verification. C2 parser vectors/plans/derived strings and C3 syntax/session/DOM
 controllers, B3C/B4, A04/A06/M11 and both verdicts remain open. Established

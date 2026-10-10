@@ -12,6 +12,11 @@ remain funded, private plans collect and independently dropped channels reach
 zero. Original limits, success bytes, fault/cancellation outcomes and read-terminal
 conditions remain; stronger name admission makes the original 7000-byte nested
 control reject before child open. Combined committed proof remains pending.
+The first committed full trial preserves all cases but has 11 explicit failures
+in 584.2 seconds. The correction retires unused decoded-copy admission at plan
+construction and observes exact inspection cancellation retirement after producer
+release. Original binary/listing suppression, prior targets, leases, all 100 repair
+warnings and the strict 247494/247489-byte ceilings remain required.
 Parser vectors/plans/derived normalization (C2), syntax/session/DOM controllers
 (C3), the parent B3C/B4 and broader gates stay open.
 

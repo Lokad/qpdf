@@ -26,7 +26,8 @@ and fixed syntax literals remain borrowed. JSON decoded copies transfer their
 payload admission from the loader's existing document budget to independent weak
 receipts; receipt metadata is admitted separately. Generated input, output, include
 and pass-one names remain funded while a host retains them. Disposal releases
-private text admission; independently escaped strings retire with their aliases.
+the unused text-copy pool immediately after plan construction; independently
+escaped strings retire with their aliases.
 Parser-created vectors, derived normalization strings, syntax adapters, plans
 and broader configuration/DOM controllers remain explicit ownership obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent

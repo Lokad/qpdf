@@ -283,8 +283,21 @@ internal static class JobJsonLoader
         }
 
         internal JobPlan ParsePlan(bool configurationLayers)
-            => JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
-                configurationLayers || Documents.Count > 1, _limits, _governor, TextStorage);
+        {
+            ConfigurationText textStorage = TextStorage;
+            try
+            {
+                return JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
+                    configurationLayers || Documents.Count > 1, _limits, _governor, textStorage);
+            }
+            finally
+            {
+                // Parsing is the last consumer of this copy pool. Accepted
+                // strings already have independent receipts for their aliases.
+                _textStorage = null;
+                textStorage.Dispose();
+            }
+        }
 
         internal void AppendChainFields(int first)
         {

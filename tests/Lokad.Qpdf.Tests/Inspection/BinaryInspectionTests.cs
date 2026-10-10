@@ -1,9 +1,13 @@
 using System.IO.Compression;
 using System.Text;
+using System.Runtime.CompilerServices;
+using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Tests.Foundation;
 using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class BinaryInspectionTests
 {
     private static readonly byte[] StreamBytes = [0, 1, 2, 127, 128, 255, 13, 10, 65];
@@ -340,6 +344,13 @@ public sealed class BinaryInspectionTests
     [InlineData("mixed", "check-attachment")]
     public async Task CancellationAfterAnObservedReadReturnsNoBinaryPayload(string route, string mode)
     {
+        var completed = await CompleteCancellation(route, mode);
+        CompletedCancellationObservation.Retire(completed.Governor, completed.Result);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<(ResourceGovernor Governor, QpdfExecutionResult Result)> CompleteCancellation(string route, string mode)
+    {
         InMemoryQpdfHost source = Host(false, false);
         (string properties, string[] flags) = Settings(mode);
         source.AddInput(QpdfPath.From("settings.json"), Encoding.UTF8.GetBytes("{" + properties + "}"), QpdfInputOwnership.Copy);
@@ -357,11 +368,14 @@ public sealed class BinaryInspectionTests
         try
         {
             Assert.Same(host.ReadStarted.Task, await Task.WhenAny(running, host.ReadStarted.Task).WaitAsync(TimeSpan.FromSeconds(10)));
+            ResourceGovernor governor = CompletedCancellationObservation.FindGovernor(running);
             cancellation.Cancel();
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
             Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
-            Assert.Equal(256L, result.Counters.LiveMemoryBytes); // Only result/counters, two receipts and their weak link remain.
+            // The immutable snapshot can include independently owned names
+            // awaiting natural collection; exact retirement is observed later.
+            Assert.InRange(result.Counters.LiveMemoryBytes, 256L, result.Counters.PeakMemoryBytes);
             Assert.Equal(0L, result.Counters.OpenHandles);
             AssertNoOutputBytes(result);
             Assert.Null(result.OutputText);
@@ -369,6 +383,7 @@ public sealed class BinaryInspectionTests
             Assert.Equal(0L, source.OpenLeaseCount);
             Assert.True(source.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] prior));
             Assert.Equal("prior"u8.ToArray(), prior);
+            return (governor, result);
         }
         finally { cancellation.Cancel(); }
     }
