@@ -1797,8 +1797,16 @@ Each implementation step includes limits, cancellation and failure behavior.
 Milestones need reproducible evidence, not just accepted option names. A known
 gap can permit independent later work, but cannot be declared complete.
 
-Checker B4C/B4CD/B4CF/T5R corrections are integrated for final combined proof.
+Checker B4C/B4CD/B4CF/T5R are retired on final committed-source proof: all 17011
+Release cases preserve every 16944 prior occurrence; pinned 1846/432, all 868
+unchanged complete native records/same 64 differences, 908 signatures and exact
+package/PDB/fresh 50-smoke/two-negative consumers pass.
 The ordinary public lane preserves original checker backing/alias bounds and
 scopes shared decode scratch; generic receipts fund retirement and diagnostic
 export transfers held capacity without counting unexecuted work. Broader checker,
 typed warning and generic ownership verdicts remain open.
+
+B4W now preserves two complete raw/Flate SelectPageAsync jobs: valid publication,
+closed leases and surviving diagnostics accompany a dead 32-byte warning array
+that retires zero governed bytes under original default limits/four-round bounds.
+Typed selection/split/rotation, JSON get/import/update and attachment extract/edit/copy families remain explicit prerequisites; retain warnings accepted during final preparation and existing post-commit-close behavior.

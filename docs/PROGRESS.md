@@ -1,52 +1,67 @@
 # Progress
 
-## Checker ownership correction — final combined proof pending
+## Checker ownership — B4C/B4CD/B4CF/T5R retired on integrated proof
 
-The integrated correction targets B4C/B4CD/B4CF/T5R. CheckAsync now admits
-independent immutable Checks/Diagnostics views and backing through shared
-ResultCollectionStorage, retaining original records/text/order and borrowing
-empty diagnostics. Collection copies check cancellation after input closure.
-DocumentCheck scopes both governed filter decodes and borrows raw immutable
-backing; discarded Flate scratch previously left 36/72 reservation bytes.
+Code `2a67533` and test adapters `ad3be03/0810475` admit immutable CheckAsync Checks/
+Diagnostics views and backing independently through ResultCollectionStorage.
+Original records/text/order remain borrowed; empty diagnostics share storage.
+Closed-input cancellation rejects before copied public snapshots. Shared
+DocumentCheck scopes both governed filter decodes and borrows raw backing,
+retiring the demonstrated 36/72-byte failed/successful Flate reservation debts.
 
-Shared parser/record/text receipts reserve future retirement before acceptance.
-Cached diagnostic nodes unlink with their string receipt, without a later scan.
-The measured slot grows from 24 to 32 bytes and is admitted at that geometry.
-Diagnostic presentation transfers promised retirement capacity to receipts;
-reserved work remains absent from executed counters. Legacy nonprepaid owned
-allocation batches and broader generic admission remain separate obligations.
+Parser/record/text receipts reserve retirement work before acceptance. Cached
+diagnostic nodes unlink with their string receipt; measured slots grow from
+24 to 32 bytes and are fully admitted. Diagnostic export transfers its promised
+retirement capacity without counting reserved work as executed. Legacy
+nonprepaid allocation batches and wider generic admission remain separate.
 
-The ordinary lane has 66 complete public cases plus one physical slot check.
-It preserves both original raw/Flate nine-element jobs, the 96-byte backing
-minimum, default limits and four GC/four bounded maintenance rounds. Controls
-cover independent view/backing/element/caller-copy/sibling lifetimes, completed
-metadata, input-close faults/cancellation and typed/argv/job/mixed cleanup.
-Fixed raw/Flate short memory budgets are 16384/131072, work budgets 3000/24000;
-positive memory budgets 32768/262144 and work budgets 4096/65536. Genuine limits
-throw or produce a failed check containing the relevant limit diagnostic;
-all completed jobs must retire to zero governed memory and zero held work.
+All 17011 Release cases pass, preserving every 16944 preceding occurrence.
+The 66 complete public cases pass; the same cases on the predecessor expose
+43 failures and preserve 23 results, without loaders/skips. The separate
+physical check records the intentional 408-to-536-byte 16-slot array change.
+All 243 adjacent, 51 adapter and 238 quota controls pass. Six preceding test
+files adapt held-credit setup or private decoder scope/token arguments while
+keeping fixtures, ceilings, expected errors and rollback checks; credit-aware
+assertions exhaust available capacity and reject one additional unit.
+all other preceding test sources remain byte-identical.
 
-Five preceding internal test files account for held retirement credits when
-exhausting their original budgets, and assert rejection of one further
-unit. The original index-growth controls retain their 64/160/184 available-work margins, failure location and rollback assertions. A sixth test file supplies the decoder's new private scope/token parameters; its six fixtures, ceilings and assertions stay unchanged. Preserve every other preceding test source, fixture, limit and occurrence.
-The development trials remain explicit: raw 25000 was not genuinely short;
-the first short-work test incorrectly required an exception; complete Flate
-jobs revealed unadopted decode reservations; generic quota exhaustion revealed
-unfunded retirement; staged diagnostic export required credit transfer. An
-overbroad debug lane was stopped after its failures were identified, and a
-concurrent build failed on its test-host DLL lock. Neither is acceptance proof. The first combined run exposed seven test-adapter failures (six private decoder signatures and one held-credit setup). It and its overlapping reference/native lanes were stopped before source changes; preserve those incomplete trials. The second full run stopped at 14311 passes and one plain-presentation credit-setup failure; 237 adjacent quota controls passed. Its 32768 ceiling now counts held retirement while asserting zero additional preparation/completion work. Full pinned reference/native/API/package results bind to unchanged runtime/probe/PDB; retain their completed evidence after the test-only adjustment.
+Both original default-limit nine-outcome jobs retain every element while their
+96-byte backing dies after four GC/four bounded maintenance rounds. The observed
+536-byte retirement includes receipt/index cleanup; the array is independently
+funded. Independent views/backing/elements/caller copies/siblings stay valid,
+completed metadata collects, faults/cancellation close leases and preserve
+prior outputs. Raw/Flate fixed short memory 16384/131072 and work 3000/24000
+produce genuine rejection; positive memory 32768/262144 and work 4096/65536
+succeed. Complete cleanup controls drop all aliases and retire to zero memory
+and zero held work. Keep
+classified debug failures, the seven-failure first trial and interrupted
+14311-pass/one-credit-setup second trial explicit. The last setup preserves
+32768 and proves preparation/completion consume no work or held credit.
 
-Run the required locked Release, full pinned reference, original 868 native
-comparisons, API and package/fresh-consumer checks once on committed final
-sources. Final combined proof remains pending; no new entry retires yet.
-Record phase timings and exact source/library/tests/probe/PDB/package bindings.
-Preserve all 16944 established test occurrences and the same 64 classified
-native layout differences. Original checker aggregate observations stay qualified.
+Pinned 1846 exact comparisons/432 rewrite trios, all 868 unchanged complete
+native records/same 64 layout differences, 908 unchanged signatures, exact
+package DLL/PDB/changelog and fresh 50-smoke/two-negative consumers pass.
+The test-only follow-up reproduces the already-verified runtime/probe/PDB/
+package identities exactly; package production remains bound to `2a67533`.
+Final proof binds all 568 committed paths and exact artifact identities.
+Phase seconds: full 2900.0, reference 1878.4, native 415.6;
+restore 1.7, build 1.5, pack 1.8, inspection 3.1,
+fresh consumer 17.2, negatives 15.6.
 
-Broader B4/B5/T4/T5/T6, DIAG-01, MEASURE-01, M11/A01–A07 and both library
-verdicts remain open. B1–B3, B4D/B4DE, T4V/V1–V4, T1/T2/T3/T3E, command C/F,
-hints and JSON/DIAG scopes retain established evidence. Five locks and five
-intentional temporary ImageSharp 3.1.12 advisory exclusions stay fixed; audit
-and warnings as errors remain enabled. Binding ignored PLAN sections 3–6 and
-unrelated work stay untouched. See [AUDIT-CLOSURE](AUDIT-CLOSURE.md) and
-[PROGRESS-HISTORY](PROGRESS-HISTORY.md).
+## Next finite public failure
+
+B4W preserves two complete raw/Flate SelectPageAsync jobs that publish valid
+PDFs and close leases; both outputs pass pinned native checks and have one page.
+Holding the sole diagnostic in caller storage isolates
+the 32-byte public Warnings backing: result/counters/host and then the array
+collect after four GC/four bounded maintenance rounds, but zero governed bytes
+retire. Correct shared typed-warning copies across affected families with
+independent aliases, genuine admission, faults/cancellation and final proof.
+Keep other warning families as explicit prerequisites; no broader B4 inference.
+
+B4/B5/T4/T5/T6, DIAG-01, MEASURE-01, M11/A01–A07 and both library verdicts
+remain open. Established B1–B3, B4D/B4DE, T4V/V1–V4, T1/T2/T3/T3E, command C/F,
+hints and JSON/DIAG scopes retain their evidence. Five locks, five intentional
+temporary ImageSharp 3.1.12 exclusions, audit/warnings as errors, binding ignored
+PLAN sections 3–6 and unrelated work remain unchanged. See
+[AUDIT-CLOSURE](AUDIT-CLOSURE.md) and [PROGRESS-HISTORY](PROGRESS-HISTORY.md).
