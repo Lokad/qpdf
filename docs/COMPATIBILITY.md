@@ -4,6 +4,15 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+Typed warning storage is admitted independently at the shared publication
+boundary on `868487a/a00cf62/7746f50`. All 17198 Release cases preserve all 17011 prior
+occurrences and preceding test sources; full pinned 1846/432, all 868 unchanged
+complete native records/same 64 valid-layout differences, API908 and exact
+package/fresh consumers pass. JSON creation borrows empty warning storage;
+command outcomes borrow governed diagnostic history. B4W1–B4W5 retire only
+for copied warning storage. Whole-selection reservation debt B5S, broader
+ownership/default/context gates and both library verdicts remain open.
+
 Document-open hint classification now handles direct containers, indirect roots,
 page boundaries and generated object-stream containers. The original two-page
 form invocations retain their fixtures/settings/routes. Non-name PageMode values
