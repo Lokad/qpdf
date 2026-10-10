@@ -76,7 +76,7 @@ internal static class StreamTransformer
         PdfDictionary header = PdfDictionaryRebuild.Complete(graph, entries, allocation);
         graph.Memory.Reserve(32L);
         PdfStream result = PdfStream.FromOwnedData(header, data); graph.Add(result, 32L);
-        graph.Retain(); return result;
+        graph.RetainWithPrepaidRetirement(); return result;
     }
 
     private static void Warn(ResourceGovernor governor, DiagnosticBag diagnostics, int number, string suffix)

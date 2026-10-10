@@ -119,6 +119,14 @@ internal sealed class XRefTable : IDisposable
         _ = Entries;
     }
 
+    internal void TransferExclusiveValuesTo(ParserMemoryScope target)
+    {
+        target.CheckOwner(_governor ?? throw new InvalidOperationException("Table storage has no owner."));
+        _ = Entries;
+        target.AdoptReserved(_ownedValuesBytes);
+        _ownedValuesBytes = 0L;
+    }
+
     public void Dispose()
     {
         if (_entries is null) { return; }

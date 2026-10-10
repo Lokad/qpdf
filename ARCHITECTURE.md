@@ -25,6 +25,15 @@ before their concluding warning allocations. DOM/controller/resource ownership
 and generic returned DTO admission remain under audit.
 Whole-file selection closes its preliminary input before reopening through the
 shared copier, so replacement can publish after those input leases close.
+The preliminary reader and overlay/attachment-copy sources use exclusive value
+ownership. Their immutable values transfer to the job's scope before source
+disposal; input bytes and reader maps retire at disposal. Previously unscoped selection,
+merge, overlay and attachment copiers use the existing owned factory. Selection, rotation, overlay
+decode/encode and attachment assembly reservations stay scoped through
+publication. Output-length admission releases after transaction disposal on
+success, failure or cancellation. Fresh transformed streams prepay their weak
+retirement before acceptance, so exhausted jobs need no new maintenance work.
+These changes target the finite B5S controls; broader ownership remains under audit.
 
 Writer compression setters share ordered state across argv and job configurations.
 Plans store that state in one byte while retaining raw options for inspection.

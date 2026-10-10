@@ -454,7 +454,7 @@ internal static class ContentTransforms
                     {
                         data = Array.Empty<byte>(); decodedMemory.Dispose(); AddContentBuffer(graph, normalized);
                         PdfDictionary dictionary = decoded ? PdfDictionaryRebuild.StripStreamEncoding(graph, original.Dictionary) : original.Dictionary;
-                        PdfStream replacement = CreateContentStream(graph, dictionary, normalized); graph.Retain(); return replacement;
+                        PdfStream replacement = CreateContentStream(graph, dictionary, normalized); graph.RetainWithPrepaidRetirement(); return replacement;
                     }
                 }
                 finally { normalized = null; }

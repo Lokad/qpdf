@@ -31,7 +31,17 @@ internal static class EmbeddedFiles
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => ReadAttachments(engine, limits, governor, diagnostics, cancellationToken, null);
+
+    internal static List<EmbeddedAttachment> ReadAttachments(
+        DocumentEngine engine,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        CancellationToken cancellationToken,
+        ParserMemoryScope? ownership)
     {
+        ownership?.CheckOwner(governor);
         if (engine is null)
         {
             throw new ArgumentNullException(nameof(engine));
@@ -73,7 +83,7 @@ internal static class EmbeddedFiles
         }
 
         List<(string Key, QpdfObject Value)> pairs = new();
-        WalkNode(engine, tree, -1, 0, new HashSet<int>(), pairs, limits, governor, cancellationToken);
+        WalkNode(engine, tree, -1, 0, new HashSet<int>(), pairs, limits, governor, cancellationToken, ownership);
         foreach ((string key, QpdfObject value) in pairs)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -184,7 +194,8 @@ internal static class EmbeddedFiles
         List<(string Key, QpdfObject Value)> pairs,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ParserMemoryScope? ownership)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (depth > limits.MaxNestingDepth)
@@ -209,7 +220,8 @@ internal static class EmbeddedFiles
                     throw new QpdfParseException("Embedded-files name-tree keys must be strings.", null, null);
                 }
 
-                governor.ReserveMemory(keyBytes.Value.Length);
+                if (ownership is null) { governor.ReserveMemory(keyBytes.Value.Length); }
+                else { ownership.Reserve(keyBytes.Value.Length); }
                 pairs.Add((PdfText.Decode(keyBytes.Value), names[i + 1]));
             }
         }
@@ -240,7 +252,7 @@ internal static class EmbeddedFiles
 
                 try
                 {
-                    WalkNode(engine, kid, kidNumber, depth + 1, visited, pairs, limits, governor, cancellationToken);
+                    WalkNode(engine, kid, kidNumber, depth + 1, visited, pairs, limits, governor, cancellationToken, ownership);
                 }
                 finally
                 {

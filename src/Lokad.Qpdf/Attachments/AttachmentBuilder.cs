@@ -54,8 +54,10 @@ internal static class AttachmentBuilder
         string? mimeType,
         string? creationDate,
         string? modDate,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        ParserMemoryScope ownership)
     {
+        ownership.CheckOwner(governor);
         if (checksum is null)
         {
             throw new ArgumentNullException(nameof(checksum));
@@ -66,7 +68,7 @@ internal static class AttachmentBuilder
             throw new ArgumentNullException(nameof(governor));
         }
 
-        governor.ReserveMemory(128L);
+        ownership.Reserve(128L);
         Dictionary<PdfName, QpdfObject> parms = new()
         {
             [PdfName.FromAscii("Size")] = new PdfInteger(length.ToString(System.Globalization.CultureInfo.InvariantCulture), length),
@@ -74,13 +76,13 @@ internal static class AttachmentBuilder
         };
         if (creationDate is not null)
         {
-            governor.ReserveMemory(32L);
+            ownership.Reserve(32L);
             parms[PdfName.FromAscii("CreationDate")] = EncodeText(creationDate);
         }
 
         if (modDate is not null)
         {
-            governor.ReserveMemory(32L);
+            ownership.Reserve(32L);
             parms[PdfName.FromAscii("ModDate")] = EncodeText(modDate);
         }
 
@@ -92,15 +94,16 @@ internal static class AttachmentBuilder
         };
         if (mimeType is not null)
         {
-            governor.ReserveMemory(32L);
+            ownership.Reserve(32L);
             entries[PdfName.FromAscii("Subtype")] = PdfName.FromAscii(mimeType);
         }
 
         return new PdfDictionary(entries);
     }
 
-    internal static PdfDictionary WithFilter(PdfDictionary dictionary, ResourceGovernor governor)
+    internal static PdfDictionary WithFilter(PdfDictionary dictionary, ResourceGovernor governor, ParserMemoryScope ownership)
     {
+        ownership.CheckOwner(governor);
         if (dictionary is null)
         {
             throw new ArgumentNullException(nameof(dictionary));
@@ -120,7 +123,7 @@ internal static class AttachmentBuilder
             }
         }
 
-        governor.ReserveMemory(64L);
+        ownership.Reserve(64L);
         entries[PdfName.FromAscii("Filter")] = PdfName.FromAscii("FlateDecode");
         return new PdfDictionary(entries);
     }
@@ -153,8 +156,10 @@ internal static class AttachmentBuilder
         return new PdfDictionary(entries);
     }
 
-    internal static PdfDictionary BuildNameTree(IReadOnlyList<KeyValuePair<string, PdfReference>> pairs, ResourceGovernor governor)
+    internal static PdfDictionary BuildNameTree(IReadOnlyList<KeyValuePair<string, PdfReference>> pairs,
+        ResourceGovernor governor, ParserMemoryScope ownership)
     {
+        ownership.CheckOwner(governor);
         if (pairs is null)
         {
             throw new ArgumentNullException(nameof(pairs));
@@ -178,7 +183,7 @@ internal static class AttachmentBuilder
             List<QpdfObject> items = new(take * 2);
             for (int j = 0; j < take; j++)
             {
-                governor.ReserveMemory(64L);
+                ownership.Reserve(64L);
                 items.Add(EncodeText(pairs[i + j].Key));
                 items.Add(pairs[i + j].Value);
             }
@@ -197,7 +202,7 @@ internal static class AttachmentBuilder
         List<QpdfObject> kids = new(leaves.Count);
         foreach (PdfDictionary leaf in leaves)
         {
-            governor.ReserveMemory(32L);
+            ownership.Reserve(32L);
             kids.Add(leaf);
         }
 

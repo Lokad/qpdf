@@ -4,6 +4,13 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+The B5S copy/publication correction passes 1731 focused checks, including 1532
+new complete public jobs at unchanged fixture/default/four-round bounds.
+Private reader values, graph/overlay/attachment scratch and publication
+admission now have explicit lifetimes; normalized/transformed streams prepay
+retirement. Final committed-source suite/reference/native/API/package/consumer
+proof is pending. B5S1–B5S4 and broader parents remain open.
+
 Typed warning storage is admitted independently at the shared publication
 boundary on `868487a/a00cf62/7746f50`. All 17198 Release cases preserve all 17011 prior
 occurrences and preceding test sources; full pinned 1846/432, all 868 unchanged

@@ -161,6 +161,19 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         _governor.ReleaseMemory(discarded);
     }
 
+    // A complete copy job may borrow immutable scalars after its private
+    // source closes. Transfer those exclusive values to the job's lifetime;
+    // reader maps and input bytes still retire when the document closes.
+    internal void TransferExclusiveValuesTo(ParserMemoryScope target)
+    {
+        target.CheckOwner(_governor);
+        if (_valuesEscape || !_ownsTable)
+        { throw new InvalidOperationException("Only an exclusive document can transfer its values."); }
+        Table.TransferExclusiveValuesTo(target);
+        target.AdoptReserved(_unborrowedBytes);
+        _unborrowedBytes = 0L;
+    }
+
     public void Dispose()
     {
         if (_cache is null) { return; }
