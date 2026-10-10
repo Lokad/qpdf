@@ -4,16 +4,20 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-CFG-01B3C2T implements scoped typed source snapshots and rotation/label
-conversions before allocation under the existing governor. It preserves the
-4096-character range cap, empty/null defaults and shared writer semantics.
-Ninety-three public jobs check admission/overlap, original limits, faults,
-cancellation, output aliases and bounded metadata cleanup. Cold state and larger
-ledger backlogs remain explicit qualifications. All 4167 related checks pass;
-exact final tests retain two predecessor failures/two semantic positives. Fixed
-rejection allocations are 2376–9216 versus 265712–5620064 bytes, with every
-expected outcome and limit retained. Combined committed proof is pending;
-the parent C2/C3 gates stay open.
+CFG-01B3C2T retires on committed `280abb6`: scoped typed source snapshots and
+rotation/label conversions receive admission before allocation under the existing
+governor. The 4096-character cap, empty/null defaults and writer semantics remain.
+All 4167 related checks/93 public jobs pass; exact final predecessor tests retain
+two allocation/admission failures and two semantic positives. Thirty fixed
+4 KiB/128-work/canceled jobs allocate 2376–9216 versus 265712–5620064 bytes,
+with original limits/outcomes and no host access. All 75 independently sampled
+physical overlap minima and 40 final-zero cleanup checks pass. Four explicit warm
+controls remain; cold state and bounded ledger cleanup retain their qualifications.
+Combined proof passes **18651 Release cases in 8m42s**, preserving every 18647
+prior occurrence/4535 observations, and fresh pinned **1846/432 in 5m32s**.
+Original input data/comparisons/limits/outcomes/negatives, all 868 complete native
+records/same 64 physical differences, API908, exact package and fresh 50-smoke/
+two-negative consumers remain. Parent C2/C3 and broader gates stay open.
 
 LABEL-OWN1 retires on committed `a1c2883`: pre-allocation ownership funds explicit
 and source-derived label values, prefix encoding and number trees across shared

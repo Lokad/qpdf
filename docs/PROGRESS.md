@@ -1,6 +1,6 @@
 # Progress
 
-## Typed selection preparation — CFG-01B3C2T implemented, combined proof pending
+## Typed selection preparation — CFG-01B3C2T retired
 
 The typed single-rotation and three multi-source overloads now create the
 existing governor before snapshotting sources or converting rotations/labels.
@@ -21,7 +21,23 @@ The exact final tests retain two predecessor failures and two semantic positives
 without loaders/skips. All 30 unchanged rejection jobs allocate 2376–9216 bytes,
 versus predecessor 265712–5620064, before host access. All 75 independently
 sampled host-boundary minima pass; all 40 jobs reach zero with at most 313 extra
-bounded metadata calls. Combined committed proof remains required for retirement.
+bounded metadata calls in both focused and final full-suite observations.
+
+Committed `280abb6` closes CFG-01B3C2T: **18651 Release cases pass in 521.8
+seconds (8m42s)**, preserving all 18647 prior occurrences/4535 named observations.
+Fresh pinned **1846 parser comparisons/432 rewrite trios pass in 332.5 seconds
+(5m32s)**. All 283 parser input bytes, 2131 differential input paths/data, 617 case
+messages, original limits/outcomes and both negatives remain. All 868 complete
+native records retain the same 64 classified physical differences. API908, exact
+packaged DLL/PDB/XML/changelog and fresh 50-smoke/two-specific-negative consumers
+pass; five locks, advisory exceptions and unrelated work remain exact.
+
+Reference filesystem intervals are 254.1/72.6 seconds (parser/differential),
+versus preserved baseline 2029.0/582.5; complete wall falls 2621.0→332.5 seconds.
+Managed round trips total 38.7/17.9 seconds. Sequential reuse preserves all 4586
+fresh requests, bounded to 64 per process; no parallel workers or production
+forced collection. Final restore/build/native/API/pack/inspection/consumer/
+consumer-negative phases take 1.5/1.4/338.5/0.1/1.6/0.8/14.7/5.0 seconds.
 
 The raw cold allocation and fixture compiler/command/label/await/message trials
 remain explicit. Warmed per-job measurements preserve the 32 KiB assertion; cold
@@ -33,7 +49,9 @@ no live carriers because each maintenance call drains at most 64 entries. Record
 that backlog, then require zero through at most 4096 additional governed calls
 without another collection. This qualification does not reopen established
 selection/label evidence or close broader ledger/cold-state requirements.
-C1/C2D1/LABEL-OWN1/REF-03 stay retired; remaining C2/C3 and all parents stay open.
+Only this typed-preparation child retires. C1/C2D1/LABEL-OWN1/REF-03 stay retired;
+remaining C2/C3 and all parents stay open. Choose the next C2 unit by an
+independently demonstrated complete-public-job failure.
 
 
 ## Label output ownership — LABEL-OWN1 retired
