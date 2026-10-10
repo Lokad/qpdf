@@ -468,8 +468,8 @@ public static partial class Qpdf
                 singleOccurrences.Add((singleSource, pageNumber));
             }
 
-            List<(int Index, PdfDictionary Label)> singleItems = Content.PageLabelMerge.Merge(singleOccurrences, limits, governor, cancellationToken);
-            singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems);
+            List<(int Index, PdfDictionary Label)> singleItems = Content.PageLabelMerge.Merge(singleOccurrences, limits, governor, cancellationToken, copyMemory);
+            singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
         }
 
         byte[]? originalId = TryGetOriginalId(document.Engine);
@@ -1140,10 +1140,10 @@ public static partial class Qpdf
         AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
 
         List<(int Index, PdfDictionary Label)> explicitItems = labels.Count > 0
-            ? ResolveLabelItems(labels, kids.Count, governor)
+            ? ResolveLabelItems(labels, kids.Count, governor, selectionMemory)
             : new List<(int Index, PdfDictionary Label)>();
         List<(int Index, PdfDictionary Label)> labelItems = explicitItems;
-        QpdfObject? catalogLabels = labelItems.Count == 0 ? null : NumbersDictionary(labelItems);
+        QpdfObject? catalogLabels = labelItems.Count == 0 ? null : NumbersDictionary(labelItems, governor);
         if (removeLabels)
         {
             labelItems = new List<(int Index, PdfDictionary Label)>();
@@ -1175,7 +1175,7 @@ public static partial class Qpdf
                     labelOccurrences.Add((part, entry.SourcePage));
                 }
 
-                labelItems = Content.PageLabelMerge.Merge(labelOccurrences, limits, governor, cancellationToken);
+                labelItems = Content.PageLabelMerge.Merge(labelOccurrences, limits, governor, cancellationToken, selectionMemory);
             }
             else
             {
@@ -1183,7 +1183,7 @@ public static partial class Qpdf
             }
             if (splitPages.HasValue || verbatimCopied is null)
             {
-                catalogLabels = labelItems.Count == 0 ? null : NumbersDictionary(labelItems);
+                catalogLabels = labelItems.Count == 0 ? null : NumbersDictionary(labelItems, governor);
             }
             else
             {
@@ -1351,7 +1351,7 @@ public static partial class Qpdf
                 }
             }
 
-            PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last);
+            PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last, governor);
             List<int> roots = new(groupIds);
             if (groupAcroForm is not null)
             {
@@ -1766,21 +1766,25 @@ public static partial class Qpdf
         int total,
         ResourceGovernor governor)
     {
-        List<(int Index, PdfDictionary Label)> items = ResolveLabelItems(labels, total, governor);
+        if (labels.Count == 0) { return null; }
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        List<(int Index, PdfDictionary Label)> items = ResolveLabelItems(labels, total, governor, memory);
         if (items.Count == 0)
         {
             return null;
         }
 
-        return NumbersDictionary(items);
+        return NumbersDictionary(items, governor);
     }
 
     private static List<(int Index, PdfDictionary Label)> ResolveLabelItems(
         IReadOnlyList<PageLabelSpec> labels,
         int total,
-        ResourceGovernor governor)
+        ResourceGovernor governor,
+        ParserMemoryScope memory)
     {
-        List<(int Index, PdfDictionary Label)> items = new(labels.Count);
+        memory.CheckOwner(governor);
+        List<(int Index, PdfDictionary Label)> items = ParserContainers.CreateList<(int Index, PdfDictionary Label)>(memory);
         if (labels.Count == 0)
         {
             return items;
@@ -1794,8 +1798,9 @@ public static partial class Qpdf
         foreach (PageLabelSpec specification in labels)
         {
             governor.ChargeWork(1L);
-            items.Add((specification.ResolveFirstPage(total) - 1, specification.ToDictionary()));
-            governor.ReserveMemory(64L);
+            int index = specification.ResolveFirstPage(total) - 1;
+            PdfDictionary label = specification.ToDictionary(governor, governor.CancellationToken);
+            GovernedCollections.AddItem(memory, governor, items, (index, label), 16L);
         }
 
         if (items[0].Index != 0)
@@ -1814,50 +1819,28 @@ public static partial class Qpdf
         return items;
     }
 
-    private static PdfDictionary NumbersDictionary(List<(int Index, PdfDictionary Label)> items)
+    private static PdfDictionary NumbersDictionary(List<(int Index, PdfDictionary Label)> items, ResourceGovernor governor)
+        => Content.PageLabelStorage.NumberTree(items, governor, governor.CancellationToken);
+
+    private static PdfDictionary? SlicePageLabels(List<(int Index, PdfDictionary Label)> items, int first, int last,
+        ResourceGovernor governor)
     {
-        List<QpdfObject> numbers = new(items.Count * 2);
-        foreach ((int index, PdfDictionary label) in items)
-        {
-            numbers.Add(new PdfInteger(
-                index.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                index));
-            numbers.Add(label);
-        }
-
-        return new PdfDictionary(new Dictionary<PdfName, QpdfObject>
-        {
-            [PdfName.FromAscii("Nums")] = new PdfArray(numbers),
-        });
-    }
-
-    private static PdfDictionary? SlicePageLabels(List<(int Index, PdfDictionary Label)> items, int first, int last)
-    {
-        if (items.Count == 0)
-        {
-            return null;
-        }
-
+        if (items.Count == 0) { return null; }
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         (int Index, PdfDictionary Label) carry = items[0];
-        List<(int Index, PdfDictionary Label)> sliced = new();
+        List<(int Index, PdfDictionary Label)> sliced = ParserContainers.CreateList<(int Index, PdfDictionary Label)>(memory);
+        // Admit the carry slot before construction; update it without shifting a second list.
+        GovernedCollections.AddItem(memory, governor, sliced, (0, carry.Label), 16L);
         foreach ((int index, PdfDictionary label) in items)
         {
-            if (index + 1 <= first)
-            {
-                carry = (index, label);
-            }
+            governor.CheckCancellation(); governor.ChargeWork(1L);
+            if (index + 1 <= first) { carry = (index, label); }
             else if (index + 1 <= last)
-            {
-                sliced.Add((index - (first - 1), label));
-            }
-            else
-            {
-                break;
-            }
+            { GovernedCollections.AddItem(memory, governor, sliced, (index - (first - 1), label), 16L); }
+            else { break; }
         }
-
-        sliced.Insert(0, (0, carry.Label));
-        return NumbersDictionary(sliced);
+        sliced[0] = (0, carry.Label);
+        return NumbersDictionary(sliced, governor);
     }
 
     private static List<(int First, int Last)> PartitionGroups(int total, int groupSize)

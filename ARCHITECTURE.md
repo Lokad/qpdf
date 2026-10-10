@@ -58,6 +58,15 @@ success, failure or cancellation. Fresh transformed streams prepay their weak
 retirement before acceptance, so exhausted jobs need no new maintenance work.
 These changes target the finite B5S controls; broader ownership remains under audit.
 
+Explicit and source-derived labels use the existing owned-allocation batch and
+name-table dictionary builder. Fresh keys, names, integer tokens, prefix buffers,
+dictionary/array wrappers and number-tree backing receive admission before
+construction and independent prepaid weak receipts. Encoding writes directly to
+the owned prefix buffer; borrowed copied style/prefix values keep their original
+owners. Label vectors use copy/selection scopes, and split carry vectors close
+per output. Whole-file verbatim source trees retain the existing scoped copier
+behavior; broader copied-container/reader ownership remains under audit.
+
 Writer compression setters share ordered state across argv and job configurations.
 Plans store that state in one byte while retaining raw options for inspection.
 QDF fills fields that earlier setters left unset; stream-data setters update both

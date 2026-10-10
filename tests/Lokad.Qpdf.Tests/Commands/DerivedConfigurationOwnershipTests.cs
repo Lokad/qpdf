@@ -96,9 +96,6 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         internal readonly ResourceGovernor Governor = governor;
         internal readonly WeakReference Plan = plan;
         internal readonly List<string> Aliases = aliases, Missing = missing;
-        // LABEL-OWN1 records the pre-existing 64-byte label-output reservation
-        // that has no retiring owner. This control closes derived text only.
-        internal readonly long LegacyLabelBytes = profile == "labels-rotation" && outcome is "success" or "publication-fault" ? 64L : 0L;
         internal QpdfExecutionResult? Result = result;
         internal QpdfExecutionCounters? Counters = result.Counters;
     }
@@ -281,13 +278,13 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED COUNTER {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(144L + job.LegacyLabelBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
+            Assert.Equal(144L, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
         }
         Collect(jobs);
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED FINAL {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(job.LegacyLabelBytes, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(0L, job.Governor.Snapshot().LiveMemoryBytes);
         }
         Assert.True(defects.Count == 0, string.Join('\n', defects));
     }

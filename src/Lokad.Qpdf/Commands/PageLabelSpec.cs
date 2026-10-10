@@ -1,4 +1,3 @@
-using System.Text;
 using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Commands;
@@ -104,62 +103,8 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         return (int)page;
     }
 
-    internal PdfDictionary ToDictionary()
-    {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        if (Style.HasValue && Style.Value != PdfPageLabelStyle.None)
-        {
-            string name = Style.Value switch
-            {
-                PdfPageLabelStyle.Decimal => "D",
-                PdfPageLabelStyle.UpperRoman => "R",
-                PdfPageLabelStyle.LowerRoman => "r",
-                PdfPageLabelStyle.UpperAlpha => "A",
-                PdfPageLabelStyle.LowerAlpha => "a",
-                _ => throw new QpdfException($"Unknown page label style {(int)Style.Value}."),
-            };
-            entries[PdfName.FromAscii("S")] = PdfName.FromAscii(name);
-        }
-
-        if (Start.HasValue && Start.Value != 1)
-        {
-            entries[PdfName.FromAscii("St")] = new PdfInteger(
-                Start.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Start.Value);
-        }
-
-        if (Prefix is not null)
-        {
-            entries[PdfName.FromAscii("P")] = EncodePrefix(Prefix);
-        }
-
-        return new PdfDictionary(entries);
-    }
-
-    private static PdfByteString EncodePrefix(string prefix)
-    {
-        bool ascii = true;
-        foreach (char c in prefix)
-        {
-            if (c >= 128)
-            {
-                ascii = false;
-                break;
-            }
-        }
-
-        if (ascii)
-        {
-            return new PdfByteString(Encoding.ASCII.GetBytes(prefix), hex: false);
-        }
-
-        if (Attachments.PdfText.TryEncodePdfDoc(prefix, out byte[] encoded))
-        {
-            return new PdfByteString(encoded, hex: true);
-        }
-
-        return new PdfByteString(Encoding.BigEndianUnicode.GetBytes("\uFEFF" + prefix), hex: true);
-    }
+    internal PdfDictionary ToDictionary(Runtime.ResourceGovernor governor, CancellationToken token)
+        => Content.PageLabelStorage.Explicit(this, governor, token);
 
     private static void CheckFirstPageSyntax(ReadOnlySpan<char> firstPage, string specification, long offset)
     {

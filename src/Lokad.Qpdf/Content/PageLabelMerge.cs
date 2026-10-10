@@ -122,8 +122,10 @@ internal static class PageLabelMerge
         IReadOnlyList<(SourceLabels Source, int Page)> occurrences,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ParserMemoryScope memory)
     {
+        memory.CheckOwner(governor);
         if (occurrences is null)
         {
             throw new ArgumentNullException(nameof(occurrences));
@@ -140,7 +142,7 @@ internal static class PageLabelMerge
         }
 
         limits.Validate();
-        List<(int Index, PdfDictionary Label)> merged = new(occurrences.Count);
+        List<(int Index, PdfDictionary Label)> merged = ParserContainers.CreateList<(int Index, PdfDictionary Label)>(memory);
         for (int k = 0; k < occurrences.Count; k++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -174,8 +176,8 @@ internal static class PageLabelMerge
                 }
             }
 
-            governor.ReserveMemory(64L);
-            merged.Add((k, BuildLabel(style, prefix, start)));
+            PdfDictionary label = PageLabelStorage.Merged(style, prefix, start, governor, cancellationToken);
+            GovernedCollections.AddItem(memory, governor, merged, (k, label), 16L);
         }
 
         return merged;
@@ -312,24 +314,6 @@ internal static class PageLabelMerge
         }
 
         return raw is PdfName name && (name.DisplayText == "Page" || name.DisplayText == "Pages" || name.DisplayText == "Catalog");
-    }
-
-    private static PdfDictionary BuildLabel(QpdfObject? style, QpdfObject? prefix, long start)
-    {
-        Dictionary<PdfName, QpdfObject> entries = new();
-        if (style is not null)
-        {
-            entries[PdfName.FromAscii("S")] = style;
-        }
-
-        if (prefix is not null)
-        {
-            entries[PdfName.FromAscii("P")] = prefix;
-        }
-
-        entries[PdfName.FromAscii("St")] = new PdfInteger(
-            start.ToString(System.Globalization.CultureInfo.InvariantCulture), start);
-        return new PdfDictionary(entries);
     }
 
     private static string ValueToken(QpdfObject? value)

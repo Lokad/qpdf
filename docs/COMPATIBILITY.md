@@ -4,6 +4,15 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+LABEL-OWN1 implements pre-allocation ownership for explicit and source-derived
+label values and number trees across shared writer consumers. All 3221 related
+checks pass, including 504 complete public jobs and bounded large-prefix controls.
+The exact current tests retain three predecessor failures/six positives. Native
+syntax, encodings, styles, starts and split behavior remain; original label debt
+now retires to zero. Forty-two inherited whole-file pass-through jobs retain their
+scoped-copy qualification. Combined committed reference/package proof is pending;
+C2/C3/B4 and broader copier/audit parents remain open.
+
 CFG-01B3C2D1 retires on committed `d8050eb`: parsed label first-page/prefix
 strings, rotation ranges and canonical JSON selectors receive independent
 admission before allocation, including typed JSON. Span parsing preserves syntax

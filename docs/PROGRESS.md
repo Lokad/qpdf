@@ -1,5 +1,45 @@
 # Progress
 
+## Label output ownership — LABEL-OWN1 implemented, combined proof pending
+
+Shared owned-graph construction admits explicit and source-derived label
+names, prefix buffers, dictionaries, integer tokens and number trees before
+allocation. Lists use the existing copy/selection scopes; split carry lists
+retire per output. Prefix encoding preserves ASCII/PDFDocEncoding/UTF-16 bytes,
+including surrogate boundaries and replacement behavior, without a second byte
+copy or temporary BOM string. Each fresh graph allocation transfers an independent
+receipt with prepaid retirement. The former 64-byte unowned reservations in both
+explicit resolution and inherited-label merging are removed.
+
+Three ordinary controls cover 504 complete argv/job/typed whole/selection/merge/
+split jobs over three encodings, output create/write/commit/close faults and both
+cancellations. All terminal outcomes, checked prefixes/styles/starts and split
+parts remain. Four shared collection/memory-maintenance rounds fund private
+constructed-graph aliases through completion, then all 504 jobs reach zero.
+Forty-two inherited whole-file pass-through jobs bind scoped minima to the actual
+writer model; they retain the broader copied-container qualification. Host output
+getters return caller copies, whose checked bytes remain usable through cleanup.
+Input faults and the original 98 configuration jobs remain in the wider lane.
+Only the fourteen original 208/64-byte label-debt assertions become 144/0.
+
+All 3221 related cases pass. The exact final test binary on the predecessor
+retains three failures/six positives without loaders/skips: the original 64-byte
+debt, unfunded constructed graph aliases and large-prefix pre-admission allocation.
+Under the unchanged 2 MiB memory/25000-work controls, predecessor allocation is
+15592040/11754224 bytes; corrected allocation is 63456/62408, with prior targets
+and leases preserved. Four boundary/undefined-character output controls pass on
+both implementations. This comparison uses independent CLR type/array/string
+samples; it does not derive its minima from the new reservation formulas.
+
+Fixture compiler/command/observer trials remain explicit. The first maintenance
+fixture used work maintenance and left ledger metadata; existing four-round memory
+maintenance corrects it. Separating the last alias enumerator's lifetime removes
+a retained test reference. Preliminary whole-file reader trees are distinguished
+from the actual writer model; split observes merged values and independently
+checks each remapped output. Full pinned/reference/native/API/package/consumer
+proof against a committed source tree remains required before retiring LABEL-OWN1.
+C1/C2D1/REF-03 stay retired; C2/C3/B4/copier parents and wider gates remain open.
+
 ## Derived configuration text — CFG-01B3C2D1 retired
 
 Committed `d8050eb` funds parsed label first-page/prefix strings, rotation ranges

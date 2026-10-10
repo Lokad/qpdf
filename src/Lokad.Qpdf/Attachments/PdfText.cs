@@ -22,6 +22,9 @@ internal static class PdfText
 
     private static readonly Dictionary<char, byte> EncodeMap = BuildEncodeMap();
 
+    internal static bool TryEncodePdfDocByte(char value, out byte encoded)
+        => EncodeMap.TryGetValue(value, out encoded);
+
     /// <summary>
     /// Encodes text into PDFDocEncoding bytes when every character round-trips.
     /// Returns false for characters outside PDFDocEncoding (including surrogates
@@ -37,7 +40,7 @@ internal static class PdfText
         byte[] encoded = new byte[value.Length];
         for (int i = 0; i < value.Length; i++)
         {
-            if (!EncodeMap.TryGetValue(value[i], out byte unit))
+            if (!TryEncodePdfDocByte(value[i], out byte unit))
             {
                 bytes = [];
                 return false;
