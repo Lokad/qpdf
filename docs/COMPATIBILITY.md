@@ -4,7 +4,13 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-The response-text correction preserves 1928 focused configuration/result/JSON
+The response-argument correction adds seven public controls and 13 terminal jobs.
+All seven controls expose behavioral predecessor failures; original response
+controls remain positive. Generated text/vector admission and surviving host/
+diagnostic aliases have focused proof. CFG-01B3T/V/H await combined committed
+verification; B3C parser vectors/plans and syntax/session/DOM ownership stay open.
+
+The preceding response-text correction preserves 1928 focused configuration/result/JSON
 checks and 24 complete terminal jobs. Exact decoded string admission precedes
 allocation and survives input close/splitting; four final public controls expose
 the predecessor's missing storage/late short-admission defects. CFG-01B1/B2 retire

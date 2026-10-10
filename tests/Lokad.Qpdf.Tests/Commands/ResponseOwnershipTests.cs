@@ -34,7 +34,7 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         {
             IQpdfInput input = await Inner.OpenInputAsync(path, token);
             if (path != Response) { PdfOpens++; }
-            if (path == Response && _outcome == "empty")
+            if (path == Response && _outcome is "empty" or "memory")
             {
                 _entered.TrySetResult();
                 await _resume.Task.WaitAsync(token);
@@ -124,7 +124,11 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         Assert.Equal(caller, invocation.Arguments);
         Assert.Same(caller[0], invocation.Arguments[0]);
         Assert.Equal(Prior, prior);
-        Assert.Equal(outcome == "empty" ? 0 : 1, host.Reads); Assert.Equal(1, host.Closes);
+        // A newly admitted configuration owner may reject before its first
+        // byte read. Keep the same memory limit and before-PDF rejection.
+        if (outcome == "memory") { Assert.InRange(host.Reads, 0, 1); }
+        else { Assert.Equal(outcome == "empty" ? 0 : 1, host.Reads); }
+        Assert.Equal(1, host.Closes);
         Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.True(host.Inner.TryGetOutput(target, out byte[] published));
         if (outcome == "success")

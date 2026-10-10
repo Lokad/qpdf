@@ -1,33 +1,34 @@
 # Progress
 
-## Response read/text ownership — CFG-01B1/B2 retired
+## Response argument ownership — CFG-01B3T/V/H combined proof pending
 
-Integrated `58eba09` passes all 18631 unfiltered Release cases in 514.6 seconds
-(8.6 minutes), without failures/skips or overlapping verification jobs. All 18626
-preceding ordinary cases and all 4535 named ownership observations remain.
-Complete ASCII/UTF-8 rewrites expose the predecessor's 2112-byte decoded string
-at input close while only 288 bytes were funded. Exact text admission now precedes
-allocation, survives close/splitting and drops failed close candidates. Empty
-private byte arrays admit their header; decoding work is bounded before both passes.
+Two complete ASCII/UTF-8 rewrites retain a 2080-byte generated output token at
+the second response open while the predecessor funds only 288 bytes. Expansion
+now admits list/backing growth, fresh tokens and response names before allocation;
+caller strings/shared empties remain borrowed. Whole-line text transfers once.
+Independent receipts retain surviving host names and accepted diagnostic tokens;
+the private vector clears before final counter capture. No runtime GC forcing.
 
-All 1928 focused cases pass. Five public tests preserve 24 independent terminal
-jobs across response, direct job-file and mixed routes: success, read/close faults,
-invalid UTF-8, both cancellation sources, non-progressing reads and empty files.
-Four exact predecessor tests fail on missing decoded storage/late 3000-byte rejection;
-all 24 retirement controls remain positive. Caller arguments, prior output aliases,
-published one-page PDFs, statuses, four maintenance rounds and closed leases remain.
+Seven public controls pass, including 13 complete terminal jobs with success,
+whole/empty/CRLF text, empty tokens, open/read/close faults, invalid UTF-8,
+non-progress, both cancellations and publication failure. Vector storage needs
+576 bytes and receives 640; default token observations hold 4336, peak 6416.
+Both fixed 6144-byte jobs reject before PDF opens and preserve prior outputs.
+Host/result/counter aliases drop independently through original four-round
+boundaries; private expansion dies, counters alone retain 144, then storage is zero.
+All seven new controls fail on the exact preceding runtime; five established
+response controls and their 24 named terminal jobs remain positive there.
 
-Strict locked restore/Release build, pinned 1846 comparisons/432 rewrite trios,
-identical 868 native records (same 64 valid layout differences), API908 and exact
-DLL/PDB/XML/changelog packaging pass. Fresh consumers pass 50 smokes/two specific
-negatives. Five locks, advisory exclusions, original tests and unrelated work are
-unchanged. Reference/native phases take 1951.5/442.5 seconds after the isolated
-full suite; recorded timings bind the committed source and runtime artifacts.
-The shipped library does not force GC; collection remains confined to tests.
+The old 3000-byte admission fixture now pauses at input open because new storage
+can reject before reading; its limits, before-PDF assertion and lease checks remain.
+One wider trial retains a 40-byte immediate counter-capture race. The short warning
+producer/capture interval uses the existing test-only no-GC scope; original equality,
+5000-work ceiling, accepted warnings and later lifetime rounds remain unchanged.
+Committed combined Release/reference/package/consumer proof is still required.
 
-Only CFG-01B1/B2 retire. CFG-01B3 token/vector/controller ownership is next;
-CFG-01B4 awaits the whole configuration correction. CFG-01B, A04/A06/M11 and
-both broader verdicts remain open.
+Only CFG-01B3T/V/H are candidates for retirement. B3C parser vectors/plans,
+syntax/session/DOM controllers, parent CFG-01B3/B4, A04/A06/M11 and both verdicts
+remain open. Established CFG-01B1/B2 read/decoded-text evidence remains retired.
 
 ## Full suite below ten minutes — TEST-03A–G retired
 

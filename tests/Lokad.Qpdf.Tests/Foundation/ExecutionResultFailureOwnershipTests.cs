@@ -274,6 +274,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         InMemoryQpdfHost inner = Assert.IsType<InMemoryQpdfHost>(Property(host, "Inner"));
         inner.AddInput(QpdfPath.From("input.pdf"), input, QpdfInputOwnership.Copy);
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] prior));
+        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
         Task<QpdfExecutionResult> running = RunWarnings(host, route, noWarn, QpdfLimits.Default with { MaxWork = 5000L });
         try
         {

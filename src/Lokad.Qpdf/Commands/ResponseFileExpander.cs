@@ -12,7 +12,7 @@ namespace Lokad.Qpdf.Commands;
 /// </summary>
 internal static class ResponseFileExpander
 {
-    internal static async ValueTask<IReadOnlyList<string>> ExpandAsync(
+    internal static async ValueTask<ExpandedArguments> ExpandAsync(
         IQpdfHost host,
         IReadOnlyList<string> argv,
         QpdfLimits limits,
@@ -40,54 +40,53 @@ internal static class ResponseFileExpander
         }
 
         limits.Validate();
-        List<string> expanded = new(argv.Count);
-        for (int i = 0; i < argv.Count; i++)
+        ExpandedArguments expanded = ExpandedArguments.Create(governor);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            string? token = argv[i];
-            if (token is null)
-            {
-                throw new QpdfParseException("Null argument.", i, null);
-            }
-
-            if (token.Length < 2 || token[0] != '@')
-            {
-                expanded.Add(token);
-                continue;
-            }
-
-            string name = token.Substring(1);
-            if (name == "-")
-            {
-                throw new QpdfParseException("Response arguments from standard input need a stdin descriptor, which this profile does not provide.", i, null);
-            }
-
-            QpdfPath path;
-            try
-            {
-                path = QpdfPath.From(name);
-            }
-            catch (ArgumentException ex)
-            {
-                throw new QpdfParseException($"Response file name is not a valid logical path: {ex.Message}.", i, null, ex);
-            }
-
-            using GovernedText? content = await TryReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false);
-            if (content is null)
-            {
-                expanded.Add(token);
-                continue;
-            }
-
-            foreach (string line in SplitLines(content.Value))
+            for (int i = 0; i < argv.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
-                expanded.Add(line);
-            }
-        }
+                string? token = argv[i];
+                if (token is null)
+                {
+                    throw new QpdfParseException("Null argument.", i, null);
+                }
 
-        return expanded;
+                if (token.Length < 2 || token[0] != '@')
+                {
+                    expanded.AddBorrowed(token);
+                    continue;
+                }
+
+                string name = expanded.CopySubstring(token, 1, token.Length - 1);
+                if (name == "-")
+                {
+                    throw new QpdfParseException("Response arguments from standard input need a stdin descriptor, which this profile does not provide.", i, null);
+                }
+
+                QpdfPath path;
+                try
+                {
+                    path = QpdfPath.From(name);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new QpdfParseException($"Response file name is not a valid logical path: {ex.Message}.", i, null, ex);
+                }
+
+                using GovernedText? content = await TryReadTextFileAsync(host, path, limits, governor, cancellationToken).ConfigureAwait(false);
+                if (content is null)
+                {
+                    expanded.AddBorrowed(token);
+                    continue;
+                }
+
+                expanded.AddResponseLines(content);
+            }
+
+            return expanded;
+        }
+        catch { expanded.Dispose(); throw; }
     }
 
     internal static async ValueTask<GovernedText> ReadTextFileAsync(
@@ -171,32 +170,4 @@ internal static class ResponseFileExpander
         }
     }
 
-    private static List<string> SplitLines(string content)
-    {
-        List<string> lines = new();
-        int start = 0;
-        for (int i = 0; i < content.Length; i++)
-        {
-            if (content[i] != '\n')
-            {
-                continue;
-            }
-
-            int end = i;
-            if (end > start && content[end - 1] == '\r')
-            {
-                end -= 1;
-            }
-
-            lines.Add(content.Substring(start, end - start));
-            start = i + 1;
-        }
-
-        if (start < content.Length)
-        {
-            lines.Add(content.Substring(start));
-        }
-
-        return lines;
-    }
 }

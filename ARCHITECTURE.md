@@ -15,8 +15,13 @@ between files. The loader bounds cumulative bytes, work, nesting and storage.
 Response decoding admits its exact UTF-16 string before allocation while encoded
 bytes overlap. Its independent text owner survives input close and line splitting;
 close failures discard that unreturned owner. Empty read-copy arrays retain their
-allocation header admission. Expanded-token/vector and broader controller ownership
-remain explicit configuration audit obligations.
+allocation header admission. Expansion admits its list and backing growth, borrows
+caller strings/shared empties and admits generated substrings before allocation.
+Independent string receipts cover surviving host names and result diagnostics;
+single whole-line responses transfer their decoded string without double admission.
+The expansion vector clears and retires before final counter capture. Parser-created
+vectors, syntax adapters, plans and broader configuration/DOM controllers remain
+explicit ownership audit obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.

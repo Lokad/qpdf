@@ -4732,66 +4732,81 @@ public static partial class Qpdf
         ResourceGovernor governor = new(options.Limits, cancellationToken);
         governor.ExpectExecutionResult();
         DiagnosticBag diagnostics = new(governor);
-        IReadOnlyList<string> expanded;
+        ExecutionOutcome result;
+        ExpandedArguments? expanded = null;
         try
         {
             expanded = await ResponseFileExpander.ExpandAsync(host, invocation.Arguments, options.Limits, governor, cancellationToken).ConfigureAwait(false);
+            result = await RunExpandedInvocationAsync(host, expanded.Values, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
         catch (QpdfException ex)
         {
-            return governor.FinishExecutionResult(ToFailedResult(ex));
+            result = ToFailedResult(ex);
         }
         catch (OperationCanceledException)
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
+            result = ExecutionOutcome.Canceled([]);
         }
+        finally
+        {
+            expanded?.Dispose();
+            expanded = null;
+        }
+
+        return governor.FinishExecutionResult(result);
+    }
+
+    private static async ValueTask<ExecutionOutcome> RunExpandedInvocationAsync(
+        IQpdfHost host, IReadOnlyList<string> expanded, QpdfExecutionOptions options,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    {
 
         if (HelpText.TryMatchHelp(expanded, out string help))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, help)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, help)]);
         }
 
         if (HelpText.TryMatchVersion(expanded, out string version))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, version)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, version)]);
         }
 
         if (HelpText.TryMatchCopyright(expanded, out string copyright))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, copyright)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, copyright)]);
         }
 
         if (HelpText.TryMatchJobJsonHelp(expanded, out string jobJsonHelp))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jobJsonHelp)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jobJsonHelp)]);
         }
 
         if (HelpText.TryMatchJsonHelp(expanded, out string jsonHelp))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jsonHelp)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jsonHelp)]);
         }
 
         if (HelpText.TryMatchCompletionBash(expanded, out string completionBash))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionBash)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionBash)]);
         }
 
         if (HelpText.TryMatchCompletionZsh(expanded, out string completionZsh))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionZsh)]));
+            return ExecutionOutcome.Completed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionZsh)]);
         }
 
         if (HelpText.TryMatchZopfli(expanded, out string zopfli))
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Failed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Error, zopfli)]));
+            return ExecutionOutcome.Failed(
+                [new QpdfDiagnostic(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Error, zopfli)]);
         }
 
         if (JobJsonLoader.HasJobFile(expanded)
@@ -4817,14 +4832,14 @@ public static partial class Qpdf
             catch (QpdfException ex)
             {
                 ExecutionOutcome failure = ToFailedResult(ex);
-                return governor.FinishExecutionResult(failure);
+                return failure;
             }
             catch (OperationCanceledException)
             {
-                return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
+                return ExecutionOutcome.Canceled([]);
             }
 
-            return governor.FinishExecutionResult(await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false));
+            return await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         JobPlan plan;
@@ -4835,15 +4850,14 @@ public static partial class Qpdf
         catch (QpdfException ex)
         {
             ExecutionOutcome failure = ToFailedResult(ex);
-            return governor.FinishExecutionResult(failure);
+            return failure;
         }
         catch (OperationCanceledException)
         {
-            return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
+            return ExecutionOutcome.Canceled([]);
         }
 
-        ExecutionOutcome result = await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        return governor.FinishExecutionResult(result);
+        return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Executes a job-JSON invocation with default budgets.</summary>
