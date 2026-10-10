@@ -3,6 +3,7 @@ namespace Lokad.Qpdf.Commands;
 /// <summary>Validated job plan shared by every entry path.</summary>
 internal abstract record JobPlan(QpdfPath Input)
 {
+    internal CollationPreparation? CollationStorage { get; init; }
     /// <summary>Input token standing in for the synthetic zero-page document.</summary>
     internal const string EmptyDocumentInput = "--empty";
 

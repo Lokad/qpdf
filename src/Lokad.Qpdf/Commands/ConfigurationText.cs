@@ -10,6 +10,7 @@ internal sealed class ConfigurationText : IDisposable
     private readonly ResourceGovernor _governor;
     private ParserMemoryScope? _memory;
     private long _jsonCopies;
+    internal CollationPreparation? Collation { get; set; }
 
     private ConfigurationText(ResourceGovernor governor, ParserMemoryScope memory)
     { _governor = governor; _memory = memory; }

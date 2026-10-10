@@ -38,8 +38,13 @@ record/string storage and bounded grammar scratch before allocation, observes
 work/cancellation during conversion and holds storage through publication.
 Disposal drops all preparation fields before final counter capture. Caller
 records/page arrays/prefixes stay borrowed; the existing range cap/defaults stand.
-Parser-created vectors, other derived strings, syntax adapters, plans and broader
-configuration/DOM controllers remain explicit ownership obligations.
+Collation preparation shares a governed span parser across argv and job JSON.
+Its scoped owner admits actual vector growth/overlap, registry storage and the
+policy wrapper/integer snapshot before allocation, observes work/cancellation
+and holds the storage through publication. JSON reuses its validated vector;
+disposal detaches all fields before final counter capture. Typed caller policies
+remain borrowed. Other parser-created vectors, derived strings, syntax adapters,
+plans and broader configuration/DOM controllers remain explicit ownership obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.

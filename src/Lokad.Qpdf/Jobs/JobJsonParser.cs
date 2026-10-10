@@ -94,6 +94,24 @@ internal static class JobJsonParser
         QpdfLimits limits,
         ResourceGovernor governor, ConfigurationText textStorage)
     {
+        CollationPreparation storage = CollationPreparation.Create(governor);
+        textStorage.Collation = storage;
+        try
+        {
+            JobPlan plan = ParsePropertiesCore(properties, configurationLayers, limits, governor, textStorage);
+            if (!storage.HasStorage) { storage.Dispose(); return plan; }
+            return plan with { CollationStorage = storage };
+        }
+        catch { storage.Dispose(); throw; }
+        finally { textStorage.Collation = null; }
+    }
+
+    private static JobPlan ParsePropertiesCore(
+        IEnumerable<JsonProperty> properties,
+        bool configurationLayers,
+        QpdfLimits limits,
+        ResourceGovernor governor, ConfigurationText textStorage)
+    {
             string? input = null;
             bool empty = false;
             bool seenEmpty = false;
@@ -108,6 +126,7 @@ internal static class JobJsonParser
             JsonElement pages = default;
             bool hasPages = false;
             string? collate = null;
+            List<int>? collationSizes = null;
             bool seenCollate = false;
             List<OutputRotation> rotations = new();
             bool seenRotate = false;
@@ -342,7 +361,7 @@ internal static class JobJsonParser
 
                         seenCollate = true;
                         collate = RequireString(property.Value, "collate", textStorage);
-                        _ = ArgvParser.ParseCollateValue(collate, 0L);
+                        collationSizes = ArgvParser.ParseCollateValue(collate, 0L, textStorage.Collation);
                         break;
                     case "rotate":
                         if (seenRotate && !configurationLayers)
@@ -1219,12 +1238,12 @@ internal static class JobJsonParser
                 PdfPageCollation? inspectionCollation = null;
                 if (seenCollate && hasPages)
                 {
-                    List<int> sizes = ArgvParser.ParseCollateValue(collate, 0L);
+                    List<int> sizes = collationSizes ?? throw new InvalidOperationException("Missing parsed collation sizes.");
                     if (sizes.Count != 1 && sizes.Count != inspectionSources.Count)
                     {
                         throw new QpdfParseException("Job collate must hold one value or one per pages entry.", 0L, null);
                     }
-                    inspectionCollation = new PdfPageCollation(sizes);
+                    inspectionCollation = (textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner.")).CreatePolicy(sizes);
                 }
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
@@ -1776,13 +1795,13 @@ internal static class JobJsonParser
             PdfPageCollation? collation = null;
             if (seenCollate)
             {
-                List<int> groupSizes = ArgvParser.ParseCollateValue(collate, 0L);
+                List<int> groupSizes = collationSizes ?? throw new InvalidOperationException("Missing parsed collation sizes.");
                 if (groupSizes.Count != 1 && groupSizes.Count != entries.Count)
                 {
                     throw new QpdfParseException("Job \"collate\" must hold one value or one per \"pages\" entry.", 0L, null);
                 }
 
-                collation = new PdfPageCollation(groupSizes);
+                collation = (textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner.")).CreatePolicy(groupSizes);
             }
             if (empty)
             {

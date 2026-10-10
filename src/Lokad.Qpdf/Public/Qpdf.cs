@@ -4781,7 +4781,9 @@ public static partial class Qpdf
             return ExecutionOutcome.Canceled([]);
         }
 
-        return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        try
+        { return await RunPlanAsync(host, plan, options.Limits, options.ExplicitLimits, governor, diagnostics, cancellationToken).ConfigureAwait(false); }
+        finally { plan.CollationStorage?.Dispose(); }
     }
 
     /// <summary>Executes a job-JSON invocation with default budgets.</summary>

@@ -40,21 +40,28 @@ internal static class ArgvParser
         }
 
         using ConfigurationText? textStorage = governor is null ? null : ConfigurationText.Create(governor);
-        argv = ConfigurationText.Wrap(argv, textStorage);
-        RejectCryptoOptions(argv, governor);
-        PagesArgumentBlock.Validate(argv, governor);
-        argv = StripGlobalBlocks(argv);
-        GlobalOptions globals = ExtractGlobalOptions(ref argv);
-        return ParseCore(argv, globals) with
+        CollationPreparation? collationStorage = governor is null ? null : CollationPreparation.Create(governor);
+        if (textStorage is not null) { textStorage.Collation = collationStorage; }
+        try
         {
-            CompressionState = globals.CompressionState,
-            MaxStreamFilters = globals.MaxStreamFilters,
-            ParserMaxNesting = globals.ParserMaxNesting,
-            MaxContainerSize = globals.MaxContainerSize,
-            MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
-            ParserMaxErrors = globals.ParserMaxErrors,
-            NoDefaultLimits = globals.NoDefaultLimits,
-        };
+            argv = ConfigurationText.Wrap(argv, textStorage);
+            RejectCryptoOptions(argv, governor);
+            PagesArgumentBlock.Validate(argv, governor);
+            argv = StripGlobalBlocks(argv);
+            GlobalOptions globals = ExtractGlobalOptions(ref argv);
+            return ParseCore(argv, globals) with
+            {
+                CompressionState = globals.CompressionState,
+                MaxStreamFilters = globals.MaxStreamFilters,
+                ParserMaxNesting = globals.ParserMaxNesting,
+                MaxContainerSize = globals.MaxContainerSize,
+                MaxContainerSizeDamaged = globals.MaxContainerSizeDamaged,
+                ParserMaxErrors = globals.ParserMaxErrors,
+                NoDefaultLimits = globals.NoDefaultLimits,
+                CollationStorage = collationStorage,
+            };
+        }
+        catch { collationStorage?.Dispose(); throw; }
     }
 
     internal static void RejectCryptoOptions(IReadOnlyList<string> argv, Runtime.ResourceGovernor? governor)
@@ -811,7 +818,7 @@ internal static class ArgvParser
         List<OutputRotation> rotations = new();
         List<PageLabelSpec> labels = new();
         bool removeLabels = false;
-        List<int> collate = new();
+        List<int> collate = NewCollationVector(argv);
         int cursor;
         bool emptyInput = pagesAt > 0 && argv[0] == "--empty";
         if (emptyInput)
@@ -1190,6 +1197,7 @@ internal static class ArgvParser
     private sealed record GlobalOptions(QpdfRecoveryMode Recovery, bool WarningExitZero, bool NoWarn, int? SplitPages, bool ReplaceInput, string? MinVersion, string? ForceVersion, bool DeterministicId, bool StaticId, bool NewlineBeforeEndstream, string? ObjectStreams, bool PreserveUnreferenced, string? StreamData, string? CompressStreams, string? DecodeLevel, bool RecompressFlate, string? CompressionLevel, bool RemoveInfo, bool RemoveMetadata, bool CoalesceContents, bool NormalizeContent, string? RemoveUnreferencedResources, bool ExternalizeInlineImages, long IiMinBytes, bool FlattenRotation, string? FlattenAnnotations, bool GenerateAppearances, bool OptimizeImages, long OiMinWidth, long OiMinHeight, long OiMinArea, bool KeepInlineImages, int? JpegQuality, bool Qdf, bool NoOriginalObjectIds, bool Linearize, string? LinearizePass1, long? MaxStreamFilters, long? ParserMaxNesting, bool WithImages, bool IgnoreXrefStreams, long? MaxContainerSize, long? MaxContainerSizeDamaged, bool ReportMemoryUsage, bool TestJsonSchema, bool Verbose, string? KeepFilesOpen, long KeepFilesOpenThreshold, bool RawStreamData, bool FilteredStreamData, bool Progress, bool RemoveAcroform, bool RemoveStructure, List<int> Collate, List<OutputRotation> Rotations, bool NoDefaultLimits, long? ParserMaxErrors)
     {
         internal byte CompressionState { get; init; }
+        internal CollationPreparation? CollationStorage { get; init; }
     }
 
     private static bool IsGlobalOptionToken(string token)
@@ -1286,7 +1294,7 @@ internal static class ArgvParser
         bool seenReplace = false;
         int? splitPages = null;
         bool replaceInput = false;
-        List<int> collate = new();
+        List<int> collate = NewCollationVector(argv);
         List<OutputRotation> mainRotations = new();
         bool seenMin = false;
         bool seenForce = false;
@@ -1460,13 +1468,16 @@ internal static class ArgvParser
 
             if ((argv[i] == "--collate" || argv[i].StartsWith("--collate=", StringComparison.Ordinal)) && (mainPagesAt < 0 || i < mainPagesAt || i >= mainPagesEnd))
             {
-                string? collateValue = null;
+                ReadOnlySpan<char> collateValue = default;
                 if (argv[i].StartsWith("--collate=", StringComparison.Ordinal))
                 {
-                    collateValue = ConfigurationText.Slice(argv, argv[i], "--collate=".Length);
+                    collateValue = argv[i].AsSpan("--collate=".Length);
                 }
 
-                collate.AddRange(ParseCollateValue(collateValue, i));
+                CollationPreparation? owner = ConfigurationText.OwnerOf(argv)?.Collation;
+                List<int> parsed = ParseCollateValue(collateValue, i, owner);
+                if (owner is null) { collate.AddRange(parsed); }
+                else { owner.Append(collate, parsed); }
                 continue;
             }
 
@@ -2210,6 +2221,7 @@ internal static class ArgvParser
         return new GlobalOptions(recovery, warningExitZero, noWarn, splitPages, replaceInput, minVersion, forceVersion, deterministicId, staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, streamData, compressStreams, decodeLevel, recompressFlate, compressionLevel, removeInfo, removeMetadata, coalesceContents, resolvedNormalize, removeUnreferencedResources, externalizeInlineImages, iiMinBytes, flattenRotation, flattenAnnotations, generateAppearances, optimizeImages, oiMinWidth, oiMinHeight, oiMinArea, keepInlineImages, jpegQuality, qdf, noOriginalObjectIds, linearize, linearizePass1, maxStreamFilters, parserMaxNesting, withImages, ignoreXrefStreams, maxContainerSize, maxContainerSizeDamaged, reportMemoryUsage, testJsonSchema, verbose, keepFilesOpen, keepFilesOpenThreshold, rawStreamData, filteredStreamData, progress, removeAcroform, removeStructure, collate, mainRotations, noDefaultLimits, parserMaxErrors)
         {
             CompressionState = compressionSettings.State,
+            CollationStorage = ConfigurationText.OwnerOf(argv)?.Collation,
         };
     }
 
@@ -3711,7 +3723,7 @@ internal static class ArgvParser
         List<OutputRotation> rotations = new();
         List<PageLabelSpec> labels = new();
         bool removeLabels = false;
-        List<int> collate = new();
+        List<int> collate = NewCollationVector(argv);
         int i = pagesAt + 1;
         while (i < terminatorAt)
         {
@@ -3881,9 +3893,10 @@ internal static class ArgvParser
         GlobalOptions globals,
         bool emptyInput)
     {
-        List<int> combined = new(globals.Collate.Count + collate.Count);
-        combined.AddRange(globals.Collate);
-        combined.AddRange(collate);
+        CollationPreparation? owner = globals.CollationStorage;
+        List<int> combined = owner is null ? new(globals.Collate.Count + collate.Count) : owner.CreateVector();
+        if (owner is null) { combined.AddRange(globals.Collate); combined.AddRange(collate); }
+        else { owner.Append(combined, globals.Collate); owner.Append(combined, collate); }
         if (combined.Count != 0 && combined.Count != 1 && combined.Count != groups.Count)
         {
             throw new QpdfParseException("--pages: if --collate has more than one value, it must have one value per page specification.", 0L, null);
@@ -3895,7 +3908,8 @@ internal static class ArgvParser
             sources.Add(new PdfPageSource(SelectionPlan.CheckedPath(group.File), PdfPageSelectionOptions.FromRange(group.Range)));
         }
 
-        PdfPageCollation? collation = combined.Count == 0 ? null : new PdfPageCollation(combined);
+        PdfPageCollation? collation = combined.Count == 0 ? null
+            : owner is null ? new PdfPageCollation(combined) : owner.CreatePolicy(combined);
         return new MergePlan(SelectionPlan.CheckedPath(input), SelectionPlan.CheckedPath(output), sources, collation, recovery) with
         {
             EmptyInput = emptyInput,
@@ -3980,15 +3994,27 @@ internal static class ArgvParser
     }
 
     internal static List<int> ParseCollateValue(string? value, long offset)
+        => ParseCollateValue(value, offset, null);
+
+    internal static List<int> ParseCollateValue(string? value, long offset, CollationPreparation? owner)
+        => ParseCollateValue(value.AsSpan(), offset, owner);
+
+    private static List<int> ParseCollateValue(ReadOnlySpan<char> value, long offset, CollationPreparation? owner)
     {
-        if (value is null || value.Length == 0)
+        List<int> sizes = owner is null ? new() : owner.CreateVector();
+        if (value.Length == 0)
         {
-            return new List<int> { 1 };
+            if (owner is null) { sizes.Add(1); } else { owner.Add(sizes, 1); }
+            return sizes;
         }
 
-        List<int> sizes = new();
-        foreach (string item in value.Split(','))
+        int start = 0;
+        while (start <= value.Length)
         {
+            int end = start;
+            while (end < value.Length && value[end] != ',') { owner?.Visit(); end++; }
+            owner?.Visit();
+            ReadOnlySpan<char> item = value.Slice(start, end - start);
             if (item.Length == 0 || item.Length > 10)
             {
                 throw new QpdfParseException($"Invalid --collate value '{value}': expected n[,m,...].", offset, null);
@@ -4010,11 +4036,16 @@ internal static class ArgvParser
                 throw new QpdfParseException($"Invalid --collate value '{value}': group size is too large.", offset, null);
             }
 
-            sizes.Add((int)size);
+            if (owner is null) { sizes.Add((int)size); } else { owner.Add(sizes, (int)size); }
+            if (end == value.Length) { break; }
+            start = end + 1;
         }
 
         return sizes;
     }
+
+    private static List<int> NewCollationVector(IReadOnlyList<string> argv)
+        => ConfigurationText.OwnerOf(argv)?.Collation?.CreateVector() ?? new();
 
     private static WholeFilePlan NewWholeFilePlan(
         string input,

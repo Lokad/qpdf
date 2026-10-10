@@ -1,5 +1,36 @@
 # Progress
 
+## Collation preparation — CFG-01B3C2L implemented, combined proof pending
+
+Two complete argv jobs demonstrate the next C2 failure: 4096 collation values
+under 128-work allocate 251880 bytes; 100000 values under 1024-work allocate
+6469584 bytes. Both return a count-mismatch error after uncharged parsing.
+The shared correction scans spans incrementally under the existing governor,
+admits actual vector growth/overlap and the resulting policy before allocation,
+and holds a scoped owner through reading/copying/writing/publication. JSON reuses
+its validated vector. Caller typed policies remain caller-owned. Ordinary tests
+cover original work/allocation bounds, six public routes/eight terminal outcomes,
+independent held-storage minima, surviving results/output copies and cleanup,
+plus default/invalid/inspection semantics. All 2402 related checks pass.
+The exact final predecessor tests retain two failures/one semantic positive,
+without loaders/skips. Original 251880/6469584-byte work failures now allocate
+2944/4968 bytes and reject with BudgetExceeded before host access. All 90
+independent overlap minima pass; all 48 complete jobs reach zero with the same
+four collection/maintenance rounds per phase and no extra calls. The 78 public
+jobs include two explicit first-touch controls, 24 value/default/error jobs and
+two inspection jobs. Combined committed proof is pending.
+
+Fixture trials remain explicit: the initial top-level probe variable conflicted
+with generated args; the first correction still copied the long argv substring,
+then span scanning removed it. An unnecessary empty JSON scope retired too late
+for an existing internal control; unused scopes now close immediately. Async
+observer traversal missed nested structs/private inherited storage; observing
+the actual base property fixes it. The zero-size control now preserves native
+zero-page behavior. No production forced collections or new public surface.
+Keep the original probe, predecessor failures and fixture trials explicit. This
+child does not close other parser vectors/plans, cold-state or broader ledger/C3
+obligations; established C1/C2D1/C2T/LABEL-OWN1/REF-03 stay retired.
+
 ## Typed selection preparation — CFG-01B3C2T retired
 
 The typed single-rotation and three multi-source overloads now create the

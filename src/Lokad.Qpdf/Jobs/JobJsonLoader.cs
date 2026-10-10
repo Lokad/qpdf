@@ -61,6 +61,7 @@ internal static class JobJsonLoader
 
         public void Dispose()
         {
+            _plan?.CollationStorage?.Dispose();
             _plan = null;
             IDisposable? retained = _owner;
             _owner = null;
