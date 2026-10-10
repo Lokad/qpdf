@@ -1,8 +1,8 @@
 # Progress
 
-## Label output ownership — LABEL-OWN1 implemented, combined proof pending
+## Label output ownership — LABEL-OWN1 retired
 
-Shared owned-graph construction admits explicit and source-derived label
+Committed `a1c2883` admits explicit and source-derived label
 names, prefix buffers, dictionaries, integer tokens and number trees before
 allocation. Lists use the existing copy/selection scopes; split carry lists
 retire per output. Prefix encoding preserves ASCII/PDFDocEncoding/UTF-16 bytes,
@@ -37,7 +37,20 @@ maintenance corrects it. Separating the last alias enumerator's lifetime removes
 a retained test reference. Preliminary whole-file reader trees are distinguished
 from the actual writer model; split observes merged values and independently
 checks each remapped output. Full pinned/reference/native/API/package/consumer
-proof against a committed source tree remains required before retiring LABEL-OWN1.
+proof passes on the committed source tree: **18647 Release cases in 536.9
+seconds (8m57s)**, preserving all 18644 previous occurrences and all 4535 named
+observations. Fresh pinned reference passes in **341.3 seconds (5m41s)**:
+1846 parser comparisons/432 rewrite trios, exact bytes for all 283 parser inputs,
+2131 differential input paths/data, all 617 case messages and both original negatives.
+All 868 complete native records retain the same 64 classified physical differences.
+API908, exact packaged DLL/PDB/XML/changelog and fresh 50-smoke/two-specific-negative
+consumers pass. The five locks, advisory exceptions and all unrelated sources remain.
+The 147 alias-count variations are fresh integer tokens replacing predecessor
+cached-string sharing; checked PDF values and outcomes are unchanged. Precommit
+output faults preserve prior targets; close faults retain actual post-commit host
+behavior. Current parser and differential filesystem intervals are 262.5 and
+72.7 seconds, versus the preserved 2029.0 and 582.5-second baseline. The complete
+reference wall is measured separately. Only LABEL-OWN1 retires.
 C1/C2D1/REF-03 stay retired; C2/C3/B4/copier parents and wider gates remain open.
 
 ## Derived configuration text — CFG-01B3C2D1 retired
@@ -85,7 +98,8 @@ label-output debts. The first invalid rotation invocation and cleanup failure
 remain explicit; corrected controls preserve valid page syntax and the original
 144/208-byte counter-only and 0/64-byte final observations. Unicode adds two
 matching debts: all fourteen 64-byte unowned `ResolveLabelItems` reservations
-remain **LABEL-OWN1 open**. This text correction does not fund label output graphs.
+remained **LABEL-OWN1 open at that checkpoint**; the correction above now retires
+that named debt. The derived-text correction itself does not fund output graphs.
 C1, response ownership and REF-03 remain retired. C2/C3/B4 and all parents stay open.
 
 ## Reference run below ten minutes — REF-03 retired
@@ -260,12 +274,12 @@ and full proofs remain in the closure checklist.
 
 ## Next finite work
 
-Choose LABEL-OWN1 by its observed complete-job 64-byte retirement failure.
-Independently admit actual label graph/encoding/list/number-tree storage before
-construction and prove overlap/alias retirement through affected public jobs.
-Then drive remaining C2 parser vectors/plans/conversions and C3 syntax/session/
-DOM controllers through complete jobs with physical overlap. Keep missing pass
-conditions explicit; established text/expansion/reference evidence stays retired.
+Locate one complete public-job admission deficit in remaining C2 parser vectors,
+plans or typed conversions; record the affected routes, unchanged limit and
+independent physical minimum before changing shared helpers. Then drive C3
+syntax/session/DOM controllers through complete jobs with physical overlap. Keep
+missing pass conditions explicit; established text/expansion/reference evidence
+stays retired.
 B5S1–B5S4 stay retired; wider B4/B5/T4/T5/T6, JSON-01, DIAG-01,
 MEASURE-01, M11/A01–A07 and both verdicts remain open. Binding ignored PLAN
 sections 3–6 and unrelated work remain unchanged.
