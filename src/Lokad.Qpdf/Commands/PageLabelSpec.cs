@@ -61,15 +61,22 @@ internal sealed record PageLabelSpec(string FirstPage, PdfPageLabelStyle? Style,
         return new PageLabelSpec(firstPage, style, start, prefix);
     }
 
-    internal static PageLabelSpec FromLabel(PdfPageLabel label)
+    internal static PageLabelSpec FromLabel(PdfPageLabel label, Runtime.ResourceGovernor governor, Runtime.ParserMemoryScope memory)
     {
         if (label is null)
         {
             throw new ArgumentNullException(nameof(label));
         }
 
+        governor.CheckCancellation(); governor.ChargeWork(1L);
+        Span<char> digits = stackalloc char[10];
+        if (!label.FirstPage.TryFormat(digits, out int length, provider: System.Globalization.CultureInfo.InvariantCulture))
+        { throw new InvalidOperationException("Typed label exceeds its bounded page storage."); }
+        memory.Reserve(Runtime.GovernedText.StringBytes(length));
+        string firstPage = digits[..length].ToString();
+        memory.Reserve(48L);
         return new PageLabelSpec(
-            label.FirstPage.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            firstPage,
             label.Style,
             label.Start,
             label.Prefix);

@@ -32,9 +32,14 @@ Page-label first-page/prefix copies, parsed rotation ranges and canonical JSON
 object selectors use that same independently retained text admission. Label,
 rotation and selector syntax scans borrow spans; temporary split arrays and
 numeric substrings are avoided. Typed JSON shares the selector factory.
-Parser-created vectors, typed label/rotation conversions, other derived strings,
-syntax adapters, plans
-and broader configuration/DOM controllers remain explicit ownership obligations.
+Typed source snapshots and label/rotation conversions share one scoped
+preparation owner under the existing governor. It admits actual list growth,
+record/string storage and bounded grammar scratch before allocation, observes
+work/cancellation during conversion and holds storage through publication.
+Disposal drops all preparation fields before final counter capture. Caller
+records/page arrays/prefixes stay borrowed; the existing range cap/defaults stand.
+Parser-created vectors, other derived strings, syntax adapters, plans and broader
+configuration/DOM controllers remain explicit ownership obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.

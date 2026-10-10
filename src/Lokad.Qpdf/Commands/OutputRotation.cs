@@ -1,4 +1,5 @@
-using System.Text;
+using System.Globalization;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Commands;
 
@@ -85,38 +86,51 @@ internal sealed record OutputRotation(PdfRotationMode Mode, int Angle, string? R
         return new OutputRotation(mode, normalized, range);
     }
 
-    internal static OutputRotation FromPages(PdfPageRotation rotation)
+    internal static OutputRotation FromPages(PdfPageRotation rotation, ResourceGovernor governor, ParserMemoryScope memory)
     {
         if (rotation is null)
         {
             throw new ArgumentNullException(nameof(rotation));
         }
 
-        if (rotation.Pages is null)
+        governor.CheckCancellation();
+        string? range = null;
+        if (rotation.Pages is IReadOnlyList<int> pages)
         {
-            return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), null);
-        }
-
-        StringBuilder joined = new();
-        bool first = true;
-        foreach (int page in rotation.Pages)
-        {
-            if (!first)
+            int length = pages.Count == 0 ? 0 : pages.Count - 1;
+            Span<char> digits = stackalloc char[11];
+            foreach (int page in pages)
             {
-                joined.Append(',');
+                governor.CheckCancellation(); governor.ChargeWork(1L);
+                if (!page.TryFormat(digits, out int written, provider: CultureInfo.InvariantCulture))
+                { throw new InvalidOperationException("Typed page exceeds its bounded number storage."); }
+                length = checked(length + written);
+                if (length > Pages.PageRanges.MaxRangeTextLength)
+                { throw new QpdfParseException($"Invalid page range: text exceeds {Pages.PageRanges.MaxRangeTextLength} characters.", 0L, null); }
             }
-
-            joined.Append(page.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            first = false;
+            memory.Reserve(GovernedText.StringBytes(length));
+            range = string.Create(length, (pages, governor), static (target, state) =>
+            {
+                int offset = 0;
+                for (int i = 0; i < state.pages.Count; i++)
+                {
+                    state.governor.CheckCancellation(); state.governor.ChargeWork(1L);
+                    if (i > 0) { target[offset++] = ','; }
+                    if (!state.pages[i].TryFormat(target[offset..], out int written, provider: CultureInfo.InvariantCulture))
+                    { throw new InvalidOperationException("Typed page changed its admitted number storage."); }
+                    offset += written;
+                }
+            });
+            if (range.Length > 0)
+            {
+                // Reuse the existing bounded grammar and its established lexical envelope.
+                using ParserMemoryScope syntax = ParserMemoryScope.Create(governor);
+                syntax.Reserve(checked(256L + 128L * range.Length));
+                governor.ChargeWork(range.Length); governor.CheckCancellation();
+                Pages.PageRanges.CheckSyntax(range);
+            }
         }
-
-        string range = joined.ToString();
-        if (range.Length == 0)
-        {
-            return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), string.Empty);
-        }
-
-        Pages.PageRanges.CheckSyntax(range);
+        memory.Reserve(32L);
         return new OutputRotation(rotation.Mode, Normalize(rotation.Angle), range);
     }
 

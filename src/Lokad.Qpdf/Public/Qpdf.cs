@@ -127,13 +127,16 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        List<OutputRotation> specifications = ConvertRotations(rotations);
+        ArgumentNullException.ThrowIfNull(rotations);
         ResourceGovernor governor = new(limits, cancellationToken);
         governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
         try
         {
+            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
+            preparation.ConvertRotations(rotations);
             DiagnosticBag diagnostics = new(governor);
-            PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, specifications, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+            PageSelectionOutcome result = await SelectPageCoreAsync(host, inputPath, outputPath, options, limits, QpdfRecoveryMode.Strict, preparation.Rotations, [], false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, cancellationToken).ConfigureAwait(false);
+            preparation.Dispose();
             PdfPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -571,28 +574,17 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        List<PdfPageSource> frozen = new(sources.Count);
-        foreach (PdfPageSource source in sources)
-        {
-            if (source is null)
-            {
-                throw new ArgumentException("Page sources must not contain null entries.", nameof(sources));
-            }
-
-            frozen.Add(source);
-        }
-
-        if (frozen.Count == 0)
-        {
-            throw new ArgumentException("At least one page source is required.", nameof(sources));
-        }
+        if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
         ResourceGovernor governor = new(limits, cancellationToken);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
+            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
+            preparation.FreezeSources(sources);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -644,29 +636,19 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        List<PdfPageSource> frozen = new(sources.Count);
-        foreach (PdfPageSource source in sources)
-        {
-            if (source is null)
-            {
-                throw new ArgumentException("Page sources must not contain null entries.", nameof(sources));
-            }
+        ArgumentNullException.ThrowIfNull(rotations);
+        if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
-            frozen.Add(source);
-        }
-
-        if (frozen.Count == 0)
-        {
-            throw new ArgumentException("At least one page source is required.", nameof(sources));
-        }
-
-        List<OutputRotation> specifications = ConvertRotations(rotations);
         ResourceGovernor governor = new(limits, cancellationToken);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
+            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
+            preparation.FreezeSources(sources);
+            preparation.ConvertRotations(rotations);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, null, specifications, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, preparation.Rotations, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -723,42 +705,33 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        List<PdfPageSource> frozen = new(sources.Count);
-        foreach (PdfPageSource source in sources)
-        {
-            if (source is null)
-            {
-                throw new ArgumentException("Page sources must not contain null entries.", nameof(sources));
-            }
+        ArgumentNullException.ThrowIfNull(mergeOptions.Rotations, "rotations");
+        ArgumentNullException.ThrowIfNull(mergeOptions.Labels, "labels");
+        if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
-            frozen.Add(source);
-        }
-
-        if (frozen.Count == 0)
-        {
-            throw new ArgumentException("At least one page source is required.", nameof(sources));
-        }
-
-        if (mergeOptions.Collation is not null
-            && mergeOptions.Collation.GroupSizes.Count != 1
-            && mergeOptions.Collation.GroupSizes.Count != frozen.Count)
-        {
-            throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(mergeOptions));
-        }
-
-        if (mergeOptions.SplitPages.HasValue && mergeOptions.SplitPages.Value < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(mergeOptions), "Split pages must be a positive group size.");
-        }
-
-        List<OutputRotation> specifications = ConvertRotations(mergeOptions.Rotations);
-        List<PageLabelSpec> labels = ConvertLabels(mergeOptions.Labels);
         ResourceGovernor governor = new(limits, cancellationToken);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
+            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
+            preparation.FreezeSources(sources);
+            if (mergeOptions.Collation is not null
+                && mergeOptions.Collation.GroupSizes.Count != 1
+                && mergeOptions.Collation.GroupSizes.Count != preparation.Sources.Count)
+            {
+                throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(mergeOptions));
+            }
+
+            if (mergeOptions.SplitPages.HasValue && mergeOptions.SplitPages.Value < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(mergeOptions), "Split pages must be a positive group size.");
+            }
+
+            preparation.ConvertRotations(mergeOptions.Rotations);
+            preparation.ConvertLabels(mergeOptions.Labels);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, frozen, outputPath, frozen[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, specifications, labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, preparation.Rotations, preparation.Labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -1514,22 +1487,6 @@ public static partial class Qpdf
         }
 
         return (new MultiPageSelectionOutcome(kids.Count, splitMapping, splitCounts, splitPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
-    }
-
-    private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
-    {
-        if (rotations is null)
-        {
-            throw new ArgumentNullException(nameof(rotations));
-        }
-
-        List<OutputRotation> specifications = new(rotations.Count);
-        foreach (PdfPageRotation rotation in rotations)
-        {
-            specifications.Add(OutputRotation.FromPages(rotation));
-        }
-
-        return specifications;
     }
 
     private static List<List<(PdfRotationMode Mode, int Angle)>> ResolveRotationFolds(
@@ -3678,27 +3635,6 @@ public static partial class Qpdf
         await PublishModelAsync(host, effective, extensionLevel, model, null, emptyCompress, emptyLevel, null, originalId, plan.StaticId, plan.NewlineBeforeEndstream, new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds), new Dictionary<int, int>(), plan.Linearize, plan.LinearizePass1, plan.Output, limits, governor, cancellationToken).ConfigureAwait(false);
         MultiPageSelectionOutcome result = new(0, [], [0], [plan.Output], ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         return (result, 0);
-    }
-
-    private static List<PageLabelSpec> ConvertLabels(IReadOnlyList<PdfPageLabel>? labels)
-    {
-        if (labels is null)
-        {
-            throw new ArgumentNullException(nameof(labels));
-        }
-
-        List<PageLabelSpec> specifications = new(labels.Count);
-        foreach (PdfPageLabel label in labels)
-        {
-            if (label is null)
-            {
-                throw new ArgumentException("Page labels must not contain null entries.", nameof(labels));
-            }
-
-            specifications.Add(PageLabelSpec.FromLabel(label));
-        }
-
-        return specifications;
     }
 
     private static bool IsNewerVersion(PdfVersion candidate, PdfVersion current)

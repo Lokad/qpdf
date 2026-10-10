@@ -1,5 +1,41 @@
 # Progress
 
+## Typed selection preparation — CFG-01B3C2T implemented, combined proof pending
+
+The typed single-rotation and three multi-source overloads now create the
+existing governor before snapshotting sources or converting rotations/labels.
+One scoped owner admits its wrapper, actual list growth/overlap, converted
+records and numeric/range strings before allocation. Caller-created sources,
+rotation page arrays and label prefixes remain borrowed. Preparation observes
+cancellation/work while converting, holds storage through shared reading/copying/
+writing/publication, then drops every field before the final counter capture.
+The existing 4096-character range cap, empty/null defaults and shared grammar stay.
+
+Four ordinary controls cover 93 public jobs: 30 unchanged 4 KiB/128-work/canceled
+rejections, four explicit warm controls, 40 complete single/multi/rotation/merge/
+split jobs, four writer controls and 15 length/default controls. Independent CLR
+samples measure actual preparation storage before input and publication. Complete
+jobs exercise open/create/write/commit/close faults, caller/host cancellation,
+retained results and checked caller output copies. All 4167 related checks pass.
+The exact final tests retain two predecessor failures and two semantic positives,
+without loaders/skips. All 30 unchanged rejection jobs allocate 2376–9216 bytes,
+versus predecessor 265712–5620064, before host access. All 75 independently
+sampled host-boundary minima pass; all 40 jobs reach zero with at most 313 extra
+bounded metadata calls. Combined committed proof remains required for retirement.
+
+The raw cold allocation and fixture compiler/command/label/await/message trials
+remain explicit. Warmed per-job measurements preserve the 32 KiB assertion; cold
+state remains MEASURE-01. The synchronous producer is measured on its current
+thread before assertions/reporting, excluding unrelated framework thread work.
+Four collection/maintenance rounds are unchanged at
+each lifetime phase. Larger source/label jobs leave funded ledger metadata with
+no live carriers because each maintenance call drains at most 64 entries. Record
+that backlog, then require zero through at most 4096 additional governed calls
+without another collection. This qualification does not reopen established
+selection/label evidence or close broader ledger/cold-state requirements.
+C1/C2D1/LABEL-OWN1/REF-03 stay retired; remaining C2/C3 and all parents stay open.
+
+
 ## Label output ownership — LABEL-OWN1 retired
 
 Committed `a1c2883` admits explicit and source-derived label

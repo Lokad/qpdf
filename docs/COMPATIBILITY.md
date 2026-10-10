@@ -4,6 +4,17 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+CFG-01B3C2T implements scoped typed source snapshots and rotation/label
+conversions before allocation under the existing governor. It preserves the
+4096-character range cap, empty/null defaults and shared writer semantics.
+Ninety-three public jobs check admission/overlap, original limits, faults,
+cancellation, output aliases and bounded metadata cleanup. Cold state and larger
+ledger backlogs remain explicit qualifications. All 4167 related checks pass;
+exact final tests retain two predecessor failures/two semantic positives. Fixed
+rejection allocations are 2376–9216 versus 265712–5620064 bytes, with every
+expected outcome and limit retained. Combined committed proof is pending;
+the parent C2/C3 gates stay open.
+
 LABEL-OWN1 retires on committed `a1c2883`: pre-allocation ownership funds explicit
 and source-derived label values, prefix encoding and number trees across shared
 writer consumers. All 3221 related checks and 504 complete public jobs pass;
