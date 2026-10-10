@@ -4,12 +4,16 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
-The B5S copy/publication correction passes 1731 focused checks, including 1532
-new complete public jobs at unchanged fixture/default/four-round bounds.
-Private reader values, graph/overlay/attachment scratch and publication
-admission now have explicit lifetimes; normalized/transformed streams prepay
-retirement. Final committed-source suite/reference/native/API/package/consumer
-proof is pending. B5S1–B5S4 and broader parents remain open.
+The B5S copy/publication correction is integrated on `e382440`: all 18730
+Release cases preserve all 17198 preceding occurrences and prior test sources.
+All 1532 new complete public cases across 33 routes pass; identical final tests
+expose 1130 predecessor failures/402 preserved results. Original 1276/1346-byte
+debts now retire to zero at unchanged defaults/four-round bounds. Private reader
+values, copier/overlay/attachment scratch and publication admission have explicit
+lifetimes; normalized/transformed streams prepay retirement. Full pinned 1846/432,
+all 868 identical native records/same 64 valid-layout differences, API908 and
+exact package/PDB/fresh 50-smoke/two-negative consumers pass. B5S1–B5S4 retire;
+broader ownership/default/context gates and both library verdicts remain open.
 
 Typed warning storage is admitted independently at the shared publication
 boundary on `868487a/a00cf62/7746f50`. All 17198 Release cases preserve all 17011 prior
@@ -17,7 +21,7 @@ occurrences and preceding test sources; full pinned 1846/432, all 868 unchanged
 complete native records/same 64 valid-layout differences, API908 and exact
 package/fresh consumers pass. JSON creation borrows empty warning storage;
 command outcomes borrow governed diagnostic history. B4W1–B4W5 retire only
-for copied warning storage. Whole-selection reservation debt B5S, broader
+for copied warning storage. The later proof above retires B5S; broader
 ownership/default/context gates and both library verdicts remain open.
 
 Document-open hint classification now handles direct containers, indirect roots,
