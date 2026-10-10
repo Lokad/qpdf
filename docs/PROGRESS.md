@@ -10,10 +10,17 @@ faults and one/three-round collections in ten cohorts. Seventeen independent
 stress controls share collections while retaining every original 32-cycle body,
 limit and maintenance call. No runtime forcing of GC is introduced.
 
-Focused carrier, warning, writer and stress checks pass. Exact ordinary coverage,
-predecessor controls and the combined timed proof remain to bind before retiring
-TEST-03A–D. Runtime DLL/PDB, package and previous reference/consumer evidence
-remain unchanged; CFG-01B is deferred until the requested speed gate closes.
+The first committed full run passes all 18721 cases and preserves all 18688
+ordinary occurrences, 4535 named cells and 1124 assertion expressions, but takes
+630.2 seconds. TEST-03E consolidates the earlier result matrices into 24 bounded
+batches and advances mixed stress rows after their own requested collection rounds.
+All 157 focused ownership/stress cases pass; result discovery is exactly 36.
+The refined tests preserve all 1033 failed/566 passing result predecessor outcomes,
+all 290 failed/24 passing JSON cells and four failed/six passing diagnostic stress
+controls. All 1310 affected original assertion expressions remain exact. The
+committed-tree full run must still pass below 600 seconds to retire TEST-03A–E.
+Runtime DLL/PDB, package and prior scoped verification remain unchanged;
+CFG-01B stays deferred until the requested speed gate closes.
 
 ## Test orthogonality — TEST-02A–D retired
 

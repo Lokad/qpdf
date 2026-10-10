@@ -65,7 +65,7 @@ pwsh -File tools/test-audit-lane.ps1 -Lane LifetimeStress
 | SelectionContract | 1530 | Complete public jobs across 33 routes, both encodings, faults, cancellation and fixed admission limits. |
 | SelectionOwnership | 74 | All 1532 original scenarios in 72 batches and two independent regressions. |
 | ResultsContract | 1587 | Command/typed producer contracts, pre-host rejection and physical shape checks. |
-| ResultsOwnership | 131 | 1470 original lifetime scenarios in 119 batches, plus 12 independent extraction/document controls. |
+| ResultsOwnership | 36 | 1470 original lifetime scenarios in 24 bounded batches, plus 12 independent extraction/document controls. |
 | DiagnosticsContract | 450 | Public warning histories, failure prefixes, prior targets and fixed memory ceilings. |
 | DiagnosticsOwnership | 4 | Original public hidden-warning regressions. |
 | CarriersContract | 1660 | Version, JSON, failed-result, selection, warning and checker producer/admission contracts. |

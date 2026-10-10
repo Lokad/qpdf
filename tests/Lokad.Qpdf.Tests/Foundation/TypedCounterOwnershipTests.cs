@@ -475,32 +475,12 @@ public sealed class TypedCounterOwnershipTests
             (nameof(TypedCounterAliasesDoNotRootCompletedMetadata), MetadataJobs()),
         };
 
-    private static string BatchKey(string method, object[] row)
-        => method.Contains("Metadata", StringComparison.Ordinal) || method == "ReturnedWrappersDoNotRootCompletedJobs"
-            ? "metadata" : string.Join("/", row.Take(1));
-
-    public static IEnumerable<object[]> OwnershipBatches()
-    {
-        foreach (var cases in OwnershipCases())
-        foreach (string group in cases.Rows.Select(row => BatchKey(cases.Method, row)).Distinct())
-        { yield return [cases.Method, group]; }
-    }
+    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
 
     [Theory]
     [MemberData(nameof(OwnershipBatches))]
     [Trait("Layer", "Ownership")]
-    public async Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(string method, string group)
-    {
-        IEnumerable<object[]> rows = OwnershipCases().Single(cases => cases.Method == method).Rows
-            .Where(row => BatchKey(method, row) == group);
-        await OwnershipBatch.RunAsync(_output, rows.Select(row =>
-            (OwnershipBatch.Id(nameof(TypedCounterOwnershipTests), method, row),
-            (Func<OwnershipBatch.Observation, Task>)(async observation =>
-            {
-                TypedCounterOwnershipTests fixture = new(_output) { _collection = observation };
-                Task running = (Task)(typeof(TypedCounterOwnershipTests).GetMethod(method)?.Invoke(fixture, row)
-                    ?? throw new InvalidOperationException("Missing original observation."));
-                await running;
-            }))));
-    }
+    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
+        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
+            observation => new TypedCounterOwnershipTests(_output) { _collection = observation });
 }

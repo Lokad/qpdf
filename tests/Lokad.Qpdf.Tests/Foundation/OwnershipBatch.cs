@@ -17,6 +17,7 @@ internal static class OwnershipBatch
         internal ResourceGovernor? Governor;
         internal int Maintenance;
         internal int Rounds;
+        internal int RemainingRounds;
         internal bool Compacting;
         internal bool Interleaved;
         internal int Phases;
@@ -40,6 +41,7 @@ internal static class OwnershipBatch
             Governor = governor;
             Maintenance = maintenance;
             Rounds = rounds;
+            RemainingRounds = rounds;
             Compacting = compacting;
             Interleaved = interleaved;
             Phases++;
@@ -110,31 +112,32 @@ internal static class OwnershipBatch
             // Preserve each fixture's original collection geometry and the
             // ordering of maintenance within or after its collection rounds.
             var cohorts = running.Where(item => !item.State.Done)
-                .GroupBy(item => (item.State.Rounds, item.State.Compacting))
+                .GroupBy(item => item.State.Compacting)
                 .Select(group => group.ToArray()).ToArray();
             foreach (var cohort in cohorts)
             {
-                Observation plan = cohort[0].State;
-                int rounds = plan.Rounds;
-                bool compacting = plan.Compacting;
-                for (int round = 0; round < rounds; round++)
+                bool compacting = cohort[0].State.Compacting;
+                if (compacting) { GC.Collect(2, GCCollectionMode.Forced, true, true); }
+                else { GC.Collect(); }
+                GC.WaitForPendingFinalizers(); collections++;
+                if (!compacting) { GC.Collect(); collections++; }
+                foreach (var item in cohort)
+                { item.State.RemainingRounds--; }
+                foreach (var item in cohort.Where(item => !item.State.Done && item.State.Interleaved))
                 {
-                    if (compacting) { GC.Collect(2, GCCollectionMode.Forced, true, true); }
-                    else { GC.Collect(); }
-                    GC.WaitForPendingFinalizers(); collections++;
-                    if (!compacting) { GC.Collect(); collections++; }
-                    foreach (var item in cohort.Where(item => !item.State.Done && item.State.Interleaved))
+                    try
                     {
-                        try
-                        {
-                            (item.State.Governor ?? throw new InvalidOperationException("Missing maintenance governor.")).ReserveMemory(0L);
-                            maintenance++;
-                        }
-                        catch (Exception exception) { await item.State.RejectBoundaryAsync(exception); }
+                        (item.State.Governor ?? throw new InvalidOperationException("Missing maintenance governor.")).ReserveMemory(0L);
+                        maintenance++;
                     }
+                    catch (Exception exception) { await item.State.RejectBoundaryAsync(exception); }
                 }
-                phases++;
-                foreach (var item in cohort.Where(item => !item.State.Done && !item.State.Interleaved))
+                // Resume a row immediately after its own original number of
+                // rounds. Three-round observations need not await a separate
+                // four-round cohort, and newly arrived phases start next round.
+                var ready = cohort.Where(item => !item.State.Done && item.State.RemainingRounds == 0).ToArray();
+                if (ready.Length != 0) { phases++; }
+                foreach (var item in ready.Where(item => !item.State.Interleaved))
                 {
                     try
                     {
@@ -146,7 +149,7 @@ internal static class OwnershipBatch
                     }
                     catch (Exception exception) { await item.State.RejectBoundaryAsync(exception); }
                 }
-                foreach (var item in cohort.Where(item => !item.State.Done))
+                foreach (var item in ready.Where(item => !item.State.Done))
                 { await item.State.AdvanceAsync(); }
             }
         }

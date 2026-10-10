@@ -48,7 +48,7 @@ switch ($Lane) {
     }
     'ResultsOwnership' {
         $filter = '(FullyQualifiedName~ExecutionResultOwnershipTests|FullyQualifiedName~TypedCounterOwnershipTests|FullyQualifiedName~TypedResultOwnershipTests)&Layer=Ownership'
-        $expected = 131
+        $expected = 36
     }
     'DiagnosticsContract' {
         $filter = 'FullyQualifiedName~DiagnosticFailureExportTests&Layer=Contract'
