@@ -310,7 +310,7 @@ public static partial class Qpdf
         QpdfPath? linearizePass1,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
         int total = document.PageReferences.Count;
@@ -524,7 +524,7 @@ public static partial class Qpdf
         IReadOnlyList<int> sourcePages = ResultCollectionStorage.Copy(resultStorage, requested, sizeof(int));
         resultStorage.RetainWithPrepaidRetirement();
         await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-        return new PageSelectionOutcome(total, sourcePages, kids.Count, resultWarnings.Warnings);
+        return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
     }
 
     /// <summary>
@@ -813,7 +813,7 @@ public static partial class Qpdf
         bool emptyPrimary,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
         List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
         List<List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)>> perSource = new(sources.Count);
@@ -1289,7 +1289,7 @@ public static partial class Qpdf
             IReadOnlyList<QpdfPath> resultPaths = ResultCollectionStorage.Single(resultStorage, target, IntPtr.Size);
             resultStorage.RetainWithPrepaidRetirement();
             await PublishModelAsync(host, effective, extensionLevel, model, multiStreams, multiCompress, multiLevel, primaryInfo?.ObjectNumber, originalId1, staticId, newlineBeforeEndstream, qdf, multiOriginalIds, linearize, linearizePass1, target, limits, governor, cancellationToken).ConfigureAwait(false);
-            return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, resultWarnings.Warnings), multiAttached.FinalCount);
+            return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
         }
 
         List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
@@ -1512,7 +1512,7 @@ public static partial class Qpdf
             await publication.PublishAsync(host, governor, cancellationToken).ConfigureAwait(false);
         }
 
-        return (new MultiPageSelectionOutcome(kids.Count, splitMapping, splitCounts, splitPaths, resultWarnings.Warnings), multiAttached.FinalCount);
+        return (new MultiPageSelectionOutcome(kids.Count, splitMapping, splitCounts, splitPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
     }
 
     private static List<OutputRotation> ConvertRotations(IReadOnlyList<PdfPageRotation>? rotations)
@@ -3636,7 +3636,7 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         if (host is null)
         {
             throw new ArgumentNullException(nameof(host));
@@ -3680,7 +3680,7 @@ public static partial class Qpdf
         };
         byte[]? originalId = TryGetOriginalId(document.Engine);
         await PublishModelAsync(host, effective, extensionLevel, model, null, emptyCompress, emptyLevel, null, originalId, plan.StaticId, plan.NewlineBeforeEndstream, new Writing.QdfOptions(plan.Qdf, plan.NoOriginalObjectIds), new Dictionary<int, int>(), plan.Linearize, plan.LinearizePass1, plan.Output, limits, governor, cancellationToken).ConfigureAwait(false);
-        MultiPageSelectionOutcome result = new(0, [], [0], [plan.Output], resultWarnings.Warnings);
+        MultiPageSelectionOutcome result = new(0, [], [0], [plan.Output], ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         return (result, 0);
     }
 
@@ -4256,7 +4256,7 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         if (string.Equals(inputPath.Value, outputPath.Value, StringComparison.Ordinal))
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
@@ -4273,7 +4273,7 @@ public static partial class Qpdf
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-        return new AttachmentExtractionOutcome(key, data.Length, resultWarnings.Warnings);
+        return new AttachmentExtractionOutcome(key, data.Length, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
     }
 
     private static readonly string[] JsonKeys =
@@ -4393,7 +4393,7 @@ public static partial class Qpdf
         bool escapeText,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         ValidateJsonKeys(inspection.Version, inspection.Keys);
         List<string> wanted = [.. inspection.Objects];
         if (outputPath.HasValue && string.Equals(inputPath.Value, outputPath.Value.Value, StringComparison.Ordinal))
@@ -4469,7 +4469,7 @@ public static partial class Qpdf
             { await PublishPreparedBytesAsync(host, outputPath.Value, output.Main ?? throw new InvalidOperationException("Missing JSON publication."), governor, cancellationToken).ConfigureAwait(false); }
             foreach (Json.JsonPayload sidecar in sidecars)
             { await PublishPreparedBytesAsync(host, QpdfPath.From(sidecar.Name), sidecar, governor, cancellationToken).ConfigureAwait(false); }
-            return new JsonInspectionOutcome(output.TransferText(), resultWarnings.Warnings);
+            return new JsonInspectionOutcome(output.TransferText(), ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
         catch (Exception ex) when (ex is QpdfException or OperationCanceledException)
         {
@@ -4494,7 +4494,7 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         if (string.Equals(jsonPath.Value, outputPath.Value, StringComparison.Ordinal))
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
@@ -4507,7 +4507,7 @@ public static partial class Qpdf
             Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-            return new JsonImportOutcome(renumbered.PageCount, resultWarnings.Warnings);
+            return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
     }
 
@@ -4526,7 +4526,7 @@ public static partial class Qpdf
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         if (string.Equals(inputPath.Value, outputPath.Value, StringComparison.Ordinal))
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
@@ -4546,7 +4546,7 @@ public static partial class Qpdf
             byte[]? originalId1 = TryGetOriginalId(document.Engine);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-            return new JsonImportOutcome(renumbered.PageCount, resultWarnings.Warnings);
+            return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
         }
     }
 

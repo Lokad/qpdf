@@ -13,9 +13,12 @@ internal sealed class ResultWarningSnapshot : IDisposable
         ParserMemoryScope memory, CancellationToken token)
     { _governor = governor; _diagnostics = diagnostics; _memory = memory; _token = token; }
 
-    internal static ResultWarningSnapshot Create(ResourceGovernor governor, DiagnosticBag diagnostics,
+    internal static ResultWarningSnapshot? Create(ResourceGovernor governor, DiagnosticBag diagnostics,
         CancellationToken token)
     {
+        // Command outcomes consume the already governed diagnostic history via
+        // ExecutionPresentation; they never expose a typed Warnings collection.
+        if (!governor.HasTypedResult) { return null; }
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
@@ -30,6 +33,9 @@ internal sealed class ResultWarningSnapshot : IDisposable
 
     internal IReadOnlyList<QpdfDiagnostic> Warnings => _warnings
         ?? throw new InvalidOperationException("Result warnings have not been prepared.");
+
+    internal static IReadOnlyList<QpdfDiagnostic> Read(ResultWarningSnapshot? snapshot, DiagnosticBag diagnostics)
+        => snapshot?.Warnings ?? diagnostics.Entries;
 
     internal void Prepare()
     {

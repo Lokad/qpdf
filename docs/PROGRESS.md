@@ -20,6 +20,16 @@ also includes receipt/index cleanup. Keep the four split-output assertion
 failures and probe dependency-loading trials as qualified development evidence.
 They are corrected; no loader result counts as public predecessor proof.
 
+The first combined trial exposed two unchanged job-JSON repair ceilings.
+Command outcomes now borrow their governed diagnostic history; only typed
+boundaries prepare a copied warning collection. All four original raw/broken-xref
+repair controls pass at pdf.Length + 40000, retaining all 100 accepted repairs.
+The failed full trial and interrupted reference/native lanes stay explicit;
+required final lanes must bind the corrected runtime before retirement.
+All 1356 correction controls pass, including the 187 warning cases and the
+original parser/diagnostic/JSON/failure controls. No preceding test source or
+ceiling was changed.
+
 
 ## Checker ownership — B4C/B4CD/B4CF/T5R retired on integrated proof
 

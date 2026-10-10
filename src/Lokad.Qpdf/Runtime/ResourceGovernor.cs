@@ -516,6 +516,7 @@ internal sealed class ResourceGovernor
     // Private value outcomes do not allocate public result/counter carriers.
     // A typed facade owns one final counter and one prepaid result receipt.
     internal QpdfExecutionCounters TypedCounters => _preparedTypedCounters ?? ExecutionResultAdmission.EmptyCounters;
+    internal bool HasTypedResult => _preparedTypedCounters is not null;
 
     internal void PrepareTypedResult(long resultBytes)
     {

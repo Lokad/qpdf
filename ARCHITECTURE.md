@@ -170,6 +170,8 @@ admission occurs before commit and includes warnings accepted during preparation
 Unchanged histories reuse their snapshot across commits. Completion detaches
 job references, and returning the prepared collection adds no allocation or
 cancellation poll after publication.
+Command outcomes borrow the already governed diagnostic history for their
+execution presentation, avoiding a second typed snapshot on those routes.
 Each public document counter read independently admits snapshot/receipt storage,
 a shared weak governor link and construction/retirement work. Completed document
 retirement can reconcile after cancellation. Copied backing/mapping remain
