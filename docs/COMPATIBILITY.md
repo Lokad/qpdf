@@ -4,6 +4,15 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+Selection test orthogonality is measured separately from runtime compatibility:
+all 1604 focused test cases preserve every 1532 original scenario ID and all
+1130 failing/402 preserved predecessor outcomes. Shared GC rounds retain
+independent governors, original admission/alias controls and four maintenance
+calls; explicit compacting calls fall 6144 to 312. Comparable focused time falls
+408.5 to 74.3 seconds. Runtime DLL/PDB bytes and all other test sources remain
+unchanged; TEST-01 retires only this pilot. Suite-wide TEST-02 and library
+completion remain open. The preceding full proof below retains its test layout.
+
 The B5S copy/publication correction is integrated on `e382440`: all 18730
 Release cases preserve all 17198 preceding occurrences and prior test sources.
 All 1532 new complete public cases across 33 routes pass; identical final tests

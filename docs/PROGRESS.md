@@ -1,74 +1,50 @@
 # Progress
 
-## Selection cleanup — B5S1–B5S4 retired on integrated proof
+## Test orthogonality pilot — TEST-01 retired
 
-Commit `e382440` fixes the original complete raw/Flate SelectPageAsync jobs:
-1276/1346 unpaired governed bytes now retire to zero, with zero held work and
-closed leases. Preserve exact fixture hashes/defaults, warning identities,
-independent warning backing, surviving checked outputs and the original four
-GC/four bounded maintenance rounds. The original debts separate into copied
-graph 676/716 bytes and publication length 600/630 bytes.
+SelectionJobCleanupTests separates 1530 complete public contract scenarios
+from 72 ownership batches plus the two independent original regressions.
+All 1604 cases pass. Every one of the 1532 preceding scenario IDs remains;
+the unchanged fixtures cover all 33 routes, both encodings, host faults, both
+cancellation sources, secondary teardown, original 16384-memory/8192-work
+admission and surviving PDF/attachment outputs. Independent governors retain
+their original budgets and four maintenance calls. Each batch shares four GC
+rounds, with every cleanup observed before output-check jobs can collect again.
+Original warning/backing/element alias phases are unchanged.
 
-All four public graph copier consumers use explicit ownership. Selection,
-rotation, overlay decode/encode and attachment assembly share job scopes.
-Private preliminary/copy/overlay readers transfer borrowed immutable values
-through the last consumer; reader maps/input storage retire at close. Counted
-publication admission pairs with transaction disposal on every outcome. All
-overlay sources close even after a sibling close fault. Shared normalization
-and stream transformation prepay retirement, including the raw argv QDF
-MaxWork=8192 failure's 36-byte buffer/32-byte stream; no extra work is requested.
+Explicit compacting GC calls fall from 6144 to 312; all 6144 maintenance calls
+remain. Comparable isolated focused runs pass in 408.5/74.3 seconds: 5.5 times
+faster, despite repeating the contract matrix in the ownership lane. Exact final
+tests on the unfixed runtime preserve all 1130 failing/402 passing scenario
+outcomes, with no loaders/skips; the original debts remain 1276/1346 there.
 
-All 18730 Release cases pass, preserving every 17198 preceding occurrence and
-every preceding test source byte. All 1532 new public cases across 33 routes
-pass: original alias phases, raw/Flate success, fault, caller/host cancellation,
-secondary-source teardown, fixed short memory 16384/work 8192, and surviving
-published PDF/attachment payloads. Identical final tests on the predecessor
-expose 1130 failures and preserve 402 outcomes, with no loaders or skips.
-All 1731 focused occurrences and unchanged warning/physical/repair controls
-are included in the final suite. Wider admission ownership remains open.
+`tools/test-audit-lane.ps1` runs SelectionContract (1530 cases, 34.5 seconds)
+or SelectionOwnership (74 cases, 28.3 seconds), or lists either with -List.
+DiagnosticStress exposes ten unchanged 32 KiB/32-cycle controls; discovery
+matches the preceding full results. That stress execution was not repeated.
+Exact result/discovery counts reject empty or partial selections. Ordinary
+unfiltered tests still include all cases. See [DEVELOPMENT](DEVELOPMENT.md).
 
-Preserve the development trials in [PROGRESS-HISTORY](PROGRESS-HISTORY.md).
-The first combined focus passed 1730/1731: one inline-completed task/result
-remained rooted at the weak observation. The established Task.Yield boundary
-fixes fixture liveness without adding GC/maintenance rounds or raising limits;
-the second focus passes 1731/1731. AttachmentBuilder LF normalization changes
-the library identity after focus; final committed-source tests/reference/native
-and package consumers bind the rebuilt bytes. Keep both identities qualified.
-
-Pinned 1846 exact comparisons/432 rewrite trios, all 868 identical complete
-native records/same 64 valid physical-layout differences, all 908 unchanged
-signatures, exact packed DLL/PDB/changelog and fresh 50-smoke/two-negative
-consumers pass. Proof binds all 572 committed paths and artifact identities.
-Overlapping wall seconds: full 4617.7, reference 2624.6,
-native 641.3; restore 12.4, build 21.1,
-pack 3.8, inspection 4.6,
-fresh consumer 43.0, negatives 16.8.
-Full GC ownership controls and subprocess reference comparisons dominate these
-observed lanes; overlapping wall durations are not additive CPU measurements.
-Largest summed case durations: selection 859.7s, command results
-673.7s, typed counters 495.4s and typed results
-485.3s. These are reported test durations, not CPU attribution.
+Locked restore/Release build pass with zero warnings/errors. All runtime and
+other test sources, five locks/audit exclusions, library DLL/PDB and established
+package/reference/native evidence are unchanged. The new test assembly has
+focused proof for all changed scenarios; the preceding 18730-case full proof
+remains for its preceding test layout. No new whole-suite duration is claimed.
+Unfiltered discovery reports 18785 nodes; one unchanged theory expands to 18
+cases at execution, giving an expected 18802 cases. Broader suite batching
+remains separate from this measured pilot. See PROGRESS-HISTORY for the 77-minute
+full baseline and its artifact/source qualifications.
 
 ## Next finite work
 
-TEST-01 comes before another large matrix: separate route/encoding/fault
-coverage from physical lifetime observations, and batch independent jobs
-through shared GC rounds while preserving four rounds/four maintenance calls
-per governor and every scenario's quotas, aliases and cleanup assertions.
-The current 1532-case selection matrix alone makes 6144 compacting GC calls.
-Keep fast route checks, ownership observations and original 32 KiB/32-cycle
-stress controls as distinct executable lanes; keep native/reference/package
-checks explicit. Grouping must preserve sequential cycle pressure per governor.
-Record scenario identity/coverage and phase timing before/after; require at
-least a twofold focused wall-time reduction at equivalent controls. Keep the
-original two raw/Flate regressions as independent controls. TEST-01 remains open.
+TEST-02A–TEST-02D apply equivalent batching to command results (736 original
+cases), typed counters (416), typed wrappers (447), and diagnostics (464),
+preserving every case/alias phase and original cycle/quota/GC boundaries.
+Their preceding summed case costs are 673.7/495.4/485.3/393.2 seconds.
+Retire each part on complete case/outcome correspondence and measured reduction;
+run the combined full suite once after the completed test correction. CFG-01B
+then resumes complete response/configuration ownership jobs at existing limits.
 
-CFG-01B still needs complete response/configuration read/close-failure and
-after-read cancellation evidence, decoded text/token/controller ownership and
-surviving caller aliases at existing limits. Drive it with a complete public
-failure before expanding shared helpers. JSON-01 and remaining named ownership,
-default/context/measurement obligations remain in [AUDIT-CLOSURE](AUDIT-CLOSURE.md).
-B4/B5/T4/T5/T6, DIAG-01, MEASURE-01, M11/A01–A07 and both library verdicts stay open.
-Established B4W and earlier proof remains. Five locks, five intentional temporary
-ImageSharp 3.1.12 exclusions, audit/warnings as errors, binding ignored PLAN
-sections 3–6 and unrelated work remain unchanged.
+B5S1–B5S4 remain retired on e382440/eacb61f; wider B4/B5/T4/T5/T6, JSON-01,
+DIAG-01, MEASURE-01, M11/A01–A07 and both library verdicts remain open.
+Binding ignored PLAN sections 3–6 and unrelated work remain unchanged.

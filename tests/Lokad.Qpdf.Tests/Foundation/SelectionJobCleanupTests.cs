@@ -6,11 +6,12 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
+using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 [Collection(nameof(CompletedJobOwnershipCollection))]
-public sealed class SelectionJobCleanupTests
+public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
 {
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Output = QpdfPath.From("output.pdf");
@@ -396,19 +397,15 @@ public sealed class SelectionJobCleanupTests
     }
 
     [Theory]
+    [Trait("Layer", "Contract")]
     [MemberData(nameof(FailureJobs))]
-    public async Task CompleteFaultAndCancellationJobsRetireOwnedStorage(string route, bool compressed,
+    public async Task FaultAndCancellationJobsPreserveOutputsAndCloseLeases(string route, bool compressed,
         string boundary, string outcome, bool secondary)
     {
         CompletedAliases aliases = await CompleteFailure(route, compressed, boundary, outcome, secondary);
-        await Task.Yield(); // Let the producer's completion frames finish before measuring weak aliases.
-        QpdfExecutionCounters counters = Collect(aliases.Governor);
-        Assert.All(aliases.Metadata, reference => Assert.False(reference.IsAlive));
-        Assert.True(counters.LiveMemoryBytes == 0L, "Remaining memory " + counters.LiveMemoryBytes + "; " + CleanupDetail(aliases.Governor));
-        Assert.Equal(0L, counters.OpenHandles);
-        Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
         await ValidateOutputs(aliases, route);
         GC.KeepAlive(aliases.Outputs);
+        output.WriteLine("CONTRACT PASS " + FailureId(route, compressed, boundary, outcome, secondary));
     }
 
     public static IEnumerable<object[]> AdmissionJobs()
@@ -458,20 +455,13 @@ public sealed class SelectionJobCleanupTests
     }
 
     [Theory]
+    [Trait("Layer", "Contract")]
     [MemberData(nameof(AdmissionJobs))]
-    public async Task OriginalShortMemoryAndWorkCeilingsRejectAndRetire(string route, bool compressed, string budget)
+    public async Task OriginalShortMemoryAndWorkCeilingsRejectBeforePublication(string route, bool compressed, string budget)
     {
         CompletedAliases aliases = await CompleteAdmission(route, compressed, budget);
-        await Task.Yield();
         Assert.True(aliases.RetirementDetail.Length == 0, "Unpaid carriers: " + aliases.RetirementDetail);
-        QpdfExecutionCounters counters;
-        try { counters = Collect(aliases.Governor); }
-        catch (QpdfLimitException exception)
-        { throw new InvalidOperationException("Unpaid carriers: " + aliases.RetirementDetail, exception); }
-        Assert.All(aliases.Metadata, reference => Assert.False(reference.IsAlive));
-        Assert.True(counters.LiveMemoryBytes == 0L, "Remaining memory " + counters.LiveMemoryBytes + "; " + CleanupDetail(aliases.Governor));
-        Assert.Equal(0L, counters.OpenHandles);
-        Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
+        output.WriteLine("CONTRACT PASS " + AdmissionId(route, compressed, budget));
     }
 
     private static string CleanupDetail(ResourceGovernor governor)
@@ -520,21 +510,18 @@ public sealed class SelectionJobCleanupTests
     }
 
     [Theory]
+    [Trait("Layer", "Contract")]
     [MemberData(nameof(CompleteJobs))]
-    public async Task AffectedPublicJobsRetireWithSurvivingPublishedOutputs(string route, bool compressed)
+    public async Task AffectedPublicJobsPreservePublishedOutputsAndCloseLeases(string route, bool compressed)
     {
         CompletedAliases aliases = await CompleteAffected(route, compressed);
-        await Task.Yield();
-        QpdfExecutionCounters completed = Collect(aliases.Governor);
-        Assert.All(aliases.Metadata, reference => Assert.False(reference.IsAlive));
-        Assert.True(completed.LiveMemoryBytes == 0L, "Remaining memory " + completed.LiveMemoryBytes + "; " + CleanupDetail(aliases.Governor));
-        Assert.Equal(0L, completed.OpenHandles);
-        Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
         await ValidateOutputs(aliases, route);
         GC.KeepAlive(aliases.Outputs);
+        output.WriteLine("CONTRACT PASS " + SuccessId(route, compressed));
     }
 
     [Theory]
+    [Trait("Layer", "Ownership")]
     [InlineData(false)]
     [InlineData(true)]
     public async Task OriginalDefaultLimitJobsRetireAfterDroppingEveryWarningAlias(bool compressed)
@@ -560,5 +547,100 @@ public sealed class SelectionJobCleanupTests
         Assert.True(check.Passed); Assert.Equal(1, check.PageCount);
         Assert.Equal(0L, validation.OpenLeaseCount);
         GC.KeepAlive(aliases.Output);
+        output.WriteLine("ORIGINAL PASS " + EncodingId(compressed));
     }
+
+    private static string EncodingId(bool compressed) => compressed ? "flate" : "raw";
+    private static string SuccessId(string route, bool compressed) => "success|" + route + "|" + EncodingId(compressed);
+    private static string AdmissionId(string route, bool compressed, string budget)
+        => "admission|" + route + "|" + EncodingId(compressed) + "|" + budget;
+    private static string FailureId(string route, bool compressed, string boundary, string outcome, bool secondary)
+        => "failure|" + route + "|" + EncodingId(compressed) + "|" + boundary + "|" + outcome + "|" + (secondary ? "secondary" : "primary");
+
+    private sealed record Observation(string Id, string Route, CompletedAliases Aliases);
+
+    private static void AssertRetired(CompletedAliases aliases)
+    {
+        QpdfExecutionCounters counters = aliases.Governor.Snapshot();
+        Assert.All(aliases.Metadata, reference => Assert.False(reference.IsAlive));
+        Assert.True(counters.LiveMemoryBytes == 0L, "Remaining memory " + counters.LiveMemoryBytes + "; " + CleanupDetail(aliases.Governor));
+        Assert.Equal(0L, counters.OpenHandles);
+        Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
+    }
+
+    // Jobs keep independent budgets/governors. Share only the global GC rounds;
+    // each governor receives exactly the original four maintenance boundaries.
+    private async Task ObserveBatch(IEnumerable<(string Id, string Route, Func<Task<CompletedAliases>> Complete)> jobs)
+    {
+        List<Observation> observations = [];
+        Dictionary<string, string> failures = new(StringComparer.Ordinal);
+        HashSet<ResourceGovernor> governors = new(ReferenceEqualityComparer.Instance);
+        foreach ((string id, string route, Func<Task<CompletedAliases>> complete) in jobs)
+        {
+            try
+            {
+                CompletedAliases aliases = await complete();
+                Assert.True(governors.Add(aliases.Governor), "Scenarios must have independent governors: " + id);
+                observations.Add(new(id, route, aliases));
+                Assert.True(aliases.RetirementDetail.Length == 0, "Unpaid carriers: " + aliases.RetirementDetail);
+            }
+            catch (Exception exception) { failures[id] = exception.ToString(); }
+        }
+        await Task.Yield(); // Finish producer completion frames before observing weak aliases.
+        int collections = 0, maintenance = 0;
+        for (int round = 0; round < 4; round++)
+        {
+            GC.Collect(2, GCCollectionMode.Forced, true, true);
+            GC.WaitForPendingFinalizers();
+            collections++;
+            foreach (Observation observation in observations)
+            {
+                maintenance++;
+                try { observation.Aliases.Governor.ReserveMemory(0L); }
+                catch (Exception exception) { failures.TryAdd(observation.Id, exception.ToString()); }
+            }
+        }
+        // Observe every cleanup before any output-check job can trigger another GC.
+        foreach (Observation observation in observations)
+        {
+            try { AssertRetired(observation.Aliases); }
+            catch (Exception exception) { failures.TryAdd(observation.Id, exception.ToString()); }
+        }
+        foreach (Observation observation in observations)
+        {
+            try { await ValidateOutputs(observation.Aliases, observation.Route); }
+            catch (Exception exception) { failures.TryAdd(observation.Id, exception.ToString()); }
+            if (!failures.ContainsKey(observation.Id)) { output.WriteLine("OWNERSHIP PASS " + observation.Id); }
+        }
+        output.WriteLine("OWNERSHIP BATCH cases=" + observations.Count + " collections=" + collections + " maintenance=" + maintenance);
+        foreach ((string id, string failure) in failures) { output.WriteLine("OWNERSHIP FAIL " + id + "\n" + failure); }
+        GC.KeepAlive(observations);
+        Assert.True(failures.Count == 0, string.Join("\n", failures.Select(pair => pair.Key + ": " + pair.Value)));
+    }
+
+    [Theory]
+    [Trait("Layer", "Ownership")]
+    [MemberData(nameof(CompleteJobs))]
+    public Task CompleteFaultAndCancellationBatchesRetireEveryScenario(string route, bool compressed)
+        => ObserveBatch(FailureJobs().Where(job => (string)job[0] == route && (bool)job[1] == compressed)
+            .Select(job => (FailureId(route, compressed, (string)job[2], (string)job[3], (bool)job[4]), route,
+                new Func<Task<CompletedAliases>>(() => CompleteFailure(route, compressed, (string)job[2], (string)job[3], (bool)job[4])))));
+
+    [Theory]
+    [Trait("Layer", "Ownership")]
+    [InlineData(false, "memory")]
+    [InlineData(false, "work")]
+    [InlineData(true, "memory")]
+    [InlineData(true, "work")]
+    public Task OriginalShortAdmissionBatchesRetireEveryScenario(bool compressed, string budget)
+        => ObserveBatch(Routes.Select(route => (AdmissionId(route, compressed, budget), route,
+            new Func<Task<CompletedAliases>>(() => CompleteAdmission(route, compressed, budget)))));
+
+    [Theory]
+    [Trait("Layer", "Ownership")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task SuccessfulPublicBatchesRetireWithSurvivingOutputs(bool compressed)
+        => ObserveBatch(Routes.Select(route => (SuccessId(route, compressed), route,
+            new Func<Task<CompletedAliases>>(() => CompleteAffected(route, compressed)))));
 }

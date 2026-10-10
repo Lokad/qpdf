@@ -42,6 +42,40 @@ so local SourceLink/source-control queries are disabled. Do not invent a URL.
 Untracked-source embedding is disabled, and compiler document paths are mapped
 to a stable root. Inspect both `.nupkg` and `.snupkg` with the provided script.
 
+## Focused contract, ownership and stress lanes
+
+After the locked Release restore/build, select a lane explicitly:
+
+```powershell
+pwsh -File tools/test-audit-lane.ps1 -Lane SelectionContract
+pwsh -File tools/test-audit-lane.ps1 -Lane SelectionOwnership
+pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticStress
+```
+
+`SelectionContract` runs 1530 complete public scenarios across 33 routes, both
+encodings, host faults, both cancellation sources and fixed admission limits.
+`SelectionOwnership` repeats those scenarios in 72 batches and keeps the two
+original raw/Flate regressions independent: 74 test cases observe all 1532
+original scenarios. Each job retains its own governor/budgets. Four global GC
+rounds are shared within a batch; each governor still receives four bounded
+maintenance calls. All cleanup checks precede output validation, and surviving
+PDF/attachment aliases undergo the original independent public checks.
+
+The combined pilot changed 6144 explicit compacting GC calls to 312, retaining
+all 6144 maintenance calls. Comparable focused runs took 408.5 seconds before
+and 74.3 seconds after (5.5 times faster). The separate commands passed in
+34.5/28.3 seconds. Every original scenario ID and every predecessor outcome
+(1130 failures/402 preserved results) matches. Runtime DLL/PDB bytes are unchanged.
+
+`DiagnosticStress` exposes ten existing alias/cycle controls at their original
+32 KiB/32-cycle bounds. This pilot verified its discovery against the established
+full-run results; it did not repeat that unchanged stress run. Add `-List` to
+inspect any lane without execution. The runner checks exact discovery/result
+counts; an empty or partial selection fails. Ordinary unfiltered `dotnet test`
+still executes every test. These focused lanes supplement the full sequence;
+native/reference/package checks remain explicit. The other ownership matrices
+still need equivalent batching and timing evidence.
+
 ## Optional reference checkout and metadata regeneration
 
 Neither the checkout nor Python is needed by ordinary builds or tests.
