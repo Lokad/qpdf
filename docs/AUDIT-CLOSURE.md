@@ -12,6 +12,15 @@ Corrections close specific public defects or bounded checks. Existing passing
 evidence settles unchanged behavior; comprehensive qualification is reserved
 for integration/release checkpoints. No immutable historical test count applies.
 
+The finite delivery work is complete for the agreed supported profile on
+`34c8097`. Locked Release ordinary/package/fresh-consumer qualification passes
+on Windows and Ubuntu 24.04 WSL2; fresh pinned reference, seven finite visuals
+and their negative controls pass on Windows. Approximate memory, meaningful
+limits, cancellation, cleanup, output integrity and accepted CMYK/YCCK/Zopfli
+controls pass. See [progress](PROGRESS.md) for source/artifact identities, timings
+and scope. Hosted CI was not executed. This is the single supported-profile
+verdict; historical open broad-audit rows add no release blocker.
+
 The bounded job-file/check/parser qualifications now have public-job and native
 proof. Missing or invalid stream lengths recover within physical/work boundaries;
 copied repaired streams use accepted payload lengths, and strict controls reject
@@ -29,9 +38,8 @@ sidecars with six distinct faults per mechanism and late caller/host cancellatio
 Prior targets survive, committed bytes remain valid and leases/handles close;
 existing other-route evidence is reused. All 682 affected checks pass. The finite
 visual command and explicit pinned-reference CI configuration now have focused
-tool/raster negatives. Final supported-profile qualification remains due,
-including committed-source visuals/reference, artifacts and platform results;
-prepared commands/workflows do not establish those results.
+tool/raster negatives. Final supported-profile qualification passes as recorded
+above; prepared commands/workflows alone do not establish a hosted CI result.
 
 Public routes below use **typed / argv / job** for the three shared entry points.
 Use affected public jobs and existing independent checks; helper tests supplement

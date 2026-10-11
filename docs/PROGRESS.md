@@ -12,6 +12,47 @@ requirements below are evidence, not additional completion verdicts. Keep
 meaningful limits, cancellation, cleanup, output integrity and actual leak/growth
 regressions.
 
+## Supported-profile qualification
+
+The agreed supported profile is qualified on committed source `34c8097`.
+Windows and an isolated Ubuntu 24.04 WSL2 checkout use SDK 10.0.401/runtime
+10.0.12; both locked restores, Release builds, ordinary suites, package
+inspection, fresh locked consumers and both consumer rejection controls pass.
+Builds have zero warnings/errors; both ordinary runs pass all 17874 tests with
+zero skips. These counts describe the qualified source, not acceptance quotas.
+
+| Platform/check | Outer wall time | Result |
+| --- | ---: | --- |
+| Windows ordinary | 7m39s | Passed |
+| Ubuntu ordinary | 7m11s | Passed |
+| Windows pinned reference | 6m58s | Passed; 1858 object comparisons and 442 rewrite trios |
+| Windows seven-case visual | 24s | Passed, including misplaced-image/stale-appearance rejection |
+
+The original parser case definitions, inputs, budgets and comparisons remain;
+bounded recovery adds twelve comparisons and ten rewrite trios. The
+differential script is unchanged from the previous comprehensive checkpoint.
+Parser/differential phase intervals are approximately 5m25s/1m26s, versus the
+recorded 33m49s/9m42s baseline. Total reference is 6m58s versus 43m41s originally
+and 8m37s on `eff904f`; Windows ordinary is 7m39s versus that checkpoint's
+10m07s. No parallel verification jobs or production forced GC were introduced.
+
+The five representative memory families, original filtering/collation/4 KiB
+hint controls, actual cancellation/cleanup and output-alias checks pass in the
+ordinary suite. Successful repeated jobs close with roughly 1 MiB of accounting
+charges while host storage collects; retained heap change excluding deliberately
+held outputs is -86528 bytes in this run. Charge debt is not retained memory,
+and these workload observations establish no exact heap agreement or universal
+ratio. Genuine CMYK/YCCK opaque-warning and unavailable-Zopfli controls pass.
+
+Source/artifact identities, commands, complete results and phase times are in
+the local review `external/reviews/2026-10-11-delivery/c84059d7915a41fc91d488d5a9d66dc2/result.json`.
+The Windows alpha.1 package passes inspection and fresh consumer execution;
+the Ubuntu package is independently qualified on the same source archive.
+Hosted GitHub Actions was not executed; actual platform qualification was local.
+The finite delivery list is complete for the agreed profile. Historical broad
+audit rows and original-coverage verdicts add no blocking requirements.
+Pushing, tagging and publication remain separate actions.
+
 ## Finite visual and reference tooling
 
 The seven-case visual invocation now reuses existing authored placement,
@@ -30,9 +71,9 @@ Windows/Linux jobs remain independent of external tools. Release probe build
 passes with zero warnings/errors; reference transport and five raster controls,
 missing-renderer, existing-oracle and no-op-image negatives pass. The earlier
 seven-case draft trial also passes, with both actual DCT optimizations verified.
-No production source or dependencies changed. Final committed-source ordinary,
-reference, visual, package/consumer and platform qualification remains due;
-workflow preparation alone is not a CI result.
+No production source or dependencies changed in the tooling unit. Its final
+committed-source qualification is recorded above; workflow preparation alone
+is not a hosted CI result.
 
 ## Approximate memory contract and test consolidation
 
@@ -74,9 +115,9 @@ all 17872 checks without skips in **377.0s (6m17s)** outer wall, versus the
 recorded **606.7s (10m07s)** checkpoint on `eff904f`. Counts describe these
 sources, not acceptance quotas. The first 401.0s run's four failures and the
 classification evidence remain recorded. The final affected source is integrated
-with this documentation; comprehensive reference/visual/package qualification is
-reserved for the delivery checkpoint. Exceptional cleanup and verification
-tooling preparation are recorded separately; final qualification remains due.
+with this documentation; comprehensive reference/visual/package qualification
+was reserved for the delivery checkpoint, now recorded above. Exceptional
+cleanup and verification-tooling preparation retain their scoped evidence.
 
 ## Bounded group and sidecar cleanup
 
@@ -96,7 +137,7 @@ metadata billing. Existing typed/other-route and staging-discard proofs are
 reused. No production correction was required. Release build passes with zero
 warnings/errors in 31.7s; all 682 affected publication/sidecar/lease checks pass
 without skips in 13.7s outer wall. Final supported-profile artifact and platform
-qualification remains due.
+qualification is recorded above.
 
 ## Public CPU/codec cancellation
 
@@ -123,9 +164,9 @@ numeric/parser-recovery/filter/JPEG/optimization checks pass without skips in
 inputs/limits/outcomes: all 16 managed/native outputs pass pinned qpdf syntax,
 three-reader page checks and numeric-value comparisons. Exact real text and the
 deliberate page-count mismatch remain protected; reference wall is 5.6s.
-The finite CPU/codec task is closed. Approximate-contract/test reconciliation is
-recorded above; bounded exceptional cleanup and final visual/reference/package/CI
-qualification remain.
+The finite CPU/codec task is closed. Approximate-contract/test reconciliation,
+bounded exceptional cleanup and final supported-profile qualification are
+recorded above.
 
 ## Bounded job/check/parser qualification
 

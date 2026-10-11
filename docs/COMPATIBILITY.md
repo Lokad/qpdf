@@ -16,6 +16,16 @@ consolidated; actual limits, immutable values, cleanup and leak/growth controls
 remain. The receipt implementation is preserved. Five representative workload
 families validate the approximate target, rather than a physical-memory census.
 
+The agreed supported profile is qualified on `34c8097`: locked Release ordinary,
+package and fresh-consumer checks pass on Windows and Ubuntu 24.04 WSL2; pinned
+reference and seven finite visual cases pass on Windows. Original parser cases
+and meaningful budgets remain, with bounded recovery additions. Genuine
+CMYK/YCCK opaque-warning and unavailable-Zopfli controls pass. Ordinary outer
+wall is 7m39s/7m11s; complete reference is 6m58s. These are actual local platform
+results, not a hosted CI execution. See [progress](PROGRESS.md) for evidence and
+the preserved timing baselines. There is one supported-profile verdict; no new
+compatibility difference is waived by this qualification.
+
 The shared-image linearized rewrite has a valid physical-layout difference:
 native compresses the page-tree root; the managed writer keeps its rebuilt root
 direct. Both preserve shared image resources and pass syntax/linearization and
@@ -30,7 +40,7 @@ cancel after observed work/codec admission, close leases and preserve prior
 targets; uncanceled outputs reopen independently. The shared parser's existing
 polling semantics are unchanged. These bounded controls do not claim a universal
 cancellation-latency guarantee. Group/sidecar cleanup qualification is recorded
-below; final supported-profile integration remains due.
+below; final supported-profile integration is qualified above.
 
 Exceptional group/sidecar cleanup is now qualified by two representative public
 jobs: argv split and job-JSON sidecars, including the existing one-handle JSON
@@ -39,9 +49,9 @@ caller/host cancellation preserve prior uncommitted targets and caller copies,
 close leases/handles and keep committed bytes equal to independently validated
 successful output. This is bounded publication evidence, not a broader ownership
 or exact-accounting census. The finite visual command and pinned-reference CI
-configuration are prepared, with focused raster/tool negatives. Actual final
-committed-source visual/reference, artifact and platform qualification remains
-due; preparation alone is not a passing CI result.
+configuration are prepared, with focused raster/tool negatives. Final
+committed-source visual/reference, artifact and local platform qualification
+passes; preparation alone is not a hosted CI result.
 
 The bounded `--job-json-file`, `--check` and `--parser-max-errors` qualifications
 are complete. Job setter/duplicate/cycle/default evidence is reused; fileless

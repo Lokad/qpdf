@@ -95,8 +95,11 @@ concrete failure/material cost, not a new per-carrier audit.
 Historical checkpoints retain their original evidence: `b1afaae` took 33.8
 minutes and `eff904f` took 10m07s for ordinary tests, while the latter's
 complete reference lane took 8m37s. The approximate-contract/test consolidation
-passes ordinary integration in 6m17s; see [progress](PROGRESS.md) for scope and
-validation. These timings/counts describe those sources. Use affected
+passes ordinary integration in 6m17s. The final `34c8097` checkpoint passes
+ordinary in 7m39s on Windows and 7m11s on Ubuntu 24.04 WSL2, complete reference
+in 6m58s and finite visuals in 24s, with packages/fresh consumers qualified on
+both platforms. See [progress](PROGRESS.md) for scope and validation. These
+timings/counts describe those sources. Use affected
 reference checks while correcting behavior; comprehensive reference, finite
 visual and package-consumer checks belong at integration/release checkpoints.
 Repeat for changed behavior, failures or a specific unresolved concern.

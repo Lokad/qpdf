@@ -1,7 +1,16 @@
-# Supported profile (M11 audit)
+# Supported profile
 
 This describes exactly what the library does today. Everything else in
 `docs/COMPATIBILITY.md` is a roadmap, not a claim.
+
+This is the agreed delivery profile, qualified on `34c8097` by local Windows
+and Ubuntu Release/package/consumer checks plus pinned-reference and finite
+visual checks; see [progress](PROGRESS.md). The accepted codec/build limitations
+remain explicit: four-component CMYK/YCCK JPEGs stay opaque with warnings where
+decoding is requested, and `--zopfli` fails explicitly with an unsupported-feature
+diagnostic and exit 2. These limitations have positive/negative controls; they
+do not waive another required compatibility mismatch. Approximate job-memory
+estimates and practical safeguards are described under Governance below.
 
 ## Entry paths
 
