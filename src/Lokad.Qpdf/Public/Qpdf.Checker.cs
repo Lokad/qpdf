@@ -18,7 +18,7 @@ public static partial class Qpdf
             // Native reports declared counts separately from quiet traversal.
             diagnostics.ReportPageCountMismatch = false;
             await using (QpdfDocument document = await OpenPlanInputAsync(host, plan.Input, plan.EmptyDocument,
-                limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false))
+                limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false))
             {
                 using InspectionGraph? inspection = await PrepareInspectionGraphAsync(host, document, plan,
                     limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);

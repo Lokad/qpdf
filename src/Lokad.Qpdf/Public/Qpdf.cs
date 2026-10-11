@@ -4525,11 +4525,11 @@ public static partial class Qpdf
         List<QpdfCheckOutcome> checks;
         int pageCount;
         PdfVersion version;
-        await using (QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false))
+        await using (QpdfDocument document = await OpenPlanInputAsync(host, inputPath, emptyDocument, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false))
         {
             checks = DocumentCheck.Run(document, options, limits, governor, diagnostics, false, cancellationToken);
             pageCount = document.PageCount;
-            version = document.Version;
+            version = document.OwnVersion();
             if (showNpages && !checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
             {
                 AddPageCountDiagnostic(document, inputPath, diagnostics);

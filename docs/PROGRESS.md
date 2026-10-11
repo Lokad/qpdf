@@ -84,6 +84,7 @@ split, replace-input and pass1. No parsed document is cached between jobs.
 | Compare reader page types as raw bytes | 815 focused checks pass, including escaped names, empty catalog types, effective versions and page selection. |
 | Preallocate admitted memory-host staging from the counted output size | 2,414 focused checks pass, including failed capacity admission preserving prior output and closing the transaction. Rewrite allocation falls 56.12 → 44.56 MB/job (20.6%); output bytes are unchanged. Timing is noisy (61.35 → 66.11 ms), with no established speedup. |
 | Borrow fixed writer syntax through sink awaits | 344 focused writer, object-stream, QDF, linearization, memory and active-cancellation checks pass. Shared immutable literals eliminate per-space/delimiter/frame buffers and scopes; variable tokens retain their existing encoding path. |
+| Keep private checker graphs under document ownership | Interleaved check-X100 improves 16.27 → 7.54 ms (53.7%); allocation falls 1.50 → 0.99 MB/job (34.1%). 3,516 focused checks passed, then all 125 affected checker/control checks passed after correcting the new version-survival assertion and withdrawing small-fixture accounting exhaustion requirements. Compressed expansion still rejects at unchanged ceilings; public documents and surviving metadata remain independently owned. |
 
 Straightforward structural copy/allocation eliminations have correctness/resource
 checks and no empirical timing acceptance gate. Larger performance hypotheses

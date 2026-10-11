@@ -29,6 +29,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     private readonly VersionParts _effectiveVersionParts;
     internal readonly record struct VersionParts(int Major, int Minor);
     internal VersionParts HeaderVersionParts { get; }
+    internal VersionParts EffectiveVersionParts => _effectiveVersionParts;
 
     private QpdfDocument(
         IQpdfInput input,

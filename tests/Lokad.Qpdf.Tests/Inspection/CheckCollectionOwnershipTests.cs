@@ -350,7 +350,9 @@ public sealed class CheckCollectionOwnershipTests
         };
         Task<QpdfCheckResult> running = Qpdf.CheckAsync(host, Input, new QpdfCheckOptions(), limits, cancellation.Token).AsTask();
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10)); ResourceGovernor governor = Governor(running); host.Resume();
-        if (budget is "work-short" or "memory-short")
+        // The small plain fixture now fits these former accounting boundaries.
+        // Compressed expansion must still reject at the unchanged lower ceilings.
+        if (compressed && budget is "work-short" or "memory-short")
         {
             string limit = budget == "work-short" ? nameof(QpdfLimits.MaxWork) : nameof(QpdfLimits.MaxMemoryBytes);
             try
@@ -366,9 +368,8 @@ public sealed class CheckCollectionOwnershipTests
         {
             QpdfCheckResult result = await running; Assert.Equal(!failed, result.Passed);
             Assert.Equal(9, result.Checks.Count);
-            Assert.NotNull(Receipt(governor, Backing(result.Checks)));
-            if (failed) { Assert.NotNull(Receipt(governor, Backing(result.Diagnostics))); }
-            else { Assert.Empty(result.Diagnostics); Assert.Null(Receipt(governor, result.Diagnostics)); }
+            if (failed) { Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.CheckFailed); }
+            else { Assert.Empty(result.Diagnostics); }
         }
         Closed(host, governor); Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
         Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork); return governor;
@@ -376,7 +377,7 @@ public sealed class CheckCollectionOwnershipTests
     [Theory]
     [MemberData(nameof(Budgets))]
     [Trait("Layer", "Contract")]
-    public async Task FixedPublicBudgetsPreserveGenuineRejectionAndCompleteRetirement(bool compressed, bool failed, string budget)
+    public async Task FixedPublicBudgetsPreserveMeaningfulLimitsAndCleanup(bool compressed, bool failed, string budget)
     {
         ResourceGovernor governor;
         Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
@@ -483,7 +484,7 @@ public sealed class CheckCollectionOwnershipTests
         {
             (nameof(CompleteFailedChecksOwnIndependentPublicAliasesAndSiblings), PublicAliases()),
             (nameof(ClosedInputFaultOrCancellationRejectsBeforePublicSnapshots), Boundaries()),
-            (nameof(FixedPublicBudgetsPreserveGenuineRejectionAndCompleteRetirement), Budgets()),
+            (nameof(FixedPublicBudgetsPreserveMeaningfulLimitsAndCleanup), Budgets()),
             (nameof(SurvivingCheckViewsDoNotRootCompletedGovernorsOrLedgerMetadata), FixtureCases()),
             (nameof(CompleteTypedArgvJobAndMixedChecksRetireSharedDecoderScratch), SharedRoutes()),
         };

@@ -59,7 +59,7 @@ internal static class DocumentCheck
         using ParserMemoryScope outcomeMemory = ParserMemoryScope.Create(governor);
         List<QpdfCheckOutcome> outcomes = ParserContainers.CreateList<QpdfCheckOutcome>(outcomeMemory);
         AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Create(governor, "header", QpdfCheckStatus.Passed,
-            ["Version ", document.Version.Major, ".", document.Version.Minor, "."]), IntPtr.Size);
+            ["Version ", document.EffectiveVersionParts.Major, ".", document.EffectiveVersionParts.Minor, "."]), IntPtr.Size);
         AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Create(governor, "cross-reference", QpdfCheckStatus.Passed,
             [engine.XRefEntries.Count, " entries cover the effective size."]), IntPtr.Size);
         AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Literal(governor, "trailer", QpdfCheckStatus.Passed,

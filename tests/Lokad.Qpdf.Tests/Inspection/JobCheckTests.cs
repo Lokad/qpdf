@@ -366,6 +366,28 @@ public sealed class JobCheckTests
         Assert.Contains(control.Warnings, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageCountMismatch);
     }
 
+    [Fact]
+    public async Task CheckerResultsPreserveIndirectEffectiveVersionAfterInputsClose()
+    {
+        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
+        objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Version 6 0 R >>", null);
+        objects.Add((6, "/1.7", null));
+        InMemoryQpdfHost host = Host(CheckTests.Assemble(objects, 1));
+        QpdfCheckResult typed = await Qpdf.CheckAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), CancellationToken.None);
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"inputs/a.pdf","check":""}""", CancellationToken.None);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, typed.Counters.OpenHandles);
+        Assert.Equal("1.7", typed.Version.ToString());
+        Assert.Equal("Version 1.7.", Assert.Single(typed.Checks, check => check.Name == "header").Detail);
+        Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
+        Assert.Equal(QpdfExecutionStatus.Completed, job.Status);
+        Assert.Equal(argv.Diagnostics.ToArray(), job.Diagnostics.ToArray());
+        Assert.DoesNotContain(job.Diagnostics, diagnostic => diagnostic.Severity == QpdfDiagnosticSeverity.Error);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
