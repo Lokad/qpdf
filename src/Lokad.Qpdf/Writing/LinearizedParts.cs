@@ -521,7 +521,7 @@ internal sealed class LinearizedParts : IDisposable
         List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, owners, retained, governor, cancellationToken);
         GovernedIntSet outlinePlaced = CopySet(outlineOrder, temporary, governor, cancellationToken);
         bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog, governor, cancellationToken);
-        List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, closures, users, openDocuments, treeSet, outlinePlaced, owners, temporary, governor, cancellationToken);
+        List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, users, openDocuments, treeSet, outlinePlaced, owners, temporary, governor, cancellationToken);
         GovernedIntSet thumbPlaced = GovernedIntSet.Create(temporary, governor, cancellationToken);
         foreach (List<int> run in thumbRuns)
         {
@@ -644,7 +644,6 @@ internal sealed class LinearizedParts : IDisposable
     private static List<List<int>> CollectThumbs(
         GovernedIntDictionary<QpdfObject> lookup,
         IReadOnlyList<int> thumbImages,
-        IReadOnlyList<GovernedIntSet> closures,
         GovernedIntDictionary<GovernedIntSet> users,
         GovernedIntSet openDocuments,
         GovernedIntSet treeSet,
@@ -671,9 +670,19 @@ internal sealed class LinearizedParts : IDisposable
                 WalkSubtree(lookup, image, false, thumbClosure, owners, temporary, governor, cancellationToken);
             }
 
-            for (int pageIndex = 0; pageIndex < closures.Count; pageIndex++)
+            // users already indexes the union of all page closures. Inspect
+            // only this thumbnail's candidates, rather than visiting every
+            // page closure for every page (including absent thumbnails).
+            if (thumbClosure.Count != 0)
             {
-                Except(thumbClosure, closures[pageIndex], governor, cancellationToken);
+                using ParserMemoryScope candidatesMemory = ParserMemoryScope.Create(governor);
+                List<int> candidates = CopyNumbers(thumbClosure, candidatesMemory, governor, cancellationToken);
+                foreach (int number in candidates)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    if (users.ContainsKey(number)) { thumbClosure.Remove(number); }
+                }
             }
 
             Except(thumbClosure, openDocuments, governor, cancellationToken);

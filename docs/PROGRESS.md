@@ -49,16 +49,29 @@ describe the retained safeguards and representative checks.
 Detailed local source/artifact identities, commands and phase results are in
 `external/reviews/2026-10-11-delivery/c84059d7915a41fc91d488d5a9d66dc2/result.json`
 (ignored run evidence). The Windows and Ubuntu packages were qualified from the
-same implementation source. Later documentation, assets and development-tool
-changes preserve the production implementation.
+same implementation source. Subsequent documentation, assets and initial
+benchmark tools preserved it. The performance corrections below require a new
+integration checkpoint to qualify their final source/package.
 
 ## Continuing work
 
-The finite Linux structural benchmark comparison is complete on `35eb3fb`,
+The initial finite Linux structural benchmark comparison is complete on `35eb3fb`,
 using WSL and pinned native qpdf 12.4.2. All nine cells validate independently;
 seven process pairs and separate unfiltered warmed measurements are recorded in
 [the comparison report](BENCHMARK-RESULTS.md). It adds no production, accounting
 or CI timing obligations.
+
+Warmed complete-job optimization is in progress, targeting at most 2× pinned
+native on those nine structural workloads. Both persistent workers validate
+fresh outputs; process startup and protocol are excluded, necessary file/host
+transport included. The first correction removes quadratic thumbnail resource
+exclusion during linearization using the existing page-user index. Seventy-five
+focused tests pass, including thumbnail placement, streamed classification,
+work/memory failures, cancellation and a new work-growth regression. An
+interleaved seven-batch WSL confirmation improves the 500-page median from
+155.03 ms to 115.67 ms (25.4%); native is 22.76 ms. Outputs validate independently
+and their sizes are unchanged. The 2× target is still unmet; comprehensive
+qualification follows the completed correction batch.
 
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
