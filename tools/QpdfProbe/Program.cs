@@ -26,6 +26,7 @@ internal static class Program
             {
                 "probe-oracle" => ProbeOracle(args[1..]),
                 "validate" => Validate(args[1..]),
+                "page-text" => PageText(args[1..]),
                 "compare" => Compare(args[1..]),
                 "compare-raster" => RasterComparison.Run(args[1..]),
                 "emit" => EmitCommand.RunEmit(args[1..]),
@@ -64,6 +65,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe --help");
         Console.WriteLine("  QpdfProbe probe-oracle --qpdf-exe <path> --input <pdf>");
         Console.WriteLine("  QpdfProbe validate --input <pdf>");
+        Console.WriteLine("  QpdfProbe page-text --input <pdf> (independent PdfPig page text, JSON array)");
         Console.WriteLine("  QpdfProbe compare --qpdf-exe <path> --input <pdf> --expected-npages <N>");
         Console.WriteLine("  QpdfProbe compare-raster --left <ppm> --right <ppm> --expected-width <1..4096> --expected-height <1..4096> --max-mean-error <0..1> --max-changed-fraction <0..1> --channel-threshold <0..255>");
         Console.WriteLine("  QpdfProbe emit --workdir <dir> --out <logical>=<physical> [--out ...] -- <argv...>");
@@ -118,6 +120,12 @@ internal static class Program
         Console.WriteLine($"independent: header-version={result.HeaderVersion}");
         Console.WriteLine($"independent: npages={result.Npages}");
         Console.WriteLine("independent: reader=PdfPig 0.1.16");
+        return 0;
+    }
+
+    private static int PageText(string[] args)
+    {
+        IndependentReader.WritePageText(GetOption(args, "--input"));
         return 0;
     }
 

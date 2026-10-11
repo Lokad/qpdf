@@ -1,0 +1,44 @@
+using BenchmarkDotNet.Attributes;
+using Lokad.Qpdf.Hosting;
+
+namespace Lokad.Qpdf.Benchmarks;
+
+/// <summary>Warmed public jobs with memory transport; no native process ratio.</summary>
+[MemoryDiagnoser]
+public class ComparisonBenchmarks
+{
+    private ComparisonWorkload _workload = new(string.Empty, [], [], [], []);
+    private readonly Dictionary<string, byte[]> _inputs = new(StringComparer.Ordinal);
+
+    [Params("select-S10", "select-M500", "merge-250x2", "split-M500", "rewrite-M500",
+        "rewrite-X100", "object-streams-X100", "linearize-M500", "check-X100")]
+    public string Workload { get; set; } = string.Empty;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        string directory = Environment.GetEnvironmentVariable("QPDF_COMPARISON_ROOT")
+            ?? throw new InvalidOperationException("Set QPDF_COMPARISON_ROOT to the prepared comparison directory.");
+        _workload = ComparisonWorkloads.Create().Single(item => item.Name == Workload);
+        foreach (string name in _workload.Inputs)
+        {
+            _inputs.Add(name, File.ReadAllBytes(Path.Combine(directory, "inputs", name)));
+        }
+    }
+
+    [Benchmark]
+    public async Task ExecutePublicJob()
+    {
+        InMemoryQpdfHost host = new();
+        foreach ((string name, byte[] content) in _inputs)
+        {
+            host.AddInput(QpdfPath.From("inputs/" + name), content, QpdfInputOwnership.Copy);
+        }
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(_workload.Arguments), CancellationToken.None);
+        if (result.Status != QpdfExecutionStatus.Completed || result.ExitCode != QpdfExitCode.Success)
+        {
+            throw new InvalidOperationException("Comparison workload failed: " + Workload + " " + result.Status);
+        }
+    }
+}

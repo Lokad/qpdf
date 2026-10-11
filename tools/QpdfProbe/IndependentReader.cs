@@ -11,6 +11,14 @@ internal sealed record IndependentResult(
 
 internal static class IndependentReader
 {
+    internal static void WritePageText(string inputPdf)
+    {
+        using PdfDocument document = PdfDocument.Open(inputPdf);
+        var pages = Enumerable.Range(1, document.NumberOfPages)
+            .Select(number => document.GetPage(number).Text).ToArray();
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(pages));
+    }
+
     internal static IndependentResult Read(string inputPdf, bool allowEmpty)
     {
         if (string.IsNullOrWhiteSpace(inputPdf))

@@ -15,6 +15,10 @@ internal static class Program
 
         try
         {
+            if (args.Length == 2 && args[0] == "--comparison-inputs")
+            {
+                return ComparisonWorkloads.Generate(args[1]);
+            }
             if (args[0] == "--counter-report")
             {
                 return CounterReport.Run(args[1..]);
@@ -38,6 +42,7 @@ internal static class Program
         Console.WriteLine("Usage:");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --help");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --counter-report [scenario names...]");
+        Console.WriteLine("  Lokad.Qpdf.Benchmarks --comparison-inputs <fresh-directory>");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --filter <BenchmarkDotNet filter>");
     }
 }

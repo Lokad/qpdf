@@ -35,6 +35,34 @@ internal static class PdfScenarioBuilder
         return Assemble(specs);
     }
 
+    internal static byte[] BuildComparisonDocument(int pages, int contentBytes, string series)
+    {
+        int font = 3 + (2 * pages);
+        int form = font + 1;
+        int resources = form + 1;
+        int info = resources + 1;
+        string kids = string.Join(" ", Enumerable.Range(0, pages).Select(page => (3 + (2 * page)) + " 0 R"));
+        List<ObjectSpec> specs =
+        [
+            new("<< /Type /Catalog /Pages 2 0 R /PageMode /UseNone >>", null),
+            new("<< /Type /Pages /Kids [" + kids + "] /Count " + pages + " /Resources " + resources + " 0 R >>", null),
+        ];
+        for (int page = 0; page < pages; page++)
+        {
+            string marker = series + "-page-" + (page + 1).ToString("D4");
+            string prefix = "BT /F1 12 Tf 72 720 Td (" + marker + ") Tj ET\nq /Fm0 Do Q\n% ";
+            byte[] content = Encoding.ASCII.GetBytes(prefix + new string('x', Math.Max(0, contentBytes - prefix.Length - 1)) + "\n");
+            specs.Add(new("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents " + (4 + (2 * page)) + " 0 R >>", null));
+            specs.Add(new("<< /Length " + content.Length + " >>", content));
+        }
+        specs.Add(new("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null));
+        byte[] formBytes = Encoding.ASCII.GetBytes("q 1 0 0 1 0 0 cm Q\n% " + series + " shared form\n");
+        specs.Add(new("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << >> /Length " + formBytes.Length + " >>", formBytes));
+        specs.Add(new("<< /Font << /F1 " + font + " 0 R >> /XObject << /Fm0 " + form + " 0 R >> >>", null));
+        specs.Add(new("<< /Title (" + series + ") /Producer (Generated Lokad.qpdf benchmark input) >>", null));
+        return Assemble(specs, info);
+    }
+
     internal static byte[] BuildFilterChain(int stages)
     {
         byte[] payload = Encoding.ASCII.GetBytes("BT (Deep) Tj ET");
@@ -104,6 +132,11 @@ internal static class PdfScenarioBuilder
 
     private static byte[] Assemble(List<ObjectSpec> specs)
     {
+        return Assemble(specs, 0);
+    }
+
+    private static byte[] Assemble(List<ObjectSpec> specs, int infoObject)
+    {
         List<byte[]> parts = new();
         byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
         parts.Add(header);
@@ -149,7 +182,8 @@ internal static class PdfScenarioBuilder
             xref.Append(offset.ToString("D10") + " 00000 n \n");
         }
 
-        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
+        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R" +
+            (infoObject == 0 ? string.Empty : " /Info " + infoObject + " 0 R") + " >>\n");
         xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
         parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
         int total = 0;
