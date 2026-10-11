@@ -111,6 +111,15 @@ heavy values fit their decoded-storage budgets; material decoded storage still
 rejects under the unchanged smaller ceiling. Grammar, repair markers, cancellation
 and public byte immutability remain covered.
 
+Graph copying now reuses immutable stream payloads with the existing header-only
+rewrite helper. Source admission survives until publication; source closure does
+not invalidate payloads. All 1,786 affected checks and the five representative
+memory cases pass, including complete payload verification after host collection.
+Fresh native/independent selection and rewriting outputs validate and match the
+previous managed bytes. Allocation drops by about 5.13 MB/job on each M500 cell
+(7.7% selection, 6.5% rewriting). Paired timings vary widely and establish no
+reliable speedup; this direct clone removal is retained on structural grounds.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally

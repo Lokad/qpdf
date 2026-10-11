@@ -177,10 +177,11 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
 
     [Fact]
     [Trait("Layer", "Stress")]
-    public void RepeatedLargeJobsReleaseHostStorageWhileResultsSurvive()
+    public async Task RepeatedLargeJobsReleaseHostStorageWhileResultsSurvive()
     {
         byte[] data = new byte[1024 * 1024];
         Array.Fill(data, (byte)' ');
+        "0 0 10 10 re S\n% surviving stream payload\n"u8.CopyTo(data);
         byte[] input = CheckTests.Assemble(CheckTests.SinglePage("<< /Length " + data.Length + " >>", data), 1);
         // Exclude abandoned allocations from earlier tests from this small
         // workload's baseline. Collection is observation setup, not a required
@@ -216,6 +217,10 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
             if (job.Output is null) { continue; }
             using UglyToad.PdfPig.PdfDocument surviving = UglyToad.PdfPig.PdfDocument.Open(job.Output);
             Assert.Equal(1, surviving.NumberOfPages);
+            InMemoryQpdfHost reopened = Host(job.Output);
+            await using (QpdfDocument document = await QpdfDocument.OpenAsync(reopened, Input, CancellationToken.None))
+            { Assert.Equal(data, Contents(document, 0)); }
+            Assert.Equal(0L, reopened.OpenLeaseCount);
         }
         GC.KeepAlive(completed);
     }

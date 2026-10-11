@@ -527,19 +527,12 @@ internal sealed class GraphCopier
             // Length reference must not make a successfully repaired stream fail
             // while copying its otherwise meaningful dictionary references.
             PdfDictionary copiedDictionary = CopyDictionary(stream.Dictionary, depth + 1, length);
-            Reserve(_ownership is null ? data.Length : checked((long)data.Length + 64L));
-            byte[] preserved = new byte[data.Length];
-            if (_ownership is null) { data.Span.CopyTo(preserved); }
-            else
-            {
-                for (int position = 0; position < data.Length; position += 8192)
-                {
-                    int count = Math.Min(8192, data.Length - position);
-                    _governor.ChargeWork(count);
-                    data.Span.Slice(position, count).CopyTo(preserved.AsSpan(position, count));
-                }
-            }
-            return PdfStream.FromOwnedData(copiedDictionary, preserved);
+            // Payloads are immutable. Complete jobs retain the source admission
+            // until publication (transferring exclusive values before closure);
+            // public document payloads already have an independent owner.
+            Reserve(32L);
+            _governor.CheckCancellation();
+            return stream.WithDictionary(copiedDictionary);
         }
 
         return value;
