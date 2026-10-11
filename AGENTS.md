@@ -62,5 +62,5 @@ Ordinary tests must work without `external/`; future reference-dependent jobs
 must be explicit and must not silently skip unavailable tools.
 
 Keep `docs/PROGRESS.md` concise enough for another agent to resume. Do not
-force-add `PLAN.md`, `external/`, packages or build outputs. Public files must
+force-add ignored local plans, `external/`, packages or build outputs. Public files must
 contain no private repository details or machine-specific absolute paths.

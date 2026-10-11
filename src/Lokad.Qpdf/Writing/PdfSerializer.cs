@@ -21,7 +21,7 @@ internal interface IByteSink
     ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken);
 }
 
-/// <summary>Counts bytes without retaining them (the M1 replay counting pass).</summary>
+/// <summary>Counts serialized bytes without retaining them for the replay pass.</summary>
 internal sealed class CountingSink : IByteSink
 {
     private long _length;

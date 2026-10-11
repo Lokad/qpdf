@@ -129,7 +129,6 @@
           "source": "manual/cli.rst:2305"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -167,7 +166,6 @@
           "source": "manual/cli.rst:2324"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -205,7 +203,6 @@
           "source": "manual/cli.rst:2339"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -237,7 +234,6 @@
           "source": "manual/cli.rst:2494"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -275,7 +271,6 @@
           "source": "manual/cli.rst:2351"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -307,7 +302,6 @@
           "source": "manual/cli.rst:2543"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -345,7 +339,6 @@
           "source": "manual/cli.rst:2361"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -389,7 +382,6 @@
           "source": "manual/cli.rst:2392"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -427,7 +419,6 @@
           "source": "manual/cli.rst:2375"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -467,7 +458,6 @@
           "source": "manual/cli.rst:2462"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -505,7 +495,6 @@
           "source": "manual/cli.rst:2508"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -543,7 +532,6 @@
           "source": "manual/cli.rst:2305"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -575,7 +563,6 @@
           "source": "manual/cli.rst:2524"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -613,7 +600,6 @@
           "source": "manual/cli.rst:2324"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -651,7 +637,6 @@
           "source": "manual/cli.rst:2339"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -683,7 +668,6 @@
           "source": "manual/cli.rst:2494"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -721,7 +705,6 @@
           "source": "manual/cli.rst:2351"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -753,7 +736,6 @@
           "source": "manual/cli.rst:2557"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -791,7 +773,6 @@
           "source": "manual/cli.rst:2361"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -835,7 +816,6 @@
           "source": "manual/cli.rst:2392"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -873,7 +853,6 @@
           "source": "manual/cli.rst:2375"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -913,7 +892,6 @@
           "source": "manual/cli.rst:2462"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -951,7 +929,6 @@
           "source": "manual/cli.rst:2324"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -989,7 +966,6 @@
           "source": "manual/cli.rst:2351"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1027,7 +1003,6 @@
           "source": "manual/cli.rst:2392"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1065,7 +1040,6 @@
           "source": "manual/cli.rst:2462"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1097,7 +1071,6 @@
           "source": "manual/cli.rst:3178"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1136,7 +1109,6 @@
           "source": "manual/cli.rst:3221"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1175,7 +1147,6 @@
           "source": "manual/cli.rst:3162"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1215,7 +1186,6 @@
           "source": "manual/cli.rst:3149"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1256,7 +1226,6 @@
           "source": "manual/cli.rst:3202"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1296,7 +1265,6 @@
           "source": "manual/cli.rst:3190"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1335,7 +1303,6 @@
           "source": "manual/cli.rst:3231"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1375,7 +1342,6 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1408,7 +1374,6 @@
           "source": "manual/cli.rst:3259"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1454,7 +1419,6 @@
           "source": "manual/cli.rst:2294"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1485,7 +1449,6 @@
           "source": "manual/cli.rst:2284"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1517,7 +1480,6 @@
           "source": "manual/cli.rst:2275"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1549,7 +1511,6 @@
           "source": "manual/cli.rst:3903"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1596,7 +1557,6 @@
           "source": "manual/cli.rst:3830"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1641,7 +1601,6 @@
           "source": "manual/cli.rst:3867"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1690,7 +1649,6 @@
           "source": "manual/cli.rst:3882"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1737,7 +1695,6 @@
           "source": "manual/cli.rst:3857"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -1955,7 +1912,6 @@
           "source": "manual/cli.rst:3847"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2000,7 +1956,6 @@
           "source": "manual/cli.rst:327"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2037,7 +1992,6 @@
           "source": "manual/cli.rst:346"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2083,7 +2037,6 @@
           "source": "manual/cli.rst:3653"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2122,7 +2075,6 @@
           "source": "manual/cli.rst:335"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2151,7 +2103,6 @@
           "source": "manual/cli.rst:315"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2188,7 +2139,6 @@
           "source": "manual/cli.rst:357"
         }
       ],
-      "milestone": "M6",
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
@@ -2221,7 +2171,6 @@
           "source": "manual/cli.rst:3054"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2268,7 +2217,6 @@
           "source": "manual/cli.rst:493"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2300,7 +2248,6 @@
           "source": "manual/cli.rst:3380"
         }
       ],
-      "milestone": "M10",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2410,7 +2357,6 @@
           "source": "manual/cli.rst:3451"
         }
       ],
-      "milestone": "M10",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2456,7 +2402,6 @@
           "source": "manual/cli.rst:1204"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2498,7 +2443,6 @@
           "source": "manual/cli.rst:1475"
         }
       ],
-      "milestone": "M5",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2553,7 +2497,6 @@
           "source": "manual/cli.rst:877"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2597,7 +2540,6 @@
           "source": "manual/cli.rst:1007"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2642,7 +2584,6 @@
           "source": "manual/cli.rst:3068"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2686,7 +2627,6 @@
           "source": "manual/cli.rst:773"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2728,7 +2668,6 @@
           "source": "manual/cli.rst:894"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2802,7 +2741,6 @@
           "source": "manual/cli.rst:741"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2834,7 +2772,6 @@
           "source": "manual/cli.rst:466"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2875,7 +2812,6 @@
           "source": "manual/cli.rst:135"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2931,7 +2867,6 @@
           "source": "manual/cli.rst:732"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2963,7 +2898,6 @@
           "source": "manual/cli.rst:798"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -2995,7 +2929,6 @@
           "source": "manual/cli.rst:1222"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3038,7 +2971,6 @@
           "source": "manual/cli.rst:3518"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3092,7 +3024,6 @@
           "source": "manual/cli.rst:1598"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3137,7 +3068,6 @@
           "source": "manual/cli.rst:1580"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3186,7 +3116,6 @@
           "source": "manual/cli.rst:1273"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3226,7 +3155,6 @@
           "source": "manual/cli.rst:1706"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3295,7 +3223,6 @@
           "source": "manual/cli.rst:3813"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3336,7 +3263,6 @@
           "source": "manual/cli.rst:680"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3382,7 +3308,6 @@
           "source": "manual/cli.rst:1235"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3424,7 +3349,6 @@
           "source": "manual/cli.rst:3291"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3456,7 +3380,6 @@
           "source": "manual/cli.rst:161"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3525,7 +3448,6 @@
           "source": "manual/cli.rst:1031"
         }
       ],
-      "milestone": "M8",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3576,7 +3498,6 @@
           "source": "manual/cli.rst:3624"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3639,7 +3560,6 @@
           "source": "manual/cli.rst:3771"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3707,7 +3627,6 @@
           "source": "manual/cli.rst:3669"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3750,7 +3669,6 @@
           "source": "manual/cli.rst:3686"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3798,7 +3716,6 @@
           "source": "manual/cli.rst:3739"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3851,7 +3768,6 @@
           "source": "manual/cli.rst:3699"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3896,7 +3812,6 @@
           "source": "manual/cli.rst:3722"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3945,7 +3860,6 @@
           "source": "manual/cli.rst:513"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -3987,7 +3901,6 @@
           "source": "manual/cli.rst:547"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4026,7 +3939,6 @@
           "source": "manual/cli.rst:1812"
         }
       ],
-      "milestone": "M8",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4066,7 +3978,6 @@
           "source": "manual/cli.rst:719"
         }
       ],
-      "milestone": "M10",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4121,7 +4032,6 @@
           "source": "manual/cli.rst:4003"
         }
       ],
-      "milestone": "M10",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4163,7 +4073,6 @@
           "source": "manual/cli.rst:3578"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4208,7 +4117,6 @@
           "source": "manual/cli.rst:1246"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4249,7 +4157,6 @@
           "source": "manual/cli.rst:1189"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4290,7 +4197,6 @@
           "source": "manual/cli.rst:863"
         }
       ],
-      "milestone": "M9",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4330,7 +4236,6 @@
           "source": "manual/cli.rst:450"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4376,7 +4281,6 @@
           "source": "manual/cli.rst:1051"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4425,7 +4329,6 @@
           "source": "manual/cli.rst:1069"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4475,7 +4378,6 @@
           "source": "manual/cli.rst:1802"
         }
       ],
-      "milestone": "M8",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4515,7 +4417,6 @@
           "source": "manual/cli.rst:1793"
         }
       ],
-      "milestone": "M8",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4554,7 +4455,6 @@
           "source": "manual/cli.rst:1784"
         }
       ],
-      "milestone": "M8",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4596,11 +4496,10 @@
           "source": "manual/cli.rst:1760"
         }
       ],
-      "milestone": "M8",
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Four-component CMYK images are never eligible for recompression: the approved codec cannot decode their raw samples (work item 133 decision), so no encode path can exist. Permanent."
+        "Four-component CMYK images are never eligible for recompression: the approved codec cannot decode their raw samples, so no encode path can exist. Permanent."
       ],
       "evidence": {
         "positive": [
@@ -4653,7 +4552,6 @@
           "source": "manual/cli.rst:1558"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4737,7 +4635,6 @@
           "source": "manual/cli.rst:1428"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4802,7 +4699,6 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4834,7 +4730,6 @@
           "source": "manual/cli.rst:412"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4866,7 +4761,6 @@
           "source": "manual/cli.rst:576"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4908,7 +4802,6 @@
           "source": "manual/cli.rst:617"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4940,7 +4833,6 @@
           "source": "manual/cli.rst:1119"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -4987,7 +4879,6 @@
           "source": "manual/cli.rst:1176"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5028,7 +4919,6 @@
           "source": "manual/cli.rst:439"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5070,7 +4960,6 @@
           "source": "manual/cli.rst:811"
         }
       ],
-      "milestone": "M9",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5119,7 +5008,6 @@
           "source": "manual/cli.rst:3503"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5165,7 +5053,6 @@
           "source": "manual/cli.rst:988"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5206,7 +5093,6 @@
           "source": "manual/cli.rst:1821"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5252,7 +5138,6 @@
           "source": "manual/cli.rst:3083"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5293,7 +5178,6 @@
           "source": "manual/cli.rst:1845"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5335,7 +5219,6 @@
           "source": "manual/cli.rst:1856"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5379,7 +5262,6 @@
           "source": "manual/cli.rst:1866"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5420,7 +5302,6 @@
           "source": "manual/cli.rst:757"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5452,7 +5333,6 @@
           "source": "manual/cli.rst:1876"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5504,7 +5384,6 @@
           "source": "manual/cli.rst:1142"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5553,7 +5432,6 @@
           "source": "manual/cli.rst:147"
         }
       ],
-      "milestone": "M5",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5596,7 +5474,6 @@
           "source": "manual/cli.rst:4034"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5638,7 +5515,6 @@
           "source": "manual/cli.rst:3328"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5670,7 +5546,6 @@
           "source": "manual/cli.rst:1652"
         }
       ],
-      "milestone": "M5",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5730,7 +5605,6 @@
           "source": "manual/cli.rst:1889"
         }
       ],
-      "milestone": "M5",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5788,7 +5662,6 @@
           "source": "manual/cli.rst:3595"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5834,7 +5707,6 @@
           "source": "manual/cli.rst:3417"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5866,7 +5738,6 @@
           "source": "manual/cli.rst:3433"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5898,7 +5769,6 @@
           "source": "manual/cli.rst:3465"
         }
       ],
-      "milestone": "M10",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5943,7 +5813,6 @@
           "source": "manual/cli.rst:3544"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -5983,7 +5852,6 @@
           "source": "manual/cli.rst:3491"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6031,7 +5899,6 @@
           "source": "manual/cli.rst:3556"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6073,7 +5940,6 @@
           "source": "manual/cli.rst:3473"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6114,7 +5980,6 @@
           "source": "manual/cli.rst:1493"
         }
       ],
-      "milestone": "M5",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6169,7 +6034,6 @@
           "source": "manual/cli.rst:3985"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6201,7 +6065,6 @@
           "source": "manual/cli.rst:3971"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6250,7 +6113,6 @@
           "source": "manual/cli.rst:956"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6293,7 +6155,6 @@
           "source": "manual/cli.rst:604"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6325,7 +6186,6 @@
           "source": "manual/cli.rst:666"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6366,7 +6226,6 @@
           "source": "manual/cli.rst:4021"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6409,7 +6268,6 @@
           "source": "manual/cli.rst:1569"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6471,7 +6329,6 @@
           "source": "manual/cli.rst:3785"
         }
       ],
-      "milestone": "M6",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6521,7 +6378,6 @@
           "source": "manual/cli.rst:426"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6565,7 +6421,6 @@
           "source": "manual/cli.rst:228"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6605,7 +6460,6 @@
           "source": "manual/cli.rst:3568"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6649,7 +6503,6 @@
           "source": "manual/cli.rst:1443"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6689,7 +6542,6 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6721,7 +6573,6 @@
           "source": "manual/cli.rst:1459"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6758,7 +6609,6 @@
           "source": "manual/cli.rst:269"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6795,7 +6645,6 @@
           "source": "manual/cli.rst:278"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6832,7 +6681,6 @@
           "source": "manual/cli.rst:303"
         }
       ],
-      "milestone": "M4",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6873,7 +6721,6 @@
           "source": "manual/cli.rst:1443"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6933,7 +6780,6 @@
           "source": "manual/cli.rst:2976"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -6999,7 +6845,6 @@
           "source": "manual/cli.rst:390"
         }
       ],
-      "milestone": "excluded",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -7032,7 +6877,6 @@
           "source": "manual/cli.rst:2993"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],
@@ -7095,7 +6939,6 @@
           "source": "manual/cli.rst:2964"
         }
       ],
-      "milestone": "M7",
       "status": "complete",
       "defaultReview": "reviewed",
       "remainingGaps": [],

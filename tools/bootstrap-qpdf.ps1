@@ -34,5 +34,5 @@ $sha = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvar
 Write-Output "qpdf oracle: $resolved"
 Write-Output "qpdf version output: $($versionOutput.Trim())"
 Write-Output "qpdf exe sha256: $sha"
-Write-Output "qpdf baseline: JPEG support expected; optional Zopfli support absent (see docs/COMPATIBILITY.md). Zopfli runtime behavior is verified with compression work in M6."
+Write-Output "qpdf baseline: JPEG support expected; optional Zopfli support absent (see docs/COMPATIBILITY.md)."
 Write-Output "reference commit: 4eba95899886e851cc41d76886483b347612f2a8"

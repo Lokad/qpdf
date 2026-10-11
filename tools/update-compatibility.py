@@ -24,25 +24,6 @@ GROUPS = (
     "bare", "optional_parameter", "file_parameter", "required_parameter",
     "required_choices", "optional_choices",
 )
-MILESTONES = {
-    "M5": "collate split-pages rotate replace-input set-page-labels",
-    "M6": """compress-streams decode-level stream-data recompress-flate
-        compression-level zopfli object-streams preserve-unreferenced
-        newline-before-endstream min-version force-version deterministic-id
-        static-id remove-info remove-metadata remove-page-labels remove-structure
-        list-attachments show-attachment add-attachment copy-attachments-from
-        remove-attachment key filename creationdate moddate mimetype description
-        replace prefix json json-key json-object json-stream-data json-stream-prefix
-        json-output json-input update-from-json test-json-schema json-help""",
-    "M7": """pages file range overlay underlay to from repeat flatten-rotation
-        flatten-annotations generate-appearances remove-acroform normalize-content
-        coalesce-contents externalize-inline-images ii-min-bytes
-        remove-unreferenced-resources preserve-unreferenced-resources""",
-    "M8": "optimize-images oi-min-width oi-min-height oi-min-area keep-inline-images jpeg-quality",
-    "M9": "qdf no-original-object-ids",
-    "M10": "check linearize check-linearization show-linearization linearize-pass1",
-}
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -139,15 +120,13 @@ def main():
             "excluded-crypto" if name == "json-key" and choice == "encrypt" else row["scope"]
         ) for choice in row["choices"]}
         row["manualForms"] = forms[row["flag"]]
-        row["milestone"] = "excluded" if crypto else next(
-            (milestone for milestone, names in MILESTONES.items() if name in names.split()), "M4")
         row["status"] = "not-started"
         row["defaultReview"] = "pending"
         row["remainingGaps"] = ["Runtime rejection not implemented." if crypto else "Behavior review and implementation pending."]
         row["evidence"] = {kind: [] for kind in ("positive", "negative", "interaction", "resource", "oracle")}
         row["jobJsonPaths"] = sorted(set(row["jobJsonPaths"]))
         old = previous.get((row["context"], row["flag"]), {})
-        for field in ("status", "milestone", "defaultReview", "remainingGaps", "evidence"):
+        for field in ("status", "defaultReview", "remainingGaps", "evidence"):
             if field in old:
                 row[field] = old[field]
 

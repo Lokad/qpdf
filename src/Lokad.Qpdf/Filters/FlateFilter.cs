@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Filters;
 /// is validated, preset dictionaries rejected, the Adler-32 trailer verified,
 /// and predictor transforms applied under dimension budgets. This strictness
 /// exceeds lenient BCL behavior, which can return short output for truncated
-/// input without throwing (see the M0 probe record).
+/// input without throwing; see the codec notes in docs/COMPATIBILITY.md.
 /// </summary>
 internal static class FlateFilter
 {

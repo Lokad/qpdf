@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>M1-M10 operations with an M11 compatibility audit in progress. Non-cryptographic subset only; see docs/COMPATIBILITY.md for scope and docs/PROGRESS.md for status.</PackageReleaseNotes>
+    <PackageReleaseNotes>Managed non-cryptographic PDF structural operations, qualified against qpdf 12.4.2. CMYK/YCCK decoding and Zopfli are unavailable; see docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md for scope and differences.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
