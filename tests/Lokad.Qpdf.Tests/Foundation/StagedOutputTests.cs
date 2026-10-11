@@ -40,26 +40,34 @@ public sealed class StagedOutputTests
         Assert.Equal([1, 2, 3, 4, 5], content);
     }
 
-    [Fact]
-    public async Task OutputsAreCopies()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(8192)]
+    public async Task OutputsAreCopiesAndSurviveSettledTransactionCleanup(int size)
     {
         InMemoryQpdfHost host = new();
         QpdfPath target = QpdfPath.From("outputs/doc.pdf");
         await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(target, CancellationToken.None))
         {
-            byte[] chunk = [9, 9];
+            byte[] chunk = new byte[size];
+            Array.Fill(chunk, (byte)9);
             await transaction.WriteAsync(chunk, CancellationToken.None);
             chunk[0] = 1;
             await transaction.CommitAsync(CancellationToken.None);
+            await transaction.DiscardAsync(CancellationToken.None);
+            await transaction.DisposeAsync();
         }
 
         bool found = host.TryGetOutput(target, out byte[] content);
         Assert.True(found);
-        Assert.Equal([9, 9], content);
+        Assert.Equal(size, content.Length);
+        Assert.All(content, value => Assert.Equal(9, value));
         content[0] = 1;
         bool again = host.TryGetOutput(target, out byte[] second);
         Assert.True(again);
-        Assert.Equal([9, 9], second);
+        Assert.Equal(size, second.Length);
+        Assert.All(second, value => Assert.Equal(9, value));
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

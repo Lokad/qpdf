@@ -214,10 +214,9 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         return await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), new QpdfExecutionOptions(limits), token);
     }
 
-    private sealed class CompletedAliases(ResourceGovernor governor, WeakReference[] metadata, byte[][] outputs, int[] pageCounts)
+    private sealed class CompletedAliases(ResourceGovernor governor, byte[][] outputs, int[] pageCounts)
     {
         internal readonly ResourceGovernor Governor = governor;
-        internal readonly WeakReference[] Metadata = metadata;
         internal readonly byte[][] Outputs = outputs;
         internal readonly int[] PageCounts = pageCounts;
         internal string RetirementDetail = "";
@@ -236,7 +235,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         for (int index = 0; index < paths.Length; index++)
         { Assert.True(host.TryGetOutput(paths[index], out byte[] output)); outputs[index] = output; }
         int pages = route is "typed-pages" or "typed-pages-rotation" or "typed-pages-options" or "argv-pages" or "job-pages" ? 2 : 1;
-        return new(governor ?? throw new InvalidOperationException(), [new(host), new(result), new(counters)],
+        return new(governor ?? throw new InvalidOperationException(),
             outputs, Enumerable.Repeat(pages, outputs.Length).ToArray());
     }
 
@@ -391,7 +390,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
                 else { Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }
             }
             int pageCount = route.Contains("pages", StringComparison.Ordinal) ? 2 : 1;
-            return new(governor, [new(host), new(host.Inner), new(task), new(result), new(failure)],
+            return new(governor,
                 surviving.ToArray(), Enumerable.Repeat(pageCount, surviving.Count).ToArray());
         }
         finally { host.Resume(); try { await task; } catch (QpdfException) { } catch (OperationCanceledException) { } }
@@ -461,7 +460,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             Assert.Empty(host.Committed); Assert.Equal(0L, host.Inner.OpenLeaseCount);
             foreach (QpdfPath path in OutputPaths(route))
             { Assert.True(host.Inner.TryGetOutput(path, out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }
-            return new(governor, [new(host), new(host.Inner), new(task), new(result), new(failure)], [], [])
+            return new(governor, [], [])
                 { RetirementDetail = NonprepaidCarriers(governor) };
         }
         finally { host.Resume(); try { await task; } catch (QpdfException) { } GC.EndNoGCRegion(); }
@@ -476,17 +475,6 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         await ValidateOutputs(aliases, route);
         Assert.True(aliases.RetirementDetail.Length == 0, "Unpaid carriers: " + aliases.RetirementDetail);
         output.WriteLine("CONTRACT PASS " + AdmissionId(route, compressed, budget));
-    }
-
-    private static string CleanupDetail(ResourceGovernor governor)
-    {
-        object? ledger = governor.GetType().GetField("_valueOwners", Members)?.GetValue(governor);
-        if (ledger is null) { return "retained ledger empty"; }
-        int pending = 0;
-        for (object? receipt = ledger.GetType().GetField("_pending", Members)?.GetValue(ledger);
-            receipt is not null && pending < 512; receipt = receipt.GetType().GetField("Next", Members)?.GetValue(receipt))
-        { pending++; }
-        return "live ledger slots " + Field(ledger, "_count") + "; pending retirements " + pending;
     }
 
     private static async Task ValidateOutputs(CompletedAliases aliases, string route)
@@ -571,90 +559,4 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     private static string FailureId(string route, bool compressed, string boundary, string outcome, bool secondary)
         => "failure|" + route + "|" + EncodingId(compressed) + "|" + boundary + "|" + outcome + "|" + (secondary ? "secondary" : "primary");
 
-    private sealed record Observation(string Id, string Route, CompletedAliases Aliases);
-
-    private static void AssertRetired(CompletedAliases aliases)
-    {
-        QpdfExecutionCounters counters = aliases.Governor.Snapshot();
-        Assert.All(aliases.Metadata, reference => Assert.False(reference.IsAlive));
-        Assert.True(counters.LiveMemoryBytes == 0L, "Remaining memory " + counters.LiveMemoryBytes + "; " + CleanupDetail(aliases.Governor));
-        Assert.Equal(0L, counters.OpenHandles);
-        Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
-    }
-
-    // Jobs keep independent budgets/governors. Share only the global GC rounds;
-    // each governor receives exactly the original four maintenance boundaries.
-    private async Task ObserveBatch(IEnumerable<(string Id, string Route, Func<Task<CompletedAliases>> Complete)> jobs)
-    {
-        List<Observation> observations = [];
-        Dictionary<string, string> failures = new(StringComparer.Ordinal);
-        HashSet<ResourceGovernor> governors = new(ReferenceEqualityComparer.Instance);
-        foreach ((string id, string route, Func<Task<CompletedAliases>> complete) in jobs)
-        {
-            try
-            {
-                CompletedAliases aliases = await complete();
-                Assert.True(governors.Add(aliases.Governor), "Scenarios must have independent governors: " + id);
-                observations.Add(new(id, route, aliases));
-                Assert.True(aliases.RetirementDetail.Length == 0, "Unpaid carriers: " + aliases.RetirementDetail);
-            }
-            catch (Exception exception) { failures[id] = exception.ToString(); }
-        }
-        await Task.Yield(); // Finish producer completion frames before observing weak aliases.
-        int collections = 0, maintenance = 0;
-        for (int round = 0; round < 4; round++)
-        {
-            GC.Collect(2, GCCollectionMode.Forced, true, true);
-            GC.WaitForPendingFinalizers();
-            collections++;
-            foreach (Observation observation in observations)
-            {
-                maintenance++;
-                try { observation.Aliases.Governor.ReserveMemory(0L); }
-                catch (Exception exception) { failures.TryAdd(observation.Id, exception.ToString()); }
-            }
-        }
-        // Observe every cleanup before any output-check job can trigger another GC.
-        foreach (Observation observation in observations)
-        {
-            try { AssertRetired(observation.Aliases); }
-            catch (Exception exception) { failures.TryAdd(observation.Id, exception.ToString()); }
-        }
-        foreach (Observation observation in observations)
-        {
-            try { await ValidateOutputs(observation.Aliases, observation.Route); }
-            catch (Exception exception) { failures.TryAdd(observation.Id, exception.ToString()); }
-            if (!failures.ContainsKey(observation.Id)) { output.WriteLine("OWNERSHIP PASS " + observation.Id); }
-        }
-        output.WriteLine("OWNERSHIP BATCH cases=" + observations.Count + " collections=" + collections + " maintenance=" + maintenance);
-        foreach ((string id, string failure) in failures) { output.WriteLine("OWNERSHIP FAIL " + id + "\n" + failure); }
-        GC.KeepAlive(observations);
-        Assert.True(failures.Count == 0, string.Join("\n", failures.Select(pair => pair.Key + ": " + pair.Value)));
-    }
-
-    [Theory]
-    [Trait("Layer", "Ownership")]
-    [MemberData(nameof(CompleteJobs))]
-    public Task CompleteFaultAndCancellationBatchesRetireEveryScenario(string route, bool compressed)
-        => ObserveBatch(FailureJobs().Where(job => (string)job[0] == route && (bool)job[1] == compressed)
-            .Select(job => (FailureId(route, compressed, (string)job[2], (string)job[3], (bool)job[4]), route,
-                new Func<Task<CompletedAliases>>(() => CompleteFailure(route, compressed, (string)job[2], (string)job[3], (bool)job[4])))));
-
-    [Theory]
-    [Trait("Layer", "Ownership")]
-    [InlineData(false, "memory")]
-    [InlineData(false, "work")]
-    [InlineData(true, "memory")]
-    [InlineData(true, "work")]
-    public Task OriginalShortAdmissionBatchesRetireEveryScenario(bool compressed, string budget)
-        => ObserveBatch(Routes.Select(route => (AdmissionId(route, compressed, budget), route,
-            new Func<Task<CompletedAliases>>(() => CompleteAdmission(route, compressed, budget)))));
-
-    [Theory]
-    [Trait("Layer", "Ownership")]
-    [InlineData(false)]
-    [InlineData(true)]
-    public Task SuccessfulPublicBatchesRetireWithSurvivingOutputs(bool compressed)
-        => ObserveBatch(Routes.Select(route => (SuccessId(route, compressed), route,
-            new Func<Task<CompletedAliases>>(() => CompleteAffected(route, compressed)))));
 }

@@ -254,7 +254,13 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                 throw new QpdfHostException(Path, QpdfHostFailureReason.Conflict);
             }
 
-            _host._outputs[Path.Value] = _staging.ToArray();
+            // Staging is private and settled transactions cannot write again.
+            // Transfer only a complete backing; trim geometric spare capacity.
+            byte[] published = _staging.TryGetBuffer(out ArraySegment<byte> staged)
+                && staged.Offset == 0 && staged.Array is byte[] bytes && bytes.Length == staged.Count
+                ? bytes : _staging.ToArray();
+            _host._outputs[Path.Value] = published;
+            ReleaseStaging();
             _settled = true;
             _host.ReleaseLease(null);
             return ValueTask.CompletedTask;
@@ -274,8 +280,14 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                 _host.ReleaseLease(null);
             }
 
-            _staging.SetLength(0L);
+            ReleaseStaging();
             return ValueTask.CompletedTask;
+        }
+
+        private void ReleaseStaging()
+        {
+            _staging.SetLength(0L);
+            _staging.Capacity = 0;
         }
 
         public ValueTask DisposeAsync()
@@ -289,6 +301,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                     _host.ReleaseLease(null);
                 }
 
+                ReleaseStaging();
                 _staging.Dispose();
             }
 
