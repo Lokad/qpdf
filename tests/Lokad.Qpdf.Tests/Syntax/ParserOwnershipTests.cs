@@ -10,6 +10,9 @@ using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Syntax;
 
+// Active CPU cancellation uses a polling controller. Run with the existing
+// nonparallel controls so other large workloads cannot consume its copy window.
+[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class ParserOwnershipTests
 {
     public static IEnumerable<object[]> AbortedContainers()
@@ -267,6 +270,7 @@ public sealed class ParserOwnershipTests
             Assert.Equal(bytes, Assert.IsType<PdfInteger>(control.GetObject(6)).Value);
             long retained = CounterObservation.Snapshot(control).LiveMemoryBytes;
             bool interrupted = false;
+            long lastPeak = 0;
             for (int attempt = 0; attempt < 8 && !interrupted; attempt++)
             {
                 using CancellationTokenSource cancellation = new();
@@ -274,9 +278,12 @@ public sealed class ParserOwnershipTests
                 long work = CounterObservation.Snapshot(canceled).TotalWork;
                 Task<QpdfObject> loading = Task.Factory.StartNew(() => canceled.GetObject(5),
                     CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-                bool reached = SpinWait.SpinUntil(() => CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + 2L * bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
+                // Observe admission of the material payload. The parser owns
+                // one fresh buffer, so a second defensive-copy charge is no
+                // longer a signal of stream-copy work.
+                bool reached = SpinWait.SpinUntil(() => CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
                 Assert.True(reached);
-                bool observed = CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + 2L * bytes;
+                bool observed = CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + bytes;
                 cancellation.Cancel();
                 try
                 {
@@ -286,12 +293,13 @@ public sealed class ParserOwnershipTests
                 {
                     Assert.True(observed);
                     Assert.True(CounterObservation.Snapshot(canceled).TotalWork > work);
-                    Assert.True(CounterObservation.Snapshot(canceled).PeakMemoryBytes >= retained + 2L * bytes);
+                    Assert.True(CounterObservation.Snapshot(canceled).PeakMemoryBytes >= retained + bytes);
                     Assert.Equal(retained, CounterObservation.Snapshot(canceled).LiveMemoryBytes);
                     interrupted = true;
                 }
+                lastPeak = CounterObservation.Snapshot(canceled).PeakMemoryBytes;
             }
-            Assert.True(interrupted, "Loading must be canceled after observed stream-copy admission; completion alone is insufficient.");
+            Assert.True(interrupted, $"Loading must be canceled after observed stream-copy admission; completion alone is insufficient (baseline {retained}, last peak {lastPeak}, payload {bytes}).");
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }

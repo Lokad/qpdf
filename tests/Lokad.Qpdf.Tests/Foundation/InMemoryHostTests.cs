@@ -162,6 +162,28 @@ public sealed class InMemoryHostTests
         Assert.Throws<ArgumentException>(() => QpdfPath.From(string.Empty));
         Assert.Throws<ArgumentException>(() => QpdfPath.From("a\0b"));
     }
+
+    [Fact]
+    public async Task StagedSlicesSurviveCallerMutationAndRejectedWrites()
+    {
+        InMemoryQpdfHost host = new(QpdfLimits.Default with { MaxOutputBytes = 6 });
+        QpdfPath path = QpdfPath.From("outputs/doc.pdf");
+        await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, CancellationToken.None))
+        {
+            byte[] caller = [99, 1, 2, 3, 4, 99];
+            await transaction.WriteAsync(caller.AsMemory(1, 4), CancellationToken.None);
+            Array.Fill(caller, (byte)42);
+            using CancellationTokenSource canceled = new();
+            canceled.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => transaction.WriteAsync(caller.AsMemory(0, 1), canceled.Token).AsTask());
+            await Assert.ThrowsAsync<QpdfLimitException>(() => transaction.WriteAsync(caller.AsMemory(0, 3), CancellationToken.None).AsTask());
+            await transaction.WriteAsync(new byte[] { 5, 6 }, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+        Assert.Equal(0, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(path, out byte[] output));
+        Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, output);
+    }
 }
 
 

@@ -219,8 +219,9 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                 }
             }
 
-            byte[] copy = data.ToArray();
-            _staging.Write(copy, 0, copy.Length);
+            // MemoryStream copies synchronously into private staging storage.
+            // An intermediate array adds no isolation after Write completes.
+            _staging.Write(data.Span);
             return ValueTask.CompletedTask;
         }
 

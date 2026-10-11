@@ -925,7 +925,10 @@ internal sealed class PdfParser
             (length, afterStream) = RecoverStreamLength(data, checked((int)cursor));
         }
 
-        ReserveMemory(checked(length * 2L + 96L));
+        // The parser creates this buffer exclusively and relinquishes it to
+        // the immutable stream; the public defensive-copy constructor is not
+        // needed here. Admit the payload and wrapper before allocating.
+        ReserveMemory(checked(length + 64L));
         byte[] bytes = new byte[(int)length];
         for (int start = 0; start < bytes.Length; start += Math.Min(4096, bytes.Length - start))
         {
@@ -936,9 +939,7 @@ internal sealed class PdfParser
         }
         tokenizer.SetPosition(afterStream);
 
-        PdfStream stream = new(dictionary, bytes);
-        ReleaseMemory(checked(length + 32L));
-        return stream;
+        return PdfStream.FromOwnedData(dictionary, bytes);
     }
 
     private (long Length, long AfterStream) RecoverStreamLength(ReadOnlyMemory<byte> data, int start)

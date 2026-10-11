@@ -186,6 +186,20 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void ParsedStreamSurvivesInputAndReturnedCopyMutation()
+    {
+        byte[] payload = Enumerable.Range(0, 32768).Select(index => (byte)index).ToArray();
+        byte[] source = [.."<</Length 32768>>\nstream\n"u8.ToArray(), ..payload, .."\nendstream"u8.ToArray()];
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
+        PdfStream stream = Assert.IsType<PdfStream>(parser.ParseValue(new PdfTokenizer(source), 0));
+        Array.Clear(source);
+        byte[] returned = stream.Data;
+        Array.Clear(returned);
+        Assert.Equal(payload, stream.Data);
+        Assert.Equal(32768, stream.RawMemory.Length);
+    }
+
+    [Fact]
     public void ParsesStreamsWithIndirectLength()
     {
         QpdfLimits limits = QpdfLimits.Default;

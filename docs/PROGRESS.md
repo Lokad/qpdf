@@ -73,6 +73,16 @@ interleaved seven-batch WSL confirmation improves the 500-page median from
 and their sizes are unchanged. The 2× target is still unmet; comprehensive
 qualification follows the completed correction batch.
 
+The second correction transfers the parser's fresh stream buffer directly to
+the immutable stream and writes memory-host slices directly into private
+staging. Interleaved 500-page rewriting improves 107.80 → 93.56 ms (13.2%);
+measured allocation falls 88.61 → 78.19 MiB/job (11.8%). All seven paired batches
+improve; native is 16.25 ms. Eight hundred ninety-three focused parser, recovery,
+ownership, host and transaction checks pass, including input/write alias
+isolation, canceled/rejected writes and active public stream cancellation.
+Cancellation observes the remaining material payload and uses the existing
+nonparallel controls so other large tests cannot consume its observation window.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally
