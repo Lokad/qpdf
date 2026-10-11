@@ -614,6 +614,11 @@ internal sealed partial class PdfSerializer
 
     private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
     {
+        if (WriterEncoding.TryGetSharedAscii(text, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> literal))
+        {
+            await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
+            return;
+        }
         using WriterEncoding encoded = WriterEncoding.Ascii(text, _limits, _governor, cancellationToken);
         await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }

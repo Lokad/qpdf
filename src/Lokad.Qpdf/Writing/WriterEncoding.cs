@@ -8,6 +8,21 @@ internal sealed class WriterEncoding : IDisposable
 {
     private enum Kind { Ascii, Name, Literal, Hex }
     private const int VisitBytes = 8192;
+    // Fixed PDF syntax has process lifetime and is never exposed for mutation.
+    // Borrow it through sink awaits instead of allocating a scope and buffer per token.
+    private static readonly IReadOnlyDictionary<string, ReadOnlyMemory<byte>> AsciiLiterals =
+        new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
+        {
+            [" "] = " "u8.ToArray(), ["\n"] = "\n"u8.ToArray(),
+            ["["] = "["u8.ToArray(), ["]"] = "]"u8.ToArray(),
+            ["<<"] = "<<"u8.ToArray(), [">>"] = ">>"u8.ToArray(),
+            ["null"] = "null"u8.ToArray(), ["true"] = "true"u8.ToArray(), ["false"] = "false"u8.ToArray(),
+            ["\nendobj\n"] = "\nendobj\n"u8.ToArray(), ["\nendobj\n\n"] = "\nendobj\n\n"u8.ToArray(),
+            ["\nstream\n"] = "\nstream\n"u8.ToArray(), [">>\nstream\n"] = ">>\nstream\n"u8.ToArray(),
+            ["endstream"] = "endstream"u8.ToArray(), ["\nendstream"] = "\nendstream"u8.ToArray(),
+            ["\nendstream\nendobj\n"] = "\nendstream\nendobj\n"u8.ToArray(),
+            ["0000000000 65535 f \n"] = "0000000000 65535 f \n"u8.ToArray(),
+        };
     private ParserMemoryScope? _memory;
     private byte[]? _bytes;
 
@@ -18,6 +33,16 @@ internal sealed class WriterEncoding : IDisposable
     }
 
     internal ReadOnlyMemory<byte> Data => _bytes ?? throw new ObjectDisposedException(nameof(WriterEncoding));
+
+    internal static bool TryGetSharedAscii(string text, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, out ReadOnlyMemory<byte> bytes)
+    {
+        if (!AsciiLiterals.TryGetValue(text, out bytes)) { return false; }
+        CheckCancellation(governor, cancellationToken);
+        CheckLength(bytes.Length, limits.MaxOutputBytes);
+        governor.ChargeWork(bytes.Length);
+        return true;
+    }
 
     internal static WriterEncoding Ascii(string text, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {

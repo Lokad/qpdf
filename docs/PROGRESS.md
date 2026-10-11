@@ -83,6 +83,7 @@ split, replace-input and pass1. No parsed document is cached between jobs.
 | Reuse complete owned host-read arrays | 554 focused host, reader, configuration and practical-memory checks pass. Short reads, slices and non-array memory retain the assembly/copy fallback. |
 | Compare reader page types as raw bytes | 815 focused checks pass, including escaped names, empty catalog types, effective versions and page selection. |
 | Preallocate admitted memory-host staging from the counted output size | 2,414 focused checks pass, including failed capacity admission preserving prior output and closing the transaction. Rewrite allocation falls 56.12 → 44.56 MB/job (20.6%); output bytes are unchanged. Timing is noisy (61.35 → 66.11 ms), with no established speedup. |
+| Borrow fixed writer syntax through sink awaits | 344 focused writer, object-stream, QDF, linearization, memory and active-cancellation checks pass. Shared immutable literals eliminate per-space/delimiter/frame buffers and scopes; variable tokens retain their existing encoding path. |
 
 Straightforward structural copy/allocation eliminations have correctness/resource
 checks and no empirical timing acceptance gate. Larger performance hypotheses
