@@ -5,6 +5,28 @@ namespace Lokad.Qpdf.Tests.Foundation;
 public sealed class StagedOutputTests
 {
     [Fact]
+    public async Task RejectedCountedStagingPreservesPriorOutputAndClosesTheTransaction()
+    {
+        InMemoryQpdfHost host = new(QpdfLimits.Default with { MaxOutputBytes = 32L });
+        QpdfPath input = QpdfPath.From("input.pdf"), target = QpdfPath.From("output.pdf");
+        host.AddInput(input, await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "minimal-2page.pdf")), QpdfInputOwnership.Copy);
+        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(target, CancellationToken.None))
+        {
+            await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["input.pdf", "--static-id", "output.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.True(host.TryGetOutput(target, out byte[] bytes));
+        Assert.Equal("prior"u8.ToArray(), bytes);
+    }
+
+    [Fact]
     public async Task CommitPublishesStagedBytes()
     {
         InMemoryQpdfHost host = new();

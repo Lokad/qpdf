@@ -63,8 +63,9 @@ protocol and validation are excluded; necessary host/file transport is included.
 There are no timing gates in CI.
 
 Performance work targets at most 2× native on nine structural workloads. The
-last complete rerank (`5273258`) validated all nine cells: split and small page
-selection meet the target; ordinary rewriting had the largest gap (4.22×).
+last complete rerank (`284af7a`) validated all nine cells: large and small page
+selection meet the target; ordinary rewriting had the largest gap (3.57×).
+Other gaps range from 2.11× for splitting to 3.00× for structural checking.
 Later paired whole-file source reuse improves rewriting 67.85 → 54.59 ms (19.6%),
 with native 17.98 ms (3.04×). Allocation falls 73.58 → 61.40 MB/job (16.6%).
 The initial noisier pair showed 13.1%; both observations are retained. Source
@@ -81,6 +82,7 @@ split, replace-input and pass1. No parsed document is cached between jobs.
 | Reuse the whole-file source in the shared selection core | Paired improvement above; 3,326 existing focused checks and 42 writer-control cases pass, including six source/publication regressions. |
 | Reuse complete owned host-read arrays | 554 focused host, reader, configuration and practical-memory checks pass. Short reads, slices and non-array memory retain the assembly/copy fallback. |
 | Compare reader page types as raw bytes | 815 focused checks pass, including escaped names, empty catalog types, effective versions and page selection. |
+| Preallocate admitted memory-host staging from the counted output size | 2,414 focused checks pass, including failed capacity admission preserving prior output and closing the transaction. Rewrite allocation falls 56.12 → 44.56 MB/job (20.6%); output bytes are unchanged. Timing is noisy (61.35 → 66.11 ms), with no established speedup. |
 
 Straightforward structural copy/allocation eliminations have correctness/resource
 checks and no empirical timing acceptance gate. Larger performance hypotheses

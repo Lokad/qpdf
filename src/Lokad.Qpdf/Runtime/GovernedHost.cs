@@ -1,5 +1,11 @@
 namespace Lokad.Qpdf.Runtime;
 
+/// <summary>Optional capacity hint for staging whose complete storage was already admitted.</summary>
+internal interface IOutputCapacityHint
+{
+    void EnsureCapacity(long length, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Admits host lease wrappers before allocation and counts each open, read and
 /// write attempt. Publication batches lend one prepaid output wrapper through
@@ -10,6 +16,15 @@ internal static class GovernedHost
 {
     internal const long InputWrapperBytes = 32L;
     internal const long OutputWrapperBytes = 40L;
+
+    internal static void PrepareOutputCapacity(IQpdfOutputTransaction transaction, long length,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (transaction is IOutputCapacityHint hint) { hint.EnsureCapacity(length, cancellationToken); }
+    }
 
     internal static async ValueTask<IQpdfInput> OpenInputAsync(
         IQpdfHost host, QpdfPath path, ResourceGovernor governor, CancellationToken cancellationToken)
@@ -91,7 +106,7 @@ internal static class GovernedHost
         }
     }
 
-    private sealed class GovernedTransaction : IQpdfOutputTransaction
+    private sealed class GovernedTransaction : IQpdfOutputTransaction, IOutputCapacityHint
     {
         private IQpdfOutputTransaction? _inner;
         private ResourceGovernor? _governor;
@@ -103,6 +118,12 @@ internal static class GovernedHost
         private IQpdfOutputTransaction Inner => _inner ?? throw new ObjectDisposedException(nameof(GovernedTransaction));
         private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(GovernedTransaction));
         public QpdfPath Path => Inner.Path;
+
+        void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); Governor.CheckCancellation();
+            if (Inner is IOutputCapacityHint hint) { hint.EnsureCapacity(length, cancellationToken); }
+        }
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {

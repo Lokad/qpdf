@@ -2402,6 +2402,7 @@ public static partial class Qpdf
         try
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+            GovernedHost.PrepareOutputCapacity(transaction, counted, cancellationToken);
             TransactionSink sink = new(transaction, governor);
             long written;
             if (qdf.Enabled)

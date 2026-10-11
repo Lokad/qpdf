@@ -1,3 +1,5 @@
+using Lokad.Qpdf.Runtime;
+
 namespace Lokad.Qpdf.Hosting;
 
 /// <summary>
@@ -182,7 +184,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         }
     }
 
-    private sealed class InMemoryTransaction : IQpdfOutputTransaction
+    private sealed class InMemoryTransaction : IQpdfOutputTransaction, IOutputCapacityHint
     {
         private readonly InMemoryQpdfHost _host;
         private readonly MemoryStream _staging = new();
@@ -197,7 +199,20 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
         public QpdfPath Path { get; }
 
-        public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken cancellationToken)
+        {
+            CheckUnsettled(cancellationToken);
+            if (length > _host._limits.MaxOutputBytes)
+            {
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _host._limits.MaxOutputBytes);
+            }
+            if (length <= Array.MaxLength && length > _staging.Capacity)
+            {
+                _staging.Capacity = (int)length;
+            }
+        }
+
+        private void CheckUnsettled(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (_disposed)
@@ -209,6 +224,11 @@ public sealed class InMemoryQpdfHost : IQpdfHost
             {
                 throw new InvalidOperationException("The transaction is already committed or discarded.");
             }
+        }
+
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        {
+            CheckUnsettled(cancellationToken);
 
             checked
             {
@@ -227,16 +247,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(IQpdfOutputTransaction));
-            }
-
-            if (_settled)
-            {
-                throw new InvalidOperationException("The transaction is already committed or discarded.");
-            }
+            CheckUnsettled(cancellationToken);
 
             if (_host._openIdentities.ContainsKey(Path.Value))
             {
