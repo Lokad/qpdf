@@ -8,7 +8,7 @@ public enum QpdfInputOwnership
 
     /// <summary>
     /// Ownership transfers to the host; the caller must not mutate the array
-    /// afterwards. The host still copies on every read.
+    /// afterwards. Public reads return independent copies.
     /// </summary>
     Transfer = 1,
 }

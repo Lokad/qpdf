@@ -665,6 +665,11 @@ internal sealed partial class PdfSerializer
             counter.AppendLength(WriterEncoding.MeasureName(name, _limits, _governor, cancellationToken), cancellationToken);
             return;
         }
+        if (WriterEncoding.TryGetSharedName(name, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> literal))
+        {
+            await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
+            return;
+        }
         using WriterEncoding encoded = WriterEncoding.Name(name, _limits, _governor, cancellationToken);
         await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }

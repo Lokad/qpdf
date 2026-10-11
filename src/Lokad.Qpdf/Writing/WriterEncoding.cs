@@ -22,6 +22,37 @@ internal sealed class WriterEncoding : IDisposable
             ["endstream"] = "endstream"u8.ToArray(), ["\nendstream"] = "\nendstream"u8.ToArray(),
             ["\nendstream\nendobj\n"] = "\nendstream\nendobj\n"u8.ToArray(),
             ["0000000000 65535 f \n"] = "0000000000 65535 f \n"u8.ToArray(),
+            ["0"] = "0"u8.ToArray(), ["1"] = "1"u8.ToArray(), ["2"] = "2"u8.ToArray(),
+            ["3"] = "3"u8.ToArray(), ["4"] = "4"u8.ToArray(),
+        };
+    private static readonly IReadOnlyDictionary<PdfName, ReadOnlyMemory<byte>> NameLiterals =
+        new Dictionary<PdfName, ReadOnlyMemory<byte>>
+        {
+            [PdfName.FromAscii("Type")] = "/Type"u8.ToArray(),
+            [PdfName.FromAscii("Page")] = "/Page"u8.ToArray(),
+            [PdfName.FromAscii("Pages")] = "/Pages"u8.ToArray(),
+            [PdfName.FromAscii("Catalog")] = "/Catalog"u8.ToArray(),
+            [PdfName.FromAscii("Count")] = "/Count"u8.ToArray(),
+            [PdfName.FromAscii("Kids")] = "/Kids"u8.ToArray(),
+            [PdfName.FromAscii("Parent")] = "/Parent"u8.ToArray(),
+            [PdfName.FromAscii("MediaBox")] = "/MediaBox"u8.ToArray(),
+            [PdfName.FromAscii("Contents")] = "/Contents"u8.ToArray(),
+            [PdfName.FromAscii("Resources")] = "/Resources"u8.ToArray(),
+            [PdfName.FromAscii("Length")] = "/Length"u8.ToArray(),
+            [PdfName.FromAscii("Font")] = "/Font"u8.ToArray(),
+            [PdfName.FromAscii("F1")] = "/F1"u8.ToArray(),
+            [PdfName.FromAscii("Subtype")] = "/Subtype"u8.ToArray(),
+            [PdfName.FromAscii("Type1")] = "/Type1"u8.ToArray(),
+            [PdfName.FromAscii("BaseFont")] = "/BaseFont"u8.ToArray(),
+            [PdfName.FromAscii("Helvetica")] = "/Helvetica"u8.ToArray(),
+            [PdfName.FromAscii("Annots")] = "/Annots"u8.ToArray(),
+            [PdfName.FromAscii("AcroForm")] = "/AcroForm"u8.ToArray(),
+            [PdfName.FromAscii("Fields")] = "/Fields"u8.ToArray(),
+            [PdfName.FromAscii("FT")] = "/FT"u8.ToArray(),
+            [PdfName.FromAscii("T")] = "/T"u8.ToArray(),
+            [PdfName.FromAscii("Rect")] = "/Rect"u8.ToArray(),
+            [PdfName.FromAscii("AP")] = "/AP"u8.ToArray(),
+            [PdfName.FromAscii("N")] = "/N"u8.ToArray(),
         };
     private ParserMemoryScope? _memory;
     private byte[]? _bytes;
@@ -37,7 +68,20 @@ internal sealed class WriterEncoding : IDisposable
     internal static bool TryGetSharedAscii(string text, QpdfLimits limits, ResourceGovernor governor,
         CancellationToken cancellationToken, out ReadOnlyMemory<byte> bytes)
     {
+        // Bound lookup work before falling back to the cancellable encoder.
+        if (text.Length > 32) { bytes = default; return false; }
         if (!AsciiLiterals.TryGetValue(text, out bytes)) { return false; }
+        CheckCancellation(governor, cancellationToken);
+        CheckLength(bytes.Length, limits.MaxOutputBytes);
+        governor.ChargeWork(bytes.Length);
+        return true;
+    }
+
+    internal static bool TryGetSharedName(PdfName name, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, out ReadOnlyMemory<byte> bytes)
+    {
+        if (name.RawSpan.Length > 9) { bytes = default; return false; }
+        if (!NameLiterals.TryGetValue(name, out bytes)) { return false; }
         CheckCancellation(governor, cancellationToken);
         CheckLength(bytes.Length, limits.MaxOutputBytes);
         governor.ChargeWork(bytes.Length);
