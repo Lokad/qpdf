@@ -204,6 +204,7 @@ def main():
     if platform.system() != "Linux":
         parser.error("Use Linux (WSL is supported)")
     repo, dotnet, qpdf, root = (p.resolve() for p in (args.repo, args.dotnet, args.qpdf, args.work_root))
+    native_source, native_build = args.native_source.resolve(), args.native_build.resolve()
     root.mkdir(parents=True, exist_ok=False)
     os.chdir(root)
     probe = repo / "tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll"
@@ -211,12 +212,14 @@ def main():
     version = run([qpdf, "--version"]).decode().strip()
     if version.splitlines()[0] != "qpdf version 12.4.2":
         raise ValueError("Expected pinned native qpdf 12.4.2")
-    actual_pin = run(["git", "-C", args.native_source, "rev-parse", "HEAD"]).decode().strip()
-    if actual_pin != PIN or run(["git", "-C", args.native_source, "status", "--porcelain"]):
+    actual_pin = run(["git", "-C", native_source, "rev-parse", "HEAD"]).decode().strip()
+    if actual_pin != PIN or run(["git", "-C", native_source, "status", "--porcelain"]):
         raise ValueError("Native source must be clean at the pinned commit")
-    cache = (args.native_build / "CMakeCache.txt").read_text()
+    cache = (native_build / "CMakeCache.txt").read_text()
     if "CMAKE_BUILD_TYPE:STRING=Release" not in cache:
         raise ValueError("Native build must be Release")
+    if not qpdf.is_relative_to(native_build) or f"CMAKE_HOME_DIRECTORY:INTERNAL={native_source}\n" not in cache:
+        raise ValueError("Native executable/build must belong to the pinned source")
     run([dotnet, benchmark, "--comparison-inputs", root])
     prepare_incremental(qpdf, root)
     cases = json.loads((root / "workloads.json").read_text())
