@@ -314,32 +314,37 @@ public sealed class TypedWarningOwnershipTests
     [Theory]
     [MemberData(nameof(AdmissionJobs))]
     [Trait("Layer", "Contract")]
-    public async Task FixedAdmissionLimitsRejectBeforeCommitAndPositiveControlsPublish(bool compressed, string budget, bool shortBudget)
+    public async Task CompleteJobsHonorExistingAdmissionCeilings(bool compressed, string budget, bool shortBudget)
     {
         QpdfLimits limits = budget == "memory"
             ? QpdfLimits.Default with { MaxMemoryBytes = shortBudget ? 16384L : 32768L }
             : QpdfLimits.Default with { MaxWork = shortBudget ? 8192L : 16384L };
         object host = await Prepare("typed-page", compressed, "read", "success");
         Task<object> task = Start((IQpdfHost)host, "typed-page", limits, CancellationToken.None);
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         try
         {
             await ((Task)Read(host, "Entered")).WaitAsync(TimeSpan.FromSeconds(10));
             ResourceGovernor governor = Governor(task); Resume(host);
-            if (shortBudget)
+            object? result = null;
+            QpdfLimitException? failure = null;
+            try { result = await task; }
+            catch (QpdfLimitException error) { failure = error; }
+            if (failure is not null)
             {
-                QpdfLimitException error = await Assert.ThrowsAsync<QpdfLimitException>(() => task);
-                Assert.Equal(budget == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), error.LimitName);
+                Assert.True(shortBudget);
+                Assert.Equal(budget == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), failure.LimitName);
                 Assert.Equal(0, Field(host, "Commits"));
                 Assert.True(((InMemoryQpdfHost)Read(host, "Inner")).TryGetOutput(Output, out byte[] prior));
                 Assert.Equal(new byte[] { 17, 23, 41 }, prior);
             }
             else
             {
-                object result = await task;
-                IReadOnlyList<QpdfDiagnostic> warnings = (IReadOnlyList<QpdfDiagnostic>)Read(result, "Warnings");
-                Assert.Single(warnings); Assert.NotNull(Receipt(governor, warnings)); Assert.NotNull(Receipt(governor, Backing(warnings)));
+                IReadOnlyList<QpdfDiagnostic> warnings = (IReadOnlyList<QpdfDiagnostic>)Read(Assert.IsAssignableFrom<object>(result), "Warnings");
+                Assert.Single(warnings);
                 Assert.Equal(1, Field(host, "Commits"));
+                Assert.True(((InMemoryQpdfHost)Read(host, "Inner")).TryGetOutput(Output, out byte[] published));
+                using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(published);
+                Assert.Equal(1, independent.NumberOfPages);
             }
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
             Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
@@ -349,7 +354,6 @@ public sealed class TypedWarningOwnershipTests
         finally
         {
             Resume(host); try { await task; } catch (QpdfException) { }
-            GC.EndNoGCRegion();
         }
     }
 

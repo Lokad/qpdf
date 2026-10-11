@@ -196,7 +196,7 @@ public sealed class PresentationCountTests
         host.Inner.AddInput(QpdfPath.From("input.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
         string flags = "verbose progress report-memory-usage" + (noWarn ? " no-warn" : "") + (warningExitZero ? " warning-exit-0" : "");
         QpdfExecutionResult result = await Run(host, invocation, "whole", flags,
-            QpdfLimits.Default with { MaxDiagnostics = shortCount ? 7L : 8L }, CancellationToken.None);
+            QpdfLimits.Default with { MaxDiagnostics = shortCount ? 6L : 7L }, CancellationToken.None);
         if (shortCount)
         {
             Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
@@ -209,11 +209,11 @@ public sealed class PresentationCountTests
         {
             Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
             Assert.Equal(warningExitZero ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
-            // Whole-file rewriting opens the primary for selection and copying;
-            // both accepted warnings count even when presentation suppresses them.
-            Assert.Equal(8L, result.Counters.DiagnosticCount);
+            // Whole-file rewriting reuses the primary document. Its accepted
+            // warning counts even when presentation suppresses it.
+            Assert.Equal(7L, result.Counters.DiagnosticCount);
             Assert.Equal(6L, result.Diagnostics.LongCount(diagnostic => IsSummary(diagnostic.Code)));
-            Assert.Equal(noWarn ? 0 : 2, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
+            Assert.Equal(noWarn ? 0 : 1, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
             Assert.Equal(1, host.Commits);
         }
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);

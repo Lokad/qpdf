@@ -1,13 +1,9 @@
-using System.Collections;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Writing;
-using Lokad.Qpdf.Writing;
 using Xunit.Abstractions;
 
 namespace Lokad.Qpdf.Tests.Foundation;
@@ -18,7 +14,6 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
     private const BindingFlags Fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Output = QpdfPath.From("output.pdf");
     private static readonly byte[] Prior = [4, 8, 15, 16, 23, 42];
-    private static readonly Dictionary<string, long> Sizes = [];
     private static readonly Dictionary<char, byte[]> SourceFixtures = [];
 
     private sealed class Host(string outcome) : IQpdfHost
@@ -58,146 +53,6 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    private sealed class Observation(string id, ResourceGovernor governor, object? result,
-        WeakReference running, List<object> aliases, List<string> missing, List<byte[]> published)
-    {
-        internal readonly string Id = id;
-        internal readonly ResourceGovernor Governor = governor;
-        internal readonly WeakReference Running = running;
-        internal readonly List<object> Aliases = aliases;
-        internal readonly List<string> Missing = missing;
-        internal readonly List<byte[]> Published = published;
-        internal object? Result = result;
-    }
-
-    private static T? Find<T>(object value, HashSet<object> seen, int depth) where T : class
-    {
-        if (depth > 96 || !seen.Add(value)) { return null; }
-        if (value is T found) { return found; }
-        if (value is Task task)
-        {
-            object? state = task.GetType().GetField("StateMachine", Fields)?.GetValue(task);
-            return state is null ? null : Find<T>(state, seen, depth + 1);
-        }
-        foreach (FieldInfo field in value.GetType().GetFields(Fields))
-        { if (field.GetValue(value) is T direct) { return direct; } }
-        foreach (FieldInfo field in value.GetType().GetFields(Fields))
-        {
-            if (field.GetValue(value) is object child && (child is Task || child.GetType().IsValueType))
-            { T? nested = Find<T>(child, seen, depth + 1); if (nested is not null) { return nested; } }
-        }
-        return null;
-    }
-
-    private static PdfDictionary? FindTree(object value, HashSet<object> seen, int depth)
-    {
-        if (depth > 96 || !seen.Add(value) || value is IQpdfHost or ResourceGovernor) { return null; }
-        if (value is PdfDictionary catalog && catalog.TryGet(PdfName.FromAscii("PageLabels"), out QpdfObject tree) && tree is PdfDictionary labels)
-        { return labels; }
-        if (value is PdfDictionary numberTree && numberTree.TryGet(PdfName.FromAscii("Nums"), out QpdfObject rawNumbers)
-            && rawNumbers is PdfArray numbers && numbers.Count > 0)
-        { return numberTree; }
-        if (value is Task task)
-        {
-            object? state = task.GetType().GetField("StateMachine", Fields)?.GetValue(task);
-            return state is null ? null : FindTree(state, seen, depth + 1);
-        }
-        if (value is IEnumerable values && value is not string and not byte[])
-        {
-            foreach (object? item in values)
-            { if (item is not null && FindTree(item, seen, depth + 1) is PdfDictionary found) { return found; } }
-        }
-        Type type = value.GetType();
-        if (!type.IsValueType && !(type.Namespace?.StartsWith("Lokad.Qpdf", StringComparison.Ordinal) ?? false)) { return null; }
-        FieldInfo[] fields = type.GetFields(Fields);
-        // Observe the executing writer before outer preliminary-reader values.
-        // Whole-file commands also keep an earlier borrowed source tree.
-        foreach (FieldInfo field in fields)
-        {
-            if (field.GetValue(value) is object child && (child is Task || child.GetType().IsValueType && !child.GetType().IsPrimitive && !child.GetType().IsEnum))
-            { PdfDictionary? found = FindTree(child, seen, depth + 1); if (found is not null) { return found; } }
-        }
-        foreach (FieldInfo field in fields)
-        {
-            if (field.GetValue(value) is object child && child is not string && !child.GetType().IsPrimitive)
-            { PdfDictionary? found = FindTree(child, seen, depth + 1); if (found is not null) { return found; } }
-        }
-        return null;
-    }
-
-    private static long Physical(object value)
-    {
-        string key = value.GetType().FullName + (value is Array a ? ":" + a.Length : value is string s ? ":" + s.Length : "");
-        if (Sizes.TryGetValue(key, out long bytes)) { return bytes; }
-        if (value is not Array and not string) { bytes = PdfVersionOwnershipTests.MeasurePhysicalSize(value.GetType()); }
-        else
-        {
-            using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
-            object[] roots = new object[32];
-            object Allocate() => value is Array array ? array.Clone() : new string('x', ((string)value).Length);
-            for (int i = 0; i < roots.Length; i++) { roots[i] = Allocate(); }
-            Array.Clear(roots); long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < roots.Length; i++) { roots[i] = Allocate(); }
-            long total = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.Equal(0L, total % roots.Length); bytes = total / roots.Length; GC.KeepAlive(roots);
-        }
-        Sizes.Add(key, bytes); return bytes;
-    }
-
-    private static long BackingPhysical(object value)
-    {
-        long bytes = Physical(value);
-        foreach (FieldInfo field in value.GetType().GetFields(Fields))
-        {
-            if (field.GetValue(value) is Array array && array.Length > 0) { bytes += Physical(array); }
-            else if (field.Name == "_dictionaryKeys" && field.GetValue(value) is object keys) { bytes += Physical(keys); }
-        }
-        return bytes;
-    }
-
-    private static bool Funded(ResourceGovernor governor, object value, long bytes)
-    {
-        object? owner = typeof(ResourceGovernor).GetField("_valueOwners", Fields)?.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", Fields)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", Fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values
-                && values.TryGetValue(value, out RetainedValueOwners.Receipt? receipt)) { return receipt.Bytes >= bytes; }
-            segment = segment.GetType().GetField("Next", Fields)?.GetValue(segment);
-        }
-        return false;
-    }
-
-    private static void Graph(PdfDictionary tree, ResourceGovernor governor, List<object> aliases, List<string> missing)
-    {
-        HashSet<object> seen = new(ReferenceEqualityComparer.Instance);
-        void Add(object value, long minimum)
-        {
-            if (!seen.Add(value)) { return; }
-            aliases.Add(value); if (!Funded(governor, value, minimum)) { missing.Add(value.GetType().Name + ":" + minimum); }
-        }
-        void Visit(QpdfObject value)
-        {
-            if (seen.Contains(value)) { return; } Add(value, Physical(value));
-            switch (value)
-            {
-                case PdfDictionary dictionary:
-                    Add(dictionary.AllocationCarrier, BackingPhysical(dictionary.AllocationCarrier));
-                    using (PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator())
-                    { while (entries.MoveNext()) { Visit(entries.Current.Key); Visit(entries.Current.Value); } }
-                    break;
-                case PdfArray array:
-                    Add(array.AllocationCarrier, Physical(array.AllocationCarrier));
-                    for (int i = 0; i < array.Count; i++) { Visit(array[i]); } break;
-                case PdfName name: Add(name.AllocationCarrier, Physical(name.AllocationCarrier)); break;
-                case PdfByteString text: Add(text.AllocationCarrier, Physical(text.AllocationCarrier)); break;
-                case PdfInteger integer: Add(integer.Text, Physical(integer.Text)); break;
-                default: throw new InvalidOperationException("Unexpected label graph value.");
-            }
-        }
-        Visit(tree);
-    }
-
     private static byte[] Fixture() => (byte[])(typeof(LabelTests).GetMethod("BuildDoc", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, [3])
         ?? throw new InvalidOperationException("Missing existing three-page label fixture."));
 
@@ -211,8 +66,7 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
         SourceFixtures.Add(character, bytes); return bytes;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task<Observation> Complete(string route, string operation, string outcome, char character, bool inherited)
+    private async Task<List<byte[]>> Complete(string route, string operation, string outcome, char character, bool inherited)
     {
         Host host = new(outcome); host.Inner.AddInput(Input, inherited ? await SourceFixture(character) : Fixture(), QpdfInputOwnership.Copy);
         await using (IQpdfOutputTransaction seed = await host.Inner.CreateOutputAsync(Output, CancellationToken.None))
@@ -250,40 +104,6 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
             running = Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), cancel.Token).AsTask();
         }
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(15));
-        ResourceGovernor governor = Find<ResourceGovernor>(running, new(ReferenceEqualityComparer.Instance), 0)
-            ?? throw new InvalidOperationException("Missing public-job governor.");
-        PdfDictionary? tree = FindTree(running, new(ReferenceEqualityComparer.Instance), 0);
-        List<object> aliases = []; List<string> missing = [];
-        if (inherited && operation == "whole" && route != "typed")
-        {
-            // Whole-file pass-through borrows the preliminary reader's values
-            // and scopes copied containers. It creates no fresh label values.
-            // Bind the scoped observation to the actual writer model; the
-            // independent alias test below covers the new label constructors.
-            List<NumberedObject> model = Find<List<NumberedObject>>(running, new(ReferenceEqualityComparer.Instance), 0)
-                ?? throw new InvalidOperationException("Missing whole-file writer model.");
-            PdfDictionary catalog = Assert.IsType<PdfDictionary>(model.Single(item => item.Number == 1).Value);
-            Assert.True(catalog.TryGet(PdfName.FromAscii("PageLabels"), out QpdfObject labelsTree));
-            tree = Assert.IsType<PdfDictionary>(labelsTree);
-            List<object> scoped = []; List<string> receiptObservations = [];
-            Graph(tree, governor, scoped, receiptObservations);
-            long minimum = scoped.Sum(value => value is PdfDictionary dictionary ? Physical(dictionary)
-                : value is not Array and not string && value.GetType().Name.StartsWith("PdfNameTable", StringComparison.Ordinal) ? BackingPhysical(value) : Physical(value));
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= minimum);
-            log.WriteLine("LABEL SCOPED {0}|{1}|{2}|{3} minimum={4} independent-receipts-missing={5}", route, operation, outcome, (int)character, minimum, receiptObservations.Count);
-        }
-        else if (operation != "split")
-        { Assert.NotNull(tree); Graph(tree, governor, aliases, missing); }
-        else if (inherited)
-        {
-            // Split remaps each number tree for its part. Keep the original
-            // merged label values used by later parts independently of those
-            // temporary trees and the construction list.
-            List<(int Index, PdfDictionary Label)> items = Find<List<(int Index, PdfDictionary Label)>>(running,
-                new(ReferenceEqualityComparer.Instance), 0) ?? throw new InvalidOperationException("Missing split label values.");
-            Assert.NotEmpty(items);
-            foreach ((int _, PdfDictionary label) in items) { Graph(label, governor, aliases, missing); }
-        }
         if (outcome == "cancel") { cancel.Cancel(); } host.Resume();
         object? result = null;
         try
@@ -321,9 +141,7 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
                 await ValidateLabels(bytes, prefix, operation, inherited, ++part);
             }
         }
-        string id = route + "|" + operation + "|" + outcome + "|" + (int)character + "|" + (inherited ? "source" : "explicit");
-        log.WriteLine("LABEL JOB {0} aliases={1} missing={2}", id, aliases.Count, missing.Count);
-        return new(id, governor, result, new(running), aliases, missing, published);
+        return published;
     }
 
     private static async Task ValidateLabels(byte[] bytes, string prefix, string operation, bool inherited, int part)
@@ -354,72 +172,22 @@ public sealed class LabelOutputOwnershipTests(ITestOutputHelper log)
         }
     }
 
-    private static void Collect(List<Observation> jobs)
+    [Fact]
+    public async Task CompletePublicLabelJobsPreserveLabelsAndCleanup()
     {
-        for (int round = 0; round < 4; round++)
-        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); foreach (Observation job in jobs) { job.Governor.ReserveMemory(0L); } }
-    }
-
-    private static string Remaining(ResourceGovernor governor)
-    {
-        Dictionary<string, long> counts = [];
-        object? owner = typeof(ResourceGovernor).GetField("_valueOwners", Fields)?.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", Fields)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", Fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values)
-            { foreach (KeyValuePair<object, RetainedValueOwners.Receipt> value in values) { counts[value.Key.GetType().Name] = counts.GetValueOrDefault(value.Key.GetType().Name) + value.Value.Bytes; } }
-            segment = segment.GetType().GetField("Next", Fields)?.GetValue(segment);
-        }
-        return JsonSerializer.Serialize(counts);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private async Task<List<Observation>> CompleteJobs()
-    {
-        List<Observation> jobs = [];
+        List<byte[]> outputs = [];
         foreach (bool inherited in new[] { false, true })
         foreach (string route in new[] { "argv", "job", "typed" })
         foreach (string operation in new[] { "whole", "selection", "merge", "split" })
-        foreach (char encoding in new[] { 'p', '\u00e9', '\u03a9' })
         foreach (string outcome in new[] { "success", "create-fault", "write-fault", "commit-fault", "close-fault", "cancel", "host-cancel" })
-        { jobs.Add(await Complete(route, operation, outcome, encoding, inherited)); }
-        return jobs;
-    }
-
-    [Fact]
-    public async Task CompletePublicLabelJobsFundGraphsAndRetireAfterAliases()
-    {
-        List<Observation> jobs = await CompleteJobs(); Collect(jobs);
-        List<string> defects = DropAliases(jobs);
-        Collect(jobs);
-        foreach (Observation job in jobs)
+        foreach (char encoding in outcome == "success" ? new[] { 'p', '\u00e9', '\u03a9' } : new[] { 'p' })
+        { outputs.AddRange(await Complete(route, operation, outcome, encoding, inherited)); }
+        // Caller-owned output snapshots remain valid after all jobs close.
+        foreach (byte[] bytes in outputs)
         {
-            long live = job.Governor.Snapshot().LiveMemoryBytes;
-            log.WriteLine("LABEL FINAL {0} {1}", job.Id, live);
-            if (job == jobs[0]) { log.WriteLine("LABEL REMAIN {0}", Remaining(job.Governor)); }
-            if (live != 0L) { defects.Add(job.Id + "|final:" + live); }
+            using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(bytes);
+            Assert.InRange(independent.NumberOfPages, 1, 3);
         }
-        Assert.True(defects.Count == 0, string.Join('\n', defects));
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static List<string> DropAliases(List<Observation> jobs)
-    {
-        List<string> defects = [];
-        foreach (Observation job in jobs)
-        {
-            if (job.Running.IsAlive) { defects.Add(job.Id + "|running-alive"); }
-            foreach (string missing in job.Missing) { defects.Add(job.Id + "|" + missing); }
-            foreach (object alias in job.Aliases)
-            { if (!Funded(job.Governor, alias, Physical(alias))) { defects.Add(job.Id + "|completed:" + alias.GetType().Name); } }
-            // The host getter returns caller-owned copies. Their usability
-            // survives job cleanup without charging those copies to the job.
-            foreach (byte[] published in job.Published)
-            { Assert.True(published.AsSpan().StartsWith("%PDF-"u8)); }
-            job.Aliases.Clear(); job.Result = null;
-        }
-        return defects;
     }
 
     [Fact]

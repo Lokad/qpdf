@@ -190,15 +190,15 @@ public sealed class PresentationByteTests
         ByteHost baselineHost = await Prepare("whole", false, true);
         QpdfExecutionResult baseline = await Run(baselineHost, route, "whole", flags, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
-        Assert.Equal(2, baseline.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
+        Assert.Equal(1, baseline.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
         long required = MessageBytes(baseline);
         ByteHost host = await Prepare("whole", false, true);
         QpdfExecutionResult result = await Run(host, route, "whole", flags + (noWarn ? " no-warn" : "")
             + (warningExitZero ? " warning-exit-0" : ""), QpdfLimits.Default with { MaxDiagnosticBytes = required }, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(warningExitZero ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
-        Assert.Equal(8L, result.Counters.DiagnosticCount);
-        Assert.Equal(noWarn ? 0 : 2, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
+        Assert.Equal(7L, result.Counters.DiagnosticCount);
+        Assert.Equal(noWarn ? 0 : 1, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.DuplicateKey));
         Assert.Equal(1, host.Commits); Assert.Equal(0L, host.Inner.OpenLeaseCount);
         ByteHost shortHost = await Prepare("whole", false, true);
         QpdfExecutionResult failed = await Run(shortHost, route, "whole", flags + (noWarn ? " no-warn" : ""),

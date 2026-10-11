@@ -2778,7 +2778,7 @@
       "evidence": {
         "positive": [
           "WriterControlsTests.DeterministicFlagMatchesDefaultForSameContent",
-          "WriterControlsTests.DefaultIdsAreDeterministicAcrossRuns"
+          "WriterControlsTests.DefaultIdsPreservePlaceholderHashesAcrossRuns"
         ],
         "negative": [
           "WriterControlsTests.MalformedWriterFlagsFail",
