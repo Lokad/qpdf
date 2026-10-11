@@ -67,15 +67,32 @@ public sealed class PresentationOwnershipTests
     [InlineData("job", 46033L)]
     [InlineData("mixed", 45531L)]
     [InlineData("response", 44969L)]
-    public async Task OriginalSplitWorkCeilingsNeverLeaveAPartialPublication(string route, long ceiling)
+    [InlineData("argv", 4096L)]
+    public async Task SplitWorkCeilingsNeverLeaveAPartialPublication(string route, long ceiling)
     {
         object host = await Prepare("split", false, false);
         QpdfExecutionResult result = await Run(host, route, "split", "verbose progress report-memory-usage",
             QpdfLimits.Default with { MaxWork = ceiling });
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(0, Commits(host));
-        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded && item.Message.Contains(nameof(QpdfLimits.MaxWork), StringComparison.Ordinal));
+        bool completed = result.Status == QpdfExecutionStatus.Completed;
+        Assert.Equal(completed ? 2 : 0, Commits(host));
+        Assert.InRange(result.Counters.TotalWork, 1L, ceiling);
+        if (!completed)
+        {
+            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+            Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded
+                && item.Message.Contains(nameof(QpdfLimits.MaxWork), StringComparison.Ordinal));
+        }
+        if (ceiling == 4096L) { Assert.False(completed); }
         foreach (string target in new[] { "output-1.pdf", "output-2.pdf" })
-        { Assert.True(Inner(host).TryGetOutput(QpdfPath.From(target), out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }
+        {
+            Assert.True(Inner(host).TryGetOutput(QpdfPath.From(target), out byte[] bytes));
+            if (completed)
+            {
+                using UglyToad.PdfPig.PdfDocument reopened = UglyToad.PdfPig.PdfDocument.Open(bytes);
+                Assert.Equal(1, reopened.NumberOfPages);
+            }
+            else { Assert.Equal(new byte[] { 17, 23, 41 }, bytes); }
+        }
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, Inner(host).OpenLeaseCount);
     }
 

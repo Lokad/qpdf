@@ -344,13 +344,20 @@ public sealed class WriterControlsTests
         Assert.Equal("31415926535897932384626433832795", id2);
     }
 
-    [Fact]
-    public async Task DefaultIdsAreDeterministicAcrossRuns()
+    [Theory]
+    [InlineData("classic", "FC9DF6086517866565582BD1EA5DC87D")]
+    [InlineData("linearize", "F6C5DD38EBC4ADA74EAB25DBE33D31EB")]
+    [InlineData("qdf", "9734D05A373790248A1C1A1563791889")]
+    public async Task DefaultIdsPreservePlaceholderHashesAcrossRuns(string mode, string expected)
     {
+        List<string> args = ["inputs/a.pdf"];
+        if (mode != "classic") { args.Add("--" + mode); }
+        args.AddRange(["--pages", ".", "1", "--", "outputs/a.pdf"]);
+        QpdfCommandInvocation invocation = new(args);
         InMemoryQpdfHost firstHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult first = await Qpdf.ExecuteAsync(
             firstHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            invocation,
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, first.ExitCode);
         Assert.True(firstHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] a));
@@ -358,7 +365,7 @@ public sealed class WriterControlsTests
         InMemoryQpdfHost secondHost = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
         QpdfExecutionResult second = await Qpdf.ExecuteAsync(
             secondHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]),
+            invocation,
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, second.ExitCode);
         Assert.True(secondHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
@@ -367,6 +374,8 @@ public sealed class WriterControlsTests
         (string id1b, string id2b) = IdsOf(b);
         Assert.Equal(id1a, id1b);
         Assert.Equal(id2a, id2b);
+        Assert.Equal(expected, id1a);
+        Assert.Equal(expected, id2a);
     }
 
     [Fact]

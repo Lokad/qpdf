@@ -2,7 +2,6 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
-using System.Security.Cryptography;
 
 namespace Lokad.Qpdf;
 
@@ -104,22 +103,12 @@ public static partial class Qpdf
             byte[] id2 = StaticIdBytes;
             if (!staticId)
             {
-                using PreparedOutputSink placeholder = PreparedOutputSink.Create(limits, governor, cancellationToken);
+                using IdentifierHashSink placeholder = IdentifierHashSink.Create(limits, governor, cancellationToken);
                 await SerializePresentationOutputAsync(version, model, objectStreams, compressStreams, compressionLevel,
                     infoRef, originalId ?? PlaceholderIdBytes, PlaceholderIdBytes, newlineBeforeEndstream, qdf,
                     originalIds, linearize, placeholder, null, limits, governor, cancellationToken).ConfigureAwait(false);
                 ids.Reserve(40L);
-                id2 = new byte[16];
-                // The hash borrows scoped segments; no joined output copy is needed.
-                ids.Reserve(128L);
-                using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-                for (PreparedOutputSink.Segment? segment = placeholder.First; segment is not null; segment = segment.Next)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    governor.ChargeWork(segment.Used); hash.AppendData(segment.Written.Span);
-                }
-                if (!hash.TryGetHashAndReset(id2, out int written) || written != id2.Length)
-                { throw new InvalidOperationException("Unexpected identifier hash length."); }
+                id2 = placeholder.Complete(cancellationToken);
             }
             await SerializePresentationOutputAsync(version, model, objectStreams, compressStreams, compressionLevel,
                 infoRef, originalId ?? id2, id2, newlineBeforeEndstream, qdf, originalIds, linearize,

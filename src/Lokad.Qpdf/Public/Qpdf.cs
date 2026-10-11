@@ -1913,41 +1913,69 @@ public static partial class Qpdf
         return GraphReachability.Find(new Content.PoolResolver(pool), rootArray, memory, governor);
     }
 
-    private sealed class MemorySink : IByteSink
+    private sealed class IdentifierHashSink : IByteSink, IDisposable
     {
-        private readonly List<byte> _bytes = new();
         private readonly QpdfLimits _limits;
         private readonly ResourceGovernor _governor;
+        private ParserMemoryScope? _memory;
+        private IncrementalHash? _hash;
+        private long _length;
 
-        internal MemorySink(QpdfLimits limits, ResourceGovernor governor)
+        private IdentifierHashSink(QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, IncrementalHash hash)
         {
-            _limits = limits ?? throw new ArgumentNullException(nameof(limits));
-            _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+            _limits = limits; _governor = governor; _memory = memory; _hash = hash;
         }
 
-        public long Length => _bytes.Count;
-
-        public byte[] ToArray()
+        internal static IdentifierHashSink Create(QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
         {
-            return [.. _bytes];
+            ArgumentNullException.ThrowIfNull(limits); ArgumentNullException.ThrowIfNull(governor);
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+            IncrementalHash? hash = null;
+            try
+            {
+                // A fixed allowance for the hash context and its small result.
+                memory.Reserve(192L);
+                hash = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+                return new(limits, governor, memory, hash);
+            }
+            catch { hash?.Dispose(); memory.Dispose(); throw; }
+        }
+
+        public long Length => _length;
+
+        internal byte[] Complete(CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            return (_hash ?? throw new ObjectDisposedException(nameof(IdentifierHashSink))).GetHashAndReset();
         }
 
         public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            _governor.ChargeWork(1L);
-            if ((long)_bytes.Count + chunk.Length > _limits.MaxOutputBytes)
+            IncrementalHash hash = _hash ?? throw new ObjectDisposedException(nameof(IdentifierHashSink));
+            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            long next = checked(_length + chunk.Length);
+            if (next > _limits.MaxOutputBytes)
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), (long)_bytes.Count + chunk.Length, _limits.MaxOutputBytes);
+                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _limits.MaxOutputBytes);
             }
-
-            ReadOnlySpan<byte> span = chunk.Span;
-            for (int i = 0; i < span.Length; i++)
+            for (int offset = 0; offset < chunk.Length;)
             {
-                _bytes.Add(span[i]);
+                cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                int count = Math.Min(32768, chunk.Length - offset);
+                _governor.ChargeWork(count);
+                hash.AppendData(chunk.Span.Slice(offset, count));
+                offset += count;
             }
-
+            _length = next;
             return ValueTask.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            IncrementalHash? hash = _hash; ParserMemoryScope? memory = _memory;
+            _hash = null; _memory = null;
+            try { hash?.Dispose(); } finally { memory?.Dispose(); }
         }
     }
 
@@ -2266,7 +2294,7 @@ public static partial class Qpdf
         byte[] placeholderId1 = originalId1 is null ? (byte[])PlaceholderIdBytes.Clone() : (byte[])originalId1.Clone();
         byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
         PdfSerializer probe = new(limits, governor);
-        MemorySink memory = new(limits, governor);
+        using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
         if (qdf.Enabled)
         {
             await probe.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, placeholderId1, placeholderId2, qdf, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
@@ -2279,8 +2307,8 @@ public static partial class Qpdf
         {
             await probe.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
         }
-        byte[] placeholderBytes = memory.ToArray();
-        byte[] digest = MD5.HashData(placeholderBytes);
+        byte[] digest = memory.Complete(cancellationToken);
+        memory.Dispose();
         id2 = digest;
         id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
         await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken).ConfigureAwait(false);
@@ -2316,7 +2344,7 @@ public static partial class Qpdf
             byte[] placeholderId1 = originalId1 is null ? (byte[])PlaceholderIdBytes.Clone() : (byte[])originalId1.Clone();
             byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
             Writing.LinearizedWriter probe = new(limits, governor);
-            MemorySink memory = new(limits, governor);
+            using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
             if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
             {
                 await probe.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
@@ -2326,7 +2354,7 @@ public static partial class Qpdf
                 await probe.WriteLinearizedAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
             }
 
-            byte[] digest = MD5.HashData(memory.ToArray());
+            byte[] digest = memory.Complete(cancellationToken);
             id2 = digest;
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
         }
