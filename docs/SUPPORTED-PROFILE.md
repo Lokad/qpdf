@@ -1,7 +1,7 @@
 # Supported profile
 
-This describes exactly what the library does today. Everything else in
-`docs/COMPATIBILITY.md` is a roadmap, not a claim.
+This describes shipped behavior. [Compatibility](COMPATIBILITY.md) records the
+reference target, known differences and per-option evidence.
 
 This is the agreed delivery profile, qualified on `34c8097` by local Windows
 and Ubuntu Release/package/consumer checks plus pinned-reference and finite
@@ -294,20 +294,20 @@ echoing values.
   Object-stream payloads and xref entries are Flate-packed with plain
   `/FlateDecode` (no predictor) whenever stream compression is active, and
   raw otherwise.
-- Stream data defaults to opaque preservation: page and resource streams
-  keep their exact encoded bytes (upstream defaults to compress). Opt in
+- Typed selection defaults to opaque preservation: page and resource streams
+  keep their exact encoded bytes. Argv/job rewriting defaults to generalized
+  decoding and compression, matching the reference. Control this
   with `--stream-data=compress|preserve|uncompress`, `--compress-streams=[y|n]`
   (bare means `y`), `--decode-level=none|generalized|specialized|all`, and
   `--recompress-flate`; `--compression-level=1..9` buckets Flate effort
-  (`1` fastest, `2..8` optimal, `9` smallest size; default optimal). Explicit
-  `--compress-streams`/`--decode-level` override the `--stream-data` mapping;
+  (`1` fastest, `2..8` optimal, `9` smallest size; default optimal). Compression
+  and decode setters apply in configuration order; QDF fills unset defaults;
   `--recompress-flate` only takes effect with a decode level covering Flate.
   Decode coverage mirrors inspection (`generalized` adds ASCII/LZW/Flate,
   `specialized` adds RunLength); `all` additionally decodes 1- and 3-component
   DCT JPEGs (four-component CMYK/YCCK stays opaque), warning per undecodable stream. Corrupt streams and unknown
   specs are kept opaque under a warning; streams with more than `--max-stream-filters=n` filters (default 25, 0 keeps every filtered stream opaque) stay opaque under a warning on every decode path; `/Crypt` is never decoded. The
-  default profile differs intentionally from upstream compress defaults so
-  typed previews stay byte-stable without flags.
+  typed default keeps preview stream bytes stable without flags.
 - `--preserve-unreferenced` keeps every input object the selection did not
   reach, appended in ascending original object-number order per source after
   the reachable graph (fresh catalog/pages stay 1/2). The input catalog,

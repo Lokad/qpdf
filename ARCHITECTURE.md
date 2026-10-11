@@ -1,334 +1,168 @@
 # Architecture
 
-This describes the implemented architecture. The library ships host contracts, an in-memory host, a per-job governor, diagnostics, and staged output alongside the strict reader, object graph, filter pipeline with the governed JPEG adapter, shared copy engine, content pipeline, deterministic writer, and the typed, argv, and job-JSON entry points.
+Lokad.qpdf is a managed PDF engine with three public entry points sharing the
+same reader, immutable object model, filters, graph copier and writer. The
+library owns PDF semantics and per-job resource governance. The caller's host
+owns input identities, leases and publication; runtime code receives no ambient
+filesystem, process or network authority.
 
-`MaxMemoryBytes` bounds the estimated per-job working set, with coarse allowances
-and admission of significant buffers, graph growth and codec work. It is not a
-CLR-heap or process-RSS ceiling. Live/peak counters are immutable accounting
-snapshots; charge debt does not establish retained memory. Independent byte,
-count, decompression and work limits, cancellation, cleanup and host-mediated
-publication remain required. Concurrent jobs, host buffers and caller-retained
-outputs also need host policy.
+The [supported profile](docs/SUPPORTED-PROFILE.md) defines shipped behavior,
+[compatibility](docs/COMPATIBILITY.md) records native differences, and
+[progress](docs/PROGRESS.md) identifies the qualified implementation.
 
-Receipt sizes and fine-grained lifetimes described below are current internal
-implementation details. Exact CLR geometry, individually funded small metadata
-aliases, fixed GC retirement and precise self-accounting are not public/release
-requirements. Preserve usable immutable values and output aliases; investigate
-actual material growth or false exhaustion. Resource qualification uses the
-small representative workload set, not a census of every carrier or cold state.
+## Execution flow
 
-Resource pruning shares the governed form/resource walk across copy consumers.
-An unresolved name in an explicit local form resource dictionary marks the
-containing page's resource scope uncertain, preserving it conservatively.
-Absent form Resources uses the existing inherited-name protection; fully
-declared scopes continue pruning unused resources.
+Typed operations call shared cores directly. Argv and job JSON parse into common
+operation/configuration plans before calling those cores; they do not have
+separate PDF implementations.
 
-Three entry points converge on one operation plan: familiar qpdf argv,
-qpdf job JSON, and typed operations including bounded page selection. The
-operation plan uses one binary reader, object graph, filter pipeline and
-writer. PDF object JSON and job JSON are different formats.
+```mermaid
+flowchart TB
+    Entry[Typed / argv / job JSON] --> Core[Shared reader, graph and filters]
+    Core --> Inspect[Inspection]
+    Core --> Copy[Copy and transform]
+    Copy --> Writer[PDF writer / JSON serializer]
+    Writer --> Host[Preparation and host publication]
+    Inspect --> Results[Results and diagnostics after cleanup]
+    Host --> Results
+```
 
-Job files load partial configurations iteratively through the host, using stable
-input identities for cycle checks. Sorted-key prefixes and reverse suffixes share
-the existing operation parser and preserve native setter/duplicate semantics.
-Configuration storage stays admitted until execution finishes; input leases close
-between files. The loader bounds cumulative bytes, work, nesting and storage.
-Response decoding admits its exact UTF-16 string before allocation while encoded
-bytes overlap. Its independent text owner survives input close and line splitting;
-close failures discard that unreturned owner. Empty read-copy arrays retain their
-allocation header admission. Expansion admits its list and backing growth, borrows
-caller strings/shared empties and admits generated substrings before allocation.
-Independent string receipts cover surviving host names and result diagnostics;
-single whole-line responses transfer their decoded string without double admission.
-The expansion vector clears and retires before final counter capture. Configuration
-parsing shares one text factory across ordinary/mixed argv and direct/nested JSON.
-Argv value substrings receive exact admission before allocation; caller strings
-and fixed syntax literals remain borrowed. JSON decoded copies transfer their
-payload admission from the loader's existing document budget to independent weak
-receipts; receipt metadata is admitted separately. Generated input, output, include
-and pass-one names remain funded while a host retains them. Disposal releases
-the unused text-copy pool immediately after plan construction; independently
-escaped strings retire with their aliases.
-Page-label first-page/prefix copies, parsed rotation ranges and canonical JSON
-object selectors use that same independently retained text admission. Label,
-rotation and selector syntax scans borrow spans; temporary split arrays and
-numeric substrings are avoided. Typed JSON shares the selector factory.
-Typed source snapshots and label/rotation conversions share one scoped
-preparation owner under the existing governor. It admits actual list growth,
-record/string storage and bounded grammar scratch before allocation, observes
-work/cancellation during conversion and holds storage through publication.
-Disposal drops all preparation fields before final counter capture. Caller
-records/page arrays/prefixes stay borrowed; the existing range cap/defaults stand.
-Collation preparation shares a governed span parser across argv and job JSON.
-Its scoped owner admits actual vector growth/overlap, registry storage and the
-policy wrapper/integer snapshot before allocation, observes work/cancellation
-and holds the storage through publication. JSON reuses its validated vector;
-disposal detaches all fields before final counter capture. Typed caller policies
-remain borrowed. Significant configuration growth remains subject to the same
-estimated-memory, work and cancellation contracts.
-Ordinary argv global-block removal and main-option filtering use one scoped
-scratch owner. It admits marker/stripped/main vectors and actual capacity growth
-before allocation, borrows original strings, bounds scans/copy work and checks
-cancellation. Sorted markers are traversed once. Every field detaches after plan
-construction; the owner retires before public input and final counter capture.
-Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
-file chains retain native internal key order without changing argv positional
-state. JSON inspection without a file returns immutable execution output text.
-The JSON serializer shares governed text chunks across scalar/container encoders,
-borrows immutable PDF backing and scopes decoded payloads and sorted key vectors.
-Prepared JSON owns main/sidecar candidates and independently escaping text, host
-buffers and filenames. Its exclusive reader closes before immutable/publication
-copies; schema-note acceptance remains before input close. Exclusive null repair
-memoization uses an admitted number set, and aborted parser containers unwind
-before their concluding warning allocations. JSON storage is covered by the
-practical limits and representative workload qualification above.
-Whole-file selection closes its preliminary input before reopening through the
-shared copier, so replacement can publish after those input leases close.
-The preliminary reader and overlay/attachment-copy sources use exclusive value
-ownership. Their immutable values transfer to the job's scope before source
-disposal; input bytes and reader maps retire at disposal. Previously unscoped selection,
-merge, overlay and attachment copiers use the existing owned factory. Selection, rotation, overlay
-decode/encode and attachment assembly reservations stay scoped through
-publication. Output-length admission releases after transaction disposal on
-success, failure or cancellation. Fresh transformed streams prepay their weak
-retirement before acceptance, so exhausted jobs need no new maintenance work.
-These changes protect the established complete-job cleanup controls.
+One governor spans configuration loading, reading, transformation, serialization
+and publication. Inspection uses the same reader/checker/filter machinery, with
+explicit decode policies. Fileless text and binary payloads return through result
+objects. Outcome snapshots are captured after configuration, input and output
+cleanup, preserving observed work and peaks on success, failure and cancellation.
 
-Explicit and source-derived labels use the existing owned-allocation batch and
-name-table dictionary builder. Fresh keys, names, integer tokens, prefix buffers,
-dictionary/array wrappers and number-tree backing receive admission before
-construction and independent prepaid weak receipts. Encoding writes directly to
-the owned prefix buffer; borrowed copied style/prefix values keep their original
-owners. Label vectors use copy/selection scopes, and split carry vectors close
-per output. Whole-file verbatim source trees retain the existing scoped copier
-behavior. Fine-grained copied-container receipts are implementation details.
+## Host boundary and publication
 
-Writer compression setters share ordered state across argv and job configurations.
-Plans store that state in one byte while retaining raw options for inspection.
-QDF fills fields that earlier setters left unset; stream-data setters update both
-compression and decoding. Argv/job writers default to generalized decoding and
-compression, while typed selection retains opaque stream copying. The shared
-stream transformer preserves empty streams and keeps catalog XML metadata
-uncompressed. Copied streams resolve filters against their destination pool;
-created images use the same owned transformer and encoding policy. Rewritten
-content preserves encoded name bytes and their slash prefixes. Supported
-transformation defaults remain explicit in the compatibility profile.
+[IQpdfHost](src/Lokad.Qpdf/Public/IQpdfHost.cs) opens stable input leases and creates
+staged output transactions for logical paths. The host also owns any descriptor,
+scratch or supplied environment facilities. The built-in in-memory host
+implements these contracts; physical adapters belong to hosts or development tools.
 
-Linearization emits zero-width shared numerators because every numerator is zero.
-Hint offsets, lengths and derived widths describe each output's physical object
-layout. Complete native hints and independent byte-boundary checks distinguish
-those layout differences from encoding choices. The writer scopes bit buffers,
-construction collections, tables, compression output and the final hint object
-through replay. Independently escaping table arrays retain their own receipts.
-The shared hint reader borrows immutable raw stream backing and scopes Flate
-decoding, overflow joins, bit cursors and temporary arrays. Check/show retain
-parsed tables only through classification, validation and reporting. Independently
-escaping tables, entries and identifier/numerator arrays receive separate receipts;
-discarded siblings and decoded scratch can collect while source values survive.
-The combined hint correction is verified through complete public jobs and the
-original native/reference/package controls. Resource qualification uses the
-representative workloads, including the original hint false-exhaustion regression.
+Input/output acquisition is admitted before touching the host. Governed wrappers
+charge host calls, handles, reads/writes and bytes, including short reads. Leases
+and transactions close on every outcome; duplicate input opens retain publication
+conflicts until the final lease closes.
 
-Document-open traversal starts at catalog values, so direct containers retain
-indirect descendants and indirect roots retain their own physical identities.
-Page boundaries are tested before assigning object-stream owners. The ordering
-pass includes generated container IDs when placing document-open objects.
-The shared copier registers selected page identities before descending into
-their values, so auxiliary links to later selected pages remap without losing
-them. Omitted pages stay excluded and duplicate occurrences remain distinct.
-Array-valued AcroForm entries use ordinary catalog graph copying; dictionary
-forms use field preservation/rebuilding, and imported fields take precedence
-over an opaque primary array. Explicit form removal still drops the entry.
-The catalog copier preserves non-name PageMode values through its existing graph
-copy path. Physical linearization checking uses the shared reader for object
-ends and the shared graph classifier for compressed owners. It verifies page
-runs, hint spans, shared groups and outlines against the actual input layout.
-Show-linearization retains parsed raw fields on physical failures. New checker
-work requires a concrete incorrect finding or a finite supported-profile check.
+Preparation validates graphs, serializes/hashes output candidates and admits
+publication work and diagnostic capacity before commit. JSON closes its exclusive
+reader before opening output transactions. Uncommitted staging is discarded;
+a failed single-target commit preserves its previous bytes. Split/pass1 and JSON
+sidecar batches publish sequentially: a later failure can leave earlier committed
+outputs. A close fault after commit does not undo publication. Hosts retain
+responsibility for their documented transaction semantics.
 
-Argv and job checker plans use the typed checker core and the same opened
-document for subsequent count, linearization, xref, object, page/image and
-attachment listings, in native inspection order. Serialization-only QDF/linearize
-settings do not rewrite inspected objects. Selection, collation and rotation use
-a scoped inspection graph over the original reader. Primary object generations
-and physical xrefs remain visible; duplicates/imports receive fresh identities,
-removed pages resolve to null, and inherited attributes materialize before
-checking. Source filename keys retain native alias semantics. The view shares
-inheritance/range/copy/collation/rotation helpers and detaches before its scoped
-admission releases. Overlay/underlay inspection uses the shared placement
-pipeline with the original reader as resolver for retained content/resources.
-Primary annotation/form graphs retain immutable values and identities; imported
-fields use shared collision/default-resource/catalog assembly. Direct trailer
-catalog edits belong to the same scoped view and detach with it. Page/content
-listings preserve reference generations.
-Page traversal and declared-count reporting are distinct; failed checking stops
-subsequent inspection. Fileless stream/attachment inspection returns caller-owned
-binary bytes separately from diagnostics, distinguishing absent and empty payloads.
-Failure or cancellation discards staged bytes. Filtered output uses shared governed
-normalization; command checking and split writing share admitted reachability
-traversal. Resource pruning is serialization-only during fileless inspection;
-its original resources stay visible. Public execution and typed result boundaries refresh immutable
-counter snapshots after their core, configuration and input/output scopes finish.
-Failures and cancellation retain observed work; typed throwing routes keep their
-existing exception contract. Counter copies preserve warning/mapping/text/binary
-references and readonly public properties. Later weak-receipt collection can reduce
-live governor memory after a returned snapshot. Complete public jobs and committed
-reference/package checks verify these counter boundaries. Argv/job execution holds
-verbose/memory diagnostic slots while ordinary diagnostics are accepted. The
-governor activates four progress slots before charging the first output byte
-or accepting a prepared positive-output length;
-fileless jobs with no charged output reserve none. Successful presentation accepts
-the held count once; failure/cancellation releases the scoped reservation. Summary
-messages reserve their exact UTF-8 quotas as output/decoded/peak counters grow.
-Presentation prepares independently owned summary text, records, arrays and
-readonly views before commit. Formatting and traversal charge bounded work.
-Unexposed candidates retire immediately; escaping aliases keep separate receipts.
-A prepaid failure view borrows accepted warnings and terminal diagnostics without
-a failure-time list copy. JSON carries suppression/exit flags and admits schema
-notes before publishing. Failure cleanup exports already accepted staged warnings
-with held work, then restores ordinary cancellation checks.
+## Shared PDF components
 
-Split presentation serializes and hashes all main/pass1 outputs into governed
-segments before opening output transactions. Its batch owns bytes through
-sequential publication, including pass1. JSON prepares main/sidecar lengths and
-publication work from its serialized data. Publication-loop work is reserved
-before commit; unused steps are released without increasing observed work.
-Preparation holds more split bytes than streaming and obeys existing job limits.
-Split/pass1 and JSON preparation now applies to every configuration and typed
-route, including plain jobs. Batches admit future host opens/writes, one sequential
-handle and reusable output-wrapper storage before first commit. Shared input/output
-wrappers admit measured 32/40-byte storage before allocation and count each open,
-read and write attempt. Disposal drops references and keeps admission through host
-close, then retires once even on failure. Unexecuted reservations do not change
-observed counters. After history admission, plain publication failures preserve
-accepted warnings and their existing informational-note omission. Plain success keeps its original
-projection; empty failure views retire. Plain JSON attaches history after reader
-closure/staged export, avoiding overlap with exclusive-reader storage. External
-host publication and post-commit close behavior remains unchanged.
-Staged failure export releases encoded scratch after promotion and attaches plain
-history within its admitted work and cancellation boundary. Warning-only plain
-history owns its projection, so hidden informational records can retire. NoWarn
-preserves ordinary admissions and clears private warning references on the first
-visible record; independently escaping records/text keep their receipts. Accepted
-warning state preserves warning exits. Generic result/fatal storage and JSON
-payloads remain subject to practical limits. The DIAG-02P2F/P3H and JSON-01J
-corrections have combined source/Release/reference/package proof. Their historical
-parent audit rows add no separate completion criteria.
+| Component | Responsibility and useful starting point |
+| --- | --- |
+| Public API | [Public/](src/Lokad.Qpdf/Public) exposes typed operations, argv/job execution, limits, documents, immutable outcomes and host contracts. |
+| Configuration | [Commands/](src/Lokad.Qpdf/Commands) and [Jobs/](src/Lokad.Qpdf/Jobs) share plans, ordered setters, range/label parsing and bounded response/job-file loading. |
+| Parsing and resolution | [Syntax/](src/Lokad.Qpdf/Syntax), [Reading/](src/Lokad.Qpdf/Reading) and [Objects/](src/Lokad.Qpdf/Objects) handle binary syntax, xrefs, recovery, cached immutable values, inheritance and checks. |
+| Graph copying | [GraphCopier.cs](src/Lokad.Qpdf/Writing/GraphCopier.cs) remaps per-source identities into a shared destination, preserving permitted sharing and excluding omitted pages. |
+| Content | [Content/](src/Lokad.Qpdf/Content) tokenizes streams and implements shared resource analysis, normalization, inline images, placement, appearances and flattening. |
+| Filters/codecs | [Filters/](src/Lokad.Qpdf/Filters) resolves filter chains/predictors and governs Flate, LZW, ASCII, RunLength and the ImageSharp JPEG adapter. |
+| Serialization | [Writing/](src/Lokad.Qpdf/Writing) owns formatting, remapping, stream transformation, object/xref streams, QDF repair and linearization. [Json/](src/Lokad.Qpdf/Json) shares the reader/graph for PDF JSON. |
+| Attachments | [Attachments/](src/Lokad.Qpdf/Attachments) shares embedded-file traversal, decoding, copying and publication. |
+| Runtime/hosting | [Runtime/](src/Lokad.Qpdf/Runtime) owns resource admission, cleanup, diagnostics and execution preparation; [Hosting/](src/Lokad.Qpdf/Hosting) supplies the in-memory host. |
 
-Command cores carry private value outcomes. Before processing, the governor
-reserves fixed result/counter storage and construction/retirement work. Private
-carriers own dedicated weak receipts independently; they need no general
-value-ledger insertion. After operation/configuration/publication scopes close,
-the governor fills the carriers once and drops its references. Exposed snapshots
-remain immutable. Completed retirement is bounded and can finish after
-cancellation; active execution still observes cancellation. Limits that cannot
-admit the carriers borrow immutable outcomes before job or host work. Caller
-record copies preserve exposed values and aliases without copying receipt
-ownership. Typed facades pre-admit their public wrapper, counter, dedicated weak receipts
-and construction/retirement work before processing, then capture final values
-after cleanup. Six private value outcomes replace nine heap public-DTO sites;
-command cores do not allocate typed public carriers or counters. Typed boundaries
-adopt engine-created snapshot arrays; public constructors still copy caller input.
-Each wrapper owns its own receipt without rooting completed job metadata. Caller
-copies omit that receipt and preserve exposed equality/hash and aliases. Failure
-drops unreturned references and only unused constructor credit; actual receipts
-retire with prepaid work. Private outcome slots and copied backing/mapping are implementation details;
-practical memory validation uses the representative workloads.
-Library-created versions own independently prepaid weak receipts. Header and
-catalog aliases share each owner once; writer negotiation borrows an existing
-version or admits a new one before allocation. Versions can share the already
-funded result-channel weak link; either retirement channel keeps it alive until
-both are empty. Caller copies omit ownership and preserve component equality.
-An exclusive JSON reader validates header/catalog version components as value
-data and emits them directly, avoiding unused heap versions at the original
-repair ceilings. Public/shared documents allocate owned versions before returning;
-their header/effective aliases remain usable after disposal. Private document component fields, governor growth and async frames use coarse
-job estimates rather than independent physical-layout qualification.
-Public document warning reads borrow shared empty storage or admit independently
-owned immutable view/backing snapshots through the shared result collection
-factory. Prepaid retirement preserves independent warning aliases and diagnostic
-identities after disposal without rooting completed metadata. Later warnings do
-not mutate earlier snapshots. Reads obey the original document token and limits;
-generic diagnostic/text limits and cleanup use the shared governed machinery.
-Typed selection, JSON and attachment cores attach a scoped warning snapshot to
-the shared governor preparation boundary. Each immutable view and backing array
-has an independent prepaid receipt; records/text are borrowed. Snapshot
-admission occurs before commit and includes warnings accepted during preparation.
-Unchanged histories reuse their snapshot across commits. Completion detaches
-job references, and returning the prepared collection adds no allocation or
-cancellation poll after publication.
-Command outcomes borrow the already governed diagnostic history for their
-execution presentation, avoiding a second typed snapshot on those routes.
-Command and typed scopes share the existing governor preparation slot through
-ExecutionPreparation, preserving its established physical frame.
-Each public document counter read independently admits snapshot/receipt storage,
-a shared weak governor link and construction/retirement work. Completed document
-retirement can reconcile after cancellation. Copied backing/mapping remain
-DIAG-01R-T; generic diagnostic/list/fatal storage remains DIAG-01.
+### Reader and graph identity
 
-The host owns stable input identities and ranged reads, output staging and
-publication, scratch storage, descriptors and any supplied environment values.
-The library owns PDF semantics, explicit results and per-job memory/work limits.
-No runtime path gains filesystem, process or network authority implicitly.
+The reader resolves classic/streamed xrefs, incremental/hybrid chains and
+compressed members under common work/nesting limits. Strict typed opening and
+bounded CLI recovery are separate policies over the same parser. Valid stream
+lengths preserve binary bytes; recovery scans stay within physical object
+boundaries, charge work and observe cancellation. Repaired copies use accepted
+payload lengths. Compressed members do not use file-stream recovery offsets.
 
-The engine was built bottom-up from strict reading, opaque stream preservation, and a small complete
-read/select/write path. The same engine grew into the full page-selection
-contract before recovery and advanced transformations arrived. Forms and graph
-identity came before general cross-document imports, content analysis before
-resource pruning, and the stable writer and replay model before QDF and linearization.
+Failed parser attempts discard their temporary values while preserving accepted
+nested/cache loads. Disposal drops input, table, cache and lease references;
+public immutable values and snapshots remain usable under their documented
+lifetime contracts.
 
-Memory safety includes both safe managed operations and resource governance.
-Validate lengths/offsets and checked arithmetic before allocating; bound work,
-decompression, graphs and cancellation intervals. ImageSharp and BCL codecs
-need explicit allocation/input/output policies; managed code alone is not an
-exhaustion limit.
+Copying memoizes identities per source, so equal object numbers from different
+inputs never collide. Selected pages register before recursive copying, allowing
+forward links to later selected pages. Omitted-page links become null; duplicate
+occurrences get distinct page objects while permitted resources share. Four
+inheritable page attributes materialize before copying. Catalog/forms, labels,
+attachments and cross-document field handling use the same copier and resource
+helpers rather than route-specific engines.
 
-Reader attempts and parsed subtrees carry independent reservation receipts;
-discarding an outer attempt preserves previously accepted nested loads. Xref
-and cache/guard collections admit their wrappers, capacities and growth overlap.
-Cache entries distinguish unread owned subtrees from borrowed values, so
-replacement and disposal release only the unread admission. Document opens
-transfer their input-copy and exclusive xref-container receipts to the engine;
-component engines can instead borrow caller-funded data and tables. Disposal
-drops input/table/page-view/lease/cache references before releasing those owners,
-including failed construction and host-close faults. Page-list and traversal
-capacities are admitted. Returned immutable bytes, trailer/key aliases and
-historical page counts stay usable. Accepted parser/cache values transfer only
-their own receipts into a per-job weak ownership ledger. Wrappers and independently
-escaping numeric strings, dictionary backing/key views and stream buffers have
-separate receipts. Collection publishes atomic retirement notifications; the job
-thread performs governed index cleanup. Segmented weak tables, index capacities
-and growth overlap are admitted. Failed acceptance rolls back its new carriers
-without releasing previously accepted aliases. Byte-string parsing transfers its
-fresh decoded buffer; public construction and returned copies remain immutable.
+### Content, filters and codecs
 
-JSON serialization uses an exclusive internal reader because its outputs are
-text and copied sidecar bytes. It closes that reader before creating output
-transactions, preserving prior main/sidecar targets if input disposal fails.
-JSON success/failure/cancellation snapshots retain observed work, peaks and
-post-cleanup handles. Nested indirect and object-stream repair have bounded
-public-job qualification. Stream-length recovery shares the parser and resolver:
-the engine supplies the next physical boundary, scans charge work and check
-cancellation, and copying substitutes accepted lengths for obsolete references.
-Object-stream members disable stream recognition; CLI loading consumes their
-first value, while strict loading rejects trailing bytes. Decoded member extents
-therefore never use file-stream recovery offsets. Strict parsing stays separate.
-Remaining practical resource qualification uses
-the approximate target; [progress](docs/PROGRESS.md) records current work.
+Content transformations share byte-oriented tokenizing and resource analysis.
+Pruning preserves a page's resources when content or explicit local form scope
+is unresolved. Fileless inspection keeps original resources because pruning is
+a serialization operation. Overlay inspection uses the shared placement and
+widget-import pipeline while preserving primary identities.
 
-The solution contains the packable library, tests, public API consumer,
-development probe and synthetic benchmark harness. Benchmarks are development
-tools; resource claims require independent allocation/retention measurements
-bound to the tested source tree. Do not create duplicate engines or empty
-project layers solely to match the eventual architecture.
+Decode policy controls which filter stages execute. Structural streams use the
+shared pipeline; typed page copying can preserve opaque encodings. Flate checks
+zlib framing/checksums and bounds input/output chunks. Predictors check dimensions,
+output growth and row work. JPEG checks frame size/components before pixels,
+uses per-job allocation owners and passes cancellation into codec APIs. Only
+one-/three-component grayscale/RGB samples decode; CMYK/YCCK remains opaque with
+warnings. The sole runtime package is ImageSharp **3.1.12**, hidden behind this
+adapter; its temporary advisory decisions are in [development](docs/DEVELOPMENT.md).
 
-The integrated diagnostic engine admits record/text/list storage and future export
-work before accepting a warning. The retained-value ledger tracks independently
-escaping aliases without anchoring completed jobs. JSON stages warnings through
-input closure before publication. Parser/recovery/copier/remapper raw-name tables
-share bounded collision work and immutable backing ownership. Writer row/index,
-object-stream capture/header/payload, encoding/order/xref/remap and layout owners
-drop dead backing before retiring admission across awaited outcomes. Hint bodies, parsing/shared/group scratch and public consumers have integrated
-read/write evidence. Remaining practical qualification follows the finite
-representative, exceptional-cleanup and integration checks recorded in progress;
-no broader ownership census is an implicit completion gate.
+### Writer and physical integrity
+
+Argv/job compression/decode settings resolve in configuration order; typed
+selection retains its explicit opaque-copy default. Shared stream transformation
+recomputes lengths, preserves unknown encodings as allowed, and applies the
+resolved encoding policy. No separate writer exists for typed, argv or job routes.
+
+Serialization counts before emitting and verifies replay lengths. Version/ID,
+object numbering, xref entries, QDF and object-stream packing use shared helpers.
+Linearization classifies physical parts, generates hints and replays a two-pass
+layout. The checker compares hints with actual object ends, page runs, compressed
+owners and shared/outline spans. Different valid layouts can have different hint
+bytes; semantic and physical invariants decide validity.
+
+## Resource and ownership contract
+
+[QpdfLimits](src/Lokad.Qpdf/Public/QpdfLimits.cs) provides independent ceilings for
+input/output bytes, decoded bytes, estimated memory, work, host calls/handles,
+diagnostics, nesting and parser/filter controls. Invocation knobs can tighten
+host policy; `--no-default-limits` cannot raise explicit host ceilings. Checked
+length/offset arithmetic and admission precede significant buffer allocation,
+graph growth, decompression and codec work.
+
+`MaxMemoryBytes` is a hard ceiling on the charged per-job working-set estimate.
+Live/peak counters are immutable accounting snapshots, not CLR-heap/RSS readings.
+Significant payloads and growth overlap receive explicit admission; coarse
+allowances cover graph/codec state. Concurrent jobs, host buffers, stable pools
+and caller-retained outputs also require host policy. Unreleased charges do not
+prove actual retained memory, and zero charges do not prove absence of leaks.
+
+The implementation combines scoped owners for temporary/exclusive storage with
+weak receipts for escaping immutable values. Cleanup detaches private references
+and releases owned storage; receipt retirement avoids rooting completed jobs.
+Receipt geometry and maintenance details are internal. Exact CLR object sizes,
+individual small-object/metadata-alias receipts, fixed GC retirement rounds and
+byte-precise bookkeeping accounting are not public or release requirements.
+The shipped library does not force GC.
+
+Cancellation is cooperative across work intervals, buffer loops, host operations
+and codec APIs. Cleanup can finish bounded retirement after cancellation; active
+work continues to observe it. Diagnostics have independent count/UTF-8 byte caps
+and sanitize input, secrets, host exception details and stacks. Warning history
+and presentation are prepared before publication; final immutable counters reflect
+actual work and cleanup rather than unused reservations.
+
+## Development boundary
+
+The solution also contains ordinary tests, a package consumer, development probe
+and benchmark harness. Native qpdf, PdfPig and rendering tools belong only to
+explicit development validation; they never enter the shipped runtime.
+No vendored engine, interop, subprocess bridge, unsafe code or ambient authority
+is permitted. The library targets .NET 10 with nullable analysis and warnings as
+errors.
+
+Use the existing engine/components when fixing behavior. Validate approximate
+memory with the small representative normal/adversarial workload set, preserving
+meaningful limits, amplification protection, cancellation, cleanup, output
+integrity and actual leak/material-growth regressions. Exact carrier audits and
+historical test counts add no requirements. Focused checks and integration/release
+qualification are described in [development](docs/DEVELOPMENT.md).

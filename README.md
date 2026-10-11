@@ -5,12 +5,12 @@ non-cryptographic PDF structural operations in managed, memory-safe C#.
 The intended embedding boundary is explicit inputs, host-mediated effects,
 resource limits, and structured outputs and diagnostics.
 
-**Current status: M11 compatibility audit in progress.** The `0.1.0-alpha.1` package
+**Current status: the agreed supported profile is qualified.** The `0.1.0-alpha.1` package
 implements qpdf's non-cryptographic structural operations (strict reading with recovery,
 page selection and merge, writer controls, content transforms, overlays, appearances, JPEG
 processing, QDF, and linearization) through typed, argv, and job JSON routes with staged
 publication. See `docs/SUPPORTED-PROFILE.md` for the exact profile and
-`docs/COMPATIBILITY.md` for per-option scope, evidence, and remaining gaps.
+`docs/COMPATIBILITY.md` for caller-facing limitations, known differences and the option inventory.
 
 The compatibility target is qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`. The initial inventory accounts for
@@ -53,7 +53,7 @@ for the governed JPEG adapter. Its exact version is pinned in the central
 versions, lock files and produced package dependency. SourceLink and test
 packages are development dependencies only.
 
-See `docs/COMPATIBILITY.md` for scope, `ARCHITECTURE.md` for the intended
+See `docs/COMPATIBILITY.md` for scope, `ARCHITECTURE.md` for the implemented
 boundary, `docs/DEVELOPMENT.md` for tooling, and `docs/PROGRESS.md` for current
 delivery status. These documents distinguish planned behavior from code
 that already exists.
