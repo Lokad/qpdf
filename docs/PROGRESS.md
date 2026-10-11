@@ -84,6 +84,11 @@ IQRs (29.85 → 22.89 ms; 1.62× native), reducing allocation from 30.60 to 25.4
 Its nine-cell rerank puts every median below 2× (0.84–1.47×), but a local build
 overlapped later cells. Rerun the final host-guarded source without verification
 in parallel, then perform the final combined checkpoint.
+The probe's alias adapter masks the consuming-host guarantee. Warmed cells now
+use the built-in memory host directly while retaining every required file read,
+input/output copy and write inside timing. Reference emitters retain alias support.
+Use that same probe build with both reviewed library binaries for the paired
+confirmation, then compare all nine and qualify the final source.
 no timing gate is added to CI. Cold process results remain separate.
 
 The approximate memory contract still admits significant buffers/growth and

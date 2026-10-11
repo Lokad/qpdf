@@ -67,7 +67,18 @@ internal static class EmitCommand
         }
 
         QpdfExecutionResult result;
-        IQpdfHost executionHost = new InputAliases(host, available);
+        IQpdfHost executionHost;
+        if (requireSuccess)
+        {
+            // Warmed workloads contain exactly their required inputs under
+            // canonical logical names. Keep all file reads and defensive copies
+            // inside the timed emit call, using the consuming memory host itself.
+            // The reference adapter below still supports lazy filename aliases.
+            foreach ((string logical, string file) in available)
+            { host.AddInput(QpdfPath.From(logical), File.ReadAllBytes(file), QpdfInputOwnership.Copy); }
+            executionHost = host;
+        }
+        else { executionHost = new InputAliases(host, available); }
         if (jobJson is not null)
         {
             result = Qpdf.ExecuteJobAsync(executionHost, jobJson, CancellationToken.None).GetAwaiter().GetResult();

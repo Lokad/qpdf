@@ -5,9 +5,10 @@ Development performance evidence uses generated inputs and the existing
 timing gate. Managed benchmarks need no native tool; the explicit Linux
 comparison below requires pinned qpdf 12.4.2.
 
-The [2026-10-11 WSL comparison](BENCHMARK-RESULTS.md) records the nine cells,
-independent validation, process medians/RSS/output sizes and separate warmed
-managed results, with raw samples and reproduction commands.
+The [WSL comparison](BENCHMARK-RESULTS.md) records the nine cells, independent
+validation, both-warmed medians, variability, allocation/GC, RSS and output sizes.
+Raw samples and reproduction commands remain available; historical process and
+managed-only warmed measurements stay separate.
 
 ## Linux process comparison
 
@@ -124,6 +125,12 @@ Accept straightforward copy/allocation eliminations on structural grounds with
 focused correctness and resource checks. Larger performance hypotheses need a
 public-workload gain beyond variability. Measurements track the overall target;
 broader qualification belongs at integration checkpoints.
+
+Warmed cells use the built-in memory host directly, with their canonical input
+names. File reads, defensive input copies, publication, output copies and physical
+writes remain inside the timed call. The reference emitter retains its lazy
+filename-alias adapter. For paired library comparisons, use the same probe build
+with each reviewed library binary, so the host/transport path is identical.
 
 ## Historical counter report
 
