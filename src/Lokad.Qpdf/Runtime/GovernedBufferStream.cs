@@ -58,6 +58,15 @@ internal sealed class GovernedBufferStream : Stream
         }
     }
 
+    // Scratch reset retains admitted capacity but drops its logical contents.
+    // It is constant-time cleanup after a completed copy, so it cannot cancel.
+    internal void ResetWrittenBytes()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _length = 0;
+        _position = 0;
+    }
+
     public override long Length
     {
         get

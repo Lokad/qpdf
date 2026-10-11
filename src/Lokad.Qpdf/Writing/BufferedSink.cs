@@ -40,6 +40,8 @@ internal sealed class BufferedSink : IByteSink, IDisposable
     internal byte[] ToArray(ParserMemoryScope memory, CancellationToken cancellationToken)
         => Buffer.ToArray(memory, cancellationToken);
 
+    internal void ResetWrittenBytes() => Buffer.ResetWrittenBytes();
+
     public void Dispose()
     {
         GovernedBufferStream? buffer = _buffer;
