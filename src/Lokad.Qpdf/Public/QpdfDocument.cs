@@ -24,6 +24,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     private bool _disposed;
     private readonly PdfVersion? _version;
     private readonly PdfVersion? _headerVersion;
+    private readonly VersionParts _effectiveVersionParts;
     internal readonly record struct VersionParts(int Major, int Minor);
     internal VersionParts HeaderVersionParts { get; }
 
@@ -38,7 +39,8 @@ public sealed class QpdfDocument : IAsyncDisposable
         QpdfLimits limits,
         PdfVersion? version,
         PdfVersion? headerVersion,
-        VersionParts headerVersionParts)
+        VersionParts headerVersionParts,
+        VersionParts effectiveVersionParts)
     {
         _input = input;
         _engine = engine;
@@ -52,6 +54,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         _version = version;
         _headerVersion = headerVersion;
         HeaderVersionParts = headerVersionParts;
+        _effectiveVersionParts = effectiveVersionParts;
     }
 
     /// <summary>Gets the logical input path.</summary>
@@ -98,6 +101,10 @@ public sealed class QpdfDocument : IAsyncDisposable
     }
 
     internal DocumentEngine Engine => _engine ?? throw new ObjectDisposedException(nameof(QpdfDocument));
+
+    // Complete jobs keep the parsed graph exclusive, but their negotiated
+    // version may outlive a private source. Retain only that immutable carrier.
+    internal PdfVersion OwnVersion() => _version ?? _governor.OwnVersion(_effectiveVersionParts.Major, _effectiveVersionParts.Minor);
 
     internal IReadOnlyList<PageLocation> PageReferences => _inspectionPages ?? _pages ?? throw new ObjectDisposedException(nameof(QpdfDocument));
 
@@ -314,7 +321,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             PdfVersion? headerVersion = valuesEscape ? governor.OwnVersion(headerParts.Major, headerParts.Minor) : null;
             PdfVersion? version = valuesEscape && effectiveParts.HasValue
                 ? governor.OwnVersion(effectiveParts.Value.Major, effectiveParts.Value.Minor) : headerVersion;
-            QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion, headerParts);
+            QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion, headerParts, effectiveParts ?? headerParts);
             pageStorage = null;
             return document;
         }

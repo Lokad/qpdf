@@ -159,6 +159,28 @@ public sealed class VersionLengthTests
         Assert.Equal("%PDF-1.7", Encoding.ASCII.GetString(published, 0, 8));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MergePreservesIndirectEffectiveVersionAfterSourcesClose(bool highFirst)
+    {
+        QpdfPath high = QpdfPath.From("inputs/high.pdf"), low = QpdfPath.From("inputs/low.pdf"), target = QpdfPath.From("outputs/merged.pdf");
+        InMemoryQpdfHost host = new();
+        byte[] content = "0 0 10 10 re S"u8.ToArray();
+        host.AddInput(high, BuildPdf("1.4", " /Version 6 0 R", content.Length.ToString(), content, ["/1.7"]), QpdfInputOwnership.Copy);
+        host.AddInput(low, Basic("1.5", string.Empty, content.Length.ToString(), content), QpdfInputOwnership.Copy);
+        PdfPageSource[] sources = [new(highFirst ? high : low, new PdfPageSelectionOptions(1)),
+            new(highFirst ? low : high, new PdfPageSelectionOptions(1))];
+        PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(host, sources, target, CancellationToken.None);
+        Assert.Equal(2, result.PageCount);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(target, out byte[] published));
+        Assert.Equal("%PDF-1.7", Encoding.ASCII.GetString(published, 0, 8));
+        using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(published);
+        Assert.Equal(2, independent.NumberOfPages);
+        Assert.All(independent.GetPages(), page => Assert.Equal(612, page.Width));
+    }
+
     [Fact]
     public async Task RejectsNonNameCatalogVersion()
     {

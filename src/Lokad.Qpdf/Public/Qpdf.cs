@@ -314,7 +314,7 @@ public static partial class Qpdf
         CancellationToken cancellationToken)
     {
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
-        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
         if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
         int total = document.PageReferences.Count;
         IReadOnlyList<int> requested = options.Resolve(total, limits.MaxWork);
@@ -431,7 +431,7 @@ public static partial class Qpdf
         }
 
 
-        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.Version, minVersion, forceVersion, governor);
+        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), minVersion, forceVersion, governor);
         string streamMode = ResolveObjectStreamMode(objectStreams);
         if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
         {
@@ -832,12 +832,13 @@ public static partial class Qpdf
         for (int s = 0; s < sources.Count; s++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await using QpdfDocument document = await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
+            await using QpdfDocument document = await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
             if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
             ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
-            if (version is null || IsNewerVersion(document.Version, version))
+            PdfVersion sourceVersion = document.OwnVersion();
+            if (version is null || IsNewerVersion(sourceVersion, version))
             {
-                version = document.Version;
+                version = sourceVersion;
             }
 
             if (s == 0)
@@ -972,6 +973,9 @@ public static partial class Qpdf
             nextId = copier.NextId;
             copiers.Add(copier);
             perSource.Add(taken);
+            // Copied containers still borrow immutable source scalars/keys.
+            // Keep their coarse admission until this complete job releases them.
+            document.Engine.TransferExclusiveValuesTo(selectionMemory);
         }
 
         List<(int Source, int Slot)> order = CollateOrder(perSource, collation);

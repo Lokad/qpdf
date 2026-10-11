@@ -92,6 +92,18 @@ validate independently and match the previous managed bytes. These structural
 reductions have no timing acceptance gate; short measurements show no reliable
 speedup. The complete-job target and final integration qualification remain pending.
 
+Private selection/merge/rewrite sources now use the existing exclusive document
+owner and transfer borrowed immutable values to the complete job before closing
+each source. Effective catalog versions retain their own carrier. All 2,170
+focused checks pass, covering versions, practical limits, failure/cancellation,
+cleanup and surviving outputs. The unchanged 16 KiB ceiling may now admit small
+jobs that previously exhausted receipt bookkeeping; successful publication is
+validated, while work and material-memory exhaustion remain covered.
+Interleaved warmed X100 rewriting improves 13.54 → 7.60 ms (43.9%), with allocation
+3,514,864 → 3,019,200 bytes/job (14.1%) and identical output bytes. Collection
+rates are mixed across generations; this does not establish an overall GC gain.
+Native is 2.22 ms (3.42× gap); final qualification and the 2× target remain pending.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally
