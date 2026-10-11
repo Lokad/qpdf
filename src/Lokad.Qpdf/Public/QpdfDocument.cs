@@ -13,6 +13,8 @@ namespace Lokad.Qpdf;
 /// </summary>
 public sealed class QpdfDocument : IAsyncDisposable
 {
+    private static readonly PdfName TypeKey = PdfName.FromAscii("Type");
+    private static readonly PdfName KidsKey = PdfName.FromAscii("Kids");
     private IQpdfInput? _input;
     private DocumentEngine? _engine;
     private readonly ResourceGovernor _governor;
@@ -446,7 +448,8 @@ public sealed class QpdfDocument : IAsyncDisposable
             return null;
         }
 
-        if (ReadType(root).Length != 0 && ReadType(root) != "Catalog")
+        PdfName? rootType = ReadType(root);
+        if (rootType is not null && !rootType.RawSpan.IsEmpty && !rootType.RawSpan.SequenceEqual("Catalog"u8))
         {
             return null;
         }
@@ -580,17 +583,17 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
 
         PdfDictionary root = ResolveDictionary(engine, rootRaw, "catalog");
-        string rootType = ReadType(root);
+        PdfName? rootType = ReadType(root);
         PdfDictionary pages;
-        if (rootType == "Pages")
+        if (rootType is not null && rootType.RawSpan.SequenceEqual("Pages"u8))
         {
             pages = root;
         }
         else
         {
-            if (rootType.Length != 0 && rootType != "Catalog")
+            if (rootType is not null && !rootType.RawSpan.IsEmpty && !rootType.RawSpan.SequenceEqual("Catalog"u8))
             {
-                throw new QpdfParseException($"Catalog has unexpected /Type /{rootType}.", null, null);
+                throw new QpdfParseException($"Catalog has unexpected /Type /{rootType.DisplayText}.", null, null);
             }
 
             PdfName pagesKey = new([(byte)'P', (byte)'a', (byte)'g', (byte)'e', (byte)'s']);
@@ -636,12 +639,11 @@ public sealed class QpdfDocument : IAsyncDisposable
         throw new QpdfParseException($"The {role} must be a dictionary or a reference.", null, null);
     }
 
-    private static string ReadType(PdfDictionary dictionary)
+    private static PdfName? ReadType(PdfDictionary dictionary)
     {
-        PdfName typeKey = new([(byte)'T', (byte)'y', (byte)'p', (byte)'e']);
-        if (!dictionary.TryGet(typeKey, out QpdfObject raw) || raw is PdfNull)
+        if (!dictionary.TryGet(TypeKey, out QpdfObject raw) || raw is PdfNull)
         {
-            return string.Empty;
+            return null;
         }
 
         if (raw is not PdfName name)
@@ -649,7 +651,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             throw new QpdfParseException("The /Type entry must be a name.", null, null);
         }
 
-        return name.DisplayText;
+        return name;
     }
 
     private static void WalkPages(
@@ -673,20 +675,19 @@ public sealed class QpdfDocument : IAsyncDisposable
         }
 
         governor.ChargeWork(1L);
-        string type = ReadType(node);
-        if (type == "Page")
+        PdfName? type = ReadType(node);
+        if (type is not null && type.RawSpan.SequenceEqual("Page"u8))
         {
             ParserContainers.AddItem(pageStorage, collector, new PageLocation(incoming, node), 2L * IntPtr.Size);
             return;
         }
 
-        if (type != "Pages")
+        if (type is null || !type.RawSpan.SequenceEqual("Pages"u8))
         {
             throw new QpdfParseException("Page tree nodes must have /Type /Page or /Pages.", null, null);
         }
 
-        PdfName kidsKey = new([(byte)'K', (byte)'i', (byte)'d', (byte)'s']);
-        if (!node.TryGet(kidsKey, out QpdfObject kidsRaw) || kidsRaw is not PdfArray kids)
+        if (!node.TryGet(KidsKey, out QpdfObject kidsRaw) || kidsRaw is not PdfArray kids)
         {
             throw new QpdfParseException("Pages node must declare a /Kids array.", null, null);
         }

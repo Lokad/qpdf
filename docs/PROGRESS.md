@@ -55,86 +55,46 @@ integration checkpoint to qualify their final source/package.
 
 ## Continuing work
 
-The initial finite Linux structural benchmark comparison is complete on `35eb3fb`,
-using WSL and pinned native qpdf 12.4.2. All nine cells validate independently;
-seven process pairs and separate unfiltered warmed measurements are recorded in
-[the comparison report](BENCHMARK-RESULTS.md). It adds no production, accounting
-or CI timing obligations.
+The initial finite Linux comparison on `35eb3fb` is recorded in
+[the benchmark report](BENCHMARK-RESULTS.md). Its process and managed-only warmed
+series remain separate. Subsequent complete-job measurements warm both engines,
+using pinned native qpdf 12.4.2, fresh public jobs and validated outputs. Startup,
+protocol and validation are excluded; necessary host/file transport is included.
+There are no timing gates in CI.
 
-Warmed complete-job optimization is in progress, targeting at most 2× pinned
-native on those nine structural workloads. Both persistent workers validate
-fresh outputs; process startup and protocol are excluded, necessary file/host
-transport included. The first correction removes quadratic thumbnail resource
-exclusion during linearization using the existing page-user index. Seventy-five
-focused tests pass, including thumbnail placement, streamed classification,
-work/memory failures, cancellation and a new work-growth regression. An
-interleaved seven-batch WSL confirmation improves the 500-page median from
-155.03 ms to 115.67 ms (25.4%); native is 22.76 ms. Outputs validate independently
-and their sizes are unchanged. The 2× target is still unmet; comprehensive
-qualification follows the completed correction batch.
+Performance work targets at most 2× native on nine structural workloads. The
+last complete rerank (`5273258`) validated all nine cells: split and small page
+selection meet the target; ordinary rewriting had the largest gap (4.22×).
+Later paired whole-file source reuse improves rewriting 67.85 → 54.59 ms (19.6%),
+with native 17.98 ms (3.04×). Allocation falls 73.58 → 61.40 MB/job (16.6%).
+The initial noisier pair showed 13.1%; both observations are retained. Source
+reuse preserves labels/versions and closes inputs before publication, including
+split, replace-input and pass1. No parsed document is cached between jobs.
 
-The second correction transfers the parser's fresh stream buffer directly to
-the immutable stream and writes memory-host slices directly into private
-staging. Interleaved 500-page rewriting improves 107.80 → 93.56 ms (13.2%);
-measured allocation falls 88.61 → 78.19 MiB/job (11.8%). All seven paired batches
-improve; native is 16.25 ms. Eight hundred ninety-three focused parser, recovery,
-ownership, host and transaction checks pass, including input/write alias
-isolation, canceled/rejected writes and active public stream cancellation.
-Cancellation observes the remaining material payload and uses the existing
-nonparallel controls so other large tests cannot consume its observation window.
+| Integrated correction | Evidence |
+| --- | --- |
+| Remove quadratic thumbnail exclusion | Linearization 155.03 → 115.67 ms (25.4%); thumbnail placement, classification, cancellation/limits and work-growth checks pass. |
+| Transfer fresh parser stream buffers; write memory-host spans | Rewriting 107.80 → 93.56 ms (13.2%); allocation falls 11.8%; recovery, aliases, transaction failures and active cancellation pass. |
+| Remove name/container/parser scratch allocations | Owned name bytes, one display string, concrete dictionary enumeration, known-size arrays and direct decoded buffers; grammar, ordering/null semantics, mutation isolation and decoded-storage limits pass. |
+| Use exclusive ownership for private complete-job sources | X100 rewriting 13.54 → 7.60 ms (43.9%); allocation falls 14.1%; versions, limits, cleanup and surviving outputs pass. GC rates are mixed across generations. |
+| Reuse immutable graph stream payloads | About 5.13 MB/job less allocation on M500 selection/rewrite; fresh outputs match previous managed bytes; full payloads survive host collection. Timings show no reliable speedup. |
+| Reuse the whole-file source in the shared selection core | Paired improvement above; 3,326 existing focused checks and 42 writer-control cases pass, including six source/publication regressions. |
+| Reuse complete owned host-read arrays | 554 focused host, reader, configuration and practical-memory checks pass. Short reads, slices and non-array memory retain the assembly/copy fallback. |
+| Compare reader page types as raw bytes | 815 focused checks pass, including escaped names, empty catalog types, effective versions and page selection. |
 
-Direct allocation reductions now transfer fresh name bytes, construct name
-display once, enumerate serializer dictionary entries without repeated lookups,
-compare stream keys as raw bytes and allocate copied arrays once at their known
-size. Eight hundred fifty-six focused checks pass, including ordering/null
-semantics, escapes, source aliases and selection. Fresh Linux rewrite outputs
-validate independently and match the previous managed bytes. These structural
-reductions have no timing acceptance gate; short measurements show no reliable
-speedup. The complete-job target and final integration qualification remain pending.
+Straightforward structural copy/allocation eliminations have correctness/resource
+checks and no empirical timing acceptance gate. Larger performance hypotheses
+remain profile-driven; paired public-workload timing and allocation observations
+are retained without claiming gains from noisy samples. The same small
+representative normal/adversarial memory families remain the practical target.
+Small jobs that now fit the unchanged 16 KiB ceiling must publish valid output;
+material-memory and work exhaustion still reject and clean up.
 
-Private selection/merge/rewrite sources now use the existing exclusive document
-owner and transfer borrowed immutable values to the complete job before closing
-each source. Effective catalog versions retain their own carrier. All 2,170
-focused checks pass, covering versions, practical limits, failure/cancellation,
-cleanup and surviving outputs. The unchanged 16 KiB ceiling may now admit small
-jobs that previously exhausted receipt bookkeeping; successful publication is
-validated, while work and material-memory exhaustion remain covered.
-Interleaved warmed X100 rewriting improves 13.54 → 7.60 ms (43.9%), with allocation
-3,514,864 → 3,019,200 bytes/job (14.1%) and identical output bytes. Collection
-rates are mixed across generations; this does not establish an overall GC gain.
-Native is 2.22 ms (3.42× gap); final qualification and the 2× target remain pending.
-
-Parser scratch now counts/validates directly over tokens and allocates decoded
-hex, name and literal-string buffers once, removing the digit array and trimming
-copies. All 785 focused syntax/recovery/ownership checks pass. Whitespace/escape-
-heavy values fit their decoded-storage budgets; material decoded storage still
-rejects under the unchanged smaller ceiling. Grammar, repair markers, cancellation
-and public byte immutability remain covered.
-
-Graph copying now reuses immutable stream payloads with the existing header-only
-rewrite helper. Source admission survives until publication; source closure does
-not invalidate payloads. All 1,786 affected checks and the five representative
-memory cases pass, including complete payload verification after host collection.
-Fresh native/independent selection and rewriting outputs validate and match the
-previous managed bytes. Allocation drops by about 5.13 MB/job on each M500 cell
-(7.7% selection, 6.5% rewriting). Paired timings vary widely and establish no
-reliable speedup; this direct clone removal is retained on structural grounds.
-
-Whole-file jobs now reuse their already-open private document in the shared
-selection core, retaining labels/versions and closing sources before publication.
-All 3,326 existing focused checks and 42 corrected writer-control cases pass;
-six public regressions cover one stable source and publication ordering. Fresh
-M500 output validates independently and is byte-identical. Paired confirmation
-improves 67.85 → 54.59 ms (19.6%), with allocation 73.58 → 61.40 MB/job (16.6%).
-Native is 17.98 ms (3.04× gap). The initial noisier pair showed 13.1%; retain
-both observations. Comprehensive qualification and the overall 2× target remain
-pending.
-
-The shared ranged-read helper now reuses a complete exact-sized array already
-owned by the host read. Short reads, slices and non-array memory still assemble
-into private storage. All 554 focused host, reader, configuration, cleanup and
-practical-memory checks pass; public results remain isolated from caller mutation
-and usable after source closure. This direct copy elimination has no timing gate.
+The final combined performance tree still needs nine-cell reranking and
+comprehensive ordinary/reference/visual/package-consumer qualification at the
+completed integration checkpoint. The overall 2× target remains unmet. Remaining
+work focuses on copying/GC pressure and serialization, with bounded profiles and
+focused checks before each correction. This adds no feature or accounting audit.
 
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the

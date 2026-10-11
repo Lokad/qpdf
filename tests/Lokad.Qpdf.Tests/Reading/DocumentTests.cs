@@ -1,11 +1,32 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class DocumentTests
 {
+    [Theory]
+    [InlineData("/Cata#6Cog")]
+    [InlineData("/")]
+    public async Task EscapedPageTypesAndEmptyCatalogTypeKeepReaderSemantics(string catalogType)
+    {
+        byte[] bytes = CheckTests.Assemble([
+            (1, "<< /Ty#70e " + catalogType + " /Pages 2 0 R /Version /1.7 >>", null),
+            (2, "<< /Ty#70e /P#61ges /K#69ds [3 0 R] /Count 1 >>", null),
+            (3, "<< /Ty#70e /P#61ge /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),
+        ], 1);
+        InMemoryQpdfHost host = HostWith("input.pdf", bytes);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input.pdf"), CancellationToken.None))
+        {
+            Assert.Equal(1, document.PageCount);
+            Assert.Equal("1.7", document.Version.ToString());
+            Assert.Empty(document.Warnings);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     private static string FixtureDir()
     {
         return Path.Combine(AppContext.BaseDirectory, "Fixtures");
