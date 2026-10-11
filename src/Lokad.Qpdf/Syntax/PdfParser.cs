@@ -616,14 +616,14 @@ internal sealed class PdfParser
 
     private QpdfObject ParseName(PdfToken token)
     {
-        // Unescaping may overlap a full-size array, trimmed result and immutable
-        // object's private copy. Admit the conservative overlap before any copy.
-        long admitted = checked((token.Data.Length * 3L) + 128L);
+        // Unescaping may overlap the full-size scratch and trimmed result.
+        // Transfer the fresh result to the immutable name without cloning it.
+        long admitted = checked((token.Data.Length * 2L) + 96L);
         ReserveMemory(admitted);
         try
         {
             byte[] raw = UnescapeName(token.Data, token.Offset);
-            PdfName name = new(raw);
+            PdfName name = PdfName.FromOwnedBytes(raw);
             ReleaseMemory(admitted - checked(raw.Length + 64L));
             return name;
         }

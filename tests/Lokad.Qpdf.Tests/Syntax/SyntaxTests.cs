@@ -200,6 +200,18 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void ParsedEscapedNameSurvivesInputAndReturnedCopyMutation()
+    {
+        byte[] source = "/A#20B"u8.ToArray();
+        (PdfParser parser, DiagnosticBag _, ResourceGovernor _) = CreateParser();
+        PdfName name = Assert.IsType<PdfName>(parser.ParseValue(new PdfTokenizer(source), 0));
+        Array.Clear(source);
+        byte[] returned = name.RawBytes;
+        Array.Clear(returned);
+        Assert.Equal("A B"u8.ToArray(), name.RawBytes);
+    }
+
+    [Fact]
     public void ParsesStreamsWithIndirectLength()
     {
         QpdfLimits limits = QpdfLimits.Default;

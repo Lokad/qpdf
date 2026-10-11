@@ -10,6 +10,47 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class WriterEncodingTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task DictionarySerializationPreservesEntryOrderNullsAndStreamLength(bool owned, bool stream)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Dictionary<PdfName, QpdfObject> entries = new()
+        {
+            [PdfName.FromAscii("Z")] = PdfNull.Instance,
+#pragma warning disable CS8625 // Existing dictionary serialization skips CLR-null entries.
+            [PdfName.FromAscii("Skipped")] = null,
+#pragma warning restore CS8625
+            [PdfName.FromAscii("A")] = new PdfArray([PdfBoolean.True]),
+            [PdfName.FromAscii("Length")] = new PdfInteger("999", 999),
+        };
+        PdfDictionary dictionary;
+        if (owned)
+        {
+            PdfNameTable<QpdfObject> table = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, CancellationToken.None);
+            foreach (KeyValuePair<PdfName, QpdfObject> entry in entries)
+            {
+                table.Assign(memory, governor, entry.Key, entry.Value, CancellationToken.None);
+            }
+            table.Freeze(memory, governor, CancellationToken.None);
+            dictionary = PdfDictionary.FromOwnedEntries(table);
+        }
+        else { dictionary = new PdfDictionary(entries); }
+        QpdfObject value = stream ? new PdfStream(dictionary, "abc"u8.ToArray()) : dictionary;
+        PdfSerializer serializer = new(QpdfLimits.Default, governor);
+        using BufferedSink sink = BufferedSink.Create(QpdfLimits.Default, governor, CancellationToken.None);
+        await serializer.AppendValueAsync(value, sink, 0, true, CancellationToken.None);
+        string expected = stream ? "<</Z null /A [true] /Length 3 >>\nstream\nabc\nendstream"
+            : "<</Z null /A [true] /Length 999 >>";
+        Assert.Equal(expected, Encoding.ASCII.GetString(sink.ToArray(memory, CancellationToken.None)));
+        Assert.True(dictionary.TryGet(PdfName.FromAscii("Length"), out QpdfObject length));
+        Assert.Equal(999, Assert.IsType<PdfInteger>(length).Value);
+    }
+
     private static object Source(string kind, int size)
     {
         if (kind == "ascii") { return new string('A', size); }

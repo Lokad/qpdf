@@ -83,6 +83,15 @@ isolation, canceled/rejected writes and active public stream cancellation.
 Cancellation observes the remaining material payload and uses the existing
 nonparallel controls so other large tests cannot consume its observation window.
 
+Direct allocation reductions now transfer fresh name bytes, construct name
+display once, enumerate serializer dictionary entries without repeated lookups,
+compare stream keys as raw bytes and allocate copied arrays once at their known
+size. Eight hundred fifty-six focused checks pass, including ordering/null
+semantics, escapes, source aliases and selection. Fresh Linux rewrite outputs
+validate independently and match the previous managed bytes. These structural
+reductions have no timing acceptance gate; short measurements show no reliable
+speedup. The complete-job target and final integration qualification remain pending.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally

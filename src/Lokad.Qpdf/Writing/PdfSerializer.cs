@@ -528,9 +528,12 @@ internal sealed partial class PdfSerializer
         if (value is PdfDictionary dictionary)
         {
             await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
-            foreach (PdfName key in dictionary.Keys)
+            using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
+            while (entries.MoveNext(_governor, cancellationToken))
             {
-                if (!dictionary.TryGet(key, out QpdfObject entry))
+                PdfName key = entries.Current.Key;
+                QpdfObject entry = entries.Current.Value;
+                if (entry is null)
                 {
                     continue;
                 }
@@ -564,14 +567,17 @@ internal sealed partial class PdfSerializer
     {
         ReadOnlyMemory<byte> data = stream.RawMemory;
         await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
-        foreach (PdfName key in stream.Dictionary.Keys)
+        using PdfDictionary.EntryEnumerator entries = stream.Dictionary.GetEntryEnumerator();
+        while (entries.MoveNext(_governor, cancellationToken))
         {
-            if (key.DisplayText == "Length")
+            PdfName key = entries.Current.Key;
+            if (key.RawSpan.SequenceEqual("Length"u8))
             {
                 continue;
             }
 
-            if (!stream.Dictionary.TryGet(key, out QpdfObject entry))
+            QpdfObject entry = entries.Current.Value;
+            if (entry is null)
             {
                 continue;
             }

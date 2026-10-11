@@ -395,9 +395,8 @@ internal sealed class GraphCopier
 
         if (value is PdfStream stream)
         {
-            PdfName typeKey = PdfName.FromAscii("Type");
-            if (stream.Dictionary.TryGet(typeKey, out QpdfObject raw) && raw is PdfName name
-                && (name.DisplayText == "ObjStm" || name.DisplayText == "XRef"))
+            if (stream.Dictionary.TryGet(TypeKey, out QpdfObject raw) && raw is PdfName name
+                && (name.RawSpan.SequenceEqual("ObjStm"u8) || name.RawSpan.SequenceEqual("XRef"u8)))
             {
                 return true;
             }
@@ -498,25 +497,16 @@ internal sealed class GraphCopier
 
         if (value is PdfArray array)
         {
-            if (_ownership is not null)
-            {
-                List<QpdfObject> admitted = ParserContainers.CreateList(_ownership);
-                for (int i = 0; i < array.Count; i++)
-                {
-                    _governor.CheckCancellation();
-                    ParserContainers.AddItem(_ownership, admitted, CopyValue(array[i], depth + 1));
-                }
-                return ParserContainers.CopyArray(_ownership, admitted);
-            }
-            _governor.ReserveMemory(32L);
-            List<QpdfObject> items = new(array.Count);
+            Reserve(checked(64L + (long)IntPtr.Size * array.Count));
+            _governor.ChargeWork(array.Count);
+            QpdfObject[] items = new QpdfObject[array.Count];
             for (int i = 0; i < array.Count; i++)
             {
-                _governor.ReserveMemory(16L);
-                items.Add(CopyValue(array[i], depth + 1));
+                _governor.CheckCancellation();
+                items[i] = CopyValue(array[i], depth + 1);
             }
 
-            return new PdfArray(items);
+            return PdfArray.FromOwnedItems(items);
         }
 
         if (value is PdfDictionary dictionary)

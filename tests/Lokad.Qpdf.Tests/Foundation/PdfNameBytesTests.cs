@@ -9,6 +9,18 @@ public sealed class PdfNameBytesTests
 {
     [Theory]
     [InlineData("", "")]
+    [InlineData("415A21", "AZ!")]
+    [InlineData("0020237F80FF", "#00#20#23#7F#80#FF")]
+    [InlineData("2F3C3E5B5D2829", "/<>[]()")]
+    public void DisplayPreservesPrintableAndEscapedByteSpelling(string hex, string expected)
+    {
+        PdfName name = new(Convert.FromHexString(hex));
+        Assert.Equal(expected, name.DisplayText);
+        Assert.Equal(Convert.FromHexString(hex), name.RawBytes);
+    }
+
+    [Theory]
+    [InlineData("", "")]
     [InlineData("A#41", "AA")]
     [InlineData("#23#34#31", "#41")]
     [InlineData("#", "#")]

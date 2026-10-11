@@ -1,4 +1,3 @@
-using System.Text;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Objects;
@@ -196,7 +195,7 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
             raw[i] = (byte)text[i];
         }
 
-        return new PdfName(raw);
+        return FromOwnedBytes(raw);
     }
 
     /// <summary>
@@ -218,15 +217,20 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
     {
         get
         {
-            StringBuilder builder = new(_raw.Length);
-            for (int i = 0; i < _raw.Length; i++)
+            int length = 0;
+            foreach (byte b in _raw)
             {
-                byte b = _raw[i];
-
-                builder.Append(ToDisplay(b));
+                length = checked(length + (b >= 0x21 && b <= 0x7E && b != (byte)'#' ? 1 : 3));
             }
 
-            return builder.ToString();
+            return string.Create(length, _raw, static (target, raw) =>
+            {
+                int position = 0;
+                foreach (byte b in raw)
+                {
+                    position += WriteDisplayByte(b, target[position..]);
+                }
+            });
         }
     }
 
@@ -254,13 +258,6 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
         hash.Add(_raw.Length);
         return hash.ToHashCode();
-    }
-
-    private static string ToDisplay(byte b)
-    {
-        Span<char> text = stackalloc char[3];
-        int length = WriteDisplayByte(b, text);
-        return new string(text.Slice(0, length));
     }
 
     internal static int WriteDisplayByte(byte value, Span<char> target) => PdfNameDisplay.WriteByte(value, target);
