@@ -12,6 +12,12 @@ namespace Lokad.Qpdf.Probe;
 internal static class EmitCommand
 {
     internal static int RunEmit(string[] args)
+        => RunEmit(args, false);
+
+    internal static int RunWarmEmit(string[] args)
+        => RunEmit(args, true);
+
+    private static int RunEmit(string[] args, bool requireSuccess)
     {
         string workdir = GetOption(args, "--workdir");
         List<string> outs = GetAllOptions(args, "--out");
@@ -27,7 +33,7 @@ internal static class EmitCommand
             argv.Add(args[i]);
         }
 
-        return Execute(workdir, outs, null, argv);
+        return Execute(workdir, outs, null, argv, requireSuccess);
     }
 
     internal static int RunEmitJob(string[] args)
@@ -36,10 +42,10 @@ internal static class EmitCommand
         string jobFile = GetOption(args, "--job");
         List<string> outs = GetAllOptions(args, "--out");
         string jobJson = File.ReadAllText(jobFile);
-        return Execute(workdir, outs, jobJson, null);
+        return Execute(workdir, outs, jobJson, null, false);
     }
 
-    private static int Execute(string workdir, List<string> outs, string? jobJson, List<string>? argv)
+    private static int Execute(string workdir, List<string> outs, string? jobJson, List<string>? argv, bool requireSuccess)
     {
         if (!Directory.Exists(workdir))
         {
@@ -120,7 +126,7 @@ internal static class EmitCommand
             return 4;
         }
 
-        return result.Status == QpdfExecutionStatus.Completed ? 0 : 2;
+        return result.Status == QpdfExecutionStatus.Completed && (!requireSuccess || result.ExitCode == QpdfExitCode.Success) ? 0 : 2;
     }
 
     // Development host policy: ./ names share the canonical input lease identity.

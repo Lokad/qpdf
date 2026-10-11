@@ -79,7 +79,49 @@ the repository license; native only creates the streamed variant, followed by
 an explicit incremental metadata update. The runner requires a clean native
 source at the pinned commit and a Release build. `--skip-warmed` is available
 for debugging and does not complete the comparison. No exhaustive matrix or
-production optimization follows from these measurements.
+production correction is justified by these measurements alone.
+
+## Warmed complete jobs and short probes
+
+`tools/compare-warm-performance.py` reuses the prepared inputs, nine workloads
+and independent validators above. It builds the development-only
+`tools/qpdf-warm.cpp` against the clean pinned Release libqpdf, then keeps both
+native QPDFJob and managed public-job workers alive. Every operation creates a
+fresh job/document and writes fresh files. No parsed input is cached.
+
+Both lanes include file input, processing and completed file output. Managed
+uses the existing copying emit host; its transport cost is included. Internal
+job timers exclude protocol, validation and cleanup, and include no process
+startup. This is a warmed complete-job comparison. The memory-host
+BenchmarkDotNet lane is a separate diagnostic with different transport boundaries.
+
+Each workload has its own workers and independently validated output. Inputs
+are pre-read, execution is sequential, sample order alternates and all samples
+are retained. At least 30 jobs and two seconds condition each engine, followed
+by seven batches with at least three jobs and 350 ms of accumulated job time.
+Report median batch time per operation, IQR and range. RSS is the dedicated
+worker's process high-water mark, including warmup/runtime, rather than a
+per-operation allocation. Managed allocation and generation collection deltas
+remain separate diagnostic observations.
+
+After preparing the process comparison's work root, run:
+
+```bash
+python3 tools/compare-warm-performance.py --repo "$PWD" \
+  --dotnet "$(command -v dotnet)" \
+  --qpdf "$PWD/external/qpdf-linux-build/qpdf/qpdf" \
+  --native-source "$PWD/external/qpdf" \
+  --native-build "$PWD/external/qpdf-linux-build" \
+  --input-root "$PWD/external/prepared-comparison" \
+  --work-root "$PWD/external/warm-comparison"
+```
+
+Select one existing cell with `--workload linearize-M500` for a short probe,
+usually under one minute including validation and compilation. Preserve a built
+baseline probe directory and pass `--baseline-probe <dir>/QpdfProbe.dll` to
+interleave baseline, candidate and native jobs under the same conditions.
+Require a public-workload gain beyond variability; use focused correctness
+checks during correction and broader qualification at integration checkpoints.
 
 ## Historical counter report
 
