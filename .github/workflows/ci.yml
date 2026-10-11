@@ -8,67 +8,135 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+  run:
+    shell: pwsh
+
 jobs:
-  scaffold:
+  verify:
+    name: Verify (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Restore locked dependencies
-        run: dotnet restore Lokad.Qpdf.slnx --locked-mode
-      - name: Build Release
-        run: dotnet build Lokad.Qpdf.slnx -c Release --no-restore
-      - name: Test scaffold contracts
-        run: dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
-      - name: Pack Release
-        run: dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
-      - name: Inspect package boundary
-        shell: pwsh
-        run: ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
-      - name: Verify fresh artifact consumer
-        shell: pwsh
-        run: ./tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
-      - name: Test consumer verification rejections
-        shell: pwsh
-        run: ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
-
-  reference:
-    runs-on: windows-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-      - name: Acquire pinned qpdf 12.4.2 oracle
-        shell: pwsh
+      - name: Record runtime and prepare logs
         run: |
-          $oracle = ./tools/install-reference-qpdf.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'lokad-qpdf-oracle')
-          "QPDF_EXE=$oracle" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          New-Item -ItemType Directory -Force artifacts/ci/logs, artifacts/ci/test-results | Out-Null
+          dotnet --info 2>&1 | Tee-Object artifacts/ci/logs/dotnet-info.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Restore locked dependencies
-        run: dotnet restore Lokad.Qpdf.slnx --locked-mode
+        run: |
+          dotnet restore Lokad.Qpdf.slnx --locked-mode 2>&1 | Tee-Object artifacts/ci/logs/restore.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build Release
-        run: dotnet build Lokad.Qpdf.slnx -c Release --no-restore
-      - name: Run explicit reference checks with fresh scratch
-        shell: pwsh
-        run: ./tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE
-      - name: Preserve reference results
+        run: |
+          dotnet build Lokad.Qpdf.slnx -c Release --no-restore 2>&1 | Tee-Object artifacts/ci/logs/build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test Release contracts
+        timeout-minutes: 35
+        run: |
+          dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore `
+            --logger 'trx;LogFileName=tests.trx' `
+            --results-directory artifacts/ci/test-results `
+            --diag artifacts/ci/logs/vstest.log `
+            --blame-crash --blame-crash-dump-type mini `
+            --blame-hang --blame-hang-timeout 10m --blame-hang-dump-type mini `
+            2>&1 | Tee-Object artifacts/ci/logs/tests.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Pack Release
+        run: |
+          dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore `
+            2>&1 | Tee-Object artifacts/ci/logs/pack.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Inspect package boundary
+        run: |
+          ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg `
+            2>&1 | Tee-Object artifacts/ci/logs/package.log
+      - name: Verify fresh artifact consumer
+        run: |
+          ./tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg `
+            2>&1 | Tee-Object artifacts/ci/logs/consumer.log
+      - name: Test consumer verification rejections
+        run: |
+          ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg `
+            2>&1 | Tee-Object artifacts/ci/logs/consumer-rejections.log
+      - name: Capture failure process diagnostics
+        if: failure()
+        run: |
+          New-Item -ItemType Directory -Force artifacts/ci/logs | Out-Null
+          Get-Process | Select-Object Id, ProcessName, CPU, WorkingSet64 |
+            Format-Table -AutoSize | Out-File artifacts/ci/logs/processes.log
+      - name: Preserve test and package verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reference-results
+          name: verification-${{ matrix.os }}-${{ github.run_attempt }}
           path: |
+            artifacts/ci/
+            artifacts/consumer-tests/**/*.log
+          retention-days: 14
+          if-no-files-found: error
+
+  reference:
+    name: Reference (qpdf 12.4.2)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Record runtime and prepare logs
+        run: |
+          New-Item -ItemType Directory -Force artifacts/ci/logs | Out-Null
+          dotnet --info 2>&1 | Tee-Object artifacts/ci/logs/dotnet-info.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Acquire pinned qpdf 12.4.2 oracle
+        run: |
+          $oracle = ./tools/install-reference-qpdf.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'lokad-qpdf-oracle')
+          "QPDF_EXE=$oracle" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $oracle | Out-File artifacts/ci/logs/oracle.log
+      - name: Restore locked dependencies
+        run: |
+          dotnet restore Lokad.Qpdf.slnx --locked-mode 2>&1 | Tee-Object artifacts/ci/logs/restore.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build Release
+        run: |
+          dotnet build Lokad.Qpdf.slnx -c Release --no-restore 2>&1 | Tee-Object artifacts/ci/logs/build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run explicit reference checks with fresh scratch
+        timeout-minutes: 35
+        run: |
+          ./tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE -Configuration Release `
+            2>&1 | Tee-Object artifacts/ci/logs/reference.log
+      - name: Capture failure process diagnostics
+        if: failure()
+        run: |
+          New-Item -ItemType Directory -Force artifacts/ci/logs | Out-Null
+          Get-Process | Select-Object Id, ProcessName, CPU, WorkingSet64 |
+            Format-Table -AutoSize | Out-File artifacts/ci/logs/processes.log
+      - name: Preserve reference reports and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-results-${{ github.run_attempt }}
+          path: |
+            artifacts/ci/
             external/parser-checks/**/results.json
+            external/parser-checks/**/*.txt
+            external/parser-checks/**/*.log
             external/diff/**/results.json
-            external/diff/**/managed-calls/results.json
+            external/diff/**/*.txt
+            external/diff/**/*.log
+          retention-days: 14
           if-no-files-found: error

@@ -59,3 +59,5 @@ if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash)
     throw 'Negative verification changed the tracked consumer lock.'
 }
 Write-Output "Consumer verification negative cases passed; evidence: $testRoot"
+# Expected child failures leave LASTEXITCODE nonzero in a calling pwsh step.
+exit 0

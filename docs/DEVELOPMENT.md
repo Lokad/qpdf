@@ -35,10 +35,26 @@ metadata handling, pixel types or processing operations change. This temporary
 acceptance does not fix the vulnerabilities.
 
 SourceLink is enabled when an actual repository URL is supplied, including
-GitHub Actions' repository metadata. The initial local repository has no remote,
-so local SourceLink/source-control queries are disabled. Do not invent a URL.
+GitHub Actions' repository metadata. Local builds without `RepositoryUrl` disable
+SourceLink/source-control queries. Use the actual repository URL when supplying it.
 Untracked-source embedding is disabled, and compiler document paths are mapped
 to a stable root. Inspect both `.nupkg` and `.snupkg` with the provided script.
+
+## GitHub Actions
+
+[CI](../.github/workflows/ci.yml) runs on pushes and pull requests with read-only
+permissions; superseded PR runs cancel. Windows and Ubuntu use `global.json`,
+locked restore, Release build/tests/pack, package inspection and fresh-consumer
+checks, including both rejection controls. Ordinary tests require no external tools.
+A separate Windows job acquires the checksum-pinned qpdf 12.4.2 oracle and runs
+the existing complete reference script.
+
+Each job allows 45 minutes; test/reference steps allow 35 minutes, leaving time
+to upload evidence. Always-uploaded artifacts include logs, TRX and reference
+reports. Ordinary tests collect mini dumps and sequence diagnostics for crashes
+or ten-minute per-test hangs; reference probes retain request/output logs and
+their existing request timeouts. Failed jobs also capture a process snapshot.
+These jobs verify packages without publishing them. Benchmarks stay outside CI.
 
 ## Focused verification and memory estimates
 

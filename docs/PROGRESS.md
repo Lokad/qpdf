@@ -2,9 +2,8 @@
 
 The agreed [supported profile](SUPPORTED-PROFILE.md) is qualified on committed
 implementation `34c8097` (2026-10-11). No implementation or verification tasks
-remain recorded for that profile. Pushing, tagging and publication are separate
-actions; the prepared GitHub Actions workflow has not been run on the hosted
-service.
+remain recorded for that profile. Hosted CI is being completed separately;
+tagging and package publication remain separate actions.
 
 Four-component CMYK/YCCK JPEGs remain opaque with warnings when decoding is
 requested; Zopfli is explicitly unavailable. Both limitations are tested.
