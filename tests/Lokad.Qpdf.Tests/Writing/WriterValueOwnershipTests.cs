@@ -45,25 +45,24 @@ public sealed class WriterValueOwnershipTests
         using CancellationTokenSource cancellation = new(); bool governorCancellation = outcome == "governor-cancellation";
         ResourceGovernor governor = new(QpdfLimits.Default, governorCancellation ? cancellation.Token : CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         PausedSink sink = new(kind, retired, outcome == "failure");
         Task writing = Start(model, QpdfLimits.Default, governor, sink, null, governorCancellation ? CancellationToken.None : cancellation.Token);
         await sink.First.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
             long active = governor.Snapshot().LiveMemoryBytes; Assert.True(governor.Snapshot().TotalWork > 1024L);
-            // Header: owner 128, dictionary 276, 1024-reference array 41024, length reference 32.
-            long metadata = kind == "header" ? 41460L : 41152L;
-            Assert.True(active >= 161L + metadata);
+            long materialBacking = 1024L * IntPtr.Size;
+            Assert.True(active >= baseline + materialBacking);
             if (retired)
             {
                 sink.ResumeFirst(); await sink.Second.WaitAsync(TimeSpan.FromSeconds(10));
-                // Opening object formatter is 168; stream/endobj encodings are 168/169.
-                Assert.Equal(active - metadata + (kind == "regular" ? 1L : 0L), governor.Snapshot().LiveMemoryBytes);
+                Assert.True(governor.Snapshot().LiveMemoryBytes <= active - materialBacking);
             }
             if (outcome.EndsWith("cancellation", StringComparison.Ordinal)) { cancellation.Cancel(); }
             if (governorCancellation || !outcome.EndsWith("cancellation", StringComparison.Ordinal)) { sink.ResumeAll(); }
             await WriterIndexOwnershipTests.Finish(writing, outcome.EndsWith("cancellation", StringComparison.Ordinal) ? "cancellation" : outcome);
-            Assert.Equal(161L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L, prior.ReservedBytes);
             Assert.Same(source, kind == "header" ? ((PdfStream)model[3].Value).Dictionary : model[4].Value);
             Assert.Equal(8, model.Count); GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(model);
         }

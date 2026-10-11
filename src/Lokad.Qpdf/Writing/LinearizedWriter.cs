@@ -349,7 +349,14 @@ internal sealed class LinearizedWriter
     }
 
     private ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)
-        => AppendFormattingAsync(WriterFormatting.Create(parts, _limits, _governor, cancellationToken), sink, cancellationToken);
+    {
+        if (sink is CountingSink counter)
+        {
+            counter.AppendLength(WriterFormatting.MeasureParts(parts, _limits, _governor, cancellationToken), cancellationToken);
+            return ValueTask.CompletedTask;
+        }
+        return AppendFormattingAsync(WriterFormatting.Create(parts, _limits, _governor, cancellationToken), sink, cancellationToken);
+    }
 
     private async ValueTask AppendFormattingAsync(WriterFormatting formatted, IByteSink sink, CancellationToken cancellationToken)
     {
@@ -361,6 +368,11 @@ internal sealed class LinearizedWriter
 
     private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
     {
+        if (sink is CountingSink counter)
+        {
+            counter.AppendLength(WriterEncoding.MeasureAscii(text, _limits, _governor, cancellationToken), cancellationToken);
+            return;
+        }
         if (WriterEncoding.TryGetSharedAscii(text, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> literal))
         {
             await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
@@ -372,6 +384,12 @@ internal sealed class LinearizedWriter
 
     private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
     {
+        if (sink is CountingSink counter)
+        {
+            _governor.CheckCancellation();
+            counter.AppendLength(chunk.Length, cancellationToken);
+            return;
+        }
         int offset = 0;
         while (offset < chunk.Length)
         {

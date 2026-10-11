@@ -34,8 +34,12 @@ internal sealed class WriterFormatting : IDisposable
         return CreateCore(parts, width, overflowMessage, limits, governor, cancellationToken, null);
     }
 
-    private static WriterFormatting CreateCore(ReadOnlySpan<WriterPart> parts, int? width, string? overflowMessage,
-        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observeFill)
+    internal static long MeasureParts(ReadOnlySpan<WriterPart> parts, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+        => MeasureParts(parts, null, null, limits, governor, cancellationToken);
+
+    private static long MeasureParts(ReadOnlySpan<WriterPart> parts, int? width, string? overflowMessage,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor);
@@ -54,6 +58,13 @@ internal sealed class WriterFormatting : IDisposable
             CheckLength(length, maximum);
         }
         if (width.HasValue) { length = width.Value; CheckLength(length, maximum); }
+        return length;
+    }
+
+    private static WriterFormatting CreateCore(ReadOnlySpan<WriterPart> parts, int? width, string? overflowMessage,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observeFill)
+    {
+        long length = MeasureParts(parts, width, overflowMessage, limits, governor, cancellationToken);
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {

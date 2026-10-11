@@ -85,7 +85,25 @@ internal sealed class WriterEncoding : IDisposable
         return Create(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, limits, governor, cancellationToken, observe);
     }
 
-    private static WriterEncoding Create(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text,
+    internal static long MeasureAscii(string text, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return Measure(Kind.Ascii, ReadOnlySpan<byte>.Empty, text.AsSpan(), limits, governor, token, null);
+    }
+
+    internal static long MeasureName(PdfName name, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return Measure(Kind.Name, name.RawSpan, ReadOnlySpan<char>.Empty, limits, governor, token, null);
+    }
+
+    internal static long MeasureString(PdfByteString text, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return Measure(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, limits, governor, token, null);
+    }
+
+    private static long Measure(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observe)
     {
         ArgumentNullException.ThrowIfNull(limits);
@@ -116,6 +134,13 @@ internal sealed class WriterEncoding : IDisposable
                 observe?.Invoke();
             }
         }
+        return length;
+    }
+
+    private static WriterEncoding Create(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observe)
+    {
+        long length = Measure(kind, input, text, limits, governor, cancellationToken, observe);
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         try
         {

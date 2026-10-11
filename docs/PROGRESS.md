@@ -63,9 +63,10 @@ protocol and validation are excluded; necessary host/file transport is included.
 There are no timing gates in CI.
 
 Performance work targets at most 2× native on nine structural workloads. The
-last complete rerank (`284af7a`) validated all nine cells: large and small page
-selection meet the target; ordinary rewriting had the largest gap (3.57×).
-Other gaps range from 2.11× for splitting to 3.00× for structural checking.
+last complete rerank (`9f7f348`) validated all nine cells. Five meet the target;
+remaining gaps are ordinary M500 rewriting (3.04×), linearization (2.68×),
+splitting (2.05×) and X100 rewriting (2.03×). These are contemporaneous engine
+ratios; paired correction gains below use interleaved revisions instead.
 Later paired whole-file source reuse improves rewriting 67.85 → 54.59 ms (19.6%),
 with native 17.98 ms (3.04×). Allocation falls 73.58 → 61.40 MB/job (16.6%).
 The initial noisier pair showed 13.1%; both observations are retained. Source
@@ -87,6 +88,7 @@ split, replace-input and pass1. No parsed document is cached between jobs.
 | Keep private checker graphs under document ownership | Interleaved check-X100 improves 16.27 → 7.54 ms (53.7%); allocation falls 1.50 → 0.99 MB/job (34.1%). 3,516 focused checks passed, then all 125 affected checker/control checks passed after correcting the new version-survival assertion and withdrawing small-fixture accounting exhaustion requirements. Compressed expansion still rejects at unchanged ceilings; public documents and surviving metadata remain independently owned. |
 | Transfer complete private staging at publication | Rewrite allocation falls 42.35 → 37.13 MB/job (12.3%); identical independently validated output. Timings overlap (53.85 → 50.46 ms), with no decisive speedup. 2,414 focused checks passed, then all 1,551 affected cleanup controls passed after removing duplicate batches that required metadata/accounting retirement in four GC rounds. Public failure/cancellation/limits, prior outputs, mutation isolation and representative material-memory checks remain. |
 | Reuse small object-stream member scratch within a group | Interleaved object-stream generation improves 10.80 → 7.66 ms (29.1%); allocation falls 3.39 → 1.70 MB/job (49.9%), with identical independently validated bytes. 1,360 focused checks passed, then all 34 affected controls passed after allowing canceled scratch to release its charge. Large/failed scratch is discarded; member copies remain independent. |
+| Size pure counting passes without token buffers | Existing escape/width rules and replay checks remain shared; pass1 tees and captures still emit bytes. 2,770 focused checks passed, then all 212 affected controls passed after replacing two obsolete temporary-buffer charge assertions with material-storage admission/cleanup checks. Paired X100 rewrite improves 14.72 → 11.07 ms (24.8%, 1.66× native); allocation falls 11.5%. M500 rewrite/linearization allocate about 0.93 MB/job less; their timings vary substantially and establish no speedup. Fresh outputs are independently valid and unchanged. |
 
 Straightforward structural copy/allocation eliminations have correctness/resource
 checks and no empirical timing acceptance gate. Larger performance hypotheses

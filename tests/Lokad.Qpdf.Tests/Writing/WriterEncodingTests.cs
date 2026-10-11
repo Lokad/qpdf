@@ -47,8 +47,28 @@ public sealed class WriterEncodingTests
         string expected = stream ? "<</Z null /A [true] /Length 3 >>\nstream\nabc\nendstream"
             : "<</Z null /A [true] /Length 999 >>";
         Assert.Equal(expected, Encoding.ASCII.GetString(sink.ToArray(memory, CancellationToken.None)));
+        CountingSink counter = new();
+        await serializer.AppendValueAsync(value, counter, 0, true, CancellationToken.None);
+        Assert.Equal(expected.Length, counter.Length);
         Assert.True(dictionary.TryGet(PdfName.FromAscii("Length"), out QpdfObject length));
         Assert.Equal(999, Assert.IsType<PdfInteger>(length).Value);
+    }
+
+    [Fact]
+    public async Task CountingPreservesEscapedNameLiteralAndHexTokenLengths()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        PdfArray value = new([new PdfName([65, 35, 32, 47, 255]),
+            new PdfByteString([40, 41, 92, 10, 0, 255], false), new PdfByteString([0, 255], true)]);
+        PdfSerializer serializer = new(QpdfLimits.Default, governor);
+        CountingSink counter = new();
+        using BufferedSink sink = BufferedSink.Create(QpdfLimits.Default, governor, CancellationToken.None);
+        await serializer.AppendValueAsync(value, counter, 0, false, CancellationToken.None);
+        await serializer.AppendValueAsync(value, sink, 0, false, CancellationToken.None);
+        const string expected = """[/A#23#20#2F#FF (\(\)\\\n\000\377) <00FF>]""";
+        Assert.Equal(expected.Length, counter.Length);
+        Assert.Equal(expected, Encoding.ASCII.GetString(sink.ToArray(memory, CancellationToken.None)));
     }
 
     private static object Source(string kind, int size)
