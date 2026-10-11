@@ -63,8 +63,10 @@ protocol and validation are excluded; necessary host/file transport is included.
 There are no timing gates in CI.
 
 Performance work targets at most 2× native on nine structural workloads. The
-last complete rerank (`745c249`) validated all nine cells. Seven meet the target;
-remaining gaps are ordinary M500 rewriting (2.25×) and linearization (2.03×).
+last complete rerank (`d27dbb7`) validated all nine cells. Eight meet the target;
+the remaining gap is ordinary M500 rewriting (2.40×). Its main-thread profile
+attributes about 27% of elapsed samples to parser stream capture; copy and GC
+polling/pauses dominate, while individual formatting self-time is small.
 These are contemporaneous engine
 ratios; paired correction gains below use interleaved revisions instead.
 Later paired whole-file source reuse improves rewriting 67.85 → 54.59 ms (19.6%),
@@ -93,6 +95,7 @@ split, replace-input and pass1. No parsed document is cached between jobs.
 | Hash default identifiers without retaining a placeholder PDF | Classic, QDF, streamed and linearized publication share a bounded incremental MD5 sink, including prepared split output. Existing limits/cancellation remain, with a fixed hash-state allowance and explicit cleanup. 1,936 focused checks passed, then all 55 affected controls passed after updating historical split work assertions to require complete valid publication or untouched prior outputs. A smaller work limit still rejects. Three original ID hashes are unchanged. This removes whole-PDF buffers structurally; the nine static-ID comparison cells do not exercise it. |
 | Borrow immutable memory-host input snapshots for private jobs | The existing governed wrapper admits input storage and counts the read attempt before private documents borrow the stable host bytes. Public documents/reads and custom hosts keep their fresh/short-read path. Closed memory input leases drop host/payload references and preserve length metadata. Release build, 1,693 focused checks and all four public CPU-cancellation controls pass, including real 2 MiB retention and public read-mutation isolation regressions. No parser payload slices, parsed-document cache or production forced GC were introduced. |
 | Share common immutable name/scalar tokens | The existing literal mechanism now covers 25 fixed raw PDF names and five small scalar constants. Bounded lookups preserve long-token cancellation and encoder fallback. Release build and 2,134 focused checks pass, including grammar, QDF, object streams, linearization, complete-job cleanup and public CPU cancellation. Bytes remain immutable across sink awaits and later host use; mutable writer scratch is deferred until its consuming-sink lifetime is explicit. |
+| Avoid clearing stream-copy destinations and batch copy work | Parser stream storage is admitted and filled completely before immutable publication, using uninitialized byte arrays and bounded 32 KiB chunks. Per-byte work and cancellation remain; streams retain independent payloads. Release build and all 2,211 focused parser/recovery, host, practical-memory, publication and public CPU-cancellation checks pass. This direct structural reduction has no timing acceptance gate. |
 
 Straightforward structural copy/allocation eliminations have correctness/resource
 checks and no empirical timing acceptance gate. Larger performance hypotheses

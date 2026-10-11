@@ -925,10 +925,12 @@ internal sealed class PdfParser
         // the immutable stream; the public defensive-copy constructor is not
         // needed here. Admit the payload and wrapper before allocating.
         ReserveMemory(checked(length + 64L));
-        byte[] bytes = new byte[(int)length];
-        for (int start = 0; start < bytes.Length; start += Math.Min(4096, bytes.Length - start))
+        // Every byte is filled before the stream escapes. Avoid clearing the
+        // destination first, and use the writer's bounded bulk-copy size.
+        byte[] bytes = GC.AllocateUninitializedArray<byte>((int)length);
+        for (int start = 0; start < bytes.Length; start += Math.Min(32768, bytes.Length - start))
         {
-            int count = Math.Min(4096, bytes.Length - start);
+            int count = Math.Min(32768, bytes.Length - start);
             ChargeWork(count);
             _governor.CheckCancellation();
             data.Slice((int)cursor + start, count).CopyTo(bytes.AsMemory(start, count));
