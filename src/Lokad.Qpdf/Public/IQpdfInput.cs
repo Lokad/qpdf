@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Lokad.Qpdf;
 
 /// <summary>
@@ -51,7 +53,7 @@ public static class QpdfInputReader
             throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
         }
 
-        byte[] result = new byte[count];
+        byte[]? result = null;
         int filled = 0;
         while (filled < count)
         {
@@ -62,12 +64,23 @@ public static class QpdfInputReader
                 throw new QpdfHostException(input.Path, QpdfHostFailureReason.NonProgressingRead);
             }
 
+            // Host reads already transfer fresh owned storage. Reuse a complete
+            // exact-sized array; slices and short/non-array reads still assemble
+            // into a private result without retaining unrelated backing bytes.
+            if (filled == 0 && chunk.Length == count
+                && MemoryMarshal.TryGetArray(chunk, out ArraySegment<byte> backing)
+                && backing.Offset == 0 && backing.Array is byte[] owned && owned.Length == count)
+            {
+                return owned;
+            }
+
+            result ??= new byte[count];
             int take = Math.Min(chunk.Length, count - filled);
             chunk.Slice(0, take).CopyTo(result.AsMemory(filled, take));
             filled += take;
         }
 
-        return result;
+        return result ?? Array.Empty<byte>();
     }
 }
 

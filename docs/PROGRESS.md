@@ -130,6 +130,12 @@ Native is 17.98 ms (3.04× gap). The initial noisier pair showed 13.1%; retain
 both observations. Comprehensive qualification and the overall 2× target remain
 pending.
 
+The shared ranged-read helper now reuses a complete exact-sized array already
+owned by the host read. Short reads, slices and non-array memory still assemble
+into private storage. All 554 focused host, reader, configuration, cleanup and
+practical-memory checks pass; public results remain isolated from caller mutation
+and usable after source closure. This direct copy elimination has no timing gate.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally

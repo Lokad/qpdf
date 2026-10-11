@@ -95,6 +95,29 @@ public sealed class InMemoryHostTests
         Assert.Equal(SampleBytes(), all);
     }
 
+    [Theory]
+    [InlineData(0L, 8)]
+    [InlineData(2L, 3)]
+    public async Task ExactReadResultsRemainIsolatedAndUsableAfterLeaseClosure(long offset, int count)
+    {
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("inputs/doc.pdf");
+        byte[] caller = SampleBytes();
+        byte[] expected = caller.AsSpan((int)offset, count).ToArray();
+        host.AddInput(path, caller, QpdfInputOwnership.Copy);
+        byte[] surviving;
+        await using (IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None))
+        {
+            byte[] first = await QpdfInputReader.ReadExactlyAsync(input, offset, count, CancellationToken.None);
+            Assert.Equal(expected, first);
+            Array.Fill(caller, (byte)99);
+            Array.Fill(first, (byte)99);
+            surviving = await QpdfInputReader.ReadExactlyAsync(input, offset, count, CancellationToken.None);
+        }
+        Assert.Equal(expected, surviving);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task ReadExactlyRejectsNonProgressingHosts()
     {
