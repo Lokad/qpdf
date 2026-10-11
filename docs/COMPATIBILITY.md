@@ -259,8 +259,8 @@ eight array-AcroForm cases retained the native-success difference at that
 checkpoint; their original inputs now require compatible success.
 The committed physical checker rejects all eight preserved invalid form outputs
 and accepts the corrected/native layouts; HINT-02 is retired by final source-bound
-public, reference and package verification. See the finite public-route
-checks and pass conditions in [AUDIT-CLOSURE](AUDIT-CLOSURE.md).
+public, reference and package verification. Current supported-profile
+qualification is summarized in [progress](PROGRESS.md).
 The committed DIAG-02C correction preserves final observed counters across argv/
 response failures/cancellation, typed results and QDF/zlib companions. All 11421
 Release cases pass, retaining 11008 preceding occurrences and adding 413 complete

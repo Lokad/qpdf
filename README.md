@@ -54,6 +54,6 @@ versions, lock files and produced package dependency. SourceLink and test
 packages are development dependencies only.
 
 See `docs/COMPATIBILITY.md` for scope, `ARCHITECTURE.md` for the intended
-boundary, `docs/DEVELOPMENT.md` for tooling, and `docs/PROGRESS.md` for the next
-implementation work. These documents distinguish planned behavior from code
+boundary, `docs/DEVELOPMENT.md` for tooling, and `docs/PROGRESS.md` for current
+delivery status. These documents distinguish planned behavior from code
 that already exists.

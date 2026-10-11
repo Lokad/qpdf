@@ -31,10 +31,8 @@ The temporary decision uses this advisory-by-advisory source assessment:
 This is source-based reachability evidence for this library's current adapter,
 not an exploit test or package-wide security clearance. A consumer can use other
 ImageSharp paths. Review these five decisions whenever codec registration,
-metadata handling, pixel types or processing operations change. Audit stays
-enabled for additional advisories; a qualified restore is no longer the policy
-resolution. The explicit temporary acceptance is tracked as POLICY-01 in the
-[closure checklist](AUDIT-CLOSURE.md).
+metadata handling, pixel types or processing operations change. This temporary
+acceptance does not fix the vulnerabilities.
 
 SourceLink is enabled when an actual repository URL is supplied, including
 GitHub Actions' repository metadata. The initial local repository has no remote,
