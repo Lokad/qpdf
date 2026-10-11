@@ -4,8 +4,9 @@ The integrated performance tree is qualified on `6221e06` (2026-10-12).
 The agreed [supported profile](SUPPORTED-PROFILE.md) and its completed features
 remain closed. Subsequent bounded name hash/comparison corrections pass 2,549 affected
 checks; fresh staging without redundant clearing passes 4,806 affected checks.
-Exclusive input-slice borrowing passes 4,004 affected checks, including complete
-public jobs and material backing admission after reader closure.
+Exclusive input-slice borrowing passes 4,005 affected checks, including complete
+public jobs, material backing admission after reader closure and surviving custom
+host chunks that must not pin mostly unused inputs.
 These corrections await their integration checkpoint. The performance goal is separate:
 establish all nine warmed structural job medians within 2× pinned qpdf 12.4.2.
 That target remains unconfirmed for the large ordinary rewrite.
@@ -53,7 +54,7 @@ changes, failures or unresolved concerns.
 | --- | --- |
 | Reader and source reuse | Whole-file jobs reuse the primary document. Private jobs borrow stable memory-host inputs; arbitrary hosts retain the fresh/short-read fallback. Closed leases drop host/payload references. Public mutation isolation, versions, source/publication interactions and an actual 2 MiB retention regression remain covered. |
 | Immutable values and parser scratch | Names use owned bytes, one display string and raw internal comparisons. Dictionary enumeration uses concrete entries; known arrays allocate once. Hex/escape decoding avoids intermediate copies. Parsed stream buffers transfer without cloning and fill admitted uninitialized storage in bounded 32 KiB chunks, preserving independent payload lifetimes and work/cancellation. |
-| Copier and checker ownership | Private complete-job graphs use document/operation ownership. Exclusive readers borrow immutable stream slices and transfer the full pinned input charge to the job before source closure. Public readers retain independent payloads. Array-based filter/content/checker/JSON consumers materialize only the payload under their existing scratch owner; unchanged serialization borrows it directly. All 4,004 affected checks pass, including material backing admission, decompression limits, cancellation, cleanup and surviving outputs. |
+| Copier and checker ownership | Private complete-job graphs use document/operation ownership. Exclusive readers using the built-in memory host borrow immutable stream slices and transfer the full pinned input charge to the job before source closure. Public readers and custom hosts retain independent payloads; surviving host write chunks cannot pin mostly unused inputs. Array-based filter/content/checker/JSON consumers materialize only the payload under their existing scratch owner; unchanged serialization borrows it directly. All 4,005 affected checks pass, including material backing admission, decompression limits, cancellation, cleanup and surviving outputs. |
 | Serialization | Fixed syntax and 25 common names/five small scalars use immutable bytes. Pure counting passes reuse encoding/width rules without token buffers. Object-stream captures reuse bounded scratch. Default IDs use bounded incremental hashing, preserving original classic/QDF/linearized hashes. Replay lengths, offsets, grammar, ordering/null semantics and cancellation remain checked. |
 | Bounded name hashing and comparisons | The existing governor admits the same at-most-16-byte hash and finalization work in one call. Raw comparisons up to sixteen bytes charge the exact compared count once before returning, after the caller's cancellation check. Hash values, order, comparison results, long/decoded paths, long-name observers and limits remain unchanged. Release builds and all 2,549 affected name/parser/reader/resource/copy/writer/cancellation/practical-memory checks pass after each correction. These structural reductions await their final performance/integration checkpoint. |
 | Publication | Counted output sizes admit staging once for ordinary, linearized and split output. Fresh counted staging avoids redundant clearing; only written bytes can publish, and underestimated hints fall back to expandable storage. Split admission precedes publication; pass1 remains covered. Complete private staging transfers at commit, and settled storage drops immediately. All 4,806 affected host/publication/output/split/linearized/cancellation/practical-memory checks pass, including caller mutation, canceled/over-limit writes and partial publication. |
@@ -78,8 +79,11 @@ measured 2.006×. A longer seven-batch confirmation measured 2.19×; combining
 both runs' batches gives 2.11×, so the target remains open. All observations
 remain retained. Observe the fresh staging reduction with the existing narrow
 pair, rerank all nine, then qualify the final correction batch. A nine-cell comparison closes the elapsed-time goal;
-The exclusive stream-slice correction has focused evidence and awaits the paired
-public-workload measurement and final combined checkpoint.
+The exclusive stream-slice pair improved M500 rewriting by 23.3% with separated
+IQRs (29.85 → 22.89 ms; 1.62× native), reducing allocation from 30.60 to 25.48 MB/job.
+Its nine-cell rerank puts every median below 2× (0.84–1.47×), but a local build
+overlapped later cells. Rerun the final host-guarded source without verification
+in parallel, then perform the final combined checkpoint.
 no timing gate is added to CI. Cold process results remain separate.
 
 The approximate memory contract still admits significant buffers/growth and

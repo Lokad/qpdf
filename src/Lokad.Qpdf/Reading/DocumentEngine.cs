@@ -30,6 +30,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     private bool _valuesEscape = true;
     private long _reservedInput;
     private bool _borrowedStreamData;
+    internal bool BorrowImmutableStreamData { get; set; }
     private Dictionary<int, CachedObject>? _cache;
     private HashSet<int>? _cachedNulls;
     private HashSet<int>? _decodingStreams;
@@ -403,7 +404,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 {
                     TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
                     SanityChecks = reconstructed,
-                    BorrowImmutableStreamData = !_valuesEscape && _ownsTable,
+                    BorrowImmutableStreamData = BorrowImmutableStreamData && !_valuesEscape && _ownsTable,
                 };
                 (foundNumber, foundGeneration, value) = parser.ParseIndirectObject(tokenizer, 0, memory);
                 _borrowedStreamData |= parser.BorrowedStreamData;

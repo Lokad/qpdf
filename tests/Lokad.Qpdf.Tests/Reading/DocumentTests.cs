@@ -1,4 +1,5 @@
 using System.Text;
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -8,13 +9,61 @@ namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class DocumentTests
 {
+    private static byte[] SmallStreamWithLargeUnusedInput()
+    {
+        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        objects.Add((6, new string(' ', 2 * 1024 * 1024) + "null", null));
+        return CheckTests.Assemble(objects, 1);
+    }
+
+    [Fact]
+    public async Task RetainedCustomHostChunksDoNotPinWholeInputs()
+    {
+        RetainingOutputHost host = new();
+        host.Storage.AddInput(QpdfPath.From("input.pdf"), SmallStreamWithLargeUnusedInput(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["input.pdf", "--stream-data=preserve", "--decode-level=none",
+                "--compress-streams=n", "--static-id", "output.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        ReadOnlyMemory<byte> payload = Assert.Single(host.Chunks, chunk => chunk.Span.SequenceEqual("q Q\n"u8));
+        Assert.True(MemoryMarshal.TryGetArray(payload, out ArraySegment<byte> backing));
+        // Surviving output aliases must not keep a material, mostly unused input
+        // alive. This is a broad retention bound, not an exact object-size test.
+        Assert.NotNull(backing.Array);
+        Assert.InRange(backing.Array.Length, 4, 65536);
+        Assert.True(host.Storage.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] output));
+        using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(output);
+        Assert.Equal(1, independent.NumberOfPages);
+        Assert.Equal(0L, host.Storage.OpenLeaseCount);
+    }
+
+    private sealed class RetainingOutputHost : IQpdfHost
+    {
+        internal InMemoryQpdfHost Storage { get; } = new();
+        internal List<ReadOnlyMemory<byte>> Chunks { get; } = [];
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
+            => Storage.OpenInputAsync(path, token);
+        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+            => new RetainingTransaction(await Storage.CreateOutputAsync(path, token), Chunks);
+
+        private sealed class RetainingTransaction(IQpdfOutputTransaction inner, List<ReadOnlyMemory<byte>> chunks)
+            : IQpdfOutputTransaction
+        {
+            public QpdfPath Path => inner.Path;
+            public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken token)
+            { chunks.Add(data); return inner.WriteAsync(data, token); }
+            public ValueTask CommitAsync(CancellationToken token) => inner.CommitAsync(token);
+            public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
+        }
+    }
+
     [Fact]
     public async Task ExclusiveStreamSlicesKeepWholeInputFundedAfterReaderClosure()
     {
         byte[] payload = "q Q\n"u8.ToArray();
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", payload);
-        objects.Add((6, new string(' ', 2 * 1024 * 1024) + "null", null));
-        byte[] input = CheckTests.Assemble(objects, 1);
+        byte[] input = SmallStreamWithLargeUnusedInput();
         InMemoryQpdfHost host = HostWith("input.pdf", input);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4L * 1024L * 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);

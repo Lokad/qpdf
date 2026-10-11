@@ -241,7 +241,7 @@ public sealed class QpdfDocument : IAsyncDisposable
 
         limits.Validate();
         IQpdfInput input = new EmptyPdfInput(path);
-        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape).ConfigureAwait(false);
+        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape, false).ConfigureAwait(false);
     }
 
     internal static ValueTask<QpdfDocument> OpenCore(
@@ -265,7 +265,10 @@ public sealed class QpdfDocument : IAsyncDisposable
         bool valuesEscape)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape).ConfigureAwait(false);
+        // Custom output hosts may retain immutable write chunks after the job.
+        // Borrow input slices only when publication consumes them synchronously.
+        return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape,
+            host is Hosting.InMemoryQpdfHost).ConfigureAwait(false);
     }
 
     private static async ValueTask<QpdfDocument> OpenInputDocument(
@@ -276,7 +279,8 @@ public sealed class QpdfDocument : IAsyncDisposable
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
         CancellationToken cancellationToken,
-        bool valuesEscape)
+        bool valuesEscape,
+        bool borrowInputStreams)
     {
         DocumentEngine? engine = null;
         XRefTable? table = null;
@@ -317,6 +321,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
             table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
             engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape);
+            engine.BorrowImmutableStreamData = borrowInputStreams;
             table = null;
             reservedInput = 0L;
             cancellationToken.ThrowIfCancellationRequested();

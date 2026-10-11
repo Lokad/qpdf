@@ -81,10 +81,12 @@ nested/cache loads. Disposal drops input, table, cache and lease references;
 public immutable values and snapshots remain usable under their documented
 lifetime contracts.
 
-Exclusive complete jobs may borrow stream slices from immutable input storage.
+Exclusive complete jobs using the built-in memory host may borrow stream slices
+from immutable input storage; its output transactions consume writes synchronously.
 Before a copied graph outlives its reader, the existing job scope adopts the full
 input charge, including bytes outside the selected payload. Public readers keep
-independent payloads. Consumers requiring arrays materialize only the slice under
+independent payloads, as do custom hosts that may retain write chunks. Consumers
+requiring arrays materialize only the slice under
 their scratch owner; serialization can borrow it through publication.
 
 Copying memoizes identities per source, so equal object numbers from different
