@@ -28,6 +28,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     private ParserMemoryScope? _metadata;
     private bool _ownsTable;
     private bool _valuesEscape = true;
+    private long _reservedInput;
+    private bool _borrowedStreamData;
     private Dictionary<int, CachedObject>? _cache;
     private HashSet<int>? _cachedNulls;
     private HashSet<int>? _decodingStreams;
@@ -97,6 +99,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         try
         {
             engine.Metadata.AdoptReserved(reservedInput);
+            engine._reservedInput = reservedInput;
             engine._ownsTable = true;
             return engine;
         }
@@ -164,13 +167,19 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
     // A complete copy job may borrow immutable scalars after its private
     // source closes. Transfer those exclusive values to the job's lifetime;
-    // reader maps and input bytes still retire when the document closes.
+    // Reader maps retire at document closure. Input bytes also transfer if
+    // copied stream headers still borrow slices of that immutable backing.
     internal void TransferExclusiveValuesTo(ParserMemoryScope target)
     {
         target.CheckOwner(_governor);
         if (_valuesEscape || !_ownsTable)
         { throw new InvalidOperationException("Only an exclusive document can transfer its values."); }
         Table.TransferExclusiveValuesTo(target);
+        if (_borrowedStreamData && _reservedInput != 0L)
+        {
+            Metadata.TransferTo(target, _reservedInput);
+            _reservedInput = 0L;
+        }
         target.AdoptReserved(_unborrowedBytes);
         _unborrowedBytes = 0L;
     }
@@ -394,8 +403,10 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 {
                     TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
                     SanityChecks = reconstructed,
+                    BorrowImmutableStreamData = !_valuesEscape && _ownsTable,
                 };
                 (foundNumber, foundGeneration, value) = parser.ParseIndirectObject(tokenizer, 0, memory);
+                _borrowedStreamData |= parser.BorrowedStreamData;
             }
             finally
             {

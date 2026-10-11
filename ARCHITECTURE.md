@@ -81,6 +81,12 @@ nested/cache loads. Disposal drops input, table, cache and lease references;
 public immutable values and snapshots remain usable under their documented
 lifetime contracts.
 
+Exclusive complete jobs may borrow stream slices from immutable input storage.
+Before a copied graph outlives its reader, the existing job scope adopts the full
+input charge, including bytes outside the selected payload. Public readers keep
+independent payloads. Consumers requiring arrays materialize only the slice under
+their scratch owner; serialization can borrow it through publication.
+
 Copying memoizes identities per source, so equal object numbers from different
 inputs never collide. Selected pages register before recursive copying, allowing
 forward links to later selected pages. Omitted-page links become null; duplicate

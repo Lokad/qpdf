@@ -63,6 +63,9 @@ internal sealed class PdfParser
     /// <summary>Object-stream members contain values, not following stream data.</summary>
     internal bool AllowStreams { get; set; } = true;
 
+    internal bool BorrowImmutableStreamData { get; set; }
+    internal bool BorrowedStreamData { get; private set; }
+
     /// <summary>Budgeted errors encountered in the current object.</summary>
     internal long ToleratedErrors { get; private set; }
 
@@ -919,6 +922,22 @@ internal sealed class PdfParser
         {
             WarnRepair(error.Message, offset);
             (length, afterStream) = RecoverStreamLength(data, checked((int)cursor));
+        }
+
+        if (BorrowImmutableStreamData && length != 0L)
+        {
+            ReserveMemory(64L);
+            // Keep the existing work ceiling and bounded cancellation even
+            // though the private job no longer needs to copy these bytes.
+            for (long visited = 0L; visited < length;)
+            {
+                int count = (int)Math.Min(32768L, length - visited);
+                ChargeWork(count); _governor.CheckCancellation(); visited += count;
+            }
+            PdfStream borrowed = PdfStream.FromImmutableSlice(dictionary, data.Slice((int)cursor, (int)length));
+            BorrowedStreamData = true;
+            tokenizer.SetPosition(afterStream);
+            return borrowed;
         }
 
         // The parser creates this buffer exclusively and relinquishes it to

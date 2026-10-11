@@ -1540,7 +1540,7 @@ internal static class DocumentJson
     {
         // Borrow immutable reader storage. A file sidecar receives its own
         // admitted copy before the document can close; inline encoding does not.
-        byte[] raw = (byte[])stream.AllocationCarrier;
+        byte[] raw = stream.ArrayData(memory, governor, governor.CancellationToken);
         if (decodeLevel == "none") { return (raw, false); }
         FilterPlan stages;
         try { stages = FilterChain.ResolveScoped(stream.Dictionary, engine, governor, governor.CancellationToken); }

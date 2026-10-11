@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Runtime;
+using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Objects;
 
@@ -578,7 +579,7 @@ public sealed class PdfReference : QpdfObject, IEquatable<PdfReference>
 /// <summary>PDF stream: dictionary plus opaque bytes with structural equality.</summary>
 public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
 {
-    private readonly byte[] _data;
+    private readonly ReadOnlyMemory<byte> _data;
 
     /// <summary>Creates a stream, copying the data.</summary>
     /// <exception cref="ArgumentNullException">Dictionary or data is null.</exception>
@@ -595,28 +596,59 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
         _data = copyData ? (byte[])data.Clone() : data;
     }
 
+    private PdfStream(PdfDictionary dictionary, ReadOnlyMemory<byte> data)
+    {
+        Dictionary = dictionary ?? throw new ArgumentNullException(nameof(dictionary));
+        _data = data;
+    }
+
     /// <summary>Gets the stream dictionary.</summary>
     public PdfDictionary Dictionary { get; }
 
     /// <summary>Gets a copy of the raw stream bytes.</summary>
-    public byte[] Data => (byte[])_data.Clone();
+    public byte[] Data => _data.ToArray();
 
     internal ReadOnlyMemory<byte> RawMemory => _data;
 
     // The caller admits this fresh buffer and relinquishes mutable access.
     internal static PdfStream FromOwnedData(PdfDictionary dictionary, byte[] data) => new(dictionary, data, false);
 
-    // Header-only rewrites keep the immutable payload's existing owner.
-    internal PdfStream WithDictionary(PdfDictionary dictionary) => new(dictionary, _data, false);
+    // Exclusive complete jobs keep the entire immutable input funded until
+    // publication. Public readers continue to create independent payloads.
+    internal static PdfStream FromImmutableSlice(PdfDictionary dictionary, ReadOnlyMemory<byte> data)
+    {
+        if (!MemoryMarshal.TryGetArray(data, out ArraySegment<byte> segment) || segment.Array is null)
+        { throw new InvalidOperationException("An immutable stream slice requires owned array storage."); }
+        return new(dictionary, data);
+    }
 
-    internal object AllocationCarrier => _data;
+    // Header-only rewrites keep the immutable payload's existing owner.
+    internal PdfStream WithDictionary(PdfDictionary dictionary) => new(dictionary, _data);
+
+    internal object AllocationCarrier => MemoryMarshal.TryGetArray(_data, out ArraySegment<byte> segment)
+        && segment.Array is byte[] bytes ? bytes : throw new InvalidOperationException("Missing stream array storage.");
+
+    internal long AllocationBytes => 32L + ((byte[])AllocationCarrier).Length;
+
+    // Array-based filters and content consumers need the payload, not its
+    // potentially larger backing. Materialize a slice under their scratch owner.
+    internal byte[] ArrayData(ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        byte[] backing = (byte[])AllocationCarrier;
+        if (_data.Length == backing.Length) { return backing; }
+        memory.Reserve(checked(32L + _data.Length));
+        byte[] bytes = GC.AllocateUninitializedArray<byte>(_data.Length);
+        GovernedBufferStream.CopyBytes(_data.Span, bytes, governor, token, governor.CancellationToken);
+        return bytes;
+    }
 
     /// <summary>Indicates whether this instance equals another PdfStream.</summary>
     public bool Equals(PdfStream? other)
     {
         return other is not null
             && Dictionary.Equals(other.Dictionary)
-            && _data.AsSpan().SequenceEqual(other._data);
+            && _data.Span.SequenceEqual(other._data.Span);
     }
 
     /// <summary>Determines whether the specified object equals this instance.</summary>

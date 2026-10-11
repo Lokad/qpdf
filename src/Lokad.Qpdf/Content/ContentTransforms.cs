@@ -443,7 +443,7 @@ internal static class ContentTransforms
             {
                 try { (data, decoded) = DecodeForContent(original, resolver, limits, governor, decodedMemory, token); }
                 catch (QpdfException exception) when (exception is not QpdfLimitException)
-                { data = (byte[])original.AllocationCarrier; decoded = false; }
+                { data = original.ArrayData(decodedMemory, governor, token); decoded = false; }
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
                 byte[]? normalized = null;
                 try

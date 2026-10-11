@@ -36,7 +36,7 @@ internal sealed class AnalysisChunks : IDisposable
         using FilterPlan stageOwner = stages;
         if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return false; }
         // PdfStream's immutable storage is already funded by its graph owner.
-        byte[] raw = (byte[])stream.AllocationCarrier;
+        byte[] raw = stream.ArrayData(memory, governor, _token);
         byte[] decoded;
         try { decoded = stages.Count == 0 ? raw : FilterChain.Decode(raw, stages, limits, governor, memory, _token); }
         catch (QpdfException exception) when (exception is not QpdfLimitException) { return false; }
@@ -72,7 +72,7 @@ internal sealed class AnalysisChunks : IDisposable
         bool rejectDecodeFailure, out byte[] bytes, out bool decoded)
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
-        byte[] raw = (byte[])stream.AllocationCarrier;
+        byte[] raw = stream.ArrayData(memory, governor, token);
         bytes = raw; decoded = false;
         FilterPlan stages;
         try

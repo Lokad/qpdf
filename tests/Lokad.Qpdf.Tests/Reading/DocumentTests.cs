@@ -1,12 +1,44 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class DocumentTests
 {
+    [Fact]
+    public async Task ExclusiveStreamSlicesKeepWholeInputFundedAfterReaderClosure()
+    {
+        byte[] payload = "q Q\n"u8.ToArray();
+        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", payload);
+        objects.Add((6, new string(' ', 2 * 1024 * 1024) + "null", null));
+        byte[] input = CheckTests.Assemble(objects, 1);
+        InMemoryQpdfHost host = HostWith("input.pdf", input);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4L * 1024L * 1024L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using ParserMemoryScope job = ParserMemoryScope.Create(governor);
+        PdfStream copied;
+        await using (QpdfDocument document = await QpdfDocument.OpenCore(host, QpdfPath.From("input.pdf"),
+            limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, CancellationToken.None, false))
+        {
+            PdfStream source = Assert.IsType<PdfStream>(document.GetObject(4));
+            copied = source.WithDictionary(source.Dictionary);
+            document.Engine.TransferExclusiveValuesTo(job);
+        }
+        Array.Fill(input, (byte)0);
+        byte[] alias = copied.Data;
+        Array.Fill(alias, (byte)0);
+        Assert.Equal(payload, copied.Data);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        // A tiny borrowed payload pins a material input. Its full backing must
+        // stay admitted, rather than billing only the four-byte view.
+        Assert.True(governor.Snapshot().LiveMemoryBytes >= 2L * 1024L * 1024L);
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), Assert.Throws<QpdfLimitException>(
+            () => governor.ReserveMemory(3L * 1024L * 1024L)).LimitName);
+    }
+
     [Theory]
     [InlineData("/Cata#6Cog")]
     [InlineData("/")]

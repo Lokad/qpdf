@@ -482,7 +482,7 @@ internal sealed class RetainedValueOwners
                 return;
             case PdfStream stream:
                 if (!Register(stream, 32L, acceptance)) { return; }
-                Register(stream.AllocationCarrier, checked(32L + stream.RawMemory.Length), acceptance);
+                Register(stream.AllocationCarrier, stream.AllocationBytes, acceptance);
                 Visit(stream.Dictionary, acceptance);
                 return;
             default:

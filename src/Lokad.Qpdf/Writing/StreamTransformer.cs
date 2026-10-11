@@ -27,8 +27,7 @@ internal static class StreamTransformer
             Warn(governor, diagnostics, number, " kept opaque: unsupported filter."); return null;
         }
         using FilterPlan stageOwner = stages;
-        byte[] input = (byte[])stream.AllocationCarrier;
-        if (stages.Count == 0 && (!compress || input.Length == 0)) { return null; }
+        if (stages.Count == 0 && (!compress || stream.RawMemory.Length == 0)) { return null; }
         if (stages.Count != 0 && stages[0].Name == FlateFilter.FilterName && !recompressFlate && compress)
         { return null; }
         if (compress && decode == "none") { decode = "generalized"; }
@@ -40,6 +39,7 @@ internal static class StreamTransformer
         }
 
         using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
+        byte[] input = stream.ArrayData(decodedMemory, governor, token);
         byte[] decoded = input;
         if (stages.Count != 0)
         {

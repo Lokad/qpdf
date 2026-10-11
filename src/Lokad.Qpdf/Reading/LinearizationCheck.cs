@@ -684,7 +684,7 @@ internal static class LinearizationCheck
     private static byte[] DecodeHintStream(PdfStream stream, QpdfLimits limits, ResourceGovernor governor,
         ParserMemoryScope memory, CancellationToken token)
     {
-        byte[] raw = (byte[])stream.AllocationCarrier;
+        byte[] raw = stream.ArrayData(memory, governor, token);
         if (!stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter) || filter is PdfNull)
         {
             return raw;

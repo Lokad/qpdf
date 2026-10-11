@@ -270,7 +270,7 @@ internal static class DocumentCheck
             try
             {
                 using ParserMemoryScope decodedMemory = ParserMemoryScope.Create(governor);
-                _ = FilterChain.Decode((byte[])stream.AllocationCarrier, stages, limits, governor, decodedMemory, cancellationToken);
+                _ = FilterChain.Decode(stream.ArrayData(decodedMemory, governor, cancellationToken), stages, limits, governor, decodedMemory, cancellationToken);
                 decoded += 1;
             }
             catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
@@ -868,7 +868,7 @@ internal static class DocumentCheck
 
         if (stages.Count == 0)
         {
-            return (byte[])stream.AllocationCarrier;
+            return stream.ArrayData(memory, governor, cancellationToken);
         }
 
         foreach (FilterStage stage in stages)
@@ -881,7 +881,7 @@ internal static class DocumentCheck
 
         try
         {
-            return FilterChain.Decode((byte[])stream.AllocationCarrier, stages, limits, governor, memory, cancellationToken);
+            return FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
         }
         catch (QpdfException ex) when (ex is not QpdfLimitException)
         {
