@@ -145,6 +145,23 @@ public sealed class CheckInspectionTests
     }
 
     [Theory]
+    [InlineData("argv", "unref-1page.pdf", "3", "/F2 6 0 R")]
+    [InlineData("job", "undefined-form-resources.pdf", "4", "/Unused 6 0 R")]
+    [InlineData("file", "unref-1page.pdf", "3", "/F2 6 0 R")]
+    public async Task PruningDoesNotRewriteFilelessInspectionResources(string route, string fixture, string number, string unused)
+    {
+        InMemoryQpdfHost host = Host(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture)));
+        QpdfExecutionResult result = await Execute(host, route,
+            "\"removeUnreferencedResources\":\"yes\",\"showObject\":\"" + number + "\"",
+            ["--check", "--remove-unreferenced-resources=yes", "--show-object=" + number], new QpdfExecutionOptions(QpdfLimits.Default));
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing && d.Message.Contains(unused, StringComparison.Ordinal));
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
     [InlineData("job")]
     [InlineData("argv")]
     [InlineData("file")]

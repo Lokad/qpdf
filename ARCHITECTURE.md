@@ -152,8 +152,8 @@ subsequent inspection. Fileless stream/attachment inspection returns caller-owne
 binary bytes separately from diagnostics, distinguishing absent and empty payloads.
 Failure or cancellation discards staged bytes. Filtered output uses shared governed
 normalization; command checking and split writing share admitted reachability
-traversal. Remaining transformation/default/context qualifications are bounded
-product checks in the delivery plan. Public execution and typed result boundaries refresh immutable
+traversal. Resource pruning is serialization-only during fileless inspection;
+its original resources stay visible. Public execution and typed result boundaries refresh immutable
 counter snapshots after their core, configuration and input/output scopes finish.
 Failures and cancellation retain observed work; typed throwing routes keep their
 existing exception contract. Counter copies preserve warning/mapping/text/binary
@@ -293,9 +293,15 @@ JSON serialization uses an exclusive internal reader because its outputs are
 text and copied sidecar bytes. It closes that reader before creating output
 transactions, preserving prior main/sidecar targets if input disposal fails.
 JSON success/failure/cancellation snapshots retain observed work, peaks and
-post-cleanup handles. Broader route/presentation counters, diagnostic record/list
-admission and owned-message retirement, cold/native state and nested loading
-remain under audit; [progress](docs/PROGRESS.md) records the measured gaps.
+post-cleanup handles. Nested indirect and object-stream repair have bounded
+public-job qualification. Stream-length recovery shares the parser and resolver:
+the engine supplies the next physical boundary, scans charge work and check
+cancellation, and copying substitutes accepted lengths for obsolete references.
+Object-stream members disable stream recognition; CLI loading consumes their
+first value, while strict loading rejects trailing bytes. Decoded member extents
+therefore never use file-stream recovery offsets. Strict parsing stays separate.
+Remaining practical resource qualification uses
+the approximate target; [progress](docs/PROGRESS.md) records current work.
 
 The solution contains the packable library, tests, public API consumer,
 development probe and synthetic benchmark harness. Benchmarks are development

@@ -13,6 +13,19 @@ limits, cancellation, cleanup, host boundaries and actual memory growth remain.
 Approximate counter/XML and test reconciliation is pending; this scope decision
 does not claim that the existing accounting implementation has been refactored.
 
+The bounded `--job-json-file`, `--check` and `--parser-max-errors` qualifications
+are complete. Job setter/duplicate/cycle/default evidence is reused; fileless
+inspection preserves resources regardless of the pruning setting, matching
+native. Nested indirect and object-stream jobs preserve independent error
+budgets, including complete rewrites and strict rejection controls. Recovery
+now scans malformed stream lengths within physical object boundaries, charging
+work and observing cancellation. Repaired copies use actual payload lengths;
+strict input reading retains its existing rejection policy. Comprehensive
+qualification of the integrated tree remains due at integration/release.
+Compressed members consume one value without following file-stream data.
+CLI loading ignores trailing member bytes as native does; strict typed loading
+continues rejecting them. Complete rewrites preserve both referenced values.
+
 Explicit resource pruning now matches the original undefined-form-font case:
 an unresolved name under an explicit local form Resources dictionary prevents
 unsafe page-resource pruning. Native and managed retain both original page
@@ -899,8 +912,8 @@ Native sorted-key traversal determines order within each file; each JSON
 object uses its last value per key. Repeated input/output/page declarations across
 files reject. Cumulative configuration bytes, nesting, host operations/handles,
 work and a conservative DOM envelope obey host ceilings. Loaded configuration
-stays admitted through execution; cleanup precedes outcome snapshots. Pool/state
-retention and exact allocation accounting remain under audit. The separate argv
+stays admitted through execution; cleanup precedes outcome snapshots. Practical
+resource qualification uses approximate accounting. The separate argv
 job-file parameter is an existing managed syntax extension; native comparison
 uses the documented joined form.
 
@@ -917,9 +930,10 @@ foreign sharing, original generations, inherited/null attributes, removed-page
 nulls, physical xrefs and exact filtered bytes. The native lane has 189 comparisons;
 public regressions cover finite ceilings, observed foreign-read cancellation and
 prior-target preservation. The full isolated reference and fresh packed consumer
-pass. Broader direct-root, unusual Rotate, compressed/linearized, unknown-key,
-form/resource/metadata/attachment and overlay/underlay contexts remain required.
-Job grammar/default/context auditing and checker obligations keep both entries partial.
+pass. Overlay/underlay, form registration, direct catalogs and inspection pruning
+now have bounded public/native qualification as recorded above. The old broad
+context/default audit is superseded; job-file and checker entries are complete
+on their functional evidence, rather than remaining partial for accounting gaps.
 
 `tests/Compatibility/options.json` records 140 distinct documented flags in
 157 option/context entries. It includes public argument forms, contexts,

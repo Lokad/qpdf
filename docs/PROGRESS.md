@@ -10,6 +10,50 @@ already refactored. Historical gate/count requirements below are evidence, not
 additional completion verdicts. Keep meaningful limits, cancellation, cleanup,
 output integrity and actual leak/growth regressions.
 
+## Bounded job/check/parser qualification
+
+Job-file setter order, duplicates, active include cycles and invocation defaults
+reuse the established public/native proofs. Fileless checking ignores resource
+pruning for inspection, matching native; original resources remain visible on
+argv/job/mixed routes. Selection/rotation/overlay/form evidence stays closed.
+
+The nested-Length job exposed a native-success/managed-failure difference.
+Shared bounded recovery now handles missing, negative, incorrect and unresolvable
+stream lengths, including a missing endstream. Scans observe work/cancellation
+and stop at the next physical object/xref boundary. Copied repaired streams use
+their accepted payload length rather than following obsolete Length references;
+valid source lengths keep their existing graph-copy behavior. Strict reading and
+suppress-recovery still reject damage. One historical default-recovery failure
+assertion now requires native-compatible success and retains a strict negative.
+Copying borrows immutable source bytes, admits one destination payload before
+allocation and transfers that buffer without two additional full-payload clones.
+Final review also reproduced a compressed dictionary followed by stream-like
+bytes: native rewrites successfully, while managed recovery used file offsets
+against the decoded member and failed out of range. Members now parse one value
+without file-stream recognition. CLI ignores trailing member bytes as native
+does; strict typed loading retains its trailing-byte rejection. Both referenced
+members survive complete rewrites, with ordinary and independent native controls.
+
+The focused parser reference phase passes 12 original-value/byte comparisons and
+ten argv/job/native rewrite trios; all 30 fresh outputs pass native syntax and
+three-reader validation. The checker-inspection reference lane passes 66 public
+comparisons, including two pruning controls across three routes. Its original
+cases remain. Ordinary regressions cover independent nested/compressed budgets,
+marker delimiters, physical boundaries, work rejection, prior targets and leases.
+The canonical job-file/check/parser entries are functionally complete; accepted
+CMYK/YCCK and unavailable-Zopfli original differences remain visible. Frozen
+headline status-count acceptance is removed. Full qualification remains at the
+integration/release checkpoint. Next: approximate contract/test consolidation.
+
+Final Release build passes with zero warnings/errors in 43.9s. All 2338 affected
+ordinary checks pass without skips in 15.4s outer wall (7s runner). Fresh focused
+parser reference takes 18.0s; checker/inspection reference takes 8.0s. These are
+affected-source proofs; the complete integration/release checkpoint remains due.
+An earlier broader 4823-case run passes 4822 checks and fails the concurrent separate-token
+numeric-copy cancellation observation once; all four controls pass on isolated
+recheck. This remains an explicit cancellation qualification issue, not a silently
+accepted failure or evidence that complete public CPU cancellation is finished.
+
 ## Conservative form-resource pruning — CONTENT-02
 
 The original empty-Resources form uses undefined F1 and invokes it across two
@@ -30,8 +74,7 @@ The fixture inventory validates nonempty unique entries and their bytes/checksum
 instead of a frozen fixture count. Comprehensive qualification remains at
 integration/release.
 
-Next task: the finite job-file/check/parser-error functional qualifications,
-reusing established evidence before adding a missing interaction.
+The finite job-file/check/parser qualification is recorded above.
 
 ## Overlay inspection — CONTENT-01
 

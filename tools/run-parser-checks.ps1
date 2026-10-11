@@ -6,7 +6,8 @@
 #>
 param(
   [Parameter(Mandatory = $true)] [string] $QpdfExe,
-  [Parameter(Mandatory = $true)] [string] $ProbeDll
+  [Parameter(Mandatory = $true)] [string] $ProbeDll,
+  [switch] $StreamRecoveryOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,7 +24,7 @@ Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $runRoot
 try {
 
 function Write-Input {
-  param([string] $Name, [string] $Body, [bool] $BrokenXref)
+  param([string] $Name, [string] $Body, [bool] $BrokenXref, [string[]] $AdditionalObjects)
   $objects = [string[]]@(
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -31,6 +32,7 @@ function Write-Input {
     "<< /Length 0 >>`nstream`n`nendstream",
     $Body
   )
+  if ($AdditionalObjects) { $objects += $AdditionalObjects }
   $bytes = [IO.MemoryStream]::new()
   try {
     $bytes.Write([Text.Encoding]::ASCII.GetBytes("%PDF-1.4`n"))
@@ -40,12 +42,12 @@ function Write-Input {
       $bytes.Write([Text.Encoding]::Latin1.GetBytes("$($i + 1) 0 obj`n$($objects[$i])`nendobj`n"))
     }
     $xref = $bytes.Position
-    $bytes.Write([Text.Encoding]::ASCII.GetBytes("xref`n0 6`n0000000000 65535 f `n"))
+    $bytes.Write([Text.Encoding]::ASCII.GetBytes("xref`n0 $($objects.Length + 1)`n0000000000 65535 f `n"))
     foreach ($offset in $offsets) {
       $bytes.Write([Text.Encoding]::ASCII.GetBytes($offset.ToString('D10', [Globalization.CultureInfo]::InvariantCulture) + " 00000 n `n"))
     }
     if ($BrokenXref) { $xref = 0 }
-    $bytes.Write([Text.Encoding]::ASCII.GetBytes("trailer`n<< /Root 1 0 R /Size 6 >>`nstartxref`n$xref`n%%EOF`n"))
+    $bytes.Write([Text.Encoding]::ASCII.GetBytes("trailer`n<< /Root 1 0 R /Size $($objects.Length + 1) >>`nstartxref`n$xref`n%%EOF`n"))
     [IO.File]::WriteAllBytes((Join-Path $runRoot "inputs/$Name.pdf"), $bytes.ToArray())
   }
   finally { $bytes.Dispose() }
@@ -66,7 +68,8 @@ function Invoke-Managed {
   }
   $listing = @($lines | Where-Object { $_ -match '^emit: diagnostic ObjectListing Info ' } |
     ForEach-Object { $_ -replace '^emit: diagnostic ObjectListing Info ', '' }) -join "`n"
-  return @{ Exit = [int]$status.Groups[2].Value; Value = $listing.Trim() }
+  $binary = [regex]::Match(($lines -join "`n"), '(?m)^emit: bytes ([0-9A-F]*)\r?$')
+  return @{ Exit = [int]$status.Groups[2].Value; Value = $listing.Trim(); Bytes = $binary.Groups[1].Value }
 }
 
 function Invoke-Oracle {
@@ -101,6 +104,8 @@ function Invoke-Oracle {
   }
   finally { $stdout.Dispose(); $stderr.Dispose(); $process.Dispose() }
 }
+
+if (-not $StreamRecoveryOnly) {
 
 $specs = @(
   @{ Name = 'word'; Body = '[ 1 @ 2 ]' },
@@ -511,6 +516,172 @@ foreach ($spec in $damagedSpecs) {
     }
   }
 }
+}
+
+# A bounded public stream-recovery phase. The focused switch runs this phase
+# without replaying unchanged numeric/lexical cases; the complete lane includes it.
+function Read-RewriteObjects([string] $Tag, [string] $File) {
+  $check = Invoke-Oracle "$Tag-check" @('--check',$File)
+  if ($check.Exit -ne 0) { throw "Repaired output fails native checking ($File)." }
+  $validation = @(Invoke-ReferenceProbe -Arguments @($ProbeDll,'compare','--qpdf-exe',$QpdfExe,'--input',$File,'--expected-npages','1') 2>&1)
+  if ($LASTEXITCODE -ne 0) { throw "Repaired output fails three-reader validation ($File)." }
+  $json = Invoke-Oracle "$Tag-json" @('--json','--json-key=qpdf',$File)
+  if ($json.Exit -ne 0) { throw "Repaired output JSON failed ($File)." }
+  return ($json.Value | ConvertFrom-Json -AsHashtable).qpdf[1]
+}
+
+function Write-CompressedInput {
+  param([string] $FirstBody, [string] $SecondBody, [string] $Name)
+  $pdfBytes = [IO.MemoryStream]::new()
+  try {
+    $write = { param([string] $Text) $pdfBytes.Write([Text.Encoding]::ASCII.GetBytes($Text)) }
+    $offsets = [long[]]::new(9)
+    & $write "%PDF-1.5`n"
+    $bodies = @('<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << >> /Audit [6 0 R 7 0 R] >>',
+      "<< /Length 0 >>`nstream`n`nendstream")
+    for ($number = 1; $number -le 4; $number++) {
+      $offsets[$number] = $pdfBytes.Position
+      & $write "$number 0 obj`n$($bodies[$number - 1])`nendobj`n"
+    }
+    $header = '6 0 7 ' + ([Text.Encoding]::ASCII.GetByteCount($FirstBody) + 1) + ' '
+    $payload = $header + $FirstBody + "`n" + $SecondBody
+    $offsets[5] = $pdfBytes.Position
+    & $write "5 0 obj`n<< /Type /ObjStm /N 2 /First $($header.Length) /Length $($payload.Length) >>`nstream`n$payload`nendstream`nendobj`n"
+    $offsets[8] = $pdfBytes.Position
+    $xrefBytes = [byte[]]::new(63)
+    for ($number = 0; $number -le 8; $number++) {
+      $type = if ($number -eq 0) { 0 } elseif ($number -in @(6,7)) { 2 } else { 1 }
+      $first = if ($type -eq 2) { 5L } else { $offsets[$number] }
+      $second = if ($number -eq 0) { 65535 } elseif ($number -eq 7) { 1 } else { 0 }
+      $at = 7 * $number
+      $xrefBytes[$at] = [byte]$type
+      for ($part = 0; $part -lt 4; $part++) { $xrefBytes[$at + 1 + $part] = [byte](($first -shr (24 - 8 * $part)) -band 255) }
+      $xrefBytes[$at + 5] = [byte](($second -shr 8) -band 255)
+      $xrefBytes[$at + 6] = [byte]($second -band 255)
+    }
+    & $write "8 0 obj`n<< /Type /XRef /Size 9 /Root 1 0 R /W [1 4 2] /Length 63 >>`nstream`n"
+    $pdfBytes.Write($xrefBytes)
+    & $write "`nendstream`nendobj`nstartxref`n$($offsets[8])`n%%EOF`n"
+    [IO.File]::WriteAllBytes((Join-Path $runRoot "inputs/$Name.pdf"),$pdfBytes.ToArray())
+  } finally { $pdfBytes.Dispose() }
+}
+
+$streamCases = @(
+  @{ Name='stream-missing-length'; Body="<< >>`nstream`nabc`nendstream" },
+  @{ Name='stream-negative-length'; Body="<< /Length -1 >>`nstream`nabc`nendstream" },
+  @{ Name='stream-zero-length'; Body="<< /Length 0 >>`nstream`nabc`nendstream" },
+  @{ Name='stream-huge-length'; Body="<< /Length 10000000 >>`nstream`nabc`nendstream" },
+  @{ Name='stream-absent-indirect'; Body="<< /Length 99 0 R >>`nstream`nabc`nendstream" },
+  @{ Name='stream-missing-end'; Body="<< /Length 3 >>`nstream`nabc`nendobj" },
+  @{ Name='stream-nested-length'; Body="<< /Length 6 0 R /Nested 6 0 R /Audit [ @ 5 ] >>`nstream`nabc`nendstream"; Additional=@('[ @ 3 ]') }
+)
+foreach ($item in $streamCases) {
+  $tag = $item.Name
+  Write-Input $tag $item.Body $false $item.Additional
+  $logical = "inputs/$tag.pdf"
+  $managed = Invoke-Managed "$tag-raw" @('--global','--parser-max-errors=2','--',$logical,'--show-object=5','--raw-stream-data') @()
+  $oracle = Invoke-Oracle "$tag-raw-oracle" @('--global','--parser-max-errors=2','--',(Join-Path $runRoot $logical),'--show-object=5','--raw-stream-data')
+  $nativeBytes = [Convert]::ToHexString([Convert]::FromBase64String($oracle.StdoutBase64))
+  if ($managed.Exit -ne 3 -or $oracle.Exit -ne 3 -or $managed.Bytes -cne '6162630A' -or $managed.Bytes -cne $nativeBytes) {
+    throw "Stream recovery bytes/exits differ ($tag)."
+  }
+  $observations.Add(@{ Case=$tag; Budget=2; ManagedExit=$managed.Exit; OracleExit=$oracle.Exit; Bytes=$nativeBytes })
+  $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+  $jobFile = Join-Path $runRoot "$tag-job.pdf"
+  $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+  $managed = Invoke-Managed "$tag-write" @('--global','--parser-max-errors=2','--',$logical,'--stream-data=uncompress','outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+  $jobPath = Join-Path $runRoot "$tag-job.json"
+  @{ inputFile=$logical;outputFile='outputs/a.pdf';streamData='uncompress';global=@{parserMaxErrors=2} } |
+    ConvertTo-Json -Depth 4 -Compress | Set-Content -LiteralPath $jobPath -Encoding utf8NoBOM
+  $job = Invoke-Managed "$tag-job-write" @() @("outputs/a.pdf=$jobFile") $jobPath
+  $oracle = Invoke-Oracle "$tag-write-oracle" @('--global','--parser-max-errors=2','--',(Join-Path $runRoot $logical),'--stream-data=uncompress',$oracleFile)
+  if ($managed.Exit -ne 3 -or $job.Exit -ne 3 -or $oracle.Exit -ne 3) { throw "Stream rewrite exits differ ($tag)." }
+  foreach ($file in @($managedFile,$jobFile,$oracleFile)) {
+    $null = Read-RewriteObjects "$tag-$([IO.Path]::GetFileName($file))" $file
+    $page = Invoke-Oracle "$tag-$([IO.Path]::GetFileName($file))-page" @('--show-object=3',$file)
+    $reference = [regex]::Match($page.Value,'/Audit (\d+) (\d+) R')
+    if (-not $reference.Success) { throw "Repaired stream is missing from output page ($file)." }
+    $object = $reference.Groups[1].Value + ',' + $reference.Groups[2].Value
+    $payload = Invoke-Oracle "$tag-$([IO.Path]::GetFileName($file))-payload" @("--show-object=$object",'--filtered-stream-data',$file)
+    if ($payload.Exit -ne 0 -or [Convert]::ToHexString([Convert]::FromBase64String($payload.StdoutBase64)) -cne $nativeBytes) {
+      throw "Repaired stream payload changed during rewrite ($file)."
+    }
+  }
+  $rewriteObservations.Add(@{ Case=$tag; Budget=2; ManagedExit=$managed.Exit; JobExit=$job.Exit; OracleExit=$oracle.Exit; ReopenedOracleExit=0; Bytes=$nativeBytes })
+  Write-Output "[parser/$tag] recovered bytes and argv/job/native rewrites agree; fresh outputs pass syntax and three-reader checks"
+}
+
+Write-CompressedInput '[ @ 6 ]' '[ @ 7 ]' 'compressed-budgets'
+foreach ($budget in @(1,2)) {
+  $tag = "compressed-budgets-$budget"
+  $logical = 'inputs/compressed-budgets.pdf'
+  foreach ($number in @(6,7)) {
+    $managed = Invoke-Managed "$tag-$number" @('--global',"--parser-max-errors=$budget",'--',$logical,"--show-object=$number") @()
+    $oracle = Invoke-Oracle "$tag-$number-oracle" @('--global',"--parser-max-errors=$budget",'--',(Join-Path $runRoot $logical),"--show-object=$number")
+    $expected = if ($budget -eq 1) { 'null' } else { "[ (@) $number ]" }
+    if ($managed.Exit -ne 3 -or $oracle.Exit -ne 3 -or $managed.Value -cne $expected -or $oracle.Value -cne $expected) { throw "Compressed member budgets differ ($tag/$number)." }
+    $observations.Add(@{ Case=$tag; Object=$number; Budget=$budget; ManagedExit=$managed.Exit; OracleExit=$oracle.Exit; OracleValue=$oracle.Value })
+  }
+  $managedFile = Join-Path $runRoot "$tag-managed.pdf"
+  $jobFile = Join-Path $runRoot "$tag-job.pdf"
+  $oracleFile = Join-Path $runRoot "$tag-oracle.pdf"
+  $managed = Invoke-Managed "$tag-write" @('--global',"--parser-max-errors=$budget",'--',$logical,'--stream-data=uncompress','outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+  $jobPath = Join-Path $runRoot "$tag-job.json"
+  @{ inputFile=$logical;outputFile='outputs/a.pdf';streamData='uncompress';global=@{parserMaxErrors=$budget} } |
+    ConvertTo-Json -Depth 4 -Compress | Set-Content -LiteralPath $jobPath -Encoding utf8NoBOM
+  $job = Invoke-Managed "$tag-job-write" @() @("outputs/a.pdf=$jobFile") $jobPath
+  $oracle = Invoke-Oracle "$tag-write-oracle" @('--global',"--parser-max-errors=$budget",'--',(Join-Path $runRoot $logical),'--stream-data=uncompress',$oracleFile)
+  if ($managed.Exit -ne 3 -or $job.Exit -ne 3 -or $oracle.Exit -ne 3) { throw "Compressed member rewrite exits differ ($tag)." }
+  foreach ($file in @($managedFile,$jobFile,$oracleFile)) {
+    $objects = Read-RewriteObjects "$tag-$([IO.Path]::GetFileName($file))" $file
+    $pages = @($objects.Values | Where-Object { $_.value -is [Collections.IDictionary] -and $_.value['/Type'] -eq '/Page' })
+    if ($pages.Count -ne 1 -or $pages[0].value['/Audit'].Count -ne 2) { throw "Compressed member output page changed ($file)." }
+    $values = $pages[0].value['/Audit']
+    for ($index = 0; $index -lt 2; $index++) {
+      $value = $values[$index]
+      if ($value -is [string] -and $value -match '^(\d+) (\d+) R$') { $value = $objects['obj:' + $value].value }
+      if ($budget -eq 1) { if ($null -ne $value) { throw "Exhausted compressed member survived ($file)." } }
+      elseif ($value.Count -ne 2 -or $value[0] -cne 'u:@' -or $value[1] -ne ($index + 6)) { throw "Compressed member lost independent repaired value ($file)." }
+    }
+  }
+  $rewriteObservations.Add(@{ Case=$tag; Budget=$budget; ManagedExit=$managed.Exit; JobExit=$job.Exit; OracleExit=$oracle.Exit; ReopenedOracleExit=0 })
+  Write-Output "[parser/$tag] independent thresholds and rewritten member values agree; fresh outputs pass syntax and three-reader checks"
+}
+
+Write-CompressedInput "<< /Length -1 >>`nstream`nabc" '42' 'compressed-dictionary'
+$logical = 'inputs/compressed-dictionary.pdf'
+$managed = Invoke-Managed 'compressed-dictionary-value' @($logical,'--show-object=6') @()
+$oracle = Invoke-Oracle 'compressed-dictionary-value-oracle' @((Join-Path $runRoot $logical),'--show-object=6')
+if ($managed.Exit -ne 0 -or $oracle.Exit -ne 0 -or $managed.Value -cne '<< /Length -1 >>' -or $oracle.Value -cne $managed.Value) {
+  throw 'Compressed dictionary was treated as file stream data.'
+}
+$observations.Add(@{ Case='compressed-dictionary'; ManagedExit=$managed.Exit; OracleExit=$oracle.Exit; OracleValue=$oracle.Value })
+$managedFile = Join-Path $runRoot 'compressed-dictionary-managed.pdf'
+$jobFile = Join-Path $runRoot 'compressed-dictionary-job.pdf'
+$oracleFile = Join-Path $runRoot 'compressed-dictionary-oracle.pdf'
+$managed = Invoke-Managed 'compressed-dictionary-write' @($logical,'--stream-data=uncompress','outputs/a.pdf') @("outputs/a.pdf=$managedFile")
+$jobPath = Join-Path $runRoot 'compressed-dictionary-job.json'
+@{ inputFile=$logical;outputFile='outputs/a.pdf';streamData='uncompress' } |
+  ConvertTo-Json -Compress | Set-Content -LiteralPath $jobPath -Encoding utf8NoBOM
+$job = Invoke-Managed 'compressed-dictionary-job-write' @() @("outputs/a.pdf=$jobFile") $jobPath
+$oracle = Invoke-Oracle 'compressed-dictionary-write-oracle' @((Join-Path $runRoot $logical),'--stream-data=uncompress',$oracleFile)
+if ($managed.Exit -ne 0 -or $job.Exit -ne 0 -or $oracle.Exit -ne 0) { throw 'Compressed dictionary rewrite exits differ.' }
+foreach ($file in @($managedFile,$jobFile,$oracleFile)) {
+  $objects = Read-RewriteObjects "compressed-dictionary-$([IO.Path]::GetFileName($file))" $file
+  $pages = @($objects.Values | Where-Object { $_.value -is [Collections.IDictionary] -and $_.value['/Type'] -eq '/Page' })
+  if ($pages.Count -ne 1 -or $pages[0].value['/Audit'].Count -ne 2) { throw "Compressed dictionary page changed ($file)." }
+  $values = $pages[0].value['/Audit']
+  for ($index = 0; $index -lt 2; $index++) {
+    if ($values[$index] -is [string] -and $values[$index] -match '^(\d+) (\d+) R$') { $values[$index] = $objects['obj:' + $values[$index]].value }
+  }
+  if ($values[0] -isnot [Collections.IDictionary] -or $values[0]['/Length'] -ne -1 -or $values[1] -ne 42) {
+    throw "Compressed member boundaries changed rewritten values ($file)."
+  }
+}
+$rewriteObservations.Add(@{ Case='compressed-dictionary'; ManagedExit=$managed.Exit; JobExit=$job.Exit; OracleExit=$oracle.Exit; ReopenedOracleExit=0 })
+Write-Output '[parser/compressed-dictionary] file stream recovery is excluded from members; fresh argv/job/native outputs preserve both values'
+
 @{
   OracleSHA256 = (Get-FileHash -LiteralPath $QpdfExe -Algorithm SHA256).Hash
   ProbeSHA256 = (Get-FileHash -LiteralPath $ProbeDll -Algorithm SHA256).Hash

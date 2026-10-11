@@ -12,6 +12,15 @@ Corrections close specific public defects or bounded checks. Existing passing
 evidence settles unchanged behavior; comprehensive qualification is reserved
 for integration/release checkpoints. No immutable historical test count applies.
 
+The bounded job-file/check/parser qualifications now have public-job and native
+proof. Missing or invalid stream lengths recover within physical/work boundaries;
+copied repaired streams use accepted payload lengths, and strict controls reject
+damage. Fileless pruning preserves inspected resources. Job-file setter, duplicate,
+cycle and default proofs are reused. The remaining work is approximate contract/
+test consolidation, bounded cancellation/cleanup and final supported-profile
+qualification. The intermittent separate-token numeric-copy observer failure
+recorded in progress belongs to cancellation qualification; it is not waived.
+
 Public routes below use **typed / argv / job** for the three shared entry points.
 Use affected public jobs and existing independent checks; helper tests supplement
 their meaningful behavior evidence. Cover important interactions once, rather

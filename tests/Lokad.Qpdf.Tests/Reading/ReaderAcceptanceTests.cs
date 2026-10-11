@@ -149,6 +149,10 @@ public sealed class ReaderAcceptanceTests
     }
 
     internal static byte[] ObjectStreamPdf(string firstBody, string secondBody, bool flate, bool matched, string? headerOverride)
+        => ObjectStreamPdf(firstBody, secondBody, flate, matched, headerOverride, string.Empty);
+
+    internal static byte[] ObjectStreamPdf(string firstBody, string secondBody, bool flate, bool matched,
+        string? headerOverride, string pageEntries)
     {
         string header = headerOverride ?? $"6 0 7 {Encoding.ASCII.GetByteCount(firstBody) + 1} ";
         byte[] payload = Encoding.ASCII.GetBytes(header + firstBody + "\n" + secondBody);
@@ -166,7 +170,8 @@ public sealed class ReaderAcceptanceTests
         Text("%PDF-1.5\n");
         Object(1, "<< /Type /Catalog /Pages 2 0 R >>");
         Object(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
-        Object(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>");
+        Object(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R"
+            + (pageEntries.Length == 0 ? string.Empty : " " + pageEntries) + " >>");
         Object(4, "<< /Length 0 >>\nstream\n\nendstream");
         offsets[5] = pdf.Length;
         Text($"5 0 obj\n<< /Type /ObjStm /N 2 /First {header.Length} /Length {encoded.Length}" + (flate ? " /Filter /FlateDecode" : "") + " >>\nstream\n");

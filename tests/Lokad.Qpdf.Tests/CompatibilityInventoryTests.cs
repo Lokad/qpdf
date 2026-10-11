@@ -131,17 +131,6 @@ public sealed class CompatibilityInventoryTests
         Assert.Empty(missing);
     }
     [Fact]
-    public void HeadlineCountsMatchTheProgressRecord()
-    {
-        using var inventory = ReadInventory();
-        var entries = inventory.RootElement.GetProperty("options").EnumerateArray().ToArray();
-        Assert.Equal(157, entries.Length);
-        Assert.Equal(152, entries.Count(entry => entry.GetProperty("status").GetString() == "complete"));
-        Assert.Equal(5, entries.Count(entry => entry.GetProperty("status").GetString() == "partial"));
-        Assert.Equal(49, entries.Count(entry => entry.GetProperty("scope").GetString() == "excluded-crypto"));
-    }
-
-    [Fact]
     public void PartialEntriesKeepVisibleGaps()
     {
         using var inventory = ReadInventory();

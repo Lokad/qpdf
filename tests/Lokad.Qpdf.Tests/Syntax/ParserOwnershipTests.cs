@@ -188,7 +188,7 @@ public sealed class ParserOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task PublicPartialParseFailurePreservesTargetsAndObservedWork(bool job)
+    public async Task PublicStreamRepairAndStrictFailurePreserveTargetsAndObservedWork(bool job)
     {
         byte[] pdf = TolerantObjectLoadingTests.Pdf(
             ["<< /Length 6 0 R /Audit (discard) >>\nstream\nabc\nendobj", new string('0', 4096) + "3"], false);
@@ -204,9 +204,10 @@ public sealed class ParserOwnershipTests
         QpdfExecutionResult result = job
             ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"inputs/a.pdf","showObject":"5"}""", options, CancellationToken.None)
             : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=5"]), options, CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-        Assert.Contains("endstream", Assert.Single(result.Diagnostics).Message, StringComparison.Ordinal);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RepairedObject
+            && d.Message.Contains("endstream", StringComparison.Ordinal));
         Assert.True(result.Counters.TotalWork > 0L);
         Assert.InRange(result.Counters.PeakMemoryBytes, pdf.Length, options.Limits.MaxMemoryBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
@@ -214,6 +215,16 @@ public sealed class ParserOwnershipTests
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(priorPath, out byte[] priorBytes));
         Assert.Equal("prior"u8.ToArray(), priorBytes);
+        QpdfExecutionResult strict = job
+            ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"inputs/a.pdf","showObject":"5","suppressRecovery":""}""", options, CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--show-object=5", "--suppress-recovery"]), options, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, strict.Status);
+        Assert.Equal(QpdfExitCode.Error, strict.ExitCode);
+        Assert.Contains("endstream", Assert.Single(strict.Diagnostics).Message, StringComparison.Ordinal);
+        Assert.True(host.TryGetOutput(priorPath, out byte[] strictPrior));
+        Assert.Equal("prior"u8.ToArray(), strictPrior);
+        Assert.Equal(0L, strict.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

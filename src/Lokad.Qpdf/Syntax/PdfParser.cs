@@ -12,6 +12,12 @@ internal interface IIndirectResolver
     bool TryResolve(PdfReference reference, out QpdfObject? value);
 }
 
+/// <summary>Bounds damaged stream recovery to the current physical object.</summary>
+internal interface IStreamRecoveryResolver : IIndirectResolver
+{
+    long GetStreamRecoveryEnd(long streamOffset);
+}
+
 /// <summary>
 /// PDF object parser with explicit strict and repair policies. Containers recurse with an explicit
 /// depth budget; every value charges work and every copy reserves memory
@@ -53,6 +59,9 @@ internal sealed class PdfParser
     internal bool TolerateObjectErrors { get; set; }
 
     internal bool RejectIndirectReferences { get; set; }
+
+    /// <summary>Object-stream members contain values, not following stream data.</summary>
+    internal bool AllowStreams { get; set; } = true;
 
     /// <summary>Budgeted errors encountered in the current object.</summary>
     internal long ToleratedErrors { get; private set; }
@@ -821,6 +830,7 @@ internal sealed class PdfParser
         bool preserveReceipts = depth == _dictionaryReceiptDepth;
         PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, _governor, entries, preserveReceipts);
         if (preserveReceipts) { _dictionaryReceipts = entries; }
+        if (!AllowStreams) { return dictionary; }
         long beforeNext = tokenizer.Position;
         bool nextIsStream = false;
         try
@@ -870,12 +880,6 @@ internal sealed class PdfParser
 
     private QpdfObject ParseStream(PdfTokenizer tokenizer, PdfDictionary dictionary, long offset)
     {
-        long length = ResolveStreamLength(dictionary, offset);
-        if (length > int.MaxValue)
-        {
-            throw new QpdfParseException($"Stream length {length} exceeds the supported maximum.", offset, null);
-        }
-
         ReadOnlyMemory<byte> data = tokenizer.Data;
         long cursor = tokenizer.Position;
         if (cursor < data.Length && data.Span[(int)cursor] == (byte)'\r')
@@ -895,12 +899,30 @@ internal sealed class PdfParser
             throw new QpdfParseException("The 'stream' keyword must be followed by an end-of-line marker.", offset, null);
         }
 
-        checked
+        long length;
+        long afterStream;
+        try
         {
+            length = ResolveStreamLength(dictionary, offset);
+            if (length > int.MaxValue)
+            {
+                throw new QpdfParseException($"Stream length {length} exceeds the supported maximum.", offset, null);
+            }
             if (length > data.Length - cursor)
             {
                 throw new QpdfParseException($"Stream declares {length} bytes but only {data.Length - cursor} remain.", offset, null);
             }
+            tokenizer.SetPosition(cursor + length);
+            if (!tokenizer.TryReadToken(out PdfToken end, false, _governor) || end.Kind != PdfTokenKind.EndStream)
+            {
+                throw new QpdfParseException("Expected 'endstream' after stream data.", offset, null);
+            }
+            afterStream = tokenizer.Position;
+        }
+        catch (QpdfParseException error) when (TolerateObjectErrors)
+        {
+            WarnRepair(error.Message, offset);
+            (length, afterStream) = RecoverStreamLength(data, checked((int)cursor));
         }
 
         ReserveMemory(checked(length * 2L + 96L));
@@ -912,15 +934,53 @@ internal sealed class PdfParser
             _governor.CheckCancellation();
             data.Slice((int)cursor + start, count).CopyTo(bytes.AsMemory(start, count));
         }
-        tokenizer.SetPosition(cursor + length);
-        if (!tokenizer.TryReadToken(out PdfToken end, false, _governor) || end.Kind != PdfTokenKind.EndStream)
-        {
-            throw new QpdfParseException("Expected 'endstream' after stream data.", offset, null);
-        }
+        tokenizer.SetPosition(afterStream);
 
         PdfStream stream = new(dictionary, bytes);
         ReleaseMemory(checked(length + 32L));
         return stream;
+    }
+
+    private (long Length, long AfterStream) RecoverStreamLength(ReadOnlyMemory<byte> data, int start)
+    {
+        WarnRepair("Attempting to recover stream length.", start);
+        int limit = _resolver is IStreamRecoveryResolver resolver
+            ? checked((int)resolver.GetStreamRecoveryEnd(start)) : data.Length;
+        ReadOnlySpan<byte> span = data.Span;
+        int checkedThrough = start;
+        for (int position = start; position < limit; position++)
+        {
+            if (position == checkedThrough)
+            {
+                int count = Math.Min(4096, limit - position);
+                ChargeWork(count);
+                _governor.CheckCancellation();
+                checkedThrough = position + count;
+            }
+            int tokenLength = span.Slice(position, limit - position).StartsWith("endstream"u8) ? 9
+                : span.Slice(position, limit - position).StartsWith("endobj"u8) ? 6 : 0;
+            if (tokenLength == 0 || (position + tokenLength < limit && !PdfTokenizer.IsDelimiter(span[position + tokenLength])))
+            {
+                continue;
+            }
+            long length = position - start;
+            if (length == 0L) { WarnRepair("Unable to recover stream data; treating stream as empty.", start); }
+            else { WarnRecoveredStreamLength(length, start); }
+            // An endobj marker substitutes for a missing endstream. Leave it
+            // for the ordinary indirect-object parser to consume once.
+            return (length, tokenLength == 9 ? position + tokenLength : position);
+        }
+        WarnRepair("Unable to recover stream data; treating stream as empty.", start);
+        return (0L, limit);
+    }
+
+    private void WarnRecoveredStreamLength(long length, long offset)
+    {
+        if (!SuppressRepairDiagnostics)
+        {
+            _diagnostics.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning,
+                ["Recovered stream length at offset ", DiagnosticPart.Invariant(offset), ": ", DiagnosticPart.Invariant(length)]);
+        }
     }
 
     private long ResolveStreamLength(PdfDictionary dictionary, long offset)

@@ -237,7 +237,7 @@ internal sealed class PdfTokenizer
         return b == 0x00 || b == 0x09 || b == 0x0A || b == 0x0C || b == 0x0D || b == 0x20;
     }
 
-    private static bool IsDelimiter(byte b)
+    internal static bool IsDelimiter(byte b)
     {
         return b == (byte)'(' || b == (byte)')' || b == (byte)'<' || b == (byte)'>'
             || b == (byte)'[' || b == (byte)']' || b == (byte)'/' || b == (byte)'%'

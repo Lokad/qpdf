@@ -64,6 +64,8 @@ $cases = @(
   @{ Name='attachments'; Fields=@{listAttachments=''}; Flags=@('--list-attachments'); Authored='attachment'; Minimum=1; Line='payload -> 6,0' },
   @{ Name='qdf'; Fields=@{qdf='';showObject='3';showLinearization=''}; Flags=@('--qdf','--show-object=3','--show-linearization'); Minimum=2; Line='inputs/a.pdf is not linearized' },
   @{ Name='linearize'; Fields=@{linearize='';showObject='3';showLinearization=''}; Flags=@('--linearize','--show-object=3','--show-linearization'); Minimum=2; Line='inputs/a.pdf is not linearized' },
+  @{ Name='pruning-unused'; Fields=@{removeUnreferencedResources='yes';showObject='3'}; Flags=@('--remove-unreferenced-resources=yes','--show-object=3'); Fixture='unref-1page.pdf'; Minimum=1; Line='<< /Contents 4 0 R /MediaBox [ 0 0 612 792 ] /Parent 2 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Type /Page >>' },
+  @{ Name='pruning-form'; Fields=@{removeUnreferencedResources='yes';showObject='4'}; Flags=@('--remove-unreferenced-resources=yes','--show-object=4'); Fixture='undefined-form-resources.pdf'; Minimum=1; Line='<< /Font << /F1 5 0 R /Unused 6 0 R >> /XObject << /Form 7 0 R >> >>' },
   @{ Name='trailer'; Fields=@{showObject='trailer'}; Flags=@('--show-object=trailer'); Minimum=1; Line='<< /Root 1 0 R /Size 8 >>' },
   @{ Name='absent'; Fields=@{showObject='999'}; Flags=@('--show-object=999'); Minimum=1; Line='null' },
   @{ Name='stale-generation'; Fields=@{showObject='3,1'}; Flags=@('--show-object=3,1'); Minimum=1; Line='null' },
@@ -135,6 +137,6 @@ $records = foreach ($item in $cases) {
   }
 }
 [IO.File]::WriteAllText((Join-Path $WorkRoot 'results.json'),($records | ConvertTo-Json -Depth 5) + "`n",$utf8)
-Write-Host "Checker-inspection lane passed: $($records.Count) comparisons. Binary extraction and selection/transformation contexts remain open."
+Write-Host "Checker-inspection lane passed: $($records.Count) comparisons. Binary extraction and transformations use their separate lanes."
 
 } finally { Complete-ReferenceProbe }

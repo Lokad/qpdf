@@ -13,7 +13,7 @@ namespace Lokad.Qpdf.Reading;
 /// decode their object stream once and cache every contained object whose
 /// xref entry points back at that stream.
 /// </summary>
-internal sealed class DocumentEngine : IIndirectResolver, IDisposable
+internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 {
     // A cache receipt owns only this parsed subtree. Nested resolver loads have
     // independent receipts. Reads protect values that may outlive replacement.
@@ -206,6 +206,21 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     internal IReadOnlyDictionary<int, XrefEntry> XRefEntries => Table.Entries;
 
     internal ReadOnlyMemory<byte> Data => _data;
+
+    long IStreamRecoveryResolver.GetStreamRecoveryEnd(long streamOffset)
+    {
+        long end = _data.Length;
+        foreach (XrefEntry entry in Table.Entries.Values)
+        {
+            _governor.ChargeWork(1L);
+            if (entry.Kind == XrefEntryKind.Uncompressed && entry.First > streamOffset && entry.First < end)
+            {
+                end = entry.First;
+            }
+        }
+        if (Table.XrefOffset > streamOffset && Table.XrefOffset < end) { end = Table.XrefOffset; }
+        return end;
+    }
 
     // Checking borrows input bytes but owns its short-lived parsing attempt.
     // Reuse the reader/parser rather than searching binary payloads for endobj.
@@ -506,9 +521,14 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
                     PdfParser parser = new(_limits, _governor, _diagnostics, this)
                     {
                         TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
+                        AllowStreams = false,
                     };
                     value = parser.ParseObjectValue(tokenizer, 0, memory);
-                    if (!parser.ObjectAborted && tokenizer.TryReadToken(out PdfToken _, false, _governor))
+                    // Native consumes one value from a compressed member. The
+                    // strict reader additionally rejects trailing bytes; neither
+                    // policy treats a following stream keyword as file data.
+                    if (_recovery == QpdfRecoveryMode.Strict && !parser.ObjectAborted
+                        && tokenizer.TryReadToken(out PdfToken _, false, _governor))
                     {
                         throw new QpdfParseException($"Object stream {streamNumber} entry {pairs[i].Number} has trailing bytes.", null, pairs[i].Number);
                     }

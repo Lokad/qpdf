@@ -48,8 +48,8 @@ checking/listing, preserves primary form/annotation identities and registers
 imported fields with merged defaults/resources. Direct trailer catalogs remain
 direct. New form/widget numbering may differ from the reference; their semantic
 relationships and placement bytes are checked independently. Output files still
-cannot accompany check/inspection jobs. Remaining supported-profile context
-qualifications are finite delivery checks.
+cannot accompany check/inspection jobs. Resource-pruning settings are
+serialization controls and leave fileless inspection resources intact.
 
 `{inputFile, outputFile}` rewrites the whole document through the shared writer.
 `jobJsonFile` names a partial configuration in the invoking host's path context,
@@ -63,7 +63,8 @@ before result snapshots. Argv settings apply at their argument position; files
 do not advance the positional input/output cursor. Active nested identities
 form cycles; a completed independent file may be included again. A later input
 supersedes an earlier empty configuration; empty after an input rejects.
-Complete grammar/default/context and codec/pool/diagnostic audits remain open.
+Setter/duplicate/cycle/default behavior has bounded public/native qualification.
+Remaining practical resource checks use the approximate accounting target.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —
@@ -111,8 +112,16 @@ echoing values.
   invalid-hex, EOF, mismatched-terminator and root-word cases agree through
   valid/rebuilt xrefs. Reconstructed xrefs ignore orphan dictionary values;
   valid xrefs insert fake keys. Display buffers and parser attempts admit their
-  storage; broader nested loads, diagnostic ownership and cold/native state
-  remain under audit.
+  storage. Nested indirect loads and compressed members have independent error
+  thresholds through public inspection/rewrite and strict-rejection controls.
+- CLI stream-length repair scans for endstream/endobj within the current physical
+  object, obeying work/memory limits and cancellation. Missing, incorrect,
+  negative or unresolvable lengths recover with warnings; strict readers reject
+  them. Copied repaired streams use the accepted payload length. Valid declared
+  lengths preserve binary data without marker searching.
+  Compressed members parse one value and do not interpret a following stream
+  keyword as file data. CLI loading ignores trailing member bytes, matching
+  native; strict typed loading retains its trailing-byte rejection.
 - Typed page selection copies streams opaquely: direct and indirect
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,

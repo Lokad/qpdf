@@ -11,6 +11,9 @@ namespace Lokad.Qpdf.Tests.Reading;
 public sealed class TolerantObjectLoadingTests
 {
     internal static byte[] Pdf(string[] bodies, bool brokenXref)
+        => Pdf(bodies, brokenXref, false);
+
+    internal static byte[] Pdf(string[] bodies, bool brokenXref, bool omitFirstBodyEnd)
     {
         List<string> objects =
         [
@@ -27,7 +30,8 @@ public sealed class TolerantObjectLoadingTests
         for (int i = 0; i < objects.Count; i++)
         {
             offsets.Add(bytes.Position);
-            Write($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            Write($"{i + 1} 0 obj\n{objects[i]}\n");
+            if (!omitFirstBodyEnd || i != 4) { Write("endobj\n"); }
         }
 
         long xref = bytes.Position;

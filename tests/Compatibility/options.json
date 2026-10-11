@@ -99,8 +99,8 @@
     "page-range syntax"
   ],
   "supplementalRequirements": [
-    "Nested and mixed job configuration is host-mediated and bounded with setter-order evidence. Root handler names do not establish complete grammar/default/context coverage.",
-    "Checker listings, binary extraction and selection/rotation use the shared reader with source-bound native effects. Overlay/other transformations and complete default/context auditing remain required gaps in partial --check.",
+    "Nested and mixed job configuration is host-mediated and bounded. Setter order, duplicates, include cycles and invocation defaults have public-job and pinned-reference evidence.",
+    "Checking and fileless inspection use the shared reader and transformed graph. Selection, rotation, overlay/form integration and serialization-only pruning behavior have public-job and pinned-reference evidence. Accepted codec/build limitations stay documented separately.",
     "--json-key=encrypt is excluded",
     "fix-qdf companion",
     "zlib-flate companion"
@@ -1738,11 +1738,9 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Per-object repair, numeric/lexical/container conversions, dictionary guards, governed display and attempt/subtree/reader acceptance ownership are implemented. Successful scan trials, selected trailer receipts/aliases, strict/final/hybrid xref acceptance, encoded/decoded xref cleanup, linearization trials and observed-work failure/cancellation have regressions. Unfiltered/Flate structural scratch is scoped; other codecs remain open. Xref/revision/trailer and cache/loading/decoding collections now admit wrappers, actual capacities and growth overlap. Cache metadata releases on owner disposal; unread member replacement/disposal releases only its own subtree while borrowed aliases survive. Independent backing allocation, finite typed/argv/job traversal, retries, prior targets and observed-work cancellation have regressions. Exclusive document input/xref/page-view storage now transfers and releases on disposal/failed opening, preserving returned aliases and caller-funded borrowing. Strict/recovered/stream/hybrid/incremental cases, repeated finite-budget documents, three-route multi-source effects, short reads, close faults, empty/finite opening, independent backing allocation and cancellation after observed page visits have regressions and source-bound reference/package evidence. Accepted parser/cache values now transfer their own receipts to independently escaping wrappers and backing storage. Numeric text, key views, stream buffers and copier aliases have lifetime evidence; collected values release admission under repeated finite ceilings. Weak-ledger capacities/growth overlap, failed acceptance/growth and immutable byte-buffer transfer have regressions. JSON values remain scoped through serialization; input disposal precedes output creation, close faults preserve main/sidecar targets and raw/decoded copies survive cleanup under a one-handle ceiling. Original memory ceilings, JSON failed/canceled counters and source-bound reference/package evidence pass. Diagnostic record/list admission and owned-message retirement remain reproduced gaps. Cold/native state, broader public repair/recovery nesting and all-route failed/canceled counters still keep this entry partial."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "TolerantParserTests.RepairsMatchPinnedObjectValues",
@@ -1758,7 +1756,9 @@
           "TolerantObjectLoadingTests.ActualLoadsRepairBothValidAndBrokenXrefs",
           "RecoveryTests.ErrorsBudgetDoesNotCountFailedCandidatesAcrossTheScan",
           "RecoveryTests.ErrorsZeroRemovesThreshold",
-          "GlobalLimitsTests.ParserMaxErrorsZeroJobAccepted"
+          "GlobalLimitsTests.ParserMaxErrorsZeroJobAccepted",
+          "ParserJobRecoveryTests.InvalidStreamLengthsRecoverBeforeWriting",
+          "ParserJobRecoveryTests.CompressedDictionaryDoesNotStartFileStreamRecovery"
         ],
         "negative": [
           "GlobalLimitsTests.BadParserMaxErrorsValuesFail",
@@ -1769,7 +1769,8 @@
           "LexicalParserTests.StrictParsingRejectsLexicalDamage",
           "DamagedSyntaxTests.StrictParserRejectsDamagedTokensAndContainers",
           "TolerantObjectLoadingTests.StrictPublicPathsRejectDamagedTokensAndContainers",
-          "RecoveryTests.ErrorsBudgetStrictUnaffected"
+          "RecoveryTests.ErrorsBudgetStrictUnaffected",
+          "ParserJobRecoveryTests.StrictReadingRejectsNestedAndCompressedDamage"
         ],
         "interaction": [
           "TolerantObjectLoadingTests.RewrittenRepairedValuesRemainReadableWithArgvJobParity",
@@ -1784,7 +1785,10 @@
           "TolerantObjectLoadingTests.ManyDamagedObjectsDoNotShareAnErrorBudget",
           "TolerantObjectLoadingTests.NoDefaultLimitsLiftsOnlyUnspecifiedErrorThreshold",
           "TolerantParserTests.CompressedMembersHaveIndependentBudgetsAndReadableValues",
-          "RecoveryTests.ExplicitErrorUnderNoDefaultLimitsDoesNotCountScanCandidates"
+          "RecoveryTests.ExplicitErrorUnderNoDefaultLimitsDoesNotCountScanCandidates",
+          "ParserJobRecoveryTests.NestedLengthRepairPreservesIndependentValuesThroughRewrite",
+          "ParserJobRecoveryTests.CompressedMemberBudgetsRemainIndependentThroughRewrite",
+          "ParserJobRecoveryTests.RecoveryHonorsMarkerDelimitersAndPhysicalObjectBoundaries"
         ],
         "resource": [
           "GlobalLimitsTests.ParserMaxErrorsRespectsTightHost",
@@ -1829,7 +1833,7 @@
           "ParserOwnershipTests.StandaloneValueFailureReleasesOwnedNamesAndContainers",
           "ParserOwnershipTests.FailedOuterStreamKeepsNestedResolverValueAndItsReservation",
           "ParserOwnershipTests.FailedPublicObjectLoadRetainsFreshNestedLengthCache",
-          "ParserOwnershipTests.PublicPartialParseFailurePreservesTargetsAndObservedWork",
+          "ParserOwnershipTests.PublicStreamRepairAndStrictFailurePreserveTargetsAndObservedWork",
           "ParserOwnershipTests.PublicObjectCancellationReleasesAttemptAfterObservedContainerWork",
           "ParserOwnershipTests.CanceledPublicStreamLoadPreservesFreshNestedLengthReservation",
           "ParserOwnershipTests.CancellationAfterContainerWorkReleasesAbandonedAttempt",
@@ -1924,11 +1928,13 @@
           "JsonValueOwnershipTests.BulkJsonDiscardsFitConsumerMemoryAllowance",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
-          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput"
+          "JsonValueOwnershipTests.FailedOrCanceledJsonClosesReaderAndPreservesPriorOutput",
+          "ParserJobRecoveryTests.RecoveryScanWorkLimitPreservesThePriorTarget"
         ],
         "oracle": [
           "diff:recovery",
-          "parser:per-object-budgets"
+          "parser:per-object-budgets",
+          "parser:stream-length-recovery"
         ]
       }
     },
@@ -2295,11 +2301,9 @@
         }
       ],
       "milestone": "M10",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Checker listings, binary extraction and selection/rotation have source-bound native effects, generations, sharing, physical-xref, failure-order and full-reference evidence across argv/JSON/mixed routes. Overlay/underlay and broader transformation/context/default/precedence auditing remain open, including direct roots, unusual Rotate values and compressed/linearized/form/resource/metadata/attachment contexts. Independent ownership/allocation and complete target-field auditing remain required."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "CheckTests.ValidDocumentReportsExpectedOutcomes",
@@ -2323,7 +2327,10 @@
           "CheckTransformationTests.SourceKeysCollationAndForeignSharingMatchNativeIdentities",
           "CheckTransformationTests.ContentsArraysKeepEachStreamGeneration",
           "CheckTransformationTests.RemovedPageObjectsResolveToNullAfterSelection",
-          "CheckTransformationTests.SelectedFilteredStreamReturnsTheOriginalPayload"
+          "CheckTransformationTests.SelectedFilteredStreamReturnsTheOriginalPayload",
+          "CheckTransformationTests.OverlayChangesInspectedPageBeforeChecking",
+          "CheckTransformationTests.OverlayRegistersImportedFieldsBeforeChecking",
+          "CheckInspectionTests.PruningDoesNotRewriteFilelessInspectionResources"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2333,7 +2340,8 @@
           "JobCheckTests.EncryptedBytesRejectThroughTheCheckerRoute",
           "BinaryInspectionTests.CheckerOutputPathRejectsBeforePdfAccess",
           "BinaryInspectionTests.FatalCheckingOfAnUnextractedStreamStopsAttachmentOutput",
-          "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork"
+          "CheckTransformationTests.RangeBoundsReturnExplicitFailureAfterInputWork",
+          "CheckTransformationTests.MissingOverlayFailsBeforeCheckingOrListing"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2351,7 +2359,10 @@
           "CheckInspectionTests.ObjectInspectionUsesNativeIntegerPrefixesAndDisabledSelectors",
           "CheckInspectionTests.SelectorGenerationPersistsAcrossSettersButNotOverwrittenJsonKeys",
           "CheckInspectionTests.RepeatedPresentationFlagsRetainNativeSetterSemantics",
-          "CheckInspectionTests.ExplicitGlobalBlocksKeepNativeRepeatedSettings"
+          "CheckInspectionTests.ExplicitGlobalBlocksKeepNativeRepeatedSettings",
+          "CheckTransformationTests.OverlayPreservesIndirectAnnotationsAndFormGenerations",
+          "CheckTransformationTests.OverlayUpdatesAFormInADirectTrailerCatalog",
+          "CheckTransformationTests.LayerInspectionWithoutCheckReturnsTheTransformedStream"
         ],
         "resource": [
           "CheckTests.CheckFailsOnExhaustedInputBudget",
@@ -2367,7 +2378,9 @@
           "BinaryInspectionTests.CancellationAfterAnObservedReadReturnsNoBinaryPayload",
           "BinaryInspectionTests.AttachmentFailureDiscardsAnEarlierBinaryPayload",
           "CheckTransformationTests.TransformationCeilingsPreserveExistingTargets",
-          "CheckTransformationTests.CancellationDuringForeignReadDisposesThePreparedPrimaryView"
+          "CheckTransformationTests.CancellationDuringForeignReadDisposesThePreparedPrimaryView",
+          "CheckTransformationTests.CancellationDuringOverlayReadClosesBothInputs",
+          "CheckTransformationTests.OverlayHandleLimitStopsInspectionAndClosesPrimary"
         ],
         "oracle": [
           "diff:linearized",
@@ -3444,11 +3457,9 @@
         }
       ],
       "milestone": "M4",
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Mixed argv settings, repeated job-file arguments and nested JSON use the shared loader/parser with configuration ordering and cumulative limits. Complete grammar, defaults and remaining context/interaction coverage still require auditing; parsing a root key does not prove complete behavior."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "InvocationTests.JobJsonFileMatchesInlineJob",
@@ -3465,7 +3476,8 @@
           "NestedJobTests.RepeatedExclusiveDeclarationsRejectAfterLoading",
           "NestedJobTests.CryptoDeclarationsRejectBeforePdfOrPasswordAccess",
           "MixedJobArgvTests.ArgvCryptoRejectsBeforeConfigurationAccess",
-          "MixedJobGovernanceTests.NestedCycleInARepeatedFileStillRejects"
+          "MixedJobGovernanceTests.NestedCycleInARepeatedFileStillRejects",
+          "NestedJobTests.CyclesAreDetectedUsingHostIdentity"
         ],
         "interaction": [
           "InvocationTests.JobJsonFileErrorsAreExplicit",

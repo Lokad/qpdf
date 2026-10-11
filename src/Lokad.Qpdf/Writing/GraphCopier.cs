@@ -1,3 +1,4 @@
+using System.Globalization;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -20,6 +21,7 @@ namespace Lokad.Qpdf.Writing;
 internal sealed class GraphCopier
 {
     private static readonly PdfName ParentKey = PdfName.FromAscii("Parent");
+    private static readonly PdfName LengthKey = PdfName.FromAscii("Length");
     private static readonly PdfName TypeKey = PdfName.FromAscii("Type");
     private static readonly PdfName PageType = PdfName.FromAscii("Page");
     private static readonly PdfName PagesType = PdfName.FromAscii("Pages");
@@ -524,24 +526,46 @@ internal sealed class GraphCopier
 
         if (value is PdfStream stream)
         {
-            PdfDictionary copiedDictionary = CopyDictionary(stream.Dictionary, depth + 1);
-            byte[] data = stream.Data;
-            Reserve(_ownership is null ? data.Length : checked(data.LongLength + 64L));
+            ReadOnlyMemory<byte> data = stream.RawMemory;
+            PdfInteger? length = null;
+            if (!StreamLengthMatches(stream.Dictionary, data.Length))
+            {
+                Reserve(128L);
+                length = new PdfInteger(data.Length.ToString(CultureInfo.InvariantCulture), data.Length);
+            }
+            // Serialization uses the accepted payload length. An obsolete source
+            // Length reference must not make a successfully repaired stream fail
+            // while copying its otherwise meaningful dictionary references.
+            PdfDictionary copiedDictionary = CopyDictionary(stream.Dictionary, depth + 1, length);
+            Reserve(_ownership is null ? data.Length : checked((long)data.Length + 64L));
             byte[] preserved = new byte[data.Length];
-            if (_ownership is null) { Buffer.BlockCopy(data, 0, preserved, 0, data.Length); }
+            if (_ownership is null) { data.Span.CopyTo(preserved); }
             else
             {
                 for (int position = 0; position < data.Length; position += 8192)
                 {
                     int count = Math.Min(8192, data.Length - position);
                     _governor.ChargeWork(count);
-                    data.AsSpan(position, count).CopyTo(preserved.AsSpan(position, count));
+                    data.Span.Slice(position, count).CopyTo(preserved.AsSpan(position, count));
                 }
             }
-            return new PdfStream(copiedDictionary, preserved);
+            return PdfStream.FromOwnedData(copiedDictionary, preserved);
         }
 
         return value;
+    }
+
+    private bool StreamLengthMatches(PdfDictionary dictionary, long length)
+    {
+        if (!dictionary.TryGet(LengthKey, out QpdfObject raw)) { return false; }
+        if (raw is PdfInteger direct) { return direct.Value == length; }
+        if (raw is not PdfReference reference) { return false; }
+        try
+        {
+            return _resolver.TryResolve(reference, out QpdfObject? resolved)
+                && resolved is PdfInteger indirect && indirect.Value == length;
+        }
+        catch (QpdfParseException) { return false; }
     }
 
     private QpdfObject CopyReference(PdfReference reference, int depth)
@@ -592,9 +616,13 @@ internal sealed class GraphCopier
     }
 
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth)
+        => CopyDictionary(dictionary, depth, null);
+
+    private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth, PdfInteger? streamLength)
     {
         Reserve(64L);
-        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(dictionary.Count);
+        bool addLength = streamLength is not null && !dictionary.TryGet(LengthKey, out _);
+        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(checked(dictionary.Count + (addLength ? 1 : 0)));
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext(_governor, _governor.CancellationToken))
         {
@@ -602,6 +630,11 @@ internal sealed class GraphCopier
             if (value is null) { continue; }
 
             Reserve(32L);
+            if (streamLength is not null && key.Equals(LengthKey))
+            {
+                SetEntry(entries, key, streamLength);
+                continue;
+            }
             if (key.Equals(ParentKey))
             {
                 QpdfObject? preserved = TryCopyParent(value, depth);
@@ -615,6 +648,12 @@ internal sealed class GraphCopier
             }
 
             SetEntry(entries, key, CopyValue(value, depth + 1));
+        }
+
+        if (addLength && streamLength is not null)
+        {
+            Reserve(32L);
+            SetEntry(entries, LengthKey, streamLength);
         }
 
         return CompleteDictionary(entries);
