@@ -1,6 +1,48 @@
 # Progress
 
-## Argv filtering — CFG-01B3C2F implemented, combined proof pending
+Delivery scope revised 2026-10-11: complete the agreed supported profile, with
+the accepted CMYK/YCCK and unavailable-Zopfli differences. Exact CLR sizes,
+small-object receipts, metadata-alias billing, fixed GC retirement and precise
+bookkeeping accounting are withdrawn release obligations. Accounting targets
+estimated job storage; unreleased charges do not establish retained memory.
+Public counter wording and obsolete tests are queued for reconciliation, not
+already refactored. Historical gate/count requirements below are evidence, not
+additional completion verdicts. Keep meaningful limits, cancellation, cleanup,
+output integrity and actual leak/growth regressions.
+
+## Array-valued AcroForm copying — HINT-05
+
+All eight original native-success/managed-rejection jobs reproduce the schema
+failure before correction. Array-valued forms now use ordinary governed catalog
+graph copying; dictionary forms retain field rebuilding. Direct/indirect arrays,
+cycles and shared resources survive. Explicit removal drops the opaque entry;
+merge/overlay field imports replace it, matching the reference.
+
+Fresh-output inspection also exposed a forward link lost when page 1's shared
+child pointed to selected page 2. Single- and multi-source copying now register
+selected page identities before descent, using the existing mapping. Duplicate
+page copies still allocate separate occurrences; omitted pages remain excluded.
+Original input bytes and native hint observations stay unchanged. The ordinary
+regressions now require success, original assignments and graph integrity;
+output-limit failure preserves the prior target and closes leases.
+
+Locked restore and Release build pass with zero warnings. All 541 affected
+form/catalog/hint/selection/merge/overlay/check tests pass, no skips, in 12.7s
+outer wall (2s runner). Fresh pinned qpdf checks all eight original managed
+outputs for PDF syntax, page count and linearization, plus graph invariants,
+in 5.5s. Six further native/managed jobs cover plain copy, subset containment,
+removal, merge, overlay and an indirect array. Build wall is 31.8s; the initial
+schema correction alone missed the forward page link, which the independent
+comparison exposed and the final regression now requires. The subset negative
+accepts a null link as well as an omitted key. Full integration qualification is
+deferred to its planned checkpoint, rather than repeated for this correction.
+
+Next product tasks: the three recorded overlay discrepancies, then undefined
+form/default font pruning. Reuse completed evidence and run affected checks;
+comprehensive reference/visual/package qualification belongs to the integration
+checkpoint. Approximate accounting/test consolidation follows these defects.
+
+## Argv filtering — CFG-01B3C2F retired
 
 Original complete public jobs with 128 empty global blocks/2048-work and
 1000 page sources/28672-byte memory limits reached the PDF host instead of
@@ -27,7 +69,9 @@ the original 2048-work/28672-byte jobs now reject before input. Its async host
 wrapper explains the allocation difference from the initial probe. The unchanged
 6656-byte positive still opens the host. All 21 independent physical minima,
 90 detached-scratch boundaries and 48 final-zero jobs pass without additional
-maintenance calls. Combined committed proof is pending.
+maintenance calls. Committed `eff904f` passes 18658 ordinary cases in 10m07s,
+the complete pinned reference in 8m37s, native characterization, API/package and
+fresh consumer checks. These totals describe that checkpoint, not future gates.
 The first grammar trial assumed repeated
 max-stream-filter setters reject; the unchanged control now preserves their
 established acceptance. Raw failures and the live/cumulative allocation

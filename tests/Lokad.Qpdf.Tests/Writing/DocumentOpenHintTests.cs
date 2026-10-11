@@ -8,7 +8,7 @@ using UglyToad.PdfPig;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
-/// <summary>Frozen native document-open assignments and retained schema rejections.</summary>
+/// <summary>Native document-open assignments and catalog graph preservation.</summary>
 public sealed class DocumentOpenHintTests
 {
     private static readonly JsonObject Corpus = Load();
@@ -55,25 +55,15 @@ public sealed class DocumentOpenHintTests
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task NativeAssignmentsOrExplicitSchemaRejectionRemainVisible(string id)
+    public async Task NativeAssignmentsAndCatalogGraphsRemainCompatible(string id)
     {
         JsonObject row = Row(id);
         InMemoryQpdfHost host = await HostAsync(row);
         QpdfLimits limits = QpdfLimits.Default;
         QpdfExecutionResult result = await ExecuteAsync(host, row, limits);
-        Assert.Equal((QpdfExitCode)(row["ManagedExit"]?.GetValue<int>() ?? throw new InvalidOperationException()), result.ExitCode);
+        Assert.Equal((QpdfExitCode)(row["NativeExit"]?.GetValue<int>() ?? throw new InvalidOperationException()), result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.Equal(0L, host.OpenLeaseCount);
-        if (result.ExitCode != QpdfExitCode.Success)
-        {
-            // An array-valued AcroForm is an existing schema rejection. The
-            // native success and complete hints remain in the corpus as a gap.
-            Assert.Equal("AcroForm", Text(row["Key"]));
-            Assert.Equal("array", Text(row["Shape"]));
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("Catalog /AcroForm must be a dictionary.", StringComparison.Ordinal));
-            Assert.Equal(new byte[] { 17, 23, 41 }, pdf);
-            return;
-        }
         Assert.InRange(result.Counters.TotalWork, 1L, limits.MaxWork);
 
         InMemoryQpdfHost readerHost = new();
@@ -98,6 +88,22 @@ public sealed class DocumentOpenHintTests
                 PdfReference catalogReference = Assert.IsType<PdfReference>(Get(document.Engine.Trailer, "Root"));
                 PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(catalogReference.ObjectNumber));
                 QpdfObject root = Get(catalog, Text(row["Key"]));
+                if (Text(row["Key"]) == "AcroForm" && Text(row["Shape"]) == "array")
+                {
+                    PdfDictionary open = Assert.IsType<PdfDictionary>(Assert.Single(Assert.IsType<PdfArray>(root).Items));
+                    Assert.True(Assert.IsType<PdfBoolean>(Get(open, "DocOpenRoot")).Value);
+                    PdfReference anchor = Assert.IsType<PdfReference>(Get(open, "Anchor"));
+                    PdfDictionary child = Assert.IsType<PdfDictionary>(document.GetObject(anchor.ObjectNumber));
+                    Assert.Equal(anchor, Assert.IsType<PdfReference>(Get(child, "Cycle")));
+                    Assert.Equal(Get(open, "Resource"), Get(child, "Resource"));
+                    Assert.Equal(Assert.IsType<PdfArray>(Get(open, "Destinations"))[1], Get(child, "P"));
+                    foreach (QpdfObject destination in Assert.IsType<PdfArray>(Get(open, "Destinations")).Items)
+                    {
+                        PdfReference page = Assert.IsType<PdfReference>(destination);
+                        Assert.Equal("Page", Assert.IsType<PdfName>(Get(Assert.IsType<PdfDictionary>(
+                            document.GetObject(page.ObjectNumber)), "Type")).DisplayText);
+                    }
+                }
                 if (root is PdfReference openReference)
                 { Assert.True(PhysicalOffset(document, openReference.ObjectNumber) < firstPageOffset); }
                 else if (Text(row["Shape"]) == "reference")
@@ -129,12 +135,43 @@ public sealed class DocumentOpenHintTests
         return entry.First;
     }
 
+    [Fact]
+    public async Task ArrayFormSubsetPrunesOmittedPageLinks()
+    {
+        InMemoryQpdfHost host = await HostAsync(Row("AcroForm-array-disable-False-argv"));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        InMemoryQpdfHost readerHost = new();
+        readerHost.AddInput(QpdfPath.From("read.pdf"), pdf, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(readerHost, QpdfPath.From("read.pdf"), CancellationToken.None))
+        {
+            Assert.Equal(1, document.PageCount);
+            PdfReference catalogReference = Assert.IsType<PdfReference>(Get(document.Engine.Trailer, "Root"));
+            PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(catalogReference.ObjectNumber));
+            PdfDictionary open = Assert.IsType<PdfDictionary>(Assert.Single(Assert.IsType<PdfArray>(Get(catalog, "AcroForm")).Items));
+            PdfArray destinations = Assert.IsType<PdfArray>(Get(open, "Destinations"));
+            Assert.IsType<PdfReference>(destinations[0]);
+            Assert.IsType<PdfNull>(destinations[1]);
+            PdfReference anchor = Assert.IsType<PdfReference>(Get(open, "Anchor"));
+            PdfDictionary child = Assert.IsType<PdfDictionary>(document.GetObject(anchor.ObjectNumber));
+            if (child.TryGet(PdfName.FromAscii("P"), out QpdfObject omittedPage))
+            { Assert.IsType<PdfNull>(omittedPage); }
+        }
+        Assert.Equal(0L, readerHost.OpenLeaseCount);
+        using PdfDocument independent = PdfDocument.Open(new MemoryStream(pdf));
+        Assert.Equal(1, independent.NumberOfPages);
+    }
+
     public static IEnumerable<object[]> PublicationCases()
     {
         foreach (JsonObject row in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>())
         {
             if (Text(row["Key"]) == "AcroForm" && Text(row["Shape"]) == "dictionary"
-                || Text(row["Key"]) == "PageMode" && Text(row["Shape"]) == "reference")
+                || Text(row["Key"]) == "PageMode" && Text(row["Shape"]) == "reference"
+                || Text(row["Id"]) == "AcroForm-array-generate-True-job")
             { yield return [Text(row["Id"])]; }
         }
     }

@@ -2120,7 +2120,7 @@ internal static class AcroFormCopy
         }
     }
 
-    private static PdfDictionary? TryGetSourceForm(DocumentEngine engine)
+    internal static PdfDictionary? TryGetSourceForm(DocumentEngine engine)
     {
         if (!engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject? root) || root is null || root is PdfNull)
         {
@@ -2153,9 +2153,10 @@ internal static class AcroFormCopy
 
         if (form is PdfReference formReference)
         {
-            if (resolver.TryResolve(formReference, out QpdfObject? resolved) && resolved is PdfDictionary resolvedForm)
+            if (resolver.TryResolve(formReference, out QpdfObject? resolved))
             {
-                return resolvedForm;
+                if (resolved is PdfDictionary resolvedForm) { return resolvedForm; }
+                if (resolved is PdfArray) { return null; }
             }
 
             throw new QpdfParseException("Unresolvable catalog /AcroForm reference.", null, formReference.ObjectNumber);
@@ -2165,6 +2166,10 @@ internal static class AcroFormCopy
         {
             return direct;
         }
+
+        // The reference preserves array-valued catalog entries without treating
+        // them as interactive field dictionaries. CatalogCopy owns that graph.
+        if (form is PdfArray) { return null; }
 
         throw new QpdfParseException("Catalog /AcroForm must be a dictionary.", null, null);
     }

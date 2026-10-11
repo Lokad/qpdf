@@ -1,17 +1,23 @@
-# Audit closure checklist
+# Product findings and historical audit evidence
 
-This is the finite work inventory for M11 and A01–A07. It supplements the
-compatibility inventory and the binding scope; it does not reduce either.
-Each correction names the entries it retires, its public failure, source tree,
-fixtures, command, terminal result and remaining qualifications. A gate closes
-only when all of its entries close. A newly discovered defect gets a new entry;
-reopen an established entry only with evidence that invalidates its pass condition.
+The 2026-10-11 delivery scope supersedes the old M11/A01–A07 gate framework,
+binding validation and separate completion verdicts. Deliver the agreed supported
+profile. Exact CLR sizes, individual small-object receipts, retained metadata
+alias billing, fixed GC retirement and precise bookkeeping accounting are no
+longer release obligations. Practical size/work/decompression limits,
+cancellation, cleanup, output integrity and actual retained growth remain.
+The old rows and measurements below preserve useful history; an open broad
+audit or accounting census is not an implicit remaining release task.
+Corrections close specific public defects or bounded checks. Existing passing
+evidence settles unchanged behavior; comprehensive qualification is reserved
+for integration/release checkpoints. No immutable historical test count applies.
 
 Public routes below use **typed / argv / job** for the three shared entry points.
-Include mixed configuration and nested job loading where applicable. A helper
-test supplements a complete public job; it cannot replace one. Success, failure,
-both cancellation tokens, input/output close faults and publication faults must
-retain accepted aliases, preserve prior targets and close host leases.
+Use affected public jobs and existing independent checks; helper tests supplement
+their meaningful behavior evidence. Cover important interactions once, rather
+than multiplying every route, encoding, fault and lifetime axis. Representative
+success/failure/cancellation/host-fault controls retain usable accepted outputs,
+preserve publication contracts and close host leases.
 
 Run the existing focused lane with this PowerShell function from the repository:
 
@@ -23,11 +29,10 @@ function T([string] $Filter) {
 }
 ```
 
-The table identifies the executable starting check and the additional observations
-required for closure. An existing lane passing is insufficient when its row still
-names missing controls or independent evidence. Add those controls to the named
-lane before retiring the row; zero matched tests is never a pass. Independent
-measurements record the method, original thresholds and terminal result separately.
+The table retains starting checks and historical observations. For a current
+product finding, passing checks must cover its concrete defect and completion
+criterion; an empty selection never counts. Broader audits and exact-accounting
+observations in old rows are superseded, rather than carried forward implicitly.
 
 | ID / gate / state | Affected public routes | Executable starting check | Finite pass condition / missing evidence |
 | --- | --- | --- | --- |
@@ -46,7 +51,7 @@ measurements record the method, original thresholds and terminal result separate
 | TEST-02B / M11,A07 / retired | Complete public scenarios in TypedCounterOwnershipTests | `T 'TypedCounterOwnershipTests'`; before/after scenario and outcome manifests | Preserve all 416 original cases, every alias/phase and fixture, limits, both tokens, host fault/publication behavior, original four-round maintenance and sequential cycle pressure. Factor cheap contracts and batched lifetime observations; prove at least a twofold comparable focused reduction without losing any known predecessor failure. Final combined TEST-02 proof must execute the full suite once, retain all scope-specific evidence and record phase timings. |
 | TEST-02C / M11,A07 / retired | Complete public scenarios in TypedResultOwnershipTests | `T 'TypedResultOwnershipTests'`; before/after scenario and outcome manifests | Preserve all 447 original cases, every alias/phase and fixture, limits, both tokens, host fault/publication behavior, original four-round maintenance and sequential cycle pressure. Factor cheap contracts and batched lifetime observations; prove at least a twofold comparable focused reduction without losing any known predecessor failure. Final combined TEST-02 proof must execute the full suite once, retain all scope-specific evidence and record phase timings. |
 | TEST-02D / M11,A07 / retired | Complete public scenarios in DiagnosticFailureExportTests | `T 'DiagnosticFailureExportTests'`; before/after scenario and outcome manifests | Preserve all 464 original cases, every alias/phase and fixture, limits, both tokens, host fault/publication behavior, original four-round maintenance and sequential cycle pressure. Factor cheap contracts and batched lifetime observations; prove at least a twofold comparable focused reduction without losing any known predecessor failure. Final combined TEST-02 proof must execute the full suite once, retain all scope-specific evidence and record phase timings. |
-| HINT-01 / A04,A07 / retired | Argv / job linearize; classic and object streams; compressed and raw hints | `T 'DocumentOpenHintTests'` | Retain all 152 native observations, including eight array-AcroForm rejections as an open gap. The other 144 match physical assignments and native checks; all eight original form warnings disappear. Cycles, direct/indirect roots, nested pages and physical container ownership survive. |
+| HINT-01 / A04,A07 / retired | Argv / job linearize; classic and object streams; compressed and raw hints | `T 'DocumentOpenHintTests'` | Original native observations are preserved. The eight array-AcroForm rejections were a separate HINT-05 defect, corrected below. Physical assignments, cycles, direct/indirect roots, nested pages and container ownership remain covered. |
 | HINT-02 / A04,A07 / retired | Typed Check; argv / job check and check-linearization; show-linearization | `T 'LinearizationPhysical\|LinearizationTests\|LinearizationInspectionTests\|LinearizedWriterTests'` | All eight preserved invalid form outputs reject; corrected/native controls pass. Physical page runs/counts/lengths, /O,/E,/T, primary/overflow spans, complete shared groups/members/identifiers, outlines and compressed owners match independent input boundaries/classification. Native ignored integer /P/content fields stay accepted. 1058 public jobs, eight scratch controls, all 10833 tests and final reference/package/source binding pass. Broader checker/ownership gates remain open. |
 | HINT-03 / A02,A04,A06 / retired combined correction | Complete linearized rewrite followed by check/show, typed / argv / job | `T 'LinearizedHintEncoderOwnershipTests\|LinearizedPublicHintOwnershipTests\|LinearizationDataOwnershipTests\|LinearizationPublicReadOwnershipTests\|LinearizedWriterOwnershipTests\|LinearizedLayoutOwnershipTests\|LinearizationTests'` | The committed reader/writer correction passes 11008 cases, including 139 new complete public jobs. The unchanged 4 KiB probe completes 64 calls, zero surviving bodies, peak 1503 bytes; retain its 1224-byte owned-ledger qualification and the original failed observation. Retire parsing, primary/overflow buffers, bit storage, identifiers, numerators, groups, raw/compressed bodies and replay scratch on every outcome. Surviving bodies/outputs remain funded until last alias. Preserve the 4 KiB probe and original 32 KiB/32-cycle controls. |
 | HINT-03E / A04,A06 / retired encoder correction | Argv/job hint encoding; independently escaping helper bodies | `T 'LinearizedHintEncoderOwnershipTests'`; original 4 KiB probe | The unchanged 4 KiB/64-call/four-GC-round probe completes 64 calls, zero surviving bodies, peak 1503 bytes. Keep its 1224-byte owned ledger metadata observation explicit; additional job-thread maintenance retires it to zero. Surviving sibling arrays retain their own receipt. Failed admission and either token retire only the attempt. HINT-03V supplies final combined verification. |
@@ -54,7 +59,7 @@ measurements record the method, original thresholds and terminal result separate
 | HINT-03R / A02,A04,A06 / retired reader correction | Typed Check; argv/job check/check-linearization/show-linearization, including rewritten output | `T 'LinearizationDataOwnershipTests\|LinearizationPublicReadOwnershipTests\|LinearizationPhysicalScratchTests\|LinearizationTests'` | All 106 new controls pass: 31 component ownership/failure/cancellation checks and 75 complete public reads across classic, streamed, overflow and Flate inputs. Primary/overflow decoding, joins, cursors and temporary arrays retire; parsed tables/groups/identifiers/numerators use separate receipts through check/show and independent aliases. Decoded scratch dies while parsed owners and source streams survive. Both tokens, late admission/work failures and host-close faults preserve source/prior output aliases and close leases. Original 32 KiB/32-cycle controls and 128 KiB inflate allowance remain. Same final tests on the committed writer runtime: 30 fail / 76 preserve / 106 eligible, no loaders/skips. HINT-03V records final proof. |
 | HINT-03V / A05,A07 / retired final verification | Final combined hint read/write public jobs and package | Required Release/reference/package sequence below; original 868 comparison lane | Freeze all read/write corrections, preserve every original case/budget/GC/cancellation control, then run full tests, pinned native/reference and fresh package/consumer checks once. Keep all 64 original pairs/868 headers/804 decoded/868 exits unchanged; prove committed source/DLL/artifact/API identity and phase timings. All pass at `4c60a78`/`b7e3b27`: 11008 tests (all 10833 prior occurrences), 1846 parser comparisons/432 trios, 50 fresh consumer smokes/two specific negatives, exact packed DLL/changelog/symbols, 908 signatures and seven carrier samples. All 537 committed paths match; 524 unrelated raw paths/247 old tests/five locks are preserved. Phase timings are recorded in PROGRESS.md. HINT-03 is retired; wider gates remain open. |
 | HINT-04 / A05,A07 / retired classification; raw comparison retained | Argv / job linearization with both stream/compression modes | `T 'LinearizedHint'`; pinned reference lane below | Keep every field, padding bit and byte in all original 64 pairs/868 observations. Independently prove both physical layouts and semantic assignments before correcting a difference. Preserve 868 headers / 804 decoded / 868 exits as the raw baseline and all 128 native linearization checks. Raw equality is a separate criterion; classification does not turn 804 into 868. |
-| HINT-05 / A07 / open | Argv / job copying with array-valued AcroForm | `T 'DocumentOpenHintTests\|AcroFormPreservationTests'` | Resolve the eight native-success/managed-schema-rejection controls by a demonstrated compatible behavior or explicit agreed-profile classification. Preserve every native observation and prior target; do not silently exclude these controls. |
+| HINT-05 / resolved array-valued AcroForm | Argv/job copying; shared single/multi-source page graphs | `T 'DocumentOpenHintTests\|AcroFormPreservationTests\|CatalogPreservationTests\|CheckTransformationTests'` | Original eight jobs succeed with their native assignments. Preserve opaque arrays and cyclic/shared links, including links to later selected pages; omitted pages remain contained. Direct/indirect arrays, removal, imported-field replacement and output-limit atomicity have regressions. Fresh pinned-native PDF/linearization checks qualify the original eight outputs. |
 | OWN-01 / A04,A06 / open | Typed Open, selection and Check; argv / job strict/recovered read and JSON | `T 'ParserOwnershipTests\|ParserDiscardTests\|ReaderAcceptanceTests\|XrefCollectionTests\|DocumentLifetimeTests\|NameCollisionTests'` | Complete nested loading/recovery coverage for generations, stale catalogs, Extends, structural streams, duplicate last-wins, discarded subtrees and colliding raw names. Original per-object budgets, warnings and accepted aliases remain; cold metadata and public failure precedence are independently funded. |
 | OWN-02 / A04,A06 / open | Typed selection; argv / job copy, merge, split and replacement | `T 'RemappedModelOwnershipTests\|PageSelectionTests\|MergeTests\|JsonValueOwnershipTests'` | Add later copier, after-start cancellation and publication/close failures. Follow accepted dictionaries, names, headers, mappings, resource plans and payload aliases through writer and host publication. Earlier accepted graphs stay usable and funded; failure retires only its attempt and preserves every prior output. |
 | OWN-03 / A04,A06 / open | Check/show-pages/show-object/show-xref/list-attachments and PDF JSON in all routes | `T 'CheckDetailOwnershipTests\|HelperPublicFormattingTests\|JsonValueOwnershipTests\|FormTraversalOwnershipTests'` | Enumerate and fund each remaining inspection/image/JSON list, key view, ancestry/resource walk, capacity and escaping record. Preserve schemas, order, inheritance, null/missing and generation outcomes. Completed tasks and rooted wrappers detach dead metadata. |
@@ -133,8 +138,9 @@ original 804/868 complete-byte criterion. POLICY-01 records temporary acceptance
 HINT-02 is retired by the committed physical checker: 10833 final cases, 1846
 parser comparisons/432 rewrite trios and fresh package/consumer verification pass.
 HINT-03E/W/R/V and HINT-03 are retired by the integrated source-bound correction
-and complete final checks above. HINT-05 and every broader ownership/audit/verdict
-entry remain open. DIAG-02C is retired at `234de72` with final evidence above;
+and complete final checks above. HINT-05 was open at that checkpoint and is now
+resolved above; broad ownership/audit/verdict requirements are superseded by the
+current delivery scope. DIAG-02C is retired at `234de72` with final evidence above;
 DIAG-02P1 retires summary-count reservation with focused committed evidence;
 DIAG-02P2Q retires exact message-byte quotas with 1842 focused checks and decisive
 675-public-case predecessor evidence; it fixes the three 16-byte publications.
@@ -151,8 +157,10 @@ P2/P3/PV, JSON-01, DIAG-01 and the parent remain open.
 The integration entry retires committed work, not the wider ownership entries.
 For example, passing governed parser/copying and completed-writer controls remains
 valid evidence while OWN-01/02/04 still require public/cold/fault coverage. The
-eight newly retained AcroForm schema gaps and the unexplained allocation sample
-are explicit findings; neither invalidates unrelated established native results.
+eight AcroForm schema gaps recorded then are now corrected. The unexplained
+allocation sample remains historical evidence to classify by actual amplification
+or growth, rather than an exact-accounting release requirement. Neither finding
+invalidates unrelated established native results.
 
 Keep these original controls unchanged in every applicable row: 32 KiB/32 cycles,
 input+40000/60000/80000, diagnostic quotas/fixtures/warning histories, JSON ceilings

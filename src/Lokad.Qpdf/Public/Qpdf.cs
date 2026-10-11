@@ -333,6 +333,10 @@ public static partial class Qpdf
 
         using ParserMemoryScope copyMemory = ParserMemoryScope.Create(governor);
         GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 3, copyMemory);
+        foreach (int pageNumber in requested)
+        {
+            copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
+        }
         List<PdfReference> kids = new(requested.Count);
         List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(requested.Count);
         foreach (int pageNumber in requested)
@@ -367,7 +371,7 @@ public static partial class Qpdf
             }
         }
 
-        Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, governor, cancellationToken);
+        Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
         SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, copyMemory, cancellationToken);
         string? singlePageMode = ReadInputPageMode(document.Engine);
 
@@ -858,6 +862,10 @@ public static partial class Qpdf
             }
 
             GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
+            foreach (int pageNumber in requested)
+            {
+                copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
+            }
             List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)> taken = new(requested.Count);
             foreach (int pageNumber in requested)
             {
@@ -913,7 +921,7 @@ public static partial class Qpdf
                 (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
                 primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
                 (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
-                primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, governor, cancellationToken);
+                primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
                 if (primaryInfo is not null)
                 {
                     catalogExtraIds.Add(primaryInfo.ObjectNumber);
@@ -1711,6 +1719,9 @@ public static partial class Qpdf
         {
             foreach (KeyValuePair<PdfName, QpdfObject> extra in extras)
             {
+                // Imported fields replace an opaque primary form, as they do
+                // in the reference; the preserved array must not overwrite it.
+                if (acroForm is not null && extra.Key.RawSpan.SequenceEqual("AcroForm"u8)) { continue; }
                 entries[extra.Key] = extra.Value;
             }
         }

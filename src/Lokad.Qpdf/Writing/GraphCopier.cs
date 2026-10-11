@@ -138,6 +138,17 @@ internal sealed class GraphCopier
 
     internal int NextId => _nextId;
 
+    // Register selected page identities before descending into any page graph.
+    // Otherwise a link to a later selected page is prematurely pruned to null.
+    internal void RegisterPageRoot(int? sourceNumber)
+    {
+        _governor.ChargeWork(1L);
+        if (!sourceNumber.HasValue || _mapping.ContainsKey(sourceNumber.Value)) { return; }
+        int id = _nextId;
+        checked { _nextId += 1; }
+        Map(sourceNumber.Value, id);
+    }
+
     internal void AdvanceNextId(int nextId)
     {
         if (nextId <= 0) { throw new ArgumentOutOfRangeException(nameof(nextId)); }
@@ -396,7 +407,14 @@ internal sealed class GraphCopier
         }
 
         int pageId = retainSourceObjects && sourceNumber.HasValue ? sourceNumber.Value : _nextId;
-        if (!(retainSourceObjects && sourceNumber.HasValue))
+        bool prepared = false;
+        if (!retainSourceObjects && sourceNumber.HasValue
+            && _mapping.TryGetValue(sourceNumber.Value, out int registered) && !_copied.ContainsKey(registered))
+        {
+            pageId = registered;
+            prepared = true;
+        }
+        if (!(retainSourceObjects && sourceNumber.HasValue) && !prepared)
         {
             checked { _nextId += 1; }
         }

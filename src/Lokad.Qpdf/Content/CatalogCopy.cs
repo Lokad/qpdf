@@ -142,6 +142,7 @@ internal static class CatalogCopy
         DocumentEngine engine,
         GraphCopier copier,
         bool preserveCatalog,
+        bool removeAcroform,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
     {
@@ -188,6 +189,14 @@ internal static class CatalogCopy
                 continue;
             }
 
+            // Dictionaries use the field-preservation path. Array-valued forms
+            // stay opaque catalog graphs, including their shared/cyclic links.
+            if (key.RawSpan.SequenceEqual("AcroForm"u8)
+                && (removeAcroform || AcroFormCopy.TryGetSourceForm(engine) is not null))
+            {
+                continue;
+            }
+
             // Name-valued PageMode is rebuilt by attachment handling. Preserve
             // other values, including indirect roots, through the ordinary copier.
             if (key.RawSpan.SequenceEqual("PageMode"u8) && raw is PdfName)
@@ -217,7 +226,6 @@ internal static class CatalogCopy
             || name == "MarkInfo"
             || name == "Metadata"
             || name == "Names"
-            || name == "AcroForm"
             || name == "Version"
             || name == "Extensions";
     }

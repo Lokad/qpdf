@@ -4,13 +4,34 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+Release acceptance is the agreed supported profile, including the documented
+CMYK/YCCK and unavailable-Zopfli limitations. Historical original-coverage
+verdicts and broad audit/count gates below no longer add blocking criteria.
+Exact CLR sizes, small-object receipts, metadata-alias billing, fixed GC rounds
+and byte-precise bookkeeping accounting are withdrawn obligations; practical
+limits, cancellation, cleanup, host boundaries and actual memory growth remain.
+Approximate counter/XML and test reconciliation is pending; this scope decision
+does not claim that the existing accounting implementation has been refactored.
+
+Array-valued catalog AcroForm entries now survive argv/job copying through the
+shared graph copier. All eight original rejection controls require success and
+the retained native hint assignments. Indirect arrays, cyclic/shared references,
+explicit removal and merge/overlay field replacement have focused regressions.
+Selected page identities are registered before copying so auxiliary links to
+later selected pages survive; omitted-page containment remains in force.
+All 541 affected ordinary checks pass. Fresh pinned-native checking accepts the
+eight original outputs, including their linearization, and six representative
+copy/selection/removal/merge/overlay/indirect-array jobs. This is affected-feature
+evidence; the complete release checkpoint remains a separate finite task.
+
 CFG-01B3C2F implements governed argv global-block/main-option filtering. Sorted
 markers, actual vector growth/overlap and borrowed strings preserve original
 ordering/grammar. Two original public limit failures must reject before input;
 a third live-memory boundary remains positive. Complete argv/response consumers,
 independent physical samples, faults/cancellation and result/output cleanup are
-required. Combined committed proof is pending; other parser plans/global/context
-vectors and configuration/DOM gates remain open.
+required. Committed `eff904f` passes the combined ordinary/reference/native/API/
+package/consumer checks. Remaining exact-admission censuses are superseded by
+the practical approximate-accounting scope above.
 
 CFG-01B3C2L retires on committed `aabe0a2`: governed collation scans, actual
 vector growth and policy snapshots through complete public execution. The
@@ -156,14 +177,16 @@ Document-open hint classification now handles direct containers, indirect roots,
 page boundaries and generated object-stream containers. The original two-page
 form invocations retain their fixtures/settings/routes. Non-name PageMode values
 are preserved through catalog copying. Additional structural controls retain all
-native hint fields; array-valued AcroForm still has eight explicit schema-rejection
-differences. These controls establish no complete catalog-schema/default parity.
+native hint fields. The eight array-valued AcroForm schema rejections recorded
+at that checkpoint are corrected by the shared copying change above. These
+controls establish no complete catalog-schema/default parity.
 The preceding document-open integration passed 9767 Release cases; all 9597
 preceding occurrences remained. The committed physical checker passes all 10833
 final cases, retaining those 9767 occurrences and adding 1066 controls. Of 152
 retained native document-open observations, 144
 outputs pass native linearization and match assignments with zero warnings;
-eight array-AcroForm schema rejections retain the native-success difference.
+eight array-AcroForm cases retained the native-success difference at that
+checkpoint; their original inputs now require compatible success.
 The committed physical checker rejects all eight preserved invalid form outputs
 and accepts the corrected/native layouts; HINT-02 is retired by final source-bound
 public, reference and package verification. See the finite public-route

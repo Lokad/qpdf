@@ -149,6 +149,85 @@ public sealed class AcroFormPreservationTests
         return output;
     }
 
+    private static byte[] ArrayFormPdf(bool indirect)
+    {
+        const string array = "[<< /DocOpenRoot true /Anchor 6 0 R /Resource 8 0 R >>]";
+        return BuildFormPdf(" /AcroForm " + (indirect ? "5 0 R" : array), string.Empty, [],
+        [
+            (array, null),
+            ("<< /DocOpenChild true /Cycle 6 0 R /Resource 8 0 R >>", null),
+            ("<< /Child 6 0 R >>", null),
+            ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+        ]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PlainRewritePreservesArrayFormAndSharedCyclicGraph(bool indirect)
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), ArrayFormPdf(indirect), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        PdfDictionary catalog = RequireCatalog(output);
+        Assert.True(catalog.TryGet(PdfName.FromAscii("AcroForm"), out QpdfObject raw));
+        PdfArray form;
+        if (indirect)
+        {
+            PdfReference reference = Assert.IsType<PdfReference>(raw);
+            form = Assert.IsType<PdfArray>(output.GetObject(reference.ObjectNumber));
+        }
+        else { form = Assert.IsType<PdfArray>(raw); }
+        PdfDictionary open = Assert.IsType<PdfDictionary>(Assert.Single(form.Items));
+        Assert.True(open.TryGet(PdfName.FromAscii("Anchor"), out QpdfObject anchorRaw));
+        PdfReference anchor = Assert.IsType<PdfReference>(anchorRaw);
+        PdfDictionary child = Assert.IsType<PdfDictionary>(output.GetObject(anchor.ObjectNumber));
+        Assert.True(child.TryGet(PdfName.FromAscii("Cycle"), out QpdfObject cycle));
+        Assert.Equal(anchor, cycle);
+        Assert.True(open.TryGet(PdfName.FromAscii("Resource"), out QpdfObject resource));
+        Assert.True(child.TryGet(PdfName.FromAscii("Resource"), out QpdfObject sharedResource));
+        Assert.Equal(resource, sharedResource);
+        Assert.Equal(1, output.PageCount);
+    }
+
+    [Fact]
+    public async Task RemoveAcroformDropsOpaqueArrayEntry()
+    {
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), ArrayFormPdf(true), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/a.pdf", "--remove-acroform", "outputs/a.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        Assert.False(RequireCatalog(output).TryGet(PdfName.FromAscii("AcroForm"), out _));
+        Assert.Equal(1, output.PageCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImportedFieldsReplaceOpaquePrimaryForm(bool overlay)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/b.pdf", "forms-1page.pdf");
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), ArrayFormPdf(false), QpdfInputOwnership.Copy);
+        string[] args = overlay
+            ? ["inputs/a.pdf", "--overlay", "inputs/b.pdf", "--", "outputs/a.pdf"]
+            : ["inputs/a.pdf", "--pages", ".", "1", "inputs/b.pdf", "1", "--", "outputs/a.pdf"];
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(args), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        await using QpdfDocument output = await RereadAsync(host, "outputs/a.pdf");
+        PdfDictionary field = Assert.Single(ResolveFields(output, RequireForm(RequireCatalog(output))));
+        Assert.Equal("Name", FieldText(field, "T"));
+        Assert.Equal("Hello", FieldText(field, "V"));
+        Assert.Equal(overlay ? 1 : 2, output.PageCount);
+    }
+
     [Fact]
     public async Task TypedSelectionPreservesFieldRegistrationAndValue()
     {

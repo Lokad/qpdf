@@ -113,6 +113,12 @@ Document-open traversal starts at catalog values, so direct containers retain
 indirect descendants and indirect roots retain their own physical identities.
 Page boundaries are tested before assigning object-stream owners. The ordering
 pass includes generated container IDs when placing document-open objects.
+The shared copier registers selected page identities before descending into
+their values, so auxiliary links to later selected pages remap without losing
+them. Omitted pages stay excluded and duplicate occurrences remain distinct.
+Array-valued AcroForm entries use ordinary catalog graph copying; dictionary
+forms use field preservation/rebuilding, and imported fields take precedence
+over an opaque primary array. Explicit form removal still drops the entry.
 The catalog copier preserves non-name PageMode values through its existing graph
 copy path. Physical linearization checking uses the shared reader for object
 ends and the shared graph classifier for compressed owners. It verifies page
