@@ -13,7 +13,7 @@ internal static class WarmCommand
         if (args.Length != 0) { throw new ProbeException("warm accepts no arguments.", 1); }
         TextWriter protocol = Console.Out;
         TextWriter errors = Console.Error;
-        for (int request = 0; request < 4096; request++)
+        for (int request = 0; request < 65536; request++)
         {
             string? line = Console.ReadLine();
             if (line is null) { return 0; }
@@ -46,6 +46,6 @@ internal static class WarmCommand
             protocol.Flush();
             if (exit != 0) { return exit; }
         }
-        throw new ProbeException("warm exceeded 4096 jobs.", 1);
+        throw new ProbeException("warm exceeded 65536 jobs.", 1);
     }
 }

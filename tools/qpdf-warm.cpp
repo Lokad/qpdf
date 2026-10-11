@@ -11,7 +11,8 @@
 int main()
 {
     std::string line;
-    for (int request = 0; request < 4096 && std::getline(std::cin, line); ++request) {
+    int request = 0;
+    for (; request < 65536 && std::getline(std::cin, line); ++request) {
         try {
             size_t consumed = 0;
             int count = std::stoi(line, &consumed);
@@ -49,6 +50,10 @@ int main()
             std::cerr << error.what() << std::endl;
             return 2;
         }
+    }
+    if (request == 65536) {
+        std::cerr << "warm exceeded 65536 jobs" << std::endl;
+        return 2;
     }
     return 0;
 }

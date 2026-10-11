@@ -42,7 +42,10 @@ class Worker:
         return sample
 
     def close(self):
-        self.process.stdin.close()
+        try:
+            self.process.stdin.close()
+        except BrokenPipeError:
+            pass
         self.process.wait(timeout=15)
         self.log.close()
         if self.process.returncode:
@@ -156,9 +159,12 @@ def main():
                         elapsed += sample["elapsedMilliseconds"]
                         count += 1
                     batches[engine].append(elapsed / count)
+                (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
             summaries[case["Name"]] = {e: {"milliseconds": describe(batches[e]),
                 "processPeakRssKiB": max(r["processPeakRssKiB"] for r in records if r["workload"] == case["Name"] and r["engine"] == e),
                 "outputBytes": sum(v["bytes"] for v in identities[e].values())} for e in workers}
+            for engine in workers:
+                summaries[case["Name"]][engine]["outputs"] = identities[engine]
             summaries[case["Name"]]["ratio"] = summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["native"]["milliseconds"]["median"]
             if args.baseline_probe:
                 summaries[case["Name"]]["improvementPercent"] = 100 * (1 - summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["baseline"]["milliseconds"]["median"])
