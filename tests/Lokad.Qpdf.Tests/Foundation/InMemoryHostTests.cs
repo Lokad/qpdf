@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Runtime;
 using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Tests.Foundation;
@@ -198,13 +199,19 @@ public sealed class InMemoryHostTests
         Assert.Throws<ArgumentException>(() => QpdfPath.From("a\0b"));
     }
 
-    [Fact]
-    public async Task StagedSlicesSurviveCallerMutationAndRejectedWrites()
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(2, true)]
+    [InlineData(6, true)]
+    [InlineData(6, false)]
+    public async Task StagedSlicesSurviveCallerMutationAndRejectedWrites(int capacityHint, bool appendTail)
     {
         InMemoryQpdfHost host = new(QpdfLimits.Default with { MaxOutputBytes = 6 });
         QpdfPath path = QpdfPath.From("outputs/doc.pdf");
         await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(path, CancellationToken.None))
         {
+            if (capacityHint != 0)
+            { Assert.IsAssignableFrom<IOutputCapacityHint>(transaction).EnsureCapacity(capacityHint, CancellationToken.None); }
             byte[] caller = [99, 1, 2, 3, 4, 99];
             await transaction.WriteAsync(caller.AsMemory(1, 4), CancellationToken.None);
             Array.Fill(caller, (byte)42);
@@ -212,12 +219,12 @@ public sealed class InMemoryHostTests
             canceled.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => transaction.WriteAsync(caller.AsMemory(0, 1), canceled.Token).AsTask());
             await Assert.ThrowsAsync<QpdfLimitException>(() => transaction.WriteAsync(caller.AsMemory(0, 3), CancellationToken.None).AsTask());
-            await transaction.WriteAsync(new byte[] { 5, 6 }, CancellationToken.None);
+            if (appendTail) { await transaction.WriteAsync(new byte[] { 5, 6 }, CancellationToken.None); }
             await transaction.CommitAsync(CancellationToken.None);
         }
         Assert.Equal(0, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(path, out byte[] output));
-        Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, output);
+        Assert.Equal(appendTail ? new byte[] { 1, 2, 3, 4, 5, 6 } : new byte[] { 1, 2, 3, 4 }, output);
     }
 }
 

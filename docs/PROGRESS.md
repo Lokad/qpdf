@@ -3,7 +3,8 @@
 The integrated performance tree is qualified on `6221e06` (2026-10-12).
 The agreed [supported profile](SUPPORTED-PROFILE.md) and its completed features
 remain closed. Subsequent bounded name hash/comparison corrections pass 2,549 affected
-checks and awaits its integration checkpoint. The performance goal is separate:
+checks; fresh staging without redundant clearing passes 4,806 affected checks.
+These corrections await their integration checkpoint. The performance goal is separate:
 establish all nine warmed structural job medians within 2× pinned qpdf 12.4.2.
 That target remains unconfirmed for the large ordinary rewrite.
 
@@ -53,7 +54,7 @@ changes, failures or unresolved concerns.
 | Copier and checker ownership | Private complete-job graphs use document/operation ownership. Unchanged stream payloads reuse immutable backing through publication. Public values retain their lifetime contracts; decompression, material-memory limits, failure cleanup and surviving outputs remain covered. |
 | Serialization | Fixed syntax and 25 common names/five small scalars use immutable bytes. Pure counting passes reuse encoding/width rules without token buffers. Object-stream captures reuse bounded scratch. Default IDs use bounded incremental hashing, preserving original classic/QDF/linearized hashes. Replay lengths, offsets, grammar, ordering/null semantics and cancellation remain checked. |
 | Bounded name hashing and comparisons | The existing governor admits the same at-most-16-byte hash and finalization work in one call. Raw comparisons up to sixteen bytes charge the exact compared count once before returning, after the caller's cancellation check. Hash values, order, comparison results, long/decoded paths, long-name observers and limits remain unchanged. Release builds and all 2,549 affected name/parser/reader/resource/copy/writer/cancellation/practical-memory checks pass after each correction. These structural reductions await their final performance/integration checkpoint. |
-| Publication | Counted output sizes admit staging once for ordinary, linearized and split output. Split admission precedes publication; pass1 remains covered. Complete private staging transfers at commit, and settled storage releases immediately. Prior outputs, host failures, cancellation, aliases and output integrity remain covered. |
+| Publication | Counted output sizes admit staging once for ordinary, linearized and split output. Fresh counted staging avoids redundant clearing; only written bytes can publish, and underestimated hints fall back to expandable storage. Split admission precedes publication; pass1 remains covered. Complete private staging transfers at commit, and settled storage drops immediately. All 4,806 affected host/publication/output/split/linearized/cancellation/practical-memory checks pass, including caller mutation, canceled/over-limit writes and partial publication. |
 
 Straightforward copy/allocation reductions are accepted structurally after
 correctness and practical resource checks. They have no empirical ≥10% gate.
@@ -70,11 +71,11 @@ preserve original input hashes. M500 rewrite allocation fell from approximately
 92.9 to 30.6 MB/job across the integrated corrections. Allocation, collection
 rates, charged estimates and process RSS remain distinct measurements.
 
-The last qualified-source comparison used seven one-second batches and put
-eight cells within 2×; M500 rewriting remained at 2.14×. Earlier contended runs
-and the overlapping narrow stream-copy pair remain in the report. Observe the
-bounded name-hash reduction with the existing narrow pair, rerank all nine,
-then qualify the final correction batch. A nine-cell comparison closes the elapsed-time goal;
+The bounded-name source `683f800` puts eight cells within 2×; M500 rewriting
+measured 2.006×. A longer seven-batch confirmation measured 2.19×; combining
+both runs' batches gives 2.11×, so the target remains open. All observations
+remain retained. Observe the fresh staging reduction with the existing narrow
+pair, rerank all nine, then qualify the final correction batch. A nine-cell comparison closes the elapsed-time goal;
 no timing gate is added to CI. Cold process results remain separate.
 
 The approximate memory contract still admits significant buffers/growth and

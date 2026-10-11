@@ -198,7 +198,8 @@ public sealed class InMemoryQpdfHost : IQpdfHost
     private sealed class InMemoryTransaction : IQpdfOutputTransaction, IOutputCapacityHint
     {
         private readonly InMemoryQpdfHost _host;
-        private readonly MemoryStream _staging = new();
+        private MemoryStream? _staging = new();
+        private bool _fixedCapacity;
         private bool _settled;
         private bool _disposed;
 
@@ -210,6 +211,8 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
         public QpdfPath Path { get; }
 
+        private MemoryStream Staging => _staging ?? throw new InvalidOperationException("Staging is already released.");
+
         void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken cancellationToken)
         {
             CheckUnsettled(cancellationToken);
@@ -217,10 +220,31 @@ public sealed class InMemoryQpdfHost : IQpdfHost
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _host._limits.MaxOutputBytes);
             }
-            if (length <= Array.MaxLength && length > _staging.Capacity)
+            if (length <= Array.MaxLength && length > Staging.Capacity)
             {
-                _staging.Capacity = (int)length;
+                if (Staging.Length == 0L)
+                {
+                    // Counted fresh staging is filled by writes before publication.
+                    // Its unused capacity is private and must never be published.
+                    byte[] bytes = GC.AllocateUninitializedArray<byte>((int)length);
+                    MemoryStream next = new(bytes, 0, bytes.Length, true, true);
+                    next.SetLength(0L);
+                    Staging.Dispose();
+                    _staging = next;
+                    _fixedCapacity = true;
+                }
+                else if (_fixedCapacity) { MakeExpandable((int)length); }
+                else { Staging.Capacity = (int)length; }
             }
+        }
+
+        private void MakeExpandable(int capacity)
+        {
+            MemoryStream next = new(capacity);
+            next.Write(Staging.GetBuffer().AsSpan(0, checked((int)Staging.Length)));
+            Staging.Dispose();
+            _staging = next;
+            _fixedCapacity = false;
         }
 
         private void CheckUnsettled(CancellationToken cancellationToken)
@@ -243,16 +267,20 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
             checked
             {
-                long next = _staging.Length + data.Length;
+                long next = Staging.Length + data.Length;
                 if (next > _host._limits.MaxOutputBytes)
                 {
                     throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _host._limits.MaxOutputBytes);
                 }
+                // A capacity hint is optional, not a ceiling. Preserve ordinary
+                // growth if a caller writes beyond the counted reservation.
+                if (_fixedCapacity && next > Staging.Capacity && next <= Array.MaxLength)
+                { MakeExpandable((int)next); }
             }
 
             // MemoryStream copies synchronously into private staging storage.
             // An intermediate array adds no isolation after Write completes.
-            _staging.Write(data.Span);
+            Staging.Write(data.Span);
             return ValueTask.CompletedTask;
         }
 
@@ -267,9 +295,9 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
             // Staging is private and settled transactions cannot write again.
             // Transfer only a complete backing; trim geometric spare capacity.
-            byte[] published = _staging.TryGetBuffer(out ArraySegment<byte> staged)
+            byte[] published = Staging.TryGetBuffer(out ArraySegment<byte> staged)
                 && staged.Offset == 0 && staged.Array is byte[] bytes && bytes.Length == staged.Count
-                ? bytes : _staging.ToArray();
+                ? bytes : Staging.ToArray();
             _host._outputs[Path.Value] = published;
             ReleaseStaging();
             _settled = true;
@@ -297,8 +325,8 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
         private void ReleaseStaging()
         {
-            _staging.SetLength(0L);
-            _staging.Capacity = 0;
+            _staging?.Dispose();
+            _staging = null;
         }
 
         public ValueTask DisposeAsync()
@@ -313,7 +341,6 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                 }
 
                 ReleaseStaging();
-                _staging.Dispose();
             }
 
             return ValueTask.CompletedTask;
