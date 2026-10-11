@@ -3,21 +3,25 @@ using Lokad.Qpdf.Hosting;
 
 namespace Lokad.Qpdf.Benchmarks;
 
-/// <summary>Runs representative operations and prints deterministic governor counters.</summary>
+/// <summary>Runs representative operations and prints governor counters and memory estimates.</summary>
 internal static class CounterReport
 {
     internal static int Run(string[] args)
     {
-        return RunAsync().GetAwaiter().GetResult();
+        return RunAsync(args).GetAwaiter().GetResult();
     }
 
-    private static async Task<int> RunAsync()
+    private static async Task<int> RunAsync(string[] args)
     {
         int failures = 0;
         int scenarios = 0;
+        HashSet<string>? requested = args.Length == 0 ? null : new(args, StringComparer.Ordinal);
+        Console.WriteLine("Memory values are job estimates; allocation totals are cumulative, not retained memory.");
         async Task Execute(string name, Func<Task> scenario)
         {
+            if (requested is not null && !requested.Remove(name)) { return; }
             scenarios += 1;
+            long allocatedBefore = GC.GetTotalAllocatedBytes(true);
             try
             {
                 await scenario().ConfigureAwait(false);
@@ -26,6 +30,11 @@ internal static class CounterReport
             {
                 failures += 1;
                 Console.Error.WriteLine("qpdfbench: scenario '" + name + "' failed: " + ex.GetType().Name + ": " + ex.Message);
+            }
+            finally
+            {
+                Console.WriteLine("[allocation] " + name + " cumulative-bytes="
+                    + (GC.GetTotalAllocatedBytes(true) - allocatedBefore).ToString());
             }
         }
 
@@ -39,6 +48,14 @@ internal static class CounterReport
         await Execute("optimize-photo", OptimizePhoto).ConfigureAwait(false);
         await Execute("linearize-10", Linearize).ConfigureAwait(false);
         await Execute("cancel-select-50", CancelSelect).ConfigureAwait(false);
+        if (requested is not null)
+        {
+            foreach (string name in requested)
+            {
+                Console.Error.WriteLine("qpdfbench: unknown counter scenario '" + name + "'.");
+                failures += 1;
+            }
+        }
         Console.WriteLine("counter-report: " + scenarios.ToString() + " scenarios, " + failures.ToString() + " failures");
         return failures == 0 ? 0 : 2;
     }

@@ -158,7 +158,7 @@ public sealed class OperationFlagsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.VerboseSummary).Message;
-        Assert.Contains($"peak {job.Counters.PeakMemoryBytes} bytes.", jobMessage, StringComparison.Ordinal);
+        Assert.Contains($"peak {job.Counters.PeakMemoryBytes} bytes (estimated).", jobMessage, StringComparison.Ordinal);
         Assert.True(job.Counters.PeakMemoryBytes > argvResult.Counters.PeakMemoryBytes);
         Assert.Equal(
             System.Text.RegularExpressions.Regex.Replace(argvMessage, @"peak \d+ bytes", "peak bytes"),

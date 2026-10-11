@@ -292,8 +292,8 @@ public sealed class PresentationByteTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using PresentationCountReservation? reservation = PresentationCountReservation.Create(governor, true, true, true, CancellationToken.None);
         Assert.NotNull(reservation);
-        string verbose = $"Verbose summary: {value} output bytes, {value} decoded bytes, peak {value} bytes.";
-        string memory = $"Peak memory usage: {value} bytes.";
+        string verbose = $"Verbose summary: {value} output bytes, {value} decoded bytes, peak {value} bytes (estimated).";
+        string memory = $"Peak memory usage: {value} bytes (estimated).";
         long expected = Encoding.UTF8.GetByteCount(verbose) + Encoding.UTF8.GetByteCount(memory);
         if (value > 0L)
         { for (int i = 1; i <= 4; i++) { expected += Encoding.UTF8.GetByteCount($"Write progress: {i * 25}% of {value} bytes."); } }

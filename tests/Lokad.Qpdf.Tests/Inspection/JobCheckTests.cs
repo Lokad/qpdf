@@ -43,8 +43,10 @@ public sealed class JobCheckTests
         yield return ["unread-object", Encoding.ASCII.GetBytes(bad), QpdfExecutionStatus.Failed, QpdfExitCode.Error, QpdfDiagnosticCode.CheckFailed];
         foreach (bool flate in new[] { false, true })
         {
+            // Repair-mode loading consumes one member value, as native does;
+            // strict typed rejection of trailing data remains independently tested.
             yield return [flate ? "flate-member" : "raw-member", Reading.ReaderAcceptanceTests.ObjectStreamPdf("(kept)", "(bad) null", flate, true, null),
-                QpdfExecutionStatus.Failed, QpdfExitCode.Error, QpdfDiagnosticCode.CheckFailed];
+                QpdfExecutionStatus.Completed, QpdfExitCode.Success, null];
         }
     }
 

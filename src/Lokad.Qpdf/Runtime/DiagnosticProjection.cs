@@ -63,10 +63,10 @@ internal sealed class DiagnosticProjection : IDisposable
             if (verbose)
             {
                 entries[index++] = projection.Format(QpdfDiagnosticCode.VerboseSummary,
-                    ["Verbose summary: ", output, " output bytes, ", decoded, " decoded bytes, peak ", peak, " bytes."]);
+                    ["Verbose summary: ", output, " output bytes, ", decoded, " decoded bytes, peak ", peak, " bytes (estimated)."]);
             }
             if (memoryUsage)
-            { entries[index++] = projection.Format(QpdfDiagnosticCode.MemoryUsage, ["Peak memory usage: ", peak, " bytes."]); }
+            { entries[index++] = projection.Format(QpdfDiagnosticCode.MemoryUsage, ["Peak memory usage: ", peak, " bytes (estimated)."]); }
             if (progress && output > 0L)
             {
                 for (int step = 1; step <= 4; step++)

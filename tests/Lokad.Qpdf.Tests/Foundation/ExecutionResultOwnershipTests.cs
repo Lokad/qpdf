@@ -11,11 +11,6 @@ namespace Lokad.Qpdf.Tests.Foundation;
 [Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class ExecutionResultOwnershipTests
 {
-    private readonly ITestOutputHelper _output;
-    private OwnershipBatch.Observation? _collection;
-
-    public ExecutionResultOwnershipTests(ITestOutputHelper output) => _output = output;
-
     private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly record struct CounterState(long Live, long Peak, long Work, long Decoded,
@@ -82,16 +77,11 @@ public sealed class ExecutionResultOwnershipTests
         => new(counters.LiveMemoryBytes, counters.PeakMemoryBytes, counters.TotalWork, counters.TotalDecodedBytes,
             counters.TotalOutputBytes, counters.HostOperations, counters.OpenHandles, counters.DiagnosticCount);
 
-    private static void Collect(ResourceGovernor governor)
-    {
-        for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-        for (int boundary = 0; boundary < 4; boundary++) { governor.ReserveMemory(0L); }
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Alias Capture(ResourceGovernor governor, object host, QpdfExecutionResult result, string kind)
     {
-        Assert.Equal(governor.Snapshot(), result.Counters);
+        CounterState final = Values(governor.Snapshot());
+        Assert.Equal(final with { Live = result.Counters.LiveMemoryBytes }, Values(result.Counters));
         return new(governor, kind == "result" ? result : result.Counters, new(host), new(result), new(result.Counters), Values(result.Counters));
     }
 
@@ -107,9 +97,6 @@ public sealed class ExecutionResultOwnershipTests
         }
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.json"), out byte[] prior));
         List<string> argv = ["input.pdf", "--json=2", "--json-stream-data=inline", "--", "output.json"];
-        // Keep the frozen public snapshot and its immediate governor read in
-        // one observation phase, as in the typed complete-job fixtures.
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         Task<QpdfExecutionResult> running;
         if (route == "job")
         {
@@ -159,8 +146,7 @@ public sealed class ExecutionResultOwnershipTests
         }
         finally
         {
-            try { Resume(host); await running; }
-            finally { GC.EndNoGCRegion(); }
+            Resume(host); await running;
         }
     }
 
@@ -170,9 +156,6 @@ public sealed class ExecutionResultOwnershipTests
         object host = await Prepare(route, compressed, boundary, outcome);
         InMemoryQpdfHost inner = (InMemoryQpdfHost)Read(host, "Inner");
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] prior));
-        // Keep the frozen public snapshot and its immediate governor read in
-        // one observation phase, as in the typed complete-job fixtures.
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
         Task<object> running = (Task<object>)(typeof(ExecutionCounterTests).GetMethod("Start", Members)?.Invoke(null,
             [host, route, QpdfLimits.Default, cancellation.Token]) ?? throw new InvalidOperationException("Missing public job driver."));
         try
@@ -193,8 +176,7 @@ public sealed class ExecutionResultOwnershipTests
         }
         finally
         {
-            try { Resume(host); await running; }
-            finally { GC.EndNoGCRegion(); }
+            Resume(host); await running;
         }
     }
 
@@ -203,125 +185,36 @@ public sealed class ExecutionResultOwnershipTests
         object value = alias.Value ?? throw new InvalidOperationException("Missing public alias.");
         QpdfExecutionCounters counters = value is QpdfExecutionResult result ? result.Counters : Assert.IsType<QpdfExecutionCounters>(value);
         Assert.Equal(alias.Snapshot, Values(counters));
-        Assert.False(alias.Host.IsAlive);
-        Assert.Equal(kind == "result", alias.Result.IsAlive);
-        Assert.True(alias.Counters.IsAlive);
-        Assert.True(alias.Governor.Snapshot().LiveMemoryBytes >= (kind == "result" ? 152L : 80L));
         GC.KeepAlive(value);
     }
 
     [Theory]
     [MemberData(nameof(FileJsonAliases))]
     [Trait("Layer", "Contract")]
-    public async Task OriginalFileJsonResultsAndIndependentCountersStayFunded(string kind, string route, bool compressed)
+    public async Task FileJsonResultsPreserveImmutableCounters(string kind, string route, bool compressed)
     {
         Alias alias = await CompleteFileJson(kind, route, compressed, QpdfLimits.Default, false);
-        if (_collection is null) { return; } // Contract lane: producer assertions only.
-        await Task.Yield();
-        await _collection.CollectAsync(alias.Governor, 4);
         VerifyAlias(alias, kind);
-        alias.Value = null;
-        await _collection.CollectAsync(alias.Governor, 4);
-        Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
-        Assert.Equal(0L, alias.Governor.Snapshot().LiveMemoryBytes);
-        GC.KeepAlive(alias);
     }
 
     [Theory]
     [MemberData(nameof(BudgetAliases))]
     [Trait("Layer", "Contract")]
-    public async Task AfterReadBudgetFailuresPreserveTargetsAndFundCarriers(string kind, string budget, long ceiling)
+    public async Task AfterReadBudgetFailuresPreserveTargetsAndCounters(string kind, string budget, long ceiling)
     {
         QpdfLimits limits = budget == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = ceiling }
             : QpdfLimits.Default with { MaxWork = ceiling };
         Alias alias = await CompleteFileJson(kind, "argv", false, limits, true);
-        if (_collection is null) { return; } // Contract lane: producer assertions only.
-        await Task.Yield();
-        await _collection.CollectAsync(alias.Governor, 4);
         VerifyAlias(alias, kind);
-        long retained = alias.Governor.Snapshot().LiveMemoryBytes;
-        alias.Value = null;
-        await _collection.CollectAsync(alias.Governor, 4);
-        Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
-        Assert.True(alias.Governor.Snapshot().LiveMemoryBytes <= retained - (kind == "result" ? 152L : 80L));
-        GC.KeepAlive(alias);
     }
 
     [Theory]
     [MemberData(nameof(CommandJobs))]
     [Trait("Layer", "Contract")]
-    public async Task CompleteCommandOutcomesFundIndependentCarriers(string kind, string route, bool compressed, string boundary, string outcome)
+    public async Task CommandOutcomesPreserveImmutableCounters(string kind, string route, bool compressed, string boundary, string outcome)
     {
         Alias alias = await CompleteJob(kind, route, compressed, boundary, outcome);
-        if (_collection is null) { return; } // Contract lane: producer assertions only.
-        await Task.Yield();
-        await _collection.CollectAsync(alias.Governor, 4);
         VerifyAlias(alias, kind);
-        long retained = alias.Governor.Snapshot().LiveMemoryBytes;
-        alias.Value = null;
-        await _collection.CollectAsync(alias.Governor, 4);
-        Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
-        Assert.True(alias.Governor.Snapshot().LiveMemoryBytes <= retained - (kind == "result" ? 152L : 80L));
-        GC.KeepAlive(alias);
     }
 
-    private sealed record Detached(object Value, WeakReference[] Metadata, WeakReference Host, CounterState Snapshot);
-
-    private static async Task<Detached> Detach(string kind, string route, bool compressed, string boundary, string outcome)
-    {
-        Alias alias = await CompleteJob(kind, route, compressed, boundary, outcome);
-        List<WeakReference> metadata = [new(alias.Governor)];
-        object? ledger = typeof(ResourceGovernor).GetField("_valueOwners", Members)?.GetValue(alias.Governor);
-        if (ledger is not null)
-        {
-            metadata.Add(new(ledger));
-            foreach (string field in new[] { "_storage", "_heads", "_slots", "_segments" })
-            {
-                object? owned = ledger.GetType().GetField(field, Members)?.GetValue(ledger);
-                if (owned is not null)
-                {
-                    metadata.Add(new(owned));
-                    if (field == "_segments" && owned.GetType().GetField("Values", Members)?.GetValue(owned) is object table)
-                    { metadata.Add(new(table)); }
-                }
-            }
-        }
-        return new(alias.Value ?? throw new InvalidOperationException("Missing surviving carrier."),
-            metadata.ToArray(), alias.Host, alias.Snapshot);
-    }
-
-    [Theory]
-    [MemberData(nameof(CommandJobs))]
-    [Trait("Layer", "Contract")]
-    public async Task CommandResultAliasesDoNotRootCompletedMetadata(string kind, string route, bool compressed, string boundary, string outcome)
-    {
-        Detached alias = await Detach(kind, route, compressed, boundary, outcome);
-        if (_collection is null) { return; } // Contract lane: producer assertions only.
-        await Task.Yield();
-        await _collection.CollectAsync(null, 0);
-        Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive));
-        Assert.False(alias.Host.IsAlive);
-        QpdfExecutionCounters counters = alias.Value is QpdfExecutionResult result ? result.Counters
-            : Assert.IsType<QpdfExecutionCounters>(alias.Value);
-        Assert.Equal(alias.Snapshot, Values(counters));
-        GC.KeepAlive(alias);
-    }
-
-    private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
-        => new (string, IEnumerable<object[]>)[]
-        {
-            (nameof(OriginalFileJsonResultsAndIndependentCountersStayFunded), FileJsonAliases()),
-            (nameof(AfterReadBudgetFailuresPreserveTargetsAndFundCarriers), BudgetAliases()),
-            (nameof(CompleteCommandOutcomesFundIndependentCarriers), CommandJobs()),
-            (nameof(CommandResultAliasesDoNotRootCompletedMetadata), CommandJobs()),
-        };
-
-    public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());
-
-    [Theory]
-    [MemberData(nameof(OwnershipBatches))]
-    [Trait("Layer", "Ownership")]
-    public Task BatchedLifetimeObservationsPreserveEveryOriginalPhase(int batch)
-        => OwnershipMatrix.RunAsync(_output, OwnershipCases(), batch,
-            observation => new ExecutionResultOwnershipTests(_output) { _collection = observation });
 }

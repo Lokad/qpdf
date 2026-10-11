@@ -37,7 +37,7 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --help");
-        Console.WriteLine("  Lokad.Qpdf.Benchmarks --counter-report");
+        Console.WriteLine("  Lokad.Qpdf.Benchmarks --counter-report [scenario names...]");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --filter <BenchmarkDotNet filter>");
     }
 }

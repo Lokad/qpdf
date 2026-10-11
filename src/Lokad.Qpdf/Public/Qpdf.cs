@@ -5494,12 +5494,12 @@ public static partial class Qpdf
 
         if (plan.Verbose)
         {
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.VerboseSummary, QpdfDiagnosticSeverity.Info, $"Verbose summary: {counters.TotalOutputBytes} output bytes, {counters.TotalDecodedBytes} decoded bytes, peak {counters.PeakMemoryBytes} bytes."));
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.VerboseSummary, QpdfDiagnosticSeverity.Info, $"Verbose summary: {counters.TotalOutputBytes} output bytes, {counters.TotalDecodedBytes} decoded bytes, peak {counters.PeakMemoryBytes} bytes (estimated)."));
         }
 
         if (plan.ReportMemoryUsage)
         {
-            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.MemoryUsage, QpdfDiagnosticSeverity.Info, $"Peak memory usage: {counters.PeakMemoryBytes} bytes."));
+            effective.Add(new QpdfDiagnostic(QpdfDiagnosticCode.MemoryUsage, QpdfDiagnosticSeverity.Info, $"Peak memory usage: {counters.PeakMemoryBytes} bytes (estimated)."));
         }
 
         if (plan.Progress && counters.TotalOutputBytes > 0L)

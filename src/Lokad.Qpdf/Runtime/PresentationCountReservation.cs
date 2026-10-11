@@ -66,8 +66,8 @@ internal sealed class PresentationCountReservation : IDisposable
         // cases have fixed work and need no formatting buffer or temporary string.
         long bytes = 0L;
         if ((_summaries & 1) != 0)
-        { bytes += 60L + DecimalWidth(outputBytes) + DecimalWidth(decodedBytes) + DecimalWidth(peakMemoryBytes); }
-        if ((_summaries & 2) != 0) { bytes += 26L + DecimalWidth(peakMemoryBytes); }
+        { bytes += 72L + DecimalWidth(outputBytes) + DecimalWidth(decodedBytes) + DecimalWidth(peakMemoryBytes); }
+        if ((_summaries & 2) != 0) { bytes += 38L + DecimalWidth(peakMemoryBytes); }
         if ((_summaries & 4) != 0 && outputBytes > 0L) { bytes += 121L + 4L * DecimalWidth(outputBytes); }
         return bytes;
     }

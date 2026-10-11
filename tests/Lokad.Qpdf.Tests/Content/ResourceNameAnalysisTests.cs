@@ -83,14 +83,16 @@ public sealed class ResourceNameAnalysisTests
     }
 
     [Fact]
-    public void UnknownFormNamesSurviveTheirAnalysisAndKeepTheMatchingPageResource()
+    public void UnresolvedExplicitFormResourcesPreserveThePageScopeAndEncodedNames()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); using Prepared prepared = new(governor);
         PdfStream form = new(Dictionary(("Subtype", PdfName.FromAscii("Form")), ("Resources", Dictionary())), "/A#23#34#31 12 Tf"u8.ToArray());
         PdfDictionary resources = Dictionary(("Font", Dictionary(("A#41", Dictionary()), ("AA", Dictionary()), ("Unused", Dictionary()))),
             ("XObject", Dictionary(("Form", form))));
         PdfDictionary output = Prune(prepared.Copier, 3, Page("/Form Do", resources), QpdfLimits.Default, governor, new DiagnosticBag(governor), CancellationToken.None);
-        Assert.True(Has(Fonts(output), "A#41")); Assert.False(Has(Fonts(output), "AA")); Assert.False(Has(Fonts(output), "Unused"));
+        // An unresolved name under explicit local Resources makes the page
+        // scope uncertain. Preserve its other fonts as well as the encoded name.
+        Assert.True(Has(Fonts(output), "A#41")); Assert.True(Has(Fonts(output), "AA")); Assert.True(Has(Fonts(output), "Unused"));
     }
 
     [Fact]

@@ -5,10 +5,56 @@ the accepted CMYK/YCCK and unavailable-Zopfli differences. Exact CLR sizes,
 small-object receipts, metadata-alias billing, fixed GC retirement and precise
 bookkeeping accounting are withdrawn release obligations. Accounting targets
 estimated job storage; unreleased charges do not establish retained memory.
-Public counter wording and obsolete tests are queued for reconciliation, not
-already refactored. Historical gate/count requirements below are evidence, not
-additional completion verdicts. Keep meaningful limits, cancellation, cleanup,
-output integrity and actual leak/growth regressions.
+Public counter wording now describes estimates; exact-only result/version/
+snapshot matrices and repeated small-metadata stress are consolidated. The
+underlying receipt implementation is preserved. Historical gate/count
+requirements below are evidence, not additional completion verdicts. Keep
+meaningful limits, cancellation, cleanup, output integrity and actual leak/growth
+regressions.
+
+## Approximate memory contract and test consolidation
+
+Memory diagnostics explicitly say estimated; their additional UTF-8 bytes remain
+included in exact diagnostic quotas and pre-publication rejection controls.
+Public names/defaults/validation and immutable snapshots are unchanged. Removed
+tests enforced CLR geometry, small-carrier receipts, independent metadata-alias
+billing, fixed GC rounds or historical case-name lists. Useful public outcomes,
+prior targets, limits, cancellation, equality and output bytes remain protected.
+Lane discovery/execution requires nonempty passing selections instead of frozen
+counts; compatibility aliases do not create additional acceptance runs.
+
+Five representative families reuse normal selection, shared image/linearization,
+Flate/JPEG amplification negatives, original filtering/collation controls and a
+short repeated large-job sequence. Six success/failure/cancellation jobs close
+host storage while results and valid caller outputs survive. The approximately
+1 MiB closing charges on successful jobs do not imply retained host payloads.
+Whole-workload observations distinguish cumulative allocations from retained
+memory; no exact heap agreement or universal amplification ratio is claimed.
+The 4 KiB/64-call hint regression passes in 2.9s versus about 17s with the old
+four-compacting-collection schedule. The library still never forces GC.
+
+Native reference classification settles the shared-image assertion: native packs
+only the page-tree root, while the existing managed policy keeps it direct. Both
+outputs pass native syntax/linearization and independent page checks. The
+representative case now verifies decoded page/image bytes and shared references;
+eligible object-stream tests remain. The first full run also exposed four stale
+assertions: a memory-message suffix, repair-mode trailing-member acceptance and
+conservative explicit-form resource retention. Original member bytes are retained;
+native values agree, and a Resources control isolates the unrelated native
+missing-Resources repair warning from tail parsing. Strict typed rejection and
+useful pruning controls remain.
+
+Release build passes with zero warnings/errors. All 3318 affected checks pass in
+29.3s outer wall; all 107 corrected checker/resource/presentation checks pass in
+7.0s. The selected benchmark report and unknown-scenario rejection pass; the
+representative lifetime lane passes. The final ordinary integration run passes
+all 17872 checks without skips in **377.0s (6m17s)** outer wall, versus the
+recorded **606.7s (10m07s)** checkpoint on `eff904f`. Counts describe these
+sources, not acceptance quotas. The first 401.0s run's four failures and the
+classification evidence remain recorded. The final affected source is integrated
+with this documentation; comprehensive reference/visual/package qualification is
+reserved for the delivery checkpoint. Remaining work is bounded exceptional
+cleanup, finite visuals/pinned-reference CI and final supported-profile artifacts.
 
 ## Public CPU/codec cancellation
 
@@ -35,9 +81,9 @@ numeric/parser-recovery/filter/JPEG/optimization checks pass without skips in
 inputs/limits/outcomes: all 16 managed/native outputs pass pinned qpdf syntax,
 three-reader page checks and numeric-value comparisons. Exact real text and the
 deliberate page-count mismatch remain protected; reference wall is 5.6s.
-The finite CPU/codec task is closed. Approximate-accounting/test reconciliation,
-bounded exceptional cleanup and final visual/reference/package/CI qualification
-remain; pending accounting edits are not integrated evidence.
+The finite CPU/codec task is closed. Approximate-contract/test reconciliation is
+recorded above; bounded exceptional cleanup and final visual/reference/package/CI
+qualification remain.
 
 ## Bounded job/check/parser qualification
 

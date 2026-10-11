@@ -2,6 +2,21 @@
 
 This describes the implemented architecture. The library ships host contracts, an in-memory host, a per-job governor, diagnostics, and staged output alongside the strict reader, object graph, filter pipeline with the governed JPEG adapter, shared copy engine, content pipeline, deterministic writer, and the typed, argv, and job-JSON entry points.
 
+`MaxMemoryBytes` bounds the estimated per-job working set, with coarse allowances
+and admission of significant buffers, graph growth and codec work. It is not a
+CLR-heap or process-RSS ceiling. Live/peak counters are immutable accounting
+snapshots; charge debt does not establish retained memory. Independent byte,
+count, decompression and work limits, cancellation, cleanup and host-mediated
+publication remain required. Concurrent jobs, host buffers and caller-retained
+outputs also need host policy.
+
+Receipt sizes and fine-grained lifetimes described below are current internal
+implementation details. Exact CLR geometry, individually funded small metadata
+aliases, fixed GC retirement and precise self-accounting are not public/release
+requirements. Preserve usable immutable values and output aliases; investigate
+actual material growth or false exhaustion. Resource qualification uses the
+small representative workload set, not a census of every carrier or cold state.
+
 Resource pruning shares the governed form/resource walk across copy consumers.
 An unresolved name in an explicit local form resource dictionary marks the
 containing page's resource scope uncertain, preserving it conservatively.
@@ -49,14 +64,13 @@ Its scoped owner admits actual vector growth/overlap, registry storage and the
 policy wrapper/integer snapshot before allocation, observes work/cancellation
 and holds the storage through publication. JSON reuses its validated vector;
 disposal detaches all fields before final counter capture. Typed caller policies
-remain borrowed. Other parser-created vectors, derived strings, syntax adapters,
-plans and broader configuration/DOM controllers remain explicit ownership obligations.
+remain borrowed. Significant configuration growth remains subject to the same
+estimated-memory, work and cancellation contracts.
 Ordinary argv global-block removal and main-option filtering use one scoped
 scratch owner. It admits marker/stripped/main vectors and actual capacity growth
 before allocation, borrows original strings, bounds scans/copy work and checks
 cancellation. Sorted markers are traversed once. Every field detaches after plan
 construction; the owner retires before public input and final counter capture.
-Other parser plans/global/context vectors remain explicit obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.
@@ -66,8 +80,8 @@ Prepared JSON owns main/sidecar candidates and independently escaping text, host
 buffers and filenames. Its exclusive reader closes before immutable/publication
 copies; schema-note acceptance remains before input close. Exclusive null repair
 memoization uses an admitted number set, and aborted parser containers unwind
-before their concluding warning allocations. DOM/controller/resource ownership
-and generic returned DTO admission remain under audit.
+before their concluding warning allocations. JSON storage is covered by the
+practical limits and representative workload qualification above.
 Whole-file selection closes its preliminary input before reopening through the
 shared copier, so replacement can publish after those input leases close.
 The preliminary reader and overlay/attachment-copy sources use exclusive value
@@ -78,7 +92,7 @@ decode/encode and attachment assembly reservations stay scoped through
 publication. Output-length admission releases after transaction disposal on
 success, failure or cancellation. Fresh transformed streams prepay their weak
 retirement before acceptance, so exhausted jobs need no new maintenance work.
-These changes target the finite B5S controls; broader ownership remains under audit.
+These changes protect the established complete-job cleanup controls.
 
 Explicit and source-derived labels use the existing owned-allocation batch and
 name-table dictionary builder. Fresh keys, names, integer tokens, prefix buffers,
@@ -87,7 +101,7 @@ construction and independent prepaid weak receipts. Encoding writes directly to
 the owned prefix buffer; borrowed copied style/prefix values keep their original
 owners. Label vectors use copy/selection scopes, and split carry vectors close
 per output. Whole-file verbatim source trees retain the existing scoped copier
-behavior; broader copied-container/reader ownership remains under audit.
+behavior. Fine-grained copied-container receipts are implementation details.
 
 Writer compression setters share ordered state across argv and job configurations.
 Plans store that state in one byte while retaining raw options for inspection.
@@ -97,8 +111,8 @@ compression, while typed selection retains opaque stream copying. The shared
 stream transformer preserves empty streams and keeps catalog XML metadata
 uncompressed. Copied streams resolve filters against their destination pool;
 created images use the same owned transformer and encoding policy. Rewritten
-content preserves encoded name bytes and their slash prefixes. Broader
-transformation defaults and whole-job ownership remain under compatibility audit.
+content preserves encoded name bytes and their slash prefixes. Supported
+transformation defaults remain explicit in the compatibility profile.
 
 Linearization emits zero-width shared numerators because every numerator is zero.
 Hint offsets, lengths and derived widths describe each output's physical object
@@ -112,8 +126,8 @@ parsed tables only through classification, validation and reporting. Independent
 escaping tables, entries and identifier/numerator arrays receive separate receipts;
 discarded siblings and decoded scratch can collect while source values survive.
 The combined hint correction is verified through complete public jobs and the
-original native/reference/package controls. Broader ownership, cold state and
-BCL/codec physical-memory measurements remain under audit.
+original native/reference/package controls. Resource qualification uses the
+representative workloads, including the original hint false-exhaustion regression.
 
 Document-open traversal starts at catalog values, so direct containers retain
 indirect descendants and indirect roots retain their own physical identities.
@@ -129,8 +143,8 @@ The catalog copier preserves non-name PageMode values through its existing graph
 copy path. Physical linearization checking uses the shared reader for object
 ends and the shared graph classifier for compressed owners. It verifies page
 runs, hint spans, shared groups and outlines against the actual input layout.
-Show-linearization retains parsed raw fields on physical failures. Broader checker
-coverage and broader complete-job ownership remain open.
+Show-linearization retains parsed raw fields on physical failures. New checker
+work requires a concrete incorrect finding or a finite supported-profile check.
 
 Argv and job checker plans use the typed checker core and the same opened
 document for subsequent count, linearization, xref, object, page/image and
@@ -197,10 +211,9 @@ history owns its projection, so hidden informational records can retire. NoWarn
 preserves ordinary admissions and clears private warning references on the first
 visible record; independently escaping records/text keep their receipts. Accepted
 warning state preserves warning exits. Generic result/fatal storage and JSON
-payload admission remain DIAG-01/JSON-01. DIAG-02P2F is retired by final combined
-source/Release/reference/package proof; P3H remains retired and wider ownership
-stays open. JSON-01J now funds complete public inline JSON text/publication aliases with final
-combined proof; broader DOM/resource ownership remains JSON-01.
+payloads remain subject to practical limits. The DIAG-02P2F/P3H and JSON-01J
+corrections have combined source/Release/reference/package proof. Their historical
+parent audit rows add no separate completion criteria.
 
 Command cores carry private value outcomes. Before processing, the governor
 reserves fixed result/counter storage and construction/retirement work. Private
@@ -219,8 +232,8 @@ adopt engine-created snapshot arrays; public constructors still copy caller inpu
 Each wrapper owns its own receipt without rooting completed job metadata. Caller
 copies omit that receipt and preserve exposed equality/hash and aliases. Failure
 drops unreturned references and only unused constructor credit; actual receipts
-retire with prepaid work. Private outcome slots in async/task frames remain under
-the physical MEASURE-01 qualification, and copied backing/mapping under T4.
+retire with prepaid work. Private outcome slots and copied backing/mapping are implementation details;
+practical memory validation uses the representative workloads.
 Library-created versions own independently prepaid weak receipts. Header and
 catalog aliases share each owner once; writer negotiation borrows an existing
 version or admits a new one before allocation. Versions can share the already
@@ -229,14 +242,14 @@ both are empty. Caller copies omit ownership and preserve component equality.
 An exclusive JSON reader validates header/catalog version components as value
 data and emits them directly, avoiding unused heap versions at the original
 repair ceilings. Public/shared documents allocate owned versions before returning;
-their header/effective aliases remain usable after disposal. Private document
-component fields, governor growth and async frames remain under MEASURE-01.
+their header/effective aliases remain usable after disposal. Private document component fields, governor growth and async frames use coarse
+job estimates rather than independent physical-layout qualification.
 Public document warning reads borrow shared empty storage or admit independently
 owned immutable view/backing snapshots through the shared result collection
 factory. Prepaid retirement preserves independent warning aliases and diagnostic
 identities after disposal without rooting completed metadata. Later warnings do
 not mutate earlier snapshots. Reads obey the original document token and limits;
-generic diagnostic/text and broader ownership remain under audit.
+generic diagnostic/text limits and cleanup use the shared governed machinery.
 Typed selection, JSON and attachment cores attach a scoped warning snapshot to
 the shared governor preparation boundary. Each immutable view and backing array
 has an independent prepaid receipt; records/text are borrowed. Snapshot
@@ -315,6 +328,7 @@ escaping aliases without anchoring completed jobs. JSON stages warnings through
 input closure before publication. Parser/recovery/copier/remapper raw-name tables
 share bounded collision work and immutable backing ownership. Writer row/index,
 object-stream capture/header/payload, encoding/order/xref/remap and layout owners
-drop dead backing before retiring admission across awaited outcomes. Hint bodies,
-parsing/shared/group scratch and complete public-job ownership remain under audit;
-these integrated consumers do not establish the wider containment verdict.
+drop dead backing before retiring admission across awaited outcomes. Hint bodies, parsing/shared/group scratch and public consumers have integrated
+read/write evidence. Remaining practical qualification follows the finite
+representative, exceptional-cleanup and integration checks recorded in progress;
+no broader ownership census is an implicit completion gate.

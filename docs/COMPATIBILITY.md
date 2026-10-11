@@ -10,8 +10,18 @@ verdicts and broad audit/count gates below no longer add blocking criteria.
 Exact CLR sizes, small-object receipts, metadata-alias billing, fixed GC rounds
 and byte-precise bookkeeping accounting are withdrawn obligations; practical
 limits, cancellation, cleanup, host boundaries and actual memory growth remain.
-Approximate counter/XML and test reconciliation is pending; this scope decision
-does not claim that the existing accounting implementation has been refactored.
+Counter/XML wording and memory diagnostics now identify estimates. Exact-only
+result/version/snapshot matrices and repeated small-metadata stress are
+consolidated; actual limits, immutable values, cleanup and leak/growth controls
+remain. The receipt implementation is preserved. Five representative workload
+families validate the approximate target, rather than a physical-memory census.
+
+The shared-image linearized rewrite has a valid physical-layout difference:
+native compresses the page-tree root; the managed writer keeps its rebuilt root
+direct. Both preserve shared image resources and pass syntax/linearization and
+independent page checks. Eligible object-stream tests remain. The supported
+profile explicitly describes this established packing policy; no new capability
+or compatibility waiver is inferred from test consolidation.
 
 The finite CPU/codec cancellation qualification is complete: the numeric-copy
 regression cancels at an actual work checkpoint for both existing tokens, keeping

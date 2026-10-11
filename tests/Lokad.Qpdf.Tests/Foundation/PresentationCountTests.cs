@@ -164,8 +164,8 @@ public sealed class PresentationCountTests
             QpdfDiagnostic[] summaries = result.Diagnostics.Where(diagnostic => IsSummary(diagnostic.Code)).ToArray();
             Assert.Equal(QpdfDiagnosticCode.VerboseSummary, summaries[0].Code);
             Assert.Equal(QpdfDiagnosticCode.MemoryUsage, summaries[1].Code);
-            Assert.Contains($"peak {result.Counters.PeakMemoryBytes} bytes.", summaries[0].Message, StringComparison.Ordinal);
-            Assert.Equal($"Peak memory usage: {result.Counters.PeakMemoryBytes} bytes.", summaries[1].Message);
+            Assert.Contains($"peak {result.Counters.PeakMemoryBytes} bytes (estimated).", summaries[0].Message, StringComparison.Ordinal);
+            Assert.Equal($"Peak memory usage: {result.Counters.PeakMemoryBytes} bytes (estimated).", summaries[1].Message);
             for (int i = 2; i < summaries.Length; i++)
             { Assert.Equal($"Write progress: {(i - 1) * 25}% of {result.Counters.TotalOutputBytes} bytes.", summaries[i].Message); }
         }

@@ -95,10 +95,12 @@ public sealed record QpdfExecutionCounters
         _storage = storage;
     }
 
-    /// <summary>Gets the currently retained managed bytes.</summary>
+    /// <summary>Gets the estimated job-memory charge at snapshot time.</summary>
+    /// <remarks>This immutable accounting value is not a live heap measurement.</remarks>
     public long LiveMemoryBytes => _liveMemoryBytes;
 
-    /// <summary>Gets the high-water mark of retained managed bytes.</summary>
+    /// <summary>Gets the high-water mark of the estimated job-memory charge.</summary>
+    /// <remarks>Unreleased accounting charges do not establish retained memory.</remarks>
     public long PeakMemoryBytes => _peakMemoryBytes;
 
     /// <summary>Gets the charged units of bounded work.</summary>

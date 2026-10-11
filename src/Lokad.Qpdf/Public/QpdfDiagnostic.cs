@@ -73,7 +73,7 @@ public enum QpdfDiagnosticCode
     /// <summary>Cross-reference inspection line.</summary>
     XrefListing = 17,
 
-    /// <summary>Peak memory usage note.</summary>
+    /// <summary>Peak estimated job-memory charge note.</summary>
     MemoryUsage = 18,
 
     /// <summary>JSON schema consistency note.</summary>

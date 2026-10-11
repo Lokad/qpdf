@@ -275,7 +275,11 @@ echoing values.
   default), `generate`): `disable` writes only classic xref tables;
   `preserve` keeps compressed-ness from the input (no streams in, no streams
   out) without reproducing exact original groupings; `generate` packs every
-  eligible non-stream object into new object streams. Any object streams imply
+  eligible non-stream object into new object streams. The rebuilt catalog and
+  page-tree root stay direct; linearized page dictionaries also stay direct.
+  A file with no other eligible objects therefore needs no object stream, even
+  when native packs its page-tree root. This is a physical-layout difference.
+  Any object streams imply
   a cross-reference stream instead of a classic table and raise the header to
   at least 1.5; a forced version below 1.5 disables object streams.
   Object-stream payloads and xref entries are Flate-packed with plain
@@ -356,7 +360,18 @@ Every path runs under one per-job governor: validated `QpdfLimits` budgets
 for inputs, outputs, memory, work, decoded bytes, stream-filter counts, host operations, handles,
 diagnostics, nesting depth, and repair error tolerance, plus cooperative cancellation. Diagnostics
 carry stable codes and never embed input content, paths beyond logical
-names, host exception text, or stack traces. `--parser-max-nesting=n` (within 499, the upstream default), `--max-stream-filters=n` (default 25), `--parser-max-container-size=n` (default 4294967295), and `--parser-max-container-size-damaged=n` (default 5000, governing repair trial-parses) tighten parser budgets per invocation through the nested job `global` object as well, within host ceilings an invocation value can never raise (exceeding one fails with BudgetExceeded); `--no-default-limits` lifts unspecified parser-error, damaged-container and filter defaults under default-constructed options; explicit invocation values and host ceilings remain binding. `--parser-max-errors=n` (default 15; zero removes the numeric threshold within host ceilings) governs errors per indirect object/member in repair mode: reaching the finite threshold replaces the object with null and warns; the proximity guard and the additional nearby orphan-value guard remain at zero; a sufficient good-token gap bypasses the orphan guard. Duplicate integer values account for disambiguating lookahead once, and nested containers restore their own orphan context. Valid-xref unknown words repair to strings; reconstructed-xref unknown words repair to null elements. Strict typed parsing and `--suppress-recovery` still fail on malformed syntax. The parser entry remains partial for broader nested-load evidence and ownership of successful trials/discarded values; the authored lexical/container and dictionary guard matrices now have exact-byte inspection/rewrite evidence. `--report-memory-usage` appends the exact governor peak to successful results without affecting the exit code; `--test-json-schema` (with `--json`) validates generated top-level keys against the matching `--json-help` description and fails explicitly on drift. `--verbose` appends an operation summary; `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with no observable behavior (host lease policy stays authoritative).
+names, host exception text, or stack traces. `--parser-max-nesting=n` (within 499, the upstream default), `--max-stream-filters=n` (default 25), `--parser-max-container-size=n` (default 4294967295), and `--parser-max-container-size-damaged=n` (default 5000, governing repair trial-parses) tighten parser budgets per invocation through the nested job `global` object as well, within host ceilings an invocation value can never raise (exceeding one fails with BudgetExceeded); `--no-default-limits` lifts unspecified parser-error, damaged-container and filter defaults under default-constructed options; explicit invocation values and host ceilings remain binding. `--parser-max-errors=n` (default 15; zero removes the numeric threshold within host ceilings) governs errors per indirect object/member in repair mode: reaching the finite threshold replaces the object with null and warns; the proximity guard and the additional nearby orphan-value guard remain at zero; a sufficient good-token gap bypasses the orphan guard. Duplicate integer values account for disambiguating lookahead once, and nested containers restore their own orphan context. Valid-xref unknown words repair to strings; reconstructed-xref unknown words repair to null elements. Strict typed parsing and `--suppress-recovery` still fail on malformed syntax. Bounded nested/object-stream, stream-length and dictionary recovery jobs have public/native inspection and rewrite evidence; strict rejection and independent parser/work ceilings remain protected. `--report-memory-usage` appends the governor's peak memory estimate to successful results without affecting the exit code; `--test-json-schema` (with `--json`) validates generated top-level keys against the matching `--json-help` description and fails explicitly on drift. `--verbose` appends an operation summary; `--keep-files-open=y|n` and `--keep-files-open-threshold=n` are validated performance hints with no observable behavior (host lease policy stays authoritative).
+
+The memory limit bounds an estimated per-job working set, not exact CLR object
+sizes or process RSS. Significant buffers, decoded payloads, pixel planes and
+growth overlap receive admission; coarse allowances cover other graph/codec work.
+Live/peak snapshots remain immutable accounting estimates. Charge debt is not
+proof of actual retention. Exact small-object receipts, independent metadata-alias
+billing, fixed GC retirement and byte-precise self-accounting are internal details
+rather than public/release obligations. Validate the approximate target with the
+small representative normal/adversarial workloads. Preserve meaningful size/work
+limits, cancellation, cleanup, immutable usable outputs and actual leak/growth
+regressions. Concurrent jobs, host buffers and caller outputs need host policy.
 
 Canonical object inspection admits bounded character chunks, dictionary sort
 scratch and its immutable result before allocation. It borrows immutable key
@@ -379,13 +394,14 @@ JSON uses an exclusive reader through serialization and closes it before output
 creation. Input-close faults preserve prior main/sidecar targets on all three
 routes; raw/decoded sidecar copies survive cleanup and fit one open handle.
 These cases do not establish every collision or group-publication contract.
-Ordinary diagnostic records/list capacities still lack memory admission, and
-owned diagnostic messages retain their charge after all aliases collect.
-Diagnostic/cold/native-state ownership and broader nested loading remain open.
+Diagnostic records/text/list growth and failure-history export use the shared
+governed machinery. Existing fine-grained receipt behavior is an implementation
+detail; practical whole-job estimates, meaningful limits and cleanup are validated
+by the representative workloads rather than a cold/native-state census.
 
 Object-plan execution snapshots observed work/peaks after input cleanup, including failure
-and cancellation. These component corrections do not establish whole-job
-retention, general diagnostic ownership or universal cancellation latency.
+and cancellation. Whole-job memory validation uses the representative workloads; the bounded
+public CPU/codec controls do not establish universal cancellation latency.
 
 Parser attempts own their reservations separately from nested resolver/cache
 loads. Failed, aborted and canceled attempts release abandoned values and
@@ -401,6 +417,6 @@ sanity checks release dropped orphans, while ordinary repair retains them under
 generated keys. Subtree receipts preserve independently loaded resolver/cache
 values. Finite-memory public bulk loads, retained aliases and post-overwrite
 failure/cancellation have regressions; public dictionary construction still
-copies caller storage. Ownership of successful recovery trials and
-caller-rejected values, broader cache/diagnostic lifetimes and cancellation within
-BCL container operations remain open audit work.
+copies caller storage. Remaining delivery checks are bounded exceptional cleanup and final integrated
+supported-profile qualification. Concrete failures justify targeted corrections;
+there is no additional exhaustive cache/alias/BCL-container audit.

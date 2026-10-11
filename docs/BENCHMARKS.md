@@ -5,10 +5,14 @@ Developer-only performance evidence for the managed qpdf implementation. The har
 ## Historical counter report
 
 `--counter-report` runs representative operations and prints governor counters:
-work units, decoded bytes, charged peak/live memory, host operations and
+work units, decoded bytes, charged peak/live memory estimates, host operations and
 diagnostics. The following report was recorded **2026-10-04**; its exact source
 identity was not recorded here. Treat these values as a historical snapshot.
 Bind new runs to a commit/source tree, runtime, platform and terminal exit.
+Optional scenario names select a small subset, for example
+`--counter-report select-few-50 linearize-10`. Cumulative allocation totals are
+reported separately; neither those totals nor unreleased accounting charges
+establish retained memory.
 
 ```
 [counter] show-npages-50 status=Completed exit=0 in=11321 out=-1 work=767 decoded=0 peakmem=37057 livemem=37057 hostops=2 diags=1
@@ -28,9 +32,10 @@ In this historical report, inspection decodes no payload bytes, the filter
 chain produces under 5 KiB, host operations scale with opened inputs and
 pre-canceled selection has zero work. These small scenarios did not expose the
 ownership and counter defects found later by targeted probes. Governor counters
-need independent cumulative-allocation, live/retained-storage and observed-work
-cancellation evidence; [progress](PROGRESS.md) records current corrections and
-remaining gaps.
+are supplemented by the small representative allocation/retention workloads and
+bounded observed-work cancellation controls; [progress](PROGRESS.md) records
+current corrections and remaining work. Exact physical-accounting calibration
+and exhaustive retained/pool-state qualification are not release requirements.
 
 ## Timed benchmarks (local only)
 
@@ -41,4 +46,4 @@ showed sub-millisecond means, allocations in the low hundreds of kilobytes and
 no generation-2 pressure on these small inputs. The reported governor peak was
 under 46 KiB. Those observations establish neither current admission completeness
 nor a process-memory or cancellation-latency bound. Rerun against identified
-sources and measure retained/pool state separately when assessing containment.
+sources when a concrete failure or material growth warrants further measurement.

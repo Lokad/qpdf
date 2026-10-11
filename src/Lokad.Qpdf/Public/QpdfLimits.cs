@@ -13,7 +13,12 @@ public sealed record QpdfLimits
     /// <summary>Maximum bytes produced for a single output.</summary>
     public long MaxOutputBytes { get; init; } = 256L * 1024L * 1024L;
 
-    /// <summary>Maximum live retained memory in bytes charged to the job.</summary>
+    /// <summary>Maximum estimated working-set bytes charged to one job.</summary>
+    /// <remarks>
+    /// The charged estimate bounds significant storage and growth; it does not
+    /// measure the CLR heap or guarantee a process-memory ceiling. Concurrent
+    /// jobs, host buffers and caller-retained outputs also need host policy.
+    /// </remarks>
     public long MaxMemoryBytes { get; init; } = 128L * 1024L * 1024L;
 
     /// <summary>Maximum cumulative abstract work units charged to the job.</summary>

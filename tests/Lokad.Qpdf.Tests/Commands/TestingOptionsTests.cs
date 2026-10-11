@@ -40,7 +40,7 @@ public sealed class TestingOptionsTests
         QpdfDiagnostic note = SingleNote(result, QpdfDiagnosticCode.MemoryUsage);
         Assert.Equal(QpdfDiagnosticSeverity.Info, note.Severity);
         Assert.Contains("Peak memory usage:", note.Message, StringComparison.Ordinal);
-        Assert.Contains("bytes.", note.Message, StringComparison.Ordinal);
+        Assert.Contains("bytes (estimated).", note.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -95,8 +95,8 @@ public sealed class TestingOptionsTests
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, job.ExitCode);
         string jobMessage = Assert.Single(job.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.MemoryUsage).Message;
-        Assert.Contains($"{argv.Counters.PeakMemoryBytes} bytes.", argvMessage, StringComparison.Ordinal);
-        Assert.Contains($"{job.Counters.PeakMemoryBytes} bytes.", jobMessage, StringComparison.Ordinal);
+        Assert.Contains($"{argv.Counters.PeakMemoryBytes} bytes (estimated).", argvMessage, StringComparison.Ordinal);
+        Assert.Contains($"{job.Counters.PeakMemoryBytes} bytes (estimated).", jobMessage, StringComparison.Ordinal);
         Assert.Equal(QpdfExecutionStatus.Completed, argv.Status);
         Assert.Equal(QpdfExecutionStatus.Completed, job.Status);
         Assert.Equal(0L, argvHost.OpenLeaseCount);

@@ -69,15 +69,16 @@ public sealed class QpdfDocument : IAsyncDisposable
     /// <summary>Gets the page count from page-tree traversal.</summary>
     public int PageCount => _inspectionPages?.Count ?? _pageCount;
 
-    /// <summary>Gets a live snapshot of the job counters.</summary>
-    /// <remarks>Each read creates an immutable snapshot and charges its storage and work
-    /// to the document budgets. Snapshots remain valid after disposal.</remarks>
+    /// <summary>Gets an immutable snapshot of the job counters and memory estimates.</summary>
+    /// <remarks>The current implementation charges snapshot creation to the document's
+    /// estimated storage and work budgets. Snapshots remain valid after disposal;
+    /// their values do not measure the heap or require independent physical-memory billing.</remarks>
     /// <exception cref="QpdfLimitException">Snapshot storage or work exceeds the job budget.</exception>
     /// <exception cref="OperationCanceledException">The job cancellation token is canceled.</exception>
     public QpdfExecutionCounters Counters => _governor.OwnedSnapshot();
 
     /// <summary>Gets an immutable snapshot of the recorded warnings.</summary>
-    /// <remarks>Fresh collection storage and work are charged to the document budgets.
+    /// <remarks>Fresh collection storage estimates and work are charged to the document budgets.
     /// Snapshots preserve diagnostic identities and remain valid after disposal.
     /// Empty snapshots borrow shared storage.</remarks>
     /// <exception cref="QpdfLimitException">Snapshot storage or work exceeds the job budget.</exception>

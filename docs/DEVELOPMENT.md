@@ -42,83 +42,66 @@ so local SourceLink/source-control queries are disabled. Do not invent a URL.
 Untracked-source embedding is disabled, and compiler document paths are mapped
 to a stable root. Inspect both `.nupkg` and `.snupkg` with the provided script.
 
-## Focused contract, ownership and stress lanes
+## Focused verification and memory estimates
 
-After the locked Release restore/build, select the affected contract lane while
-debugging, then its ownership or stress lane after correcting behavior:
+After the locked Release restore/build, run the affected public contract tests
+and historical defect controls. A focused lane must select meaningful tests and
+report failures/skips; discovery counts and individual historical names are not
+acceptance requirements. Use one selection per mechanism and keep important
+interactions instead of route/encoding/fault/lifetime cross-products.
 
 ```powershell
 pwsh -File tools/test-audit-lane.ps1 -Lane SelectionContract
-pwsh -File tools/test-audit-lane.ps1 -Lane SelectionOwnership
 pwsh -File tools/test-audit-lane.ps1 -Lane ResultsContract
-pwsh -File tools/test-audit-lane.ps1 -Lane ResultsOwnership
-pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsContract
-pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsOwnership
 pwsh -File tools/test-audit-lane.ps1 -Lane CarriersContract
-pwsh -File tools/test-audit-lane.ps1 -Lane CarriersOwnership
-pwsh -File tools/test-audit-lane.ps1 -Lane WriterOwnership
+pwsh -File tools/test-audit-lane.ps1 -Lane DiagnosticsContract
 pwsh -File tools/test-audit-lane.ps1 -Lane LifetimeStress
 ```
 
-| Lane | Executed test cases | Observation scope |
-| --- | ---: | --- |
-| SelectionContract | 1530 | Complete public jobs across 33 routes, both encodings, faults, cancellation and fixed admission limits. |
-| SelectionOwnership | 74 | All 1532 original scenarios in 72 batches and two independent regressions. |
-| ResultsContract | 1587 | Command/typed producer contracts, pre-host rejection and physical shape checks. |
-| ResultsOwnership | 36 | 1470 original lifetime scenarios in 24 bounded batches, plus 12 independent extraction/document controls. |
-| DiagnosticsContract | 450 | Public warning histories, failure prefixes, prior targets and fixed memory ceilings. |
-| DiagnosticsOwnership | 4 | Original public hidden-warning regressions. |
-| CarriersContract | 1660 | Version, JSON, failed-result, selection, warning and checker producer/admission contracts. |
-| CarriersOwnership | 32 | 1302 original observations in 22 bounded batches, plus ten independent GC controls. |
-| WriterOwnership | 10 | All 216 original paused/completed writer backing observations; dedicated encoding/outcome contracts stay independent. |
-| LifetimeStress | 1 | Seventeen independent diagnostic, presentation, ledger, checker-detail and form controls with original 32-cycle bodies and limits. |
+Select only affected lanes; this list is not a mandatory sequence.
+`ResultsOwnership` is a compatibility alias for `ResultsContract`; running
+both repeats the same checks. `DiagnosticStress` aliases `LifetimeStress`,
+which now selects a short public-job sequence with significant payloads,
+failure/cancellation, actual host-storage reclamation and surviving outputs.
+Other ownership selections remain available for debugging concrete failures;
+superseded small-carrier receipt/GC requirements do not add release gates.
+Add `-List` to inspect the current nonempty selection.
 
-`DiagnosticStress` remains an alias of `LifetimeStress`. The single discovered
-stress case logs all 17 independent controls; it does not reduce their cycle counts.
-Forced collections belong to these tests. The shipped library has no
-`GC.Collect` or `GC.WaitForPendingFinalizers` calls. Test-only collection rounds
-are shared because they scan the whole test process and wait for finalizers.
-Compacting rounds preserve the original ownership stress controls. Finalizers
-report retirement of escaped storage; tests drive that retirement at a known
-boundary before checking accounting and surviving aliases. The library uses
-`GC.SuppressFinalize` and `GC.KeepAlive` for lifetime management; neither forces
-a collection.
+`MaxMemoryBytes` is an enforced estimated job-memory ceiling. Live/peak
+counters and memory diagnostics describe charged estimates, not CLR/RSS
+measurements. Counter snapshots remain immutable; unreleased charges and
+cumulative allocation do not establish retained memory. Significant buffers,
+growth/codec work, independent byte/count/work limits, cancellation and cleanup
+remain governed. Host buffers, concurrent jobs and caller-retained outputs also
+need host policy.
 
-Add `-List` to inspect a lane without execution. Exact discovery/result counts
-reject empty or partial selections. Batch output names every original scenario
-and records its phases and maintenance count; failures remain individually visible.
-Jobs run independently to their original collection boundary. Global collections
-are shared, while every governor retains its own quotas and original bounded
-maintenance calls. Metadata observations retain no governor. Alias drop phases,
-no-GC admission controls and stress pressure remain intact. Up to 64 rows share
-one batch; paused writers retain independent sinks. Original one/three/four-round
-collection geometry, compaction and interleaved maintenance remain explicit.
-Extraction and original regression controls remain independent.
+Approximate memory qualification uses five small workload families: two-page
+selection, shared/compressed image or JSON/linearized output, amplification
+negatives, original configuration fan-out failures and a short repeated-job
+sequence. Reuse their existing cases. `PracticalMemoryTests` reports a few
+whole-workload estimates/allocation/retention observations; it does not compare
+exact object sizes or require small metadata aliases to be billed independently.
+The original filtering/collation rejection controls and 4 KiB repeated hint
+encoder regression remain. Pure receipt minima, GC-round matrices and repeated
+small-metadata stress are consolidated or removal candidates.
 
-Selection focused time fell 408.5 to 74.3 seconds (5.5 times faster), with all
-1532 predecessor outcomes preserved. The four additional matrices fall
-965.7 to 141.6 seconds (6.8 times faster) and preserve all 2063 current
-scenario outcomes and compatible predecessor failures. Their explicit GC calls
-fall 24960 to 2800, retaining all 9184 maintenance calls. The command snapshot
-fixture adds a 16 MiB no-GC completion/capture region after four asynchronous
-snapshot comparisons failed in the first trial; equality assertions and job
-budgets stay unchanged. Private feature inspection supports older predecessor
-runtimes without treating missing members as behavioral failures.
+The shipped library does not call `GC.Collect` or
+`GC.WaitForPendingFinalizers`. Remaining test-only collections permit actual
+storage observations; compaction and a prescribed retirement round are not
+acceptance conditions. `GC.SuppressFinalize`/`GC.KeepAlive` manage lifetimes
+without forcing collection. Production accounting changes are justified by a
+concrete failure/material cost, not a new per-carrier audit.
 
-The preceding combined unfiltered run on `b1afaae` passes all 18913 cases in
-33.8 minutes. The historical 77-minute run used another test layout and
-overlapped reference/native phases; compare the isolated focused runs for a
-controlled reduction. The TEST-03 run on `45e16c5` passes all
-18626 unfiltered cases in 529.8 seconds (8.8 minutes), with no
-failures/skips or concurrent verification jobs. All previous scenarios and
-assertions remain accounted for; batching changes discovery counts, not coverage.
-
-Ordinary unfiltered `dotnet test` still executes every case. Run it once on the
-completed correction; repeat expensive checks for changed sources, failures or
-unresolved concerns. These lanes supplement that combined proof. Native/reference
-and package/consumer checks remain explicit; unchanged source and artifact hashes
-can retain established evidence with its scope recorded. The remaining ownership
-matrices are separate optimization candidates, selected from measured timings.
+Historical checkpoints retain their original evidence: `b1afaae` took 33.8
+minutes and `eff904f` took 10m07s for ordinary tests, while the latter's
+complete reference lane took 8m37s. The approximate-contract/test consolidation
+passes ordinary integration in 6m17s; see [progress](PROGRESS.md) for scope and
+validation. These timings/counts describe those sources. Use affected
+reference checks while correcting behavior; comprehensive reference, finite
+visual and package-consumer checks belong at integration/release checkpoints.
+Repeat for changed behavior, failures or a specific unresolved concern.
+Record source, command/result and relevant artifact/oracle identity and phase
+times without a repeated full-tree/hash/observation census.
 
 ## Optional reference checkout and metadata regeneration
 
@@ -241,7 +224,15 @@ dotnet run -c Release --project benchmarks/Lokad.Qpdf.Benchmarks -- --help
 dotnet run -c Release --project benchmarks/Lokad.Qpdf.Benchmarks -- --counter-report
 ```
 
-`--counter-report` runs representative operations (50-page inspection and selection, shared-font and 20-way merges, a 30-filter decode chain, JSON inspection, compressed rewrite, photo optimization, 10-page linearization, and a pre-canceled selection) and prints deterministic governor counters: work units, decoded bytes, peak/live memory, host operations, and diagnostics. It exits nonzero when a scenario fails to complete. Timed BenchmarkDotNet benchmarks over the same synthetic inputs run locally via `--filter`; their timings are machine-specific and are never asserted. Baseline counter results are recorded in `docs/BENCHMARKS.md`.
+`--counter-report` prints observed work/byte/host counters, peak/live memory
+estimates and separate cumulative allocation totals. Optional scenario names
+select a small workload set, for example `--counter-report select-few-50 linearize-10`.
+Unknown names or unexpected outcomes fail explicitly. Omitting names retains
+the existing ten scenarios. Allocation totals and charge debt do not measure
+retained memory. Timed BenchmarkDotNet runs use `--filter`; timings are local
+observations, never exact acceptance thresholds. Historical counter results
+remain in `docs/BENCHMARKS.md`.
+
 ## Package consumer
 
 `tests/Lokad.Qpdf.PackageConsumer` is a clean console project outside the

@@ -20,9 +20,12 @@ cycle and default proofs are reused. The intermittent numeric-copy finding is
 resolved by a deterministic after-work observer for both tokens and complete
 numeric argv/JPEG job controls. Their positive outputs reopen independently;
 cancellation closes leases and preserves prior targets. This closes the finite
-CPU/codec check without asserting universal cancellation latency. Remaining work
-is approximate contract/test consolidation, bounded exceptional cleanup and
-final supported-profile qualification, including finite visuals and reference CI.
+CPU/codec check without asserting universal cancellation latency. Approximate
+counter/documentation reconciliation and exact-only test consolidation now have
+five-family representative validation and affected checks. Original limits,
+public outcomes and useful defect controls remain; the receipt implementation
+is preserved. Remaining work is bounded exceptional cleanup and final supported-
+profile qualification, including finite visuals and reference CI.
 
 Public routes below use **typed / argv / job** for the three shared entry points.
 Use affected public jobs and existing independent checks; helper tests supplement
