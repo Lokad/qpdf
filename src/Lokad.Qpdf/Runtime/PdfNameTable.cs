@@ -281,11 +281,16 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         internal void Units(long count) { token.ThrowIfCancellationRequested(); governor?.CheckCancellation(); governor?.ChargeWork(count); }
         internal int Hash(PdfNameBytes bytes)
         {
+            int count = Math.Min(bytes.Length, 16);
+            // Hashing visits at most sixteen bytes. Admit the same byte and
+            // finalization work once, keeping cancellation bounded without a
+            // governor call for each byte of every dictionary lookup.
+            Units(count + 2L);
             HashCode hash = new();
             PdfNameBytes.Cursor cursor = bytes.GetCursor();
-            for (int index = 0; index < Math.Min(bytes.Length, 16); index++)
-            { Step(); if (!cursor.TryRead(out byte value)) { throw new InvalidOperationException("Name length differs."); } hash.Add(value); }
-            Step(); hash.Add(bytes.Length); Step(); return hash.ToHashCode();
+            for (int index = 0; index < count; index++)
+            { if (!cursor.TryRead(out byte value)) { throw new InvalidOperationException("Name length differs."); } hash.Add(value); }
+            hash.Add(bytes.Length); return hash.ToHashCode();
         }
         internal bool Equal(PdfName left, PdfName right)
         {

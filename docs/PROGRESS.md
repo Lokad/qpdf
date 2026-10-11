@@ -1,122 +1,93 @@
 # Progress
 
-The agreed [supported profile](SUPPORTED-PROFILE.md) is qualified on committed
-implementation `34c8097` (2026-10-11). No implementation or verification tasks
-remain recorded for that profile. Hosted CI passes on `7bc2fc8`:
-[run 38154808432](https://github.com/Lokad/qpdf/actions/runs/38154808432), with
-Windows 7m01s, Ubuntu 5m26s and pinned qpdf 12.4.2 reference 3m45s. Both ordinary
-jobs passed 17,874 tests with no failures/skips, package inspection, fresh locked
-consumers and both rejection controls; logs/TRX/reference reports were uploaded.
-Tagging and package publication remain separate actions.
+The integrated performance tree is qualified on `6221e06` (2026-10-12).
+The agreed [supported profile](SUPPORTED-PROFILE.md) and its completed features
+remain closed. A subsequent bounded name-hash correction passes 2,549 affected
+checks and awaits its integration checkpoint. The performance goal is separate:
+establish all nine warmed structural job medians within 2× pinned qpdf 12.4.2.
+That target remains unconfirmed for the large ordinary rewrite.
 
-Four-component CMYK/YCCK JPEGs remain opaque with warnings when decoding is
-requested; Zopfli is explicitly unavailable. Both limitations are tested.
-Other unmet original requirements remain documented in the
-[compatibility inventory](COMPATIBILITY.md); qualification does not waive another
-required compatibility mismatch or create a second blocking verdict.
+CMYK/YCCK JPEGs remain opaque with warnings when decoding is requested; Zopfli
+remains unavailable. Both accepted limitations are tested. Crypto remains
+excluded, including empty-password encrypted inputs. Other compatibility
+requirements remain in the [inventory](COMPATIBILITY.md). Tagging, publication
+and a release-version change are separate actions.
 
-## Qualification
+## Final integration qualification
 
-Both platforms used .NET SDK 10.0.401/runtime 10.0.12. Locked restores and Release
-builds passed with zero warnings/errors. Ordinary suites passed with no failures
-or skips. Packages passed inspection, fresh locked-consumer execution and the
-wrong-package-version/corrupt-external-hash rejection controls on both platforms.
+Both platforms use .NET SDK 10.0.401/runtime 10.0.12. Locked restores and Release
+builds passed with zero warnings/errors. Both complete ordinary suites passed
+17,841 tests with no failures/skips. Complete pinned reference, finite visuals,
+explicit Release pack, package inspection and fresh locked consumers passed.
+Consumer controls rejected a wrong package version and corrupt external hash.
 
 | Check | Platform | Wall time | Result |
 | --- | --- | ---: | --- |
-| Ordinary suite | Windows | 7m39s | Passed |
-| Ordinary suite | Ubuntu 24.04 WSL2 | 7m11s | Passed |
-| Complete pinned qpdf 12.4.2 reference | Windows | 6m58s | Passed; 1858 object comparisons, 442 rewrite trios |
-| Seven-case visual comparison | Windows | 24s | Passed, including both deliberate output-defect controls |
+| Ordinary suite | Windows | 6m47s | Passed |
+| Ordinary suite | Ubuntu 24.04 WSL2 | 6m58s | Passed |
+| Complete qpdf 12.4.2 reference | Windows | 6m17s | Passed; 1,858 object comparisons and 442 rewrite trios |
+| Seven-case visual comparison | Windows | 18s | Passed, including both deliberate defect controls |
+| Package inspection, fresh consumers and rejection controls | Windows / Ubuntu | 19s / 24s | Passed |
 
-The reference run retains the original inputs, parser comparisons, limits and
-negative controls, with bounded recovery additions. Its original 43m41s wall
-time is now 6m58s: parser approximately 33m49s → 5m25s, differential 9m42s →
-1m26s. Windows ordinary tests improved from the recorded 33.8-minute baseline
-to 7m39s. No parallel verification workers or production forced GC were added.
+The first integration attempt found 42 stale test failures on each platform;
+all other 17,799 checks passed. Corrections preserve diagnostic count/byte limits,
+output validity and cleanup while expecting one warning from the reused primary
+reader. The inventory points to the strengthened default-ID test. Typed jobs
+retain their original admission ceilings and require complete valid output or
+untouched prior output on exhaustion. Label jobs retain routes, encodings,
+publication failures/cancellation, surviving output snapshots and large-prefix
+rejection, while dropping exact receipt/size/GC-round checks and redundant
+encoding/failure combinations. All 1,484 affected checks pass.
 
-Practical limits, allocation/decompression amplification protection, cancellation,
-exceptional cleanup and surviving output aliases pass their existing controls.
-Five representative normal/adversarial memory workload families pass, including
-the original configuration fan-out failures and repeated hint encoding under
-4 KiB. `MaxMemoryBytes` bounds a charged working-set estimate; unreleased charges
-do not establish retained memory. Exact CLR sizes, small-object/metadata-alias
-receipts, fixed GC retirement and precise bookkeeping accounting are withdrawn
-release obligations. The [governance contract](SUPPORTED-PROFILE.md#governance)
-and [development guide](DEVELOPMENT.md#focused-verification-and-memory-estimates)
-describe the retained safeguards and representative checks.
+Source archives, logs, TRX and phase timings are in the ignored
+`external/reviews/2026-10-11-performance-integration/final-6221e06/` run;
+Linux results use the same source. Repeat completed checks only for source
+changes, failures or unresolved concerns.
 
-Detailed local source/artifact identities, commands and phase results are in
-`external/reviews/2026-10-11-delivery/c84059d7915a41fc91d488d5a9d66dc2/result.json`
-(ignored run evidence). The Windows and Ubuntu packages were qualified from the
-same implementation source. Subsequent documentation, assets and initial
-benchmark tools preserved it. The performance corrections below require a new
-integration checkpoint to qualify their final source/package.
+## Integrated performance changes
 
-## Continuing work
-
-The initial finite Linux comparison on `35eb3fb` is recorded in
-[the benchmark report](BENCHMARK-RESULTS.md). Its process and managed-only warmed
-series remain separate. Subsequent complete-job measurements warm both engines,
-using pinned native qpdf 12.4.2, fresh public jobs and validated outputs. Startup,
-protocol and validation are excluded; necessary host/file transport is included.
-There are no timing gates in CI.
-
-Performance work targets at most 2× native on nine structural workloads. The
-last complete rerank (`d27dbb7`) validated all nine cells. Eight meet the target;
-the remaining gap is ordinary M500 rewriting (2.40×). Its main-thread profile
-attributes about 27% of elapsed samples to parser stream capture; copy and GC
-polling/pauses dominate, while individual formatting self-time is small.
-These are contemporaneous engine
-ratios; paired correction gains below use interleaved revisions instead.
-Later paired whole-file source reuse improves rewriting 67.85 → 54.59 ms (19.6%),
-with native 17.98 ms (3.04×). Allocation falls 73.58 → 61.40 MB/job (16.6%).
-The initial noisier pair showed 13.1%; both observations are retained. Source
-reuse preserves labels/versions and closes inputs before publication, including
-split, replace-input and pass1. No parsed document is cached between jobs.
-
-| Integrated correction | Evidence |
+| Mechanism | Result and retained safeguards |
 | --- | --- |
-| Remove quadratic thumbnail exclusion | Linearization 155.03 → 115.67 ms (25.4%); thumbnail placement, classification, cancellation/limits and work-growth checks pass. |
-| Transfer fresh parser stream buffers; write memory-host spans | Rewriting 107.80 → 93.56 ms (13.2%); allocation falls 11.8%; recovery, aliases, transaction failures and active cancellation pass. |
-| Remove name/container/parser scratch allocations | Owned name bytes, one display string, concrete dictionary enumeration, known-size arrays and direct decoded buffers; grammar, ordering/null semantics, mutation isolation and decoded-storage limits pass. |
-| Use exclusive ownership for private complete-job sources | X100 rewriting 13.54 → 7.60 ms (43.9%); allocation falls 14.1%; versions, limits, cleanup and surviving outputs pass. GC rates are mixed across generations. |
-| Reuse immutable graph stream payloads | About 5.13 MB/job less allocation on M500 selection/rewrite; fresh outputs match previous managed bytes; full payloads survive host collection. Timings show no reliable speedup. |
-| Reuse the whole-file source in the shared selection core | Paired improvement above; 3,326 existing focused checks and 42 writer-control cases pass, including six source/publication regressions. |
-| Reuse complete owned host-read arrays | 554 focused host, reader, configuration and practical-memory checks pass. Short reads, slices and non-array memory retain the assembly/copy fallback. |
-| Compare reader page types as raw bytes | 815 focused checks pass, including escaped names, empty catalog types, effective versions and page selection. |
-| Preallocate admitted memory-host staging from the counted output size | 2,414 focused checks pass, including failed capacity admission preserving prior output and closing the transaction. Rewrite allocation falls 56.12 → 44.56 MB/job (20.6%); output bytes are unchanged. Timing is noisy (61.35 → 66.11 ms), with no established speedup. |
-| Borrow fixed writer syntax through sink awaits | 344 focused writer, object-stream, QDF, linearization, memory and active-cancellation checks pass. Shared immutable literals eliminate per-space/delimiter/frame buffers and scopes; variable tokens retain their existing encoding path. |
-| Keep private checker graphs under document ownership | Interleaved check-X100 improves 16.27 → 7.54 ms (53.7%); allocation falls 1.50 → 0.99 MB/job (34.1%). 3,516 focused checks passed, then all 125 affected checker/control checks passed after correcting the new version-survival assertion and withdrawing small-fixture accounting exhaustion requirements. Compressed expansion still rejects at unchanged ceilings; public documents and surviving metadata remain independently owned. |
-| Transfer complete private staging at publication | Rewrite allocation falls 42.35 → 37.13 MB/job (12.3%); identical independently validated output. Timings overlap (53.85 → 50.46 ms), with no decisive speedup. 2,414 focused checks passed, then all 1,551 affected cleanup controls passed after removing duplicate batches that required metadata/accounting retirement in four GC rounds. Public failure/cancellation/limits, prior outputs, mutation isolation and representative material-memory checks remain. |
-| Reuse small object-stream member scratch within a group | Interleaved object-stream generation improves 10.80 → 7.66 ms (29.1%); allocation falls 3.39 → 1.70 MB/job (49.9%), with identical independently validated bytes. 1,360 focused checks passed, then all 34 affected controls passed after allowing canceled scratch to release its charge. Large/failed scratch is discarded; member copies remain independent. |
-| Size pure counting passes without token buffers | Existing escape/width rules and replay checks remain shared; pass1 tees and captures still emit bytes. 2,770 focused checks passed, then all 212 affected controls passed after replacing two obsolete temporary-buffer charge assertions with material-storage admission/cleanup checks. Paired X100 rewrite improves 14.72 → 11.07 ms (24.8%, 1.66× native); allocation falls 11.5%. M500 rewrite/linearization allocate about 0.93 MB/job less; their timings vary substantially and establish no speedup. Fresh outputs are independently valid and unchanged. |
-| Extend admitted staging hints to linearized and split output | Final counted linearized sizes and prepared split lengths reuse the existing memory-host hint. Split staging is admitted before the first publication and reused sequentially; linearized staging remains charged through transaction cleanup. 1,837 focused checks passed, then all 155 affected controls passed after allowing jobs that now fit the unchanged work ceiling to publish valid output. Failure/cancellation, prior outputs and pass1 remain covered. This structural reduction has no timing acceptance gate. |
-| Hash default identifiers without retaining a placeholder PDF | Classic, QDF, streamed and linearized publication share a bounded incremental MD5 sink, including prepared split output. Existing limits/cancellation remain, with a fixed hash-state allowance and explicit cleanup. 1,936 focused checks passed, then all 55 affected controls passed after updating historical split work assertions to require complete valid publication or untouched prior outputs. A smaller work limit still rejects. Three original ID hashes are unchanged. This removes whole-PDF buffers structurally; the nine static-ID comparison cells do not exercise it. |
-| Borrow immutable memory-host input snapshots for private jobs | The existing governed wrapper admits input storage and counts the read attempt before private documents borrow the stable host bytes. Public documents/reads and custom hosts keep their fresh/short-read path. Closed memory input leases drop host/payload references and preserve length metadata. Release build, 1,693 focused checks and all four public CPU-cancellation controls pass, including real 2 MiB retention and public read-mutation isolation regressions. No parser payload slices, parsed-document cache or production forced GC were introduced. |
-| Share common immutable name/scalar tokens | The existing literal mechanism now covers 25 fixed raw PDF names and five small scalar constants. Bounded lookups preserve long-token cancellation and encoder fallback. Release build and 2,134 focused checks pass, including grammar, QDF, object streams, linearization, complete-job cleanup and public CPU cancellation. Bytes remain immutable across sink awaits and later host use; mutable writer scratch is deferred until its consuming-sink lifetime is explicit. |
-| Avoid clearing stream-copy destinations and batch copy work | Parser stream storage is admitted and filled completely before immutable publication, using uninitialized byte arrays and bounded 32 KiB chunks. Per-byte work and cancellation remain; streams retain independent payloads. Release build and all 2,211 focused parser/recovery, host, practical-memory, publication and public CPU-cancellation checks pass. This direct structural reduction has no timing acceptance gate. |
-| Align affected qualification controls with source reuse and approximate ownership | Diagnostic count/byte controls now expect one accepted duplicate-key warning and retain summary-slot and publication-failure checks. Existing typed admission ceilings require valid complete output or untouched prior output on exhaustion. Label jobs retain route, encoding, cancellation/fault, output and large-prefix controls while dropping exact size/receipt/GC-round checks and redundant encoding/failure combinations. The default-ID inventory points to its strengthened test. All 1,484 affected checks pass with no production changes. |
+| Reader and source reuse | Whole-file jobs reuse the primary document. Private jobs borrow stable memory-host inputs; arbitrary hosts retain the fresh/short-read fallback. Closed leases drop host/payload references. Public mutation isolation, versions, source/publication interactions and an actual 2 MiB retention regression remain covered. |
+| Immutable values and parser scratch | Names use owned bytes, one display string and raw internal comparisons. Dictionary enumeration uses concrete entries; known arrays allocate once. Hex/escape decoding avoids intermediate copies. Parsed stream buffers transfer without cloning and fill admitted uninitialized storage in bounded 32 KiB chunks, preserving independent payload lifetimes and work/cancellation. |
+| Copier and checker ownership | Private complete-job graphs use document/operation ownership. Unchanged stream payloads reuse immutable backing through publication. Public values retain their lifetime contracts; decompression, material-memory limits, failure cleanup and surviving outputs remain covered. |
+| Serialization | Fixed syntax and 25 common names/five small scalars use immutable bytes. Pure counting passes reuse encoding/width rules without token buffers. Object-stream captures reuse bounded scratch. Default IDs use bounded incremental hashing, preserving original classic/QDF/linearized hashes. Replay lengths, offsets, grammar, ordering/null semantics and cancellation remain checked. |
+| Bounded name hashing | The existing governor admits the same at-most-16-byte hash and finalization work in one call. Hash values, order, collision comparisons, long-name observers and limits remain unchanged. Release build and 2,549 focused name/parser/reader/resource/copy/writer/cancellation/practical-memory checks pass. This subsequent structural correction awaits its final performance/integration checkpoint. |
+| Publication | Counted output sizes admit staging once for ordinary, linearized and split output. Split admission precedes publication; pass1 remains covered. Complete private staging transfers at commit, and settled storage releases immediately. Prior outputs, host failures, cancellation, aliases and output integrity remain covered. |
 
-Straightforward structural copy/allocation eliminations have correctness/resource
-checks and no empirical timing acceptance gate. Larger performance hypotheses
-remain profile-driven; paired public-workload timing and allocation observations
-are retained without claiming gains from noisy samples. The same small
-representative normal/adversarial memory families remain the practical target.
-Small jobs that now fit the unchanged 16 KiB ceiling must publish valid output;
-material-memory and work exhaustion still reject and clean up.
+Straightforward copy/allocation reductions are accepted structurally after
+correctness and practical resource checks. They have no empirical ≥10% gate.
+Larger performance hypotheses remain ranked by measured contribution; retain
+them through the agreed public-workload criteria. No production forced GC,
+parsed-document cache, runtime native bridge or new accounting framework was added.
 
-The final combined performance tree still needs nine-cell reranking and
-comprehensive ordinary/reference/visual/package-consumer qualification at the
-completed integration checkpoint. The overall 2× target remains unmet. Remaining
-work focuses on copying/GC pressure and serialization, with bounded profiles and
-focused checks before each correction. This adds no feature or accounting audit.
+## Remaining performance work
 
-Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
-[architecture](../ARCHITECTURE.md) for implementation boundaries and the
-[development guide](DEVELOPMENT.md) for checks and the five intentionally
-suppressed ImageSharp 3.1.12 advisories. Choose new work by a concrete public
-defect or an explicitly agreed feature. Run affected checks while correcting it,
-then comprehensive qualification at integration/release checkpoints. Historical
-test counts, checkpoint narratives and superseded audit ladders add no tasks;
-Git retains that history.
+The [comparison report](BENCHMARK-RESULTS.md) preserves initial, preceding and
+current both-warmed runs plus the narrow stream-buffer pair. All nine current
+fresh outputs independently validate, match previous managed identities and
+preserve original input hashes. M500 rewrite allocation fell from approximately
+92.9 to 30.6 MB/job across the integrated corrections. Allocation, collection
+rates, charged estimates and process RSS remain distinct measurements.
+
+The last qualified-source comparison used seven one-second batches and put
+eight cells within 2×; M500 rewriting remained at 2.14×. Earlier contended runs
+and the overlapping narrow stream-copy pair remain in the report. Observe the
+bounded name-hash reduction with the existing narrow pair, rerank all nine,
+then qualify the final correction batch. A nine-cell comparison closes the elapsed-time goal;
+no timing gate is added to CI. Cold process results remain separate.
+
+The approximate memory contract still admits significant buffers/growth and
+preserves allocation/decompression amplification protection, work limits,
+cancellation, host boundaries, cleanup and valid outputs. Five representative
+normal/adversarial workload families remain sufficient. Unreleased accounting
+charges do not prove retained memory. Exact CLR geometry, individual small-object
+or metadata-alias receipts, fixed GC retirement and precise bookkeeping charges
+remain withdrawn obligations. See the [governance contract](SUPPORTED-PROFILE.md#governance).
+
+Hosted CI last passed on `7bc2fc8`:
+[run 38154808432](https://github.com/Lokad/qpdf/actions/runs/38154808432), with
+Windows 7m01s, Ubuntu 5m26s and pinned reference 3m45s. These performance commits
+are local; that hosted run predates them. Use the [architecture](../ARCHITECTURE.md)
+and [development guide](DEVELOPMENT.md) for boundaries, verification scripts and
+the five intentionally suppressed ImageSharp 3.1.12 advisories.
