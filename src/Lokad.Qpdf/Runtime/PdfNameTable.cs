@@ -314,6 +314,21 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         private bool EqualBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
         {
             if (a.Length != b.Length) { return false; }
+            if (a.Length <= 16)
+            {
+                // Equal checked cancellation immediately before this bounded,
+                // allocation-free read. Charge the exact compared byte count
+                // once before returning, including the first differing byte.
+                int compared = 0;
+                bool equal = true;
+                for (int index = 0; index < a.Length; index++)
+                {
+                    compared++;
+                    if (a[index] != b[index]) { equal = false; break; }
+                }
+                if (compared != 0) { Units(compared); }
+                return equal;
+            }
             for (int index = 0; index < a.Length; index++)
             {
                 Step(); if (a[index] != b[index]) { return false; }

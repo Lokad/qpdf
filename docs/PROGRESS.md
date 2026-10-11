@@ -2,7 +2,7 @@
 
 The integrated performance tree is qualified on `6221e06` (2026-10-12).
 The agreed [supported profile](SUPPORTED-PROFILE.md) and its completed features
-remain closed. A subsequent bounded name-hash correction passes 2,549 affected
+remain closed. Subsequent bounded name hash/comparison corrections pass 2,549 affected
 checks and awaits its integration checkpoint. The performance goal is separate:
 establish all nine warmed structural job medians within 2× pinned qpdf 12.4.2.
 That target remains unconfirmed for the large ordinary rewrite.
@@ -52,7 +52,7 @@ changes, failures or unresolved concerns.
 | Immutable values and parser scratch | Names use owned bytes, one display string and raw internal comparisons. Dictionary enumeration uses concrete entries; known arrays allocate once. Hex/escape decoding avoids intermediate copies. Parsed stream buffers transfer without cloning and fill admitted uninitialized storage in bounded 32 KiB chunks, preserving independent payload lifetimes and work/cancellation. |
 | Copier and checker ownership | Private complete-job graphs use document/operation ownership. Unchanged stream payloads reuse immutable backing through publication. Public values retain their lifetime contracts; decompression, material-memory limits, failure cleanup and surviving outputs remain covered. |
 | Serialization | Fixed syntax and 25 common names/five small scalars use immutable bytes. Pure counting passes reuse encoding/width rules without token buffers. Object-stream captures reuse bounded scratch. Default IDs use bounded incremental hashing, preserving original classic/QDF/linearized hashes. Replay lengths, offsets, grammar, ordering/null semantics and cancellation remain checked. |
-| Bounded name hashing | The existing governor admits the same at-most-16-byte hash and finalization work in one call. Hash values, order, collision comparisons, long-name observers and limits remain unchanged. Release build and 2,549 focused name/parser/reader/resource/copy/writer/cancellation/practical-memory checks pass. This subsequent structural correction awaits its final performance/integration checkpoint. |
+| Bounded name hashing and comparisons | The existing governor admits the same at-most-16-byte hash and finalization work in one call. Raw comparisons up to sixteen bytes charge the exact compared count once before returning, after the caller's cancellation check. Hash values, order, comparison results, long/decoded paths, long-name observers and limits remain unchanged. Release builds and all 2,549 affected name/parser/reader/resource/copy/writer/cancellation/practical-memory checks pass after each correction. These structural reductions await their final performance/integration checkpoint. |
 | Publication | Counted output sizes admit staging once for ordinary, linearized and split output. Split admission precedes publication; pass1 remains covered. Complete private staging transfers at commit, and settled storage releases immediately. Prior outputs, host failures, cancellation, aliases and output integrity remain covered. |
 
 Straightforward copy/allocation reductions are accepted structurally after
