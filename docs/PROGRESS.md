@@ -2,8 +2,12 @@
 
 The agreed [supported profile](SUPPORTED-PROFILE.md) is qualified on committed
 implementation `34c8097` (2026-10-11). No implementation or verification tasks
-remain recorded for that profile. Hosted CI is being completed separately;
-tagging and package publication remain separate actions.
+remain recorded for that profile. Hosted CI passes on `7bc2fc8`:
+[run 38154808432](https://github.com/Lokad/qpdf/actions/runs/38154808432), with
+Windows 7m01s, Ubuntu 5m26s and pinned qpdf 12.4.2 reference 3m45s. Both ordinary
+jobs passed 17,874 tests with no failures/skips, package inspection, fresh locked
+consumers and both rejection controls; logs/TRX/reference reports were uploaded.
+Tagging and package publication remain separate actions.
 
 Four-component CMYK/YCCK JPEGs remain opaque with warnings when decoding is
 requested; Zopfli is explicitly unavailable. Both limitations are tested.
@@ -45,9 +49,16 @@ describe the retained safeguards and representative checks.
 Detailed local source/artifact identities, commands and phase results are in
 `external/reviews/2026-10-11-delivery/c84059d7915a41fc91d488d5a9d66dc2/result.json`
 (ignored run evidence). The Windows and Ubuntu packages were qualified from the
-same implementation source. Later documentation-only edits preserve that source.
+same implementation source. Later documentation, assets and development-tool
+changes preserve the production implementation.
 
 ## Continuing work
+
+The finite Linux structural benchmark comparison is complete on `35eb3fb`,
+using WSL and pinned native qpdf 12.4.2. All nine cells validate independently;
+seven process pairs and separate unfiltered warmed measurements are recorded in
+[the comparison report](BENCHMARK-RESULTS.md). It adds no production, accounting
+or CI timing obligations.
 
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the

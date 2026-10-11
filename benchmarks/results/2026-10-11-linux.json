@@ -1,0 +1,5830 @@
+{
+  "environment": {
+    "platform": "Linux-6.18.40.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "osRelease": "PRETTY_NAME=\"Ubuntu 24.04.3 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.3 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           46 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  8\nOn-line CPU(s) list:                     0-7\nVendor ID:                               GenuineIntel\nModel name:                              Intel(R) Xeon(R) W-2223 CPU @ 3.60GHz\nCPU family:                              6\nModel:                                   85\nThread(s) per core:                      2\nCore(s) per socket:                      4\nSocket(s):                               1\nStepping:                                7\nBogoMIPS:                                7199.99\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm arch_perfmon rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pdcm pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch ssbd ibrs ibpb stibp ibrs_enhanced fsgsbase bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx512_vnni md_clear flush_l1d arch_capabilities\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               128 KiB (4 instances)\nL1i cache:                               128 KiB (4 instances)\nL2 cache:                                4 MiB (4 instances)\nL3 cache:                                8.3 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-7\nVulnerability Gather data sampling:      Unknown: Dependent on hypervisor status\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Mitigation; Aligned branch/return thunks\nVulnerability Itlb multihit:             KVM: Mitigation: VMX unsupported\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Mitigation; Clear CPU buffers; SMT Host state unknown\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Mitigation; Enhanced IBRS\nVulnerability Spec rstack overflow:      Not affected\nVulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI SW loop, KVM SW loop\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Not affected\nVulnerability Tsx async abort:           Mitigation; TSX disabled\nVulnerability Vmscape:                   Not affected\n",
+    "memory": "MemTotal:       16218488 kB\nMemFree:        13350836 kB\nMemAvailable:   15391792 kB\nBuffers:           65628 kB\nCached:          2141200 kB\nSwapCached:            0 kB\nActive:           354804 kB\nInactive:        2010916 kB\nActive(anon):       3952 kB\nInactive(anon):   159404 kB\nActive(file):     350852 kB\nInactive(file):  1851512 kB\nUnevictable:           0 kB\nMlocked:               0 kB\nSwapTotal:       4194304 kB\nSwapFree:        4194304 kB\nDirty:            243964 kB\nWriteback:             0 kB\nAnonPages:        158936 kB\nMapped:           167052 kB\nShmem:              4440 kB\nKReclaimable:      50384 kB\nSlab:             107764 kB\nSReclaimable:      50384 kB\nSUnreclaim:        57380 kB\nKernelStack:        4256 kB\nPageTables:         5284 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    12303548 kB\nCommitted_AS:     929724 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:       31844 kB\nVmallocChunk:          0 kB\nPercpu:             3488 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:    180224 kB\nFilePmdMapped:         0 kB\nBalloon:               0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:       31744 kB\nDirectMap2M:     3997696 kB\nDirectMap1G:    20971520 kB\n",
+    "filesystem": "FSTYPE OPTIONS\next4   rw,relatime,discard,errors=remount-ro,data=ordered\n",
+    "dotnetInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   {SDK}/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [{SDK}/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [{SDK}/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [{SDK}/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_CLI_HOME                          [{WORKSPACE}/dotnet-home]\n  DOTNET_ROOT                              [{SDK}]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "nativeVersion": "qpdf version 12.4.2\nRun qpdf --copyright to see copyright and license information.",
+    "nativePinnedCommit": "4eba95899886e851cc41d76886483b347612f2a8",
+    "nativeCmakeCache": "# This is the CMakeCache file.\n# For build in directory: {WORKSPACE}/native-pinned-build\n# It was generated by CMake: /usr/bin/cmake\n# You can edit this file to change values found and used by cmake.\n# If you do not want to change any of the values, simply exit the editor.\n# If you do want to change a value, simply edit, save, and exit the editor.\n# The syntax for the file is as follows:\n# KEY:TYPE=VALUE\n# KEY is the name of a variable in the cache.\n# TYPE is a hint to GUIs for the type of VALUE, DO NOT EDIT TYPE!.\n# VALUE is the current value for the KEY.\n\n########################\n# EXTERNAL cache entries\n########################\n\n//Build documentation\nBUILD_DOC:BOOL=OFF\n\n//Create distribution of manual\nBUILD_DOC_DIST:BOOL=ON\n\n//Build qpdf shared libraries\nBUILD_SHARED_LIBS:BOOL=OFF\n\n//Build qpdf static libraries\nBUILD_STATIC_LIBS:BOOL=ON\n\n//Set options for running in CI\nCI_MODE:BOOL=OFF\n\n//Path to a program.\nCMAKE_ADDR2LINE:FILEPATH=/usr/bin/addr2line\n\n//Path to a program.\nCMAKE_AR:FILEPATH=/usr/bin/ar\n\n//Choose the type of build, options are: None Debug Release RelWithDebInfo\n// MinSizeRel ...\nCMAKE_BUILD_TYPE:STRING=Release\n\n//CXX compiler\nCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/c++\n\n//A wrapper around 'ar' adding the appropriate '--plugin' option\n// for the GCC compiler\nCMAKE_CXX_COMPILER_AR:FILEPATH=/usr/bin/gcc-ar-13\n\n//A wrapper around 'ranlib' adding the appropriate '--plugin' option\n// for the GCC compiler\nCMAKE_CXX_COMPILER_RANLIB:FILEPATH=/usr/bin/gcc-ranlib-13\n\n//Flags used by the CXX compiler during all build types.\nCMAKE_CXX_FLAGS:STRING=\n\n//Flags used by the CXX compiler during DEBUG builds.\nCMAKE_CXX_FLAGS_DEBUG:STRING=-g\n\n//Flags used by the CXX compiler during MINSIZEREL builds.\nCMAKE_CXX_FLAGS_MINSIZEREL:STRING=-Os -DNDEBUG\n\n//Flags used by the CXX compiler during RELEASE builds.\nCMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG\n\n//Flags used by the CXX compiler during RELWITHDEBINFO builds.\nCMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG\n\n//C compiler\nCMAKE_C_COMPILER:FILEPATH=/usr/bin/cc\n\n//A wrapper around 'ar' adding the appropriate '--plugin' option\n// for the GCC compiler\nCMAKE_C_COMPILER_AR:FILEPATH=/usr/bin/gcc-ar-13\n\n//A wrapper around 'ranlib' adding the appropriate '--plugin' option\n// for the GCC compiler\nCMAKE_C_COMPILER_RANLIB:FILEPATH=/usr/bin/gcc-ranlib-13\n\n//Flags used by the C compiler during all build types.\nCMAKE_C_FLAGS:STRING=\n\n//Flags used by the C compiler during DEBUG builds.\nCMAKE_C_FLAGS_DEBUG:STRING=-g\n\n//Flags used by the C compiler during MINSIZEREL builds.\nCMAKE_C_FLAGS_MINSIZEREL:STRING=-Os -DNDEBUG\n\n//Flags used by the C compiler during RELEASE builds.\nCMAKE_C_FLAGS_RELEASE:STRING=-O3 -DNDEBUG\n\n//Flags used by the C compiler during RELWITHDEBINFO builds.\nCMAKE_C_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG\n\n//Path to a program.\nCMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND\n\n//Flags used by the linker during all build types.\nCMAKE_EXE_LINKER_FLAGS:STRING=\n\n//Flags used by the linker during DEBUG builds.\nCMAKE_EXE_LINKER_FLAGS_DEBUG:STRING=\n\n//Flags used by the linker during MINSIZEREL builds.\nCMAKE_EXE_LINKER_FLAGS_MINSIZEREL:STRING=\n\n//Flags used by the linker during RELEASE builds.\nCMAKE_EXE_LINKER_FLAGS_RELEASE:STRING=\n\n//Flags used by the linker during RELWITHDEBINFO builds.\nCMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO:STRING=\n\n//Enable/Disable output of compile commands during generation.\nCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=\n\n//Value Computed by CMake.\nCMAKE_FIND_PACKAGE_REDIRECTS_DIR:STATIC={WORKSPACE}/native-pinned-build/CMakeFiles/pkgRedirects\n\n//User executables (bin)\nCMAKE_INSTALL_BINDIR:PATH=bin\n\n//Read-only architecture-independent data (DATAROOTDIR)\nCMAKE_INSTALL_DATADIR:PATH=\n\n//Read-only architecture-independent data root (share)\nCMAKE_INSTALL_DATAROOTDIR:PATH=share\n\n//Documentation root (DATAROOTDIR/doc/PROJECT_NAME)\nCMAKE_INSTALL_DOCDIR:PATH=\n\n//C header files (include)\nCMAKE_INSTALL_INCLUDEDIR:PATH=include\n\n//Info documentation (DATAROOTDIR/info)\nCMAKE_INSTALL_INFODIR:PATH=\n\n//Object code libraries (lib)\nCMAKE_INSTALL_LIBDIR:PATH=lib\n\n//Program executables (libexec)\nCMAKE_INSTALL_LIBEXECDIR:PATH=libexec\n\n//Locale-dependent data (DATAROOTDIR/locale)\nCMAKE_INSTALL_LOCALEDIR:PATH=\n\n//Modifiable single-machine data (var)\nCMAKE_INSTALL_LOCALSTATEDIR:PATH=var\n\n//Man documentation (DATAROOTDIR/man)\nCMAKE_INSTALL_MANDIR:PATH=\n\n//C header files for non-gcc (/usr/include)\nCMAKE_INSTALL_OLDINCLUDEDIR:PATH=/usr/include\n\n//Install path prefix, prepended onto install directories.\nCMAKE_INSTALL_PREFIX:PATH=/usr/local\n\n//Run-time variable data (LOCALSTATEDIR/run)\nCMAKE_INSTALL_RUNSTATEDIR:PATH=\n\n//System admin executables (sbin)\nCMAKE_INSTALL_SBINDIR:PATH=sbin\n\n//Modifiable architecture-independent data (com)\nCMAKE_INSTALL_SHAREDSTATEDIR:PATH=com\n\n//Read-only single-machine data (etc)\nCMAKE_INSTALL_SYSCONFDIR:PATH=etc\n\n//Path to a program.\nCMAKE_LINKER:FILEPATH=/usr/bin/ld\n\n//Program used to build from build.ninja files.\nCMAKE_MAKE_PROGRAM:FILEPATH=/usr/bin/ninja\n\n//Flags used by the linker during the creation of modules during\n// all build types.\nCMAKE_MODULE_LINKER_FLAGS:STRING=\n\n//Flags used by the linker during the creation of modules during\n// DEBUG builds.\nCMAKE_MODULE_LINKER_FLAGS_DEBUG:STRING=\n\n//Flags used by the linker during the creation of modules during\n// MINSIZEREL builds.\nCMAKE_MODULE_LINKER_FLAGS_MINSIZEREL:STRING=\n\n//Flags used by the linker during the creation of modules during\n// RELEASE builds.\nCMAKE_MODULE_LINKER_FLAGS_RELEASE:STRING=\n\n//Flags used by the linker during the creation of modules during\n// RELWITHDEBINFO builds.\nCMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO:STRING=\n\n//Path to a program.\nCMAKE_NM:FILEPATH=/usr/bin/nm\n\n//Path to a program.\nCMAKE_OBJCOPY:FILEPATH=/usr/bin/objcopy\n\n//Path to a program.\nCMAKE_OBJDUMP:FILEPATH=/usr/bin/objdump\n\n//Value Computed by CMake\nCMAKE_PROJECT_DESCRIPTION:STATIC=\n\n//Value Computed by CMake\nCMAKE_PROJECT_HOMEPAGE_URL:STATIC=\n\n//Value Computed by CMake\nCMAKE_PROJECT_NAME:STATIC=qpdf\n\n//Value Computed by CMake\nCMAKE_PROJECT_VERSION:STATIC=12.4.2\n\n//Value Computed by CMake\nCMAKE_PROJECT_VERSION_MAJOR:STATIC=12\n\n//Value Computed by CMake\nCMAKE_PROJECT_VERSION_MINOR:STATIC=4\n\n//Value Computed by CMake\nCMAKE_PROJECT_VERSION_PATCH:STATIC=2\n\n//Value Computed by CMake\nCMAKE_PROJECT_VERSION_TWEAK:STATIC=\n\n//Path to a program.\nCMAKE_RANLIB:FILEPATH=/usr/bin/ranlib\n\n//Path to a program.\nCMAKE_READELF:FILEPATH=/usr/bin/readelf\n\n//Flags used by the linker during the creation of shared libraries\n// during all build types.\nCMAKE_SHARED_LINKER_FLAGS:STRING=\n\n//Flags used by the linker during the creation of shared libraries\n// during DEBUG builds.\nCMAKE_SHARED_LINKER_FLAGS_DEBUG:STRING=\n\n//Flags used by the linker during the creation of shared libraries\n// during MINSIZEREL builds.\nCMAKE_SHARED_LINKER_FLAGS_MINSIZEREL:STRING=\n\n//Flags used by the linker during the creation of shared libraries\n// during RELEASE builds.\nCMAKE_SHARED_LINKER_FLAGS_RELEASE:STRING=\n\n//Flags used by the linker during the creation of shared libraries\n// during RELWITHDEBINFO builds.\nCMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO:STRING=\n\n//If set, runtime paths are not added when installing shared libraries,\n// but are added when building.\nCMAKE_SKIP_INSTALL_RPATH:BOOL=NO\n\n//If set, runtime paths are not added when using shared libraries.\nCMAKE_SKIP_RPATH:BOOL=NO\n\n//Flags used by the linker during the creation of static libraries\n// during all build types.\nCMAKE_STATIC_LINKER_FLAGS:STRING=\n\n//Flags used by the linker during the creation of static libraries\n// during DEBUG builds.\nCMAKE_STATIC_LINKER_FLAGS_DEBUG:STRING=\n\n//Flags used by the linker during the creation of static libraries\n// during MINSIZEREL builds.\nCMAKE_STATIC_LINKER_FLAGS_MINSIZEREL:STRING=\n\n//Flags used by the linker during the creation of static libraries\n// during RELEASE builds.\nCMAKE_STATIC_LINKER_FLAGS_RELEASE:STRING=\n\n//Flags used by the linker during the creation of static libraries\n// during RELWITHDEBINFO builds.\nCMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO:STRING=\n\n//Path to a program.\nCMAKE_STRIP:FILEPATH=/usr/bin/strip\n\n//Path to a program.\nCMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND\n\n//If this value is on, makefiles will be generated without the\n// .SILENT directive, and all commands will be echoed to the console\n// during the make.  This is useful for debugging only. With Visual\n// Studio IDE projects all commands are done without /nologo.\nCMAKE_VERBOSE_MAKEFILE:BOOL=FALSE\n\n//Enable to build Debian packages\nCPACK_BINARY_DEB:BOOL=OFF\n\n//Enable to build FreeBSD packages\nCPACK_BINARY_FREEBSD:BOOL=OFF\n\n//Enable to build IFW packages\nCPACK_BINARY_IFW:BOOL=OFF\n\n//Enable to build NSIS packages\nCPACK_BINARY_NSIS:BOOL=OFF\n\n//Enable to build RPM packages\nCPACK_BINARY_RPM:BOOL=OFF\n\n//Enable to build STGZ packages\nCPACK_BINARY_STGZ:BOOL=ON\n\n//Enable to build TBZ2 packages\nCPACK_BINARY_TBZ2:BOOL=OFF\n\n//Enable to build TGZ packages\nCPACK_BINARY_TGZ:BOOL=ON\n\n//Enable to build TXZ packages\nCPACK_BINARY_TXZ:BOOL=OFF\n\n//Enable to build TZ packages\nCPACK_BINARY_TZ:BOOL=ON\n\n//Enable to build RPM source packages\nCPACK_SOURCE_RPM:BOOL=OFF\n\n//Enable to build TBZ2 source packages\nCPACK_SOURCE_TBZ2:BOOL=ON\n\n//Enable to build TGZ source packages\nCPACK_SOURCE_TGZ:BOOL=ON\n\n//Enable to build TXZ source packages\nCPACK_SOURCE_TXZ:BOOL=ON\n\n//Enable to build TZ source packages\nCPACK_SOURCE_TZ:BOOL=ON\n\n//Enable to build ZIP source packages\nCPACK_SOURCE_ZIP:BOOL=OFF\n\n//Build with next C++ standard version\nCXX_NEXT:BOOL=OFF\n\n//Specify default crypto; otherwise chosen automatically\nDEFAULT_CRYPTO:STRING=\n\n//Enable coverage reporting\nENABLE_COVERAGE:BOOL=OFF\n\n//Enable QTC test coverage\nENABLE_QTC:BOOL=OFF\n\n//Include ABI-breaking changes CONSIDERED for the next major release\nFUTURE:BOOL=OFF\n\n//Automatically regenerate job files\nGENERATE_AUTO_JOB:BOOL=OFF\n\n//Install cmake package files\nINSTALL_CMAKE_PACKAGE:BOOL=ON\n\n//Install example files\nINSTALL_EXAMPLES:BOOL=ON\n\n//Install documentation\nINSTALL_MANUAL:BOOL=OFF\n\n//Install pkgconfig file\nINSTALL_PKGCONFIG:BOOL=ON\n\n//Path to a program.\nLATEX:FILEPATH=LATEX-NOTFOUND\n\n//Path to a program.\nLATEXMK:FILEPATH=LATEXMK-NOTFOUND\n\n//Path to a file.\nLIBJPEG_H_PATH:PATH=/usr/include\n\n//Path to a library.\nLIBJPEG_LIB_PATH:FILEPATH=/usr/lib/x86_64-linux-gnu/libjpeg.so\n\n//Set options for developing qpdf\nMAINTAINER_MODE:BOOL=OFF\n\n//Specific build configuration for the oss-fuzz project\nOSS_FUZZ:BOOL=OFF\n\n//Path to a program.\nPDFLATEX:FILEPATH=PDFLATEX-NOTFOUND\n\n//Arguments to supply to pkg-config\nPKG_CONFIG_ARGN:STRING=\n\n//pkg-config executable\nPKG_CONFIG_EXECUTABLE:FILEPATH={PKG_CONFIG}\n\n//Whether qtest's output should be in color\nQTEST_COLOR:BOOL=ON\n\n//Require gnutls crypto\nREQUIRE_CRYPTO_GNUTLS:BOOL=OFF\n\n//Require native crypto provider\nREQUIRE_CRYPTO_NATIVE:BOOL=ON\n\n//Require openssl crypto\nREQUIRE_CRYPTO_OPENSSL:BOOL=OFF\n\n//Require shells for completion testing\nREQUIRE_SHELLS:BOOL=OFF\n\n//Show qtest output on failure\nSHOW_FAILED_TEST_OUTPUT:BOOL=OFF\n\n//Suppress use of OS-provided secure random numbers\nSKIP_OS_SECURE_RANDOM:BOOL=OFF\n\n//Path to a program.\nSPHINX:FILEPATH=SPHINX-NOTFOUND\n\n//Additional libraries needed for static linking\nSTATIC_EXTRA_LIBS:STRING=\n\n//Link statically with the jpeg library\nSTATIC_JPEG:BOOL=OFF\n\n//Link statically with openssl\nSTATIC_OPENSSL:BOOL=OFF\n\n//Enable any available external crypto provider\nUSE_IMPLICIT_CRYPTO:BOOL=OFF\n\n//Use insecure random numbers\nUSE_INSECURE_RANDOM:BOOL=OFF\n\n//Treat compiler warnings as errors\nWERROR:BOOL=OFF\n\n//Path to a file.\nZLIB_H_PATH:PATH=/usr/include\n\n//Path to a library.\nZLIB_LIB_PATH:FILEPATH=/usr/lib/x86_64-linux-gnu/libz.so\n\n//No help, variable specified on the command line.\nZOPFLI:UNINITIALIZED=OFF\n\n//Use zopfli for zlib-compatible compression\nZOPFLI,:BOOL=OFF\n\n//Value Computed by CMake\nqpdf_BINARY_DIR:STATIC={WORKSPACE}/native-pinned-build\n\n//Value Computed by CMake\nqpdf_IS_TOP_LEVEL:STATIC=ON\n\n//Value Computed by CMake\nqpdf_SOURCE_DIR:STATIC={WORKSPACE}/native-pinned\n\n\n########################\n# INTERNAL cache entries\n########################\n\n//Test ATOMIC_WORKED0\nATOMIC_WORKED0:INTERNAL=1\n//ADVANCED property for variable: CMAKE_ADDR2LINE\nCMAKE_ADDR2LINE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_AR\nCMAKE_AR-ADVANCED:INTERNAL=1\n//This is the directory where this CMakeCache.txt was created\nCMAKE_CACHEFILE_DIR:INTERNAL={WORKSPACE}/native-pinned-build\n//Major version of cmake used to create the current loaded cache\nCMAKE_CACHE_MAJOR_VERSION:INTERNAL=3\n//Minor version of cmake used to create the current loaded cache\nCMAKE_CACHE_MINOR_VERSION:INTERNAL=28\n//Patch version of cmake used to create the current loaded cache\nCMAKE_CACHE_PATCH_VERSION:INTERNAL=3\n//Path to CMake executable.\nCMAKE_COMMAND:INTERNAL=/usr/bin/cmake\n//Path to cpack program executable.\nCMAKE_CPACK_COMMAND:INTERNAL=/usr/bin/cpack\n//Path to ctest program executable.\nCMAKE_CTEST_COMMAND:INTERNAL=/usr/bin/ctest\n//ADVANCED property for variable: CMAKE_CXX_COMPILER\nCMAKE_CXX_COMPILER-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_COMPILER_AR\nCMAKE_CXX_COMPILER_AR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_COMPILER_RANLIB\nCMAKE_CXX_COMPILER_RANLIB-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_FLAGS\nCMAKE_CXX_FLAGS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_FLAGS_DEBUG\nCMAKE_CXX_FLAGS_DEBUG-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_FLAGS_MINSIZEREL\nCMAKE_CXX_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_FLAGS_RELEASE\nCMAKE_CXX_FLAGS_RELEASE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_CXX_FLAGS_RELWITHDEBINFO\nCMAKE_CXX_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_COMPILER\nCMAKE_C_COMPILER-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_COMPILER_AR\nCMAKE_C_COMPILER_AR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_COMPILER_RANLIB\nCMAKE_C_COMPILER_RANLIB-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_FLAGS\nCMAKE_C_FLAGS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_FLAGS_DEBUG\nCMAKE_C_FLAGS_DEBUG-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_FLAGS_MINSIZEREL\nCMAKE_C_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_FLAGS_RELEASE\nCMAKE_C_FLAGS_RELEASE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_C_FLAGS_RELWITHDEBINFO\nCMAKE_C_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_DLLTOOL\nCMAKE_DLLTOOL-ADVANCED:INTERNAL=1\n//Executable file format\nCMAKE_EXECUTABLE_FORMAT:INTERNAL=ELF\n//ADVANCED property for variable: CMAKE_EXE_LINKER_FLAGS\nCMAKE_EXE_LINKER_FLAGS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_EXE_LINKER_FLAGS_DEBUG\nCMAKE_EXE_LINKER_FLAGS_DEBUG-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_EXE_LINKER_FLAGS_MINSIZEREL\nCMAKE_EXE_LINKER_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_EXE_LINKER_FLAGS_RELEASE\nCMAKE_EXE_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO\nCMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_EXPORT_COMPILE_COMMANDS\nCMAKE_EXPORT_COMPILE_COMMANDS-ADVANCED:INTERNAL=1\n//Name of external makefile project generator.\nCMAKE_EXTRA_GENERATOR:INTERNAL=\n//Name of generator.\nCMAKE_GENERATOR:INTERNAL=Ninja\n//Generator instance identifier.\nCMAKE_GENERATOR_INSTANCE:INTERNAL=\n//Name of generator platform.\nCMAKE_GENERATOR_PLATFORM:INTERNAL=\n//Name of generator toolset.\nCMAKE_GENERATOR_TOOLSET:INTERNAL=\n//Source directory with the top level CMakeLists.txt file for this\n// project\nCMAKE_HOME_DIRECTORY:INTERNAL={WORKSPACE}/native-pinned\n//ADVANCED property for variable: CMAKE_INSTALL_BINDIR\nCMAKE_INSTALL_BINDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_DATADIR\nCMAKE_INSTALL_DATADIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_DATAROOTDIR\nCMAKE_INSTALL_DATAROOTDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_DOCDIR\nCMAKE_INSTALL_DOCDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_INCLUDEDIR\nCMAKE_INSTALL_INCLUDEDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_INFODIR\nCMAKE_INSTALL_INFODIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_LIBDIR\nCMAKE_INSTALL_LIBDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_LIBEXECDIR\nCMAKE_INSTALL_LIBEXECDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_LOCALEDIR\nCMAKE_INSTALL_LOCALEDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_LOCALSTATEDIR\nCMAKE_INSTALL_LOCALSTATEDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_MANDIR\nCMAKE_INSTALL_MANDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_OLDINCLUDEDIR\nCMAKE_INSTALL_OLDINCLUDEDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_RUNSTATEDIR\nCMAKE_INSTALL_RUNSTATEDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_SBINDIR\nCMAKE_INSTALL_SBINDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_SHAREDSTATEDIR\nCMAKE_INSTALL_SHAREDSTATEDIR-ADVANCED:INTERNAL=1\n//Install .so files without execute permission.\nCMAKE_INSTALL_SO_NO_EXE:INTERNAL=1\n//ADVANCED property for variable: CMAKE_INSTALL_SYSCONFDIR\nCMAKE_INSTALL_SYSCONFDIR-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_LINKER\nCMAKE_LINKER-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_MAKE_PROGRAM\nCMAKE_MAKE_PROGRAM-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_MODULE_LINKER_FLAGS\nCMAKE_MODULE_LINKER_FLAGS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_MODULE_LINKER_FLAGS_DEBUG\nCMAKE_MODULE_LINKER_FLAGS_DEBUG-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_MODULE_LINKER_FLAGS_MINSIZEREL\nCMAKE_MODULE_LINKER_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_MODULE_LINKER_FLAGS_RELEASE\nCMAKE_MODULE_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO\nCMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_NM\nCMAKE_NM-ADVANCED:INTERNAL=1\n//number of local generators\nCMAKE_NUMBER_OF_MAKEFILES:INTERNAL=10\n//ADVANCED property for variable: CMAKE_OBJCOPY\nCMAKE_OBJCOPY-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_OBJDUMP\nCMAKE_OBJDUMP-ADVANCED:INTERNAL=1\n//Platform information initialized\nCMAKE_PLATFORM_INFO_INITIALIZED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_RANLIB\nCMAKE_RANLIB-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_READELF\nCMAKE_READELF-ADVANCED:INTERNAL=1\n//Path to CMake installation.\nCMAKE_ROOT:INTERNAL=/usr/share/cmake-3.28\n//ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS\nCMAKE_SHARED_LINKER_FLAGS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS_DEBUG\nCMAKE_SHARED_LINKER_FLAGS_DEBUG-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL\nCMAKE_SHARED_LINKER_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS_RELEASE\nCMAKE_SHARED_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO\nCMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_SKIP_INSTALL_RPATH\nCMAKE_SKIP_INSTALL_RPATH-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_SKIP_RPATH\nCMAKE_SKIP_RPATH-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_STATIC_LINKER_FLAGS\nCMAKE_STATIC_LINKER_FLAGS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_STATIC_LINKER_FLAGS_DEBUG\nCMAKE_STATIC_LINKER_FLAGS_DEBUG-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_STATIC_LINKER_FLAGS_MINSIZEREL\nCMAKE_STATIC_LINKER_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_STATIC_LINKER_FLAGS_RELEASE\nCMAKE_STATIC_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO\nCMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_STRIP\nCMAKE_STRIP-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CMAKE_TAPI\nCMAKE_TAPI-ADVANCED:INTERNAL=1\n//uname command\nCMAKE_UNAME:INTERNAL=/usr/bin/uname\n//ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE\nCMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_DEB\nCPACK_BINARY_DEB-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_FREEBSD\nCPACK_BINARY_FREEBSD-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_IFW\nCPACK_BINARY_IFW-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_NSIS\nCPACK_BINARY_NSIS-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_RPM\nCPACK_BINARY_RPM-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_STGZ\nCPACK_BINARY_STGZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_TBZ2\nCPACK_BINARY_TBZ2-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_TGZ\nCPACK_BINARY_TGZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_TXZ\nCPACK_BINARY_TXZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_BINARY_TZ\nCPACK_BINARY_TZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_SOURCE_RPM\nCPACK_SOURCE_RPM-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_SOURCE_TBZ2\nCPACK_SOURCE_TBZ2-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_SOURCE_TGZ\nCPACK_SOURCE_TGZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_SOURCE_TXZ\nCPACK_SOURCE_TXZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_SOURCE_TZ\nCPACK_SOURCE_TZ-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: CPACK_SOURCE_ZIP\nCPACK_SOURCE_ZIP-ADVANCED:INTERNAL=1\n//Test HAVE_EXTERN_LONG_TIMEZONE\nHAVE_EXTERN_LONG_TIMEZONE:INTERNAL=1\n//Test HAVE_EXTERN_TM_GMTOFF\nHAVE_EXTERN_TM_GMTOFF:INTERNAL=1\n//Have symbol fseeko\nHAVE_FSEEKO:INTERNAL=1\n//Have symbol fseeko64\nHAVE_FSEEKO64:INTERNAL=\n//Have include inttypes.h\nHAVE_INTTYPES_H:INTERNAL=1\n//Test HAVE_LD_SCRIPT\nHAVE_LD_SCRIPT:INTERNAL=1\n//Have symbol localtime_r\nHAVE_LOCALTIME_R:INTERNAL=1\n//Test HAVE_MALLOC_INFO\nHAVE_MALLOC_INFO:INTERNAL=1\n//Test HAVE_OPEN_MEMSTREAM\nHAVE_OPEN_MEMSTREAM:INTERNAL=1\n//Have symbol random\nHAVE_RANDOM:INTERNAL=1\n//Result of TRY_COMPILE\nHAVE_SIZEOF_SIZE_T:INTERNAL=TRUE\n//Have include stddef.h\nHAVE_STDDEF_H:INTERNAL=1\n//Have include stdint.h\nHAVE_STDINT_H:INTERNAL=1\n//Have include sys/types.h\nHAVE_SYS_TYPES_H:INTERNAL=1\n//Test LFS_WITHOUT_MACROS\nLFS_WITHOUT_MACROS:INTERNAL=1\n//Test LFS_WITH_MACROS\nLFS_WITH_MACROS:INTERNAL=1\n//ADVANCED property for variable: PKG_CONFIG_ARGN\nPKG_CONFIG_ARGN-ADVANCED:INTERNAL=1\n//ADVANCED property for variable: PKG_CONFIG_EXECUTABLE\nPKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1\n//CHECK_TYPE_SIZE: sizeof(size_t)\nSIZEOF_SIZE_T:INTERNAL=8\n//linker supports push/pop state\n_CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE\n//CMAKE_INSTALL_PREFIX during last run\n_GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=/usr/local\n__pkg_config_checked_pc_libjpeg:INTERNAL=1\n__pkg_config_checked_pc_zlib:INTERNAL=1\n//Test flag_conversion\nflag_conversion:INTERNAL=1\n//Test flag_old-style-cast\nflag_old-style-cast:INTERNAL=1\n//Test flag_shadow_local\nflag_shadow_local:INTERNAL=1\n//Test flag_sign-conversion\nflag_sign-conversion:INTERNAL=1\n//Test flag_wall\nflag_wall:INTERNAL=1\npc_libjpeg_CFLAGS:INTERNAL=\npc_libjpeg_CFLAGS_I:INTERNAL=\npc_libjpeg_CFLAGS_OTHER:INTERNAL=\npc_libjpeg_FOUND:INTERNAL=\npc_libjpeg_INCLUDEDIR:INTERNAL=\npc_libjpeg_LIBDIR:INTERNAL=\npc_libjpeg_LIBS:INTERNAL=\npc_libjpeg_LIBS_L:INTERNAL=\npc_libjpeg_LIBS_OTHER:INTERNAL=\npc_libjpeg_LIBS_PATHS:INTERNAL=\npc_libjpeg_MODULE_NAME:INTERNAL=\npc_libjpeg_PREFIX:INTERNAL=\npc_libjpeg_STATIC_CFLAGS:INTERNAL=\npc_libjpeg_STATIC_CFLAGS_I:INTERNAL=\npc_libjpeg_STATIC_CFLAGS_OTHER:INTERNAL=\npc_libjpeg_STATIC_LIBDIR:INTERNAL=\npc_libjpeg_STATIC_LIBS:INTERNAL=\npc_libjpeg_STATIC_LIBS_L:INTERNAL=\npc_libjpeg_STATIC_LIBS_OTHER:INTERNAL=\npc_libjpeg_STATIC_LIBS_PATHS:INTERNAL=\npc_libjpeg_VERSION:INTERNAL=\npc_zlib_CFLAGS:INTERNAL=\npc_zlib_CFLAGS_I:INTERNAL=\npc_zlib_CFLAGS_OTHER:INTERNAL=\npc_zlib_FOUND:INTERNAL=\npc_zlib_INCLUDEDIR:INTERNAL=\npc_zlib_LIBDIR:INTERNAL=\npc_zlib_LIBS:INTERNAL=\npc_zlib_LIBS_L:INTERNAL=\npc_zlib_LIBS_OTHER:INTERNAL=\npc_zlib_LIBS_PATHS:INTERNAL=\npc_zlib_MODULE_NAME:INTERNAL=\npc_zlib_PREFIX:INTERNAL=\npc_zlib_STATIC_CFLAGS:INTERNAL=\npc_zlib_STATIC_CFLAGS_I:INTERNAL=\npc_zlib_STATIC_CFLAGS_OTHER:INTERNAL=\npc_zlib_STATIC_LIBDIR:INTERNAL=\npc_zlib_STATIC_LIBS:INTERNAL=\npc_zlib_STATIC_LIBS_L:INTERNAL=\npc_zlib_STATIC_LIBS_OTHER:INTERNAL=\npc_zlib_STATIC_LIBS_PATHS:INTERNAL=\npc_zlib_VERSION:INTERNAL=\n\n",
+    "nativeLibraries": "\tlinux-vdso.so.1 (0x000071953ae6f000)\n\tlibz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x000071953ae45000)\n\tlibjpeg.so.8 => /lib/x86_64-linux-gnu/libjpeg.so.8 (0x000071953adc2000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x000071953a600000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000071953ad94000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000071953a200000)\n\t/lib64/ld-linux-x86-64.so.2 (0x000071953ae71000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000071953a917000)\n",
+    "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "sourceCommit": "35eb3fb511d1a843d779ef70186de0f3353e5c57",
+    "sourceDiff": "",
+    "librarySHA256": "fce7f3316d4712d02bfd5614af17fc47a591f32b24488455b7e04495e67245a9",
+    "probeSHA256": "f5ab1e3334ad00af620be2dd955afded296eac263dbf3b4520a764d0d1ff4e25",
+    "benchmarkSHA256": "768d09cc411df6338bd67365676ca6441eed09b9f5df7349318a9fb5c3615071",
+    "nativeSHA256": "7402da35c5434e0c896e4e70bd43729592307ffc0029055970c2e0732d50f41c",
+    "cachePolicy": "Warm filesystem cache; pre-read inputs; fresh output destinations; no fsync; sequential alternating pairs",
+    "wallTime": "Monotonic spawn-to-exit including the identical GNU time launcher; process elapsedSeconds has GNU time's 10ms resolution",
+    "peakMemory": "GNU time target peak RSS (KiB), includes managed runtime/host; not parent Python memory, allocations or charged estimates",
+    "hostPhysicalMemoryBytes": 34028023808
+  },
+  "inputs": {
+    "A250.pdf": {
+      "bytes": 2609054,
+      "sha256": "6eeec8f647ce86fb2a58dfac624ff93f2bfb20e7780a3a6e79412fce9bf12f6e"
+    },
+    "B250.pdf": {
+      "bytes": 2609054,
+      "sha256": "9d1a4436fe94f1bc8a1f19fbf6a0296e952f36fc071ce08a4387ae7942a7b80e"
+    },
+    "M500.pdf": {
+      "bytes": 5217570,
+      "sha256": "2e0a3e8fdce69ef2f8d3ff25a43bc0ca24bb129e6e36ca7daa17d59e0e677ccb"
+    },
+    "S10.pdf": {
+      "bytes": 3892,
+      "sha256": "e9f08d68ac7d1f0256dea5b525ad75b722c9b8cc7d32313b301e06f9e0e8cb29"
+    },
+    "X100-incremental.pdf": {
+      "bytes": 67615,
+      "sha256": "f63d71c436539905a8c347ce9c5e3a889902218facbd56bca8e622723215dd4b"
+    },
+    "X100-streamed.pdf": {
+      "bytes": 67406,
+      "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+    },
+    "X100.pdf": {
+      "bytes": 70952,
+      "sha256": "200ac420b711105c6e88e3556b572d07cd51dd8db2a3ab9cc5bfe5863cb964ab"
+    }
+  },
+  "workloads": [
+    {
+      "Name": "select-S10",
+      "Inputs": [
+        "S10.pdf"
+      ],
+      "Arguments": [
+        "inputs/S10.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "10-1",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "select-M500",
+      "Inputs": [
+        "M500.pdf"
+      ],
+      "Arguments": [
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "500-1",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "merge-250x2",
+      "Inputs": [
+        "A250.pdf",
+        "B250.pdf"
+      ],
+      "Arguments": [
+        "inputs/A250.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "1-z",
+        "inputs/B250.pdf",
+        "1-z",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "split-M500",
+      "Inputs": [
+        "M500.pdf"
+      ],
+      "Arguments": [
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--split-pages=50",
+        "--pages",
+        ".",
+        "1-z",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out-001-050.pdf",
+        "out-051-100.pdf",
+        "out-101-150.pdf",
+        "out-151-200.pdf",
+        "out-201-250.pdf",
+        "out-251-300.pdf",
+        "out-301-350.pdf",
+        "out-351-400.pdf",
+        "out-401-450.pdf",
+        "out-451-500.pdf"
+      ]
+    },
+    {
+      "Name": "rewrite-M500",
+      "Inputs": [
+        "M500.pdf"
+      ],
+      "Arguments": [
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "rewrite-X100",
+      "Inputs": [
+        "X100-incremental.pdf"
+      ],
+      "Arguments": [
+        "inputs/X100-incremental.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "object-streams-X100",
+      "Inputs": [
+        "X100.pdf"
+      ],
+      "Arguments": [
+        "inputs/X100.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--object-streams=generate",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "linearize-M500",
+      "Inputs": [
+        "M500.pdf"
+      ],
+      "Arguments": [
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--linearize",
+        "outputs/out.pdf"
+      ],
+      "Outputs": [
+        "out.pdf"
+      ]
+    },
+    {
+      "Name": "check-X100",
+      "Inputs": [
+        "X100-incremental.pdf"
+      ],
+      "Arguments": [
+        "inputs/X100-incremental.pdf",
+        "--check"
+      ],
+      "Outputs": []
+    }
+  ],
+  "samples": [
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 230.798723,
+      "elapsedSeconds": 0.22,
+      "peakRssKiB": 45260,
+      "userSeconds": 0.21,
+      "systemSeconds": 0.01,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 3.56595,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6420,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 3.321747,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6368,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 228.778222,
+      "elapsedSeconds": 0.22,
+      "peakRssKiB": 45004,
+      "userSeconds": 0.21,
+      "systemSeconds": 0.01,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 228.655618,
+      "elapsedSeconds": 0.22,
+      "peakRssKiB": 45092,
+      "userSeconds": 0.2,
+      "systemSeconds": 0.02,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 3.695282,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6452,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 3.494256,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6408,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 261.011343,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 45076,
+      "userSeconds": 0.21,
+      "systemSeconds": 0.04,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 244.278885,
+      "elapsedSeconds": 0.24,
+      "peakRssKiB": 44928,
+      "userSeconds": 0.22,
+      "systemSeconds": 0.01,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 3.541263,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6596,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 3.332099,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6504,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 253.764847,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 45052,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.01,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 230.172965,
+      "elapsedSeconds": 0.22,
+      "peakRssKiB": 45108,
+      "userSeconds": 0.21,
+      "systemSeconds": 0.01,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 3.460584,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6548,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 3.439537,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6504,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 226.966144,
+      "elapsedSeconds": 0.22,
+      "peakRssKiB": 45084,
+      "userSeconds": 0.2,
+      "systemSeconds": 0.01,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 233.22696,
+      "elapsedSeconds": 0.23,
+      "peakRssKiB": 45012,
+      "userSeconds": 0.2,
+      "systemSeconds": 0.02,
+      "outputBytes": 3949,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 3949,
+          "sha256": "76defce3c57a1581cd9eeb8205a95e1cc26238a907659a884c1548c1300c601b"
+        }
+      }
+    },
+    {
+      "workload": "select-S10",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 3.824745,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6488,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 4148,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 4148,
+          "sha256": "912254f0744df1a10a37a97b173185362ab8e75f232e5a8470abc2ef4e056a38"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 387.302744,
+      "elapsedSeconds": 0.38,
+      "peakRssKiB": 101880,
+      "userSeconds": 0.33,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 22.822296,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7860,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 23.63365,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7896,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 384.870842,
+      "elapsedSeconds": 0.38,
+      "peakRssKiB": 101828,
+      "userSeconds": 0.33,
+      "systemSeconds": 0.04,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 392.602781,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 102060,
+      "userSeconds": 0.35,
+      "systemSeconds": 0.03,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 23.430439,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7864,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 23.027,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7988,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 385.580763,
+      "elapsedSeconds": 0.38,
+      "peakRssKiB": 101756,
+      "userSeconds": 0.33,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 392.818927,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 101692,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 23.718297,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7900,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 22.565501,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7828,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 387.337729,
+      "elapsedSeconds": 0.38,
+      "peakRssKiB": 101964,
+      "userSeconds": 0.32,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 394.141825,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 101708,
+      "userSeconds": 0.32,
+      "systemSeconds": 0.08,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 23.507928,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7824,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 23.659031,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7984,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 383.434697,
+      "elapsedSeconds": 0.38,
+      "peakRssKiB": 102056,
+      "userSeconds": 0.31,
+      "systemSeconds": 0.07,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 391.765141,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 102056,
+      "userSeconds": 0.32,
+      "systemSeconds": 0.07,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "af4cec3a9ed95f60265b9d8b6d3b6d01fecf083c91293592be802f3b42ff5069"
+        }
+      }
+    },
+    {
+      "workload": "select-M500",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 32.423048,
+      "elapsedSeconds": 0.03,
+      "peakRssKiB": 8020,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5227635,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5227635,
+          "sha256": "e37dcdb58b5dcb40e8cf7d6bd6058d86a42a061c3d780c88d5cf102e13506b2b"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 417.540435,
+      "elapsedSeconds": 0.41,
+      "peakRssKiB": 95668,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.08,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 23.172876,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8664,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 22.042606,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8720,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 384.006257,
+      "elapsedSeconds": 0.38,
+      "peakRssKiB": 95756,
+      "userSeconds": 0.33,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 393.542326,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 95848,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 22.517892,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8552,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 23.6654,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8544,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 397.515954,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 95212,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.06,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 416.613182,
+      "elapsedSeconds": 0.41,
+      "peakRssKiB": 95432,
+      "userSeconds": 0.36,
+      "systemSeconds": 0.06,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 22.025802,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8540,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 24.74827,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8592,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 403.359327,
+      "elapsedSeconds": 0.4,
+      "peakRssKiB": 95964,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.06,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 391.407704,
+      "elapsedSeconds": 0.39,
+      "peakRssKiB": 95664,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 28.886706,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8576,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 26.277296,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8484,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.0,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 422.876045,
+      "elapsedSeconds": 0.42,
+      "peakRssKiB": 95604,
+      "userSeconds": 0.37,
+      "systemSeconds": 0.05,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 442.777962,
+      "elapsedSeconds": 0.44,
+      "peakRssKiB": 96016,
+      "userSeconds": 0.38,
+      "systemSeconds": 0.06,
+      "outputBytes": 5218977,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218977,
+          "sha256": "38cda0892a96798a2507f42852c90a980ff60421944e30c8d6a5b8594f7d6aa1"
+        }
+      }
+    },
+    {
+      "workload": "merge-250x2",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 26.268345,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8480,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5228004,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5228004,
+          "sha256": "81b176aa10fd9999090cb02be1ea9964303e8b3e17ceb0293fb5866bcf1d60a0"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 490.051916,
+      "elapsedSeconds": 0.48,
+      "peakRssKiB": 113664,
+      "userSeconds": 0.43,
+      "systemSeconds": 0.06,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 27.393416,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8144,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 28.293295,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8176,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 467.72685,
+      "elapsedSeconds": 0.46,
+      "peakRssKiB": 113836,
+      "userSeconds": 0.43,
+      "systemSeconds": 0.04,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 475.77812,
+      "elapsedSeconds": 0.47,
+      "peakRssKiB": 114024,
+      "userSeconds": 0.41,
+      "systemSeconds": 0.08,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 31.787732,
+      "elapsedSeconds": 0.03,
+      "peakRssKiB": 8152,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 34.784193,
+      "elapsedSeconds": 0.03,
+      "peakRssKiB": 8288,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 538.750135,
+      "elapsedSeconds": 0.53,
+      "peakRssKiB": 113876,
+      "userSeconds": 0.45,
+      "systemSeconds": 0.08,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 481.665968,
+      "elapsedSeconds": 0.48,
+      "peakRssKiB": 113784,
+      "userSeconds": 0.41,
+      "systemSeconds": 0.07,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 29.216736,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8008,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 29.064427,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8084,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 478.612097,
+      "elapsedSeconds": 0.47,
+      "peakRssKiB": 113944,
+      "userSeconds": 0.41,
+      "systemSeconds": 0.06,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 456.172537,
+      "elapsedSeconds": 0.45,
+      "peakRssKiB": 113932,
+      "userSeconds": 0.4,
+      "systemSeconds": 0.05,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 28.767343,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8280,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 27.776382,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8152,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 449.392582,
+      "elapsedSeconds": 0.44,
+      "peakRssKiB": 113820,
+      "userSeconds": 0.4,
+      "systemSeconds": 0.05,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 449.96729,
+      "elapsedSeconds": 0.44,
+      "peakRssKiB": 113636,
+      "userSeconds": 0.41,
+      "systemSeconds": 0.04,
+      "outputBytes": 5223490,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 522349,
+          "sha256": "75d4cd24b65b7b1d03c52a3fc07c8c86ed89ce154c7e6b8ababb9da26644ed68"
+        },
+        "out-051-100.pdf": {
+          "bytes": 522349,
+          "sha256": "a175721fd52571060b97197bd824c852a20ae5e6448ce93f08625547d1d44141"
+        },
+        "out-101-150.pdf": {
+          "bytes": 522349,
+          "sha256": "6c52a818c09fd7b5a822df89d06ac2d4ee84cb99b890886a8fbf3b80da704ab4"
+        },
+        "out-151-200.pdf": {
+          "bytes": 522349,
+          "sha256": "940a7092f5d4cbd96fbd52cc3bbd3a74b17ca4c57b27b902824d8304cdebb7e1"
+        },
+        "out-201-250.pdf": {
+          "bytes": 522349,
+          "sha256": "e0e79118290b82b417ef9c7f636a21a2641f2e30bc0c1b61f67d829271927a36"
+        },
+        "out-251-300.pdf": {
+          "bytes": 522349,
+          "sha256": "ce1aa4c1569d901274d460240980ca29e789695ac4d2c6d78d6588132a8653a0"
+        },
+        "out-301-350.pdf": {
+          "bytes": 522349,
+          "sha256": "a5f2e73a0411d1ddae3475590e9c07fa402cebda38c7203f775a296b098ec5bb"
+        },
+        "out-351-400.pdf": {
+          "bytes": 522349,
+          "sha256": "85c37f13d4800459aeb61afad265e1bdefd831939f5bdc44ca1295e1e1a77b5f"
+        },
+        "out-401-450.pdf": {
+          "bytes": 522349,
+          "sha256": "2eed72700cb94e41df300e4a8764cfc5aa10594354358131a629ec623f7b3aae"
+        },
+        "out-451-500.pdf": {
+          "bytes": 522349,
+          "sha256": "b4157e6067dd6d91e6962c623294e19e909cefa4136ff2f47af66b87cf44b89c"
+        }
+      }
+    },
+    {
+      "workload": "split-M500",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 27.412513,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8252,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231290,
+      "outputs": {
+        "out-001-050.pdf": {
+          "bytes": 523129,
+          "sha256": "d7075b4b262b667428a3a022ee6c91c5cfa9c1eafa6b571d5eeaa5dc218a42d4"
+        },
+        "out-051-100.pdf": {
+          "bytes": 523129,
+          "sha256": "09299d3747f122b66d5c325e118acb5d82b45347510234030f9c86fe62e384e0"
+        },
+        "out-101-150.pdf": {
+          "bytes": 523129,
+          "sha256": "612acf75fb739ceaf0b462860970537067b7b195e61df5fd26922d70d514775b"
+        },
+        "out-151-200.pdf": {
+          "bytes": 523129,
+          "sha256": "04c7ad021e8b4638d3cecec74e3fdc0490c6b4b7ac43a1f6306f1ceb54ed9667"
+        },
+        "out-201-250.pdf": {
+          "bytes": 523129,
+          "sha256": "22d0d6b30ba693492fb7d8d331793bee9fb2e856a44da53a6d1bee060f1aa5b7"
+        },
+        "out-251-300.pdf": {
+          "bytes": 523129,
+          "sha256": "396a14f696d09c0124b8a314b45d8b3406479d53a1d14aee9723b7bf0132e1f2"
+        },
+        "out-301-350.pdf": {
+          "bytes": 523129,
+          "sha256": "854d30ac9304455ebb3653297c21853ac5cce181f16170bc62e5adc3578325f2"
+        },
+        "out-351-400.pdf": {
+          "bytes": 523129,
+          "sha256": "4420f9822461a58ca1cf317d1f23fc5caf7683dd2277277b15d0182bcd8bdfba"
+        },
+        "out-401-450.pdf": {
+          "bytes": 523129,
+          "sha256": "dd4a756132085d329d9d5fa1d404167209c68016936c265efac7788e49170c8c"
+        },
+        "out-451-500.pdf": {
+          "bytes": 523129,
+          "sha256": "4ef7133c864024038418117a195032c783c3d182f7a3ddaa30287b66c057d16e"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 406.346827,
+      "elapsedSeconds": 0.4,
+      "peakRssKiB": 111400,
+      "userSeconds": 0.34,
+      "systemSeconds": 0.07,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 17.811533,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7756,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 17.818768,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7812,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 406.195056,
+      "elapsedSeconds": 0.4,
+      "peakRssKiB": 111416,
+      "userSeconds": 0.33,
+      "systemSeconds": 0.09,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 412.500506,
+      "elapsedSeconds": 0.41,
+      "peakRssKiB": 111564,
+      "userSeconds": 0.37,
+      "systemSeconds": 0.04,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 18.475853,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7808,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 23.799235,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 7816,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 405.498289,
+      "elapsedSeconds": 0.4,
+      "peakRssKiB": 111472,
+      "userSeconds": 0.35,
+      "systemSeconds": 0.06,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 415.858447,
+      "elapsedSeconds": 0.41,
+      "peakRssKiB": 111628,
+      "userSeconds": 0.37,
+      "systemSeconds": 0.04,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 17.456916,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7728,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 17.260801,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7536,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 422.645087,
+      "elapsedSeconds": 0.42,
+      "peakRssKiB": 110400,
+      "userSeconds": 0.35,
+      "systemSeconds": 0.08,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 407.045625,
+      "elapsedSeconds": 0.4,
+      "peakRssKiB": 111596,
+      "userSeconds": 0.35,
+      "systemSeconds": 0.06,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 18.530747,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7804,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 18.455291,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7764,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 460.935784,
+      "elapsedSeconds": 0.45,
+      "peakRssKiB": 111504,
+      "userSeconds": 0.43,
+      "systemSeconds": 0.03,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 454.921802,
+      "elapsedSeconds": 0.45,
+      "peakRssKiB": 110224,
+      "userSeconds": 0.38,
+      "systemSeconds": 0.08,
+      "outputBytes": 5218616,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218616,
+          "sha256": "81670b16ed6b0027c75eb28bcdfbef4acf5301a90003410456682247e2707ac3"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-M500",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 18.384667,
+      "elapsedSeconds": 0.01,
+      "peakRssKiB": 7760,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5218154,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5218154,
+          "sha256": "fbc8aaabfbc9cd12703679d4c03bd4188c39342d760bf4782f5f7f2b98c945d9"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 256.176073,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49236,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.01,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.08605,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6692,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 4.724182,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6624,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 256.605364,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49188,
+      "userSeconds": 0.21,
+      "systemSeconds": 0.03,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 265.96955,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 49348,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.03,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 4.59824,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6668,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.620622,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6728,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 255.850508,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49344,
+      "userSeconds": 0.22,
+      "systemSeconds": 0.02,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 256.14669,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49260,
+      "userSeconds": 0.22,
+      "systemSeconds": 0.03,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 4.665753,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6776,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 4.837304,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6616,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 254.557584,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49356,
+      "userSeconds": 0.25,
+      "systemSeconds": 0.0,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 269.114321,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 49224,
+      "userSeconds": 0.26,
+      "systemSeconds": 0.0,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 4.845867,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6344,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 4.515874,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6736,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 263.43684,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 49100,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.01,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 268.243413,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 49228,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.02,
+      "outputBytes": 71206,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71206,
+          "sha256": "b4b1ccd8ecc818d0773856147d9ce09ef9d0603a984a7b4ed400816288034604"
+        }
+      }
+    },
+    {
+      "workload": "rewrite-X100",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 6.177716,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6744,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 71144,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 71144,
+          "sha256": "ae8fdce624f7a714dfbd6a73e40575fdf4da687ac237324103fc74e4868fafa4"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 273.622618,
+      "elapsedSeconds": 0.27,
+      "peakRssKiB": 51232,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.03,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.215241,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6812,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.725314,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6744,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 273.620256,
+      "elapsedSeconds": 0.27,
+      "peakRssKiB": 51224,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.03,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 270.722318,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 50956,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.03,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.297184,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6780,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.082526,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6780,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 267.606912,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 51252,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.02,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 277.354053,
+      "elapsedSeconds": 0.27,
+      "peakRssKiB": 51208,
+      "userSeconds": 0.26,
+      "systemSeconds": 0.01,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.473382,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6668,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.288729,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6576,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 267.935572,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 51052,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.02,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 275.29556,
+      "elapsedSeconds": 0.27,
+      "peakRssKiB": 51132,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.03,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.347114,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6840,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.793902,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6472,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 283.490338,
+      "elapsedSeconds": 0.28,
+      "peakRssKiB": 51272,
+      "userSeconds": 0.25,
+      "systemSeconds": 0.02,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 286.103274,
+      "elapsedSeconds": 0.28,
+      "peakRssKiB": 51296,
+      "userSeconds": 0.25,
+      "systemSeconds": 0.02,
+      "outputBytes": 67369,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67369,
+          "sha256": "dc0d8286cde0bd72af2b3b403c92b07356391879504af16281ef5019c50708d3"
+        }
+      }
+    },
+    {
+      "workload": "object-streams-X100",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 6.226479,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6776,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 67406,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 67406,
+          "sha256": "54bf5d63e719327d4da7f6bfd71cac4f511c91748be6ea9e805a10e835761771"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 579.321312,
+      "elapsedSeconds": 0.57,
+      "peakRssKiB": 118292,
+      "userSeconds": 0.52,
+      "systemSeconds": 0.03,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 26.257168,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8456,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 25.75077,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8428,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 584.933426,
+      "elapsedSeconds": 0.58,
+      "peakRssKiB": 118104,
+      "userSeconds": 0.48,
+      "systemSeconds": 0.08,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 579.009433,
+      "elapsedSeconds": 0.57,
+      "peakRssKiB": 118348,
+      "userSeconds": 0.53,
+      "systemSeconds": 0.03,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 24.382576,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8440,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 24.808996,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8384,
+      "userSeconds": 0.02,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 577.324775,
+      "elapsedSeconds": 0.57,
+      "peakRssKiB": 118208,
+      "userSeconds": 0.47,
+      "systemSeconds": 0.09,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 596.537607,
+      "elapsedSeconds": 0.59,
+      "peakRssKiB": 118296,
+      "userSeconds": 0.51,
+      "systemSeconds": 0.07,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 23.880943,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8304,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 25.07161,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8476,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 576.724362,
+      "elapsedSeconds": 0.57,
+      "peakRssKiB": 118100,
+      "userSeconds": 0.51,
+      "systemSeconds": 0.05,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 575.654195,
+      "elapsedSeconds": 0.57,
+      "peakRssKiB": 118332,
+      "userSeconds": 0.51,
+      "systemSeconds": 0.05,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 25.03513,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8424,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.01,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 24.580346,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8176,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 569.335416,
+      "elapsedSeconds": 0.56,
+      "peakRssKiB": 118160,
+      "userSeconds": 0.5,
+      "systemSeconds": 0.05,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 577.434211,
+      "elapsedSeconds": 0.57,
+      "peakRssKiB": 118184,
+      "userSeconds": 0.52,
+      "systemSeconds": 0.05,
+      "outputBytes": 5221603,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5221603,
+          "sha256": "67c4d29d26ac67430bf9e4d5804a089345e68e977dc57ad47b08a02ccb8bc7a5"
+        }
+      }
+    },
+    {
+      "workload": "linearize-M500",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 24.303867,
+      "elapsedSeconds": 0.02,
+      "peakRssKiB": 8436,
+      "userSeconds": 0.01,
+      "systemSeconds": 0.0,
+      "outputBytes": 5231600,
+      "outputs": {
+        "out.pdf": {
+          "bytes": 5231600,
+          "sha256": "cf41f74be7d1d3327cb48bb15848044e7379534e36c6f6716c4ba30298486462"
+        }
+      }
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 256.656254,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49564,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.01,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": -2,
+      "conditioning": true,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.386546,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 7028,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.267021,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6928,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": -1,
+      "conditioning": true,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 254.632286,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49228,
+      "userSeconds": 0.22,
+      "systemSeconds": 0.02,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 255.220125,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49392,
+      "userSeconds": 0.22,
+      "systemSeconds": 0.02,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 0,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.212506,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6816,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.271059,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6868,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 1,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 260.450312,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49272,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.02,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 330.825291,
+      "elapsedSeconds": 0.32,
+      "peakRssKiB": 49544,
+      "userSeconds": 0.31,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 2,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 7.319903,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 7032,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 7.452013,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 7040,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 3,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 306.256214,
+      "elapsedSeconds": 0.3,
+      "peakRssKiB": 49352,
+      "userSeconds": 0.27,
+      "systemSeconds": 0.03,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 264.077995,
+      "elapsedSeconds": 0.26,
+      "peakRssKiB": 49164,
+      "userSeconds": 0.24,
+      "systemSeconds": 0.01,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 4,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.391004,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6992,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 5.315453,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6992,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 5,
+      "conditioning": false,
+      "order": [
+        "native",
+        "managed"
+      ],
+      "elapsedMs": 274.507228,
+      "elapsedSeconds": 0.27,
+      "peakRssKiB": 49148,
+      "userSeconds": 0.23,
+      "systemSeconds": 0.03,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "managed",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 251.723529,
+      "elapsedSeconds": 0.25,
+      "peakRssKiB": 49436,
+      "userSeconds": 0.22,
+      "systemSeconds": 0.02,
+      "outputBytes": 0,
+      "outputs": {}
+    },
+    {
+      "workload": "check-X100",
+      "engine": "native",
+      "repetition": 6,
+      "conditioning": false,
+      "order": [
+        "managed",
+        "native"
+      ],
+      "elapsedMs": 5.123961,
+      "elapsedSeconds": 0.0,
+      "peakRssKiB": 6992,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "outputBytes": 0,
+      "outputs": {}
+    }
+  ],
+  "summary": {
+    "select-S10": {
+      "managed": {
+        "elapsedMs": {
+          "median": 233.22696,
+          "q1": 229.4142915,
+          "q3": 249.021866,
+          "min": 226.966144,
+          "max": 261.011343
+        },
+        "peakRssKiB": {
+          "median": 45076,
+          "q1": 45032.0,
+          "q3": 45088.0,
+          "min": 44928,
+          "max": 45108
+        },
+        "outputBytes": {
+          "median": 3949,
+          "q1": 3949.0,
+          "q3": 3949.0,
+          "min": 3949,
+          "max": 3949
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 3.494256,
+          "q1": 3.4500605,
+          "q3": 3.6182725,
+          "min": 3.332099,
+          "max": 3.824745
+        },
+        "peakRssKiB": {
+          "median": 6504,
+          "q1": 6470.0,
+          "q3": 6526.0,
+          "min": 6408,
+          "max": 6596
+        },
+        "outputBytes": {
+          "median": 4148,
+          "q1": 4148.0,
+          "q3": 4148.0,
+          "min": 4148,
+          "max": 4148
+        }
+      }
+    },
+    "select-M500": {
+      "managed": {
+        "elapsedMs": {
+          "median": 391.765141,
+          "q1": 386.459246,
+          "q3": 392.710854,
+          "min": 383.434697,
+          "max": 394.141825
+        },
+        "peakRssKiB": {
+          "median": 101964,
+          "q1": 101732.0,
+          "q3": 102056.0,
+          "min": 101692,
+          "max": 102060
+        },
+        "outputBytes": {
+          "median": 5218616,
+          "q1": 5218616.0,
+          "q3": 5218616.0,
+          "min": 5218616,
+          "max": 5218616
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 23.507928,
+          "q1": 23.2287195,
+          "q3": 23.688664,
+          "min": 22.565501,
+          "max": 32.423048
+        },
+        "peakRssKiB": {
+          "median": 7900,
+          "q1": 7846.0,
+          "q3": 7986.0,
+          "min": 7824,
+          "max": 8020
+        },
+        "outputBytes": {
+          "median": 5227635,
+          "q1": 5227635.0,
+          "q3": 5227635.0,
+          "min": 5227635,
+          "max": 5227635
+        }
+      }
+    },
+    "merge-250x2": {
+      "managed": {
+        "elapsedMs": {
+          "median": 403.359327,
+          "q1": 395.52914,
+          "q3": 419.7446135,
+          "min": 391.407704,
+          "max": 442.777962
+        },
+        "peakRssKiB": {
+          "median": 95664,
+          "q1": 95518.0,
+          "q3": 95906.0,
+          "min": 95212,
+          "max": 96016
+        },
+        "outputBytes": {
+          "median": 5218977,
+          "q1": 5218977.0,
+          "q3": 5218977.0,
+          "min": 5218977,
+          "max": 5218977
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 24.74827,
+          "q1": 23.091646,
+          "q3": 26.2728205,
+          "min": 22.025802,
+          "max": 28.886706
+        },
+        "peakRssKiB": {
+          "median": 8544,
+          "q1": 8512.0,
+          "q3": 8564.0,
+          "min": 8480,
+          "max": 8592
+        },
+        "outputBytes": {
+          "median": 5228004,
+          "q1": 5228004.0,
+          "q3": 5228004.0,
+          "min": 5228004,
+          "max": 5228004
+        }
+      }
+    },
+    "split-M500": {
+      "managed": {
+        "elapsedMs": {
+          "median": 475.77812,
+          "q1": 453.0699135,
+          "q3": 480.1390325,
+          "min": 449.392582,
+          "max": 538.750135
+        },
+        "peakRssKiB": {
+          "median": 113876,
+          "q1": 113802.0,
+          "q3": 113938.0,
+          "min": 113636,
+          "max": 114024
+        },
+        "outputBytes": {
+          "median": 5223490,
+          "q1": 5223490.0,
+          "q3": 5223490.0,
+          "min": 5223490,
+          "max": 5223490
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 29.064427,
+          "q1": 28.2718625,
+          "q3": 30.502234,
+          "min": 27.412513,
+          "max": 34.784193
+        },
+        "peakRssKiB": {
+          "median": 8152,
+          "q1": 8118.0,
+          "q3": 8266.0,
+          "min": 8008,
+          "max": 8288
+        },
+        "outputBytes": {
+          "median": 5231290,
+          "q1": 5231290.0,
+          "q3": 5231290.0,
+          "min": 5231290,
+          "max": 5231290
+        }
+      }
+    },
+    "rewrite-M500": {
+      "managed": {
+        "elapsedMs": {
+          "median": 415.858447,
+          "q1": 409.7730655,
+          "q3": 438.7834445,
+          "min": 405.498289,
+          "max": 460.935784
+        },
+        "peakRssKiB": {
+          "median": 111504,
+          "q1": 110936.0,
+          "q3": 111580.0,
+          "min": 110224,
+          "max": 111628
+        },
+        "outputBytes": {
+          "median": 5218616,
+          "q1": 5218616.0,
+          "q3": 5218616.0,
+          "min": 5218616,
+          "max": 5218616
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 18.455291,
+          "q1": 17.9207915,
+          "q3": 18.503300000000003,
+          "min": 17.260801,
+          "max": 23.799235
+        },
+        "peakRssKiB": {
+          "median": 7764,
+          "q1": 7744.0,
+          "q3": 7806.0,
+          "min": 7536,
+          "max": 7816
+        },
+        "outputBytes": {
+          "median": 5218154,
+          "q1": 5218154.0,
+          "q3": 5218154.0,
+          "min": 5218154,
+          "max": 5218154
+        }
+      }
+    },
+    "rewrite-X100": {
+      "managed": {
+        "elapsedMs": {
+          "median": 263.43684,
+          "q1": 255.99859899999998,
+          "q3": 267.1064815,
+          "min": 254.557584,
+          "max": 269.114321
+        },
+        "peakRssKiB": {
+          "median": 49260,
+          "q1": 49226.0,
+          "q3": 49346.0,
+          "min": 49100,
+          "max": 49356
+        },
+        "outputBytes": {
+          "median": 71206,
+          "q1": 71206.0,
+          "q3": 71206.0,
+          "min": 71206,
+          "max": 71206
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 4.837304,
+          "q1": 4.6319965,
+          "q3": 5.2332445,
+          "min": 4.515874,
+          "max": 6.177716
+        },
+        "peakRssKiB": {
+          "median": 6728,
+          "q1": 6642.0,
+          "q3": 6740.0,
+          "min": 6344,
+          "max": 6776
+        },
+        "outputBytes": {
+          "median": 71144,
+          "q1": 71144.0,
+          "q3": 71144.0,
+          "min": 71144,
+          "max": 71144
+        }
+      }
+    },
+    "object-streams-X100": {
+      "managed": {
+        "elapsedMs": {
+          "median": 275.29556,
+          "q1": 269.328945,
+          "q3": 280.42219550000004,
+          "min": 267.606912,
+          "max": 286.103274
+        },
+        "peakRssKiB": {
+          "median": 51208,
+          "q1": 51092.0,
+          "q3": 51262.0,
+          "min": 50956,
+          "max": 51296
+        },
+        "outputBytes": {
+          "median": 67369,
+          "q1": 67369.0,
+          "q3": 67369.0,
+          "min": 67369,
+          "max": 67369
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 5.347114,
+          "q1": 5.2929565,
+          "q3": 5.633642,
+          "min": 5.082526,
+          "max": 6.226479
+        },
+        "peakRssKiB": {
+          "median": 6776,
+          "q1": 6622.0,
+          "q3": 6780.0,
+          "min": 6472,
+          "max": 6840
+        },
+        "outputBytes": {
+          "median": 67406,
+          "q1": 67406.0,
+          "q3": 67406.0,
+          "min": 67406,
+          "max": 67406
+        }
+      }
+    },
+    "linearize-M500": {
+      "managed": {
+        "elapsedMs": {
+          "median": 577.324775,
+          "q1": 576.1892785,
+          "q3": 578.221822,
+          "min": 569.335416,
+          "max": 596.537607
+        },
+        "peakRssKiB": {
+          "median": 118208,
+          "q1": 118172.0,
+          "q3": 118314.0,
+          "min": 118100,
+          "max": 118348
+        },
+        "outputBytes": {
+          "median": 5221603,
+          "q1": 5221603.0,
+          "q3": 5221603.0,
+          "min": 5221603,
+          "max": 5221603
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 24.580346,
+          "q1": 24.3432215,
+          "q3": 24.922063,
+          "min": 23.880943,
+          "max": 25.07161
+        },
+        "peakRssKiB": {
+          "median": 8424,
+          "q1": 8344.0,
+          "q3": 8438.0,
+          "min": 8176,
+          "max": 8476
+        },
+        "outputBytes": {
+          "median": 5231600,
+          "q1": 5231600.0,
+          "q3": 5231600.0,
+          "min": 5231600,
+          "max": 5231600
+        }
+      }
+    },
+    "check-X100": {
+      "managed": {
+        "elapsedMs": {
+          "median": 264.077995,
+          "q1": 257.8352185,
+          "q3": 290.38172099999997,
+          "min": 251.723529,
+          "max": 330.825291
+        },
+        "peakRssKiB": {
+          "median": 49352,
+          "q1": 49218.0,
+          "q3": 49414.0,
+          "min": 49148,
+          "max": 49544
+        },
+        "outputBytes": {
+          "median": 0,
+          "q1": 0.0,
+          "q3": 0.0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      "native": {
+        "elapsedMs": {
+          "median": 5.315453,
+          "q1": 5.2417825,
+          "q3": 6.355453499999999,
+          "min": 5.123961,
+          "max": 7.452013
+        },
+        "peakRssKiB": {
+          "median": 6992,
+          "q1": 6930.0,
+          "q3": 7012.0,
+          "min": 6816,
+          "max": 7040
+        },
+        "outputBytes": {
+          "median": 0,
+          "q1": 0.0,
+          "q3": 0.0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    }
+  },
+  "validation": "Native structural checks, canonical page/content/resource fingerprints versus original inputs, independent PdfPig page text/order, metadata and object-stream/linearization checks",
+  "warmedProtocol": {
+    "launches": 1,
+    "warmups": 3,
+    "measurementIterations": 7,
+    "targetIterationMs": 1000,
+    "outlierMode": "DontRemove",
+    "transport": "Fresh in-memory host and copied inputs; public argv job; setup/disk I/O excluded"
+  },
+  "warmedResults": {
+    "check-X100": {
+      "rawMsPerOperation": [
+        6.928580779310344,
+        6.901975496551724,
+        7.360371296551724,
+        7.657927462068965,
+        7.560575613793103,
+        7.130539924137931,
+        7.254446372413793
+      ],
+      "medianMs": 7.254446372413793,
+      "q1Ms": 7.029560351724138,
+      "q3Ms": 7.460473455172414,
+      "minMs": 6.901975496551724,
+      "maxMs": 7.657927462068965,
+      "managedAllocationBytesPerOperation": 1616083,
+      "gcMetrics": [
+        {
+          "Value": 282.7586206896552,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 89.6551724137931,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 34.48275862068965,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 1616083,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "linearize-M500": {
+      "rawMsPerOperation": [
+        168.120509,
+        140.11267025,
+        139.9134005,
+        185.99653725,
+        200.4514865,
+        174.314663,
+        166.932493
+      ],
+      "medianMs": 168.120509,
+      "q1Ms": 153.522581625,
+      "q3Ms": 180.15560012499998,
+      "minMs": 139.9134005,
+      "maxMs": 200.4514865,
+      "managedAllocationBytesPerOperation": 81222084,
+      "gcMetrics": [
+        {
+          "Value": 7500,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 4000,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 1750,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 81222084,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "merge-250x2": {
+      "rawMsPerOperation": [
+        86.60603025,
+        87.612659,
+        94.5419195,
+        92.80405,
+        93.270162,
+        117.66898475,
+        88.0411455
+      ],
+      "medianMs": 92.80405,
+      "q1Ms": 87.82690224999999,
+      "q3Ms": 93.90604075,
+      "minMs": 86.60603025,
+      "maxMs": 117.66898475,
+      "managedAllocationBytesPerOperation": 69954796,
+      "gcMetrics": [
+        {
+          "Value": 6000,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 2500,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 1000,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 69954796,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "object-streams-X100": {
+      "rawMsPerOperation": [
+        13.462134272727273,
+        16.244950181818183,
+        13.085153727272727,
+        14.362388227272726,
+        15.500805772727274,
+        12.562847863636364,
+        15.693055227272726
+      ],
+      "medianMs": 14.362388227272726,
+      "q1Ms": 13.273644,
+      "q3Ms": 15.5969305,
+      "minMs": 12.562847863636364,
+      "maxMs": 16.244950181818183,
+      "managedAllocationBytesPerOperation": 5403799,
+      "gcMetrics": [
+        {
+          "Value": 909.090909090909,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 227.27272727272725,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 90.9090909090909,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 5403799,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "rewrite-M500": {
+      "rawMsPerOperation": [
+        108.4222185,
+        144.8427455,
+        118.1792315,
+        114.74798975,
+        133.601712,
+        121.87729025,
+        124.00376325
+      ],
+      "medianMs": 121.87729025,
+      "q1Ms": 116.463610625,
+      "q3Ms": 128.802737625,
+      "minMs": 108.4222185,
+      "maxMs": 144.8427455,
+      "managedAllocationBytesPerOperation": 82469220,
+      "gcMetrics": [
+        {
+          "Value": 7250,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 4000,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 2000,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 82469220,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "rewrite-X100": {
+      "rawMsPerOperation": [
+        12.342840954545455,
+        11.824952795454545,
+        13.441374125,
+        12.983123056818181,
+        11.651911659090908,
+        11.747825022727273,
+        12.248033670454545
+      ],
+      "medianMs": 12.248033670454545,
+      "q1Ms": 11.78638890909091,
+      "q3Ms": 12.662982005681819,
+      "minMs": 11.651911659090908,
+      "maxMs": 13.441374125,
+      "managedAllocationBytesPerOperation": 3802673,
+      "gcMetrics": [
+        {
+          "Value": 602.2727272727273,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 147.72727272727275,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 79.54545454545455,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 3802673,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "select-M500": {
+      "rawMsPerOperation": [
+        101.68475185714286,
+        101.84756671428572,
+        88.74433285714285,
+        104.77643842857144,
+        115.82546557142857,
+        92.39265628571428,
+        92.25129242857143
+      ],
+      "medianMs": 101.68475185714286,
+      "q1Ms": 92.32197435714286,
+      "q3Ms": 103.31200257142858,
+      "minMs": 88.74433285714285,
+      "maxMs": 115.82546557142857,
+      "managedAllocationBytesPerOperation": 70126701,
+      "gcMetrics": [
+        {
+          "Value": 6571.428571428572,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 3000,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 1142.857142857143,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 70126701,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "select-S10": {
+      "rawMsPerOperation": [
+        3.5658700702781845,
+        1.4872793865300147,
+        1.5374859692532945,
+        1.8182850029282578,
+        1.5571226998535872,
+        4.652526181551976,
+        4.801199931185944
+      ],
+      "medianMs": 1.8182850029282578,
+      "q1Ms": 1.547304334553441,
+      "q3Ms": 4.10919812591508,
+      "minMs": 1.4872793865300147,
+      "maxMs": 4.801199931185944,
+      "managedAllocationBytesPerOperation": 349259,
+      "gcMetrics": [
+        {
+          "Value": 83.45534407027819,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 11.71303074670571,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 5.856515373352855,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 349259,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    },
+    "split-M500": {
+      "rawMsPerOperation": [
+        114.616392,
+        85.98826133333333,
+        93.81247883333333,
+        81.0076535,
+        83.6314475,
+        89.566017,
+        97.35505316666668
+      ],
+      "medianMs": 89.566017,
+      "q1Ms": 84.80985441666667,
+      "q3Ms": 95.583766,
+      "minMs": 81.0076535,
+      "maxMs": 114.616392,
+      "managedAllocationBytesPerOperation": 73193328,
+      "gcMetrics": [
+        {
+          "Value": 8333.333333333334,
+          "Descriptor": {
+            "Id": "Gen0Collects",
+            "DisplayName": "Gen0",
+            "Legend": "GC Generation 0 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 0
+          }
+        },
+        {
+          "Value": 4166.666666666667,
+          "Descriptor": {
+            "Id": "Gen1Collects",
+            "DisplayName": "Gen1",
+            "Legend": "GC Generation 1 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 1
+          }
+        },
+        {
+          "Value": 1500,
+          "Descriptor": {
+            "Id": "Gen2Collects",
+            "DisplayName": "Gen2",
+            "Legend": "GC Generation 2 collects per 1000 operations",
+            "NumberFormat": "#0.0000",
+            "UnitType": 0,
+            "Unit": "Count",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 2
+          }
+        },
+        {
+          "Value": 73193328,
+          "Descriptor": {
+            "Id": "Allocated Memory",
+            "DisplayName": "Allocated",
+            "Legend": "Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)",
+            "NumberFormat": "0.##",
+            "UnitType": 2,
+            "Unit": "B",
+            "TheGreaterTheBetter": false,
+            "PriorityInCategory": 3
+          }
+        }
+      ]
+    }
+  },
+  "commands": {
+    "select-S10": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/select-S10/0/managed/out.pdf",
+        "--",
+        "inputs/S10.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "10-1",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/S10.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "10-1",
+        "--",
+        "{WORKSPACE}/run-02/samples/select-S10/0/native/out.pdf"
+      ]
+    },
+    "select-M500": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/select-M500/0/managed/out.pdf",
+        "--",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "500-1",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "500-1",
+        "--",
+        "{WORKSPACE}/run-02/samples/select-M500/0/native/out.pdf"
+      ]
+    },
+    "merge-250x2": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/merge-250x2/0/managed/out.pdf",
+        "--",
+        "inputs/A250.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "1-z",
+        "inputs/B250.pdf",
+        "1-z",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/A250.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--pages",
+        ".",
+        "1-z",
+        "inputs/B250.pdf",
+        "1-z",
+        "--",
+        "{WORKSPACE}/run-02/samples/merge-250x2/0/native/out.pdf"
+      ]
+    },
+    "split-M500": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out-001-050.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-001-050.pdf",
+        "--out",
+        "outputs/out-051-100.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-051-100.pdf",
+        "--out",
+        "outputs/out-101-150.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-101-150.pdf",
+        "--out",
+        "outputs/out-151-200.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-151-200.pdf",
+        "--out",
+        "outputs/out-201-250.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-201-250.pdf",
+        "--out",
+        "outputs/out-251-300.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-251-300.pdf",
+        "--out",
+        "outputs/out-301-350.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-301-350.pdf",
+        "--out",
+        "outputs/out-351-400.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-351-400.pdf",
+        "--out",
+        "outputs/out-401-450.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-401-450.pdf",
+        "--out",
+        "outputs/out-451-500.pdf={WORKSPACE}/run-02/samples/split-M500/0/managed/out-451-500.pdf",
+        "--",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--split-pages=50",
+        "--pages",
+        ".",
+        "1-z",
+        "--",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--split-pages=50",
+        "--pages",
+        ".",
+        "1-z",
+        "--",
+        "{WORKSPACE}/run-02/samples/split-M500/0/native/out.pdf"
+      ]
+    },
+    "rewrite-M500": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/rewrite-M500/0/managed/out.pdf",
+        "--",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "{WORKSPACE}/run-02/samples/rewrite-M500/0/native/out.pdf"
+      ]
+    },
+    "rewrite-X100": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/rewrite-X100/0/managed/out.pdf",
+        "--",
+        "inputs/X100-incremental.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/X100-incremental.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "{WORKSPACE}/run-02/samples/rewrite-X100/0/native/out.pdf"
+      ]
+    },
+    "object-streams-X100": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/object-streams-X100/0/managed/out.pdf",
+        "--",
+        "inputs/X100.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--object-streams=generate",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/X100.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--object-streams=generate",
+        "{WORKSPACE}/run-02/samples/object-streams-X100/0/native/out.pdf"
+      ]
+    },
+    "linearize-M500": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--out",
+        "outputs/out.pdf={WORKSPACE}/run-02/samples/linearize-M500/0/managed/out.pdf",
+        "--",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--linearize",
+        "outputs/out.pdf"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/M500.pdf",
+        "--stream-data=preserve",
+        "--decode-level=none",
+        "--compress-streams=n",
+        "--object-streams=disable",
+        "--force-version=1.5",
+        "--static-id",
+        "--remove-unreferenced-resources=no",
+        "--linearize",
+        "{WORKSPACE}/run-02/samples/linearize-M500/0/native/out.pdf"
+      ]
+    },
+    "check-X100": {
+      "managed": [
+        "{SDK}/dotnet",
+        "{WORKSPACE}/git-metadata/tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll",
+        "emit",
+        "--workdir",
+        "{WORKSPACE}/run-02",
+        "--",
+        "inputs/X100-incremental.pdf",
+        "--check"
+      ],
+      "native": [
+        "{WORKSPACE}/native-pinned-build/qpdf/qpdf",
+        "inputs/X100-incremental.pdf",
+        "--check"
+      ]
+    }
+  },
+  "warmedCommand": [
+    "{SDK}/dotnet",
+    "{WORKSPACE}/git-metadata/benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll",
+    "--filter",
+    "*ComparisonBenchmarks*",
+    "--job",
+    "short",
+    "--launchCount",
+    "1",
+    "--warmupCount",
+    "3",
+    "--iterationCount",
+    "7",
+    "--iterationTime",
+    "1000",
+    "--outliers",
+    "DontRemove",
+    "--exporters",
+    "json",
+    "--artifacts",
+    "{WORKSPACE}/run-02/warmed-unfiltered"
+  ],
+  "validationNegative": "Incorrect page-order expectation rejects"
+}

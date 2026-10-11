@@ -5,6 +5,10 @@ Development performance evidence uses generated inputs and the existing
 timing gate. Managed benchmarks need no native tool; the explicit Linux
 comparison below requires pinned qpdf 12.4.2.
 
+The [2026-10-11 WSL comparison](BENCHMARK-RESULTS.md) records the nine cells,
+independent validation, process medians/RSS/output sizes and separate warmed
+managed results, with raw samples and reproduction commands.
+
 ## Linux process comparison
 
 `tools/compare-linux-performance.py` runs nine cells: reversed selection of 10
