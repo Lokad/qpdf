@@ -6,6 +6,12 @@ internal interface IOutputCapacityHint
     void EnsureCapacity(long length, CancellationToken cancellationToken);
 }
 
+/// <summary>An immutable host snapshot borrowed only by private documents.</summary>
+internal interface IImmutableInputSnapshot
+{
+    ReadOnlyMemory<byte> ReadSnapshot(CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Admits host lease wrappers before allocation and counts each open, read and
 /// write attempt. Publication batches lend one prepaid output wrapper through
@@ -16,6 +22,12 @@ internal static class GovernedHost
 {
     internal const long InputWrapperBytes = 32L;
     internal const long OutputWrapperBytes = 40L;
+
+    internal static bool TryReadInputSnapshot(IQpdfInput input, CancellationToken token, out ReadOnlyMemory<byte> data)
+    {
+        if (input is GovernedInput governed) { return governed.TryReadSnapshot(token, out data); }
+        data = default; return false;
+    }
 
     internal static void PrepareOutputCapacity(IQpdfOutputTransaction transaction, long length,
         CancellationToken cancellationToken)
@@ -86,6 +98,18 @@ internal static class GovernedHost
         public QpdfPath Path => Inner.Path;
         public string Identity => Inner.Identity;
         public long Length => Inner.Length;
+
+        internal bool TryReadSnapshot(CancellationToken token, out ReadOnlyMemory<byte> data)
+        {
+            IQpdfInput inner = Inner;
+            if (inner is not IImmutableInputSnapshot snapshot) { data = default; return false; }
+            ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(GovernedInput));
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteHostOperation();
+            data = snapshot.ReadSnapshot(token);
+            if (data.Length != inner.Length)
+            { throw new QpdfHostException(inner.Path, QpdfHostFailureReason.NonProgressingRead); }
+            return true;
+        }
 
         public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
         {

@@ -225,6 +225,36 @@ public sealed class PracticalMemoryTests(ITestOutputHelper output)
         GC.KeepAlive(completed);
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (IQpdfInput Lease, WeakReference Host, WeakReference Payload) ClosedLargeInput()
+    {
+        InMemoryQpdfHost host = new();
+        byte[] payload = new byte[2 * 1024 * 1024];
+        host.AddInput(Input, payload, QpdfInputOwnership.Transfer);
+        IQpdfInput lease = host.OpenInputAsync(Input, CancellationToken.None).GetAwaiter().GetResult();
+        lease.DisposeAsync().GetAwaiter().GetResult();
+        Assert.Equal(0L, host.OpenLeaseCount);
+        return (lease, new(host), new(payload));
+    }
+
+    [Fact]
+    public async Task AClosedInputLeaseDoesNotPinItsLargeHostPayload()
+    {
+        var closed = ClosedLargeInput();
+        Stopwatch deadline = Stopwatch.StartNew();
+        do
+        {
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            if (!closed.Host.IsAlive && !closed.Payload.IsAlive) { break; }
+            Thread.Yield();
+        } while (deadline.Elapsed < TimeSpan.FromSeconds(5));
+        Assert.False(closed.Host.IsAlive);
+        Assert.False(closed.Payload.IsAlive);
+        Assert.Equal(2L * 1024L * 1024L, closed.Lease.Length);
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => closed.Lease.ReadAsync(0L, 1, CancellationToken.None).AsTask());
+        GC.KeepAlive(closed.Lease);
+    }
+
     [Fact]
     public async Task ReturnedCounterSnapshotsAndVersionsRemainUsableAfterLaterJobs()
     {

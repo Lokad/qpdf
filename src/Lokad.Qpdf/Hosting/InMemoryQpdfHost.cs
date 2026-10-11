@@ -129,10 +129,11 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         }
     }
 
-    private sealed class InMemoryInput : IQpdfInput
+    private sealed class InMemoryInput : IQpdfInput, IImmutableInputSnapshot
     {
-        private readonly InMemoryQpdfHost _host;
-        private readonly byte[] _snapshot;
+        private InMemoryQpdfHost? _host;
+        private byte[]? _snapshot;
+        private readonly long _length;
         private bool _disposed;
 
         internal InMemoryInput(InMemoryQpdfHost host, QpdfPath path, byte[] snapshot)
@@ -141,13 +142,20 @@ public sealed class InMemoryQpdfHost : IQpdfHost
             Path = path;
             Identity = path.Value;
             _snapshot = snapshot;
+            _length = snapshot.Length;
         }
 
         public QpdfPath Path { get; }
 
         public string Identity { get; }
 
-        public long Length => _snapshot.Length;
+        public long Length => _length;
+
+        ReadOnlyMemory<byte> IImmutableInputSnapshot.ReadSnapshot(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return _snapshot ?? throw new ObjectDisposedException(nameof(IQpdfInput));
+        }
 
         public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
         {
@@ -157,7 +165,8 @@ public sealed class InMemoryQpdfHost : IQpdfHost
                 throw new ObjectDisposedException(nameof(IQpdfInput));
             }
 
-            if (offset < 0 || count < 0 || count > _snapshot.Length - offset)
+            byte[] snapshot = _snapshot ?? throw new ObjectDisposedException(nameof(IQpdfInput));
+            if (offset < 0 || count < 0 || count > snapshot.Length - offset)
             {
                 throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
             }
@@ -168,7 +177,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
             }
 
             byte[] copy = new byte[count];
-            Buffer.BlockCopy(_snapshot, (int)offset, copy, 0, count);
+            Buffer.BlockCopy(snapshot, (int)offset, copy, 0, count);
             return ValueTask.FromResult((ReadOnlyMemory<byte>)copy);
         }
 
@@ -177,7 +186,9 @@ public sealed class InMemoryQpdfHost : IQpdfHost
             if (!_disposed)
             {
                 _disposed = true;
-                _host.ReleaseLease(Identity);
+                InMemoryQpdfHost? host = _host;
+                _host = null; _snapshot = null;
+                host?.ReleaseLease(Identity);
             }
 
             return ValueTask.CompletedTask;

@@ -305,9 +305,14 @@ public sealed class QpdfDocument : IAsyncDisposable
             long inputBytes = checked(input.Length + GovernedBufferStream.ArrayOverheadBytes);
             governor.ReserveMemory(inputBytes);
             reservedInput = inputBytes;
-            bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+            // Private complete jobs may borrow an immutable host snapshot. Public
+            // documents retain the fresh-read contract, as do arbitrary hosts.
+            if (valuesEscape || !GovernedHost.TryReadInputSnapshot(input, cancellationToken, out data))
+            {
+                bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                data = bytes;
+            }
             cancellationToken.ThrowIfCancellationRequested();
-            data = bytes;
             VersionParts headerParts = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
             table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);

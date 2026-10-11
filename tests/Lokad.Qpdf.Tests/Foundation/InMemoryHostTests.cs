@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Hosting;
+using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -44,12 +45,23 @@ public sealed class InMemoryHostTests
     {
         InMemoryQpdfHost host = new();
         QpdfPath path = QpdfPath.From("inputs/doc.pdf");
-        host.AddInput(path, SampleBytes(), QpdfInputOwnership.Copy);
-        await using IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None);
-        byte[] first = (await input.ReadAsync(0L, 8, CancellationToken.None)).ToArray();
-        first[0] = 99;
-        byte[] second = (await input.ReadAsync(0L, 8, CancellationToken.None)).ToArray();
-        Assert.Equal(1, second[0]);
+        byte[] original = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-2page.pdf"));
+        host.AddInput(path, original, QpdfInputOwnership.Copy);
+        await using (IQpdfInput input = await host.OpenInputAsync(path, CancellationToken.None))
+        {
+            ReadOnlyMemory<byte> first = await input.ReadAsync(0L, original.Length, CancellationToken.None);
+            Assert.True(MemoryMarshal.TryGetArray(first, out ArraySegment<byte> backing));
+            backing.AsSpan().Fill(99);
+            byte[] second = await QpdfInputReader.ReadExactlyAsync(input, 0L, original.Length, CancellationToken.None);
+            Assert.Equal(original, second);
+        }
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["inputs/doc.pdf", "--static-id", "outputs/doc.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/doc.pdf"), out byte[] output));
+        using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(output);
+        Assert.Equal(2, independent.NumberOfPages);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

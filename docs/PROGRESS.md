@@ -63,9 +63,9 @@ protocol and validation are excluded; necessary host/file transport is included.
 There are no timing gates in CI.
 
 Performance work targets at most 2× native on nine structural workloads. The
-last complete rerank (`9f7f348`) validated all nine cells. Five meet the target;
-remaining gaps are ordinary M500 rewriting (3.04×), linearization (2.68×),
-splitting (2.05×) and X100 rewriting (2.03×). These are contemporaneous engine
+last complete rerank (`8123cfc`) validated all nine cells. Seven meet the target;
+remaining gaps are ordinary M500 rewriting (2.41×) and linearization (2.06×).
+These are contemporaneous engine
 ratios; paired correction gains below use interleaved revisions instead.
 Later paired whole-file source reuse improves rewriting 67.85 → 54.59 ms (19.6%),
 with native 17.98 ms (3.04×). Allocation falls 73.58 → 61.40 MB/job (16.6%).
@@ -91,6 +91,7 @@ split, replace-input and pass1. No parsed document is cached between jobs.
 | Size pure counting passes without token buffers | Existing escape/width rules and replay checks remain shared; pass1 tees and captures still emit bytes. 2,770 focused checks passed, then all 212 affected controls passed after replacing two obsolete temporary-buffer charge assertions with material-storage admission/cleanup checks. Paired X100 rewrite improves 14.72 → 11.07 ms (24.8%, 1.66× native); allocation falls 11.5%. M500 rewrite/linearization allocate about 0.93 MB/job less; their timings vary substantially and establish no speedup. Fresh outputs are independently valid and unchanged. |
 | Extend admitted staging hints to linearized and split output | Final counted linearized sizes and prepared split lengths reuse the existing memory-host hint. Split staging is admitted before the first publication and reused sequentially; linearized staging remains charged through transaction cleanup. 1,837 focused checks passed, then all 155 affected controls passed after allowing jobs that now fit the unchanged work ceiling to publish valid output. Failure/cancellation, prior outputs and pass1 remain covered. This structural reduction has no timing acceptance gate. |
 | Hash default identifiers without retaining a placeholder PDF | Classic, QDF, streamed and linearized publication share a bounded incremental MD5 sink, including prepared split output. Existing limits/cancellation remain, with a fixed hash-state allowance and explicit cleanup. 1,936 focused checks passed, then all 55 affected controls passed after updating historical split work assertions to require complete valid publication or untouched prior outputs. A smaller work limit still rejects. Three original ID hashes are unchanged. This removes whole-PDF buffers structurally; the nine static-ID comparison cells do not exercise it. |
+| Borrow immutable memory-host input snapshots for private jobs | The existing governed wrapper admits input storage and counts the read attempt before private documents borrow the stable host bytes. Public documents/reads and custom hosts keep their fresh/short-read path. Closed memory input leases drop host/payload references and preserve length metadata. Release build, 1,693 focused checks and all four public CPU-cancellation controls pass, including real 2 MiB retention and public read-mutation isolation regressions. No parser payload slices, parsed-document cache or production forced GC were introduced. |
 
 Straightforward structural copy/allocation eliminations have correctness/resource
 checks and no empirical timing acceptance gate. Larger performance hypotheses
