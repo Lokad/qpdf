@@ -24,7 +24,8 @@ def sha(path):
 def run(argv):
     result = subprocess.run([str(a) for a in argv], capture_output=True, timeout=180)
     if result.returncode:
-        raise RuntimeError(f"Command failed ({result.returncode}): {argv}\n{result.stderr.decode(errors='replace')}")
+        raise RuntimeError(f"Command failed ({result.returncode}): {argv}\n"
+                           f"{result.stdout.decode(errors='replace')}\n{result.stderr.decode(errors='replace')}")
     return result.stdout
 
 

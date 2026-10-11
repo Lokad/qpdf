@@ -15,7 +15,9 @@ internal static class ComparisonWorkloads
             new(name, [input], ["inputs/" + input, ..policy, "--pages", ".", count + "-1", "--", "outputs/out.pdf"],
                 ["out.pdf"], Markers(series, count).Reverse().ToArray());
         ComparisonWorkload Rewrite(string name, string input, string series, int count, string[] extra) =>
-            new(name, [input], ["inputs/" + input, ..policy, ..extra, "outputs/out.pdf"], ["out.pdf"], Markers(series, count));
+            new(name, [input], ["inputs/" + input,
+                ..policy.Where(option => !extra.Any(setting => setting.Split('=')[0] == option.Split('=')[0])),
+                ..extra, "outputs/out.pdf"], ["out.pdf"], Markers(series, count));
         return
         [
             Select("select-S10", "S10.pdf", 10, "S10"),
