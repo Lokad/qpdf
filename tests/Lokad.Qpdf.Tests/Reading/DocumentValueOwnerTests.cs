@@ -331,7 +331,7 @@ public sealed class DocumentValueOwnerTests
     {
         PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(5));
         object alias = kind == "dictionary" ? stream.Dictionary : kind == "raw" ? (object)stream.RawMemory : stream.Data;
-        return (alias, new(stream), new(stream.Dictionary), new(Field(stream, "_data")));
+        return (alias, new(stream), new(stream.Dictionary), new(stream.AllocationCarrier));
     }
 
     [Theory]

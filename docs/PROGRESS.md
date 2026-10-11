@@ -11,6 +11,15 @@ These corrections await their integration checkpoint. The performance goal is se
 establish all nine warmed structural job medians within 2× pinned qpdf 12.4.2.
 That target remains unconfirmed for the large ordinary rewrite.
 
+The latest complete ordinary runs on `8294ec8` passed 17,845 Windows checks and
+17,844 Linux checks. The remaining failures were a stale boxed-memory witness
+and, on Linux, a withdrawn fixed GC-round deadline for a small xref buffer.
+The witness now observes the actual array; xref controls retain paused-buffer
+admission and all outcome cleanup while dropping exact geometry/GC scheduling.
+All 118 affected owner, practical-memory and inventory controls pass on Windows.
+Production and probe code are unchanged; reuse the complete production runs and
+finish Linux owner controls plus reference/visual/package qualification.
+
 CMYK/YCCK JPEGs remain opaque with warnings when decoding is requested; Zopfli
 remains unavailable. Both accepted limitations are tested. Crypto remains
 excluded, including empty-password encrypted inputs. Other compatibility
