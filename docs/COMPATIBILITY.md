@@ -38,8 +38,10 @@ limit. Read/input-close/create/write/commit/output-close faults and distinct
 caller/host cancellation preserve prior uncommitted targets and caller copies,
 close leases/handles and keep committed bytes equal to independently validated
 successful output. This is bounded publication evidence, not a broader ownership
-or exact-accounting census. Visual/reference CI and final artifact qualification
-remain due.
+or exact-accounting census. The finite visual command and pinned-reference CI
+configuration are prepared, with focused raster/tool negatives. Actual final
+committed-source visual/reference, artifact and platform qualification remains
+due; preparation alone is not a passing CI result.
 
 The bounded `--job-json-file`, `--check` and `--parser-max-errors` qualifications
 are complete. Job setter/duplicate/cycle/default evidence is reused; fileless

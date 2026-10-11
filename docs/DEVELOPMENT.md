@@ -125,6 +125,18 @@ tracked so normal development remains independent of the reference checkout.
 
 ## Reference, independent and codec probes
 
+The explicit Windows reference CI job acquires qpdf 12.4.2 from its official
+release asset through `tools/install-reference-qpdf.ps1`. Both archive and
+executable SHA-256 are checked before the existing version bootstrap. The
+destination must be fresh; existing files are rejected without overwrite.
+The ordinary Windows/Linux jobs still need no qpdf binary or `external/`.
+For the same isolated acquisition locally:
+
+```powershell
+$oracleRoot = Join-Path 'external' ('oracle-' + [Guid]::NewGuid().ToString('N'))
+$env:QPDF_EXE = ./tools/install-reference-qpdf.ps1 -Destination $oracleRoot
+```
+
 `tools/QpdfProbe` is the developer-only oracle runner. It is built with the
 solution but is never packed. These commands have been executed:
 
@@ -270,9 +282,51 @@ version and a corrupt external hash both reject before consumer execution.
 CI runs the verifier and negative cases on Windows and Linux after pack;
 evidence remains under `artifacts/`. Neither lane needs `external/`.
 
-## Next tooling
+## Finite visual qualification
 
-All operation paths are implemented with the M11 compatibility audit in
-progress (see docs/PROGRESS.md). Tooling changes follow the same rules:
-no new runtime dependencies, no upstream checkouts or executables for
-ordinary builds and tests, and probe commands documented alongside use.
+After the locked Release build, supply an explicit Poppler `pdftoppm` executable
+and fresh workspace. Fixture-builder reuse requires PowerShell running on
+.NET 10. The renderer is development tooling and is never packed:
+
+```powershell
+$visualRoot = Join-Path 'external/visual-checks' ([Guid]::NewGuid().ToString('N'))
+pwsh -File tools/run-visual-checks.ps1 -QpdfExe $env:QPDF_EXE -RendererExe $env:QPDF_RENDERER_EXE -WorkRoot $visualRoot
+```
+
+The invocation reuses existing authored fixtures/builders for seven cases:
+overlay, underlay, rotated-page flattening, generated text/checkbox appearances
+and gray/RGB JPEG optimization. Both managed and native outputs are fresh,
+pass native syntax and independent page checks, and render at 144 dpi with the
+same content crops. JPEG dictionaries must preserve 200×200 dimensions,
+8-bit gray/RGB colorspace and contain smaller DCT payloads; a no-op rewrite
+cannot qualify optimization. Missing tools, blank reference crops, unexpected
+crop dimensions and malformed raster payloads fail.
+
+The original declared thresholds remain fixed:
+
+| Comparison | Mean absolute channel error / 255 | Fraction of changed pixels | Any-channel change threshold |
+| --- | ---: | ---: | ---: |
+| Placement, rotation, appearances | 0.005 | 0.01 | 8/255 |
+| Managed/native JPEG at quality 75 | 0.04 | 0.10 | 32/255 |
+| Each lossy JPEG against original texture | 0.20 | 0.30 | 64/255 |
+
+Lossless geometry/text allows minor raster differences. Independent JPEG
+encoders may differ, and the original random RGB texture loses chroma detail
+at quality 75; the tighter managed/native check accompanies the broader
+original-texture check. Valid PDFs with a deliberately misplaced image and
+stale flattened text must reject at the geometry/appearance thresholds.
+Tolerances are not widened in response to a managed failure.
+
+Results record source commit and whether implementation/tooling changes are
+uncommitted, renderer version/hash, oracle hash, input identities, crops,
+comparisons and elapsed time. The identified local renderer is Poppler 24.04.0;
+use the same executable/settings for a comparison. Prior draft trials do not
+replace the final committed-source checkpoint.
+
+`tools/test-reference-probe.ps1` also exercises exact nonblank raster matching,
+visible mismatch, blank reference, wrong expected dimensions and truncated
+payload, including a leading whitespace-valued pixel byte. It reuses the
+existing process/probe controls and does not require a native PDF engine.
+
+Tooling changes keep runtime dependencies and host boundaries intact.
+See [progress](PROGRESS.md) for remaining supported-profile qualification.

@@ -12,6 +12,28 @@ requirements below are evidence, not additional completion verdicts. Keep
 meaningful limits, cancellation, cleanup, output integrity and actual leak/growth
 regressions.
 
+## Finite visual and reference tooling
+
+The seven-case visual invocation now reuses existing authored placement,
+rotation, text/checkbox and raw gray/RGB image fixtures. It compares fresh
+managed/native outputs with explicit renderer settings and the original fixed
+tolerances. Native syntax and independent page checks accompany the rasters;
+JPEG guards require the expected dimensions/colorspace, DCT replacement and
+shrinkage. Missing tools, blank/mis-sized crops and malformed PPMs reject.
+Deliberately misplaced-image/stale-appearance controls retain their rejection.
+Source/result metadata distinguishes uncommitted trials from committed proof.
+
+The explicit Windows reference CI job acquires the exact qpdf 12.4.2 archive
+and executable with reviewed checksums, then runs the existing reference lane
+with fresh scratch. Existing destinations reject without overwrite. Ordinary
+Windows/Linux jobs remain independent of external tools. Release probe build
+passes with zero warnings/errors; reference transport and five raster controls,
+missing-renderer, existing-oracle and no-op-image negatives pass. The earlier
+seven-case draft trial also passes, with both actual DCT optimizations verified.
+No production source or dependencies changed. Final committed-source ordinary,
+reference, visual, package/consumer and platform qualification remains due;
+workflow preparation alone is not a CI result.
+
 ## Approximate memory contract and test consolidation
 
 Memory diagnostics explicitly say estimated; their additional UTF-8 bytes remain
@@ -53,8 +75,8 @@ recorded **606.7s (10m07s)** checkpoint on `eff904f`. Counts describe these
 sources, not acceptance quotas. The first 401.0s run's four failures and the
 classification evidence remain recorded. The final affected source is integrated
 with this documentation; comprehensive reference/visual/package qualification is
-reserved for the delivery checkpoint. Remaining work is bounded exceptional
-cleanup, finite visuals/pinned-reference CI and final supported-profile artifacts.
+reserved for the delivery checkpoint. Exceptional cleanup and verification
+tooling preparation are recorded separately; final qualification remains due.
 
 ## Bounded group and sidecar cleanup
 
@@ -73,8 +95,8 @@ They require no fixed GC schedule, exact charge retirement or independent small
 metadata billing. Existing typed/other-route and staging-discard proofs are
 reused. No production correction was required. Release build passes with zero
 warnings/errors in 31.7s; all 682 affected publication/sidecar/lease checks pass
-without skips in 13.7s outer wall. Remaining delivery work is finite visual and
-pinned-reference CI tooling, then final supported-profile artifact qualification.
+without skips in 13.7s outer wall. Final supported-profile artifact and platform
+qualification remains due.
 
 ## Public CPU/codec cancellation
 

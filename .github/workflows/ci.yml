@@ -41,3 +41,34 @@ jobs:
       - name: Test consumer verification rejections
         shell: pwsh
         run: ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
+
+  reference:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Acquire pinned qpdf 12.4.2 oracle
+        shell: pwsh
+        run: |
+          $oracle = ./tools/install-reference-qpdf.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'lokad-qpdf-oracle')
+          "QPDF_EXE=$oracle" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Restore locked dependencies
+        run: dotnet restore Lokad.Qpdf.slnx --locked-mode
+      - name: Build Release
+        run: dotnet build Lokad.Qpdf.slnx -c Release --no-restore
+      - name: Run explicit reference checks with fresh scratch
+        shell: pwsh
+        run: ./tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE
+      - name: Preserve reference results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-results
+          path: |
+            external/parser-checks/**/results.json
+            external/diff/**/results.json
+            external/diff/**/managed-calls/results.json
+          if-no-files-found: error

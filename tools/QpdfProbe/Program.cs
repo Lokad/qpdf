@@ -27,6 +27,7 @@ internal static class Program
                 "probe-oracle" => ProbeOracle(args[1..]),
                 "validate" => Validate(args[1..]),
                 "compare" => Compare(args[1..]),
+                "compare-raster" => RasterComparison.Run(args[1..]),
                 "emit" => EmitCommand.RunEmit(args[1..]),
                 "emit-job" => EmitCommand.RunEmitJob(args[1..]),
                 "batch" => BatchCommand.Run(args[1..]),
@@ -64,6 +65,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe probe-oracle --qpdf-exe <path> --input <pdf>");
         Console.WriteLine("  QpdfProbe validate --input <pdf>");
         Console.WriteLine("  QpdfProbe compare --qpdf-exe <path> --input <pdf> --expected-npages <N>");
+        Console.WriteLine("  QpdfProbe compare-raster --left <ppm> --right <ppm> --expected-width <1..4096> --expected-height <1..4096> --max-mean-error <0..1> --max-changed-fraction <0..1> --channel-threshold <0..255>");
         Console.WriteLine("  QpdfProbe emit --workdir <dir> --out <logical>=<physical> [--out ...] -- <argv...>");
         Console.WriteLine("  QpdfProbe emit-job --workdir <dir> --job <job.json> --out <logical>=<physical> [--out ...]");
         Console.WriteLine("  QpdfProbe batch (bounded sequential JSON requests on stdin; developer harness only)");
