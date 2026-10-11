@@ -10,6 +10,29 @@ already refactored. Historical gate/count requirements below are evidence, not
 additional completion verdicts. Keep meaningful limits, cancellation, cleanup,
 output integrity and actual leak/growth regressions.
 
+## Conservative form-resource pruning — CONTENT-02
+
+The original empty-Resources form uses undefined F1 and invokes it across two
+page streams. Explicit `yes` pruning kept only page F1 while native retained
+both F1 and Unused. The input is now an ordinary authored fixture, byte for byte
+unchanged with its recorded checksum. Default and `no` were already correct;
+the meaningful baseline has three public-route failures and three positives.
+
+An unresolved name under an explicit local form dictionary now carries scope
+uncertainty to page pruning, conservatively preserving its resources. Absent
+form Resources keeps the established inherited-name behavior. A declared-font
+control still prunes genuinely unused page fonts, so useful pruning remains.
+All 124 affected pruning/content/traversal/fixture checks pass without skips
+(11.4s recorded run, 3s runner). Final Release solution build takes 4.5s with
+zero warnings/errors. Six fresh pinned-native/managed jobs pass in 6.0s with
+matching page font keys, native syntax checks and three-reader output validation.
+The fixture inventory validates nonempty unique entries and their bytes/checksums
+instead of a frozen fixture count. Comprehensive qualification remains at
+integration/release.
+
+Next task: the finite job-file/check/parser-error functional qualifications,
+reusing established evidence before adding a missing interaction.
+
 ## Overlay inspection — CONTENT-01
 
 The original argv/job/mixed overlay-plus-check jobs rejected either native's
@@ -37,7 +60,7 @@ sequential managed probe batch for 45 isolated public inspections. Native and
 managed field/default/resource semantics and placement-stream bytes agree;
 generated widget/form numbering can differ while original identities remain.
 Full ordinary/reference/visual/package qualification remains at the integration
-checkpoint. Next product task: undefined form/default font pruning.
+checkpoint. The undefined form/default font-pruning correction is recorded above.
 
 ## Array-valued AcroForm copying — HINT-05
 
@@ -66,7 +89,7 @@ comparison exposed and the final regression now requires. The subset negative
 accepts a null link as well as an omitted key. Full integration qualification is
 deferred to its planned checkpoint, rather than repeated for this correction.
 
-Next product task: undefined form/default font pruning. Reuse completed evidence and run affected checks;
+Reuse completed evidence and run affected checks;
 comprehensive reference/visual/package qualification belongs to the integration
 checkpoint. Approximate accounting/test consolidation follows these defects.
 

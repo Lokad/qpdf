@@ -1102,8 +1102,15 @@ internal static class ContentTransforms
 
         if (hasUnknown)
         {
+            // An explicit local form dictionary cannot resolve its usage.
+            // Preserve the page scope conservatively, rather than assuming
+            // only the unresolved spelling needs to survive there. An absent
+            // form dictionary still uses the existing inherited-name policy.
+            if (!isPage) { unresolved.MarkUnresolvedLocalScope(); }
             return;
         }
+
+        if (isPage && unresolved.HasUnresolvedLocalScope) { return; }
 
         // Two sections, resources and the node header each own a table/wrapper.
         // A form adds one stream wrapper; a synthetic header can add a name/buffer.

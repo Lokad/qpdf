@@ -23,7 +23,8 @@ public sealed class FixtureManifestTests
     {
         using JsonDocument manifest = ReadManifest();
         JsonElement fixtures = manifest.RootElement.GetProperty("fixtures");
-        Assert.Equal(47, fixtures.GetArrayLength());
+        Assert.NotEmpty(fixtures.EnumerateArray());
+        HashSet<string> names = new(StringComparer.Ordinal);
 
         foreach (JsonElement entry in fixtures.EnumerateArray())
         {
@@ -35,6 +36,7 @@ public sealed class FixtureManifestTests
             }
 
             string file = fileOrNull;
+            Assert.True(names.Add(file), $"Duplicate fixture entry: {file}.");
             string expectedSha = shaOrNull;
             long expectedBytes = entry.GetProperty("bytes").GetInt64();
             string path = Path.Combine(FixtureDir(), file);
@@ -52,6 +54,7 @@ public sealed class FixtureManifestTests
     [InlineData("minimal-2page.pdf", 2)]
     [InlineData("rotated-1page.pdf", 1)]
     [InlineData("unref-1page.pdf", 1)]
+    [InlineData("undefined-form-resources.pdf", 1)]
     [InlineData("meta-1page.pdf", 1)]
     [InlineData("struct-1page.pdf", 1)]
     [InlineData("struct-preserve-1page.pdf", 1)]

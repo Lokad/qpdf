@@ -2,6 +2,12 @@
 
 This describes the implemented architecture. The library ships host contracts, an in-memory host, a per-job governor, diagnostics, and staged output alongside the strict reader, object graph, filter pipeline with the governed JPEG adapter, shared copy engine, content pipeline, deterministic writer, and the typed, argv, and job-JSON entry points.
 
+Resource pruning shares the governed form/resource walk across copy consumers.
+An unresolved name in an explicit local form resource dictionary marks the
+containing page's resource scope uncertain, preserving it conservatively.
+Absent form Resources uses the existing inherited-name protection; fully
+declared scopes continue pruning unused resources.
+
 Three entry points converge on one operation plan: familiar qpdf argv,
 qpdf job JSON, and typed operations including bounded page selection. The
 operation plan uses one binary reader, object graph, filter pipeline and

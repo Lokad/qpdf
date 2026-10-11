@@ -13,6 +13,13 @@ limits, cancellation, cleanup, host boundaries and actual memory growth remain.
 Approximate counter/XML and test reconciliation is pending; this scope decision
 does not claim that the existing accounting implementation has been refactored.
 
+Explicit resource pruning now matches the original undefined-form-font case:
+an unresolved name under an explicit local form Resources dictionary prevents
+unsafe page-resource pruning. Native and managed retain both original page
+fonts. Default/no behavior and absent form Resources retain their established
+policies; declared local fonts still allow useful pruning. The original input
+is preserved as an ordinary fixture with focused argv/job/mixed regressions.
+
 Overlay/underlay inspection now accepts native's object-shaped job setting as
 well as the existing array form, through argv/job/mixed entry paths. The shared
 placement and form-import machinery prepares the graph before checking/listing.
