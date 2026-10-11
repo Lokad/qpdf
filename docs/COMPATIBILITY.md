@@ -4,6 +4,14 @@ Reference: qpdf **12.4.2**, commit
 `4eba95899886e851cc41d76886483b347612f2a8`, from
 https://github.com/qpdf/qpdf. This target must not move silently.
 
+CFG-01B3C2F implements governed argv global-block/main-option filtering. Sorted
+markers, actual vector growth/overlap and borrowed strings preserve original
+ordering/grammar. Two original public limit failures must reject before input;
+a third live-memory boundary remains positive. Complete argv/response consumers,
+independent physical samples, faults/cancellation and result/output cleanup are
+required. Combined committed proof is pending; other parser plans/global/context
+vectors and configuration/DOM gates remain open.
+
 CFG-01B3C2L retires on committed `aabe0a2`: governed collation scans, actual
 vector growth and policy snapshots through complete public execution. The
 original 128/1024-work counterexamples and warmed 32 KiB bound remain;

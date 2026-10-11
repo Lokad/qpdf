@@ -45,6 +45,12 @@ and holds the storage through publication. JSON reuses its validated vector;
 disposal detaches all fields before final counter capture. Typed caller policies
 remain borrowed. Other parser-created vectors, derived strings, syntax adapters,
 plans and broader configuration/DOM controllers remain explicit ownership obligations.
+Ordinary argv global-block removal and main-option filtering use one scoped
+scratch owner. It admits marker/stripped/main vectors and actual capacity growth
+before allocation, borrows original strings, bounds scans/copy work and checks
+cancellation. Sorted markers are traversed once. Every field detaches after plan
+construction; the owner retires before public input and final counter capture.
+Other parser plans/global/context vectors remain explicit obligations.
 Mixed argv uses an ordered syntax adapter over that same loader/parser; independent
 file chains retain native internal key order without changing argv positional
 state. JSON inspection without a file returns immutable execution output text.

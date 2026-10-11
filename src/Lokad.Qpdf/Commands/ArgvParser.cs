@@ -47,8 +47,9 @@ internal static class ArgvParser
             argv = ConfigurationText.Wrap(argv, textStorage);
             RejectCryptoOptions(argv, governor);
             PagesArgumentBlock.Validate(argv, governor);
-            argv = StripGlobalBlocks(argv);
-            GlobalOptions globals = ExtractGlobalOptions(ref argv);
+            using ArgumentFiltering? filtering = governor is null ? null : ArgumentFiltering.Create(governor);
+            argv = StripGlobalBlocks(argv, filtering);
+            GlobalOptions globals = ExtractGlobalOptions(ref argv, filtering);
             return ParseCore(argv, globals) with
             {
                 CompressionState = globals.CompressionState,
@@ -1219,12 +1220,13 @@ internal static class ArgvParser
             || token == "--max-stream-filters";
     }
 
-    private static IReadOnlyList<string> StripGlobalBlocks(IReadOnlyList<string> argv)
+    private static IReadOnlyList<string> StripGlobalBlocks(IReadOnlyList<string> argv, ArgumentFiltering? filtering)
     {
         List<int>? remove = null;
         int i = 0;
         while (i < argv.Count)
         {
+            filtering?.Visit();
             if (argv[i] != "--global")
             {
                 i += 1;
@@ -1236,6 +1238,7 @@ internal static class ArgvParser
             bool closed = false;
             while (i < argv.Count)
             {
+                filtering?.Visit();
                 string token = argv[i];
                 if (token == "--")
                 {
@@ -1256,9 +1259,9 @@ internal static class ArgvParser
                 throw new QpdfParseException("Missing -- terminator after --global.", openAt, null);
             }
 
-            remove ??= new List<int>();
-            remove.Add(openAt);
-            remove.Add(i);
+            remove ??= filtering is null ? new List<int>() : filtering.CreateMarkers();
+            if (filtering is null) { remove.Add(openAt); remove.Add(i); }
+            else { filtering.Add(remove, openAt); filtering.Add(remove, i); }
             i += 1;
         }
 
@@ -1267,21 +1270,23 @@ internal static class ArgvParser
             return argv;
         }
 
-        List<string> kept = new(argv.Count - remove.Count);
+        List<string> kept = filtering is null ? new(argv.Count - remove.Count) : filtering.CreateStripped();
+        int next = 0;
         for (int j = 0; j < argv.Count; j++)
         {
-            if (!remove.Contains(j))
-            {
-                kept.Add(argv[j]);
-            }
+            filtering?.Visit();
+            // Markers were appended in source order. Walk them once instead
+            // of scanning the entire marker vector for every argument.
+            if (next < remove.Count && remove[next] == j) { next++; continue; }
+            if (filtering is null) { kept.Add(argv[j]); } else { filtering.Add(kept, argv[j]); }
         }
 
         return ConfigurationText.Preserve(argv, kept);
     }
 
-    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv)
+    private static GlobalOptions ExtractGlobalOptions(ref IReadOnlyList<string> argv, ArgumentFiltering? filtering)
     {
-        List<string> kept = new(argv.Count);
+        List<string> kept = filtering is null ? new(argv.Count) : filtering.CreateKept();
         QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
         bool warningExitZero = false;
         bool noWarn = false;
@@ -1396,6 +1401,7 @@ internal static class ArgvParser
         {
             for (int t = mainPagesAt + 1; t < argv.Count; t++)
             {
+                filtering?.Visit();
                 if (argv[t] == "--")
                 {
                     mainPagesEnd = t;
@@ -1406,6 +1412,7 @@ internal static class ArgvParser
 
         for (int i = 0; i < argv.Count; i++)
         {
+            filtering?.Visit();
             if (argv[i] == "--suppress-recovery")
             {
                 if (seenSuppress)
@@ -2213,7 +2220,7 @@ internal static class ArgvParser
                 continue;
             }
 
-            kept.Add(argv[i]);
+            if (filtering is null) { kept.Add(argv[i]); } else { filtering.Add(kept, argv[i]); }
         }
 
         argv = ConfigurationText.Preserve(argv, kept);

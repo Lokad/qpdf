@@ -1,5 +1,40 @@
 # Progress
 
+## Argv filtering — CFG-01B3C2F implemented, combined proof pending
+
+Original complete public jobs with 128 empty global blocks/2048-work and
+1000 page sources/28672-byte memory limits reached the PDF host instead of
+rejecting; the latter allocated 468792 bytes. Global-block removal and main-option
+filtering now share one scoped owner. It admits actual wrapper/list/backing growth
+and overlap, borrows strings, bounds scans/copy work and checks cancellation.
+Sorted removal markers replace repeated linear membership searches. All scratch
+fields detach after plan construction, before public input and final counters.
+Three original limit jobs remain: the 128-block/6656-byte job is a positive
+host-fault boundary because actual live storage fits; cumulative allocation alone
+cannot demonstrate a limit violation. Two failure jobs must reject before input.
+
+Four controls cover 76 public jobs: three limit jobs/three explicit warm controls,
+48 complete bare/selection/global argv/response jobs, 16 grammar outcomes and six
+pre-canceled jobs. A separate implementation-only sampler measures 21 actual
+held-storage/growth minima; it supplements the public failures. Complete jobs keep
+success/fault/cancellation outcomes, checked output copies and surviving results,
+then retire at unchanged four-round phases and bounded metadata maintenance.
+All 2447 related checks pass in 54.3 seconds. The exact final predecessor
+public controls retain one failing fact exposing both admission failures and
+two passing facts, without loader failures or skips. The complete-job fixture
+allocates 25744/469664 bytes before correction and 16472/43912 afterward;
+the original 2048-work/28672-byte jobs now reject before input. Its async host
+wrapper explains the allocation difference from the initial probe. The unchanged
+6656-byte positive still opens the host. All 21 independent physical minima,
+90 detached-scratch boundaries and 48 final-zero jobs pass without additional
+maintenance calls. Combined committed proof is pending.
+The first grammar trial assumed repeated
+max-stream-filter setters reject; the unchanged control now preserves their
+established acceptance. Raw failures and the live/cumulative allocation
+classification remain explicit. No runtime collection/public API/dependency change.
+Other parser/global/context plans and C3/parents remain open. Established
+C1/C2D1/C2T/C2L/LABEL-OWN1/REF-03 stay retired.
+
 ## Collation preparation — CFG-01B3C2L retired
 
 Two preserved complete argv jobs demonstrate the C2 failure: 4096 collation values
