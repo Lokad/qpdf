@@ -10,6 +10,35 @@ already refactored. Historical gate/count requirements below are evidence, not
 additional completion verdicts. Keep meaningful limits, cancellation, cleanup,
 output integrity and actual leak/growth regressions.
 
+## Overlay inspection — CONTENT-01
+
+The original argv/job/mixed overlay-plus-check jobs rejected either native's
+object-shaped job setting or the transformation/inspection combination. All
+three now use the shared overlay/underlay pipeline before checking/listing;
+array-shaped job settings retain their existing behavior. Missing secondary
+inputs fail through host access before inspection, and cancellation or handle
+exhaustion closes primary and secondary leases.
+
+Inspection retains original page, form and annotation identities/generations,
+resolves borrowed resources/content through the original reader, and scopes new
+objects to the inspection view. Imported widgets join the existing form merge,
+collision and default-resource fixups. The first correction omitted these
+registrations, causing false unreachable-widget warnings with a primary form;
+the complete correction preserves original fields and registers valid imports.
+Direct trailer catalogs and indirect form/annotation arrays also work. Original
+source-orphan notes remain informational, matching the existing overlay policy.
+
+All 502 affected checks pass with no skips: the recorded test-run wall is 9.2s
+(2s runner). Locked restore takes 3.5s; Release solution build takes 43.0s with
+zero warnings/errors. Fresh pinned-native jobs cover the original three successes
+and three missing-file negatives in 2.4s. Six representative underlay/rotation/
+form/direct-catalog/generation interactions pass in 2.2s, reusing the existing
+sequential managed probe batch for 45 isolated public inspections. Native and
+managed field/default/resource semantics and placement-stream bytes agree;
+generated widget/form numbering can differ while original identities remain.
+Full ordinary/reference/visual/package qualification remains at the integration
+checkpoint. Next product task: undefined form/default font pruning.
+
 ## Array-valued AcroForm copying — HINT-05
 
 All eight original native-success/managed-rejection jobs reproduce the schema
@@ -37,8 +66,7 @@ comparison exposed and the final regression now requires. The subset negative
 accepts a null link as well as an omitted key. Full integration qualification is
 deferred to its planned checkpoint, rather than repeated for this correction.
 
-Next product tasks: the three recorded overlay discrepancies, then undefined
-form/default font pruning. Reuse completed evidence and run affected checks;
+Next product task: undefined form/default font pruning. Reuse completed evidence and run affected checks;
 comprehensive reference/visual/package qualification belongs to the integration
 checkpoint. Approximate accounting/test consolidation follows these defects.
 

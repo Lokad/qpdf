@@ -37,12 +37,19 @@ must be an empty string; booleans fail. Failed checking stops following inspecti
 Checking uses page traversal quietly when `/Count` disagrees, while page-count
 inspection reports the declared count. Typed document reading still reports
 that disagreement. Fileless inspection also accepts page sources, collation and
-rotation, with or without checking, through JSON, argv and mixed job-file routes.
+rotation, overlay and underlay, with or without checking, through JSON, argv and
+mixed job-file routes. Job overlay/underlay values accept an object or the
+existing array form.
 Selection changes counts/order and materializes inheritance before inspection;
 primary generations stay intact, duplicates/imports get fresh identities, and
 physical xrefs remain unchanged. Rotation uses selected output-page positions.
-Overlay/underlay and broader transformation/default/context combinations remain
-required compatibility work.
+Overlay/underlay uses the shared placement and widget-import pipeline before
+checking/listing, preserves primary form/annotation identities and registers
+imported fields with merged defaults/resources. Direct trailer catalogs remain
+direct. New form/widget numbering may differ from the reference; their semantic
+relationships and placement bytes are checked independently. Output files still
+cannot accompany check/inspection jobs. Remaining supported-profile context
+qualifications are finite delivery checks.
 
 `{inputFile, outputFile}` rewrites the whole document through the shared writer.
 `jobJsonFile` names a partial configuration in the invoking host's path context,

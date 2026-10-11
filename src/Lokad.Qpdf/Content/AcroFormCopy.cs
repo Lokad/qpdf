@@ -46,6 +46,13 @@ internal static class AcroFormCopy
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
+        => ReadSourceForm(engine, copier, keptPages, pruneUnreachableFields, limits,
+            governor, diagnostics, cancellationToken, false);
+
+    private static CopiedForm? ReadSourceForm(
+        DocumentEngine engine, GraphCopier copier, IReadOnlyList<PageLocation> keptPages,
+        bool pruneUnreachableFields, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken cancellationToken, bool retainSourceObjects)
     {
         if (engine is null)
         {
@@ -95,7 +102,7 @@ internal static class AcroFormCopy
             governor.ChargeWork(1L);
             if (entry is PdfReference)
             {
-                if (copier.CopyValue(entry, 0) is PdfReference copiedReference)
+                if ((retainSourceObjects ? copier.RetainSourceValue(entry) : copier.CopyValue(entry, 0)) is PdfReference copiedReference)
                 {
                     copiedFields.Add(copiedReference);
                 }
@@ -103,7 +110,9 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            PdfReference link = copier.AddIndirectObject(entry) ?? throw new QpdfException("Form field copy pruned unexpectedly.");
+            PdfReference link = retainSourceObjects
+                ? copier.AddIndirectObjectWithId(copier.RetainSourceValue(entry), copier.NextId)
+                : copier.AddIndirectObject(entry) ?? throw new QpdfException("Form field copy pruned unexpectedly.");
             copiedFields.Add(link);
         }
         bool hasNeed = false;
@@ -134,7 +143,7 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            QpdfObject copied = copier.CopyValue(raw, 0);
+            QpdfObject copied = retainSourceObjects ? copier.RetainSourceValue(raw) : copier.CopyValue(raw, 0);
             if (text == "DR")
             {
                 resources = copied;
@@ -170,7 +179,8 @@ internal static class AcroFormCopy
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool retainSourceObjects)
     {
         if (engine is null)
         {
@@ -217,7 +227,8 @@ internal static class AcroFormCopy
             throw new ArgumentNullException(nameof(overlayImports));
         }
 
-        CopiedForm? part = TryCopySourceForm(engine, copier, keptPages, pruneUnreachableFields, limits, governor, diagnostics, cancellationToken);
+        CopiedForm? part = ReadSourceForm(engine, copier, keptPages, pruneUnreachableFields, limits,
+            governor, diagnostics, cancellationToken, retainSourceObjects);
         foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
         {
             cancellationToken.ThrowIfCancellationRequested();

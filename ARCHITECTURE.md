@@ -135,14 +135,19 @@ and physical xrefs remain visible; duplicates/imports receive fresh identities,
 removed pages resolve to null, and inherited attributes materialize before
 checking. Source filename keys retain native alias semantics. The view shares
 inheritance/range/copy/collation/rotation helpers and detaches before its scoped
-admission releases. Page/content listings preserve reference generations.
+admission releases. Overlay/underlay inspection uses the shared placement
+pipeline with the original reader as resolver for retained content/resources.
+Primary annotation/form graphs retain immutable values and identities; imported
+fields use shared collision/default-resource/catalog assembly. Direct trailer
+catalog edits belong to the same scoped view and detach with it. Page/content
+listings preserve reference generations.
 Page traversal and declared-count reporting are distinct; failed checking stops
 subsequent inspection. Fileless stream/attachment inspection returns caller-owned
 binary bytes separately from diagnostics, distinguishing absent and empty payloads.
 Failure or cancellation discards staged bytes. Filtered output uses shared governed
 normalization; command checking and split writing share admitted reachability
-traversal. Overlay/underlay and broader transformation/default/context audits
-remain open. Public execution and typed result boundaries refresh immutable
+traversal. Remaining transformation/default/context qualifications are bounded
+product checks in the delivery plan. Public execution and typed result boundaries refresh immutable
 counter snapshots after their core, configuration and input/output scopes finish.
 Failures and cancellation retain observed work; typed throwing routes keep their
 existing exception contract. Counter copies preserve warning/mapping/text/binary

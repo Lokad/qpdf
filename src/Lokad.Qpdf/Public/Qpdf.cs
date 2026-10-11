@@ -395,7 +395,7 @@ public static partial class Qpdf
             overlayOccurrences.Add((occurrenceCopier, occurrenceId));
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, overlayOccurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, overlayOccurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
 
         int flattenAllocator = overlayApplied.NextId;
         bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
@@ -494,7 +494,8 @@ public static partial class Qpdf
                 limits,
                 governor,
                 diagnostics,
-                cancellationToken);
+                cancellationToken,
+                false);
         if (singleGenerated)
         {
             singleAcroForm = ClearNeedAppearances(singleAcroForm, governor);
@@ -994,7 +995,7 @@ public static partial class Qpdf
             overlayOccurrences.Add((occurrenceCopier, occurrenceId));
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, overlayOccurrences, underlays, overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, overlayOccurrences, underlays, overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
         bool multiGenerated = generateAppearances && needAppearances;

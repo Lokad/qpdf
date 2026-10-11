@@ -1215,7 +1215,7 @@ internal static class JobJsonParser
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
                 if (output is not null || seenReplaceInput || seenSplitPages
-                    || seenLabels || seenRemoveLabels || seenOverlay || seenUnderlay
+                    || seenLabels || seenRemoveLabels
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
@@ -1253,6 +1253,8 @@ internal static class JobJsonParser
                     Collation = inspectionCollation,
                     Rotations = rotations,
                     RunCheck = check,
+                    Overlays = overlays,
+                    Underlays = underlays,
                     AttachmentKey = showAttachment,
                     RawStreamData = rawStreamData,
                     FilteredStreamData = filteredStreamData,
@@ -2645,9 +2647,13 @@ internal static class JobJsonParser
 
     private static List<OverlaySpec> ParseOverlayArray(JsonElement value, string role, ConfigurationText textStorage)
     {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            return [ParseOverlayEntry(value, role, textStorage)];
+        }
         if (value.ValueKind != JsonValueKind.Array)
         {
-            throw new QpdfParseException("Job overlay value must be an array.", 0L, null);
+            throw new QpdfParseException("Job overlay value must be an object or array.", 0L, null);
         }
 
         List<OverlaySpec> specs = new();

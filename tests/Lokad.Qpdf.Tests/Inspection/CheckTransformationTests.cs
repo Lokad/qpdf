@@ -220,6 +220,169 @@ public sealed class CheckTransformationTests
     }
 
     [Theory]
+    [InlineData("job")]
+    [InlineData("argv")]
+    [InlineData("mixed")]
+    public async Task OverlayChangesInspectedPageBeforeChecking(string route)
+    {
+        InMemoryQpdfHost host = Host(Fixture());
+        host.AddInput(QpdfPath.From("b.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Execute(host, route,
+            "\"overlay\":{\"file\":\"b.pdf\"},\"check\":\"\",\"showNpages\":\"\",\"showPages\":\"\",\"showObject\":\"3\"",
+            ["--overlay", "b.pdf", "--", "--check", "--show-npages", "--show-pages", "--show-object=3"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal("<< /Contents 11 0 R /MediaBox [ 0 0 612 792 ] /Parent 2 0 R /Resources << /XObject << /Fx0 8 0 R /Fx1 9 0 R >> >> /Type /Page >>",
+            Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 1: 3 0 R");
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing && d.Message == "page 2: 4 0 R");
+        Assert.EndsWith(": 2", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount).Message, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task MissingOverlayFailsBeforeCheckingOrListing()
+    {
+        InMemoryQpdfHost host = Host(Fixture());
+        QpdfExecutionResult result = await Execute(host, "job",
+            "\"overlay\":{\"file\":\"missing.pdf\"},\"check\":\"\",\"showNpages\":\"\"",
+            [], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Message.Contains("missing.pdf", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount
+            || d.Code == QpdfDiagnosticCode.ObjectListing || d.Code == QpdfDiagnosticCode.PageListing);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task CancellationDuringOverlayReadClosesBothInputs()
+    {
+        InMemoryQpdfHost storage = Host(Fixture());
+        storage.AddInput(QpdfPath.From("b.pdf"), Fixture(), QpdfInputOwnership.Copy);
+        using CancellationTokenSource cancellation = new();
+        TestHost host = new(storage, cancellation);
+        QpdfExecutionResult result = await Execute(storage, host, "job",
+            "\"overlay\":{\"file\":\"b.pdf\"},\"check\":\"\",\"showNpages\":\"\"", [], QpdfLimits.Default, cancellation.Token);
+        Assert.True(host.ForeignReadCompleted);
+        Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+    }
+
+    [Theory]
+    [InlineData("minimal-2page.pdf", false)]
+    [InlineData("forms-1page.pdf", true)]
+    public async Task OverlayRegistersImportedFieldsBeforeChecking(string primary, bool existingForm)
+    {
+        InMemoryQpdfHost host = Host(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", primary)));
+        host.AddInput(QpdfPath.From("b.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "overlay-widget-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Execute(host, "job",
+            "\"overlay\":{\"file\":\"b.pdf\"},\"check\":\"\",\"showObject\":\"1\"", [], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string catalog = Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message;
+        Assert.Contains("/AcroForm ", catalog, StringComparison.Ordinal);
+        if (existingForm)
+        {
+            Assert.Contains("/Fields [ 6 0 R ", catalog, StringComparison.Ordinal);
+            Assert.Contains("/DR ", catalog, StringComparison.Ordinal);
+            Assert.Contains("/NeedAppearances true", catalog, StringComparison.Ordinal);
+        }
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.FormStructureWarning);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.UnsupportedFeature
+            && d.Message.Contains("source form does not reference", StringComparison.Ordinal));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task OverlayPreservesIndirectAnnotationsAndFormGenerations()
+    {
+        byte[] primary = CheckTests.Assemble(
+        [
+            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 9 3 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /Helv 7 0 R >> >> /Contents 4 0 R /Annots 8 2 R >>", null),
+            (4, "<< /Length 3 >>", "q Q"u8.ToArray()),
+            (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Length 3 >>", "q Q"u8.ToArray()),
+            (6, "<< /Type /Annot /Subtype /Widget /Rect [100 600 300 620] /FT /Tx /T (Name) /P 3 0 R /AP << /N 5 0 R >> >>", null),
+            (7, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+            (8, "[6 4 R]", null),
+            (9, "<< /Fields [6 4 R] /DR << /Font << /Helv 7 0 R >> >> /NeedAppearances true >>", null),
+        ], 1, new Dictionary<int, int> { [6] = 4, [8] = 2, [9] = 3 });
+        InMemoryQpdfHost host = Host(primary);
+        host.AddInput(QpdfPath.From("b.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "overlay-widget-1page.pdf")), QpdfInputOwnership.Copy);
+        string properties = "\"overlay\":{\"file\":\"b.pdf\"},\"check\":\"\",\"showObject\":\"";
+        QpdfExecutionResult form = await Execute(host, "job", properties + "9,3\"", [], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, form.ExitCode);
+        string listing = Assert.Single(form.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message;
+        Assert.Contains("/Fields [ 6 4 R ", listing, StringComparison.Ordinal);
+        Assert.Contains("/DR ", listing, StringComparison.Ordinal);
+        QpdfExecutionResult annotations = await Execute(host, "job", properties + "8,2\"", [], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, annotations.ExitCode);
+        Assert.StartsWith("[ 6 4 R ", Assert.Single(annotations.Diagnostics,
+            d => d.Code == QpdfDiagnosticCode.ObjectListing).Message, StringComparison.Ordinal);
+        Assert.Contains("/Fields [ 6 4 R ", listing, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task OverlayUpdatesAFormInADirectTrailerCatalog()
+    {
+        string input = Encoding.ASCII.GetString(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "forms-1page.pdf")));
+        byte[] primary = Encoding.ASCII.GetBytes(input.Replace("/Root 1 0 R",
+            "/Root << /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [6 0 R] /NeedAppearances true >> >>",
+            StringComparison.Ordinal));
+        InMemoryQpdfHost host = Host(primary);
+        host.AddInput(QpdfPath.From("b.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "overlay-widget-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Execute(host, "job",
+            "\"overlay\":{\"file\":\"b.pdf\"},\"check\":\"\",\"showObject\":\"trailer\"", [], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string trailer = Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message;
+        Assert.Contains("/Root << /AcroForm << /DR ", trailer, StringComparison.Ordinal);
+        Assert.Contains("/Fields [ 6 0 R ", trailer, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.FormStructureWarning);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("overlay", "Fx0", "Fx1")]
+    [InlineData("underlay", "Fx1", "Fx0")]
+    public async Task LayerInspectionWithoutCheckReturnsTheTransformedStream(string role, string first, string second)
+    {
+        InMemoryQpdfHost host = Host(Fixture());
+        host.AddInput(QpdfPath.From("b.pdf"), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Execute(host, "job", "\"" + role
+            + "\":{\"file\":\"b.pdf\"},\"showObject\":\"11\",\"filteredStreamData\":\"\"", [], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(result.OutputBytes.HasValue);
+        string content = Encoding.ASCII.GetString(result.OutputBytes.GetValueOrDefault().Span);
+        int firstPlacement = content.IndexOf("/" + first + " Do", StringComparison.Ordinal);
+        int secondPlacement = content.IndexOf("/" + second + " Do", StringComparison.Ordinal);
+        Assert.True(firstPlacement >= 0 && secondPlacement > firstPlacement, content);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task OverlayHandleLimitStopsInspectionAndClosesPrimary()
+    {
+        InMemoryQpdfHost host = Host(Fixture());
+        host.AddInput(QpdfPath.From("b.pdf"), Fixture(), QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Execute(host, "job",
+            "\"overlay\":{\"file\":\"b.pdf\"},\"check\":\"\",\"showNpages\":\"\"", [],
+            QpdfLimits.Default with { MaxOpenHandles = 1 });
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+    }
+
+    [Theory]
     [MemberData(nameof(Effects))]
     public async Task SelectionAndRotationChangeActualCountsAndOriginalIdentities(string route, string mode, bool check)
     {

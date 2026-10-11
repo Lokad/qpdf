@@ -13,6 +13,16 @@ limits, cancellation, cleanup, host boundaries and actual memory growth remain.
 Approximate counter/XML and test reconciliation is pending; this scope decision
 does not claim that the existing accounting implementation has been refactored.
 
+Overlay/underlay inspection now accepts native's object-shaped job setting as
+well as the existing array form, through argv/job/mixed entry paths. The shared
+placement and form-import machinery prepares the graph before checking/listing.
+Original pages, fields, annotations and their generations survive; imported
+widgets receive field registration/default-resource fixups, including direct
+catalogs. Fresh pinned-native checks cover the original three rejection jobs,
+missing inputs and representative underlay/rotation/form interactions. Generated
+widget/form numbering is physical-layout evidence; field relationships, values,
+defaults, original identities and placement bytes are compared independently.
+
 Array-valued catalog AcroForm entries now survive argv/job copying through the
 shared graph copier. All eight original rejection controls require success and
 the retained native hint assignments. Indirect arrays, cyclic/shared references,

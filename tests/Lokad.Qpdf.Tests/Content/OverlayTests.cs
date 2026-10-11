@@ -411,7 +411,7 @@ return;
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
 }
 [Fact]
-public async Task OverlayRejectedWithInspection()
+public async Task CheckWithOverlayRejectsOutput()
 {
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });

@@ -33,6 +33,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     private HashSet<int>? _decodingStreams;
     private HashSet<int>? _loading;
     private IReadOnlyDictionary<int, QpdfObject>? _inspectionObjects;
+    private PdfDictionary? _inspectionTrailer;
     private long _unborrowedBytes;
     private Dictionary<int, CachedObject> Cache => _cache ?? throw new ObjectDisposedException(nameof(DocumentEngine));
     private HashSet<int> Loading => _loading ?? throw new ObjectDisposedException(nameof(DocumentEngine));
@@ -184,6 +185,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         _loading = null;
         _decodingStreams = null;
         _inspectionObjects = null;
+        _inspectionTrailer = null;
         _data = default;
         XRefTable? table = _table;
         _table = null;
@@ -195,7 +197,7 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
         metadata?.Dispose();
     }
 
-    internal PdfDictionary Trailer => Table.Trailer;
+    internal PdfDictionary Trailer => _inspectionTrailer ?? Table.Trailer;
 
     internal IReadOnlyList<PdfDictionary> Trailers => Table.Trailers;
 
@@ -248,6 +250,13 @@ internal sealed class DocumentEngine : IIndirectResolver, IDisposable
     {
         _ = Cache;
         _inspectionObjects = objects;
+        _inspectionTrailer = null;
+    }
+
+    internal void SetInspectionTrailer(PdfDictionary trailer)
+    {
+        _ = Cache;
+        _inspectionTrailer = trailer;
     }
 
     internal IEnumerable<int> InspectionObjectNumbers => _inspectionObjects?.Keys ?? [];

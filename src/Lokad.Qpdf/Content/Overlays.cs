@@ -28,7 +28,8 @@ internal static class Overlays
         DiagnosticBag diagnostics,
         ParserMemoryScope ownership,
         CancellationToken cancellationToken,
-        int nextId)
+        int nextId,
+        IIndirectResolver? retainedResolver)
     {
         if (host is null)
         {
@@ -86,7 +87,7 @@ internal static class Overlays
             for (int index = 0; index < underlays.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ResolvedSpec resolved = await ResolveSpecAsync(host, primaryInput, underlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, ownership, cancellationToken).ConfigureAwait(false);
+                ResolvedSpec resolved = await ResolveSpecAsync(host, primaryInput, underlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, ownership, cancellationToken, retainedResolver is not null).ConfigureAwait(false);
                 resolvedUnderlays.Add(resolved);
                 allocator = MaxAllocator(allocator, sources);
             }
@@ -95,7 +96,7 @@ internal static class Overlays
             for (int index = 0; index < overlays.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ResolvedSpec resolved = await ResolveSpecAsync(host, primaryInput, overlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, ownership, cancellationToken).ConfigureAwait(false);
+                ResolvedSpec resolved = await ResolveSpecAsync(host, primaryInput, overlays[index], index, allocator, occurrences.Count, recovery, limits, governor, diagnostics, sources, ownership, cancellationToken, retainedResolver is not null).ConfigureAwait(false);
                 resolvedOverlays.Add(resolved);
                 allocator = MaxAllocator(allocator, sources);
             }
@@ -129,6 +130,7 @@ internal static class Overlays
                     resolvedOverlays,
                     formCache,
                     imports,
+                    retainedResolver,
                     compress,
                     level,
                     limits,
@@ -178,7 +180,7 @@ internal static class Overlays
 
     private sealed record OverlaySource(QpdfDocument Document, GraphCopier Copier, int PageCount, AcroFormCopy.OverlaySourceForm? FormInfo, HashSet<string> ImportNotes);
 
-    private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject? BoxObject, double[]? Box, byte[]? Content, long Rotate, double UserUnit, bool HasTransform);
+    private sealed record PageBundle(QpdfObject? Resources, QpdfObject? Group, QpdfObject? BoxObject, double[]? Box, byte[]? Content, long Rotate, double UserUnit, bool HasTransform, bool DeferredCopy);
 
     private sealed record ResolvedSpec(OverlaySource Source, int SpecIndex, IReadOnlyList<int> FromPages, IReadOnlyList<int> ToPages, IReadOnlyList<int> RepeatPages, Dictionary<int, PageBundle> Bundles);
 
@@ -197,7 +199,8 @@ internal static class Overlays
         DiagnosticBag diagnostics,
         Dictionary<string, OverlaySource> sources,
         ParserMemoryScope ownership,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool deferCopy)
     {
         if (spec.File is null || spec.File.Length == 0)
         {
@@ -272,7 +275,7 @@ internal static class Overlays
         foreach (int page in needed)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            bundles[page] = BuildBundle(source, page, limits, governor, ownership, diagnostics, cancellationToken);
+            bundles[page] = BuildBundle(source, page, limits, governor, ownership, diagnostics, cancellationToken, deferCopy);
         }
 
         return new ResolvedSpec(source, specIndex, fromPages, toPages, repeatPages, bundles);
@@ -333,7 +336,8 @@ internal static class Overlays
         ResourceGovernor governor,
         ParserMemoryScope ownership,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool deferCopy)
     {
         cancellationToken.ThrowIfCancellationRequested();
         governor.ChargeWork(1L);
@@ -393,6 +397,10 @@ internal static class Overlays
         }
 
         byte[]? content = CollectSourceContents(location, engine, limits, governor, ownership, diagnostics, cancellationToken);
+        if (deferCopy)
+        {
+            return new PageBundle(resources, group, boxObject, box, content, rotate, userUnit, hasRotate || hasUnit, true);
+        }
         QpdfObject? copiedResources = null;
         if (resources is not null)
         {
@@ -414,7 +422,7 @@ internal static class Overlays
             copiedBox = source.Copier.CopyValue(boxObject, 0);
         }
 
-        return new PageBundle(copiedResources, copiedGroup, copiedBox, box, content, rotate, userUnit, hasRotate || hasUnit);
+        return new PageBundle(copiedResources, copiedGroup, copiedBox, box, content, rotate, userUnit, hasRotate || hasUnit, false);
     }
 
     private static QpdfObject? FindInherited(
@@ -636,6 +644,7 @@ internal static class Overlays
         List<ResolvedSpec> resolvedOverlays,
         Dictionary<(GraphCopier Copier, int Spec, int Page), OverlayForm> formCache,
         List<AcroFormCopy.OverlayFieldImport> imports,
+        IIndirectResolver? retainedResolver,
         bool compress,
         int? level,
         QpdfLimits limits,
@@ -645,7 +654,7 @@ internal static class Overlays
         CancellationToken cancellationToken,
         ref int allocator)
     {
-        PoolResolver resolver = new(copier.CopiedObjects);
+        IIndirectResolver resolver = retainedResolver ?? new PoolResolver(copier.CopiedObjects);
         double[]? trim = ReadPageBox(page, "TrimBox", resolver);
         double[]? crop = ReadPageBox(page, "CropBox", resolver);
         double[]? media = ReadPageBox(page, "MediaBox", resolver);
@@ -844,6 +853,21 @@ internal static class Overlays
 
         cancellationToken.ThrowIfCancellationRequested();
         governor.ChargeWork(1L);
+        int formId = allocator;
+        if (bundle.DeferredCopy)
+        {
+            // Native inspection allocates the form identity before importing
+            // its resources. Keep that ordering in the retained source graph.
+            allocator = checked(allocator + 1);
+            spec.Source.Copier.AdvanceNextId(allocator);
+            bundle = bundle with
+            {
+                Resources = bundle.Resources is null ? null : spec.Source.Copier.CopyValue(bundle.Resources, 0),
+                Group = bundle.Group is null ? null : spec.Source.Copier.CopyValue(bundle.Group, 0),
+                BoxObject = spec.Source.Copier.CopyValue(bundle.BoxObject, 0),
+            };
+            allocator = Math.Max(allocator, spec.Source.Copier.NextId);
+        }
         double[]? formMatrix = bundle.HasTransform ? TransformMatrix(bundle.Box, bundle.Rotate, bundle.UserUnit, false) : null;
         Dictionary<PdfName, QpdfObject> entries = new();
         entries[PdfName.FromAscii("Type")] = PdfName.FromAscii("XObject");
@@ -865,8 +889,8 @@ internal static class Overlays
         }
 
         PdfStream form = EncodeForm(new PdfDictionary(entries), bundle.Content, compress, level, limits, governor, ownership);
-        PdfReference link = spec.Source.Copier.AddIndirectObjectWithId(form, allocator);
-        allocator = checked(allocator + 1);
+        PdfReference link = spec.Source.Copier.AddIndirectObjectWithId(form, formId);
+        if (!bundle.DeferredCopy) { allocator = checked(allocator + 1); }
         OverlayForm built = new(link, bundle.Box, formMatrix);
         formCache[key] = built;
         return built;
@@ -972,7 +996,7 @@ internal static class Overlays
         return new PdfDictionary(entries);
     }
 
-    private static QpdfObject? ResolveOrNull(PoolResolver resolver, PdfReference reference)
+    private static QpdfObject? ResolveOrNull(IIndirectResolver resolver, PdfReference reference)
     {
         if (((IIndirectResolver)resolver).TryResolve(reference, out QpdfObject? found) && found is not null && found is not PdfNull)
         {
@@ -1221,7 +1245,7 @@ internal static class Overlays
         return rounded.ToString("0.#####", CultureInfo.InvariantCulture);
     }
 
-    private static double[]? ReadPageBox(PdfDictionary page, string key, PoolResolver resolver)
+    private static double[]? ReadPageBox(PdfDictionary page, string key, IIndirectResolver resolver)
     {
         if (!page.TryGet(PdfName.FromAscii(key), out QpdfObject? raw) || raw is null || raw is PdfNull)
         {
@@ -1231,7 +1255,7 @@ internal static class Overlays
         return ReadRectangle(raw, resolver);
     }
 
-    private static QpdfObject? FindPageBoxObject(PdfDictionary page, PoolResolver resolver)
+    private static QpdfObject? FindPageBoxObject(PdfDictionary page, IIndirectResolver resolver)
     {
         foreach (string key in new string[] { "TrimBox", "CropBox", "MediaBox" })
         {
@@ -1247,7 +1271,7 @@ internal static class Overlays
         return null;
     }
 
-    private static bool HasTransform(PdfDictionary page, PoolResolver resolver)
+    private static bool HasTransform(PdfDictionary page, IIndirectResolver resolver)
     {
         if (page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotate) && rotate is not null && rotate is not PdfNull)
         {
@@ -1265,7 +1289,7 @@ internal static class Overlays
     private static byte[]? CollectPooledContents(
         GraphCopier copier,
         PdfDictionary page,
-        PoolResolver resolver,
+        IIndirectResolver resolver,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope ownership,

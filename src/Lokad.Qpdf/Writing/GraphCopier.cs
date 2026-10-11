@@ -136,6 +136,26 @@ internal sealed class GraphCopier
 
     internal IReadOnlyDictionary<int, QpdfObject> CopiedObjects => _copied;
 
+    // Inspection keeps original identities and immutable backing. Register only
+    // newly reached values; already prepared pages stop the traversal at /P.
+    internal QpdfObject RetainSourceValue(QpdfObject value)
+    {
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(_governor);
+        _ = GraphReachability.Find(new RetainedSourceResolver(this), value, traversal, _governor);
+        return value;
+    }
+
+    private sealed class RetainedSourceResolver(GraphCopier copier) : IIndirectResolver
+    {
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        {
+            if (!copier._resolver.TryResolve(reference, out value) || value is null || value is PdfNull) { return false; }
+            if (copier._copied.ContainsKey(reference.ObjectNumber)) { value = null; return false; }
+            copier.Store(reference.ObjectNumber, value);
+            return true;
+        }
+    }
+
     internal int NextId => _nextId;
 
     // Register selected page identities before descending into any page graph.

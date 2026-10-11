@@ -56,7 +56,8 @@ public static partial class Qpdf
         IQpdfHost host, QpdfDocument document, CheckPlan plan, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
-        if (plan.Sources.Count == 0 && plan.Rotations.Count == 0) { return null; }
+        bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
+        if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay) { return null; }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         InspectionGraph? lifetime = null;
         Dictionary<string, InspectionSource>? sources = null;
@@ -80,7 +81,7 @@ public static partial class Qpdf
             {
                 governor.ChargeWork(1L);
                 Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
-                if (plan.Sources.Count > 0)
+                if (plan.Sources.Count > 0 || overlay)
                 {
                     foreach (PdfName key in InspectionInherited)
                     {
@@ -104,6 +105,17 @@ public static partial class Qpdf
                 }
                 (int id, PdfDictionary page) = pool.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, true);
                 ParserContainers.AddItem(memory, original, new InspectionPage(id, location.Source?.Generation ?? 0, page), 16L);
+            }
+
+            if (overlay)
+            {
+                foreach (InspectionPage page in original)
+                {
+                    if (page.Page.TryGet(PdfName.FromAscii("Annots"), out QpdfObject annotations))
+                    {
+                        pool.RetainSourceValue(annotations);
+                    }
+                }
             }
 
             List<List<InspectionPage>> groups = ParserContainers.CreateList<List<InspectionPage>>(memory);
@@ -233,6 +245,30 @@ public static partial class Qpdf
                 ParserContainers.AddItem(memory, occurrences, (pool, selected.Number, page), 24L);
             }
             ApplyRotations(occurrences, ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory), governor, memory);
+            if (overlay)
+            {
+                List<(GraphCopier Copier, int Id)> overlayPages = ParserContainers.CreateList<(GraphCopier, int)>(memory);
+                foreach (InspectionPage selected in selectedPages)
+                {
+                    ParserContainers.AddItem(memory, overlayPages, (pool, selected.Number), 16L);
+                }
+                Content.OverlayApplication applied = await Content.Overlays.ApplyAsync(host, plan.Input,
+                    overlayPages, plan.Underlays, plan.Overlays, false, null, plan.Recovery,
+                    limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine).ConfigureAwait(false);
+                foreach (GraphCopier source in applied.Copiers)
+                {
+                    foreach (KeyValuePair<int, QpdfObject> entry in source.CopiedObjects)
+                    {
+                        governor.ChargeWork(1L);
+                        StoreInspectionObject(pool, entry.Key, entry.Value);
+                    }
+                }
+                if (applied.FieldImports.Count > 0)
+                {
+                    UpdateInspectionForm(document, pool, overlayPages, applied.FieldImports,
+                        plan.Sources.Count > 0, memory, limits, governor, diagnostics, cancellationToken);
+                }
+            }
             List<PageLocation> transformed = ParserContainers.CreateList<PageLocation>(memory);
             foreach (InspectionPage selected in selectedPages)
             {
@@ -296,6 +332,66 @@ public static partial class Qpdf
     {
         if (pool.CopiedObjects.ContainsKey(id)) { pool.ReplaceCopiedObject(id, value); }
         else { _ = pool.AddIndirectObjectWithId(value, id); }
+    }
+
+    private static void UpdateInspectionForm(QpdfDocument document, GraphCopier pool,
+        IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        IReadOnlyList<Content.AcroFormCopy.OverlayFieldImport> imports, bool pruneFields,
+        ParserMemoryScope memory, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken cancellationToken)
+    {
+        List<PageLocation> kept = ParserContainers.CreateList<PageLocation>(memory);
+        foreach ((GraphCopier copier, int id) in occurrences)
+        {
+            governor.ChargeWork(1L);
+            PdfDictionary page = copier.CopiedObjects[id] as PdfDictionary
+                ?? throw new QpdfParseException("Selected page is not a dictionary.", null, id);
+            int generation = document.Engine.XRefEntries.TryGetValue(id, out XrefEntry entry)
+                && entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
+            ParserContainers.AddItem(memory, kept, new PageLocation(new PdfReference(id, generation), page), 16L);
+        }
+        Dictionary<int, QpdfObject> assembled = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
+        foreach (KeyValuePair<int, QpdfObject> entry in pool.CopiedObjects)
+        {
+            governor.ChargeWork(1L);
+            ParserContainers.EnsureEntryCapacity(memory, assembled, IntPtr.Size);
+            assembled.Add(entry.Key, entry.Value);
+        }
+        PdfDictionary? form = Content.AcroFormCopy.BuildSingle(document.Engine, pool, kept,
+            pruneFields, occurrences, assembled, imports, limits, governor, diagnostics,
+            cancellationToken, true);
+        foreach (KeyValuePair<int, QpdfObject> entry in assembled)
+        {
+            governor.ChargeWork(1L);
+            StoreInspectionObject(pool, entry.Key, entry.Value);
+        }
+        if (form is null) { return; }
+        QpdfObject root = document.Engine.Trailer.TryGet(InspectionRoot, out QpdfObject raw) ? raw
+            : throw new QpdfParseException("Trailer has no catalog root.", null, null);
+        PdfDictionary catalog = PageInheritance.Resolve(document.Engine, root, limits, governor) as PdfDictionary
+            ?? throw new QpdfParseException("Catalog root is not a dictionary.", null, null);
+        PdfName formKey = PdfName.FromAscii("AcroForm");
+        if (catalog.TryGet(formKey, out QpdfObject originalForm) && originalForm is PdfReference formReference)
+        {
+            StoreInspectionObject(pool, formReference.ObjectNumber, form);
+            return;
+        }
+        Dictionary<PdfName, QpdfObject> entries = CopyInspectionEntries(catalog, memory, governor);
+        QpdfObject formValue = originalForm is PdfDictionary ? form : pool.AddIndirectObjectWithId(form, pool.NextId);
+        SetInspectionEntry(entries, formKey, formValue, memory);
+        memory.Reserve(32L);
+        PdfDictionary updated = PdfDictionary.FromOwnedEntries(entries);
+        if (root is PdfReference catalogReference)
+        {
+            StoreInspectionObject(pool, catalogReference.ObjectNumber, updated);
+        }
+        else
+        {
+            Dictionary<PdfName, QpdfObject> trailer = CopyInspectionEntries(document.Engine.Trailer, memory, governor);
+            SetInspectionEntry(trailer, InspectionRoot, updated, memory);
+            memory.Reserve(32L);
+            document.Engine.SetInspectionTrailer(PdfDictionary.FromOwnedEntries(trailer));
+        }
     }
 
     private static List<(int Source, int Slot)> CollatePageOrder(IReadOnlyList<int> counts,
