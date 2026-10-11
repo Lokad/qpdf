@@ -588,7 +588,7 @@ public static partial class Qpdf
             using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
             preparation.FreezeSources(sources);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, [], [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, null, cancellationToken).ConfigureAwait(false)).Result;
             preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -652,7 +652,7 @@ public static partial class Qpdf
             preparation.FreezeSources(sources);
             preparation.ConvertRotations(rotations);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, preparation.Rotations, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, null, preparation.Rotations, [], false, null, null, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, null, cancellationToken).ConfigureAwait(false)).Result;
             preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -735,7 +735,7 @@ public static partial class Qpdf
             preparation.ConvertRotations(mergeOptions.Rotations);
             preparation.ConvertLabels(mergeOptions.Labels);
             DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, preparation.Rotations, preparation.Labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, cancellationToken).ConfigureAwait(false)).Result;
+            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(host, preparation.Sources, outputPath, preparation.Sources[0].Input, true, limits, QpdfRecoveryMode.Strict, mergeOptions.Collation, preparation.Rotations, preparation.Labels, false, null, mergeOptions.SplitPages, false, null, null, false, false, false, null, false, CompressionRequest.Default, false, false, false, false, AttachmentEdits.Empty, false, false, false, 1024L, [], [], false, null, false, Content.ImageOptimizeRequest.Disabled, Writing.QdfOptions.Disabled, new Content.ContentPrunePolicy(false, null), false, governor, diagnostics, false, null, false, null, cancellationToken).ConfigureAwait(false)).Result;
             preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
@@ -790,8 +790,12 @@ public static partial class Qpdf
         bool linearize,
         QpdfPath? linearizePass1,
         bool emptyPrimary,
+        QpdfDocument? preparedSource,
         CancellationToken cancellationToken)
     {
+        if (preparedSource is not null
+            && (sources.Count != 1 || preparedSource.Path.Value != sources[0].Input.Value))
+        { throw new InvalidOperationException("A prepared document requires its single original source."); }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
         List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
@@ -832,7 +836,8 @@ public static partial class Qpdf
         for (int s = 0; s < sources.Count; s++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await using QpdfDocument document = await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+            await using QpdfDocument document = preparedSource
+                ?? await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
             if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
             ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
             PdfVersion sourceVersion = document.OwnVersion();
@@ -3512,7 +3517,6 @@ public static partial class Qpdf
             throw new ArgumentNullException(nameof(plan));
         }
 
-        using ParserMemoryScope preliminaryMemory = ParserMemoryScope.Create(governor);
         await using QpdfDocument document = await OpenPlanInputAsync(host, plan.Input, plan.EmptyDocument, limits, governor, diagnostics, plan.Recovery, cancellationToken, plan.EmptyDocument).ConfigureAwait(false);
         int total = document.PageReferences.Count;
         if (total <= 0)
@@ -3543,10 +3547,8 @@ public static partial class Qpdf
         QpdfObject? verbatimTree = plan.Labels.Count == 0 && !plan.RemoveLabels && !plan.SplitPages.HasValue
             ? Content.PageLabelMerge.TryGetRawTree(document.Engine)
             : null;
-        // The shared selection path reopens its input and closes those leases
-        // before publication. Do not retain this preliminary lease across it.
-        document.Engine.TransferExclusiveValuesTo(preliminaryMemory);
-        await document.DisposeAsync().ConfigureAwait(false);
+        // The shared selection core consumes this same stable source snapshot,
+        // transfers required values and closes its lease before publication.
         return await SelectPagesCoreAsync(
             host,
             solo,
@@ -3593,6 +3595,7 @@ public static partial class Qpdf
             plan.Linearize,
             plan.LinearizePass1,
             false,
+            document,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -5323,6 +5326,7 @@ public static partial class Qpdf
                         merge.Linearize,
                         merge.LinearizePass1,
                         merge.EmptyInput,
+                        null,
                         cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, plan, governor);
                 }
@@ -5397,6 +5401,7 @@ public static partial class Qpdf
                         selection.Linearize,
                         selection.LinearizePass1,
                         false,
+                        null,
                         cancellationToken).ConfigureAwait(false)).Result;
                     return CompleteWithPresentation(merged.Warnings, plan, governor);
                 }

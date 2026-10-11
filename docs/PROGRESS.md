@@ -120,6 +120,16 @@ previous managed bytes. Allocation drops by about 5.13 MB/job on each M500 cell
 (7.7% selection, 6.5% rewriting). Paired timings vary widely and establish no
 reliable speedup; this direct clone removal is retained on structural grounds.
 
+Whole-file jobs now reuse their already-open private document in the shared
+selection core, retaining labels/versions and closing sources before publication.
+All 3,326 existing focused checks and 42 corrected writer-control cases pass;
+six public regressions cover one stable source and publication ordering. Fresh
+M500 output validates independently and is byte-identical. Paired confirmation
+improves 67.85 → 54.59 ms (19.6%), with allocation 73.58 → 61.40 MB/job (16.6%).
+Native is 17.98 ms (3.04× gap). The initial noisier pair showed 13.1%; retain
+both observations. Comprehensive qualification and the overall 2× target remain
+pending.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally

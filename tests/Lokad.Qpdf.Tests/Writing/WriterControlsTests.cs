@@ -6,6 +6,94 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class WriterControlsTests
 {
+    private sealed class SingleSourceHost(InMemoryQpdfHost inner) : IQpdfHost
+    {
+        internal int Opens { get; private set; }
+        private int _activeInputs;
+
+        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
+        {
+            Assert.Equal(1, ++Opens);
+            IQpdfInput input = await inner.OpenInputAsync(path, cancellationToken);
+            _activeInputs++;
+            return new Input(this, input);
+        }
+
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
+        {
+            Assert.Equal(0, _activeInputs);
+            return inner.CreateOutputAsync(path, cancellationToken);
+        }
+
+        private sealed class Input(SingleSourceHost host, IQpdfInput inner) : IQpdfInput
+        {
+            private bool _closed;
+            public QpdfPath Path => inner.Path;
+            public string Identity => inner.Identity;
+            public long Length => inner.Length;
+            public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
+                => inner.ReadAsync(offset, count, cancellationToken);
+            public async ValueTask DisposeAsync()
+            {
+                if (_closed) { return; }
+                _closed = true;
+                try { await inner.DisposeAsync(); }
+                finally { host._activeInputs--; }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("argv", "rewrite")]
+    [InlineData("job", "rewrite")]
+    [InlineData("argv", "replace")]
+    [InlineData("job", "linearize")]
+    [InlineData("argv", "split")]
+    [InlineData("job", "pass1")]
+    public async Task WholeFileUsesOneStableSourceAndClosesItBeforePublication(string route, string operation)
+    {
+        InMemoryQpdfHost inner = await HostWithFixture("input.pdf", "minimal-2page.pdf");
+        SingleSourceHost host = new(inner);
+        QpdfExecutionResult result;
+        if (route == "argv")
+        {
+            List<string> args = ["input.pdf", "--static-id"];
+            if (operation == "replace") { args.AddRange(["--replace-input", "--pages", ".", "1-2", "--"]); }
+            else
+            {
+                if (operation == "split") { args.Add("--split-pages=1"); }
+                args.Add("output.pdf");
+            }
+            result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(args), CancellationToken.None);
+        }
+        else
+        {
+            string extra = operation == "linearize" ? ",\"linearize\":\"\""
+                : operation == "pass1" ? ",\"linearize\":\"\",\"linearizePass1\":\"pass1.pdf\"" : string.Empty;
+            result = await Qpdf.ExecuteJobAsync(host,
+                "{\"inputFile\":\"input.pdf\",\"outputFile\":\"output.pdf\",\"staticId\":\"\"" + extra + "}",
+                CancellationToken.None);
+        }
+        Assert.True(result.Status == QpdfExecutionStatus.Completed,
+            string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.Message)));
+        Assert.Equal(1, host.Opens);
+        Assert.Equal(0L, inner.OpenLeaseCount);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        string[] paths = operation == "split" ? ["output-1.pdf", "output-2.pdf"]
+            : operation == "replace" ? ["input.pdf"] : ["output.pdf"];
+        List<string> actual = [];
+        foreach (string path in paths)
+        {
+            Assert.True(inner.TryGetOutput(QpdfPath.From(path), out byte[] bytes));
+            using UglyToad.PdfPig.PdfDocument document = UglyToad.PdfPig.PdfDocument.Open(bytes);
+            foreach (UglyToad.PdfPig.Content.Page page in document.GetPages()) { actual.Add(page.Text); }
+        }
+        using UglyToad.PdfPig.PdfDocument original = UglyToad.PdfPig.PdfDocument.Open(
+            await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-2page.pdf")));
+        Assert.Equal(original.GetPages().Select(page => page.Text), actual);
+        if (operation == "pass1") { Assert.True(inner.TryGetOutput(QpdfPath.From("pass1.pdf"), out byte[] _)); }
+    }
+
     private static string FixtureDir()
     {
         return Path.Combine(AppContext.BaseDirectory, "Fixtures");
