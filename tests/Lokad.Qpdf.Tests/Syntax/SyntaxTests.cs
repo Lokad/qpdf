@@ -165,6 +165,50 @@ public sealed class ParserTests
         Assert.Throws<QpdfParseException>(() => Parse("/A#2"));
     }
 
+    [Theory]
+    [InlineData(16384L, true)]
+    [InlineData(2048L, false)]
+    public void WhitespaceHeavyHexAdmitsDecodedStorageAndPreservesItsMemoryLimit(long budget, bool fits)
+    {
+        byte[] input = Encoding.ASCII.GetBytes("<" + string.Concat(Enumerable.Repeat("4 \t1 \r\n", 4096)) + ">");
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = budget };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        if (fits)
+        {
+            PdfByteString parsed = Assert.IsType<PdfByteString>(parser.ParseValue(new PdfTokenizer(input), 0));
+            Assert.Equal(Enumerable.Repeat((byte)'A', 4096), parsed.Value);
+            Array.Clear(input);
+            Array.Clear(parsed.Value);
+            Assert.Equal(Enumerable.Repeat((byte)'A', 4096), parsed.Value);
+        }
+        else
+        {
+            QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
+            Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, budget);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EscapeHeavyValuesFitDecodedStorageWithoutTrimmingOverlap(bool name)
+    {
+        string spelling = name ? "/" + string.Concat(Enumerable.Repeat("#41", 4096))
+            : "(" + string.Concat(Enumerable.Repeat("\\101", 4096)) + ")";
+        byte[] input = Encoding.ASCII.GetBytes(spelling);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 8192L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        QpdfObject parsed = parser.ParseValue(new PdfTokenizer(input), 0);
+        Array.Clear(input);
+        byte[] decoded = name ? Assert.IsType<PdfName>(parsed).RawBytes : Assert.IsType<PdfByteString>(parsed).Value;
+        Assert.Equal(Enumerable.Repeat((byte)'A', 4096), decoded);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 4096L, limits.MaxMemoryBytes);
+    }
+
     [Fact]
     public void DuplicateKeysKeepLastWithWarning()
     {

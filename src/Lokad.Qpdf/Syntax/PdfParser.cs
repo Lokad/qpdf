@@ -616,20 +616,16 @@ internal sealed class PdfParser
 
     private QpdfObject ParseName(PdfToken token)
     {
-        // Unescaping may overlap the full-size scratch and trimmed result.
-        // Transfer the fresh result to the immutable name without cloning it.
-        long admitted = checked((token.Data.Length * 2L) + 96L);
-        ReserveMemory(admitted);
+        long before = Memory.ReservedBytes;
         try
         {
             byte[] raw = UnescapeName(token.Data, token.Offset);
             PdfName name = PdfName.FromOwnedBytes(raw);
-            ReleaseMemory(admitted - checked(raw.Length + 64L));
             return name;
         }
         catch
         {
-            ReleaseMemory(admitted);
+            ReleaseMemory(checked(Memory.ReservedBytes - before));
             throw;
         }
     }
@@ -1027,7 +1023,15 @@ internal sealed class PdfParser
     private byte[] UnescapeName(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        byte[] result = new byte[span.Length];
+        int length = UnescapeNameCore(span, Span<byte>.Empty, offset, false);
+        ReserveMemory(checked(64L + length));
+        byte[] result = new byte[length];
+        _ = UnescapeNameCore(span, result, offset, true);
+        return result;
+    }
+
+    private int UnescapeNameCore(ReadOnlySpan<byte> span, Span<byte> result, long offset, bool write)
+    {
         int outCount = 0;
         long nextWork = 0L;
         bool warned = false;
@@ -1048,41 +1052,42 @@ internal sealed class PdfParser
                     // An invalid hash must remain distinguishable from #23.
                     // Zero cannot be decoded from a valid name token: #00 is
                     // rejected by the tokenizer before reaching this routine.
-                    if (!warned)
+                    if (write && !warned)
                     {
                         WarnRepair("Invalid name escape retained with a repair marker.", offset);
                         warned = true;
                     }
-                    result[outCount++] = 0;
+                    if (write) { result[outCount] = 0; }
+                    outCount++;
                     continue;
                 }
 
-                result[outCount] = (byte)((hi << 4) | lo);
+                if (write) { result[outCount] = (byte)((hi << 4) | lo); }
                 outCount += 1;
                 i += 2;
                 continue;
             }
 
-            result[outCount] = span[i];
+            if (write) { result[outCount] = span[i]; }
             outCount += 1;
         }
 
         _governor.CheckCancellation();
-        if (outCount == result.Length)
-        {
-            return result;
-        }
-
-        byte[] trimmed = new byte[outCount];
-        Buffer.BlockCopy(result, 0, trimmed, 0, outCount);
-        return trimmed;
+        return outCount;
     }
 
     private byte[] UnescapeLiteral(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        ReserveMemory(checked(32L + span.Length));
-        byte[] result = new byte[span.Length];
+        int length = UnescapeLiteralCore(span, Span<byte>.Empty, offset, false);
+        ReserveMemory(checked(32L + length));
+        byte[] result = new byte[length];
+        _ = UnescapeLiteralCore(span, result, offset, true);
+        return result;
+    }
+
+    private int UnescapeLiteralCore(ReadOnlySpan<byte> span, Span<byte> result, long offset, bool write)
+    {
         int outCount = 0;
         long nextWork = 0L;
         for (int i = 0; i < span.Length; i++)
@@ -1092,7 +1097,7 @@ internal sealed class PdfParser
             {
                 // Raw CR and CRLF are a single PDF end-of-line marker. An
                 // escaped \r below is a literal carriage return instead.
-                result[outCount] = span[i] == (byte)'\r' ? (byte)'\n' : span[i];
+                if (write) { result[outCount] = span[i] == (byte)'\r' ? (byte)'\n' : span[i]; }
                 outCount += 1;
                 if (span[i] == (byte)'\r' && i + 1 < span.Length && span[i + 1] == (byte)'\n')
                 {
@@ -1110,32 +1115,32 @@ internal sealed class PdfParser
             byte b = span[i];
             if (b == (byte)'n')
             {
-                result[outCount] = (byte)'\n';
+                if (write) { result[outCount] = (byte)'\n'; }
                 outCount += 1;
             }
             else if (b == (byte)'r')
             {
-                result[outCount] = (byte)'\r';
+                if (write) { result[outCount] = (byte)'\r'; }
                 outCount += 1;
             }
             else if (b == (byte)'t')
             {
-                result[outCount] = (byte)'\t';
+                if (write) { result[outCount] = (byte)'\t'; }
                 outCount += 1;
             }
             else if (b == (byte)'b')
             {
-                result[outCount] = (byte)'\b';
+                if (write) { result[outCount] = (byte)'\b'; }
                 outCount += 1;
             }
             else if (b == (byte)'f')
             {
-                result[outCount] = (byte)'\f';
+                if (write) { result[outCount] = (byte)'\f'; }
                 outCount += 1;
             }
             else if (b == (byte)'(' || b == (byte)')' || b == (byte)'\\')
             {
-                result[outCount] = b;
+                if (write) { result[outCount] = b; }
                 outCount += 1;
             }
             else if (b == (byte)'\r')
@@ -1164,28 +1169,18 @@ internal sealed class PdfParser
                     }
                 }
 
-                result[outCount] = (byte)(value & 0xFF);
+                if (write) { result[outCount] = (byte)(value & 0xFF); }
                 outCount += 1;
             }
             else
             {
-                result[outCount] = b;
+                if (write) { result[outCount] = b; }
                 outCount += 1;
             }
         }
 
         _governor.CheckCancellation();
-        if (outCount == result.Length)
-        {
-            return result;
-        }
-
-        ReserveMemory(checked(32L + outCount));
-        byte[] trimmed = new byte[outCount];
-        Buffer.BlockCopy(result, 0, trimmed, 0, outCount);
-        result = Array.Empty<byte>();
-        ReleaseMemory(checked(32L + span.Length));
-        return trimmed;
+        return outCount;
     }
 
     private void ChargeUnescapeWork(int position, ref long nextWork)
@@ -1203,15 +1198,15 @@ internal sealed class PdfParser
     private byte[] DecodeHex(ReadOnlyMemory<byte> raw, long offset)
     {
         ReadOnlySpan<byte> span = raw.Span;
-        ReserveMemory(checked(32L + span.Length));
-        byte[] digits = new byte[span.Length];
+        // Count/validate directly over the token, then fill the exact result.
+        // Whitespace does not require a full token-sized intermediate buffer.
         int count = 0;
         long nextWork = 0L;
         for (int i = 0; i < span.Length; i++)
         {
             ChargeUnescapeWork(i, ref nextWork);
             byte b = span[i];
-            if (b == (byte)' ' || b == (byte)'\t' || b == (byte)'\n' || b == (byte)'\r' || b == (byte)'\f' || b == 0x00)
+            if (PdfTokenizer.IsWhitespace(b))
             {
                 continue;
             }
@@ -1222,25 +1217,29 @@ internal sealed class PdfParser
                 throw new QpdfParseException($"Invalid hexadecimal digit 0x{b:X2}.", offset, null);
             }
 
-            digits[count] = (byte)value;
             count += 1;
         }
 
-        int outCount = (count + 1) / 2;
+        int outCount = count / 2 + count % 2;
         _governor.CheckCancellation();
         ReserveMemory(checked(32L + outCount));
         byte[] result = new byte[outCount];
         nextWork = 0L;
-        for (int i = 0; i < count; i += 2)
+        int high = -1, position = 0;
+        for (int i = 0; i < span.Length; i++)
         {
             ChargeUnescapeWork(i, ref nextWork);
-            int hi = digits[i];
-            int lo = i + 1 < count ? digits[i + 1] : 0;
-            result[i / 2] = (byte)((hi << 4) | lo);
+            byte b = span[i];
+            if (PdfTokenizer.IsWhitespace(b)) { continue; }
+            int value = HexValue(b);
+            if (high < 0) { high = value; }
+            else
+            {
+                result[position++] = (byte)((high << 4) | value);
+                high = -1;
+            }
         }
-
-        digits = Array.Empty<byte>();
-        ReleaseMemory(checked(32L + span.Length));
+        if (high >= 0) { result[position] = (byte)(high << 4); }
         _governor.CheckCancellation();
         return result;
     }

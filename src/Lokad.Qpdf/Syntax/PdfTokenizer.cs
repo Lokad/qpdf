@@ -232,7 +232,7 @@ internal sealed class PdfTokenizer
         }
     }
 
-    private static bool IsWhitespace(byte b)
+    internal static bool IsWhitespace(byte b)
     {
         return b == 0x00 || b == 0x09 || b == 0x0A || b == 0x0C || b == 0x0D || b == 0x20;
     }

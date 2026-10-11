@@ -104,6 +104,13 @@ Interleaved warmed X100 rewriting improves 13.54 → 7.60 ms (43.9%), with alloc
 rates are mixed across generations; this does not establish an overall GC gain.
 Native is 2.22 ms (3.42× gap); final qualification and the 2× target remain pending.
 
+Parser scratch now counts/validates directly over tokens and allocates decoded
+hex, name and literal-string buffers once, removing the digit array and trimming
+copies. All 785 focused syntax/recovery/ownership checks pass. Whitespace/escape-
+heavy values fit their decoded-storage budgets; material decoded storage still
+rejects under the unchanged smaller ceiling. Grammar, repair markers, cancellation
+and public byte immutability remain covered.
+
 Use the [supported profile](SUPPORTED-PROFILE.md) for shipped behavior,
 [architecture](../ARCHITECTURE.md) for implementation boundaries and the
 [development guide](DEVELOPMENT.md) for checks and the five intentionally
