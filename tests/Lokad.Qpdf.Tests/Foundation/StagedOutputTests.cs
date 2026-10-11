@@ -4,11 +4,15 @@ namespace Lokad.Qpdf.Tests.Foundation;
 
 public sealed class StagedOutputTests
 {
-    [Fact]
-    public async Task RejectedCountedStagingPreservesPriorOutputAndClosesTheTransaction()
+    [Theory]
+    [InlineData("rewrite")]
+    [InlineData("linearize")]
+    [InlineData("linearize-streamed")]
+    [InlineData("split")]
+    public async Task RejectedCountedStagingPreservesPriorOutputAndClosesTheTransaction(string mode)
     {
         InMemoryQpdfHost host = new(QpdfLimits.Default with { MaxOutputBytes = 32L });
-        QpdfPath input = QpdfPath.From("input.pdf"), target = QpdfPath.From("output.pdf");
+        QpdfPath input = QpdfPath.From("input.pdf"), target = QpdfPath.From(mode == "split" ? "output-1.pdf" : "output.pdf");
         host.AddInput(input, await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory,
             "Fixtures", "minimal-2page.pdf")), QpdfInputOwnership.Copy);
         await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(target, CancellationToken.None))
@@ -16,8 +20,12 @@ public sealed class StagedOutputTests
             await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
             await prior.CommitAsync(CancellationToken.None);
         }
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
-            new QpdfCommandInvocation(["input.pdf", "--static-id", "output.pdf"]), CancellationToken.None);
+        List<string> argv = ["input.pdf", "--static-id"];
+        if (mode.StartsWith("linearize", StringComparison.Ordinal)) { argv.Add("--linearize"); }
+        if (mode == "linearize-streamed") { argv.Add("--object-streams=generate"); }
+        if (mode == "split") { argv.Add("--split-pages=1"); }
+        argv.Add(mode == "split" ? "output-%d.pdf" : "output.pdf");
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
         Assert.Equal(0L, host.OpenLeaseCount);

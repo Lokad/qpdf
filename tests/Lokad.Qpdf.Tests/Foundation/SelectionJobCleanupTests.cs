@@ -433,10 +433,10 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             try { result = await task; } catch (Exception exception) { failure = exception; }
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
             Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
-            // Removing internal bookkeeping may let these small jobs fit the
-            // original memory ceiling. Validate their publication and surviving
-            // outputs instead of requiring obsolete per-object receipt costs.
-            if (budget == "memory" && failure is null
+            // Removing bookkeeping and discarded token copies may let these
+            // jobs fit the original ceilings. Keep the ceilings and validate
+            // successful publication rather than requiring obsolete costs.
+            if (failure is null
                 && result is not QpdfExecutionResult { Status: not QpdfExecutionStatus.Completed })
             {
                 Assert.NotNull(result);

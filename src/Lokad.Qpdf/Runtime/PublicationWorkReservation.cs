@@ -14,8 +14,12 @@ internal sealed class PublicationWorkReservation : IDisposable
     { _governor = governor; _memory = memory; Remaining = units; _transactionState = units > 0L ? (byte)1 : (byte)0; }
 
     internal static PublicationWorkReservation Create(ResourceGovernor governor, long units)
+        => Create(governor, units, 0L);
+
+    internal static PublicationWorkReservation Create(ResourceGovernor governor, long units, long stagingBytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(units);
+        ArgumentOutOfRangeException.ThrowIfNegative(stagingBytes);
         governor.CheckHostOperationCapacity(units);
         if (units > 0L) { governor.CheckHandleCapacity(1L); }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
@@ -23,6 +27,8 @@ internal sealed class PublicationWorkReservation : IDisposable
         {
             memory.Reserve(48L);
             if (units > 0L) { memory.Reserve(GovernedHost.OutputWrapperBytes); }
+            // Sequential transactions reuse this admitted staging allowance.
+            memory.Reserve(stagingBytes);
             PublicationWorkReservation reservation = new(governor, memory, units);
             governor.AttachPublicationWork(reservation);
             return reservation;

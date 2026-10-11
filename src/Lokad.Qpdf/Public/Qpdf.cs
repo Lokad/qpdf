@@ -1479,10 +1479,14 @@ public static partial class Qpdf
             catch { publication.Dispose(); throw; }
         }
 
-        long publicationUnits = 0L;
+        long publicationUnits = 0L, publicationCapacity = 0L;
         foreach (PreparedSplitPublication publication in prepared)
-        { governor.CheckCancellation(); governor.ChargeWork(1L); publicationUnits = checked(publicationUnits + publication.PublicationWork); }
-        using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits);
+        {
+            governor.CheckCancellation(); governor.ChargeWork(1L);
+            publicationUnits = checked(publicationUnits + publication.PublicationWork);
+            publicationCapacity = Math.Max(publicationCapacity, publication.PublicationCapacity);
+        }
+        using PublicationWorkReservation publicationWork = PublicationWorkReservation.Create(governor, publicationUnits, publicationCapacity);
         using OwnedAllocationBatch splitResultStorage = OwnedAllocationBatch.Create(governor, checked(mapping.Count + 6 + names.Count), cancellationToken);
         ResultCollectionStorage.AdoptMappings(splitResultStorage, selectionMemory, mapping);
         IReadOnlyList<PdfPageSelectionMapping> splitMapping = ResultCollectionStorage.Copy(splitResultStorage, mapping, IntPtr.Size);
@@ -2327,8 +2331,9 @@ public static partial class Qpdf
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
         }
 
+        using ParserMemoryScope staging = ParserMemoryScope.Create(governor);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        TransactionSink sink = new(transaction, governor);
+        TransactionSink sink = new(transaction, governor, staging, limits);
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
             if (linearizePass1 is null)
@@ -4614,16 +4619,40 @@ public static partial class Qpdf
         }
     }
 
-    private sealed class TransactionSink : IByteSink
+    private sealed class TransactionSink : IByteSink, IOutputCapacityHint
     {
         private readonly IQpdfOutputTransaction _transaction;
         private readonly ResourceGovernor _governor;
+        private readonly ParserMemoryScope? _staging;
+        private readonly long _maximumOutputBytes = long.MaxValue;
+        private long _capacityCharge;
         private long _length;
 
         internal TransactionSink(IQpdfOutputTransaction transaction, ResourceGovernor governor)
         {
             _transaction = transaction;
             _governor = governor;
+        }
+
+        internal TransactionSink(IQpdfOutputTransaction transaction, ResourceGovernor governor,
+            ParserMemoryScope staging, QpdfLimits limits) : this(transaction, governor)
+        {
+            _staging = staging;
+            _maximumOutputBytes = limits.MaxOutputBytes;
+        }
+
+        void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            if (length > _maximumOutputBytes)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _maximumOutputBytes); }
+            if (_staging is null) { return; }
+            if (length > _capacityCharge)
+            {
+                _staging.Reserve(length - _capacityCharge);
+                _capacityCharge = length;
+            }
+            GovernedHost.PrepareOutputCapacity(_transaction, length, cancellationToken);
         }
 
         public long Length => _length;

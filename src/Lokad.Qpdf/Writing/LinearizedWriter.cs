@@ -105,6 +105,8 @@ internal sealed class LinearizedWriter
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         using HintPayload hintObject = BuildHintObject(parts, counted, compressHints, compressionLevel, cancellationToken);
         long hintLength = hintObject.Data.Length;
+        if (sink is IOutputCapacityHint staging)
+        { staging.EnsureCapacity(checked(counted.FileSize + hintLength), cancellationToken); }
 
         using LinearizedLayout finalLayout = await EmitPassAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);
@@ -962,6 +964,8 @@ internal sealed class LinearizedWriter
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, false, null, null, countingSink, cancellationToken).ConfigureAwait(false);
         using HintPayload hintObject = BuildHintObject(parts, counted, compressStreams, compressionLevel, cancellationToken);
         long hintLength = hintObject.Data.Length;
+        if (sink is IOutputCapacityHint staging)
+        { staging.EnsureCapacity(checked(counted.FileSize + hintLength), cancellationToken); }
 
         using LinearizedLayout finalLayout = await EmitPassStreamedAsync(
             version, parts, emitted, infoNew, id1, id2, newlineBeforeEndstream, compressStreams, compressionLevel, field1, field2, true, hintObject, counted, sink, cancellationToken).ConfigureAwait(false);

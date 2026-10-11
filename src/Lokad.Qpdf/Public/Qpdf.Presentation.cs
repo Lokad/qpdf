@@ -73,6 +73,7 @@ public static partial class Qpdf
         internal PreparedOutputSink? Pass1 => _pass1;
         internal long PublicationWork => 1L + Main.SegmentCount
             + (_pass1 is null ? 0L : 1L + _pass1.SegmentCount);
+        internal long PublicationCapacity => Math.Max(Main.Length, _pass1?.Length ?? 0L);
 
         internal async ValueTask PublishAsync(IQpdfHost host, ResourceGovernor governor, CancellationToken token)
         {
@@ -173,6 +174,8 @@ public static partial class Qpdf
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
+        // The publication batch admitted its largest sequential staging buffer.
+        GovernedHost.PrepareOutputCapacity(transaction, output.Length, token);
         for (PreparedOutputSink.Segment? segment = output.First; segment is not null; segment = segment.Next)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);

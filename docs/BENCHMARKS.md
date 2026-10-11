@@ -120,8 +120,10 @@ Select one existing cell with `--workload linearize-M500` for a short probe,
 usually under one minute including validation and compilation. Preserve a built
 baseline probe directory and pass `--baseline-probe <dir>/QpdfProbe.dll` to
 interleave baseline, candidate and native jobs under the same conditions.
-Require a public-workload gain beyond variability; use focused correctness
-checks during correction and broader qualification at integration checkpoints.
+Accept straightforward copy/allocation eliminations on structural grounds with
+focused correctness and resource checks. Larger performance hypotheses need a
+public-workload gain beyond variability. Measurements track the overall target;
+broader qualification belongs at integration checkpoints.
 
 ## Historical counter report
 
