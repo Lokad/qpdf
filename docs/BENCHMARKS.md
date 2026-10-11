@@ -41,10 +41,11 @@ without `fsync` on either side. Raw samples, commands, hashes and build/machine
 metadata are retained under the fresh work root.
 
 Warmed `ComparisonBenchmarks` run separately with BenchmarkDotNet: one launch,
-three warmups and seven measurement iterations per cell, targeting 250 ms per
+three warmups and seven measurement iterations per cell, targeting 1000 ms per
 iteration. They include fresh memory-host construction/input copying and the
 public job, with disk reads/writes and setup outside measurement. Managed
-allocation/GC statistics remain separate from process RSS. Never derive an
+allocation/GC statistics remain separate from process RSS; outlier removal is
+disabled and every sample is retained. Never derive an
 engine-speed ratio between these warmed calls and fresh native CLI launches.
 
 Requires Python 3, GNU time, CMake/Ninja, a C++ compiler, zlib/JPEG development

@@ -302,13 +302,16 @@ def main():
         os.environ["QPDF_COMPARISON_ROOT"] = str(root)
         command = [str(dotnet), str(benchmark), "--filter", "*ComparisonBenchmarks*", "--job", "short",
                    "--launchCount", "1", "--warmupCount", "3", "--iterationCount", "7",
-                   "--iterationTime", "250", "--exporters", "json", "--artifacts", str(root / "warmed")]
+                   "--iterationTime", "1000", "--outliers", "DontRemove", "--exporters", "json", "--artifacts", str(root / "warmed")]
         (root / "warmed-command.json").write_text(json.dumps(command))
         with (root / "warmed.log").open("w") as log:
             subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=1800, cwd=repo)
-        reports = list((root / "warmed/results").glob("*ComparisonBenchmarks*full.json"))
-        if len(reports) != 1 or len(json.loads(reports[0].read_text())["Benchmarks"]) != 9:
+        reports = list((root / "warmed/results").glob("*ComparisonBenchmarks*full*.json"))
+        if len(reports) != 1:
             raise ValueError("Warmed benchmark report is incomplete")
+        benchmarks = json.loads(reports[0].read_text())["Benchmarks"]
+        if len(benchmarks) != 9 or any(not b.get("Statistics") for b in benchmarks):
+            raise ValueError("Warmed benchmark results are missing or failed")
         print("WARMED managed results complete", flush=True)
     print("Results:", root / "results.json", flush=True)
 
