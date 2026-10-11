@@ -13,6 +13,15 @@ limits, cancellation, cleanup, host boundaries and actual memory growth remain.
 Approximate counter/XML and test reconciliation is pending; this scope decision
 does not claim that the existing accounting implementation has been refactored.
 
+The finite CPU/codec cancellation qualification is complete: the numeric-copy
+regression cancels at an actual work checkpoint for both existing tokens, keeping
+its original input/work bound. Complete numeric argv and JPEG job-JSON controls
+cancel after observed work/codec admission, close leases and preserve prior
+targets; uncanceled outputs reopen independently. The shared parser's existing
+polling semantics are unchanged. These bounded controls do not claim a universal
+cancellation-latency guarantee. Exceptional group/sidecar cleanup and final
+supported-profile integration qualification remain separate finite tasks.
+
 The bounded `--job-json-file`, `--check` and `--parser-max-errors` qualifications
 are complete. Job setter/duplicate/cycle/default evidence is reused; fileless
 inspection preserves resources regardless of the pruning setting, matching

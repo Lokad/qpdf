@@ -30,26 +30,25 @@ public sealed class NumericCopyCancellationTests
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes);
     }
 
-    [Fact]
-    public void SeparateCallerTokenStopsNumericCopyAfterObservedWork()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SeparateCallerTokenStopsNumericCopyAfterObservedWork(bool governorToken)
     {
-        using CancellationTokenSource canceled = new(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null, canceled.Token);
+        using CancellationTokenSource canceled = new();
+        ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? canceled.Token : CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null,
+            governorToken ? CancellationToken.None : canceled.Token);
         byte[] data = new byte[8 * 1024 * 1024]; Array.Fill(data, (byte)'0');
-        using ManualResetEventSlim started = new(); using ManualResetEventSlim finished = new();
         bool observed = false;
-        Thread controller = new(() =>
+        // Observe the actual copy checkpoint on its own thread. A polling
+        // controller can be descheduled until the entire copy has finished.
+        Assert.ThrowsAny<OperationCanceledException>(() => parser.CopyNumericTextObserved(data, () =>
         {
-            started.Set();
-            while (!finished.IsSet)
-            {
-                if (governor.Snapshot().TotalWork >= 8L) { observed = true; canceled.Cancel(); return; }
-                Thread.Yield();
-            }
-        });
-        controller.Start(); started.Wait();
-        try { Assert.ThrowsAny<OperationCanceledException>(() => Run(parser, data)); }
-        finally { finished.Set(); Assert.True(controller.Join(TimeSpan.FromSeconds(10))); }
+            if (governor.Snapshot().TotalWork < 8L) { return; }
+            observed = true;
+            canceled.Cancel();
+        }));
         Assert.True(observed); Assert.InRange(governor.Snapshot().TotalWork, 8L, 2048L);
     }
 

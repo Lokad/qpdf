@@ -10,6 +10,35 @@ already refactored. Historical gate/count requirements below are evidence, not
 additional completion verdicts. Keep meaningful limits, cancellation, cleanup,
 output integrity and actual leak/growth regressions.
 
+## Public CPU/codec cancellation
+
+The intermittent numeric-copy failure was an observation race: the controller
+thread could be descheduled until the complete copy returned, so no cancellation
+was requested during copying. The shared numeric-copy loop now exposes an
+internal checkpoint observer, matching existing observed helper patterns. The
+normal parser passes no observer; its 4 KiB polling, token checks, allocation and
+work limits are unchanged. The regression retains its original 8 MiB input and
+work bound, and cancels synchronously after eight work units for both tokens.
+
+Complete public controls cover a numeric-heavy argv rewrite and a job-JSON JPEG
+decode. They resume input before observing CPU work/codec storage, then cancel
+the caller token while the job is active. Both finish within the existing
+10-second test deadline, close all leases/handles and preserve prior output
+bytes without publication. Uncanceled controls produce PDFs reopened by the
+strict reader and PdfPig, preserving the long numeric token and fully decoding
+the image samples. These tests do not require zero accounting debt or a
+collection schedule, and the test deadline is not a universal latency promise.
+
+Final Release build passes with zero warnings/errors in 25.7s outer wall. All 314 affected
+numeric/parser-recovery/filter/JPEG/optimization checks pass without skips in
+11.9s outer wall. A fresh finite reference run reuses eight original numeric
+inputs/limits/outcomes: all 16 managed/native outputs pass pinned qpdf syntax,
+three-reader page checks and numeric-value comparisons. Exact real text and the
+deliberate page-count mismatch remain protected; reference wall is 5.6s.
+The finite CPU/codec task is closed. Approximate-accounting/test reconciliation,
+bounded exceptional cleanup and final visual/reference/package/CI qualification
+remain; pending accounting edits are not integrated evidence.
+
 ## Bounded job/check/parser qualification
 
 Job-file setter order, duplicates, active include cycles and invocation defaults
@@ -49,10 +78,10 @@ Final Release build passes with zero warnings/errors in 43.9s. All 2338 affected
 ordinary checks pass without skips in 15.4s outer wall (7s runner). Fresh focused
 parser reference takes 18.0s; checker/inspection reference takes 8.0s. These are
 affected-source proofs; the complete integration/release checkpoint remains due.
-An earlier broader 4823-case run passes 4822 checks and fails the concurrent separate-token
-numeric-copy cancellation observation once; all four controls pass on isolated
-recheck. This remains an explicit cancellation qualification issue, not a silently
-accepted failure or evidence that complete public CPU cancellation is finished.
+An earlier broader 4823-case run passes 4822 checks and fails the concurrent
+separate-token numeric-copy observation once; four isolated controls pass on
+recheck. The deterministic observation and complete public CPU/codec proof above
+resolve that finding. The original failure remains historical evidence.
 
 ## Conservative form-resource pruning — CONTENT-02
 

@@ -1265,10 +1265,19 @@ internal sealed class PdfParser
     }
 
     private string CopyNumericText(ReadOnlyMemory<byte> data)
+        => CopyNumericTextCore(data, null);
+
+    internal string CopyNumericTextObserved(ReadOnlyMemory<byte> data, Action observe)
+    {
+        ArgumentNullException.ThrowIfNull(observe);
+        return CopyNumericTextCore(data, observe);
+    }
+
+    private string CopyNumericTextCore(ReadOnlyMemory<byte> data, Action? observe)
     {
         // The tokenizer established ASCII numeric syntax. Copy directly into
         // the admitted string, without a second full-size character array.
-        return string.Create(data.Length, (Data: data, Governor: _governor, Token: _token), static (chars, state) =>
+        return string.Create(data.Length, (Data: data, Governor: _governor, Token: _token, Observe: observe), static (chars, state) =>
         {
             ReadOnlySpan<byte> bytes = state.Data.Span;
             for (int i = 0; i < chars.Length; i++)
@@ -1277,6 +1286,7 @@ internal sealed class PdfParser
                 {
                     state.Token.ThrowIfCancellationRequested();
                     state.Governor.ChargeWork(1L);
+                    state.Observe?.Invoke();
                     state.Governor.CheckCancellation();
                 }
 

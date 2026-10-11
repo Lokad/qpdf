@@ -19,7 +19,7 @@ public sealed class DctDecodeTests
         return host;
     }
 
-    private static byte[] EncodeGrayJpeg(int width, int height)
+    internal static byte[] EncodeGrayJpeg(int width, int height)
     {
         using Image<L8> image = new(width, height);
         for (int y = 0; y < height; y++)
@@ -100,7 +100,7 @@ public sealed class DctDecodeTests
         throw new InvalidOperationException("No JPEG frame header found.");
     }
 
-    private static byte[] PatchFrameDimensions(byte[] jpeg, int width, int height)
+    internal static byte[] PatchFrameDimensions(byte[] jpeg, int width, int height)
     {
         byte[] patched = (byte[])jpeg.Clone();
         int at = FindFrameHeightOffset(jpeg);
@@ -111,7 +111,7 @@ public sealed class DctDecodeTests
         return patched;
     }
 
-    private static byte[] BuildDctPage(byte[] jpeg)
+    internal static byte[] BuildDctPage(byte[] jpeg)
     {
         return BuildFilteredPage("<< /Length " + jpeg.Length.ToString() + " /Filter /DCTDecode >>", jpeg);
     }

@@ -16,10 +16,13 @@ The bounded job-file/check/parser qualifications now have public-job and native
 proof. Missing or invalid stream lengths recover within physical/work boundaries;
 copied repaired streams use accepted payload lengths, and strict controls reject
 damage. Fileless pruning preserves inspected resources. Job-file setter, duplicate,
-cycle and default proofs are reused. The remaining work is approximate contract/
-test consolidation, bounded cancellation/cleanup and final supported-profile
-qualification. The intermittent separate-token numeric-copy observer failure
-recorded in progress belongs to cancellation qualification; it is not waived.
+cycle and default proofs are reused. The intermittent numeric-copy finding is
+resolved by a deterministic after-work observer for both tokens and complete
+numeric argv/JPEG job controls. Their positive outputs reopen independently;
+cancellation closes leases and preserves prior targets. This closes the finite
+CPU/codec check without asserting universal cancellation latency. Remaining work
+is approximate contract/test consolidation, bounded exceptional cleanup and
+final supported-profile qualification, including finite visuals and reference CI.
 
 Public routes below use **typed / argv / job** for the three shared entry points.
 Use affected public jobs and existing independent checks; helper tests supplement

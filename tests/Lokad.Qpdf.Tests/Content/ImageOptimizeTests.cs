@@ -63,7 +63,7 @@ public sealed class ImageOptimizeTests
         return buffer.ToArray();
     }
 
-    private static byte[] BuildImagePage(int width, int height, string colorspace, int bits, string filter, byte[] data)
+    internal static byte[] BuildImagePage(int width, int height, string colorspace, int bits, string filter, byte[] data)
     {
         byte[] content = Encoding.ASCII.GetBytes("q " + width.ToString() + " 0 0 " + height.ToString() + " 0 0 cm /Im0 Do Q");
         List<string> bodies = new()
