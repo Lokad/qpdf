@@ -29,8 +29,17 @@ its original input/work bound. Complete numeric argv and JPEG job-JSON controls
 cancel after observed work/codec admission, close leases and preserve prior
 targets; uncanceled outputs reopen independently. The shared parser's existing
 polling semantics are unchanged. These bounded controls do not claim a universal
-cancellation-latency guarantee. Exceptional group/sidecar cleanup and final
-supported-profile integration qualification remain separate finite tasks.
+cancellation-latency guarantee. Group/sidecar cleanup qualification is recorded
+below; final supported-profile integration remains due.
+
+Exceptional group/sidecar cleanup is now qualified by two representative public
+jobs: argv split and job-JSON sidecars, including the existing one-handle JSON
+limit. Read/input-close/create/write/commit/output-close faults and distinct
+caller/host cancellation preserve prior uncommitted targets and caller copies,
+close leases/handles and keep committed bytes equal to independently validated
+successful output. This is bounded publication evidence, not a broader ownership
+or exact-accounting census. Visual/reference CI and final artifact qualification
+remain due.
 
 The bounded `--job-json-file`, `--check` and `--parser-max-errors` qualifications
 are complete. Job setter/duplicate/cycle/default evidence is reused; fileless

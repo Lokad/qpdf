@@ -249,6 +249,67 @@ public sealed class PublicationAdmissionTests
     }
 
     [Theory]
+    [InlineData("argv", "split")]
+    [InlineData("job", "json-sidecar")]
+    public async Task GroupAndSidecarBoundariesPreserveValidPublishedBytes(string route, string operation)
+    {
+        QpdfLimits limits = operation == "json-sidecar" ? QpdfLimits.Default with { MaxOpenHandles = 1L } : QpdfLimits.Default;
+        ObservedHost baselineHost = await Observed(operation, true, true);
+        QpdfExecutionResult baseline = await RunObserved(baselineHost, route, operation, Flags, limits, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
+        Assert.Equal(2, baselineHost.Committed.Count);
+        Assert.Equal(0L, baselineHost.Inner.OpenLeaseCount);
+        Dictionary<string, byte[]> expected = new(StringComparer.Ordinal);
+        foreach (string path in baselineHost.Committed)
+        {
+            Assert.True(baselineHost.Inner.TryGetOutput(QpdfPath.From(path), out byte[] bytes));
+            expected.Add(path, bytes);
+            if (operation == "split")
+            {
+                using UglyToad.PdfPig.PdfDocument pdf = UglyToad.PdfPig.PdfDocument.Open(bytes);
+                Assert.Equal(1, pdf.NumberOfPages);
+            }
+        }
+        if (operation == "json-sidecar")
+        {
+            using JsonDocument json = JsonDocument.Parse(expected["output.pdf"]);
+            Assert.Equal("side-4", json.RootElement.GetProperty("qpdf")[1].GetProperty("obj:4 0 R")
+                .GetProperty("stream").GetProperty("datafile").GetString());
+            Assert.Equal("q Q\n"u8.ToArray(), expected["side-4"]);
+        }
+
+        // Each distinct boundary once per publication mechanism; the two late
+        // cancellations also exercise a surviving already-committed output.
+        foreach ((string boundary, string outcome) in new[]
+        {
+            ("read", "fault"), ("input-close", "fault"), ("create", "fault"),
+            ("write", "fault"), ("commit", "fault"), ("output-close", "fault"),
+            ("second-write", "caller-cancel"), ("second-output-close", "host-cancel"),
+        })
+        {
+            using CancellationTokenSource cancellation = new();
+            ObservedHost host = await Observed(operation, true, true);
+            host.Boundary = boundary;
+            host.Cancellation = outcome == "caller-cancel" ? cancellation : null;
+            host.HostCancellation = outcome == "host-cancel";
+            byte[][] aliases = Targets.Select(path => { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(path), out byte[] bytes)); return bytes; }).ToArray();
+            QpdfExecutionResult result = await RunObserved(host, route, operation, Flags, limits, cancellation.Token);
+            Assert.True(host.Triggered);
+            Assert.Equal(outcome == "fault" ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Canceled, result.Status);
+            Assert.Equal(outcome == "caller-cancel", cancellation.IsCancellationRequested);
+            Assert.Equal(boundary == "output-close" ? 1 : boundary == "second-output-close" ? 2
+                : boundary.StartsWith("second-", StringComparison.Ordinal) ? 1 : 0, host.Committed.Count);
+            Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+            foreach (string path in Targets)
+            {
+                Assert.True(host.Inner.TryGetOutput(QpdfPath.From(path), out byte[] bytes));
+                Assert.Equal(host.Committed.Contains(path) ? expected[path] : new byte[] { 17, 23, 41 }, bytes);
+            }
+            Assert.All(aliases, bytes => Assert.Equal(new byte[] { 17, 23, 41 }, bytes));
+        }
+    }
+
+    [Theory]
     [InlineData("split", false)]
     [InlineData("split", true)]
     [InlineData("json", false)]
@@ -358,6 +419,7 @@ public sealed class PublicationAdmissionTests
         internal List<string> Committed { get; } = new();
         internal string Boundary = "";
         internal CancellationTokenSource? Cancellation;
+        internal bool HostCancellation;
         internal bool Triggered;
 
         private void Check(string phase, QpdfPath path, int output)
@@ -366,6 +428,7 @@ public sealed class PublicationAdmissionTests
             int index = Boundary.StartsWith("second-", StringComparison.Ordinal) ? 2 : 1;
             if (Triggered || phase != expected || output > 0 && output != index) { return; }
             Triggered = true;
+            if (HostCancellation) { throw new OperationCanceledException(new CancellationToken(true)); }
             if (Cancellation is not null) { Cancellation.Cancel(); throw new OperationCanceledException(Cancellation.Token); }
             throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed);
         }

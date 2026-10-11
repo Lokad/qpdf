@@ -24,8 +24,12 @@ CPU/codec check without asserting universal cancellation latency. Approximate
 counter/documentation reconciliation and exact-only test consolidation now have
 five-family representative validation and affected checks. Original limits,
 public outcomes and useful defect controls remain; the receipt implementation
-is preserved. Remaining work is bounded exceptional cleanup and final supported-
-profile qualification, including finite visuals and reference CI.
+is preserved. Bounded exceptional cleanup now covers argv split and job-JSON
+sidecars with six distinct faults per mechanism and late caller/host cancellation.
+Prior targets survive, committed bytes remain valid and leases/handles close;
+existing other-route evidence is reused. All 682 affected checks pass. Remaining
+work is final supported-profile qualification, including finite visuals and
+reference CI.
 
 Public routes below use **typed / argv / job** for the three shared entry points.
 Use affected public jobs and existing independent checks; helper tests supplement

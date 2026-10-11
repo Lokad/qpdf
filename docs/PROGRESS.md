@@ -56,6 +56,26 @@ with this documentation; comprehensive reference/visual/package qualification is
 reserved for the delivery checkpoint. Remaining work is bounded exceptional
 cleanup, finite visuals/pinned-reference CI and final supported-profile artifacts.
 
+## Bounded group and sidecar cleanup
+
+The finite cleanup check is complete through one argv split group and one
+job-JSON sidecar job, using the existing publication fixture/host machinery.
+Two successful baselines validate one-page PDF members independently and the
+JSON datafile/decoded sidecar relationship. Six read/input-close/create/write/
+commit/output-close faults run once per mechanism. Caller cancellation at the
+second write and a distinct canceled host token after the second output close
+exercise already-committed output aliases. All prior uncommitted targets and
+caller copies survive; committed bytes equal the valid baseline; host leases and
+governor handles close. JSON keeps the existing one-handle interaction.
+
+These are 18 complete public jobs, not a route/encoding/fault cross-product.
+They require no fixed GC schedule, exact charge retirement or independent small
+metadata billing. Existing typed/other-route and staging-discard proofs are
+reused. No production correction was required. Release build passes with zero
+warnings/errors in 31.7s; all 682 affected publication/sidecar/lease checks pass
+without skips in 13.7s outer wall. Remaining delivery work is finite visual and
+pinned-reference CI tooling, then final supported-profile artifact qualification.
+
 ## Public CPU/codec cancellation
 
 The intermittent numeric-copy failure was an observation race: the controller
