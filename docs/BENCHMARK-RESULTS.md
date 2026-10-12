@@ -1,12 +1,12 @@
 # Linux benchmark comparison — 2026-10-12
 
 The current goal is single-CPU parity (≤1.0×) in every agreed structural workload;
-it remains open. The clean `be70d4c` panel meets parity in two of thirteen
-codec-free cells under variable host load. Sparse selection remains the largest
-complete-job gap. A bounded same-driver regression check has 8.36 / 2.62 ms
-(3.19×), with no demonstrated material source slowdown. Required full-input
-transport remains timed; the managed
-reader receives all 16.8 MB while native can read selected objects lazily.
+it remains open. The clean `b9946d9` panel meets parity in two of thirteen
+codec-free cells. Eleven gaps remain, including sparse selection at 6.65 / 1.72 ms
+(3.87×). Its static-text receipt classification is corrected separately after
+ordinary CI exposed unreleased charges; native reference checks passed.
+Required full-input transport remains timed; the managed reader receives all
+16.8 MB while native can read selected objects lazily.
 
 Recent production corrections remove split-wide scans, redundant writer clearing,
 uncompressed counting buffers and unescaped-name buffers. Same-driver measurements
@@ -48,26 +48,28 @@ supplies no native ratio and does not replace the complete file-job comparison.
 
 ## Current thirteen-cell checkpoint
 
-Clean `be70d4c`, seven sequential alternating 350 ms batches per engine after
-warmup; medians in milliseconds, Q1–Q3 in parentheses. All 13,084 observations
+Clean `b9946d9`, seven sequential alternating 350 ms batches per engine after
+warmup; medians in milliseconds, Q1–Q3 in parentheses. All 23,823 observations
 are retained. Variable host load broadens these distributions; separate panels
-do not isolate individual changes. The prior `11fb330` panel remains in the raw archive.
+do not isolate individual changes. Prior panels remain in the raw archive.
+This precedes the correction excluding shared digit literals from job-owned
+text receipts; its final-source correctness checks are recorded separately.
 
 | Workload | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.78 (0.67–0.81) | 0.94 (0.86–1.19) | 0.82× |
-| select-M500 | 23.25 (22.60–24.45) | 22.51 (22.29–23.92) | 1.03× |
-| merge-250x2 | 47.87 (45.01–51.90) | 37.49 (34.74–39.80) | 1.28× |
-| split-M500 | 37.14 (34.69–43.04) | 29.43 (26.51–30.57) | 1.26× |
-| rewrite-M500 | 69.57 (54.43–78.24) | 39.57 (36.11–43.80) | 1.76× |
-| rewrite-X100 | 7.67 (6.76–10.13) | 5.67 (4.85–6.43) | 1.35× |
-| object-streams-X100 | 8.61 (7.53–16.80) | 7.75 (7.61–7.97) | 1.11× |
-| linearize-M500 | 121.67 (100.19–170.00) | 68.88 (68.18–71.11) | 1.77× |
-| check-X100 | 8.39 (8.09–9.72) | 7.96 (7.88–8.25) | 1.05× |
-| rewrite-ID-M500 | 83.73 (70.90–106.30) | 64.43 (55.80–66.21) | 1.30× |
-| rewrite-objects | 126.30 (107.38–159.68) | 74.14 (71.24–84.47) | 1.70× |
-| select-sparse | 22.82 (15.09–33.45) | 4.22 (3.92–4.58) | 5.41× |
-| split-single | 15.54 (14.57–16.50) | 21.57 (21.26–22.09) | 0.72× |
+| select-S10 | 0.56 (0.55–0.58) | 0.75 (0.72–0.79) | 0.75× |
+| select-M500 | 21.25 (20.79–22.52) | 20.75 (20.66–20.85) | 1.02× |
+| merge-250x2 | 24.59 (23.70–26.31) | 18.80 (18.21–19.90) | 1.31× |
+| split-M500 | 30.03 (29.69–31.11) | 24.76 (24.22–26.07) | 1.21× |
+| rewrite-M500 | 22.06 (20.77–23.81) | 14.41 (14.33–15.33) | 1.53× |
+| rewrite-X100 | 3.05 (2.95–3.21) | 1.85 (1.83–1.88) | 1.65× |
+| object-streams-X100 | 3.09 (3.05–3.18) | 2.47 (2.40–2.51) | 1.25× |
+| linearize-M500 | 27.19 (26.85–27.49) | 20.94 (20.51–21.48) | 1.30× |
+| check-X100 | 2.38 (2.34–2.80) | 2.36 (2.28–2.40) | 1.01× |
+| rewrite-ID-M500 | 31.25 (30.37–34.61) | 23.13 (23.03–23.90) | 1.35× |
+| rewrite-objects | 39.33 (38.36–50.03) | 26.18 (24.30–31.01) | 1.50× |
+| select-sparse | 6.65 (6.36–6.69) | 1.72 (1.66–1.74) | 3.87× |
+| split-single | 6.48 (6.24–6.57) | 6.70 (6.64–7.09) | 0.97× |
 
 The previously qualified nine-cell **2× target** on `219eca3` is historical evidence;
 its ratios range from 0.66× to 1.77× pinned native qpdf 12.4.2.

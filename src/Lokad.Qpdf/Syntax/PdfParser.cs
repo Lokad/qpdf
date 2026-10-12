@@ -26,7 +26,6 @@ internal interface IStreamRecoveryResolver : IIndirectResolver
 /// </summary>
 internal sealed class PdfParser
 {
-    private static readonly string[] SingleDigitText = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
@@ -1304,7 +1303,7 @@ internal sealed class PdfParser
             _governor.ChargeWork(1L);
             observe?.Invoke();
             _governor.CheckCancellation();
-            return SingleDigitText[data.Span[0] - (byte)'0'];
+            return PdfInteger.GetSingleDigitText(data.Span[0] - (byte)'0');
         }
         // The tokenizer established ASCII numeric syntax. Copy directly into
         // the admitted string, without a second full-size character array.

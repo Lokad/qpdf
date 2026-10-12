@@ -2,9 +2,9 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: the clean
-`be70d4c` panel meets parity in two cells, with ratios 0.82–5.41× under variable
-host load. A bounded sparse regression pair shows 8.36 / 2.62 ms (3.19×);
-its managed transport reads the entire 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
+`b9946d9` panel meets parity in two cells, with ratios 0.75–3.87×.
+Sparse selection is 6.65 / 1.72 ms; its managed transport reads the entire
+16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
 [protocol](BENCHMARKS.md) separate complete jobs, memory diagnostics and historical
 observations. Performance commits need reduced time or allocation, with no
 minimum percentage gain. Noisy overlapping timings do not establish a time win.
@@ -47,6 +47,16 @@ comparisons and 442 rewrite trios. Release build/pack, package inspection, fresh
 locked consumer and rejection controls pass. Seven visuals and both controls
 also pass in 17.32 seconds. This source unit awaits the next
 integrated hosted checkpoint; earlier clean-panel evidence remains identified.
+
+The numeric commit's hosted native reference passed, but ordinary jobs exposed
+twelve exact-zero retirement assertions. Shared digit literals had per-job text
+receipts despite their process lifetime. The correction omits those receipts
+only for identical known literals; fresh text and scalar wrappers retain their
+owners. All 340 affected checks pass without changed tests or limits, including
+the twelve failures. Fresh 26-output/three-control validation and the locked
+consumer also pass. The full local ordinary suite passes 17,823 tests with no
+failures/skips in 5m25s. The saved dictionary-finalization prototype is deferred
+until this integration is green.
 
 ## Recent integrated corrections
 

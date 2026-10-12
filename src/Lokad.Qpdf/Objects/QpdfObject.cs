@@ -77,6 +77,14 @@ public sealed class PdfBoolean : QpdfObject, IEquatable<PdfBoolean>
 /// </summary>
 public sealed class PdfInteger : QpdfObject, IEquatable<PdfInteger>
 {
+    private static readonly string[] SingleDigitText = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    internal static string GetSingleDigitText(int digit) => SingleDigitText[digit];
+
+    // Process-lifetime literals contribute no job-owned text allocation.
+    internal bool HasSharedText => Text.Length == 1 && Text[0] is >= '0' and <= '9'
+        && ReferenceEquals(Text, SingleDigitText[Text[0] - '0']);
+
     /// <summary>Creates an integer.</summary>
     /// <exception cref="ArgumentNullException">The text is null.</exception>
     public PdfInteger(string text, long value)

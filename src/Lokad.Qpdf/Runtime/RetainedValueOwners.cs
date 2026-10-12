@@ -442,7 +442,8 @@ internal sealed class RetainedValueOwners
                 return;
             case PdfInteger integer:
                 if (!Register(integer, 32L, acceptance)) { return; }
-                Register(integer.Text, checked(32L + integer.Text.Length * 2L), acceptance);
+                if (!integer.HasSharedText)
+                { Register(integer.Text, checked(32L + integer.Text.Length * 2L), acceptance); }
                 return;
             case PdfReal real:
                 if (!Register(real, 32L, acceptance)) { return; }
