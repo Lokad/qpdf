@@ -22,6 +22,11 @@ Deferring page-ancestry scratch until a second indirect parent removes another
 323 KB/job from M500 selection (19.843 → 19.520 MB). Same-driver medians
 32.09 → 31.71 ms overlap under load; control compilation may overlap the end
 of that probe. Accept allocation only. Fresh output hashes remain unchanged.
+Geometric dictionary/set growth subsequently removes 1.041 MB/job from
+object-heavy rewriting (10.223 → 9.183 MB), preserving hashes. Medians
+44.91 → 44.21 ms overlap. The paired prototype precedes the final admission
+fallback, which preserves unchanged tight-memory consumers before allocation;
+final-source functional/consumer checks cover that fallback.
 
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
 preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate

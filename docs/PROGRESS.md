@@ -45,6 +45,21 @@ hashes are unchanged. Explicit Release pack, inspection and a fresh locked
 consumer pass, including the unchanged 2 MiB multisource case. The correction
 is a local source unit for the next combined integration checkpoint.
 
+A short allocation trace identified repeated generic collection resizing.
+Governed dictionaries/sets now request geometric growth. If its conservative
+admission exceeds the memory ceiling, they use the prior smaller step before
+allocation. This preserves the unchanged cache-consumer budget that rejected
+the initial prototype. The existing admission, reconciliation and failure cleanup
+remain shared. All 271 affected growth/parser/copier/writer checks pass.
+The prototype's same-driver object-heavy allocation falls 10.223 → 9.183 MB/job
+(1.041 MB); output hashes match and timings overlap. Final budget fallback is
+separately checked; the paired prototype contains no time claim. Release build,
+pack/inspection and the fresh locked consumer pass on the final source.
+Seventeen cache-budget/alias controls also pass, along with all 26 final fresh
+managed/native outcomes and three negative controls. Seven visuals/two controls
+pass. This completes the local correction; the combined source checkpoint uses
+the existing full CI/reference/package checks.
+
 Continue with one measured parser/writer or reader/host cost at a time. Preserve
 the thirteen cells, original inputs, meaningful ceilings and negative controls;
 do not bypass public copying contracts to improve a ratio. Use focused checks

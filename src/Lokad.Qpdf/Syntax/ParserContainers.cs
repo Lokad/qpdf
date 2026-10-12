@@ -74,12 +74,11 @@ internal static class ParserContainers
         int previous = entries.EnsureCapacity(0);
         if (entries.Count < previous) { return; }
         int required = checked(entries.Count + 1);
-        long upper = DictionaryArrays(PrimeCapacityAllowance(required), valueBytes);
+        (int target, long upper) = ReserveGrowth(memory, previous, required, checked(12L + IntPtr.Size + valueBytes));
         // The pinned .NET 10 prime table fits this conservative allowance.
         // EnsureCapacity reports the actual storage; release excess admission.
-        memory.Reserve(upper);
         int capacity;
-        try { capacity = entries.EnsureCapacity(required); }
+        try { capacity = entries.EnsureCapacity(target); }
         catch { memory.Release(upper); throw; }
         memory.Release(checked(upper - DictionaryArrays(capacity, valueBytes) + DictionaryArrays(previous, valueBytes)));
     }
@@ -102,10 +101,9 @@ internal static class ParserContainers
         int previous = items.EnsureCapacity(0);
         if (items.Count == previous)
         {
-            long upper = SetArrays(PrimeCapacityAllowance(checked(items.Count + 1)), itemBytes);
-            memory.Reserve(upper);
+            (int target, long upper) = ReserveGrowth(memory, previous, checked(items.Count + 1), checked(12L + itemBytes));
             int capacity;
-            try { capacity = items.EnsureCapacity(items.Count + 1); }
+            try { capacity = items.EnsureCapacity(target); }
             catch { memory.Release(upper); throw; }
             memory.Release(checked(upper - SetArrays(capacity, itemBytes) + SetArrays(previous, itemBytes)));
         }
@@ -129,12 +127,38 @@ internal static class ParserContainers
 
     private static long ArrayBytes(int capacity, long itemBytes) => capacity == 0 ? 0L : 32L + itemBytes * capacity;
 
+    // Explicit admission bypasses automatic resizing; request geometric growth
+    // rather than the next small prime after Count + 1.
+    private static int GrowthCapacity(int previous, int required)
+    {
+        if (required > Array.MaxLength) { throw new QpdfParseException("Collection exceeds the supported capacity.", null, null); }
+        return (int)Math.Min(Array.MaxLength, Math.Max(required, previous * 2L));
+    }
+
+    private static (int Target, long Upper) ReserveGrowth(ParserMemoryScope memory, int previous, int required, long slotBytes)
+    {
+        int target = GrowthCapacity(previous, required);
+        long upper = CollectionArrays(PrimeCapacityAllowance(target), slotBytes);
+        try { memory.Reserve(upper); }
+        catch (QpdfLimitException failure) when (target > required && failure.LimitName == nameof(QpdfLimits.MaxMemoryBytes))
+        {
+            // A denied reservation has not allocated or changed this owner.
+            // Preserve bounded callers that can fund the smaller growth step.
+            target = required;
+            upper = CollectionArrays(PrimeCapacityAllowance(target), slotBytes);
+            memory.Reserve(upper);
+        }
+        return (target, upper);
+    }
+
     private static int PrimeCapacityAllowance(int required) => (int)Math.Min(Array.MaxLength, required * 3L);
 
     // One pointer-width key slot also covers a padded int key before a 24-byte
     // xref value on the supported 64-bit runtimes. Wrappers/arrays include
     // conservative header allowances; actual prime capacities are reconciled.
-    private static long DictionaryArrays(int capacity, long valueBytes) => capacity == 0 ? 0L : checked(64L + (12L + IntPtr.Size + valueBytes) * capacity);
+    private static long DictionaryArrays(int capacity, long valueBytes) => CollectionArrays(capacity, checked(12L + IntPtr.Size + valueBytes));
 
-    private static long SetArrays(int capacity, long itemBytes) => capacity == 0 ? 0L : checked(64L + (12L + itemBytes) * capacity);
+    private static long SetArrays(int capacity, long itemBytes) => CollectionArrays(capacity, checked(12L + itemBytes));
+
+    private static long CollectionArrays(int capacity, long slotBytes) => capacity == 0 ? 0L : checked(64L + slotBytes * capacity);
 }
