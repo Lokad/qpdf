@@ -1,7 +1,7 @@
 # Compatibility
 
 Lokad.qpdf's agreed [supported profile](SUPPORTED-PROFILE.md) is qualified against
-qpdf **12.4.2** on implementation `34c8097`. It covers non-cryptographic PDF
+qpdf **12.4.2** on implementation `219eca3`. It covers non-cryptographic PDF
 structural operations through typed, argv and job-JSON entry points. Local
 Windows and Ubuntu qualification passed; [progress](PROGRESS.md) records the
 results. Completion means delivering this profile, including its explicit

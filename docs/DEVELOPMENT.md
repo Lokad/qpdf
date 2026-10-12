@@ -346,4 +346,4 @@ payload, including a leading whitespace-valued pixel byte. It reuses the
 existing process/probe controls and does not require a native PDF engine.
 
 Tooling changes keep runtime dependencies and host boundaries intact.
-See [progress](PROGRESS.md) for remaining supported-profile qualification.
+See [progress](PROGRESS.md) for the current integrated qualification.

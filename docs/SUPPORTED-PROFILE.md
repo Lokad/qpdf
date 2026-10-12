@@ -3,7 +3,7 @@
 This describes shipped behavior. [Compatibility](COMPATIBILITY.md) records the
 reference target, known differences and per-option evidence.
 
-This is the agreed delivery profile, qualified on `34c8097` by local Windows
+This is the agreed delivery profile, qualified on `219eca3` by local Windows
 and Ubuntu Release/package/consumer checks plus pinned-reference and finite
 visual checks; see [progress](PROGRESS.md). The accepted codec/build limitations
 remain explicit: four-component CMYK/YCCK JPEGs stay opaque with warnings where
@@ -73,7 +73,7 @@ do not advance the positional input/output cursor. Active nested identities
 form cycles; a completed independent file may be included again. A later input
 supersedes an earlier empty configuration; empty after an input rejects.
 Setter/duplicate/cycle/default behavior has bounded public/native qualification.
-Remaining practical resource checks use the approximate accounting target.
+Practical resource checks use the approximate accounting target.
 
 All routes return explicit outcomes (`PdfPageSelectionResult` or
 `QpdfExecutionResult` with exit codes 0/2/3). Anything outside the profile —
@@ -426,6 +426,6 @@ sanity checks release dropped orphans, while ordinary repair retains them under
 generated keys. Subtree receipts preserve independently loaded resolver/cache
 values. Finite-memory public bulk loads, retained aliases and post-overwrite
 failure/cancellation have regressions; public dictionary construction still
-copies caller storage. Remaining delivery checks are bounded exceptional cleanup and final integrated
-supported-profile qualification. Concrete failures justify targeted corrections;
-there is no additional exhaustive cache/alias/BCL-container audit.
+copies caller storage. Integrated supported-profile qualification is recorded in
+[progress](PROGRESS.md). Concrete failures justify targeted corrections; there is
+no additional exhaustive cache/alias/BCL-container audit.
