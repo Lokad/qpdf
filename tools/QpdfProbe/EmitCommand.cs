@@ -71,11 +71,11 @@ internal static class EmitCommand
         if (requireSuccess)
         {
             // Warmed workloads contain exactly their required inputs under
-            // canonical logical names. Keep all file reads and defensive copies
+            // canonical logical names. Keep file reads and owned-buffer transfer
             // inside the timed emit call, using the consuming memory host itself.
             // The reference adapter below still supports lazy filename aliases.
             foreach ((string logical, string file) in available)
-            { host.AddInput(QpdfPath.From(logical), File.ReadAllBytes(file), QpdfInputOwnership.Copy); }
+            { host.AddInput(QpdfPath.From(logical), File.ReadAllBytes(file), QpdfInputOwnership.Transfer); }
             executionHost = host;
         }
         else { executionHost = new InputAliases(host, available); }
@@ -151,7 +151,9 @@ internal static class EmitCommand
             while (name.StartsWith("./", StringComparison.Ordinal)) { name = name[2..]; }
             if (available.Remove(name, out string? file) && file is not null)
             {
-                host.AddInput(QpdfPath.From(name), File.ReadAllBytes(file), QpdfInputOwnership.Copy);
+                // This fresh file array has no caller alias. The host owns it;
+                // cloning it again provides no additional isolation.
+                host.AddInput(QpdfPath.From(name), File.ReadAllBytes(file), QpdfInputOwnership.Transfer);
             }
             return host.OpenInputAsync(QpdfPath.From(name), cancellationToken);
         }

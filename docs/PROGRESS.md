@@ -37,6 +37,14 @@ whole source. Object-heavy rewriting is 1.86× with 13.14 MB allocation. These
 results separate transport from parser/writer investigation; they do not establish
 a retained-memory leak or a pure engine ratio. All original observations remain.
 
+The developer emitter now transfers its privately read file buffers into the
+memory host. The library binary is unchanged in the paired transport comparison;
+all 26 fresh outcomes and three controls pass with unchanged input/output hashes.
+Sparse selection falls 11.68 → 6.63 ms (43% lower median, separated IQRs), versus
+1.67 ms native: 3.96× remains. One full input clone per job is removed; this is a
+transport correction, not a production parser speedup. Earlier copying-lane
+observations remain recorded separately.
+
 ## Integration qualification
 
 Locked restores and Release builds passed on Windows and Ubuntu WSL2 with .NET SDK/runtime 10.0.401/10.0.12 and zero warnings/errors. Both complete ordinary suites passed all 17,846 checks with no failures/skips. These counts record the run; individual historical test identities are not acceptance obligations.

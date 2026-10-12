@@ -36,7 +36,9 @@ and must match its independently validated output for that implementation.
 Whole-process measurements launch both engines freshly with identical inputs,
 explicit stream/version/ID options and equivalent file destinations. Managed
 `QpdfProbe emit` includes input discovery, copying into the in-memory host,
-publication, output copying and physical writing. Native uses its CLI filesystem
+publication, output copying and physical writing. Fresh file buffers transfer
+to the memory host without a second clone; historical copying-transport
+observations remain recorded separately. Native uses its CLI filesystem
 path. This measures complete public jobs, including their different transport
 costs. It is not a comparison of isolated engines.
 
@@ -97,7 +99,7 @@ native QPDFJob and managed public-job workers alive. Every operation creates a
 fresh job/document and writes fresh files. No parsed input is cached.
 
 Both lanes include file input, processing and completed file output. Managed
-uses the existing copying emit host; its transport cost is included. Internal
+uses the memory emit host with freshly read, transferred input buffers; its transport cost is included. Internal
 job timers exclude protocol, validation and cleanup, and include no process
 startup. This is a warmed complete-job comparison. The memory-host
 BenchmarkDotNet lane is a separate diagnostic with different transport boundaries.
@@ -135,7 +137,7 @@ timed comparisons stay sequential; broader qualification belongs at integration
 checkpoints.
 
 Warmed cells use the built-in memory host directly, with their canonical input
-names. File reads, defensive input copies, publication, output copies and physical
+names. File reads, owned input transfer, publication, output copies and physical
 writes remain inside the timed call. The reference emitter retains its lazy
 filename-alias adapter. For paired library comparisons, use the same probe build
 with each reviewed library binary, so the host/transport path is identical.
