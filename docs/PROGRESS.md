@@ -45,6 +45,11 @@ Sparse selection falls 11.68 → 6.63 ms (43% lower median, separated IQRs), ver
 transport correction, not a production parser speedup. Earlier copying-lane
 observations remain recorded separately.
 
+A selected memory-only sparse diagnostic reuses `ComparisonBenchmarks`, with
+seven warmups/samples and no outlier removal. Copy mode: 2.68 ms median and
+16.26 MiB/job; immutable transfer: 1.14 ms and about 247 KiB/job. This isolates
+host copying; it is separate from the file/job lane and supplies no native ratio.
+
 ## Integration qualification
 
 Locked restores and Release builds passed on Windows and Ubuntu WSL2 with .NET SDK/runtime 10.0.401/10.0.12 and zero warnings/errors. Both complete ordinary suites passed all 17,846 checks with no failures/skips. These counts record the run; individual historical test identities are not acceptance obligations.

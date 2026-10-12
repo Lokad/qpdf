@@ -9,6 +9,7 @@ public class ComparisonBenchmarks
 {
     private ComparisonWorkload _workload = new(string.Empty, [], [], [], []);
     private readonly Dictionary<string, byte[]> _inputs = new(StringComparer.Ordinal);
+    private QpdfInputOwnership _ownership = QpdfInputOwnership.Copy;
 
     [Params("select-S10", "select-M500", "merge-250x2", "split-M500", "rewrite-M500",
         "rewrite-X100", "object-streams-X100", "linearize-M500", "check-X100",
@@ -20,6 +21,13 @@ public class ComparisonBenchmarks
     {
         string directory = Environment.GetEnvironmentVariable("QPDF_COMPARISON_ROOT")
             ?? throw new InvalidOperationException("Set QPDF_COMPARISON_ROOT to the prepared comparison directory.");
+        _ownership = Environment.GetEnvironmentVariable("QPDF_COMPARISON_INPUT_OWNERSHIP") switch
+        {
+            null or "copy" => QpdfInputOwnership.Copy,
+            "transfer" => QpdfInputOwnership.Transfer,
+            _ => throw new InvalidOperationException("QPDF_COMPARISON_INPUT_OWNERSHIP must be copy or transfer."),
+        };
+        Console.WriteLine("Comparison input ownership: " + _ownership);
         _workload = ComparisonWorkloads.Create().Single(item => item.Name == Workload);
         foreach (string name in _workload.Inputs)
         {
@@ -33,7 +41,9 @@ public class ComparisonBenchmarks
         InMemoryQpdfHost host = new();
         foreach ((string name, byte[] content) in _inputs)
         {
-            host.AddInput(QpdfPath.From("inputs/" + name), content, QpdfInputOwnership.Copy);
+            // Prepared inputs remain immutable for the entire benchmark, so
+            // transfer can isolate processing from an optional host clone.
+            host.AddInput(QpdfPath.From("inputs/" + name), content, _ownership);
         }
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(_workload.Arguments), CancellationToken.None);

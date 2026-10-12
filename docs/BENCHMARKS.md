@@ -136,6 +136,24 @@ and preserve meaningful limits, cancellation and cleanup. Library execution and
 timed comparisons stay sequential; broader qualification belongs at integration
 checkpoints.
 
+To diagnose the sparse-selection transport gap, select only `select-sparse` in
+the existing memory-only `ComparisonBenchmarks` lane. It defaults to defensive
+input copying. Set `QPDF_COMPARISON_INPUT_OWNERSHIP=transfer` for a separate
+observation using immutable prepared input arrays, without the optional host
+clone. This isolates that allocation; it supplies no native engine ratio and
+does not replace the file/job comparison or add a default ownership matrix.
+
+For that selected diagnostic (repeat with `copy`):
+
+```bash
+QPDF_COMPARISON_ROOT="$PWD/external/prepared-comparison" \
+QPDF_COMPARISON_INPUT_OWNERSHIP=transfer \
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll \
+  --filter '*ComparisonBenchmarks*select-sparse*' --inProcess --launchCount 1 \
+  --warmupCount 7 --iterationCount 7 --iterationTime 350 --unrollFactor 1 \
+  --outliers DontRemove --artifacts external/memory-sparse-transfer
+```
+
 Warmed cells use the built-in memory host directly, with their canonical input
 names. File reads, owned input transfer, publication, output copies and physical
 writes remain inside the timed call. The reference emitter retains its lazy
