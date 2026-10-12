@@ -1,5 +1,14 @@
 # Progress
 
+Implementation `219eca3` passes final Windows/Ubuntu ordinary suites (17,846
+checks each, no failures/skips, 6m11s wall), pinned reference (5m57s), seven visual
+cases and both controls, and package/fresh-consumer/rejection checks on both
+platforms. The warm runner then exposed a transport defect: it eagerly loaded
+unrelated fixtures for every managed job. Workload-specific directories now
+expose only required original inputs to both engines; independent validators and
+all comparisons remain. Repeat performance timing, without requalifying unchanged
+production code. Consolidate the notes below into the final concise report.
+
 Fresh package qualification exposed multisource borrowing retaining three mostly
 unused inputs across readers and exceeding the existing 2 MiB selection ceiling.
 Multisource copying now keeps independent stream payloads; single-source borrowing

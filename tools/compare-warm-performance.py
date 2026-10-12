@@ -98,10 +98,19 @@ def main():
     inputs = {p.name: {"sha256": sha(p), "bytes": p.stat().st_size} for p in (root / "inputs").glob("*.pdf")}
     records, summaries = [], {}
     for case in cases:
-        workers = {"managed": Worker([str(dotnet), str(probe), "warm"], root, root / (case["Name"] + "-managed.log")),
-            "native": Worker([str(driver)], root, root / (case["Name"] + "-native.log"))}
+        # The consuming memory host registers this directory eagerly. Expose
+        # only this job's required inputs to both lanes, with unchanged bytes.
+        workload_root = root / "workloads" / case["Name"]
+        workload_inputs = workload_root / "inputs"
+        workload_inputs.mkdir(parents=True)
+        for name in case["Inputs"]:
+            shutil.copyfile(root / "inputs" / name, workload_inputs / name)
+            if sha(workload_inputs / name) != inputs[name]["sha256"]:
+                raise ValueError("Workload input differs from original")
+        workers = {"managed": Worker([str(dotnet), str(probe), "warm"], workload_root, root / (case["Name"] + "-managed.log")),
+            "native": Worker([str(driver)], workload_root, root / (case["Name"] + "-native.log"))}
         if args.baseline_probe:
-            workers["baseline"] = Worker([str(dotnet), str(args.baseline_probe.resolve()), "warm"], root, root / (case["Name"] + "-baseline.log"))
+            workers["baseline"] = Worker([str(dotnet), str(args.baseline_probe.resolve()), "warm"], workload_root, root / (case["Name"] + "-baseline.log"))
         identities = {}
         counter = 0
 
@@ -110,7 +119,7 @@ def main():
             directory = root / "jobs" / str(counter) / "outputs"
             counter += 1
             directory.mkdir(parents=True)
-            command = commands(case, "managed" if engine == "baseline" else engine, directory, root, dotnet, probe, qpdf)
+            command = commands(case, "managed" if engine == "baseline" else engine, directory, workload_root, dotnet, probe, qpdf)
             sample = workers[engine].job(command[1:] if engine == "native" else command[2:])
             identity = output_identity(case, directory)
             if phase == "validation":
@@ -140,7 +149,7 @@ def main():
             for engine in workers:
                 job(engine, "validation", -1)
             for name in case["Inputs"]:
-                (root / "inputs" / name).read_bytes()
+                (workload_inputs / name).read_bytes()
             for engine in workers:
                 start = time.monotonic()
                 count = 0
@@ -183,7 +192,7 @@ def main():
         "baselineProbeSHA256": sha(args.baseline_probe.resolve()) if args.baseline_probe else None,
         "dotnetInfo": run([dotnet, "--info"]).decode(), "cpu": run(["lscpu"]).decode(),
         "os": run(["uname", "-a"]).decode(), "compileCommand": compile_command,
-        "protocol": "Fresh public jobs, warm runtime and file cache; necessary host/file transport included; no parsed-document reuse, fsync, IPC, validation or cleanup in job timing. Sequential alternating batches; all samples retained. Each sample batch runs at least three jobs and the selected accumulated timed duration. Peak RSS is each dedicated workload worker's process high-water mark.",
+        "protocol": "Fresh public jobs, warm runtime and file cache; only each workload's required inputs are exposed to both lanes; necessary host/file transport included; no parsed-document reuse, fsync, IPC, validation or cleanup in job timing. Sequential alternating batches; all samples retained. Each sample batch runs at least three jobs and the selected accumulated timed duration. Peak RSS is each dedicated workload worker's process high-water mark.",
         "summary": summaries, "samples": records}
     (root / "results.json").write_text(json.dumps(result, indent=2) + "\n")
 
