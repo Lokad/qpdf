@@ -12,11 +12,16 @@ managed-only warmed measurements stay separate.
 
 ## Linux process comparison
 
-`tools/compare-linux-performance.py` runs nine cells: reversed selection of 10
+`tools/compare-linux-performance.py` runs thirteen cells: reversed selection of 10
 and 500 pages; merge of two 250-page sources; split of 500 pages into ten groups;
 rewriting 500 pages and a 100-page streamed/incremental file; object-stream
 generation for 100 pages; linearization of 500 pages; and structural checking
-of the streamed/incremental file. Generated text, shared fonts/forms and
+of the streamed/incremental file. Four additional cells isolate content-derived
+IDs on the existing 500-page input, rewriting 2,000 reachable name/number/string
+objects, selecting one small page while omitting a 16 MiB stream, and splitting
+64 compact pages into individual files. These expose hashing, object parsing,
+whole-input overhead and per-output work without another workload matrix.
+Generated text, shared fonts/forms and
 incremental metadata exercise distinct structural paths. The 500-page family
 has about 5 MiB of content. No images are decoded, recompressed, optimized or
 rendered; these generated inputs contain no images.
@@ -24,7 +29,8 @@ rendered; these generated inputs contain no images.
 Before timing, native checking, canonical content/resource fingerprints and
 independent PdfPig page text validate original and resulting semantics. Rewrite
 metadata, object-stream presence and both linearization checkers receive explicit
-checks. A wrong-page-order expectation must reject. Every timed output is fresh
+checks. Independent page-text checks reuse the existing bounded sequential probe
+batch, with a fresh reader for every file. A wrong-page-order expectation must reject. Every timed output is fresh
 and must match its independently validated output for that implementation.
 
 Whole-process measurements launch both engines freshly with identical inputs,
@@ -84,7 +90,7 @@ production correction is justified by these measurements alone.
 
 ## Warmed complete jobs and short probes
 
-`tools/compare-warm-performance.py` reuses the prepared inputs, nine workloads
+`tools/compare-warm-performance.py` reuses the prepared inputs, thirteen workloads
 and independent validators above. It builds the development-only
 `tools/qpdf-warm.cpp` against the clean pinned Release libqpdf, then keeps both
 native QPDFJob and managed public-job workers alive. Every operation creates a
@@ -140,7 +146,8 @@ generation requires real containers and matching compressed xref/member entries;
 an `/ObjStm` comment does not qualify. Run the finite acceptance controls with
 `tools/test-performance-validation.py`, supplying `--repo`, `--dotnet`, `--probe`,
 `--qpdf`, the prepared `--input-root` and a fresh `--work-root`. It validates both
-engines' original nine outcomes and rejects the three historical controls,
+engines' thirteen outcomes, content-ID repeatability and the reachable object
+witness, and rejects the three historical controls,
 without timing or a comprehensive product test run.
 
 ## Historical counter report

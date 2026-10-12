@@ -48,6 +48,12 @@ def main():
                 shutil.copyfile(directory / "out.pdf", directory.parent / "inputs/linearized.pdf")
             comparison.validate(case, directory, sources, dotnet, probe, qpdf, root / "inputs")
             accepted.append(case["Name"] + ":" + engine)
+            if case["Name"] == "rewrite-ID-M500":
+                repeated = directory.parent / "repeated"
+                repeated.mkdir()
+                comparison.run(comparison.commands(case, engine, repeated, root, dotnet, probe, qpdf))
+                if comparison.output_identity(case, repeated) != comparison.output_identity(case, directory):
+                    raise AssertionError("Content-derived IDs/output are not repeatable: " + engine)
     check = next(c for c in cases if c["Name"] == "check-X100")
     wrong = dict(check)
     wrong["ExpectedMarkers"] = ["deliberately wrong"]

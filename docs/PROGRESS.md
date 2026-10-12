@@ -8,10 +8,10 @@ CMYK/YCCK JPEGs remain opaque with warnings when decoding is requested; Zopfli r
 Performance work now targets ≤1.0× native for every agreed structural workload,
 using single-CPU library execution and sequential measurements. Benchmark
 acceptance now rejects a no-op checker and marker-only object-stream claim.
-All 18 original fresh managed/native outcomes and three negative controls pass;
-production is unchanged. Four orthogonal cells will add content-derived IDs,
+All 26 fresh managed/native outcomes and three negative controls pass;
+production is unchanged. Four orthogonal cells add repeatable content-derived IDs,
 object-heavy rewriting, sparse selection and single-page splitting, with codecs
-excluded. Performance commits require reduced time or allocation, without a
+excluded. The original seven fixture hashes remain unchanged. Performance commits require reduced time or allocation, without a
 minimum percentage gain.
 
 ## Integration qualification

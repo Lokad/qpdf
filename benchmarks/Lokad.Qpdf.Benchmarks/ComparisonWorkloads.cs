@@ -35,6 +35,17 @@ internal static class ComparisonWorkloads
             Rewrite("linearize-M500", "M500.pdf", "M500", 500, ["--linearize"]),
             new("check-X100", ["X100-incremental.pdf"],
                 ["inputs/X100-incremental.pdf", "--check"], [], Markers("X100", 100)),
+            new("rewrite-ID-M500", ["M500.pdf"],
+                ["inputs/M500.pdf", ..policy.Where(option => option != "--static-id"),
+                    "--deterministic-id", "outputs/out.pdf"], ["out.pdf"], Markers("M500", 500)),
+            Rewrite("rewrite-objects", "OBJECTS100.pdf", "OBJECTS100", 100, []),
+            new("select-sparse", ["SPARSE64.pdf"],
+                ["inputs/SPARSE64.pdf", ..policy, "--pages", ".", "1", "--", "outputs/out.pdf"],
+                ["out.pdf"], [Markers("SPARSE64", 64)[0]]),
+            new("split-single", ["SPLIT64.pdf"],
+                ["inputs/SPLIT64.pdf", ..policy, "--split-pages=1", "--pages", ".", "1-z", "--", "outputs/out.pdf"],
+                Enumerable.Range(1, 64).Select(page => "out-" + page.ToString("D2") + ".pdf").ToArray(),
+                Markers("SPLIT64", 64)),
         ];
     }
 
@@ -50,9 +61,12 @@ internal static class ComparisonWorkloads
             File.WriteAllBytes(Path.Combine(directory, "inputs", series + ".pdf"),
                 PdfScenarioBuilder.BuildComparisonDocument(count, bytes, series));
         }
+        File.WriteAllBytes(Path.Combine(directory, "inputs", "OBJECTS100.pdf"), PdfScenarioBuilder.BuildObjectComparisonDocument());
+        File.WriteAllBytes(Path.Combine(directory, "inputs", "SPARSE64.pdf"), PdfScenarioBuilder.BuildSparseComparisonDocument());
+        File.WriteAllBytes(Path.Combine(directory, "inputs", "SPLIT64.pdf"), PdfScenarioBuilder.BuildComparisonDocument(64, 128, "SPLIT64"));
         File.WriteAllText(Path.Combine(directory, "workloads.json"),
             JsonSerializer.Serialize(Create(), new JsonSerializerOptions { WriteIndented = true }));
-        Console.WriteLine("Generated five classic files and nine workloads; prepare X100-incremental.pdf with the Linux comparison script.");
+        Console.WriteLine("Generated eight classic files and thirteen workloads; prepare X100-incremental.pdf with the Linux comparison script.");
         return 0;
     }
 

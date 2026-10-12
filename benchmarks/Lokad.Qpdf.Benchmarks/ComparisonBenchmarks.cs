@@ -11,7 +11,8 @@ public class ComparisonBenchmarks
     private readonly Dictionary<string, byte[]> _inputs = new(StringComparer.Ordinal);
 
     [Params("select-S10", "select-M500", "merge-250x2", "split-M500", "rewrite-M500",
-        "rewrite-X100", "object-streams-X100", "linearize-M500", "check-X100")]
+        "rewrite-X100", "object-streams-X100", "linearize-M500", "check-X100",
+        "rewrite-ID-M500", "rewrite-objects", "select-sparse", "split-single")]
     public string Workload { get; set; } = string.Empty;
 
     [GlobalSetup]

@@ -11,6 +11,7 @@ import re
 import signal
 import statistics
 import subprocess
+import tempfile
 import time
 
 
@@ -21,12 +22,32 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run(argv):
-    result = subprocess.run([str(a) for a in argv], capture_output=True, timeout=180)
+def run(argv, input_bytes=None):
+    result = subprocess.run([str(a) for a in argv], input=input_bytes, capture_output=True, timeout=180)
     if result.returncode:
         raise RuntimeError(f"Command failed ({result.returncode}): {argv}\n"
                            f"{result.stdout.decode(errors='replace')}\n{result.stderr.decode(errors='replace')}")
     return result.stdout
+
+
+def page_texts(dotnet, probe, paths):
+    """Reuse the existing bounded sequential probe batch for independent checks."""
+    observed = []
+    for first in range(0, len(paths), 64):
+        group = paths[first:first + 64]
+        with tempfile.TemporaryDirectory(prefix="page-text-", dir=group[0].parent) as name:
+            directory = Path(name)
+            requests = [{"Id": i, "Arguments": ["page-text", "--input", str(path)],
+                "WorkingDirectory": str(directory), "StandardOutput": str(directory / f"{i}.json"),
+                "StandardError": str(directory / f"{i}.log")} for i, path in enumerate(group)]
+            responses = run([dotnet, probe, "batch"],
+                ("".join(json.dumps(request) + "\n" for request in requests)).encode())
+            expected = [{"Id": i, "ExitCode": 0} for i in range(len(group))]
+            if [json.loads(line) for line in responses.splitlines()] != expected:
+                errors = "\n".join((directory / f"{i}.log").read_text() for i in range(len(group)))
+                raise ValueError("Independent page-text batch failed: " + errors)
+            observed.extend(json.loads((directory / f"{i}.json").read_text()) for i in range(len(group)))
+    return observed
 
 
 def native_json(qpdf, path):
@@ -82,7 +103,8 @@ def fingerprints(qpdf, path):
     trailer = objects["trailer"]["value"]
     info = canonical(trailer["/Info"]) if "/Info" in trailer else {}
     catalog = value(trailer["/Root"])
-    return {"pages": pages, "info": info, "pageMode": catalog.get("/PageMode")}
+    return {"pages": pages, "info": info, "pageMode": catalog.get("/PageMode"),
+        "ids": trailer.get("/ID", []), "graph": canonical(catalog["/BenchGraph"]) if "/BenchGraph" in catalog else None}
 
 
 def prepare_incremental(qpdf, root):
@@ -204,28 +226,44 @@ def validate(case, directory, sources, dotnet, probe, qpdf, input_directory):
     expected = []
     for name in case["Inputs"]:
         expected.extend(sources[name]["pages"])
-    if case["Name"].startswith("select-"):
+    if case["Name"] == "select-sparse":
+        expected = expected[:1]
+    elif case["Name"].startswith("select-"):
         expected.reverse()
+    if case["Name"] == "rewrite-objects":
+        witness = sources[case["Inputs"][0]]["graph"]
+        wanted = [{"/Node": i, "/Key-" + str(i): "/Value-" + str(i),
+            "/Nums": [i, 0, 0, 0], "/Text": "u:node\n" + str(i) + "(value)"} for i in range(2000)]
+        if witness != wanted:
+            raise ValueError("Object-heavy input lacks its reachable name/number/string witness")
     if not case["Outputs"]:
         if not case["Name"].startswith("check-"):
             raise ValueError("Outputless workload needs an explicit validation policy")
-        observed = []
-        for name in case["Inputs"]:
-            observed.extend(json.loads(run([dotnet, probe, "page-text", "--input", input_directory / name])))
+        observed = [text for pages in page_texts(dotnet, probe,
+            [input_directory / name for name in case["Inputs"]]) for text in pages]
         if observed != case["ExpectedMarkers"]:
             raise ValueError("Independent checking input/order expectation failed")
         checker_preflight(directory.parent, dotnet, probe, qpdf)
-    pages, markers = [], []
-    for name in case["Outputs"]:
+    pages, markers, group_sizes = [], [], []
+    texts = page_texts(dotnet, probe, [directory / name for name in case["Outputs"]])
+    for name, text in zip(case["Outputs"], texts):
         path = directory / name
         run([qpdf, "--check", path])
         semantic = fingerprints(qpdf, path)
         pages.extend(semantic["pages"])
-        markers.extend(json.loads(run([dotnet, probe, "page-text", "--input", path])))
+        group_sizes.append(len(semantic["pages"]))
+        markers.extend(text)
         if case["Name"].startswith(("rewrite-", "object-streams-", "linearize-")):
             source = sources[case["Inputs"][0]]
             if semantic["info"] != source["info"] or semantic["pageMode"] != source["pageMode"]:
                 raise ValueError("Catalog/incremental metadata changed")
+            if semantic["graph"] != source["graph"]:
+                raise ValueError("Reachable object witness changed")
+        if case["Name"] == "rewrite-ID-M500":
+            ids = semantic["ids"]
+            if (len(ids) != 2 or any(not isinstance(value, str) or not re.fullmatch(r"b:[0-9a-f]{32}", value) for value in ids)
+                    or (source["ids"] and ids[0] != source["ids"][0])):
+                raise ValueError("Content-derived document IDs are invalid")
         if case["Name"].startswith("object-streams-"):
             validate_object_streams(qpdf, path)
         if case["Name"].startswith("linearize-"):
@@ -234,8 +272,12 @@ def validate(case, directory, sources, dotnet, probe, qpdf, input_directory):
                  "--", "inputs/linearized.pdf", "--check-linearization"])
     if case["Outputs"] and (pages != expected or markers != case["ExpectedMarkers"]):
         raise ValueError(f"Independent page/content/resource/order validation failed: {case['Name']}")
-    if case["Name"] == "split-M500" and any(len(fingerprints(qpdf, directory / n)["pages"]) != 50 for n in case["Outputs"]):
+    if case["Name"] == "split-M500" and any(count != 50 for count in group_sizes):
         raise ValueError("Split group size changed")
+    if case["Name"] == "split-single" and any(count != 1 for count in group_sizes):
+        raise ValueError("Single-page split group size changed")
+    if case["Name"] == "select-sparse" and sum((directory / name).stat().st_size for name in case["Outputs"]) > 65536:
+        raise ValueError("Sparse selection retained material omitted payload")
     return output_identity(case, directory)
 
 

@@ -62,7 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("repo", "dotnet", "qpdf", "native-source", "native-build", "input-root", "work-root"):
         parser.add_argument("--" + name, required=True, type=Path)
-    parser.add_argument("--workload", action="append", help="Selected existing manifest names; default all nine")
+    parser.add_argument("--workload", action="append", help="Selected existing manifest names; default all")
     parser.add_argument("--sample-seconds", type=float, default=0.35)
     parser.add_argument("--warmup-seconds", type=float, default=2.0)
     parser.add_argument("--samples", type=int, default=7)
@@ -94,7 +94,8 @@ def main():
         "-I" + str(native_build / "libqpdf"), str(repo / "tools/qpdf-warm.cpp"),
         str(native_build / "libqpdf/libqpdf.a"), "-lz", "-ljpeg", "-pthread", "-o", str(driver)]
     run(compile_command)
-    sources = {p.name: fingerprints(qpdf, p) for p in (root / "inputs").glob("*.pdf")}
+    needed_inputs = {name for case in cases for name in case["Inputs"]}
+    sources = {name: fingerprints(qpdf, root / "inputs" / name) for name in sorted(needed_inputs)}
     inputs = {p.name: {"sha256": sha(p), "bytes": p.stat().st_size} for p in (root / "inputs").glob("*.pdf")}
     records, summaries = [], {}
     for case in cases:

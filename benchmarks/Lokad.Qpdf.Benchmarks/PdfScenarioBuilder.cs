@@ -36,6 +36,16 @@ internal static class PdfScenarioBuilder
     }
 
     internal static byte[] BuildComparisonDocument(int pages, int contentBytes, string series)
+        => BuildComparisonCore(pages, contentBytes, series, null, 0, 0);
+
+    internal static byte[] BuildObjectComparisonDocument()
+        => BuildComparisonCore(100, 192, "OBJECTS100", null, 0, 2000);
+
+    internal static byte[] BuildSparseComparisonDocument()
+        => BuildComparisonCore(64, 128, "SPARSE64", 64, 16 * 1024 * 1024, 0);
+
+    private static byte[] BuildComparisonCore(int pages, int contentBytes, string series,
+        int? bulkyPage, int bulkyBytes, int graphObjects)
     {
         int font = 3 + (2 * pages);
         int form = font + 1;
@@ -44,14 +54,16 @@ internal static class PdfScenarioBuilder
         string kids = string.Join(" ", Enumerable.Range(0, pages).Select(page => (3 + (2 * page)) + " 0 R"));
         List<ObjectSpec> specs =
         [
-            new("<< /Type /Catalog /Pages 2 0 R /PageMode /UseNone >>", null),
+            new("<< /Type /Catalog /Pages 2 0 R /PageMode /UseNone"
+                + (graphObjects == 0 ? "" : " /BenchGraph " + (info + 1) + " 0 R") + " >>", null),
             new("<< /Type /Pages /Kids [" + kids + "] /Count " + pages + " /Resources " + resources + " 0 R >>", null),
         ];
         for (int page = 0; page < pages; page++)
         {
             string marker = series + "-page-" + (page + 1).ToString("D4");
             string prefix = "BT /F1 12 Tf 72 720 Td (" + marker + ") Tj ET\nq /Fm0 Do Q\n% ";
-            byte[] content = Encoding.ASCII.GetBytes(prefix + new string('x', Math.Max(0, contentBytes - prefix.Length - 1)) + "\n");
+            int bytes = bulkyPage == page + 1 ? bulkyBytes : contentBytes;
+            byte[] content = Encoding.ASCII.GetBytes(prefix + new string('x', Math.Max(0, bytes - prefix.Length - 1)) + "\n");
             specs.Add(new("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents " + (4 + (2 * page)) + " 0 R >>", null));
             specs.Add(new("<< /Length " + content.Length + " >>", content));
         }
@@ -60,6 +72,16 @@ internal static class PdfScenarioBuilder
         specs.Add(new("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << >> /Length " + formBytes.Length + " >>", formBytes));
         specs.Add(new("<< /Font << /F1 " + font + " 0 R >> /XObject << /Fm0 " + form + " 0 R >> >>", null));
         specs.Add(new("<< /Title (" + series + ") /Producer (Generated Lokad.qpdf benchmark input) >>", null));
+        if (graphObjects != 0)
+        {
+            string references = string.Join(" ", Enumerable.Range(0, graphObjects).Select(index => (info + 2 + index) + " 0 R"));
+            specs.Add(new("[ " + references + " ]", null));
+            for (int index = 0; index < graphObjects; index++)
+            {
+                specs.Add(new("<< /Node " + index + " /Key-" + index + " /Value#2D" + index
+                    + " /Nums [" + index + " 0 +0 -0] /Text (node\\012" + index + "\\050value\\051) >>", null));
+            }
+        }
         return Assemble(specs, info);
     }
 
