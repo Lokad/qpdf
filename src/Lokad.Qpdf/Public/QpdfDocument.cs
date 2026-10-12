@@ -15,6 +15,9 @@ public sealed class QpdfDocument : IAsyncDisposable
 {
     private static readonly PdfName TypeKey = PdfName.FromAscii("Type");
     private static readonly PdfName KidsKey = PdfName.FromAscii("Kids");
+    private static readonly PdfName CountKey = PdfName.FromAscii("Count");
+    private static readonly PdfName RootKey = PdfName.FromAscii("Root");
+    private static readonly PdfName PagesKey = PdfName.FromAscii("Pages");
     private IQpdfInput? _input;
     private DocumentEngine? _engine;
     private readonly ResourceGovernor _governor;
@@ -589,7 +592,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         _governor.CheckCancellation();
         _governor.ChargeWork(4L);
         PdfDictionary pages = ReadPageRoot(Engine);
-        if (pages.TryGet(PdfName.FromAscii("Count"), out QpdfObject count) && count is PdfInteger integer)
+        if (pages.TryGet(CountKey, out QpdfObject count) && count is PdfInteger integer)
         {
             return integer.Value;
         }
@@ -599,8 +602,7 @@ public sealed class QpdfDocument : IAsyncDisposable
 
     private static PdfDictionary ReadPageRoot(DocumentEngine engine)
     {
-        PdfName rootKey = new([(byte)'R', (byte)'o', (byte)'o', (byte)'t']);
-        if (!engine.Trailer.TryGet(rootKey, out QpdfObject rootRaw))
+        if (!engine.Trailer.TryGet(RootKey, out QpdfObject rootRaw))
         {
             throw new QpdfParseException("Trailer must declare /Root.", null, null);
         }
@@ -619,8 +621,7 @@ public sealed class QpdfDocument : IAsyncDisposable
                 throw new QpdfParseException($"Catalog has unexpected /Type /{rootType.DisplayText}.", null, null);
             }
 
-            PdfName pagesKey = new([(byte)'P', (byte)'a', (byte)'g', (byte)'e', (byte)'s']);
-            if (!root.TryGet(pagesKey, out QpdfObject pagesRaw))
+            if (!root.TryGet(PagesKey, out QpdfObject pagesRaw))
             {
                 throw new QpdfParseException("Catalog must declare /Pages.", null, null);
             }

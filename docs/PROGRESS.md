@@ -14,6 +14,21 @@ object-heavy rewriting, sparse selection and single-page splitting, with codecs
 excluded. The original seven fixture hashes remain unchanged. Performance commits require reduced time or allocation, without a
 minimum percentage gain.
 
+The next local parity batch avoids split-wide pool scans after reachability,
+temporary page-root/signature names and redundant clearing of fully overwritten
+writer/payload arrays. Release builds pass with zero warnings/errors; 341 affected
+reader, writer, split, form, attachment and limit checks pass. Same-driver warmed
+pairs preserve output hashes; object-stream generation allocates about 21.8 KB
+less per job (1.387 → 1.365 MB). Timing distributions overlap under variable host
+load, so no time gain is claimed. Comprehensive qualification follows integration.
+
+The thirteen-cell baseline exposes sparse selection as the largest complete-job
+gap: 11.62 ms versus 1.61 ms native (7.22×), allocating 33.85 MB for a 1.1 KB
+output from a 16.8 MB input. Its managed emitter reads and defensively copies the
+whole source. Object-heavy rewriting is 1.86× with 13.14 MB allocation. These
+results separate transport from parser/writer investigation; they do not establish
+a retained-memory leak or a pure engine ratio. All original observations remain.
+
 ## Integration qualification
 
 Locked restores and Release builds passed on Windows and Ubuntu WSL2 with .NET SDK/runtime 10.0.401/10.0.12 and zero warnings/errors. Both complete ordinary suites passed all 17,846 checks with no failures/skips. These counts record the run; individual historical test identities are not acceptance obligations.

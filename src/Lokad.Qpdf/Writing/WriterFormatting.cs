@@ -69,9 +69,10 @@ internal sealed class WriterFormatting : IDisposable
         try
         {
             memory.Reserve(64L + (length == 0L ? 0L : 32L + length));
-            governor.ChargeWork(length); // Array zeroing is admitted work before allocation.
+            governor.ChargeWork(length); // Conservative allocation work allowance.
             CheckCancellation(governor, cancellationToken);
-            byte[] bytes = length == 0L ? Array.Empty<byte>() : new byte[(int)length];
+            // Fields and final padding fill the entire result before publication.
+            byte[] bytes = length == 0L ? Array.Empty<byte>() : GC.AllocateUninitializedArray<byte>((int)length);
             int used = 0;
             foreach (WriterPart part in parts)
             {

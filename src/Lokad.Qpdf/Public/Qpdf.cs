@@ -225,7 +225,7 @@ public static partial class Qpdf
         Dictionary<PdfName, QpdfObject> entries = new();
         foreach (PdfName name in form.Keys)
         {
-            if (name.DisplayText == "NeedAppearances")
+            if (name.RawSpan.SequenceEqual("NeedAppearances"u8))
             {
                 continue;
             }
@@ -1371,11 +1371,12 @@ public static partial class Qpdf
                 }
             }
             List<int> kept = new(reachable.Count);
-            foreach (KeyValuePair<int, QpdfObject> entry in pool)
+            foreach (int id in reachable)
             {
-                if (reachable.Contains(entry.Key))
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                if (pool.ContainsKey(id))
                 {
-                    kept.Add(entry.Key);
+                    kept.Add(id);
                 }
             }
 
@@ -2633,7 +2634,7 @@ public static partial class Qpdf
         return compressed;
     }
 
-    private static bool IsCompressibleValue(int number, QpdfObject value)
+    private static bool IsCompressibleValue(int number, QpdfObject value, ResourceGovernor governor)
     {
         if (number == 1 || number == 2)
         {
@@ -2647,12 +2648,12 @@ public static partial class Qpdf
 
         if (value is PdfDictionary dictionary)
         {
-            PdfName typeKey = PdfName.FromAscii("Type");
-            PdfName byteRangeKey = PdfName.FromAscii("ByteRange");
-            PdfName contentsKey = PdfName.FromAscii("Contents");
-            if (dictionary.TryGet(typeKey, out QpdfObject typeRaw) && typeRaw is PdfName typeName && typeName.DisplayText == "Sig"
-                && dictionary.TryGet(byteRangeKey, out QpdfObject byteRange) && byteRange is not PdfNull
-                && dictionary.TryGet(contentsKey, out QpdfObject contents) && contents is not PdfNull)
+            if (PdfDictionaryLookup.TryGet(dictionary, "Type"u8, governor, CancellationToken.None, out QpdfObject typeRaw)
+                && typeRaw is PdfName typeName && typeName.RawSpan.SequenceEqual("Sig"u8)
+                && PdfDictionaryLookup.TryGet(dictionary, "ByteRange"u8, governor, CancellationToken.None, out QpdfObject byteRange)
+                && byteRange is not PdfNull
+                && PdfDictionaryLookup.TryGet(dictionary, "Contents"u8, governor, CancellationToken.None, out QpdfObject contents)
+                && contents is not PdfNull)
             {
                 return false;
             }
@@ -2698,7 +2699,7 @@ public static partial class Qpdf
             foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
                 governor.ChargeWork(1L);
-                if (IsCompressibleValue(entry.Key, entry.Value))
+                if (IsCompressibleValue(entry.Key, entry.Value, governor))
                 {
                     compressed.Add(entry.Key);
                 }
@@ -2720,7 +2721,7 @@ public static partial class Qpdf
                 if (map.TryGetValue(orig, out int dest)
                     && pool.TryGetValue(dest, out QpdfObject? value)
                     && value is not null
-                    && IsCompressibleValue(dest, value))
+                    && IsCompressibleValue(dest, value, governor))
                 {
                     compressed.Add(dest);
                 }

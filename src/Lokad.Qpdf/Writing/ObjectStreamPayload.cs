@@ -116,7 +116,8 @@ internal sealed class ObjectStreamPayload : IDisposable
             governor.ChargeWork(length);
             cancellationToken.ThrowIfCancellationRequested();
             governor.CheckCancellation();
-            byte[] raw = new byte[(int)length];
+            // The table and member copies cover the entire admitted payload.
+            byte[] raw = GC.AllocateUninitializedArray<byte>((int)length);
             GovernedBufferStream.CopyBytes(table.Slice(0, used), raw, governor, cancellationToken, CancellationToken.None);
             int position = used;
             for (int index = 0; index < count; index++)

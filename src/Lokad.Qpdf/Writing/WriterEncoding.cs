@@ -191,7 +191,8 @@ internal sealed class WriterEncoding : IDisposable
             memory.Reserve(64L + (length == 0L ? 0L : 32L + length));
             governor.ChargeWork(length);
             CheckCancellation(governor, cancellationToken);
-            byte[] bytes = length == 0L ? Array.Empty<byte>() : new byte[(int)length];
+            // Fill writes every byte before the token can reach a sink.
+            byte[] bytes = length == 0L ? Array.Empty<byte>() : GC.AllocateUninitializedArray<byte>((int)length);
             Fill(kind, input, text, bytes, governor, cancellationToken, observe);
             return new WriterEncoding(memory, bytes);
         }
