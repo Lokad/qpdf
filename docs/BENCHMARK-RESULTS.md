@@ -1,11 +1,31 @@
 # Linux benchmark comparison — 2026-10-12
 
-All nine representative warmed structural jobs meet the **2× target** on `219eca3`; ratios range from 0.66× to 1.77× pinned native qpdf 12.4.2.
+The current goal is single-CPU parity (≤1.0×) in every agreed structural workload;
+it remains open. The panel now has thirteen codec-free cells. Sparse selection
+exposes the largest complete-job gap: an owned-input transport correction reduces
+its paired median from 11.68 to 6.63 ms, versus 1.67 ms native (3.96× remains).
+This removes a redundant emitter clone, rather than speeding up the parser.
+
+Recent production corrections remove split-wide scans, redundant writer clearing,
+uncompressed counting buffers and unescaped-name buffers. Same-driver measurements
+reduce object-stream allocation by 80.2 KB/job and object-heavy rewrite allocation
+by 1.066 MB/job; their timing IQRs overlap. Fresh output hashes are unchanged.
+All 26 extended managed/native outcomes and three negative controls pass.
+
+[Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
+preserve the thirteen-cell baseline, four correction/transport pairs and separate
+managed-only memory diagnostics. Every sample and summary number is retained;
+local paths/hostnames are redacted. The diagnostic compares memory-host Copy and
+immutable Transfer: 2.68 / 1.14 ms medians, 16.26 MiB / 247 KiB allocation. It
+supplies no native ratio and does not replace the complete file-job comparison.
+
+The previously qualified nine-cell **2× target** on `219eca3` is historical evidence;
+its ratios range from 0.66× to 1.77× pinned native qpdf 12.4.2.
 Fresh outputs independently validate; input hashes are unchanged and recorded managed output hashes match earlier validated runs. Production/probe binaries match qualified `219eca3`; measurement tooling is `96c591f`. This qualifies the selected workloads and built-in memory-host path on this machine, rather than every PDF, option or custom host.
 
 [Protocol and reproduction](BENCHMARKS.md#warmed-complete-jobs-and-short-probes) · [raw observations and build/input/output identities (gzip JSON)](../benchmarks/results/2026-10-12-warm-comparison.json.gz)
 
-## Elapsed time: both engines warmed
+## Previously qualified elapsed time: both engines warmed
 
 Median of seven batch means, in milliseconds per complete fresh job, with Q1–Q3 across batches in parentheses. The initial ratio is the original fair warmed baseline (`a4c8003`); separate-run changes do not isolate individual correction gains. All seven batches remain included.
 
