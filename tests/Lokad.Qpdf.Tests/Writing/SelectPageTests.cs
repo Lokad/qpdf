@@ -1,6 +1,8 @@
 using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Inspection;
 using UglyToad.PdfPig;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -131,6 +133,46 @@ public sealed class SelectPageTests
         Assert.Equal(new PdfInteger("612", 612L), mediaBox[2]);
         Assert.True(page.TryGet(new PdfName(Encoding.ASCII.GetBytes("Resources")), out QpdfObject resources));
         Assert.IsType<PdfDictionary>(resources);
+    }
+
+    [Theory]
+    [InlineData("typed", "self")]
+    [InlineData("argv", "repeated-parent")]
+    [InlineData("job", "direct-prefix")]
+    public async Task RejectsAncestryCyclesWithoutPublishingOrLeakingLeases(string route, string shape)
+    {
+        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        string parent = shape == "self" ? "3 0 R" : shape == "direct-prefix" ? "<< /Parent 6 0 R >>" : "6 0 R";
+        objects[2] = (3, "<< /Type /Page /Parent " + parent
+            + " /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >> >>", null);
+        objects.Add((6, shape == "direct-prefix" ? "<< /Parent 3 0 R >>" : "<< /Parent 6 0 R >>", null));
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("in.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        byte[] prior = "prior output"u8.ToArray();
+        await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(QpdfPath.From("out.pdf"), CancellationToken.None))
+        {
+            await seed.WriteAsync(prior, CancellationToken.None);
+            await seed.CommitAsync(CancellationToken.None);
+        }
+        if (route == "typed")
+        {
+            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(async () =>
+                await Qpdf.SelectPageAsync(host, QpdfPath.From("in.pdf"), QpdfPath.From("out.pdf"),
+                    new PdfPageSelectionOptions(1), CancellationToken.None));
+            Assert.Contains("cycle", failure.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["in.pdf", "--pages", ".", "1", "--", "out.pdf"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "in.pdf", outputFile = "out.pdf",
+                    pages = new[] { new { file = ".", range = "1" } } }), CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("cycle", StringComparison.Ordinal));
+        }
+        Assert.True(host.TryGetOutput(QpdfPath.From("out.pdf"), out byte[] unchanged));
+        Assert.Equal(prior, unchanged);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]

@@ -9,12 +9,13 @@ transport reads the entire 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
 observations. Performance commits need reduced time or allocation, with no
 minimum percentage gain. Noisy overlapping timings do not establish a time win.
 
-Pushed `8c99543` passed [hosted CI run 38289384516](https://github.com/Lokad/qpdf/actions/runs/38289384516):
-Windows 7m05s, Ubuntu 5m30s, pinned reference 5m55s. Each platform includes locked
-restore, Release build/tests, explicit pack, inspection, fresh consumer and
-rejection checks. Local locked Release build had zero warnings/errors; seven
-visual cases and two controls passed in 19s. One push-triggered run, no reruns.
-Batch further coherent changes before another hosted checkpoint.
+Pushed `c6eca2e` passed [hosted CI run 38303565149](https://github.com/Lokad/qpdf/actions/runs/38303565149):
+Windows 6m23s, Ubuntu 5m55s, pinned reference 3m55s. Both platforms pass 17,811
+ordinary checks without failures/skips, locked Release build/pack, inspection,
+fresh consumer and rejection controls. Reference covers 1,858 object comparisons
+and 442 rewrite trios. Seven visuals and both controls pass on the same writer
+source. Two push-triggered runs in that batch corrected one chunk-boundary test;
+no manual reruns. Batch further source changes before another hosted checkpoint.
 
 The agreed [supported profile](SUPPORTED-PROFILE.md) and completed features remain
 closed. CMYK/YCCK JPEG decoding remains opaque with warnings; Zopfli is
@@ -24,49 +25,25 @@ in [compatibility](COMPATIBILITY.md); performance work does not waive them.
 
 ## Current correction and next work
 
-Ordinary/QDF/split publication now batches small writes in bounded scratch and
-formats short tokens there using existing encoders. Exact packet copies remain
-immutable for retaining hosts; logical offsets include pending bytes and flush
-precedes commit. A public 200-copy page-selection job that exhausted a 500-host-
-operation cap now completes under that cap. A two-operation control still fails,
-preserves prior output and closes leases. Long tokens bypass bounded probes.
+Page-attribute lookup now avoids traversal scratch for leaf hits and one
+indirect parent. Missing optional attributes normally visit the page-tree root
+and stop; callers already bypass most direct leaf hits. The first parent is
+checked against the complete source identity. Longer chains allocate the same
+governed visited set, seed prior identities, and preserve cycle/depth/work limits,
+cancellation, raw-byte lookup and cleanup.
 
-The local correction passes 2,237 affected checks, seven final controls, all 26
-fresh extended managed/native outcomes and three historical negative controls.
-Release pack, inspection and a fresh locked consumer also pass, including the
-unchanged 2 MiB multisource case. Same-driver probes preserve output hashes and
-reduce object-heavy allocation 11.754 → 10.289 MB/job (1.465 MB) and streamed
-rewrite 1.189 → 1.105 MB/job (84.7 KB). Timings overlap; claim allocation only.
-The initial batching-only prototype had no decisive performance win and remains
-recorded. Source/patches, logs/TRX and raw observations are in the ignored
+The correction passes 111 affected checks and eleven final controls, including
+complete typed/argv/job cycle failures preserving prior output/closed leases,
+generation-sensitive lookup and work failure after deeper traversal. Identical-
+driver M500 selection allocation falls 19.843 → 19.520 MB/job (323 KB), with
+unchanged output hashes. Times overlap (32.09 → 31.71 ms); claim allocation only.
+The existing thirteen-cell profile and independent negative controls remain
+binding. Logs/TRX, patches and raw observations are in the ignored
 `external/reviews/2026-10-12-structural-review/` checkpoint.
-
-The same batching now covers placeholder-ID hashing and classic/streamed
-linearized publication, including optional first-pass output. Capacity hints
-still reach admitted staging; pending bytes count toward offsets, and flushing
-precedes digest/commit. Both linearized 200-copy jobs now complete under the
-unchanged 500-host-operation cap. Golden IDs remain unchanged. The affected
-suite passes 1,529 checks. Eight representative public publication cases replace
-the private exact-receipt/chunk-boundary matrix, preserving both routes, decoded
-inputs, output integrity, retained chunks, failure, cancellation and cleanup.
-
-Same-driver pairs remove another 415 KB/job from default-ID rewriting and
-425 KB/job from linearization; output hashes match. Times overlap under load,
-so allocation alone qualifies these changes. The public raw archive now retains
-ten runs, including both clean thirteen-cell panels and both batching prototypes.
-Final-source semantic preflight passes all 26 fresh outcomes and three negative
-controls. Locked Release restore/build pass with zero warnings/errors; explicit
-pack, inspection and the fresh locked consumer pass, including the unchanged
-2 MiB multisource case. Hosted integration qualification follows this combined
-writer correction.
-
-The `11fb330` hosted reference job passed in 5m39s. Each ordinary job passed
-17,809 checks and failed one retained-output control that assumed the tiny stream
-was a separate host write. Its correction checks every retained backing against
-the existing 64 KiB bound, reassembles immutable chunks against published output,
-and covers both batched and direct payload writes. It preserves the actual
-whole-input retention regression. The following corrective hosted checkpoint
-qualifies tests/packages; production code and benchmark coverage remain unchanged.
+All 26 fresh managed/native outcomes and three negative controls pass; input
+hashes are unchanged. Explicit Release pack, inspection and a fresh locked
+consumer pass, including the unchanged 2 MiB multisource case. The correction
+is a local source unit for the next combined integration checkpoint.
 
 Continue with one measured parser/writer or reader/host cost at a time. Preserve
 the thirteen cells, original inputs, meaningful ceilings and negative controls;
@@ -89,6 +66,12 @@ checkpoints when changes or unresolved concerns justify it.
 - Shared fixed tokens, pure sizing, incremental IDs and admitted output staging
   preserve offsets, IDs and publication. Underestimated hints grow safely; only
   written bytes publish and settled storage drops promptly.
+- Batching/direct formatting covers ordinary/QDF/split, ID hashing and linearized
+  publication. Retaining hosts receive immutable packets; staging hints, offsets,
+  golden IDs and practical host caps survive. Paired allocations fall by 1.465
+  MB/job for object-heavy output, 84.7 KB for streamed rewriting, and another
+  415/425 KB for default IDs/linearization. Timings overlap. Public retention and
+  publication controls use representative workloads and practical backing bounds.
 - Developer emitters transfer privately read buffers through the existing API.
   The paired sparse file-job median falls 11.68 → 6.63 ms (43%); this is a transport
   correction. Separate memory-only Copy/Transfer medians are 2.68 / 1.14 ms, with

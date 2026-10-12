@@ -18,6 +18,10 @@ Reusing batching for placeholder hashing and linearized publication removes
 another 415 KB/job and 425 KB/job respectively. Same-driver medians are
 103.99 → 110.69 ms and 124.03 → 129.73 ms with overlapping IQRs under load;
 these observations establish no elapsed-time improvement. Output hashes match.
+Deferring page-ancestry scratch until a second indirect parent removes another
+323 KB/job from M500 selection (19.843 → 19.520 MB). Same-driver medians
+32.09 → 31.71 ms overlap under load; control compilation may overlap the end
+of that probe. Accept allocation only. Fresh output hashes remain unchanged.
 
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
 preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate

@@ -56,6 +56,38 @@ public sealed class ReaderNameLookupTests
         Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
     }
 
+    [Fact]
+    public void FirstParentUsesTheCompleteReferenceIdentity()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using DocumentEngine engine = Engine(QpdfLimits.Default, governor);
+        PdfName key = PdfName.FromAscii("MediaBox"); PdfArray value = new([PdfNull.Instance]);
+        PdfDictionary ancestor = new(new Dictionary<PdfName, QpdfObject> { [key] = value });
+        engine.SetInspectionObjects(new Dictionary<int, QpdfObject> { [3] = ancestor });
+        PdfDictionary page = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Parent")] = new PdfReference(3, 0) });
+        long before = governor.Snapshot().LiveMemoryBytes;
+        Assert.Same(value, PageInheritance.Find(engine, new PageLocation(new PdfReference(3, 1), page), key,
+            QpdfLimits.Default, governor, CancellationToken.None));
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public void MultiLevelLookupFailureReleasesTraversalStorage()
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxWork = 64L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using DocumentEngine engine = Engine(limits, governor);
+        PdfName parent = PdfName.FromAscii("Parent");
+        PdfDictionary page = new(new Dictionary<PdfName, QpdfObject> { [parent] = new PdfReference(3, 0) });
+        PdfDictionary ancestor = new(new Dictionary<PdfName, QpdfObject> { [parent] = new PdfReference(4, 0) });
+        engine.SetInspectionObjects(new Dictionary<int, QpdfObject> { [3] = ancestor, [4] = ManyEntries() });
+        long before = governor.Snapshot().LiveMemoryBytes;
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => PageInheritance.Find(engine,
+            new PageLocation(new PdfReference(1, 0), page), PdfName.FromAscii("Missing"), limits, governor, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
