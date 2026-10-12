@@ -121,16 +121,27 @@ Select one existing cell with `--workload linearize-M500` for a short probe,
 usually under one minute including validation and compilation. Preserve a built
 baseline probe directory and pass `--baseline-probe <dir>/QpdfProbe.dll` to
 interleave baseline, candidate and native jobs under the same conditions.
-Accept straightforward copy/allocation eliminations on structural grounds with
-focused correctness and resource checks. Larger performance hypotheses need a
-public-workload gain beyond variability. Measurements track the overall target;
-broader qualification belongs at integration checkpoints.
+Performance commits need reduced elapsed time or per-job allocation with focused
+correctness and resource checks; there is no minimum percentage improvement.
+Removed allocations can establish a structural win. Report timing variability
+and preserve meaningful limits, cancellation and cleanup. Library execution and
+timed comparisons stay sequential; broader qualification belongs at integration
+checkpoints.
 
 Warmed cells use the built-in memory host directly, with their canonical input
 names. File reads, defensive input copies, publication, output copies and physical
 writes remain inside the timed call. The reference emitter retains its lazy
 filename-alias adapter. For paired library comparisons, use the same probe build
 with each reviewed library binary, so the host/transport path is identical.
+
+Outputless checking has a readable defective-input preflight, whose expected
+checker outcome prevents a successful no-op from qualifying. Object-stream
+generation requires real containers and matching compressed xref/member entries;
+an `/ObjStm` comment does not qualify. Run the finite acceptance controls with
+`tools/test-performance-validation.py`, supplying `--repo`, `--dotnet`, `--probe`,
+`--qpdf`, the prepared `--input-root` and a fresh `--work-root`. It validates both
+engines' original nine outcomes and rejects the three historical controls,
+without timing or a comprehensive product test run.
 
 ## Historical counter report
 

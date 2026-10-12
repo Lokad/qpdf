@@ -5,6 +5,15 @@ All nine representative warmed structural-job medians meet the 2× native qpdf 1
 
 CMYK/YCCK JPEGs remain opaque with warnings when decoding is requested; Zopfli remains unavailable. Both accepted limitations are tested. Crypto remains excluded, including empty-password inputs. Other requirements and documented differences remain in [compatibility](COMPATIBILITY.md).
 
+Performance work now targets ≤1.0× native for every agreed structural workload,
+using single-CPU library execution and sequential measurements. Benchmark
+acceptance now rejects a no-op checker and marker-only object-stream claim.
+All 18 original fresh managed/native outcomes and three negative controls pass;
+production is unchanged. Four orthogonal cells will add content-derived IDs,
+object-heavy rewriting, sparse selection and single-page splitting, with codecs
+excluded. Performance commits require reduced time or allocation, without a
+minimum percentage gain.
+
 ## Integration qualification
 
 Locked restores and Release builds passed on Windows and Ubuntu WSL2 with .NET SDK/runtime 10.0.401/10.0.12 and zero warnings/errors. Both complete ordinary suites passed all 17,846 checks with no failures/skips. These counts record the run; individual historical test identities are not acceptance obligations.
@@ -27,8 +36,8 @@ Fresh consumers restore the reviewed dependency graph in locked mode from an iso
 - Shared fixed writer tokens and pure counting avoid formatting buffers. Default IDs hash incrementally while classic/QDF/linearized golden hashes remain unchanged.
 - Counted ordinary, linearized and split output admits staging before publication. Fully overwritten storage avoids redundant clearing; only written bytes publish, underestimated hints grow safely, and settled storage drops promptly. Cancellation, limits, caller mutation and prior-output semantics remain tested.
 
-Straightforward copy/allocation/call reductions are structural wins after correctness and practical resource checks, with no empirical percentage gate. Ownership-sensitive changes retain complete-job lifetime and performance evidence. No production forced GC, parsed-document cache, native runtime bridge or new accounting/benchmark framework was added.
+Performance corrections are retained when time or allocation falls with correctness and practical resource checks, without a minimum percentage gain. Ownership-sensitive changes retain complete-job lifetime and performance evidence. No production forced GC, parsed-document cache, native runtime bridge or new accounting/benchmark framework was added.
 
 The approximate memory contract preserves significant-buffer/growth admission, allocation/decompression amplification protection, work limits, cancellation, host boundaries, cleanup and valid surviving outputs. Representative normal/adversarial workloads suffice. Unreleased charges do not prove retained memory. Exact CLR sizes, individual small-object or metadata-alias receipts, fixed GC-round retirement and precise bookkeeping charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
 
-Hosted CI last passed on `7bc2fc8`: [run 38154808432](https://github.com/Lokad/qpdf/actions/runs/38154808432), Windows 7m01s, Ubuntu 5m26s, pinned reference 3m45s. The performance commits are local and postdate that run. Pushing, tagging, publication and release-version changes remain separate actions.
+Hosted CI passed the pushed performance tree `d35ade4`: [run 38211652340](https://github.com/Lokad/qpdf/actions/runs/38211652340), Windows 5m06s, Ubuntu 6m04s, pinned reference 4m46s. One push-triggered run was needed, with no reruns. Further parity work proceeds in coherent local batches; avoid a hosted run per probe. Tagging, publication and release-version changes remain separate actions.

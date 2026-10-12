@@ -126,13 +126,13 @@ def main():
                 if case["Name"] == "linearize-M500":
                     (directory.parent / "inputs").mkdir()
                     shutil.copyfile(directory / "out.pdf", directory.parent / "inputs/linearized.pdf")
-                identities[engine] = validate(case, directory, sources, dotnet, probe, qpdf)
+                identities[engine] = validate(case, directory, sources, dotnet, probe, qpdf, workload_inputs)
                 # Validator must reject a wrong marker/order expectation on actual worker output.
                 if engine == "native" and case["Outputs"]:
                     negative = dict(case)
                     negative["ExpectedMarkers"] = ["deliberately wrong"]
                     try:
-                        validate(negative, directory, sources, dotnet, probe, qpdf)
+                        validate(negative, directory, sources, dotnet, probe, qpdf, workload_inputs)
                     except ValueError:
                         pass
                     else:

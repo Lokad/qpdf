@@ -121,12 +121,100 @@ def output_identity(case, directory):
     return {p.name: {"bytes": p.stat().st_size, "sha256": sha(p)} for p in sorted(directory.glob("*.pdf"))}
 
 
-def validate(case, directory, sources, dotnet, probe, qpdf):
+def checker_control_bytes():
+    """Readable page tree, plus an unused object's contradictory xref header."""
+    values = [b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", b"null"]
+    data = bytearray(b"%PDF-1.5\n")
+    offsets = []
+    for number, value in enumerate(values, 1):
+        offsets.append(len(data))
+        header = 5 if number == 4 else number
+        data += f"{header} 0 obj\n".encode() + value + b"\nendobj\n"
+    xref = len(data)
+    data += b"xref\n0 5\n0000000000 65535 f \n"
+    for offset in offsets:
+        data += f"{offset:010d} 00000 n \n".encode()
+    data += f"trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(data)
+
+
+def checker_preflight(directory, dotnet, probe, qpdf):
+    """Opening succeeds; actual checking must detect a non-codec defect."""
+    control = directory / "checker-control"
+    (control / "inputs").mkdir(parents=True, exist_ok=True)
+    (control / "inputs/control.pdf").write_bytes(checker_control_bytes())
+    for option in ("--show-npages", "--check"):
+        native = subprocess.run([str(qpdf), "inputs/control.pdf", option], cwd=control,
+            capture_output=True, timeout=180)
+        managed = subprocess.run([str(dotnet), str(probe), "emit", "--workdir", str(control),
+            "--", "inputs/control.pdf", option], capture_output=True, timeout=180)
+        match = re.search(rb"(?m)^emit: status=(\w+) exit=(\d+)\r?$", managed.stdout)
+        expected_native, expected_managed, expected_status = (
+            (0, 0, b"Completed") if option == "--show-npages" else (3, 2, b"Failed"))
+        if (native.returncode != expected_native or managed.returncode != expected_managed
+                or match is None or match.group(1) != expected_status
+                or int(match.group(2)) != expected_managed):
+            raise ValueError("Checker control outcome disagrees: " + option)
+        if option == "--show-npages" and (native.stdout.strip() != b"1"
+                or b"PageCount Info inputs/control.pdf: 1" not in managed.stdout):
+            raise ValueError("Checker control must open with one page")
+        (control / (option[2:] + "-native.log")).write_bytes(native.stdout + native.stderr)
+        (control / (option[2:] + "-managed.log")).write_bytes(managed.stdout + managed.stderr)
+
+
+def validate_object_streams(qpdf, path):
+    objects = native_json(qpdf, path)["qpdf"][1]
+    containers = {}
+    for key, value in objects.items():
+        stream = value.get("stream", {})
+        dictionary = stream.get("dict", {})
+        if dictionary.get("/Type") != "/ObjStm":
+            continue
+        count, first = dictionary.get("/N"), dictionary.get("/First")
+        if (not isinstance(count, int) or count < 1 or not isinstance(first, int)
+                or first < 0 or dictionary.get("/Filter") is not None):
+            raise ValueError("Expected an uncompressed object-stream header")
+        payload = base64.b64decode(stream["data"], validate=True)
+        fields = payload[:first].split()
+        if first >= len(payload) or len(fields) != 2 * count or any(not v.isdigit() for v in fields):
+            raise ValueError("Invalid object-stream member table")
+        numbers = [int(v) for v in fields[::2]]
+        offsets = [int(v) for v in fields[1::2]]
+        if (len(set(numbers)) != count or any(v < 1 for v in numbers)
+                or any(a >= b for a, b in zip(offsets, offsets[1:]))
+                or any(first + offset >= len(payload) for offset in offsets)):
+            raise ValueError("Invalid object-stream member ownership/offsets")
+        identity = re.fullmatch(r"obj:(\d+) 0 R", key)
+        if identity is None or int(identity.group(1)) in numbers:
+            raise ValueError("Invalid object-stream container identity")
+        containers[int(identity.group(1))] = numbers
+    entries = re.findall(rb"(?m)^(\d+)/0: compressed; stream = (\d+), index = (\d+)\r?$",
+        run([qpdf, "--show-xref", path]))
+    if not entries:
+        raise ValueError("Object-stream generation did not create compressed xref entries")
+    for member, owner, index in entries:
+        number, container, slot = int(member), int(owner), int(index)
+        if container not in containers or slot >= len(containers[container]) or containers[container][slot] != number:
+            raise ValueError("Compressed xref disagrees with object-stream ownership")
+
+
+def validate(case, directory, sources, dotnet, probe, qpdf, input_directory):
     expected = []
     for name in case["Inputs"]:
         expected.extend(sources[name]["pages"])
     if case["Name"].startswith("select-"):
         expected.reverse()
+    if not case["Outputs"]:
+        if not case["Name"].startswith("check-"):
+            raise ValueError("Outputless workload needs an explicit validation policy")
+        observed = []
+        for name in case["Inputs"]:
+            observed.extend(json.loads(run([dotnet, probe, "page-text", "--input", input_directory / name])))
+        if observed != case["ExpectedMarkers"]:
+            raise ValueError("Independent checking input/order expectation failed")
+        checker_preflight(directory.parent, dotnet, probe, qpdf)
     pages, markers = [], []
     for name in case["Outputs"]:
         path = directory / name
@@ -139,8 +227,7 @@ def validate(case, directory, sources, dotnet, probe, qpdf):
             if semantic["info"] != source["info"] or semantic["pageMode"] != source["pageMode"]:
                 raise ValueError("Catalog/incremental metadata changed")
         if case["Name"].startswith("object-streams-"):
-            if b"/ObjStm" not in path.read_bytes():
-                raise ValueError("Object-stream generation did not occur")
+            validate_object_streams(qpdf, path)
         if case["Name"].startswith("linearize-"):
             run([qpdf, "--check-linearization", path])
             run([dotnet, probe, "emit", "--workdir", directory.parent,
@@ -247,12 +334,12 @@ def main():
                 aliases = directory.parent / "inputs"
                 aliases.mkdir()
                 (aliases / "linearized.pdf").write_bytes((directory / "out.pdf").read_bytes())
-            baseline[(case["Name"], engine)] = validate(case, directory, sources, dotnet, probe, qpdf)
+            baseline[(case["Name"], engine)] = validate(case, directory, sources, dotnet, probe, qpdf, root / "inputs")
         print("VALIDATED", case["Name"], flush=True)
     negative = dict(cases[0])
     negative["ExpectedMarkers"] = list(reversed(negative["ExpectedMarkers"]))
     try:
-        validate(negative, root / "validation" / negative["Name"] / "native/outputs", sources, dotnet, probe, qpdf)
+        validate(negative, root / "validation" / negative["Name"] / "native/outputs", sources, dotnet, probe, qpdf, root / "inputs")
     except ValueError:
         print("PASS negative control: incorrect page-order expectation rejects", flush=True)
     else:
