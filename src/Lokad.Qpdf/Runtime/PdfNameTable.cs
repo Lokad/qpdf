@@ -231,6 +231,48 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         _frozen = true; _origin = null;
     }
 
+    internal bool TryMoveValues<TResult>(ParserMemoryScope memory, ResourceGovernor governor, long valueBytes,
+        Func<T, TResult> select, CancellationToken token, [NotNullWhen(true)] out PdfNameTable<TResult>? result)
+    {
+        ArgumentNullException.ThrowIfNull(select); CheckConstruction(memory, governor);
+        new Visits(governor, token, null).Step();
+        // Keep the existing compact final geometry. Reuse buckets only when
+        // conversion will not retain a larger capacity than the copying path.
+        int finalCapacity = _count == 0 ? 0 : _count <= 3 ? 3 : _count <= 7 ? 7 : _count;
+        if (Capacity != finalCapacity) { result = null; return false; }
+        PdfNameTable<TResult> target = PdfNameTable<TResult>.Create(memory, governor, valueBytes, token);
+        long entryBytes = Capacity == 0 ? 0L : checked(32L + target._entryBytes * Capacity);
+        long retired = checked(WrapperBytes + (Capacity == 0 ? 0L : 32L + _entryBytes * Capacity));
+        PdfNameTable<TResult>.Entry[] entries;
+        bool admitted = false;
+        try
+        {
+            memory.Reserve(entryBytes); admitted = true;
+            Visits visits = new(governor, token, null); visits.Units(Capacity);
+            entries = Capacity == 0
+                ? Array.Empty<PdfNameTable<TResult>.Entry>() : new PdfNameTable<TResult>.Entry[Capacity];
+            for (int index = 0; index < _count; index++)
+            {
+                visits.Step(); Entry source = _entries[index];
+                entries[index] = new PdfNameTable<TResult>.Entry
+                { Key = source.Key, Hash = source.Hash, Next = source.Next, Value = select(source.Value) };
+            }
+            visits.Step();
+        }
+        catch
+        {
+            if (admitted) { memory.Release(entryBytes); }
+            memory.Release(WrapperBytes); throw;
+        }
+        // Every fallible conversion finishes before ownership moves. Source
+        // remains usable on failure; success invalidates its old enumerators.
+        target._entries = entries; target._buckets = _buckets; target._count = _count;
+        target._frozen = true; target._origin = null;
+        _entries = Array.Empty<Entry>(); _buckets = Array.Empty<int>(); _count = 0;
+        _origin = null; _frozen = true; _version = unchecked(_version + 1);
+        memory.Release(retired); result = target; return true;
+    }
+
     internal void Discard(ParserMemoryScope memory, ResourceGovernor governor)
     {
         CheckConstruction(memory, governor); long bytes = StorageBytes;

@@ -9,13 +9,13 @@ Sparse selection is 6.65 / 1.72 ms; its managed transport reads the entire
 observations. Performance commits need reduced time or allocation, with no
 minimum percentage gain. Noisy overlapping timings do not establish a time win.
 
-Pushed `be70d4c` passed [hosted CI run 38309208947](https://github.com/Lokad/qpdf/actions/runs/38309208947):
-Windows 6m51s, Ubuntu 5m42s, pinned reference 6m02s. Both platforms pass 17,816
+Pushed `431870c` passed [hosted CI run 38317436740](https://github.com/Lokad/qpdf/actions/runs/38317436740):
+Windows 6m51s, Ubuntu 5m44s, pinned reference 5m25s. Both platforms pass 17,823
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. Seven visuals and both controls pass on the same writer
-source. One push-triggered run qualified two source commits; no manual rerun.
-Batch useful source changes before another hosted checkpoint.
+source. Two push-triggered runs resolved and qualified the shared-text ownership
+correction; no manual reruns. Batch useful source changes before another checkpoint.
 
 The agreed [supported profile](SUPPORTED-PROFILE.md) and completed features remain
 closed. CMYK/YCCK JPEG decoding remains opaque with warnings; Zopfli is
@@ -24,6 +24,27 @@ inputs, remains excluded. Other requirements and documented differences remain
 in [compatibility](COMPATIBILITY.md); performance work does not waive them.
 
 ## Current correction and next work
+
+Private dictionary finalization now reuses established buckets and hash chains
+when their capacity matches the compact final table. Larger-capacity sources and
+repair-receipt tables keep the existing copy path. Conversion finishes before
+ownership moves; memory rejection/cancellation leave the source usable. The same
+helper preserves ordering, collisions, null values and immutable publication.
+
+All 2,198 affected parser/name-table checks and 153 final ownership/recovery
+controls pass. A same-driver object-heavy pair removes about 119 KB/job
+(9.129 → 9.010 MB), with unchanged output hashes. Times overlap broadly
+(74.94 → 49.41 ms); claim allocation only. Release build/pack/inspection and the
+fresh locked consumer pass, including unchanged cache and 2 MiB multisource
+limits. All 26 fresh managed/native outcomes and three negative controls pass,
+with original inputs unchanged. The pinned parser lane passes 1,858 comparisons
+and 442 rewrite trios. Seven visuals/two controls pass in 25.92 seconds.
+The full local ordinary suite passes 17,825 tests, zero failures/skips, in
+13m33s. Its unrelated slowest tests differ from the prior run; retain that
+contended wall time without attributing it to this correction. Integration
+uses the existing hosted ordinary/reference/package jobs once.
+
+## Recent integrated corrections
 
 Numeric/reference lookahead now classifies the following prefix before scanning
 a whole token, using the existing whitespace and numeric lexer. Repair offsets,
@@ -45,8 +66,8 @@ Affected syntax/recovery/cancellation and reader controls pass, as do all 26
 fresh managed/native outcomes, three negative controls, 1,858 pinned parser
 comparisons and 442 rewrite trios. Release build/pack, package inspection, fresh
 locked consumer and rejection controls pass. Seven visuals and both controls
-also pass in 17.32 seconds. This source unit awaits the next
-integrated hosted checkpoint; earlier clean-panel evidence remains identified.
+also pass in 17.32 seconds. This source unit is integrated in the green
+`431870c` checkpoint; earlier clean-panel evidence remains identified.
 
 The numeric commit's hosted native reference passed, but ordinary jobs exposed
 twelve exact-zero retirement assertions. Shared digit literals had per-job text
@@ -55,10 +76,7 @@ only for identical known literals; fresh text and scalar wrappers retain their
 owners. All 340 affected checks pass without changed tests or limits, including
 the twelve failures. Fresh 26-output/three-control validation and the locked
 consumer also pass. The full local ordinary suite passes 17,823 tests with no
-failures/skips in 5m25s. The saved dictionary-finalization prototype is deferred
-until this integration is green.
-
-## Recent integrated corrections
+failures/skips in 5m25s. Both hosted ordinary platforms and native reference pass.
 
 Page-attribute lookup now avoids traversal scratch for leaf hits and one
 indirect parent. Missing optional attributes normally visit the page-tree root

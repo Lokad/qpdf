@@ -39,6 +39,12 @@ parity cell. The generated input/manifest are embedded in the raw archive for
 reproduction with the existing warm runner. Rejected retirement-read and earlier
 numeric prototypes retain their raw observations; no losing samples are removed.
 
+Private dictionary finalization reuses existing bucket/hash chains at unchanged
+capacity, retaining the copy path for larger tables and repair receipts.
+The identical-driver object-heavy pair removes about 119 KB/job (9.129 → 9.010 MB),
+with unchanged hashes. Median times 74.94 → 49.41 ms have broad overlapping IQRs;
+claim allocation only. This pair adds no workload or timing acceptance threshold.
+
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
 preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate
 managed-only memory diagnostics. Every sample and summary number is retained;

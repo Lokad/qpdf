@@ -113,6 +113,12 @@ internal static class ParserContainers
         PdfNameTable<ParsedValue> entries, bool preserveReceipts)
     {
         CancellationToken token = governor.CancellationToken;
+        if (!preserveReceipts && entries.TryMoveValues(memory, governor, IntPtr.Size,
+            static value => value.Value, token, out PdfNameTable<QpdfObject>? moved))
+        {
+            memory.Reserve(32L);
+            return PdfDictionary.FromOwnedEntries(moved);
+        }
         PdfNameTable<QpdfObject> kept = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, token);
         kept.EnsureCapacity(memory, governor, entries.Count, token);
         using PdfNameTable<ParsedValue>.Enumerator source = entries.GetEnumerator();

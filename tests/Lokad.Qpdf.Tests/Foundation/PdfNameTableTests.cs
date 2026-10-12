@@ -1,12 +1,61 @@
 using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 [Collection(nameof(NameTableCollection))]
 public sealed class PdfNameTableTests
 {
+    [Fact]
+    public void ValueConversionPreservesCollisionOrderAndSourceOnCancellation()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        PdfNameTable<ParsedValue> source = PdfNameTable<ParsedValue>.Create(memory, governor, 16L, CancellationToken.None);
+        PdfName[] keys = Enumerable.Range(0, 5).Select(index => Key(index, 512)).ToArray();
+        QpdfObject[] values = [new PdfInteger("1", 1L), PdfNull.Instance, new PdfInteger("3", 3L), PdfNull.Instance, new PdfInteger("5", 5L)];
+        for (int index = 0; index < keys.Length; index++)
+        { source.Assign(memory, governor, keys[index], new ParsedValue(values[index], 0L), CancellationToken.None); }
+        source.Assign(memory, governor, Key(0, 512), new ParsedValue(values[4], 0L), CancellationToken.None);
+        values[0] = values[4];
+        using CancellationTokenSource cancellation = new();
+        long before = memory.ReservedBytes; int converted = 0;
+        Assert.ThrowsAny<OperationCanceledException>(() => source.TryMoveValues(memory, governor, IntPtr.Size, value =>
+        {
+            if (++converted == 2) { cancellation.Cancel(); }
+            return value.Value;
+        }, cancellation.Token, out _));
+        Assert.Equal(before, memory.ReservedBytes);
+        Assert.Equal(keys.Length, source.Count);
+        for (int index = 0; index < keys.Length; index++) { Assert.Same(values[index], source[Key(index, 512)].Value); }
+        Assert.True(source.TryMoveValues(memory, governor, IntPtr.Size, static value => value.Value,
+            CancellationToken.None, out PdfNameTable<QpdfObject>? result));
+        PdfNameTable<QpdfObject> kept = Assert.IsType<PdfNameTable<QpdfObject>>(result);
+        KeyValuePair<PdfName, QpdfObject>[] rows = Enumerable.ToArray<KeyValuePair<PdfName, QpdfObject>>(kept);
+        for (int index = 0; index < keys.Length; index++)
+        { Assert.Same(keys[index], rows[index].Key); Assert.Same(values[index], rows[index].Value); Assert.Same(values[index], kept[Key(index, 512)]); }
+        Assert.Throws<InvalidOperationException>(() => kept.Assign(memory, governor, keys[0], PdfNull.Instance, CancellationToken.None));
+    }
+
+    [Fact]
+    public void ValueConversionRejectsOverlapWithoutDiscardingSource()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 700L }, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        PdfNameTable<ParsedValue> source = PdfNameTable<ParsedValue>.Create(memory, governor, 16L, CancellationToken.None);
+        for (int index = 0; index < 5; index++)
+        { source.Assign(memory, governor, PdfName.FromAscii("K" + index), new ParsedValue(PdfNull.Instance, 0L), CancellationToken.None); }
+        long before = memory.ReservedBytes;
+        QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => source.TryMoveValues(memory, governor,
+            IntPtr.Size, static value => value.Value, CancellationToken.None, out _));
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+        Assert.Equal(before, memory.ReservedBytes);
+        Assert.Equal(5, source.Count);
+        for (int index = 0; index < 5; index++) { Assert.Same(PdfNull.Instance, source[PdfName.FromAscii("K" + index)].Value); }
+    }
+
     internal static PdfName Key(int number, int length)
     {
         byte[] bytes = Enumerable.Repeat((byte)97, length).ToArray();
