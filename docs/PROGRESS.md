@@ -1,87 +1,88 @@
 # Progress
 
-The integrated performance implementation is qualified on `219eca3` (2026-10-12).
-All nine representative warmed structural-job medians meet the 2× native qpdf 12.4.2 target on this machine (0.66–1.77×). [Benchmark results](BENCHMARK-RESULTS.md) report variability, allocations, process memory, output sizes and reusable raw observations. The agreed [supported profile](SUPPORTED-PROFILE.md) and completed features remain closed.
+Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
+in thirteen codec-free structural workloads. The goal remains open: the clean
+`8c99543` panel meets parity in three cells, with ratios 0.76–3.62×. Sparse
+selection is the largest complete file-job gap (6.79 / 1.87 ms); its managed
+transport reads the entire 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
+[protocol](BENCHMARKS.md) separate complete jobs, memory diagnostics and historical
+observations. Performance commits need reduced time or allocation, with no
+minimum percentage gain. Noisy overlapping timings do not establish a time win.
 
-CMYK/YCCK JPEGs remain opaque with warnings when decoding is requested; Zopfli remains unavailable. Both accepted limitations are tested. Crypto remains excluded, including empty-password inputs. Other requirements and documented differences remain in [compatibility](COMPATIBILITY.md).
+Pushed `8c99543` passed [hosted CI run 38289384516](https://github.com/Lokad/qpdf/actions/runs/38289384516):
+Windows 7m05s, Ubuntu 5m30s, pinned reference 5m55s. Each platform includes locked
+restore, Release build/tests, explicit pack, inspection, fresh consumer and
+rejection checks. Local locked Release build had zero warnings/errors; seven
+visual cases and two controls passed in 19s. One push-triggered run, no reruns.
+Batch further coherent changes before another hosted checkpoint.
 
-Performance work now targets ≤1.0× native for every agreed structural workload,
-using single-CPU library execution and sequential measurements. Benchmark
-acceptance now rejects a no-op checker and marker-only object-stream claim.
-All 26 fresh managed/native outcomes and three negative controls pass;
-production is unchanged. Four orthogonal cells add repeatable content-derived IDs,
-object-heavy rewriting, sparse selection and single-page splitting, with codecs
-excluded. The original seven fixture hashes remain unchanged. Performance commits require reduced time or allocation, without a
-minimum percentage gain.
+The agreed [supported profile](SUPPORTED-PROFILE.md) and completed features remain
+closed. CMYK/YCCK JPEG decoding remains opaque with warnings; Zopfli is
+unavailable. Both accepted limitations are tested. Crypto, including empty-password
+inputs, remains excluded. Other requirements and documented differences remain
+in [compatibility](COMPATIBILITY.md); performance work does not waive them.
 
-The next local parity batch avoids split-wide pool scans after reachability,
-temporary page-root/signature names and redundant clearing of fully overwritten
-writer/payload arrays. Release builds pass with zero warnings/errors; 341 affected
-reader, writer, split, form, attachment and limit checks pass. Same-driver warmed
-pairs preserve output hashes; object-stream generation allocates about 21.8 KB
-less per job (1.387 → 1.365 MB). Timing distributions overlap under variable host
-load, so no time gain is claimed. Comprehensive qualification follows integration.
+## Current correction and next work
 
-Uncompressed object-stream counting now measures members and headers without
-capturing bytes or assembling payloads. The shared header formatter preserves
-emitted bytes. All 135 affected existing checks and seven new count/emit,
-large-member memory and output/work-limit controls pass. In one same-driver warm
-pair, allocation falls 1.365 → 1.285 MB/job (80.2 KB); observed medians are
-3.34 → 3.06 ms, with overlapping IQRs. Fresh output hashes are unchanged; native
-is 2.37 ms in that pair. The allocation reduction justifies the correction.
+Ordinary/QDF/split publication now batches small writes in bounded scratch and
+formats short tokens there using existing encoders. Exact packet copies remain
+immutable for retaining hosts; logical offsets include pending bytes and flush
+precedes commit. A public 200-copy page-selection job that exhausted a 500-host-
+operation cap now completes under that cap. A two-operation control still fails,
+preserves prior output and closes leases. Long tokens bypass bounded probes.
 
-The thirteen-cell baseline exposes sparse selection as the largest complete-job
-gap: 11.62 ms versus 1.61 ms native (7.22×), allocating 33.85 MB for a 1.1 KB
-output from a 16.8 MB input. Its managed emitter reads and defensively copies the
-whole source. Object-heavy rewriting is 1.86× with 13.14 MB allocation. These
-results separate transport from parser/writer investigation; they do not establish
-a retained-memory leak or a pure engine ratio. All original observations remain.
+The local correction passes 2,237 affected checks, seven final controls, all 26
+fresh extended managed/native outcomes and three historical negative controls.
+Release pack, inspection and a fresh locked consumer also pass, including the
+unchanged 2 MiB multisource case. Same-driver probes preserve output hashes and
+reduce object-heavy allocation 11.754 → 10.289 MB/job (1.465 MB) and streamed
+rewrite 1.189 → 1.105 MB/job (84.7 KB). Timings overlap; claim allocation only.
+The initial batching-only prototype had no decisive performance win and remains
+recorded. Source/patches, logs/TRX and raw observations are in the ignored
+`external/reviews/2026-10-12-structural-review/` checkpoint.
 
-The developer emitter now transfers its privately read file buffers into the
-memory host. The library binary is unchanged in the paired transport comparison;
-all 26 fresh outcomes and three controls pass with unchanged input/output hashes.
-Sparse selection falls 11.68 → 6.63 ms (43% lower median, separated IQRs), versus
-1.67 ms native: 3.96× remains. One full input clone per job is removed; this is a
-transport correction, not a production parser speedup. Earlier copying-lane
-observations remain recorded separately.
+Continue with one measured parser/writer or reader/host cost at a time. Preserve
+the thirteen cells, original inputs, meaningful ceilings and negative controls;
+do not bypass public copying contracts to improve a ratio. Use focused checks
+and narrow probes, normally under one minute, during implementation. Repeat
+comprehensive reference, visual and consumer qualification at source integration
+checkpoints when changes or unresolved concerns justify it.
 
-A selected memory-only sparse diagnostic reuses `ComparisonBenchmarks`, with
-seven warmups/samples and no outlier removal. Copy mode: 2.68 ms median and
-16.26 MiB/job; immutable transfer: 1.14 ms and about 247 KiB/job. This isolates
-host copying; it is separate from the file/job lane and supplies no native ratio.
+## Useful completed work
 
-Unescaped names now reuse immutable backing bytes; escaped names retain encoding.
-All 189 affected writer/QDF/limit checks pass, including retained-chunk/caller-copy
-mutation and prefix-before-limit controls. Same-driver object-heavy rewriting
-allocation falls 12.820 → 11.754 MB/job (1.066 MB); observed medians 52.85 →
-49.26 ms overlap. Streamed rewriting is essentially unchanged and every output
-hash matches. The allocation reduction justifies the correction; separate prefix
-and name writes leave small-write batching as a subsequent writer improvement.
+- Names, dictionary enumeration, known arrays and parser scratch avoid redundant
+  copies. Split uses known reachable IDs; fully overwritten buffers avoid clearing.
+- Private copier/checker graphs use scoped ownership. Exclusive single-source
+  memory-host jobs borrow immutable stream slices and fund the pinned input.
+  Public readers, retaining custom hosts and multisource copying keep independent
+  payloads. Defensive copies and surviving aliases remain covered.
+- Uncompressed object-stream counting avoids member/payload captures; its paired
+  allocation falls by 80.2 KB/job. Unescaped names reuse immutable backing bytes,
+  saving 1.066 MB/job in object-heavy rewriting. Emitted hashes remain unchanged.
+- Shared fixed tokens, pure sizing, incremental IDs and admitted output staging
+  preserve offsets, IDs and publication. Underestimated hints grow safely; only
+  written bytes publish and settled storage drops promptly.
+- Developer emitters transfer privately read buffers through the existing API.
+  The paired sparse file-job median falls 11.68 → 6.63 ms (43%); this is a transport
+  correction. Separate memory-only Copy/Transfer medians are 2.68 / 1.14 ms, with
+  16.26 MiB / 247 KiB allocation; these supply no native ratio.
+- Benchmark acceptance rejects a no-op checker and marker-only object-stream
+  claim. Four additional cells isolate IDs, object-heavy rewriting, sparse
+  selection and single-page splitting. Original seven fixture hashes are unchanged.
 
-## Integration qualification
+Earlier `219eca3` qualification remains useful: both ordinary suites passed
+17,846 checks in 6m11s, pinned reference in 5m57s, seven visuals/two controls in
+20s, package/consumer controls in 19s / 26s. Its nine-cell 2× target is historical
+evidence. Counts describe runs, rather than individual test or release quotas.
 
-Locked restores and Release builds passed on Windows and Ubuntu WSL2 with .NET SDK/runtime 10.0.401/10.0.12 and zero warnings/errors. Both complete ordinary suites passed all 17,846 checks with no failures/skips. These counts record the run; individual historical test identities are not acceptance obligations.
+The approximate memory contract admits significant buffers, material growth and
+copy overlap, and protects against allocation/decompression amplification. Keep
+work limits, cancellation, host boundaries, cleanup and valid surviving outputs.
+Unreleased charges do not prove retained memory. Exact CLR sizes, individual
+small-object or metadata-alias receipts, fixed GC-round retirement and precise
+bookkeeping charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
+No forced production GC, parsed-input cache, runtime native bridge or new
+accounting/benchmark framework was added.
 
-| Check | Platform | Wall time | Result |
-| --- | --- | ---: | --- |
-| Ordinary suite | Windows | 6m11s | Passed |
-| Ordinary suite | Ubuntu 24.04 WSL2 | 6m11s | Passed |
-| Complete pinned reference | Windows | 5m57s | Passed; 1,858 object comparisons and 442 rewrite trios |
-| Seven visual cases and two defect controls | Windows | 20s | Passed |
-| Release pack, package inspection, fresh consumers and rejection controls | Windows / Ubuntu | 19s / 26s | Passed |
-
-Fresh consumers restore the reviewed dependency graph in locked mode from an isolated package/feed/cache. Wrong package-version and corrupt external-hash controls reject. Runtime dependency pins and the five reviewed temporary ImageSharp advisory exceptions remain unchanged. Source archive, logs/TRX, phase timings and package hashes are retained in the ignored `external/reviews/2026-10-11-performance-integration/final-219eca3/` checkpoint; Linux uses the same source. Repeat qualification for changes, failures or unresolved concerns.
-
-## Integrated changes and safeguards
-
-- Names, dictionary enumeration, known arrays and parser scratch avoid redundant copies; bounded raw-name hash/comparison work avoids per-byte governor calls.
-- Private copier/checker graphs use scoped ownership. Unchanged immutable stream payloads and object-stream scratch are reused. Public defensive copies and surviving aliases remain covered.
-- Exclusive single-source memory-host jobs borrow immutable stream slices and fund the whole pinned input. Public readers, custom retaining hosts and multisource copying keep independent payloads. The unchanged 2 MiB three-source consumer and typed/argv/job regression preserve decoded content and cleanup without retaining mostly unused source inputs.
-- Shared fixed writer tokens and pure counting avoid formatting buffers. Default IDs hash incrementally while classic/QDF/linearized golden hashes remain unchanged.
-- Counted ordinary, linearized and split output admits staging before publication. Fully overwritten storage avoids redundant clearing; only written bytes publish, underestimated hints grow safely, and settled storage drops promptly. Cancellation, limits, caller mutation and prior-output semantics remain tested.
-
-Performance corrections are retained when time or allocation falls with correctness and practical resource checks, without a minimum percentage gain. Ownership-sensitive changes retain complete-job lifetime and performance evidence. No production forced GC, parsed-document cache, native runtime bridge or new accounting/benchmark framework was added.
-
-The approximate memory contract preserves significant-buffer/growth admission, allocation/decompression amplification protection, work limits, cancellation, host boundaries, cleanup and valid surviving outputs. Representative normal/adversarial workloads suffice. Unreleased charges do not prove retained memory. Exact CLR sizes, individual small-object or metadata-alias receipts, fixed GC-round retirement and precise bookkeeping charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
-
-Hosted CI passed the pushed performance tree `d35ade4`: [run 38211652340](https://github.com/Lokad/qpdf/actions/runs/38211652340), Windows 5m06s, Ubuntu 6m04s, pinned reference 4m46s. One push-triggered run was needed, with no reruns. Further parity work proceeds in coherent local batches; avoid a hosted run per probe. Tagging, publication and release-version changes remain separate actions.
+Runtime pins and the five reviewed temporary ImageSharp 3.1.12 advisory exceptions
+remain unchanged. No release-version change, tagging or package publication.

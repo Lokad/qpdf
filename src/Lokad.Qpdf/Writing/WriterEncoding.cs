@@ -175,6 +175,15 @@ internal sealed class WriterEncoding : IDisposable
         return Measure(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, limits, governor, token, null);
     }
 
+    internal static void FillAscii(string text, Span<byte> target, ResourceGovernor governor, CancellationToken token)
+        => Fill(Kind.Ascii, ReadOnlySpan<byte>.Empty, text.AsSpan(), target, governor, token, null);
+
+    internal static void FillName(PdfName name, Span<byte> target, ResourceGovernor governor, CancellationToken token)
+        => Fill(Kind.Name, name.RawSpan, ReadOnlySpan<char>.Empty, target, governor, token, null);
+
+    internal static void FillString(PdfByteString text, Span<byte> target, ResourceGovernor governor, CancellationToken token)
+        => Fill(text.Hex ? Kind.Hex : Kind.Literal, text.ValueSpan, ReadOnlySpan<char>.Empty, target, governor, token, null);
+
     private static long Measure(Kind kind, ReadOnlySpan<byte> input, ReadOnlySpan<char> text,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken, Action? observe)
     {

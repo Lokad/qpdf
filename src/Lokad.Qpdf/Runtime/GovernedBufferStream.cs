@@ -67,6 +67,20 @@ internal sealed class GovernedBufferStream : Stream
         _position = 0;
     }
 
+    // Internal writers fill this bounded region synchronously before any
+    // snapshot or publication. A failed fill abandons the owning operation.
+    internal Span<byte> AppendRegion(int count, CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CheckCancellation(token);
+        int next = checked(_length + count);
+        CheckLength(next);
+        EnsureCapacity(next, token);
+        Span<byte> region = _buffer.AsSpan(_length, count);
+        _length = next; _position = next;
+        return region;
+    }
+
     public override long Length
     {
         get

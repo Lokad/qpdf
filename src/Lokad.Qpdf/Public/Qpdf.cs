@@ -2440,7 +2440,8 @@ public static partial class Qpdf
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
             GovernedHost.PrepareOutputCapacity(transaction, counted, cancellationToken);
-            TransactionSink sink = new(transaction, governor);
+            TransactionSink destination = new(transaction, governor);
+            using BatchingSink sink = BatchingSink.Create(destination, limits, governor, cancellationToken);
             long written;
             if (qdf.Enabled)
             {
@@ -2459,6 +2460,7 @@ public static partial class Qpdf
                 throw new QpdfException($"Writer replay mismatch: counted {counted} bytes but wrote {written}.");
             }
 
+            await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally { governor.ReleaseMemory(counted); }

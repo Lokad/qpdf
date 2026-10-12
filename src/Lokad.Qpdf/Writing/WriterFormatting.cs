@@ -73,14 +73,7 @@ internal sealed class WriterFormatting : IDisposable
             CheckCancellation(governor, cancellationToken);
             // Fields and final padding fill the entire result before publication.
             byte[] bytes = length == 0L ? Array.Empty<byte>() : GC.AllocateUninitializedArray<byte>((int)length);
-            int used = 0;
-            foreach (WriterPart part in parts)
-            {
-                CheckCancellation(governor, cancellationToken);
-                governor.ChargeWork(1L);
-                Fill(part, bytes, ref used, governor, cancellationToken, observeFill);
-            }
-            FillRepeated(bytes.AsSpan(used), (byte)' ', governor, cancellationToken, observeFill);
+            FillParts(parts, bytes, governor, cancellationToken, observeFill);
             return new WriterFormatting(memory, bytes);
         }
         catch { memory.Dispose(); throw; }
@@ -107,7 +100,19 @@ internal sealed class WriterFormatting : IDisposable
         }
     }
 
-    private static void Fill(WriterPart part, byte[] target, ref int used, ResourceGovernor governor, CancellationToken token,
+    internal static void FillParts(ReadOnlySpan<WriterPart> parts, Span<byte> target,
+        ResourceGovernor governor, CancellationToken token, Action? observeFill)
+    {
+        int used = 0;
+        foreach (WriterPart part in parts)
+        {
+            CheckCancellation(governor, token); governor.ChargeWork(1L);
+            Fill(part, target, ref used, governor, token, observeFill);
+        }
+        FillRepeated(target.Slice(used), (byte)' ', governor, token, observeFill);
+    }
+
+    private static void Fill(WriterPart part, Span<byte> target, ref int used, ResourceGovernor governor, CancellationToken token,
         Action? observeFill)
     {
         if (part.Type == WriterPart.Kind.Empty) { return; }
@@ -151,7 +156,7 @@ internal sealed class WriterFormatting : IDisposable
         }
         if (part.Type == WriterPart.Kind.Spaces)
         {
-            FillRepeated(target.AsSpan(used, part.Width), (byte)' ', governor, token, observeFill);
+            FillRepeated(target.Slice(used, part.Width), (byte)' ', governor, token, observeFill);
             used += part.Width;
             return;
         }
@@ -165,13 +170,13 @@ internal sealed class WriterFormatting : IDisposable
             governor.ChargeWork(1L);
             target[used++] = (byte)'-'; start = 1;
         }
-        FillRepeated(target.AsSpan(used, padding), (byte)'0', governor, token, observeFill);
+        FillRepeated(target.Slice(used, padding), (byte)'0', governor, token, observeFill);
         used += padding;
-        GovernedBufferStream.CopyBytes(number.Slice(start, countNumber - start), target.AsSpan(used), governor, token, CancellationToken.None);
+        GovernedBufferStream.CopyBytes(number.Slice(start, countNumber - start), target.Slice(used), governor, token, CancellationToken.None);
         used += countNumber - start;
         if (part.Type == WriterPart.Kind.RightPaddedNumber)
         {
-            FillRepeated(target.AsSpan(used, part.Width - countNumber), (byte)' ', governor, token, observeFill);
+            FillRepeated(target.Slice(used, part.Width - countNumber), (byte)' ', governor, token, observeFill);
             used += part.Width - countNumber;
         }
     }
