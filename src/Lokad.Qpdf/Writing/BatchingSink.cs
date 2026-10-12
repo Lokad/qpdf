@@ -4,7 +4,7 @@ using Lokad.Qpdf.Objects;
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>Combines small writes into bounded immutable packets for publication.</summary>
-internal sealed class BatchingSink : IByteSink, IDisposable
+internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
 {
     private const int Capacity = 256;
     private readonly IByteSink _destination;
@@ -40,6 +40,13 @@ internal sealed class BatchingSink : IByteSink, IDisposable
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(BatchingSink));
     private GovernedBufferStream Scratch => _scratch ?? throw new ObjectDisposedException(nameof(BatchingSink));
     public long Length { get { _ = Memory; return _length; } }
+
+    void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken token)
+    {
+        _ = Memory; CheckCancellation(token);
+        if (length > _maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _maximum); }
+        if (_destination is IOutputCapacityHint destination) { destination.EnsureCapacity(length, token); }
+    }
 
     private bool Fits(long length, CancellationToken token)
     {

@@ -357,6 +357,8 @@ internal sealed class LinearizedWriter
             counter.AppendLength(WriterFormatting.MeasureParts(parts, _limits, _governor, cancellationToken), cancellationToken);
             return ValueTask.CompletedTask;
         }
+        if (sink is BatchingSink batch && batch.TryAppendFormatting(parts, _limits, cancellationToken))
+        { return ValueTask.CompletedTask; }
         return AppendFormattingAsync(WriterFormatting.Create(parts, _limits, _governor, cancellationToken), sink, cancellationToken);
     }
 
@@ -380,6 +382,7 @@ internal sealed class LinearizedWriter
             await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
             return;
         }
+        if (sink is BatchingSink batch && batch.TryAppendAscii(text, _limits, cancellationToken)) { return; }
         using WriterEncoding encoded = WriterEncoding.Ascii(text, _limits, _governor, cancellationToken);
         await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }

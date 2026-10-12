@@ -2299,18 +2299,21 @@ public static partial class Qpdf
         byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
         PdfSerializer probe = new(limits, governor);
         using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
+        using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
         if (qdf.Enabled)
         {
-            await probe.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, placeholderId1, placeholderId2, qdf, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+            await probe.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, placeholderId1, placeholderId2, qdf, newlineBeforeEndstream, hashed, cancellationToken).ConfigureAwait(false);
         }
         else if (objectStreamGroups is null || objectStreamGroups.Count == 0)
         {
-            await probe.SerializeAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+            await probe.SerializeAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, hashed, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            await probe.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, memory, cancellationToken).ConfigureAwait(false);
+            await probe.SerializeStreamedAsync(version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, hashed, cancellationToken).ConfigureAwait(false);
         }
+        await hashed.FlushAsync(cancellationToken).ConfigureAwait(false);
+        hashed.Dispose();
         byte[] digest = memory.Complete(cancellationToken);
         memory.Dispose();
         id2 = digest;
@@ -2349,15 +2352,16 @@ public static partial class Qpdf
             byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
             Writing.LinearizedWriter probe = new(limits, governor);
             using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
+            using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
             if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
             {
-                await probe.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
+                await probe.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, hashed, null, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await probe.WriteLinearizedAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, memory, null, cancellationToken).ConfigureAwait(false);
+                await probe.WriteLinearizedAsync(version, model, infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, compressHints, compressionLevel, hashed, null, cancellationToken).ConfigureAwait(false);
             }
-
+            await hashed.FlushAsync(cancellationToken).ConfigureAwait(false);
             byte[] digest = memory.Complete(cancellationToken);
             id2 = digest;
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
@@ -2365,19 +2369,24 @@ public static partial class Qpdf
 
         using ParserMemoryScope staging = ParserMemoryScope.Create(governor);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        TransactionSink sink = new(transaction, governor, staging, limits);
+        TransactionSink destination = new(transaction, governor, staging, limits);
+        using BatchingSink sink = BatchingSink.Create(destination, limits, governor, cancellationToken);
         if (objectStreamGroups is not null && objectStreamGroups.Count > 0)
         {
             if (linearizePass1 is null)
             {
                 await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, null, cancellationToken).ConfigureAwait(false);
+                await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
 
             await using IQpdfOutputTransaction streamedPass1 = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink streamedPass1Sink = new(streamedPass1, governor);
+            TransactionSink streamedPass1Destination = new(streamedPass1, governor);
+            using BatchingSink streamedPass1Sink = BatchingSink.Create(streamedPass1Destination, limits, governor, cancellationToken);
             await writer.WriteLinearizedStreamedAsync(version, model, objectStreamGroups, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, streamedPass1Sink, cancellationToken).ConfigureAwait(false);
+            await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await streamedPass1Sink.FlushAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             await streamedPass1.CommitAsync(cancellationToken).ConfigureAwait(false);
             return;
@@ -2386,13 +2395,17 @@ public static partial class Qpdf
         if (linearizePass1 is null)
         {
             await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, null, cancellationToken).ConfigureAwait(false);
+            await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return;
         }
 
         await using IQpdfOutputTransaction pass1Transaction = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
-        TransactionSink pass1Sink = new(pass1Transaction, governor);
+        TransactionSink pass1Destination = new(pass1Transaction, governor);
+        using BatchingSink pass1Sink = BatchingSink.Create(pass1Destination, limits, governor, cancellationToken);
         await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream, compressHints, compressionLevel, sink, pass1Sink, cancellationToken).ConfigureAwait(false);
+        await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await pass1Sink.FlushAsync(cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         await pass1Transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }

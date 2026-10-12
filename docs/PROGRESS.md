@@ -41,6 +41,25 @@ The initial batching-only prototype had no decisive performance win and remains
 recorded. Source/patches, logs/TRX and raw observations are in the ignored
 `external/reviews/2026-10-12-structural-review/` checkpoint.
 
+The same batching now covers placeholder-ID hashing and classic/streamed
+linearized publication, including optional first-pass output. Capacity hints
+still reach admitted staging; pending bytes count toward offsets, and flushing
+precedes digest/commit. Both linearized 200-copy jobs now complete under the
+unchanged 500-host-operation cap. Golden IDs remain unchanged. The affected
+suite passes 1,529 checks. Eight representative public publication cases replace
+the private exact-receipt/chunk-boundary matrix, preserving both routes, decoded
+inputs, output integrity, retained chunks, failure, cancellation and cleanup.
+
+Same-driver pairs remove another 415 KB/job from default-ID rewriting and
+425 KB/job from linearization; output hashes match. Times overlap under load,
+so allocation alone qualifies these changes. The public raw archive now retains
+nine runs, including the clean thirteen-cell panel and both batching prototypes.
+Final-source semantic preflight passes all 26 fresh outcomes and three negative
+controls. Locked Release restore/build pass with zero warnings/errors; explicit
+pack, inspection and the fresh locked consumer pass, including the unchanged
+2 MiB multisource case. Hosted integration qualification follows this combined
+writer correction.
+
 Continue with one measured parser/writer or reader/host cost at a time. Preserve
 the thirteen cells, original inputs, meaningful ceilings and negative controls;
 do not bypass public copying contracts to improve a ratio. Use focused checks

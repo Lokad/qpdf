@@ -26,9 +26,15 @@ public sealed class BatchingSinkTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    private sealed class RetainingSink(bool fail) : IByteSink
+    private sealed class RetainingSink(bool fail) : IByteSink, IOutputCapacityHint
     {
         internal List<ReadOnlyMemory<byte>> Chunks { get; } = new();
+        internal long CapacityHint { get; private set; }
+        public void EnsureCapacity(long length, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CapacityHint = length;
+        }
         public long Length { get; private set; }
         public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         {
@@ -51,6 +57,9 @@ public sealed class BatchingSinkTests
             await sink.AppendAsync(bytes, CancellationToken.None);
             Assert.Equal(3L, sink.Length);
             Assert.Equal(0L, destination.Length);
+            ((IOutputCapacityHint)sink).EnsureCapacity(8L, CancellationToken.None);
+            Assert.Equal(8L, destination.CapacityHint);
+            Assert.Equal(3L, sink.Length);
             bytes[0] = 9;
             await sink.FlushAsync(CancellationToken.None);
             await sink.AppendAsync("later"u8.ToArray(), CancellationToken.None);
@@ -99,9 +108,11 @@ public sealed class BatchingSinkTests
     }
 
     [Theory]
-    [InlineData(500, true)]
-    [InlineData(2, false)]
-    public async Task RepeatedPageSelectionCompletesWithinPracticalHostOperationBudget(long hostOperations, bool succeeds)
+    [InlineData(500, true, "ordinary")]
+    [InlineData(500, true, "linearized")]
+    [InlineData(500, true, "linearized-streamed")]
+    [InlineData(2, false, "ordinary")]
+    public async Task RepeatedPageSelectionCompletesWithinPracticalHostOperationBudget(long hostOperations, bool succeeds, string mode)
     {
         InMemoryQpdfHost host = new();
         byte[] source = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-2page.pdf"));
@@ -113,10 +124,12 @@ public sealed class BatchingSinkTests
             await seed.CommitAsync(CancellationToken.None);
         }
         string pages = string.Join(',', Enumerable.Repeat("1", 200));
+        List<string> arguments = ["in.pdf", "--static-id", "--stream-data=preserve", "--decode-level=none",
+            "--compress-streams=n", "--object-streams=" + (mode == "linearized-streamed" ? "generate" : "disable"),
+            "--remove-unreferenced-resources=no", "--pages", ".", pages, "--", "out.pdf"];
+        if (mode != "ordinary") { arguments.Insert(1, "--linearize"); }
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
-            new QpdfCommandInvocation(["in.pdf", "--static-id", "--stream-data=preserve", "--decode-level=none",
-                "--compress-streams=n", "--object-streams=disable", "--remove-unreferenced-resources=no",
-                "--pages", ".", pages, "--", "out.pdf"]),
+            new QpdfCommandInvocation(arguments),
             new QpdfExecutionOptions(QpdfLimits.Default with { MaxHostOperations = hostOperations }), CancellationToken.None);
         if (!succeeds)
         {
