@@ -9,30 +9,39 @@ namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class DocumentTests
 {
-    private static byte[] SmallStreamWithLargeUnusedInput()
+    private static byte[] SmallStreamWithLargeUnusedInput(byte[] payload)
     {
-        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        List<(int, string, byte[]?)> objects = CheckTests.SinglePage($"<< /Length {payload.Length} >>", payload);
         objects.Add((6, new string(' ', 2 * 1024 * 1024) + "null", null));
         return CheckTests.Assemble(objects, 1);
     }
 
-    [Fact]
-    public async Task RetainedCustomHostChunksDoNotPinWholeInputs()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(256)]
+    public async Task RetainedCustomHostChunksDoNotPinWholeInputs(int repetitions)
     {
+        // Exercise both batched small payloads and direct payload writes.
+        byte[] content = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("q Q\n", repetitions)));
         RetainingOutputHost host = new();
-        host.Storage.AddInput(QpdfPath.From("input.pdf"), SmallStreamWithLargeUnusedInput(), QpdfInputOwnership.Copy);
+        host.Storage.AddInput(QpdfPath.From("input.pdf"), SmallStreamWithLargeUnusedInput(content), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["input.pdf", "--stream-data=preserve", "--decode-level=none",
                 "--compress-streams=n", "--static-id", "output.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        ReadOnlyMemory<byte> payload = Assert.Single(host.Chunks, chunk => chunk.Span.SequenceEqual("q Q\n"u8));
-        Assert.True(MemoryMarshal.TryGetArray(payload, out ArraySegment<byte> backing));
         // Surviving output aliases must not keep a material, mostly unused input
         // alive. This is a broad retention bound, not an exact object-size test.
-        Assert.NotNull(backing.Array);
-        Assert.InRange(backing.Array.Length, 4, 65536);
+        Assert.NotEmpty(host.Chunks);
+        Assert.All(host.Chunks, chunk =>
+        {
+            Assert.True(MemoryMarshal.TryGetArray(chunk, out ArraySegment<byte> backing));
+            Assert.NotNull(backing.Array);
+            Assert.InRange(backing.Array.Length, chunk.Length, 65536);
+        });
         Assert.True(host.Storage.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] output));
+        Assert.Equal(output, host.Chunks.SelectMany(chunk => chunk.ToArray()).ToArray());
+        Assert.True(output.AsSpan().IndexOf(content) >= 0);
         using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(output);
         Assert.Equal(1, independent.NumberOfPages);
         Assert.Equal(0L, host.Storage.OpenLeaseCount);
@@ -63,7 +72,7 @@ public sealed class DocumentTests
     public async Task ExclusiveStreamSlicesKeepWholeInputFundedAfterReaderClosure()
     {
         byte[] payload = "q Q\n"u8.ToArray();
-        byte[] input = SmallStreamWithLargeUnusedInput();
+        byte[] input = SmallStreamWithLargeUnusedInput(payload);
         InMemoryQpdfHost host = HostWith("input.pdf", input);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4L * 1024L * 1024L };
         ResourceGovernor governor = new(limits, CancellationToken.None);

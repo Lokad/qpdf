@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: the clean
-`8c99543` panel meets parity in three cells, with ratios 0.76–3.62×. Sparse
-selection is the largest complete file-job gap (6.79 / 1.87 ms); its managed
+`11fb330` panel meets parity in three cells, with ratios 0.78–3.61×. Sparse
+selection is the largest complete file-job gap (8.17 / 2.26 ms); its managed
 transport reads the entire 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
 [protocol](BENCHMARKS.md) separate complete jobs, memory diagnostics and historical
 observations. Performance commits need reduced time or allocation, with no
@@ -53,12 +53,20 @@ inputs, output integrity, retained chunks, failure, cancellation and cleanup.
 Same-driver pairs remove another 415 KB/job from default-ID rewriting and
 425 KB/job from linearization; output hashes match. Times overlap under load,
 so allocation alone qualifies these changes. The public raw archive now retains
-nine runs, including the clean thirteen-cell panel and both batching prototypes.
+ten runs, including both clean thirteen-cell panels and both batching prototypes.
 Final-source semantic preflight passes all 26 fresh outcomes and three negative
 controls. Locked Release restore/build pass with zero warnings/errors; explicit
 pack, inspection and the fresh locked consumer pass, including the unchanged
 2 MiB multisource case. Hosted integration qualification follows this combined
 writer correction.
+
+The `11fb330` hosted reference job passed in 5m39s. Each ordinary job passed
+17,809 checks and failed one retained-output control that assumed the tiny stream
+was a separate host write. Its correction checks every retained backing against
+the existing 64 KiB bound, reassembles immutable chunks against published output,
+and covers both batched and direct payload writes. It preserves the actual
+whole-input retention regression. The following corrective hosted checkpoint
+qualifies tests/packages; production code and benchmark coverage remain unchanged.
 
 Continue with one measured parser/writer or reader/host cost at a time. Preserve
 the thirteen cells, original inputs, meaningful ceilings and negative controls;
