@@ -2,20 +2,20 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: the clean
-`11fb330` panel meets parity in three cells, with ratios 0.78–3.61×. Sparse
-selection is the largest complete file-job gap (8.17 / 2.26 ms); its managed
-transport reads the entire 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
+`be70d4c` panel meets parity in two cells, with ratios 0.82–5.41× under variable
+host load. A bounded sparse regression pair shows 8.36 / 2.62 ms (3.19×);
+its managed transport reads the entire 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
 [protocol](BENCHMARKS.md) separate complete jobs, memory diagnostics and historical
 observations. Performance commits need reduced time or allocation, with no
 minimum percentage gain. Noisy overlapping timings do not establish a time win.
 
-Pushed `c6eca2e` passed [hosted CI run 38303565149](https://github.com/Lokad/qpdf/actions/runs/38303565149):
-Windows 6m23s, Ubuntu 5m55s, pinned reference 3m55s. Both platforms pass 17,811
+Pushed `be70d4c` passed [hosted CI run 38309208947](https://github.com/Lokad/qpdf/actions/runs/38309208947):
+Windows 6m51s, Ubuntu 5m42s, pinned reference 6m02s. Both platforms pass 17,816
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. Seven visuals and both controls pass on the same writer
-source. Two push-triggered runs in that batch corrected one chunk-boundary test;
-no manual reruns. Batch further source changes before another hosted checkpoint.
+source. One push-triggered run qualified two source commits; no manual rerun.
+Batch useful source changes before another hosted checkpoint.
 
 The agreed [supported profile](SUPPORTED-PROFILE.md) and completed features remain
 closed. CMYK/YCCK JPEG decoding remains opaque with warnings; Zopfli is
@@ -24,6 +24,31 @@ inputs, remains excluded. Other requirements and documented differences remain
 in [compatibility](COMPATIBILITY.md); performance work does not waive them.
 
 ## Current correction and next work
+
+Numeric/reference lookahead now classifies the following prefix before scanning
+a whole token, using the existing whitespace and numeric lexer. Repair offsets,
+grammar, error ordering and cancellation remain covered. A public reader with
+two integers before a 1 MiB string now fits a representative work ceiling that
+the baseline exhausted; a lower ceiling still rejects, both outcomes close
+leases and the returned string survives disposal. All three new controls fail
+on the baseline and pass the correction.
+
+Canonical single-digit numbers also reuse immutable literal text, preserving
+signed/zero-padded spellings and the same work observations. The same-driver
+object-heavy pair removes about 54 KB/job (9.184 → 9.130 MB); output hashes match.
+Times overlap (44.54 → 44.97 ms), so claim allocation only. A separate generated
+large-string diagnostic has medians 38.34 → 30.29 ms with overlapping IQRs;
+it adds no parity cell and establishes no decisive time win. A retirement-counter
+read trial showed no useful reduction and was reverted.
+
+Affected syntax/recovery/cancellation and reader controls pass, as do all 26
+fresh managed/native outcomes, three negative controls, 1,858 pinned parser
+comparisons and 442 rewrite trios. Release build/pack, package inspection, fresh
+locked consumer and rejection controls pass. Seven visuals and both controls
+also pass in 17.32 seconds. This source unit awaits the next
+integrated hosted checkpoint; earlier clean-panel evidence remains identified.
+
+## Recent integrated corrections
 
 Page-attribute lookup now avoids traversal scratch for leaf hits and one
 indirect parent. Missing optional attributes normally visit the page-tree root
@@ -43,7 +68,7 @@ binding. Logs/TRX, patches and raw observations are in the ignored
 All 26 fresh managed/native outcomes and three negative controls pass; input
 hashes are unchanged. Explicit Release pack, inspection and a fresh locked
 consumer pass, including the unchanged 2 MiB multisource case. The correction
-is a local source unit for the next combined integration checkpoint.
+is integrated in the green `be70d4c` checkpoint.
 
 A short allocation trace identified repeated generic collection resizing.
 Governed dictionaries/sets now request geometric growth. If its conservative

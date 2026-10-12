@@ -96,10 +96,30 @@ internal sealed class PdfTokenizer
         return TryReadTokenCore(out token, tolerateErrors);
     }
 
+    internal bool TryReadReferencePart(bool generation, out PdfToken token, out long offset,
+        bool tolerateErrors, ResourceGovernor governor)
+    {
+        _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+        _governor.CheckCancellation();
+        _token.ThrowIfCancellationRequested();
+        SkipWhitespaceAndComments();
+        offset = _position;
+        ReadOnlySpan<byte> data = _data.Span;
+        if (_position >= data.Length || (generation ? !IsNumberStart(data[_position])
+            : data[_position] != (byte)'R' || (_position + 1 < data.Length && !IsDelimiter(data[_position + 1]))))
+        { token = default; return false; }
+        return TryReadTokenAfterWhitespace(out token, tolerateErrors);
+    }
+
     private bool TryReadTokenCore(out PdfToken token, bool tolerateErrors)
     {
         _token.ThrowIfCancellationRequested();
         SkipWhitespaceAndComments();
+        return TryReadTokenAfterWhitespace(out token, tolerateErrors);
+    }
+
+    private bool TryReadTokenAfterWhitespace(out PdfToken token, bool tolerateErrors)
+    {
         if (_position >= _data.Length)
         {
             token = new PdfToken(PdfTokenKind.End, ReadOnlyMemory<byte>.Empty, _position);

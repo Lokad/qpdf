@@ -26,6 +26,7 @@ internal interface IStreamRecoveryResolver : IIndirectResolver
 /// </summary>
 internal sealed class PdfParser
 {
+    private static readonly string[] SingleDigitText = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
@@ -466,14 +467,13 @@ internal sealed class PdfParser
         _integerSecondFollowingToken = -1L;
         try
         {
-            if (tokenizer.TryReadToken(out second, TolerateObjectErrors, _governor))
+            bool hasGeneration = tokenizer.TryReadReferencePart(true, out second, out long nextOffset, TolerateObjectErrors, _governor);
+            _integerFollowingToken = nextOffset < tokenizer.Data.Length ? nextOffset : -1L;
+            if (hasGeneration && second.Kind == PdfTokenKind.Integer)
             {
-                _integerFollowingToken = second.Offset;
-                if (second.Kind == PdfTokenKind.Integer && tokenizer.TryReadToken(out third, TolerateObjectErrors, _governor))
-                {
-                    _integerSecondFollowingToken = third.Offset;
-                    reference = third.Kind == PdfTokenKind.Reference;
-                }
+                reference = tokenizer.TryReadReferencePart(false, out third, out nextOffset, TolerateObjectErrors, _governor)
+                    && third.Kind == PdfTokenKind.Reference;
+                _integerSecondFollowingToken = nextOffset < tokenizer.Data.Length ? nextOffset : -1L;
             }
         }
         catch (QpdfParseException)
@@ -1296,6 +1296,16 @@ internal sealed class PdfParser
 
     private string CopyNumericTextCore(ReadOnlyMemory<byte> data, Action? observe)
     {
+        // Canonical single digits need no new immutable string. Keep the same
+        // work/cancellation observation; signs and leading zeros retain their text.
+        if (data.Length == 1 && data.Span[0] is >= (byte)'0' and <= (byte)'9')
+        {
+            _token.ThrowIfCancellationRequested();
+            _governor.ChargeWork(1L);
+            observe?.Invoke();
+            _governor.CheckCancellation();
+            return SingleDigitText[data.Span[0] - (byte)'0'];
+        }
         // The tokenizer established ASCII numeric syntax. Copy directly into
         // the admitted string, without a second full-size character array.
         return string.Create(data.Length, (Data: data, Governor: _governor, Token: _token, Observe: observe), static (chars, state) =>

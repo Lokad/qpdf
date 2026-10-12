@@ -1,13 +1,77 @@
 using System.Text;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
+using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Syntax;
 
 public sealed class NumericParserTests
 {
+    [Fact]
+    public async Task PublicReaderKeepsLargeFollowingStringsWithinRepresentativeWorkLimits()
+    {
+        const int length = 1024 * 1024;
+        byte[] FileFor(string prefix)
+        {
+            List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+            objects.Add((6, "[ " + prefix + "(" + new string('A', length) + ") ]", null));
+            return CheckTests.Assemble(objects, 1);
+        }
+        InMemoryQpdfHost controlHost = new();
+        controlHost.AddInput(QpdfPath.From("control.pdf"), FileFor(string.Empty), QpdfInputOwnership.Copy);
+        long controlWork;
+        await using (QpdfDocument control = await QpdfDocument.OpenAsync(controlHost, QpdfPath.From("control.pdf"), CancellationToken.None))
+        {
+            Assert.IsType<PdfArray>(control.GetObject(6));
+            controlWork = control.Counters.TotalWork;
+        }
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("in.pdf"), FileFor("1 2 "), QpdfInputOwnership.Copy);
+        // Leave a coarse allowance for the two values and public cache ownership.
+        // Repeatedly scanning the megabyte string still exceeds this allowance.
+        QpdfLimits limits = QpdfLimits.Default with { MaxWork = controlWork + 256L };
+        PdfByteString kept;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("in.pdf"), limits, CancellationToken.None))
+        {
+            PdfArray values = Assert.IsType<PdfArray>(document.GetObject(6));
+            Assert.Equal(3, values.Count);
+            Assert.Equal(1L, Assert.IsType<PdfInteger>(values[0]).Value);
+            Assert.Equal(2L, Assert.IsType<PdfInteger>(values[1]).Value);
+            kept = Assert.IsType<PdfByteString>(values[2]);
+        }
+        Assert.Equal(Enumerable.Repeat((byte)'A', length).ToArray(), kept.Value);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, controlHost.OpenLeaseCount);
+        QpdfLimits insufficient = limits with { MaxWork = controlWork / 2L };
+        await Assert.ThrowsAsync<QpdfLimitException>(async () =>
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("in.pdf"), insufficient, CancellationToken.None);
+            document.GetObject(6);
+        });
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("1", false)]
+    [InlineData("1 2", true)]
+    public void IntegerLookaheadDoesNotConsumeTheFollowingLargeStringWorkBudget(string integers, bool repair)
+    {
+        const int length = 65536;
+        byte[] input = Encoding.ASCII.GetBytes("[ " + integers + " (" + new string('A', length) + ") ]");
+        (PdfParser parser, ResourceGovernor governor, DiagnosticBag bag) = Create(QpdfLimits.Default with { MaxWork = 64L }, repair);
+        // Complete jobs hold private parsed values in their existing scope.
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer(input), 0, memory));
+        int count = integers == "1" ? 1 : 2;
+        Assert.Equal(count + 1, value.Count);
+        for (int index = 0; index < count; index++) { Assert.Equal(index + 1L, Assert.IsType<PdfInteger>(value[index]).Value); }
+        Assert.Equal(Enumerable.Repeat((byte)'A', length).ToArray(), Assert.IsType<PdfByteString>(value[count]).Value);
+        Assert.Empty(bag.Entries);
+    }
+
     public static IEnumerable<object[]> OracleCases()
     {
         // Expected values come from authored inputs checked against qpdf 12.4.2.
@@ -69,6 +133,10 @@ public sealed class NumericParserTests
     [InlineData("9223372036854775807", long.MaxValue)]
     [InlineData("+0001", 1L)]
     [InlineData("-0000", 0L)]
+    [InlineData("0", 0L)]
+    [InlineData("9", 9L)]
+    [InlineData("00", 0L)]
+    [InlineData("-0", 0L)]
     public void StrictIntegersPreserveTheirTextAndFullSignedRange(string text, long expected)
     {
         (PdfParser parser, _, DiagnosticBag bag) = Create(QpdfLimits.Default, false);
