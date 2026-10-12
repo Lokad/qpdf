@@ -254,7 +254,7 @@ public sealed class QpdfDocument : IAsyncDisposable
         CancellationToken cancellationToken)
         => OpenCore(host, path, limits, governor, diagnostics, recovery, cancellationToken, true);
 
-    internal static async ValueTask<QpdfDocument> OpenCore(
+    internal static ValueTask<QpdfDocument> OpenCore(
         IQpdfHost host,
         QpdfPath path,
         QpdfLimits limits,
@@ -263,12 +263,24 @@ public sealed class QpdfDocument : IAsyncDisposable
         QpdfRecoveryMode recovery,
         CancellationToken cancellationToken,
         bool valuesEscape)
+        => OpenCore(host, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape, true);
+
+    internal static async ValueTask<QpdfDocument> OpenCore(
+        IQpdfHost host,
+        QpdfPath path,
+        QpdfLimits limits,
+        ResourceGovernor governor,
+        DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken,
+        bool valuesEscape,
+        bool borrowInputStreams)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         // Custom output hosts may retain immutable write chunks after the job.
         // Borrow input slices only when publication consumes them synchronously.
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape,
-            host is Hosting.InMemoryQpdfHost).ConfigureAwait(false);
+            borrowInputStreams && host is Hosting.InMemoryQpdfHost).ConfigureAwait(false);
     }
 
     private static async ValueTask<QpdfDocument> OpenInputDocument(

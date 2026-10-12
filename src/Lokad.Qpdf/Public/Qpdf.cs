@@ -837,7 +837,10 @@ public static partial class Qpdf
         {
             cancellationToken.ThrowIfCancellationRequested();
             await using QpdfDocument document = preparedSource
-                ?? await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
+                // Multisource graphs survive each reader. Independent payloads
+                // let mostly unused inputs retire before the next source opens.
+                ?? await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken,
+                    false, sources.Count == 1).ConfigureAwait(false);
             if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
             ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
             PdfVersion sourceVersion = document.OwnVersion();

@@ -1,5 +1,12 @@
 # Progress
 
+Fresh package qualification exposed multisource borrowing retaining three mostly
+unused inputs across readers and exceeding the existing 2 MiB selection ceiling.
+Multisource copying now keeps independent stream payloads; single-source borrowing
+remains. All 105 affected checks and the unchanged fresh consumer pass. Existing
+typed/argv/job controls now use a nonempty stream and independently verify decoded
+content. Run the final combined checkpoint on this correction before timing.
+
 The integrated performance tree is qualified on `6221e06` (2026-10-12).
 The agreed [supported profile](SUPPORTED-PROFILE.md) and its completed features
 remain closed. Subsequent bounded name hash/comparison corrections pass 2,549 affected

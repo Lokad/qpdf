@@ -164,7 +164,13 @@ public sealed class DocumentLifetimeTests
     [InlineData("job")]
     public async Task MultiSourceSelectionReusesReleasedInputBudgetAndKeepsPageEffects(string route)
     {
-        byte[] input = Input(1024 * 1024, false, "", false);
+        byte[] input = CheckTests.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
+            (4, "<< /Length 4 >>", "q Q\n"u8.ToArray()),
+            (5, "null %" + new string('A', 1024 * 1024) + "\n", null)
+        ], 1);
         InMemoryQpdfHost host = Host(input);
         host.AddInput(QpdfPath.From("b.pdf"), input, QpdfInputOwnership.Copy);
         host.AddInput(QpdfPath.From("c.pdf"), input, QpdfInputOwnership.Copy);
@@ -192,7 +198,18 @@ public sealed class DocumentLifetimeTests
         foreach (PageLocation page in written.PageReferences)
         {
             Assert.True(page.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents));
-            Assert.Empty(Assert.IsType<PdfStream>(written.GetObject(Assert.IsType<PdfReference>(contents).ObjectNumber)).Data);
+            PdfStream stream = Assert.IsType<PdfStream>(written.GetObject(Assert.IsType<PdfReference>(contents).ObjectNumber));
+            byte[] payload = stream.Data;
+            if (route != "typed")
+            {
+                Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+                Assert.True(Assert.IsType<PdfName>(filter).Equals(PdfName.FromAscii("FlateDecode")));
+                using MemoryStream encoded = new(payload);
+                using System.IO.Compression.ZLibStream decoder = new(encoded, System.IO.Compression.CompressionMode.Decompress);
+                using MemoryStream decoded = new();
+                decoder.CopyTo(decoded); payload = decoded.ToArray();
+            }
+            Assert.Equal("q Q\n"u8.ToArray(), payload);
         }
     }
 
