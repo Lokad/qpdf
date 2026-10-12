@@ -1,23 +1,52 @@
 # Linux benchmark comparison — 2026-10-12
 
 The current goal is single-CPU parity (≤1.0×) in every agreed structural workload;
-it remains open. The panel now has thirteen codec-free cells. Sparse selection
-exposes the largest complete-job gap: an owned-input transport correction reduces
-its paired median from 11.68 to 6.63 ms, versus 1.67 ms native (3.96× remains).
-This removes a redundant emitter clone, rather than speeding up the parser.
+it remains open. The clean `8c99543` panel meets parity in three of thirteen
+codec-free cells. Sparse selection exposes the largest complete-job gap:
+6.79 / 1.87 ms (3.62×). Required full-input transport remains timed; the managed
+reader receives all 16.8 MB while native can read selected objects lazily.
 
 Recent production corrections remove split-wide scans, redundant writer clearing,
 uncompressed counting buffers and unescaped-name buffers. Same-driver measurements
 reduce object-stream allocation by 80.2 KB/job and object-heavy rewrite allocation
 by 1.066 MB/job; their timing IQRs overlap. Fresh output hashes are unchanged.
 All 26 extended managed/native outcomes and three negative controls pass.
+Bounded batching with direct short-token formatting subsequently removes
+1.465 MB/job from object-heavy rewriting and 84.7 KB/job from streamed rewriting.
+Their timing IQRs overlap too; these are allocation wins.
+Reusing batching for placeholder hashing and linearized publication removes
+another 415 KB/job and 425 KB/job respectively. Same-driver medians are
+103.99 → 110.69 ms and 124.03 → 129.73 ms with overlapping IQRs under load;
+these observations establish no elapsed-time improvement. Output hashes match.
 
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
-preserve the thirteen-cell baseline, four correction/transport pairs and separate
+preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate
 managed-only memory diagnostics. Every sample and summary number is retained;
 local paths/hostnames are redacted. The diagnostic compares memory-host Copy and
 immutable Transfer: 2.68 / 1.14 ms medians, 16.26 MiB / 247 KiB allocation. It
 supplies no native ratio and does not replace the complete file-job comparison.
+
+## Current thirteen-cell checkpoint
+
+Clean `8c99543`, seven sequential alternating 350 ms batches per engine after
+warmup; medians in milliseconds, Q1–Q3 in parentheses. All 21,454 observations
+are retained. Subsequent narrow pairs isolate changes; separate panels do not.
+
+| Workload | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | M/N |
+| --- | ---: | ---: | ---: |
+| select-S10 | 0.59 (0.58–0.65) | 0.78 (0.77–0.81) | 0.76× |
+| select-M500 | 25.15 (24.13–25.93) | 23.37 (23.04–25.71) | 1.08× |
+| merge-250x2 | 26.64 (25.92–28.78) | 20.81 (20.16–21.79) | 1.28× |
+| split-M500 | 34.36 (31.92–39.93) | 25.91 (24.77–26.49) | 1.33× |
+| rewrite-M500 | 24.80 (23.81–28.07) | 15.01 (14.92–15.28) | 1.65× |
+| rewrite-X100 | 3.51 (3.24–3.58) | 1.96 (1.87–2.02) | 1.79× |
+| object-streams-X100 | 3.47 (3.40–4.04) | 2.78 (2.74–2.88) | 1.25× |
+| linearize-M500 | 30.93 (29.23–41.28) | 20.96 (19.64–21.86) | 1.48× |
+| check-X100 | 2.77 (2.74–5.04) | 2.85 (2.67–3.44) | 0.97× |
+| rewrite-ID-M500 | 35.96 (35.09–40.56) | 22.56 (22.47–24.67) | 1.59× |
+| rewrite-objects | 45.87 (44.19–49.47) | 27.61 (26.66–28.24) | 1.66× |
+| select-sparse | 6.79 (6.77–7.10) | 1.87 (1.78–1.90) | 3.62× |
+| split-single | 6.83 (6.78–6.84) | 6.93 (6.80–7.17) | 0.98× |
 
 The previously qualified nine-cell **2× target** on `219eca3` is historical evidence;
 its ratios range from 0.66× to 1.77× pinned native qpdf 12.4.2.
@@ -29,7 +58,7 @@ Fresh outputs independently validate; input hashes are unchanged and recorded ma
 
 Median of seven batch means, in milliseconds per complete fresh job, with Q1–Q3 across batches in parentheses. The initial ratio is the original fair warmed baseline (`a4c8003`); separate-run changes do not isolate individual correction gains. All seven batches remain included.
 
-| Workload | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | Current M/N | Initial M/N |
+| Workload | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | Qualified M/N | Initial M/N |
 | --- | ---: | ---: | ---: | ---: |
 | select-S10 | 0.64 (0.59–0.91) | 0.98 (0.75–1.08) | 0.66× | 1.67× |
 | select-M500 | 21.66 (21.49–22.18) | 20.87 (20.66–20.98) | 1.04× | 4.49× |
@@ -54,7 +83,7 @@ The final same-driver M500 pair uses the identical current probe with reviewed b
 
 Earlier direct-host probes also eagerly loaded unrelated fixtures; their cross-native ratios are invalid. The corrected runner exposes only each workload’s required original inputs to both engines. Those defect observations and all earlier noisy/contended runs remain in the raw report; no samples were discarded. Direct copy/allocation eliminations are accepted structurally after correctness/resource checks and have no empirical speed gate.
 
-## Allocation, process memory and output
+## Previously qualified allocation, process memory and output
 
 Allocation is cumulative managed MB per fresh job, normalized separately from dedicated-worker peak RSS. RSS includes warmup, runtime and host storage; it is not an engine-only working set or a retained-memory-leak measurement. Split output size sums all files.
 
@@ -78,7 +107,10 @@ Every cell preserves the original inputs, options, limits and expected outcomes.
 
 The warm probe now uses the built-in consuming memory host directly. The earlier filename-alias adapter correctly disables input-slice borrowing after the custom-host safety guard. The final pair uses one probe binary for both libraries to remove that transport-path difference. Single-source private graphs adopt the full pinned input charge; public readers, custom retaining hosts and multisource copying keep independent payloads. The unchanged 2 MiB three-source consumer and strengthened typed/argv/job controls pass.
 
-All nine cells use static IDs. Incremental default-ID hashing removes a placeholder-PDF allocation, but this matrix does not measure that benefit; classic/QDF/linearized golden-ID tests preserve its original bytes. Allocation and accounting estimates are separate from actual retained storage. Final ordinary/reference/visual/package qualification is recorded in [progress](PROGRESS.md).
+The historical nine cells use static IDs; the extended panel separately measures
+default-ID hashing. Classic/QDF/linearized golden-ID tests preserve original
+bytes. Allocation and accounting estimates are separate from actual retained
+storage. Integration qualification is recorded in [progress](PROGRESS.md).
 
 ## Reproduction and historical startup measurements
 
