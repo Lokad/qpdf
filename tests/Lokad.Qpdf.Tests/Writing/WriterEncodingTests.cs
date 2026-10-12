@@ -10,6 +10,50 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class WriterEncodingTests
 {
+    private sealed class RetainingSink : IByteSink
+    {
+        internal readonly List<ReadOnlyMemory<byte>> Chunks = new();
+        public long Length { get; private set; }
+        public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Chunks.Add(chunk); Length += chunk.Length;
+            return ValueTask.CompletedTask;
+        }
+        internal byte[] Bytes() => Chunks.SelectMany(chunk => chunk.ToArray()).ToArray();
+    }
+
+    [Theory]
+    [InlineData("DistinctPlainName", "/DistinctPlainName")]
+    [InlineData("Needs Escape", "/Needs#20Escape")]
+    [InlineData("", "/")]
+    public async Task RetainedNameChunksRemainImmutableAfterCallerCopiesChange(string text, string expected)
+    {
+        byte[] input = Encoding.ASCII.GetBytes(text);
+        PdfName name = new(input);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        RetainingSink sink = new();
+        await new PdfSerializer(QpdfLimits.Default, governor).AppendValueAsync(name, sink, 0, false, CancellationToken.None);
+        Array.Fill(input, (byte)'x');
+        byte[] publicCopy = name.RawBytes;
+        Array.Fill(publicCopy, (byte)'y');
+        Assert.Equal(expected, Encoding.ASCII.GetString(sink.Bytes()));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public async Task UnescapedNameLimitRejectsBeforeEmittingItsPrefix()
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 4 };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        RetainingSink sink = new();
+        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(async () =>
+            await new PdfSerializer(limits, governor).AppendValueAsync(PdfName.FromAscii("Distinct"), sink,
+                0, false, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxOutputBytes), failure.LimitName);
+        Assert.Empty(sink.Chunks);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]

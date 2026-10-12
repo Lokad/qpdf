@@ -14,7 +14,7 @@ internal sealed class WriterEncoding : IDisposable
         new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
         {
             [" "] = " "u8.ToArray(), ["\n"] = "\n"u8.ToArray(),
-            ["["] = "["u8.ToArray(), ["]"] = "]"u8.ToArray(),
+            ["["] = "["u8.ToArray(), ["]"] = "]"u8.ToArray(), ["/"] = "/"u8.ToArray(),
             ["<<"] = "<<"u8.ToArray(), [">>"] = ">>"u8.ToArray(),
             ["null"] = "null"u8.ToArray(), ["true"] = "true"u8.ToArray(), ["false"] = "false"u8.ToArray(),
             ["\nendobj\n"] = "\nendobj\n"u8.ToArray(), ["\nendobj\n\n"] = "\nendobj\n\n"u8.ToArray(),
@@ -92,6 +92,34 @@ internal sealed class WriterEncoding : IDisposable
     {
         ArgumentNullException.ThrowIfNull(text);
         return Create(Kind.Ascii, ReadOnlySpan<byte>.Empty, text.AsSpan(), limits, governor, cancellationToken, null);
+    }
+
+    internal static bool TryGetUnescapedName(PdfName name, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken, out ReadOnlyMemory<byte> bytes)
+    {
+        CheckCancellation(governor, cancellationToken);
+        ReadOnlySpan<byte> raw = name.RawSpan;
+        if (!raw.IsEmpty && !IsRegular(raw[0]))
+        {
+            governor.ChargeWork(1L); bytes = default; return false;
+        }
+        // These bytes have immutable value lifetime and may survive a host's
+        // retained chunk. Escaped names keep the independently encoded path.
+        for (int offset = 0; offset < raw.Length;)
+        {
+            CheckCancellation(governor, cancellationToken);
+            int count = Math.Min(VisitBytes, raw.Length - offset);
+            governor.ChargeWork(count);
+            foreach (byte value in raw.Slice(offset, count))
+            {
+                if (!IsRegular(value)) { bytes = default; return false; }
+            }
+            offset += count;
+        }
+        CheckLength(1L + raw.Length, Math.Min(limits.MaxOutputBytes, Array.MaxLength));
+        governor.ChargeWork(raw.Length);
+        bytes = name.RawMemory;
+        return true;
     }
 
     internal static WriterEncoding Name(PdfName name, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)

@@ -208,6 +208,8 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
     internal ReadOnlySpan<byte> RawSpan => _raw;
 
+    internal ReadOnlyMemory<byte> RawMemory => _raw;
+
     internal object AllocationCarrier => _raw;
 
     /// <summary>

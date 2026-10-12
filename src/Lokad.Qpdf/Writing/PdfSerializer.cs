@@ -694,6 +694,12 @@ internal sealed partial class PdfSerializer
             await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
             return;
         }
+        if (WriterEncoding.TryGetUnescapedName(name, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> raw))
+        {
+            await AppendAsciiAsync("/", sink, cancellationToken).ConfigureAwait(false);
+            await AppendBytesAsync(raw, sink, cancellationToken).ConfigureAwait(false);
+            return;
+        }
         using WriterEncoding encoded = WriterEncoding.Name(name, _limits, _governor, cancellationToken);
         await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }
