@@ -24,6 +24,15 @@ internal sealed class ObjectStreamPayload : IDisposable
         Compressed = compressed;
     }
 
+    internal static int MeasureTableRow(int number, long offset, ResourceGovernor governor)
+    {
+        if (number <= 0) { throw new QpdfException("Object-stream member numbers must be positive."); }
+        Span<byte> scratch = stackalloc byte[20];
+        // Each ordinary row has two decimal fields and two separators;
+        // the final row replaces its trailing space with a newline.
+        return WriterNumber.Format(number, scratch, governor) + WriterNumber.Format(offset, scratch, governor) + 2;
+    }
+
     internal static ObjectStreamPayload Create(IReadOnlyList<int> numbers, IReadOnlyDictionary<int, int>? renumber,
         ObjectStreamCapture members, bool compress, int? compressionLevel, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken cancellationToken)

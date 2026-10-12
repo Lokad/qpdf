@@ -348,38 +348,49 @@ internal sealed partial class PdfSerializer
                 nextId += 1;
             }
 
-            using ObjectStreamCapture members = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
-            foreach (int number in group)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!lookup.TryGetValue(number, out QpdfObject? value) || value is null)
-                {
-                    throw new QpdfException($"Object-stream member {number} is missing from the model.");
-                }
-
-                if (value is PdfStream || number == 1 || number == 2)
-                {
-                    throw new QpdfException($"Object {number} cannot be compressed into an object stream.");
-                }
-
-                await members.AppendAsync(this, value, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-            }
-
             for (int index = 0; index < group.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 _governor.ChargeWork(1L);
                 compressed[group[index]] = (containerId, index);
             }
-            using ObjectStreamPayload payload = ObjectStreamPayload.Create(group, null, members,
-                compressStreams, compressionLevel, _limits, _governor, cancellationToken);
             offsets[containerId] = sink.Length;
-            using (ObjectStreamHeader header = ObjectStreamHeader.Create(containerId, group.Count, payload.Data.Length,
-                payload.First, payload.Compressed, false, _limits, _governor, cancellationToken))
+            if (sink is CountingSink counter && !compressStreams)
             {
-                await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
+                CountingSink members = new();
+                long first = 0L;
+                foreach (int number in group)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                    first = checked(first + ObjectStreamPayload.MeasureTableRow(number, members.Length, _governor));
+                    await AppendValueAsync(ReadObjectStreamMember(lookup, number), members, 0,
+                        newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+                }
+                long length = checked(first + members.Length);
+                long maximum = Math.Min(_limits.MaxOutputBytes, Array.MaxLength);
+                if (length > maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, maximum); }
+                counter.AppendLength(ObjectStreamHeader.Measure(containerId, group.Count, length, first,
+                    false, false, _limits, _governor, cancellationToken), cancellationToken);
+                counter.AppendLength(length, cancellationToken);
             }
-            await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
+            else
+            {
+                using ObjectStreamCapture members = ObjectStreamCapture.Create(group.Count, _limits, _governor, cancellationToken);
+                foreach (int number in group)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await members.AppendAsync(this, ReadObjectStreamMember(lookup, number), newlineBeforeEndstream,
+                        cancellationToken).ConfigureAwait(false);
+                }
+                using ObjectStreamPayload payload = ObjectStreamPayload.Create(group, null, members,
+                    compressStreams, compressionLevel, _limits, _governor, cancellationToken);
+                using (ObjectStreamHeader header = ObjectStreamHeader.Create(containerId, group.Count, payload.Data.Length,
+                    payload.First, payload.Compressed, false, _limits, _governor, cancellationToken))
+                {
+                    await AppendBytesAsync(header.Data, sink, cancellationToken).ConfigureAwait(false);
+                }
+                await AppendBytesAsync(payload.Data, sink, cancellationToken).ConfigureAwait(false);
+            }
             if (newlineBeforeEndstream)
             {
                 await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -451,6 +462,19 @@ internal sealed partial class PdfSerializer
         await AppendAsciiAsync("\nendstream\nendobj\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
+    }
+
+    private static QpdfObject ReadObjectStreamMember(WriterIndex<QpdfObject> lookup, int number)
+    {
+        if (!lookup.TryGetValue(number, out QpdfObject? value) || value is null)
+        {
+            throw new QpdfException($"Object-stream member {number} is missing from the model.");
+        }
+        if (value is PdfStream || number == 1 || number == 2)
+        {
+            throw new QpdfException($"Object {number} cannot be compressed into an object stream.");
+        }
+        return value;
     }
 
     internal static int BytesNeeded(long value)

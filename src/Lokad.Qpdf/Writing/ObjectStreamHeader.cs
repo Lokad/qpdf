@@ -19,6 +19,32 @@ internal sealed class ObjectStreamHeader : IDisposable
     internal static ObjectStreamHeader Create(int number, int count, long length, long first, bool compressed, bool qdf,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
+        Span<byte> target = stackalloc byte[256];
+        int used = Format(number, count, length, first, compressed, qdf, target, limits, governor, cancellationToken);
+        ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        try
+        {
+            memory.Reserve(64L + 32L + used);
+            governor.ChargeWork(used);
+            cancellationToken.ThrowIfCancellationRequested();
+            governor.CheckCancellation();
+            byte[] bytes = GC.AllocateUninitializedArray<byte>(used);
+            GovernedBufferStream.CopyBytes(target.Slice(0, used), bytes, governor, cancellationToken, CancellationToken.None);
+            return new ObjectStreamHeader(memory, bytes);
+        }
+        catch { memory.Dispose(); throw; }
+    }
+
+    internal static int Measure(int number, int count, long length, long first, bool compressed, bool qdf,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        Span<byte> target = stackalloc byte[256];
+        return Format(number, count, length, first, compressed, qdf, target, limits, governor, cancellationToken);
+    }
+
+    private static int Format(int number, int count, long length, long first, bool compressed, bool qdf,
+        Span<byte> target, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor);
         cancellationToken.ThrowIfCancellationRequested();
@@ -28,7 +54,6 @@ internal sealed class ObjectStreamHeader : IDisposable
             throw new QpdfException("Invalid object-stream header fields.");
         }
         // Four decimal fields and the longest fixed syntax fit in 256 bytes.
-        Span<byte> target = stackalloc byte[256];
         int used = 0;
         AppendNumber(number, target, ref used, governor);
         AppendLiteral(qdf ? " 0 obj\n<<\n  /Type /ObjStm\n  /Length "u8 : " 0 obj\n<< /Type /ObjStm /Length "u8, target, ref used, governor, cancellationToken);
@@ -43,18 +68,7 @@ internal sealed class ObjectStreamHeader : IDisposable
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), used, limits.MaxOutputBytes);
         }
-        ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        try
-        {
-            memory.Reserve(64L + 32L + used);
-            governor.ChargeWork(used);
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.CheckCancellation();
-            byte[] bytes = new byte[used];
-            GovernedBufferStream.CopyBytes(target.Slice(0, used), bytes, governor, cancellationToken, CancellationToken.None);
-            return new ObjectStreamHeader(memory, bytes);
-        }
-        catch { memory.Dispose(); throw; }
+        return used;
     }
 
     private static void AppendNumber(long value, Span<byte> target, ref int used, ResourceGovernor governor)

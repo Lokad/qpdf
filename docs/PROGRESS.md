@@ -22,6 +22,14 @@ pairs preserve output hashes; object-stream generation allocates about 21.8 KB
 less per job (1.387 → 1.365 MB). Timing distributions overlap under variable host
 load, so no time gain is claimed. Comprehensive qualification follows integration.
 
+Uncompressed object-stream counting now measures members and headers without
+capturing bytes or assembling payloads. The shared header formatter preserves
+emitted bytes. All 135 affected existing checks and seven new count/emit,
+large-member memory and output/work-limit controls pass. In one same-driver warm
+pair, allocation falls 1.365 → 1.285 MB/job (80.2 KB); observed medians are
+3.34 → 3.06 ms, with overlapping IQRs. Fresh output hashes are unchanged; native
+is 2.37 ms in that pair. The allocation reduction justifies the correction.
+
 The thirteen-cell baseline exposes sparse selection as the largest complete-job
 gap: 11.62 ms versus 1.61 ms native (7.22×), allocating 33.85 MB for a 1.1 KB
 output from a 16.8 MB input. Its managed emitter reads and defensively copies the
