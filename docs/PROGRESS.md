@@ -2,44 +2,42 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: clean
-`d4032b3` meets parity in three cells, with ratios 0.67–3.61×. Structural checking
-is near parity at 1.0088×; ordinary/streamed rewriting are 1.44× / 1.48×. Sparse
-selection is the largest gap (6.17 / 1.71 ms), including the full 16.8 MB input
+`2a09384` meets parity in one cell, with ratios 0.69–3.46×. M500 selection
+is near parity at 1.0088×; ordinary/streamed rewriting are 1.35× / 1.74×. Sparse
+selection is the largest gap (6.41 / 1.85 ms), including the full 16.8 MB input
 read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
 percentage gain.
 
-Pushed `d4032b3` passed [hosted CI run 38342431222](https://github.com/Lokad/qpdf/actions/runs/38342431222):
-Windows 6m44s, Ubuntu 5m48s, pinned reference 5m35s. Both platforms pass 17,850
+Pushed `2a09384` passed [hosted CI run 38363529995](https://github.com/Lokad/qpdf/actions/runs/38363529995):
+Windows 6m37s, Ubuntu 4m57s, pinned reference 3m54s. Both platforms pass 17,853
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. The clean final-source benchmark panel retains all
-22,820 observations, fresh semantics and original input hashes.
+22,437 observations, fresh semantics and original input hashes. The current
+reader correction has local qualification; its integrated CI run is next.
 
 ## Current correction and next work
 
-Counted output now sizes bounded writer batches while preserving the host's
-preallocation hint. Outputs below 16 KiB and tight jobs keep the 256-byte batch;
-larger jobs use 2–4 KiB within current memory/work headroom, allocated once through
-the existing governor. Synchronous destinations borrow scratch; retaining hosts
-receive immutable packets. A public 200-page selection now completes within
-32 host operations; the two-operation negative control still rejects and keeps
-previous output. Cancellation, cleanup and byte limits remain enforced.
+Xref-tail discovery uses bounded reverse span search instead of comparing at
+every byte across 64 KiB. The original window, token boundaries, absolute offsets
+and last-marker grammar remain. A malformed final marker rejects rather than
+falling back to an earlier valid revision. Public window-edge, invalid-token and
+malformed-tail cases retain successful page reading and cleanup on every outcome.
 
-The identical-driver pair reduces allocation by about 11.8 KB per M500 rewrite
-(18.3874 → 18.3756 MB) and 1.1 KB per X100 rewrite (828.5 → 827.3 KB).
-Hashes match. Medians 20.470 → 20.190 ms and 2.832 → 2.725 ms have overlapping
-IQRs; claim allocation only. Earlier trials, including the accidental omission
-of host preallocation and its large allocation regression, remain in the raw
-archive. None supplies a speed claim.
+The identical-driver X100 pair has medians 2.757 → 2.636 ms (4.4% lower),
+with IQRs 2.727–2.979 / 2.564–2.717. Sparse selection is 5.937 → 5.664 ms
+(4.6% lower), IQRs 5.847–6.031 / 5.655–5.670. These distributions separate;
+allocation is effectively unchanged and hashes match. Native medians are
+1.881 / 1.704 ms, so both parity gaps remain. Full original file reads and public
+output copies remain timed; no cache, mutable pool or CPU workers were added.
 
-All 3,625 affected writer/publication/practical-memory checks pass (54s).
+All 4,120 affected reader/parser/practical-memory checks pass (18s).
 Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
-and rejection controls pass (package checks 45s). All 26 fresh managed/native
-outcomes and three negative controls pass; original input hashes and the 2 MiB
-multisource ceiling remain unchanged. Comprehensive ordinary/reference/package
-qualification uses the integrated push; the run above identifies the preceding
-qualified source.
+and rejection controls pass (package checks 15s). All 26 fresh managed/native
+outcomes and three negative controls pass; original inputs and the 2 MiB
+multisource ceiling remain. Integration runs the comprehensive ordinary/reference
+checks once and records one clean thirteen-cell performance panel.
 
 Next, measure the largest remaining reader/writer/transport costs. Object-stream
 capture consolidation is deferred: current X100 rewriting emits no object streams,
@@ -60,6 +58,8 @@ independent negative controls. Sampled GC suspension does not establish a leak.
   omitted/repaired entries, order and original source ownership.
 - Bounded writer batching, direct formatting, pure sizing, uncompressed counting,
   incremental IDs and output staging preserve offsets, IDs and publication.
+  Batches use admitted 2–4 KiB scratch where justified, preserving host capacity
+  hints and completing the 200-page public selection within 32 host operations.
 - Geometric collection growth keeps tight-budget fallback. Deferred ancestry
   scratch retains complete source identity, cycles, cancellation and work limits.
 - Numeric/reference lookahead avoids scanning large following strings, with

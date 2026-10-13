@@ -680,24 +680,22 @@ internal sealed class XRefTable : IDisposable
         int window = Math.Min(data.Length, TailScanBytes);
         int baseOffset = data.Length - window;
         ReadOnlySpan<byte> tail = data.Span.Slice(baseOffset, window);
-        ReadOnlySpan<byte> marker = [(byte)'s', (byte)'t', (byte)'a', (byte)'r', (byte)'t', (byte)'x', (byte)'r', (byte)'e', (byte)'f'];
-        int found = -1;
-        for (int i = 0; i + marker.Length <= tail.Length; i++)
+        ReadOnlySpan<byte> marker = "startxref"u8;
+        int searchEnd = tail.Length;
+        while (searchEnd >= marker.Length)
         {
-            if (tail.Slice(i, marker.Length).SequenceEqual(marker)
-                && (i == 0 || IsDelimiterOrWhitespace(tail[i - 1]))
+            int i = tail[..searchEnd].LastIndexOf(marker);
+            if (i < 0) { break; }
+            if ((i == 0 || IsDelimiterOrWhitespace(tail[i - 1]))
                 && (i + marker.Length >= tail.Length || IsDelimiterOrWhitespace(tail[i + marker.Length])))
             {
-                found = i;
+                return baseOffset + i;
             }
+            // Check boundaries against the original tail, including bytes past
+            // this candidate, before searching for an earlier occurrence.
+            searchEnd = i + marker.Length - 1;
         }
-
-        if (found < 0)
-        {
-            throw new QpdfParseException("No startxref marker in the file tail.", data.Length, null);
-        }
-
-        return baseOffset + found;
+        throw new QpdfParseException("No startxref marker in the file tail.", data.Length, null);
     }
 
     private static bool IsDelimiterOrWhitespace(byte b)

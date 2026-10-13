@@ -84,6 +84,64 @@ public sealed class XrefCollectionTests
     private static XRefTable Parse(byte[] input, ResourceGovernor governor, QpdfLimits limits)
         => XRefTable.Parse(input, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair);
 
+    [Theory]
+    [InlineData("% Xstartxref\n")]
+    [InlineData("% startxrefX\n")]
+    [InlineData("% XstartxrefX\nstartxrefX")]
+    public async Task PublicReaderIgnoresUndelimitedTailCandidates(string suffix)
+    {
+        byte[] input = [.. Revisions(1, 3), .. Encoding.ASCII.GetBytes(suffix)];
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("in.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None))
+        { Assert.Equal(1, document.PageCount); }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    public async Task PublicReaderKeepsTheExistingTailWindow(int shift, bool succeeds)
+    {
+        byte[] source = Classic(1, false);
+        int marker = source.AsSpan().LastIndexOf("startxref"u8);
+        byte[] padding = new byte[65536 - (source.Length - marker) + shift];
+        Array.Fill(padding, (byte)' ');
+        byte[] input = [.. source, .. padding];
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("in.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Copy);
+        if (succeeds)
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None);
+            Assert.Equal(1, document.PageCount);
+        }
+        else
+        {
+            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(
+                () => QpdfDocument.OpenAsync(host, path, CancellationToken.None).AsTask());
+            Assert.Contains("No startxref marker", failure.Message, StringComparison.Ordinal);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("startxref")]
+    [InlineData("startxref\nnot-an-offset\n%%EOF\n")]
+    public async Task PublicReaderRejectsMalformedFinalMarkerWithoutFallingBack(string suffix)
+    {
+        byte[] source = Revisions(1, 3);
+        byte[] input = [.. source, .. Encoding.ASCII.GetBytes(suffix)];
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("in.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Copy);
+        QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(
+            () => QpdfDocument.OpenAsync(host, path, CancellationToken.None).AsTask());
+        Assert.True(failure.ByteOffset is long offset && offset >= source.Length);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static long DictionaryAllocation(int capacity)
     {
