@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: clean
-`7d2874a` meets parity in four cells, with ratios 0.73–3.53×. Ordinary/streamed
-rewriting are 1.39× / 1.41×. Sparse selection is the largest gap (5.97 / 1.69 ms),
+`0a5837c` meets parity in three cells, with ratios 0.80–3.56×. Ordinary/streamed
+rewriting are 1.53× / 1.36×. Sparse selection is the largest gap (6.57 / 1.85 ms),
 including the full 16.8 MB input
 read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
@@ -15,9 +15,11 @@ ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. The current writer correction passed local qualification;
 CI verifies its integrated source, packages and pinned references on push.
-The clean `7d2874a` benchmark panel retains all 23,256 observations, fresh
+The clean `0a5837c` benchmark panel retains all 17,946 observations, fresh
 semantics and original input hashes. The accompanying report update changes
 documentation/raw artifacts only.
+This panel has substantial timing variability; separate panels under differing
+host load do not establish a source regression or gain. All observations remain.
 
 ## Current correction and next work
 
