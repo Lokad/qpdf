@@ -75,6 +75,29 @@ internal static class ParserContainers
         if (entries.Count < previous) { return; }
         int required = checked(entries.Count + 1);
         (int target, long upper) = ReserveGrowth(memory, previous, required, checked(12L + IntPtr.Size + valueBytes));
+        ResizeEntryCapacity(memory, entries, valueBytes, previous, target, upper);
+    }
+
+    // Use a concrete, already parsed cardinality only for an empty destination.
+    // Tight jobs and incremental overlaps retain the normal growth path.
+    internal static void HintEntryCapacity<TKey, TValue>(ParserMemoryScope memory,
+        Dictionary<TKey, TValue> entries, int count, long valueBytes, ResourceGovernor governor) where TKey : notnull
+    {
+        memory.CheckOwner(governor); governor.CheckCancellation();
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        int previous = entries.EnsureCapacity(0);
+        if (entries.Count != 0 || count <= previous) { return; }
+        int allowance = PrimeCapacityAllowance(count);
+        long upper = DictionaryArrays(allowance, valueBytes);
+        if (upper > governor.RemainingMemoryBytes / 4L
+            || allowance > governor.RemainingWorkUnits / 4L) { return; }
+        memory.Reserve(upper);
+        ResizeEntryCapacity(memory, entries, valueBytes, previous, count, upper);
+    }
+
+    private static void ResizeEntryCapacity<TKey, TValue>(ParserMemoryScope memory,
+        Dictionary<TKey, TValue> entries, long valueBytes, int previous, int target, long upper) where TKey : notnull
+    {
         // The pinned .NET 10 prime table fits this conservative allowance.
         // EnsureCapacity reports the actual storage; release excess admission.
         int capacity;

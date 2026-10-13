@@ -1,54 +1,50 @@
 # Progress
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
-in thirteen codec-free structural workloads. The target remains open. The clean
-`fa10643` panel records four cells at or below 1.0×, with ratios 0.65–2.81×.
-[Benchmarks](BENCHMARKS.md) gives the current comparison and reproducible protocol.
+in thirteen codec-free structural workloads. The target remains open. The last
+clean `fa10643` panel records four cells at or below 1.0×, with ratios 0.65–2.81×.
+[Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `773848e` passed [hosted CI run 38450794451](https://github.com/Lokad/qpdf/actions/runs/38450794451):
-Windows 6m29s, Ubuntu 5m41s, pinned reference 5m57s. Both platforms pass 17,858
+Pushed `e80abfc` passed [hosted CI run 38455595160](https://github.com/Lokad/qpdf/actions/runs/38455595160):
+Windows 6m34s, Ubuntu 5m48s, pinned reference 4m39s. Both platforms pass 17,859
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
-comparisons and 442 rewrite trios. That source remains the qualified checkpoint
-while the current allocation batch completes integration.
+comparisons and 442 rewrite trios. The current correction passed local
+qualification; its integration runs the comprehensive gates on push.
 
 ## Current correction and next work
 
-Uncompressed loads reuse one empty document-local scratch owner alongside the
-idle parser/tokenizer. Nested loads keep independent owners and close them on
-return. Cache acceptance transfers values before scratch is discarded; rejected
-attempts discard their storage before reuse. Document disposal closes the idle
-owner. No disposed scope is reopened and no global pool/cache is introduced.
+The first parsed xref section supplies a concrete entry count to the empty
+merged dictionary. Existing parser admission and capacity reconciliation size
+it once where memory/work headroom permits. Tight jobs retain geometric growth;
+later sections retain newest-first merging and ordinary growth. Unverified
+subsection promises and overlapping totals do not supply the hint.
 
-The identical-driver pair reduces object-heavy allocation 6.8045 → 6.7175 MB/job
-(about 87 KB less) and X100 800.4 → 796.2 KB/job (about 4.2 KB less). Output hashes
-match. Medians 39.666 → 42.117 ms / 2.919 → 3.108 ms have overlapping IQRs;
-claim allocation only. Both native parity gaps remain.
+The identical-driver M500 pair reduces allocation 18.2471 → 18.1351 MB/job
+(about 112 KB less), with matching output hashes. Medians 20.969 → 19.531 ms
+and IQRs 19.738–21.376 / 19.034–20.468 overlap; claim allocation only.
+X100 allocation is effectively unchanged, and medians 2.901 → 3.096 ms overlap.
+Both parity gaps remain.
 
-All 4,124 focused reader/parser/practical-memory checks pass (24s). The existing
-rejected-header/alias control now exercises a later nested stream-length load
-and independent dictionary/string/stream values after document closure.
-Recovery/retry, cancellation, meaningful limits and cleanup remain covered.
-Dictionary conversion now creates its private destination frozen, omitting a
-construction weak reference which was immediately dropped on publication.
-Mutable construction guards and conversion ownership are unchanged. The
-identical-driver pair saves another 51.4 KB/job in object-heavy rewriting
-(6.7178 → 6.6663 MB) and 5.2 KB/job in X100 (796.3 → 791.1 KB), with matching
-hashes. Medians 35.561 → 35.405 ms / 2.872 → 2.675 ms have overlapping IQRs;
-claim allocation only. All 4,148 affected reader/parser/name-storage/practical-
-memory checks pass (22s), including cancellation, overlap rejection and published
-aliases that release their completed execution state.
+All 4,127 affected reader/parser/practical-memory checks pass (20s). Three final
+controls pass (30ms), covering normal, 4 KiB memory and 128-unit work budgets,
+signed keys, growth beyond the hint, overlap and cleanup. Existing public xref
+controls retain sparse/free entries, duplicates, hybrid/incremental precedence,
+cancellation and surviving aliases. Windows/Linux Release builds and explicit
+pack/inspection/fresh locked consumer/rejections pass (20s), retaining the 2 MiB
+multisource ceiling. All 26 fresh managed/native outcomes and three negative
+controls pass; original inputs remain unchanged. One clean complete panel and
+one hosted push qualify the integrated source.
 
-Windows/Linux Release builds and explicit pack/inspection/fresh locked consumer/
-rejections pass (34s), preserving the 2 MiB multisource ceiling. All 26 fresh
-managed/native outcomes and three negative controls pass; inputs are unchanged.
-The clean final-source panel preserves all 12,669 observations and an empty
-source diff. Timing varies substantially under host load; different panels do
-not establish source gains or regressions. One hosted push qualifies this batch.
-Sparse full-input transport remains
-the largest boundary gap; prepared-memory diagnostics do not close its original
-comparison. Capture consolidation remains deferred for its small contribution.
+A bounded current-source profile guided this correction: six seconds of CPU
+sampling and four of allocation sampling on the original ordinary-rewrite job.
+PollGC stacks occupy 36.2% of sampled job intervals. Excluding them, writing
+accounts for 33.5%, reading/parsing 21.4%, transport/runtime 38.7% and copying 6.5%.
+These are sampled intervals, not exact CPU or retained-memory measurements.
+Most bulk copies are required staging/public output copies. Xref arrays and
+resizing supplied a concrete smaller allocation target. Sparse full-input
+transport remains the largest boundary gap; its original comparison remains.
 
 ## Useful completed work
 

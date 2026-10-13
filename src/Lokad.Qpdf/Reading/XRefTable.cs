@@ -334,6 +334,7 @@ internal sealed class XRefTable : IDisposable
         Dictionary<int, XrefEntry> merged, Dictionary<int, XrefEntry> entries, int effectiveSize, int dataLength, long offset,
         ResourceGovernor governor, ParserMemoryScope memory)
     {
+        ParserContainers.HintEntryCapacity(memory, merged, entries.Count, 24L, governor);
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
             governor.ChargeWork(1L);
