@@ -46,6 +46,71 @@ public sealed class BatchingSinkTests
         }
     }
 
+    private sealed class SynchronousSink(bool fail) : ISynchronousByteSink
+    {
+        internal MemoryStream Bytes { get; } = new();
+        public long Length => Bytes.Length;
+        public bool CanAppendSynchronously { get; init; } = true;
+        internal List<ReadOnlyMemory<byte>> Retained { get; } = [];
+        public void Append(ReadOnlySpan<byte> chunk, CancellationToken token)
+        {
+            if (!CanAppendSynchronously) { throw new InvalidOperationException("Synchronous consumption is unsupported."); }
+            token.ThrowIfCancellationRequested();
+            if (fail) { throw new IOException("Authored synchronous failure."); }
+            Bytes.Write(chunk);
+        }
+        public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            if (fail) { throw new IOException("Authored asynchronous failure."); }
+            Retained.Add(chunk); Bytes.Write(chunk.Span);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SynchronousCapabilityPreservesBytesAcrossFlushReuseAndDisposal(bool synchronous)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        SynchronousSink destination = new(false) { CanAppendSynchronously = synchronous };
+        using (BatchingSink sink = BatchingSink.Create(destination, QpdfLimits.Default, governor, CancellationToken.None))
+        {
+            await sink.AppendAsync("first"u8.ToArray(), CancellationToken.None);
+            await sink.FlushAsync(CancellationToken.None);
+            await sink.AppendAsync("second"u8.ToArray(), CancellationToken.None);
+            await sink.FlushAsync(CancellationToken.None);
+            Assert.Equal(11L, sink.Length);
+        }
+        Assert.Equal("firstsecond"u8.ToArray(), destination.Bytes.ToArray());
+        if (!synchronous)
+        { Assert.Equal("firstsecond"u8.ToArray(), destination.Retained.SelectMany(chunk => chunk.ToArray()).ToArray()); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SynchronousFailureOrCancellationReleasesPendingStorage(bool cancel)
+    {
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
+        SynchronousSink destination = new(!cancel);
+        using (BatchingSink sink = BatchingSink.Create(destination, QpdfLimits.Default, governor, cancellation.Token))
+        {
+            await sink.AppendAsync("pending"u8.ToArray(), cancellation.Token);
+            if (cancel)
+            {
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sink.FlushAsync(cancellation.Token));
+            }
+            else { await Assert.ThrowsAsync<IOException>(async () => await sink.FlushAsync(cancellation.Token)); }
+        }
+        Assert.Empty(destination.Bytes.ToArray());
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public async Task LogicalOffsetsAndRetainedPacketsSurviveScratchReuseAndDisposal()
     {

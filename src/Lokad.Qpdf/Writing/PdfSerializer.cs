@@ -21,6 +21,14 @@ internal interface IByteSink
     ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken);
 }
 
+/// <summary>Consumes borrowed bytes completely before returning.</summary>
+internal interface ISynchronousByteSink : IByteSink
+{
+    /// <summary>Whether Append can consume caller storage synchronously.</summary>
+    bool CanAppendSynchronously { get; }
+    void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken);
+}
+
 /// <summary>Counts serialized bytes without retaining them for the replay pass.</summary>
 internal sealed class CountingSink : IByteSink
 {

@@ -3,7 +3,7 @@ using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Writing;
 
-/// <summary>Combines small writes into bounded immutable packets for publication.</summary>
+/// <summary>Combines small writes in bounded scratch; retaining sinks receive immutable packets.</summary>
 internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
 {
     private const int Capacity = 256;
@@ -101,7 +101,9 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         if (chunk.Length >= Capacity)
         {
             await FlushAsync(cancellationToken).ConfigureAwait(false);
-            await _destination.AppendAsync(chunk, cancellationToken).ConfigureAwait(false);
+            if (_destination is ISynchronousByteSink synchronous && synchronous.CanAppendSynchronously)
+            { synchronous.Append(chunk.Span, cancellationToken); }
+            else { await _destination.AppendAsync(chunk, cancellationToken).ConfigureAwait(false); }
             CheckCancellation(cancellationToken);
             _length = next;
             return;
@@ -122,6 +124,15 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         ParserMemoryScope memory = Memory;
         CheckCancellation(cancellationToken);
         if (Scratch.Length == 0) { return; }
+        if (_destination is ISynchronousByteSink synchronous && synchronous.CanAppendSynchronously)
+        {
+            // The span cannot survive this synchronous call. Retaining/async
+            // destinations below still receive independent immutable packets.
+            try { synchronous.Append(Scratch.WrittenSpan, cancellationToken); }
+            finally { Scratch.ResetWrittenBytes(); }
+            CheckCancellation(cancellationToken);
+            return;
+        }
         byte[]? packet = Scratch.ToArray(memory, cancellationToken);
         long admission = packet.Length + GovernedBufferStream.ArrayOverheadBytes;
         Scratch.ResetWrittenBytes();

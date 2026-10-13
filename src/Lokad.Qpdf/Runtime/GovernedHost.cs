@@ -6,6 +6,12 @@ internal interface IOutputCapacityHint
     void EnsureCapacity(long length, CancellationToken cancellationToken);
 }
 
+/// <summary>Copies borrowed bytes into host storage before returning.</summary>
+internal interface ISynchronousOutputTransaction
+{
+    void Write(ReadOnlySpan<byte> data, CancellationToken cancellationToken);
+}
+
 /// <summary>An immutable host snapshot borrowed only by private documents.</summary>
 internal interface IImmutableInputSnapshot
 {
@@ -22,6 +28,17 @@ internal static class GovernedHost
 {
     internal const long InputWrapperBytes = 32L;
     internal const long OutputWrapperBytes = 40L;
+
+    internal static bool SupportsSynchronousWrite(IQpdfOutputTransaction transaction)
+        => transaction is GovernedTransaction governed && governed.SupportsSynchronousWrite;
+
+    internal static void WriteSynchronously(IQpdfOutputTransaction transaction, ReadOnlySpan<byte> data,
+        CancellationToken token)
+    {
+        if (transaction is not GovernedTransaction governed)
+        { throw new InvalidOperationException("Synchronous output requires a governed transaction."); }
+        governed.WriteSynchronously(data, token);
+    }
 
     internal static bool TryReadInputSnapshot(IQpdfInput input, CancellationToken token, out ReadOnlyMemory<byte> data)
     {
@@ -96,6 +113,7 @@ internal static class GovernedHost
 
         private IQpdfInput Inner => _inner ?? throw new ObjectDisposedException(nameof(GovernedInput));
         public QpdfPath Path => Inner.Path;
+
         public string Identity => Inner.Identity;
         public long Length => Inner.Length;
 
@@ -143,6 +161,16 @@ internal static class GovernedHost
         private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(GovernedTransaction));
         public QpdfPath Path => Inner.Path;
 
+        internal bool SupportsSynchronousWrite => _inner is ISynchronousOutputTransaction;
+
+        internal void WriteSynchronously(ReadOnlySpan<byte> data, CancellationToken cancellationToken)
+        {
+            IQpdfOutputTransaction inner = PrepareWrite(cancellationToken);
+            if (inner is not ISynchronousOutputTransaction synchronous)
+            { throw new InvalidOperationException("The output transaction does not consume spans synchronously."); }
+            synchronous.Write(data, cancellationToken);
+        }
+
         void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested(); Governor.CheckCancellation();
@@ -151,10 +179,16 @@ internal static class GovernedHost
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
+            IQpdfOutputTransaction inner = PrepareWrite(cancellationToken);
+            return inner.WriteAsync(data, cancellationToken);
+        }
+
+        private IQpdfOutputTransaction PrepareWrite(CancellationToken cancellationToken)
+        {
             IQpdfOutputTransaction inner = Inner;
             ResourceGovernor governor = Governor;
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteHostOperation();
-            return inner.WriteAsync(data, cancellationToken);
+            return inner;
         }
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)

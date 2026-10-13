@@ -195,7 +195,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
         }
     }
 
-    private sealed class InMemoryTransaction : IQpdfOutputTransaction, IOutputCapacityHint
+    private sealed class InMemoryTransaction : IQpdfOutputTransaction, IOutputCapacityHint, ISynchronousOutputTransaction
     {
         private readonly InMemoryQpdfHost _host;
         private MemoryStream? _staging = new();
@@ -263,6 +263,12 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
+            Write(data.Span, cancellationToken);
+            return ValueTask.CompletedTask;
+        }
+
+        public void Write(ReadOnlySpan<byte> data, CancellationToken cancellationToken)
+        {
             CheckUnsettled(cancellationToken);
 
             checked
@@ -280,8 +286,7 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
             // MemoryStream copies synchronously into private staging storage.
             // An intermediate array adds no isolation after Write completes.
-            Staging.Write(data.Span);
-            return ValueTask.CompletedTask;
+            Staging.Write(data);
         }
 
         public ValueTask CommitAsync(CancellationToken cancellationToken)

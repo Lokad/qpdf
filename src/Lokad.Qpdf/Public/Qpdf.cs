@@ -1917,7 +1917,7 @@ public static partial class Qpdf
         return GraphReachability.Find(new Content.PoolResolver(pool), rootArray, memory, governor);
     }
 
-    private sealed class IdentifierHashSink : IByteSink, IDisposable
+    private sealed class IdentifierHashSink : ISynchronousByteSink, IDisposable
     {
         private readonly QpdfLimits _limits;
         private readonly ResourceGovernor _governor;
@@ -1948,6 +1948,8 @@ public static partial class Qpdf
 
         public long Length => _length;
 
+        public bool CanAppendSynchronously => true;
+
         internal byte[] Complete(CancellationToken token)
         {
             token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
@@ -1955,6 +1957,12 @@ public static partial class Qpdf
         }
 
         public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
+        {
+            Append(chunk.Span, cancellationToken);
+            return ValueTask.CompletedTask;
+        }
+
+        public void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
         {
             IncrementalHash hash = _hash ?? throw new ObjectDisposedException(nameof(IdentifierHashSink));
             cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
@@ -1968,11 +1976,10 @@ public static partial class Qpdf
                 cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
                 int count = Math.Min(32768, chunk.Length - offset);
                 _governor.ChargeWork(count);
-                hash.AppendData(chunk.Span.Slice(offset, count));
+                hash.AppendData(chunk.Slice(offset, count));
                 offset += count;
             }
             _length = next;
-            return ValueTask.CompletedTask;
         }
 
         public void Dispose()
@@ -4666,7 +4673,7 @@ public static partial class Qpdf
         }
     }
 
-    private sealed class TransactionSink : IByteSink, IOutputCapacityHint
+    private sealed class TransactionSink : ISynchronousByteSink, IOutputCapacityHint
     {
         private readonly IQpdfOutputTransaction _transaction;
         private readonly ResourceGovernor _governor;
@@ -4703,6 +4710,15 @@ public static partial class Qpdf
         }
 
         public long Length => _length;
+
+        public bool CanAppendSynchronously => GovernedHost.SupportsSynchronousWrite(_transaction);
+
+        public void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
+        {
+            _governor.ChargeOutputBytes(chunk.Length);
+            GovernedHost.WriteSynchronously(_transaction, chunk, cancellationToken);
+            _length = checked(_length + chunk.Length);
+        }
 
         public async ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         {

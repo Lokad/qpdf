@@ -2,61 +2,51 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: the clean
-`e2451c5` panel meets parity in one cell, with ratios 0.79–3.40×. M500 selection
-and checking are near parity (1.06× / 1.05×); differing host load prevents
+`8f69bb7` panel meets parity in three cells, with ratios 0.76–3.23×. Content-ID
+and streamed rewriting remain 1.68× / 1.62×; differing host load prevents
 attributing separate-panel times to source changes. Sparse selection remains the
-largest gap at 8.36 / 2.46 ms: managed transport reads the entire 16.8 MB input.
+largest gap at 7.17 / 2.22 ms: managed transport reads the entire 16.8 MB input.
 [Results](BENCHMARK-RESULTS.md) preserve all observations and corrections;
 [the protocol](BENCHMARKS.md) separates complete jobs, memory diagnostics and
 startup-inclusive measurements. Performance commits require reduced time or
 allocation, without a minimum percentage gain.
 
-Pushed `b70b9f0` passed [hosted CI run 38328414537](https://github.com/Lokad/qpdf/actions/runs/38328414537):
-Windows 6m30s, Ubuntu 5m33s, pinned reference 6m01s. Both platforms pass 17,827
+Pushed `8f69bb7` passed [hosted CI run 38332182116](https://github.com/Lokad/qpdf/actions/runs/38332182116):
+Windows 6m28s, Ubuntu 5m23s, pinned reference 3m32s. Both platforms pass 17,833
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. Seven visuals and both controls pass on the same writer
-source. The corrective push preserved actual CPU cancellation after stream admission; no manual rerun.
+source. One push qualified reader and adapter corrections; no manual rerun.
 
 ## Current correction and next work
 
-Classic object loads reuse one idle parser and tokenizer per document. Active
-nested stream-length loads keep separate instances. The existing object entry
-resets repair state and borrowed-stream observations; tokenizer reuse resets
-position, governor and scan work. Disposal drops both cached instances and their
-input references. Per-active admission, cache ownership, limits and cancellation
-remain unchanged; no parsed-document reuse or global pool was added.
+Batching borrows bounded scratch for explicitly synchronous hash and built-in
+memory-host destinations. The capability passes through governed transactions;
+custom/retaining hosts keep immutable packets and the original async path.
+Shared admission preserves host-operation counts, output-byte charging, limits,
+cancellation and publication. Large payloads avoid async dispatch where supported.
+No public API, digest algorithm, global pool or CPU parallelism was added.
 
-All 3,906 affected syntax/reader/recovery/ownership checks pass, including new
-argv/job cases with an aborted classic object, following nested stream load and
-surviving stream/string aliases under valid/reconstructed xrefs. An identical-
-driver object-heavy pair removes about 423 KB/job (8.902 → 8.479 MB), preserving
-hashes. Medians 47.18 → 52.90 ms overlap; claim allocation only. The intermediate
-parser-only pair (302 KB less) remains identified in the raw archive.
+All 3,377 affected writer/host/ID/QDF/linearization/retention/publication checks
+pass, including true/false capability, scratch reuse and failure/cancellation.
+The identical-driver content-ID pair removes about 238 KB/job (18.906 → 18.667 MB)
+and reduces medians 36.324 → 32.694 ms, with separated IQRs and matching hashes.
+Native is 26.667 ms (1.23×): parity remains open. Streamed allocation falls
+898.0 → 873.7 KB/job; timings overlap, so claim allocation only. The intermediate
+hash-only pair (119 KB less) remains identified in the raw archive.
 
-Release build/pack/inspection and the fresh locked consumer pass, including the
-unchanged 2 MiB multisource ceiling. All 26 fresh managed/native outcomes and
-three negative controls pass; original inputs are unchanged. Final integrated
-ordinary/reference/package qualification uses one batched hosted checkpoint.
-Unaffected visuals retain the identified `97c38d5` writer evidence.
+Release build/pack/inspection, fresh locked consumer and final 26 fresh managed/
+native outcomes plus three negative controls pass. The unchanged 2 MiB multisource
+ceiling and original input hashes remain. Comprehensive ordinary/reference/package
+qualification uses one integrated hosted run; unaffected visuals retain identified
+writer evidence. The raw archive includes thirty-three runs and the clean prior
+panel, without dropping candidates or contended samples.
 
-The developer file adapter also avoids clearing known-size buffers before a full
-read overwrites them. Direct handles, short-read loops and EOF rejection preserve
-fresh complete input transfer; unknown/zero lengths still read to completion.
-All thirteen probe CLI checks pass, including binary payload integrity and empty-
-input prior-output preservation. A same-library sparse pair reduces time
-6.54 → 5.96 ms (8.9%) with separated IQRs and identical output hashes. This is a
-transport improvement; all original reads/copies remain timed. The earlier
-FileStream trial is unretained, with every observation kept. Final combined
-26-outcome/three-control validation passes with unchanged input hashes.
-
-Continue with the largest demonstrated reader/writer or transport cost. Sparse
-selection still includes the full physical input read. Preserve all thirteen
-cells, immutable public copying, meaningful limits and independent controls.
-Use narrow probes and focused checks during implementation, then qualify accepted
-source batches with the existing comprehensive machinery. Earlier dictionary
-key-view and test-controller corrections are integrated in green `b70b9f0`; their
-observations and original failed checkpoint remain in the benchmark/raw records.
+Continue with the largest demonstrated reader/writer or transport cost. Current
+profiles place content-ID hashing and writer dispatch among contributors; sampled
+GC suspension does not prove retained-memory leaks. Preserve all thirteen cells,
+original inputs, public immutability, practical limits and independent controls.
+Use narrow probes and focused checks, then qualify coherent accepted source batches.
 
 ## Useful completed work
 
