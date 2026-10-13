@@ -55,7 +55,9 @@ public sealed class DocumentValueOwnerTests
 
     public static IEnumerable<object[]> StandaloneValues()
     {
-        foreach (string body in new[] { "[]", "/", "()", "<>", "5", "5.0", "<< >>" })
+        // Canonical single digits share process-lifetime immutable storage.
+        // Exercise collection with an integer that actually belongs to the job.
+        foreach (string body in new[] { "[]", "/", "()", "<>", "15", "5.0", "<< >>" })
         {
             foreach (string route in new[] { "value", "member", "indirect" }) { yield return [body, route]; }
         }

@@ -2,12 +2,12 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: clean
-`fc5a304` meets parity in two cells, with ratios 0.70–3.60×; M500 selection is
-near parity at 1.0088×. Ordinary/streamed rewriting remain 1.60× / 1.50×.
-Sparse selection is the largest gap (6.43 / 1.78 ms), including the required
-full 16.8 MB input read. [Results](BENCHMARK-RESULTS.md) preserve all observations;
-[the protocol](BENCHMARKS.md) separates complete jobs, memory diagnostics and
-startup-inclusive measurements. Performance commits need reduced time or
+`fe2dd1d` meets parity in one cell, with ratios 0.74–3.40×; M500 selection and
+single splitting remain near parity at 1.0121× / 1.0178×. Ordinary/streamed
+rewriting are 1.45× / 1.51×. Sparse selection is the largest gap (5.69 / 1.67 ms),
+including the required full 16.8 MB input read. [Results](BENCHMARK-RESULTS.md)
+preserve all observations; [the protocol](BENCHMARKS.md) separates complete jobs,
+memory diagnostics and startup-inclusive measurements. Performance commits need reduced time or
 allocation, without a minimum percentage gain.
 
 Pushed `fc5a304` passed [hosted CI run 38335308941](https://github.com/Lokad/qpdf/actions/runs/38335308941):
@@ -15,7 +15,7 @@ Windows 6m29s, Ubuntu 4m46s, pinned reference 4m33s. Both platforms pass 17,837
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. Unaffected visuals retain identified writer evidence.
-The clean final panel records all 21,903 observations and fresh semantic checks.
+The prior clean final panel records all 21,903 observations and fresh semantic checks.
 
 ## Current correction and next work
 
@@ -39,7 +39,15 @@ Release build/pack/inspection, fresh locked consumer and final 26 fresh managed/
 native outcomes plus three negative controls pass. The unchanged 2 MiB multisource
 ceiling and original input hashes remain. Comprehensive ordinary/reference/package
 qualification uses the integrated push-triggered hosted run. The raw archive now
-preserves thirty-seven runs without dropping candidates or contended samples.
+preserves thirty-eight runs without dropping candidates or contended samples.
+
+The clean `fe2dd1d` panel records 24,480 observations and fresh semantic checks.
+Its pinned reference lane passed. Both ordinary platforms found three legacy
+standalone-value fixtures requiring canonical `5` to own admission and be
+collected. The corrected fixture uses non-shared `15`, preserving actual
+collectible-value coverage across all three parser routes. Production code,
+inputs/options/limits and the panel remain unchanged. The failed CI checkpoint
+remains identified; one corrective push supplies complete hosted qualification.
 
 Continue with a concrete measured reader/writer or transport cost. One short
 ordinary-rewrite profile attributes most sampled copying to required host staging,
