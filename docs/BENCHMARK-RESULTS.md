@@ -1,10 +1,10 @@
 # Linux benchmark comparison — 2026-10-12
 
 The current goal is single-CPU parity (≤1.0×) in every agreed structural workload;
-it remains open. The clean `b9946d9` panel meets parity in two of thirteen
-codec-free cells. Eleven gaps remain, including sparse selection at 6.65 / 1.72 ms
-(3.87×). Its static-text receipt classification is corrected separately after
-ordinary CI exposed unreleased charges; native reference checks passed.
+it remains open. The clean `e69cf22` panel meets parity in three of thirteen
+codec-free cells. Ten gaps remain, including sparse selection at 10.72 / 3.22 ms
+(3.33×). This qualified panel preserves fresh semantics and every original input;
+separate contended panels do not isolate source time gains.
 Required full-input transport remains timed; the managed reader receives all
 16.8 MB while native can read selected objects lazily.
 
@@ -45,6 +45,10 @@ The identical-driver object-heavy pair removes about 119 KB/job (9.129 → 9.010
 with unchanged hashes. Median times 74.94 → 49.41 ms have broad overlapping IQRs;
 claim allocation only. This pair adds no workload or timing acceptance threshold.
 
+Decoder-local parser reuse removes another 14 KB/job from streamed rewriting
+(941.8 → 927.7 KB), preserving output hashes and independent member repair/cache
+scopes. Identical-driver times 3.91 → 3.85 ms overlap; claim allocation only.
+
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
 preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate
 managed-only memory diagnostics. Every sample and summary number is retained;
@@ -54,28 +58,26 @@ supplies no native ratio and does not replace the complete file-job comparison.
 
 ## Current thirteen-cell checkpoint
 
-Clean `b9946d9`, seven sequential alternating 350 ms batches per engine after
-warmup; medians in milliseconds, Q1–Q3 in parentheses. All 23,823 observations
+Clean `e69cf22`, seven sequential alternating 350 ms batches per engine after
+warmup; medians in milliseconds, Q1–Q3 in parentheses. All 14,966 observations
 are retained. Variable host load broadens these distributions; separate panels
-do not isolate individual changes. Prior panels remain in the raw archive.
-This precedes the correction excluding shared digit literals from job-owned
-text receipts; its final-source correctness checks are recorded separately.
+do not isolate individual changes. Earlier panels remain in the raw archive.
 
 | Workload | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.56 (0.55–0.58) | 0.75 (0.72–0.79) | 0.75× |
-| select-M500 | 21.25 (20.79–22.52) | 20.75 (20.66–20.85) | 1.02× |
-| merge-250x2 | 24.59 (23.70–26.31) | 18.80 (18.21–19.90) | 1.31× |
-| split-M500 | 30.03 (29.69–31.11) | 24.76 (24.22–26.07) | 1.21× |
-| rewrite-M500 | 22.06 (20.77–23.81) | 14.41 (14.33–15.33) | 1.53× |
-| rewrite-X100 | 3.05 (2.95–3.21) | 1.85 (1.83–1.88) | 1.65× |
-| object-streams-X100 | 3.09 (3.05–3.18) | 2.47 (2.40–2.51) | 1.25× |
-| linearize-M500 | 27.19 (26.85–27.49) | 20.94 (20.51–21.48) | 1.30× |
-| check-X100 | 2.38 (2.34–2.80) | 2.36 (2.28–2.40) | 1.01× |
-| rewrite-ID-M500 | 31.25 (30.37–34.61) | 23.13 (23.03–23.90) | 1.35× |
-| rewrite-objects | 39.33 (38.36–50.03) | 26.18 (24.30–31.01) | 1.50× |
-| select-sparse | 6.65 (6.36–6.69) | 1.72 (1.66–1.74) | 3.87× |
-| split-single | 6.48 (6.24–6.57) | 6.70 (6.64–7.09) | 0.97× |
+| select-S10 | 1.32 (1.20–1.49) | 1.64 (1.54–1.69) | 0.81× |
+| select-M500 | 31.12 (26.61–36.23) | 33.42 (31.31–34.94) | 0.93× |
+| merge-250x2 | 33.43 (29.81–34.90) | 24.00 (23.44–26.98) | 1.39× |
+| split-M500 | 55.71 (49.16–62.07) | 45.96 (38.03–62.64) | 1.21× |
+| rewrite-M500 | 34.72 (28.84–41.21) | 22.19 (21.30–22.81) | 1.56× |
+| rewrite-X100 | 3.54 (3.40–3.72) | 2.20 (2.07–2.31) | 1.60× |
+| object-streams-X100 | 3.71 (3.54–3.96) | 3.05 (2.75–3.14) | 1.22× |
+| linearize-M500 | 33.42 (32.58–57.19) | 26.38 (23.43–30.70) | 1.27× |
+| check-X100 | 3.04 (2.87–3.26) | 2.86 (2.72–3.22) | 1.06× |
+| rewrite-ID-M500 | 43.73 (39.47–45.37) | 26.16 (25.98–26.76) | 1.67× |
+| rewrite-objects | 108.82 (87.89–138.80) | 70.53 (64.72–79.27) | 1.54× |
+| select-sparse | 10.72 (9.86–10.90) | 3.22 (2.70–3.27) | 3.33× |
+| split-single | 8.45 (7.83–8.90) | 8.67 (8.60–9.37) | 0.97× |
 
 The previously qualified nine-cell **2× target** on `219eca3` is historical evidence;
 its ratios range from 0.66× to 1.77× pinned native qpdf 12.4.2.

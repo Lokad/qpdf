@@ -2,20 +2,20 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: the clean
-`b9946d9` panel meets parity in two cells, with ratios 0.75–3.87×.
-Sparse selection is 6.65 / 1.72 ms; its managed transport reads the entire
+`e69cf22` panel meets parity in three cells, with ratios 0.81–3.33×.
+Sparse selection is 10.72 / 3.22 ms; its managed transport reads the entire
 16.8 MB input. [Results](BENCHMARK-RESULTS.md) and
 [protocol](BENCHMARKS.md) separate complete jobs, memory diagnostics and historical
 observations. Performance commits need reduced time or allocation, with no
 minimum percentage gain. Noisy overlapping timings do not establish a time win.
 
-Pushed `431870c` passed [hosted CI run 38317436740](https://github.com/Lokad/qpdf/actions/runs/38317436740):
-Windows 6m51s, Ubuntu 5m44s, pinned reference 5m25s. Both platforms pass 17,823
+Pushed `e69cf22` passed [hosted CI run 38320576709](https://github.com/Lokad/qpdf/actions/runs/38320576709):
+Windows 7m00s, Ubuntu 5m37s, pinned reference 4m51s. Both platforms pass 17,825
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. Seven visuals and both controls pass on the same writer
-source. Two push-triggered runs resolved and qualified the shared-text ownership
-correction; no manual reruns. Batch useful source changes before another checkpoint.
+source. One push-triggered run qualified dictionary finalization; no manual rerun.
+Batch useful source changes before another checkpoint.
 
 The agreed [supported profile](SUPPORTED-PROFILE.md) and completed features remain
 closed. CMYK/YCCK JPEG decoding remains opaque with warnings; Zopfli is
@@ -24,6 +24,22 @@ inputs, remains excluded. Other requirements and documented differences remain
 in [compatibility](COMPATIBILITY.md); performance work does not waive them.
 
 ## Current correction and next work
+
+Object-stream decoding reuses one parser across members. The existing entry
+point resets error/abort/proximity/orphan/token state and restores its private
+owner. Nested decoders remain independent; member bounds, per-member admission
+and cache acceptance/discard scopes are unchanged. New argv/job controls preserve
+a valid string after an aborted member, its disposal-surviving alias and cleanup.
+
+All 1,657 affected reader/object-stream checks and nineteen final recovery
+controls pass. Identical-driver streamed allocation falls 941.8 → 927.7 KB/job,
+with unchanged hashes. Times 3.91 → 3.85 ms overlap; claim allocation only.
+Release build/pack/inspection, fresh locked consumer/rejections, 26 fresh
+managed/native outcomes, three negative controls, 1,858 parser comparisons,
+442 rewrite trios and seven visuals/two controls pass. Visual wall is 25.96s.
+The source unit is ready for integrated hosted ordinary/reference qualification.
+
+## Recent integrated corrections
 
 Private dictionary finalization now reuses established buckets and hash chains
 when their capacity matches the compact final table. Larger-capacity sources and
@@ -41,10 +57,8 @@ with original inputs unchanged. The pinned parser lane passes 1,858 comparisons
 and 442 rewrite trios. Seven visuals/two controls pass in 25.92 seconds.
 The full local ordinary suite passes 17,825 tests, zero failures/skips, in
 13m33s. Its unrelated slowest tests differ from the prior run; retain that
-contended wall time without attributing it to this correction. Integration
-uses the existing hosted ordinary/reference/package jobs once.
-
-## Recent integrated corrections
+contended wall time without attributing it to this correction. The hosted
+ordinary/reference/package jobs pass on integrated `e69cf22`.
 
 Numeric/reference lookahead now classifies the following prefix before scanning
 a whole token, using the existing whitespace and numeric lexer. Repair offsets,

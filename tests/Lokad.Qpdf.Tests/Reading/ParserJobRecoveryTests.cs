@@ -74,6 +74,34 @@ public sealed class ParserJobRecoveryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task AbortedCompressedMemberDoesNotAbortTheFollowingValidMember(bool job)
+    {
+        byte[] input = ReaderAcceptanceTests.ObjectStreamPdf("[ @ 6 ]", "(kept)", false, true, null,
+            "/Resources << >> /Audit [6 0 R 7 0 R]");
+        InMemoryQpdfHost host = Host(input);
+        QpdfExecutionResult result = await Rewrite(host, job, 1);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("out.pdf"), out byte[] output));
+        host.AddInput(QpdfPath.From("reread.pdf"), output, QpdfInputOwnership.Copy);
+        PdfByteString kept;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = Assert.IsType<PdfDictionary>(document.GetObject(3));
+            Assert.True(page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+            PdfArray values = Assert.IsType<PdfArray>(audit);
+            Assert.Equal(2, values.Count);
+            Assert.IsType<PdfNull>(Resolve(document, values[0]));
+            kept = Assert.IsType<PdfByteString>(Resolve(document, values[1]));
+        }
+        Assert.Equal("kept"u8.ToArray(), kept.Value);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task CompressedDictionaryDoesNotStartFileStreamRecovery(bool job)
     {
         byte[] input = ReaderAcceptanceTests.ObjectStreamPdf("<< /Length -1 >>\nstream\nabc", "42", false, true, null,

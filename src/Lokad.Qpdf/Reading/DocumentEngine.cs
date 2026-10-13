@@ -520,6 +520,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 }
             }
 
+            PdfParser? memberParser = null;
             for (int i = 0; i < pairs.Count; i++)
             {
                 int start = first + pairs[i].Offset;
@@ -530,7 +531,11 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 QpdfObject value;
                 try
                 {
-                    PdfParser parser = new(_limits, _governor, _diagnostics, this)
+                    // ParseObjectValue resets member repair state and restores
+                    // its private owner, so this decoder can reuse one parser.
+                    // Nested decoders keep separate instances; admission remains
+                    // before each member and cache acceptance keeps its own scope.
+                    PdfParser parser = memberParser ??= new(_limits, _governor, _diagnostics, this)
                     {
                         TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
                         AllowStreams = false,
