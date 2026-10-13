@@ -497,16 +497,28 @@ internal sealed class GraphCopier
 
         if (value is PdfArray array)
         {
-            Reserve(checked(64L + (long)IntPtr.Size * array.Count));
             _governor.ChargeWork(array.Count);
-            QpdfObject[] items = new QpdfObject[array.Count];
+            _governor.CheckCancellation();
+            QpdfObject[]? items = null;
             for (int i = 0; i < array.Count; i++)
             {
                 _governor.CheckCancellation();
-                items[i] = CopyValue(array[i], depth + 1);
+                QpdfObject copied = CopyValue(array[i], depth + 1);
+                if (items is null && !ReferenceEquals(copied, array[i]))
+                {
+                    Reserve(checked(64L + (long)IntPtr.Size * array.Count));
+                    items = new QpdfObject[array.Count];
+                    _governor.ChargeWork(i);
+                    for (int prefix = 0; prefix < i; prefix++)
+                    {
+                        _governor.CheckCancellation();
+                        items[prefix] = array[prefix];
+                    }
+                }
+                if (items is not null) { items[i] = copied; }
             }
 
-            return PdfArray.FromOwnedItems(items);
+            return items is null ? array : PdfArray.FromOwnedItems(items);
         }
 
         if (value is PdfDictionary dictionary)
@@ -530,6 +542,7 @@ internal sealed class GraphCopier
             // Payloads are immutable. Complete jobs retain the source admission
             // until publication (transferring exclusive values before closure);
             // public document payloads already have an independent owner.
+            if (ReferenceEquals(copiedDictionary, stream.Dictionary)) { return stream; }
             Reserve(32L);
             _governor.CheckCancellation();
             return stream.WithDictionary(copiedDictionary);
@@ -603,43 +616,58 @@ internal sealed class GraphCopier
 
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth, PdfInteger? streamLength)
     {
-        Reserve(64L);
         bool addLength = streamLength is not null && !dictionary.TryGet(LengthKey, out _);
-        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(checked(dictionary.Count + (addLength ? 1 : 0)));
+        IReadOnlyDictionary<PdfName, QpdfObject>? entries = null;
+        int processed = 0;
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext(_governor, _governor.CancellationToken))
         {
             PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
-            if (value is null) { continue; }
-
-            Reserve(32L);
-            if (streamLength is not null && key.Equals(LengthKey))
+            QpdfObject? copied;
+            if (value is null) { copied = null; }
+            else if (streamLength is not null && key.Equals(LengthKey))
             {
-                SetEntry(entries, key, streamLength);
-                continue;
+                copied = streamLength;
             }
-            if (key.Equals(ParentKey))
+            else if (key.Equals(ParentKey))
             {
-                QpdfObject? preserved = TryCopyParent(value, depth);
-                if (preserved is null)
-                {
-                    continue;
-                }
-
-                SetEntry(entries, key, preserved);
-                continue;
+                copied = TryCopyParent(value, depth);
             }
+            else { copied = CopyValue(value, depth + 1); }
 
-            SetEntry(entries, key, CopyValue(value, depth + 1));
+            if (entries is null && (value is null || !ReferenceEquals(copied, value)))
+            { entries = CopyDictionaryPrefix(dictionary, processed, addLength); }
+            if (entries is not null && copied is not null)
+            {
+                Reserve(32L);
+                SetEntry(entries, key, copied);
+            }
+            processed++;
         }
 
         if (addLength && streamLength is not null)
         {
+            entries ??= CopyDictionaryPrefix(dictionary, processed, true);
             Reserve(32L);
             SetEntry(entries, LengthKey, streamLength);
         }
 
-        return CompleteDictionary(entries);
+        return entries is null ? dictionary : CompleteDictionary(entries);
+    }
+
+    private IReadOnlyDictionary<PdfName, QpdfObject> CopyDictionaryPrefix(PdfDictionary dictionary, int count, bool addLength)
+    {
+        // Earlier children were already visited and stayed identical. Copy only
+        // their entries; immutable source storage remains owned through publication.
+        Reserve(64L);
+        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(checked(dictionary.Count + (addLength ? 1 : 0)));
+        using PdfDictionary.EntryEnumerator prefix = dictionary.GetEntryEnumerator();
+        for (int i = 0; i < count && prefix.MoveNext(_governor, _governor.CancellationToken); i++)
+        {
+            Reserve(32L);
+            SetEntry(entries, prefix.Current.Key, prefix.Current.Value);
+        }
+        return entries;
     }
 
     /// <summary>

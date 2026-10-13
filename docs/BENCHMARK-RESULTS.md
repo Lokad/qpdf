@@ -111,8 +111,19 @@ this simple structural removal supplies no measured speed claim. An async-wrappe
 prototype also lacked a measured gain and was restored. Its high-load observations,
 passing fresh semantic controls and every earlier trial remain identified.
 
+Copying now reuses unchanged immutable arrays/dictionaries and stream wrappers,
+allocating a container only after its first changed/removed child. Original source
+ownership, remapping, cycles, Parent/null handling, repaired Length and order remain.
+The identical-driver pair removes about 934 KB/job from object-heavy rewriting
+(8.0791 → 7.1448 MB) and 190 KB/job from M500 rewriting (18.5766 → 18.3870 MB).
+Hashes match. Object-heavy medians are 89.942 → 68.822 ms; IQRs narrowly separate
+(77.733–91.720 / 66.870–77.540), with wide ranges under variable host load.
+M500 medians 25.968 → 23.074 ms overlap. Allocation is the primary demonstrated
+gain. All 2,137 focused checks, 26 fresh managed/native outcomes, three negative
+controls and unchanged 2 MiB multisource consumer pass. No new workload or cache.
+
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
-preserve thirty-eight runs: the thirteen-cell baseline, final source confirmations,
+preserve thirty-nine runs: the thirteen-cell baseline, final source confirmations,
 accepted/rejected correction and transport pairs, plus separate
 managed-only memory diagnostics. Every sample and summary number is retained;
 local paths/hostnames are redacted. The diagnostic compares memory-host Copy and

@@ -10,51 +10,45 @@ preserve all observations; [the protocol](BENCHMARKS.md) separates complete jobs
 memory diagnostics and startup-inclusive measurements. Performance commits need reduced time or
 allocation, without a minimum percentage gain.
 
-Pushed `fc5a304` passed [hosted CI run 38335308941](https://github.com/Lokad/qpdf/actions/runs/38335308941):
-Windows 6m29s, Ubuntu 4m46s, pinned reference 4m33s. Both platforms pass 17,837
+Pushed `a8a08cc` passed [hosted CI run 38340347635](https://github.com/Lokad/qpdf/actions/runs/38340347635):
+Windows 6m45s, Ubuntu 4m09s, pinned reference 6m01s. Both platforms pass 17,845
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. Unaffected visuals retain identified writer evidence.
-The prior clean final panel records all 21,903 observations and fresh semantic checks.
+and 442 rewrite trios. Production is unchanged from the clean `fe2dd1d` panel;
+its 24,480 observations/fresh semantics remain valid without retiming.
 
 ## Current correction and next work
 
-Canonical one-digit integers reuse ten immutable process-lifetime values,
-removing parsed scalar allocation and individual ownership receipts. Original
-numeric validation/work/cancellation still runs. Signed/padded spellings, references
-and public authored instances retain their original behavior and ownership.
-No unbounded interning, parsed-job cache, public API or CPU parallelism was added.
+Graph copying now reuses unchanged immutable arrays/dictionaries and stream
+wrappers. The existing owned builders allocate only after the first changed or
+removed child; earlier children are copied without another recursive visit.
+Reference identities/cycles, Parent/null omission, repaired stream Length,
+ordering, depth/work/cancellation and original source ownership remain.
 
-The identical-driver pair removes about 67.6 KB/job from object-heavy rewriting
-(8.1466 → 8.0790 MB) and 6.6 KB/job from streamed rewriting (873.6 → 867.0 KB).
-Hashes match. Medians 54.238 → 48.257 ms and 3.499 → 3.195 ms have overlapping
-IQRs; claim allocation only. Fully overwritten parser arrays and governed-buffer
-snapshots/growth also avoid redundant clearing, retaining explicit zeroed gaps.
-Their separate pair provides no measured gain. An async-wrapper prototype lacked
-a measured gain and was restored; every observation remains in the raw archive.
+The identical-driver pair removes about 934 KB/job from object-heavy rewriting
+(8.0791 → 7.1448 MB) and 190 KB/job from M500 rewriting (18.5766 → 18.3870 MB).
+Hashes match. Object-heavy medians 89.942 → 68.822 ms narrowly separate in IQR
+under variable load; M500 medians 25.968 → 23.074 ms overlap. Allocation is the
+primary gain. The prior canonical-digit correction removes 67.6 KB/job / 6.6 KB/job
+from object-heavy/streamed rewriting; no measured time claim. Fully overwritten
+buffers avoid redundant clearing; the rejected async-wrapper trial remains recorded.
 
-All 11,788 affected parser/foundation/writer/ownership checks pass (4m43s),
-including original limits, cancellation, cleanup and new spelling/gap regressions.
-Release build/pack/inspection, fresh locked consumer and final 26 fresh managed/
-native outcomes plus three negative controls pass. The unchanged 2 MiB multisource
-ceiling and original input hashes remain. Comprehensive ordinary/reference/package
-qualification uses the integrated push-triggered hosted run. The raw archive now
-preserves thirty-eight runs without dropping candidates or contended samples.
+All 2,137 affected writer/document-value/practical-memory checks pass (54s),
+including first/middle/last remapping, cycles, omitted entries, repaired lengths
+and valid bytes after source closure. Release build/pack/inspection, fresh locked
+consumer, 26 fresh managed/native outcomes and three negative controls pass.
+The unchanged 2 MiB multisource ceiling and every original input hash remain.
+Comprehensive ordinary/reference/package qualification uses the integrated push.
+The raw archive preserves thirty-nine runs, including failed CI checkpoints,
+accepted/rejected candidates and contended observations without dropping samples.
 
-The clean `fe2dd1d` panel records 24,480 observations and fresh semantic checks.
-Its pinned reference lane passed. Both ordinary platforms found three legacy
-standalone-value fixtures requiring canonical `5` to own admission and be
-collected. The corrected fixture uses non-shared `15`, preserving actual
-collectible-value coverage across all three parser routes. Production code,
-inputs/options/limits and the panel remain unchanged. The failed CI checkpoint
-remains identified; one corrective push supplies complete hosted qualification.
-
-Continue with a concrete measured reader/writer or transport cost. One short
-ordinary-rewrite profile attributes most sampled copying to required host staging,
-transport and public defensive copies; preserve those boundaries. Sampled GC
-suspension does not establish retained-memory leaks. Use narrow allocation probes
-and focused checks, then qualify coherent accepted batches. Keep all thirteen
-cells, original inputs, public immutability and independent negative controls.
+Continue with measured reader/writer/transport costs. Object-stream members still
+become separate byte arrays before payload assembly; consolidation must preserve
+bounded captures, offsets, async retention, practical limits and cleanup. Sparse
+selection includes full-input transport and remains the largest gap. Keep all
+thirteen cells, public immutability and independent negative controls. Existing
+reader lifetime scopes and output capacity hints already avoid suspected costs;
+reuse them. Sampled GC suspension does not establish retained-memory leaks.
 
 ## Useful completed work
 
