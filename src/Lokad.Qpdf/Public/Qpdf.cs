@@ -2459,9 +2459,9 @@ public static partial class Qpdf
         try
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-            GovernedHost.PrepareOutputCapacity(transaction, counted, cancellationToken);
             TransactionSink destination = new(transaction, governor);
             using BatchingSink sink = BatchingSink.Create(destination, limits, governor, cancellationToken);
+            ((IOutputCapacityHint)sink).EnsureCapacity(counted, cancellationToken);
             long written;
             if (qdf.Enabled)
             {
@@ -4700,8 +4700,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
             if (length > _maximumOutputBytes)
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _maximumOutputBytes); }
-            if (_staging is null) { return; }
-            if (length > _capacityCharge)
+            if (_staging is not null && length > _capacityCharge)
             {
                 _staging.Reserve(length - _capacityCharge);
                 _capacityCharge = length;

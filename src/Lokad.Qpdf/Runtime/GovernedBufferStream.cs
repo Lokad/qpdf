@@ -67,6 +67,14 @@ internal sealed class GovernedBufferStream : Stream
         _position = 0;
     }
 
+    internal void PrepareCapacity(int count, CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CheckCancellation(token);
+        CheckLength(count);
+        EnsureCapacity(count, token);
+    }
+
     // Internal writers fill this bounded region synchronously before any
     // snapshot or publication. A failed fill abandons the owning operation.
     internal Span<byte> AppendRegion(int count, CancellationToken token)

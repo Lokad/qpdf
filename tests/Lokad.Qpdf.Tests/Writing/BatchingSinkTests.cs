@@ -173,7 +173,32 @@ public sealed class BatchingSinkTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LargeOutputHintKeepsTightJobsBoundedAndRetainedBytesStable(bool tightMemory)
+    {
+        QpdfLimits limits = tightMemory
+            ? QpdfLimits.Default with { MaxMemoryBytes = 1024L }
+            : QpdfLimits.Default with { MaxWork = 4096L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        RetainingSink destination = new(false);
+        using (BatchingSink sink = BatchingSink.Create(destination, limits, governor, CancellationToken.None))
+        {
+            ((IOutputCapacityHint)sink).EnsureCapacity(32768L, CancellationToken.None);
+            byte[] data = new byte[64]; Array.Fill(data, (byte)'A');
+            for (int index = 0; index < 16; index++) { await sink.AppendAsync(data, CancellationToken.None); }
+            await sink.FlushAsync(CancellationToken.None);
+            Array.Fill(data, (byte)'X');
+        }
+        byte[] written = destination.Chunks.SelectMany(chunk => chunk.ToArray()).ToArray();
+        Assert.Equal(Enumerable.Repeat((byte)'A', 1024).ToArray(), written);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, limits.MaxMemoryBytes);
+        Assert.InRange(governor.Snapshot().TotalWork, 0L, limits.MaxWork);
+    }
+
+    [Theory]
     [InlineData(500, true, "ordinary")]
+    [InlineData(32, true, "ordinary")]
     [InlineData(500, true, "linearized")]
     [InlineData(500, true, "linearized-streamed")]
     [InlineData(2, false, "ordinary")]

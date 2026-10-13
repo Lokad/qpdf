@@ -6,13 +6,15 @@ namespace Lokad.Qpdf.Writing;
 /// <summary>Combines small writes in bounded scratch; retaining sinks receive immutable packets.</summary>
 internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
 {
-    private const int Capacity = 256;
+    private const int InitialCapacity = 256;
+    private const int PreferredCapacity = 4096;
     private readonly IByteSink _destination;
     private readonly ResourceGovernor _governor;
     private readonly long _maximum;
     private ParserMemoryScope? _memory;
     private GovernedBufferStream? _scratch;
     private long _length;
+    private int _capacity = InitialCapacity;
 
     private BatchingSink(IByteSink destination, QpdfLimits limits, ResourceGovernor governor,
         ParserMemoryScope memory, GovernedBufferStream scratch)
@@ -30,8 +32,8 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         try
         {
             memory.Reserve(64L + 128L);
-            GovernedBufferStream scratch = new(governor, Math.Min(Capacity, limits.MaxOutputBytes),
-                nameof(QpdfLimits.MaxOutputBytes), token, Capacity);
+            GovernedBufferStream scratch = new(governor, Math.Min(PreferredCapacity, limits.MaxOutputBytes),
+                nameof(QpdfLimits.MaxOutputBytes), token, InitialCapacity);
             return new BatchingSink(destination, limits, governor, memory, scratch);
         }
         catch { memory.Dispose(); throw; }
@@ -45,6 +47,22 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
     {
         _ = Memory; CheckCancellation(token);
         if (length > _maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _maximum); }
+        if (length >= 16384L && Scratch.Length == 0L)
+        {
+            // Leave room for growth overlap, immutable async packets and other
+            // writer storage. Small outputs and tight jobs keep the old batch.
+            long headroom = Math.Min(_governor.RemainingMemoryBytes, _governor.RemainingWorkUnits) / 16L;
+            int capacity = InitialCapacity;
+            int preferred = length < 131072L ? PreferredCapacity / 2 : PreferredCapacity;
+            while (capacity < preferred && capacity * 2L <= headroom) { capacity *= 2; }
+            if (capacity > _capacity)
+            {
+                // The counted output justifies one admitted scratch allocation
+                // rather than repeatedly growing it while formatting tokens.
+                Scratch.PrepareCapacity(capacity, token);
+                _capacity = capacity;
+            }
+        }
         if (_destination is IOutputCapacityHint destination) { destination.EnsureCapacity(length, token); }
     }
 
@@ -53,7 +71,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         _ = Memory; CheckCancellation(token);
         long next = checked(_length + length);
         if (next > _maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _maximum); }
-        return length <= Capacity - Scratch.Length;
+        return length <= _capacity - Scratch.Length;
     }
 
     internal bool TryAppendFormatting(ReadOnlySpan<WriterPart> parts, QpdfLimits limits, CancellationToken token)
@@ -76,7 +94,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
     {
         // Keep failed in-buffer probes bounded; large tokens use the existing
         // encoder without another full measurement scan.
-        if (1L + name.RawSpan.Length > Capacity - Scratch.Length) { return false; }
+        if (1L + name.RawSpan.Length > _capacity - Scratch.Length) { return false; }
         long length = WriterEncoding.MeasureName(name, limits, _governor, token);
         if (!Fits(length, token)) { return false; }
         WriterEncoding.FillName(name, Scratch.AppendRegion((int)length, token), _governor, token);
@@ -86,7 +104,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
     internal bool TryAppendString(PdfByteString text, QpdfLimits limits, CancellationToken token)
     {
         long minimum = text.Hex ? 2L + 2L * text.ValueSpan.Length : 2L + text.ValueSpan.Length;
-        if (minimum > Capacity - Scratch.Length) { return false; }
+        if (minimum > _capacity - Scratch.Length) { return false; }
         long length = WriterEncoding.MeasureString(text, limits, _governor, token);
         if (!Fits(length, token)) { return false; }
         WriterEncoding.FillString(text, Scratch.AppendRegion((int)length, token), _governor, token);
@@ -98,7 +116,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         _ = Memory; CheckCancellation(cancellationToken);
         long next = checked(_length + chunk.Length);
         if (next > _maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _maximum); }
-        if (chunk.Length >= Capacity)
+        if (chunk.Length >= _capacity)
         {
             await FlushAsync(cancellationToken).ConfigureAwait(false);
             if (_destination is ISynchronousByteSink synchronous && synchronous.CanAppendSynchronously)
@@ -112,10 +130,10 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         while (offset < chunk.Length)
         {
             CheckCancellation(cancellationToken);
-            int count = Math.Min(chunk.Length - offset, Capacity - (int)Scratch.Length);
+            int count = Math.Min(chunk.Length - offset, _capacity - (int)Scratch.Length);
             await Scratch.WriteAsync(chunk.Slice(offset, count), cancellationToken).ConfigureAwait(false);
             _length += count; offset += count;
-            if (Scratch.Length == Capacity) { await FlushAsync(cancellationToken).ConfigureAwait(false); }
+            if (Scratch.Length == _capacity) { await FlushAsync(cancellationToken).ConfigureAwait(false); }
         }
     }
 

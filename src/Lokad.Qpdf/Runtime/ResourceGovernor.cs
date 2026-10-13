@@ -68,6 +68,10 @@ internal sealed class ResourceGovernor
     private long RetiredCarrierBytes => Interlocked.Read(ref _retiredExecutionResultBytes) + Interlocked.Read(ref _retiredVersionBytes);
     private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L) - RetiredCarrierBytes);
 
+    internal long RemainingMemoryBytes => Math.Max(0L, _limits.MaxMemoryBytes - LiveMemoryBytes);
+    internal long RemainingWorkUnits => Math.Max(0L, _limits.MaxWork - _totalWork - _reservedWork
+        - (_publicationWork?.Remaining ?? 0L) - _reservedResultWork);
+
     internal void ReserveMemory(long bytes)
     {
         if (bytes < 0)

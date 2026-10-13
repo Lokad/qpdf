@@ -18,36 +18,35 @@ and 442 rewrite trios. The clean final-source benchmark panel retains all
 
 ## Current correction and next work
 
-Graph copying now reuses unchanged immutable arrays/dictionaries and stream
-wrappers. The existing owned builders allocate only after the first changed or
-removed child; earlier children are copied without another recursive visit.
-Reference identities/cycles, Parent/null omission, repaired stream Length,
-ordering, depth/work/cancellation and original source ownership remain.
+Counted output now sizes bounded writer batches while preserving the host's
+preallocation hint. Outputs below 16 KiB and tight jobs keep the 256-byte batch;
+larger jobs use 2–4 KiB within current memory/work headroom, allocated once through
+the existing governor. Synchronous destinations borrow scratch; retaining hosts
+receive immutable packets. A public 200-page selection now completes within
+32 host operations; the two-operation negative control still rejects and keeps
+previous output. Cancellation, cleanup and byte limits remain enforced.
 
-The identical-driver pair removes about 934 KB/job from object-heavy rewriting
-(8.0791 → 7.1448 MB) and 190 KB/job from M500 rewriting (18.5766 → 18.3870 MB).
-Hashes match. Object-heavy medians 89.942 → 68.822 ms narrowly separate in IQR
-under variable load; M500 medians 25.968 → 23.074 ms overlap. Allocation is the
-primary gain. The prior canonical-digit correction removes 67.6 KB/job / 6.6 KB/job
-from object-heavy/streamed rewriting; no measured time claim. Fully overwritten
-buffers avoid redundant clearing; the rejected async-wrapper trial remains recorded.
+The identical-driver pair reduces allocation by about 11.8 KB per M500 rewrite
+(18.3874 → 18.3756 MB) and 1.1 KB per X100 rewrite (828.5 → 827.3 KB).
+Hashes match. Medians 20.470 → 20.190 ms and 2.832 → 2.725 ms have overlapping
+IQRs; claim allocation only. Earlier trials, including the accidental omission
+of host preallocation and its large allocation regression, remain in the raw
+archive. None supplies a speed claim.
 
-All 2,137 affected writer/document-value/practical-memory checks pass (54s),
-including first/middle/last remapping, cycles, omitted entries, repaired lengths
-and valid bytes after source closure. Release build/pack/inspection, fresh locked
-consumer, 26 fresh managed/native outcomes and three negative controls pass.
-The unchanged 2 MiB multisource ceiling and every original input hash remain.
-Comprehensive ordinary/reference/package qualification uses the integrated push.
-The raw archive preserves the measured runs, including failed CI checkpoints,
-accepted/rejected candidates and contended observations without dropping samples.
+All 3,625 affected writer/publication/practical-memory checks pass (54s).
+Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
+and rejection controls pass (package checks 45s). All 26 fresh managed/native
+outcomes and three negative controls pass; original input hashes and the 2 MiB
+multisource ceiling remain unchanged. Comprehensive ordinary/reference/package
+qualification uses the integrated push; the run above identifies the preceding
+qualified source.
 
-Continue with measured reader/writer/transport costs. Object-stream members still
-become separate byte arrays before payload assembly; consolidation must preserve
-bounded captures, offsets, async retention, practical limits and cleanup. Sparse
-selection includes full-input transport and remains the largest gap. Keep all
-thirteen cells, public immutability and independent negative controls. Existing
-reader lifetime scopes and output capacity hints already avoid suspected costs;
-reuse them. Sampled GC suspension does not establish retained-memory leaks.
+Next, measure the largest remaining reader/writer/transport costs. Object-stream
+capture consolidation is deferred: current X100 rewriting emits no object streams,
+and the generation cell's 103 members occupy only 8.7 KB of combined payloads
+against 922 KB allocated per job. Sparse selection remains the largest gap and
+includes full-input transport. Keep all thirteen cells, public immutability and
+independent negative controls. Sampled GC suspension does not establish a leak.
 
 ## Useful completed work
 
@@ -57,6 +56,8 @@ reuse them. Sampled GC suspension does not establish retained-memory leaks.
 - Scoped copier/checker ownership and exclusive memory-host stream borrowing
   preserve public/custom/multisource payload independence, funded pinned inputs,
   surviving immutable aliases and retained-host chunks.
+- Copying reuses unchanged immutable containers while retaining remapping, cycles,
+  omitted/repaired entries, order and original source ownership.
 - Bounded writer batching, direct formatting, pure sizing, uncompressed counting,
   incremental IDs and output staging preserve offsets, IDs and publication.
 - Geometric collection growth keeps tight-budget fallback. Deferred ancestry
