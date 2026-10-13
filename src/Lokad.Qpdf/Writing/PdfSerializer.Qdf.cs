@@ -103,7 +103,7 @@ internal sealed partial class PdfSerializer
         int lastLengthNumber = emissions.LastLengthNumber;
         int emissionCount = emissions.Count;
 
-        using WriterIndex<QpdfObject> classicLookup = WriterIndex<QpdfObject>.Create(IntPtr.Size, _governor, cancellationToken);
+        using WriterIndex<QpdfObject> classicLookup = WriterIndex<QpdfObject>.Create(sorted.Count, IntPtr.Size, _governor, cancellationToken);
         foreach (NumberedObject numbered in sorted)
         {
             classicLookup[numbered.Number] = numbered.Value;

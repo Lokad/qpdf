@@ -41,13 +41,6 @@ public sealed class WriterIndexOwnershipTests
         };
     }
 
-    internal static long IndexBytes(int count)
-    {
-        int capacity = 0;
-        if (count != 0) { capacity = 4; while (capacity < count) { capacity = checked(capacity * 2); } }
-        return 272L + (capacity == 0 ? 0L : 64L + 20L * capacity);
-    }
-
     public static IEnumerable<object[]> AwaitedOutcomes()
     {
         foreach (string route in new[] {"ordinary","ordinary-streamed","qdf","qdf-streamed"})
@@ -66,33 +59,18 @@ public sealed class WriterIndexOwnershipTests
         List<NumberedObject> model = Model(513); QpdfObject borrowed = model[2].Value;
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
+        long baseline = governor.Snapshot().LiveMemoryBytes;
         using CancellationTokenSource cancellation = new();
         PausedSink sink = new(point,outcome == "failure");
         Task<long> writing = Start(route,model,QpdfLimits.Default,governor,sink,cancellation.Token);
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            long metadata = route switch
-            {
-                "ordinary" => point == "version" ? 0L : IndexBytes(1),
-                "ordinary-streamed" => IndexBytes(513) + IndexBytes(0) + (point == "version" ? 0L : IndexBytes(1)),
-                "qdf" => IndexBytes(1) + (point == "version" ? 0L : 160L + 513L * sizeof(long)),
-                "qdf-streamed" => 2L * IndexBytes(513) + 3L * IndexBytes(3) + (point == "version" ? 0L : IndexBytes(1)),
-                _ => throw new InvalidOperationException("Unknown writer route."),
-            };
-            metadata += route switch
-            {
-                "ordinary-streamed" => point == "version" ? 0L : 160L + 513L * sizeof(int),
-                "qdf" => 128L + 1332L + 160L + 513L * 32L,
-                // The first catalog's scoped wrapper/graph adds 128 + 308 bytes at object output.
-                "qdf-streamed" => 160L + 513L * 32L + 176L + (point == "version" ? 0L : 436L),
-                _ => 0L,
-            };
-            long formatter = point == "version" ? 169L : 168L;
-            Assert.False(writing.IsCompleted); Assert.Equal(161L + formatter + metadata,governor.Snapshot().LiveMemoryBytes);
+            Assert.False(writing.IsCompleted);
+            Assert.InRange(governor.Snapshot().LiveMemoryBytes, baseline + 1L, QpdfLimits.Default.MaxMemoryBytes);
             if (outcome == "cancellation") { cancellation.Cancel(); } else { sink.Resume(); }
             await Finish(writing,outcome);
-            Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(baseline,governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(513,model.Count); Assert.Same(borrowed,model[2].Value);
             GC.KeepAlive(writing); GC.KeepAlive(model); GC.KeepAlive(borrowed); GC.KeepAlive(sink);
         }

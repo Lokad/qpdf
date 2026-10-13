@@ -9,11 +9,11 @@ read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
 percentage gain.
 
-The preceding `2a09384` passed [hosted CI run 38363529995](https://github.com/Lokad/qpdf/actions/runs/38363529995):
-Windows 6m37s, Ubuntu 4m57s, pinned reference 3m54s. Both platforms pass 17,853
+The preceding `7054999` passed [hosted CI run 38367082387](https://github.com/Lokad/qpdf/actions/runs/38367082387):
+Windows 6m30s, Ubuntu 4m47s, pinned reference 5m53s. Both platforms pass 17,860
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. The current reader correction passed local qualification;
+and 442 rewrite trios. The current writer correction passed local qualification;
 CI verifies its integrated source, packages and pinned references on push.
 The clean `15900ba` benchmark panel retains all 24,675 observations, fresh
 semantics and original input hashes. The accompanying report update changes
@@ -21,22 +21,28 @@ documentation/raw artifacts only.
 
 ## Current correction and next work
 
-Xref-tail discovery uses bounded reverse span search instead of comparing at
-every byte across 64 KiB. The original window, token boundaries, absolute offsets
-and last-marker grammar remain. A malformed final marker rejects rather than
-falling back to an earlier valid revision. Public window-edge, invalid-token and
-malformed-tail cases retain successful page reading and cleanup on every outcome.
+Writer indexes with exact serializer counts reserve their initial backing once
+through the existing governed growth path. Classic offsets, streamed lookup and
+the sorted QDF lookup use the hint; tight memory/work jobs retain normal growth.
+Signed/sparse keys, duplicate handling, insertion order and subsequent growth
+remain. No host, public immutability or execution boundaries change.
 
-The identical-driver X100 pair has medians 2.757 → 2.636 ms (4.4% lower),
-with IQRs 2.727–2.979 / 2.564–2.717. Sparse selection is 5.937 → 5.664 ms
-(4.6% lower), IQRs 5.847–6.031 / 5.655–5.670. These distributions separate;
-allocation is effectively unchanged and hashes match. Native medians are
-1.881 / 1.704 ms, so both parity gaps remain. Full original file reads and public
-output copies remain timed; no cache, mutable pool or CPU workers were added.
+The identical-driver pair reduces X100 allocation 827.4 → 814.6 KB/job and
+object-heavy allocation 7.0902 → 6.8488 MB/job, with matching hashes. Object-heavy
+medians 32.823 → 30.022 ms have separated IQRs (31.254–34.500 / 29.300–31.024),
+an 8.5% lower observed median. X100 medians 2.669 → 2.579 ms overlap;
+claim allocation only there. Native medians 26.497 / 1.849 ms leave ratios
+1.13× / 1.39×, so the parity goal remains open.
 
-All 4,120 affected reader/parser/practical-memory checks pass (18s).
+All 2,081 affected writer/practical-memory checks pass (43s). Exact capacity/
+receipt formulas were removed from the paused-publication tests, consolidating
+18 duplicate row/index cases while preserving all routes, failure/cancellation,
+cleanup and surviving values. Actual backing-retention regressions and meaningful
+large-lookup limits remain. Four new cases cover sparse collision chains, growth
+past the hint and memory/work fallback; no replacement measurement framework.
+
 Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
-and rejection controls pass (package checks 15s). All 26 fresh managed/native
+and rejection controls pass (package checks 17s). All 26 fresh managed/native
 outcomes and three negative controls pass; original inputs and the 2 MiB
 multisource ceiling remain. The clean thirteen-cell panel is recorded in
 [benchmarks](BENCHMARKS.md); integration runs comprehensive ordinary/reference
@@ -68,6 +74,8 @@ independent negative controls. Sampled GC suspension does not establish a leak.
 - Numeric/reference lookahead avoids scanning large following strings, with
   grammar/repair ordering preserved. Known global digit literals have no job-owned
   text receipt. Decoder-local parser reuse resets each compressed member's errors.
+- Bounded reverse xref-tail search preserves the window and final-marker grammar,
+  removing the per-byte scan while retaining malformed-tail rejection and cleanup.
 - Developer input transfer removes a private redundant copy. Benchmark validation
   rejects no-op checking, marker-only object streams and wrong content/order.
 

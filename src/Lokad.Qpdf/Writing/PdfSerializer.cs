@@ -143,7 +143,7 @@ internal sealed partial class PdfSerializer
         }
 
         await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
-        using WriterIndex<long> offsets = WriterIndex<long>.Create(sizeof(long), _governor, cancellationToken);
+        using WriterIndex<long> offsets = WriterIndex<long>.Create(objects.Count, sizeof(long), _governor, cancellationToken);
         int maxNumber = 0;
         for (int i = 0; i < objects.Count; i++)
         {
@@ -284,7 +284,7 @@ internal sealed partial class PdfSerializer
             throw new QpdfException("Object-stream plan holds no groups.");
         }
 
-        using WriterIndex<QpdfObject> lookup = WriterIndex<QpdfObject>.Create(IntPtr.Size, _governor, cancellationToken);
+        using WriterIndex<QpdfObject> lookup = WriterIndex<QpdfObject>.Create(objects.Count, IntPtr.Size, _governor, cancellationToken);
         int maxNumber = 0;
         foreach (NumberedObject numbered in objects)
         {

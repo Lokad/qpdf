@@ -153,10 +153,27 @@ internal sealed class GovernedIntDictionary<T> : IReadOnlyCollection<KeyValuePai
 
     private long ArrayBytes(int capacity) => capacity == 0 ? 0L : checked(64L + (4L + _entryBytes) * capacity);
 
+    internal void PrepareInitialCapacity(int capacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(capacity);
+        _cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+        if (capacity <= 4 || capacity > Array.MaxLength || _entries.Length != 0) { return; }
+        // This is an optional hint. Leave room for the other writer indexes and
+        // publication storage; tight jobs retain their established growth path.
+        if (ArrayBytes(capacity) > _governor.RemainingMemoryBytes / 4L
+            || 2L * capacity > _governor.RemainingWorkUnits / 4L) { return; }
+        Grow(_memory, capacity);
+    }
+
     private void Grow(ParserMemoryScope memory)
     {
         int capacity = (int)Math.Min(Array.MaxLength, Math.Max(4L, _entries.Length * 2L));
         if (capacity <= _used) { throw new QpdfParseException("Integer index exceeds the supported capacity.", null, null); }
+        Grow(memory, capacity);
+    }
+
+    private void Grow(ParserMemoryScope memory, int capacity)
+    {
         long reserved = ArrayBytes(capacity);
         memory.Reserve(reserved);
         try

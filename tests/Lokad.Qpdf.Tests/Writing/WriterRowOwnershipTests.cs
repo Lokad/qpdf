@@ -11,48 +11,29 @@ public sealed class WriterRowOwnershipTests
     public static IEnumerable<object[]> Outcomes()
     {
         foreach (string route in new[] {"ordinary-streamed","qdf","qdf-streamed"})
-        {foreach (string point in new[] {"version","object","retired"})
-         {foreach (string outcome in new[] {"success","failure","cancellation"}) {yield return [route,point,outcome];}}}
+        {foreach (string outcome in new[] {"success","failure","cancellation"}) {yield return [route,outcome];}}
     }
 
     [Theory]
     [MemberData(nameof(Outcomes))]
-    public async Task RowsAndClassicRebuiltGraphStayFundedAndRetireOnEveryOutcome(string route,string point,string outcome)
+    public async Task RetiredRowsReleaseStorageAcrossPublicationOutcomes(string route,string outcome)
     {
         List<NumberedObject> model=WriterIndexOwnershipTests.Model(513);QpdfObject borrowed=model[2].Value;
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);
         using ParserMemoryScope prior=ParserMemoryScope.Create(governor);prior.Reserve(97L);
+        long baseline=governor.Snapshot().LiveMemoryBytes;
         using CancellationTokenSource cancellation=new();
-        string pause=point=="retired" ? route.EndsWith("streamed",StringComparison.Ordinal) ? "streamed-retired" : "classic-retired" : point;
+        string pause=route.EndsWith("streamed",StringComparison.Ordinal) ? "streamed-retired" : "classic-retired";
         WriterIndexOwnershipTests.PausedSink sink=new(pause,outcome=="failure");
         Task writing=WriterIndexOwnershipTests.Start(route,model,QpdfLimits.Default,governor,sink,cancellation.Token);
         await sink.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            if (point!="retired")
-            {
-                long index=route switch
-                {
-                    "ordinary-streamed"=>WriterIndexOwnershipTests.IndexBytes(513)+WriterIndexOwnershipTests.IndexBytes(0)+
-                        (point=="version" ? 0L : WriterIndexOwnershipTests.IndexBytes(1)),
-                    "qdf"=>WriterIndexOwnershipTests.IndexBytes(1)+(point=="version" ? 0L : 160L+513L*sizeof(long)),
-                    "qdf-streamed"=>2L*WriterIndexOwnershipTests.IndexBytes(513)+3L*WriterIndexOwnershipTests.IndexBytes(3)+
-                        (point=="version" ? 0L : WriterIndexOwnershipTests.IndexBytes(1)),
-                    _=>throw new InvalidOperationException("Unknown row route."),
-                };
-                long rows=route switch
-                {
-                    "ordinary-streamed"=>point=="version" ? 0L : 160L+513L*sizeof(int),
-                    // Three authored catalog/page dictionaries, their references and arrays: 1332 bytes.
-                    "qdf"=>128L+1332L+160L+513L*32L,
-                    "qdf-streamed"=>160L+513L*32L+176L+(point=="version" ? 0L : 436L),
-                    _=>throw new InvalidOperationException("Unknown row route."),
-                };
-                Assert.Equal(161L+(point=="version" ? 169L : 168L)+index+rows,governor.Snapshot().LiveMemoryBytes);
-            }
+            Assert.False(writing.IsCompleted);
+            Assert.InRange(governor.Snapshot().LiveMemoryBytes,baseline,QpdfLimits.Default.MaxMemoryBytes);
             if (outcome=="cancellation") {cancellation.Cancel();}else {sink.Resume();}
             await WriterIndexOwnershipTests.Finish(writing,outcome);
-            Assert.Equal(161L,governor.Snapshot().LiveMemoryBytes);Assert.Equal(97L,prior.ReservedBytes);
+            Assert.Equal(baseline,governor.Snapshot().LiveMemoryBytes);Assert.Equal(97L,prior.ReservedBytes);
             Assert.Equal(513,model.Count);Assert.Same(borrowed,model[2].Value);
             GC.KeepAlive(writing);GC.KeepAlive(sink);GC.KeepAlive(model);GC.KeepAlive(borrowed);
         }

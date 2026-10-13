@@ -11,6 +11,45 @@ public sealed class WriterIndexTests
 {
     [Theory]
     [InlineData(0)]
+    [InlineData(129)]
+    public void CapacityHintPreservesSparseKeysDuplicatesAndGrowth(int hint)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using WriterIndex<long> owner = WriterIndex<long>.Create(hint, sizeof(long), governor, CancellationToken.None);
+        Dictionary<int, long> expected = new();
+        for (int index = 0; index < 140; index++)
+        {
+            int key = index % 2 == 0 ? int.MinValue + index * 129 : int.MaxValue - index * 129;
+            long value = long.MaxValue - index;
+            owner.Add(key, value); expected.Add(key, value);
+            Assert.False(owner.TryAdd(key, -1L));
+            Assert.Equal(value, owner[key]);
+        }
+        List<KeyValuePair<int, long>> actual = [];
+        foreach (KeyValuePair<int, long> entry in owner) { actual.Add(entry); }
+        Assert.Equal(expected.ToArray(), actual);
+        owner.Dispose();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void UnaffordableHintKeepsSmallJobsUsable(bool memory)
+    {
+        QpdfLimits limits = memory ? QpdfLimits.Default with { MaxMemoryBytes = 4096L }
+            : QpdfLimits.Default with { MaxWork = 1000L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using WriterIndex<long> owner = WriterIndex<long>.Create(100000, sizeof(long), governor, CancellationToken.None);
+        owner.Add(int.MinValue, 17L); owner.Add(int.MaxValue, 19L);
+        Assert.Equal(17L, owner[int.MinValue]); Assert.Equal(19L, owner[int.MaxValue]);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, limits.MaxMemoryBytes);
+        Assert.InRange(governor.Snapshot().TotalWork, 0L, limits.MaxWork);
+        owner.Dispose(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(0)]
     [InlineData(1)]
     [InlineData(4)]
     [InlineData(5)]

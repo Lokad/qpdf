@@ -13,7 +13,11 @@ internal sealed class WriterIndex<T> : IDisposable
     { _memory = memory; _index = index; }
 
     internal static WriterIndex<T> Create(long valueBytes, ResourceGovernor governor, CancellationToken token)
+        => Create(0, valueBytes, governor, token);
+
+    internal static WriterIndex<T> Create(int count, long valueBytes, ResourceGovernor governor, CancellationToken token)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(valueBytes);
         ArgumentNullException.ThrowIfNull(governor);
         token.ThrowIfCancellationRequested();
@@ -24,6 +28,7 @@ internal sealed class WriterIndex<T> : IDisposable
         {
             memory.Reserve(64L);
             GovernedIntDictionary<T> index = GovernedIntDictionary<T>.Create(memory, governor, valueBytes, token);
+            index.PrepareInitialCapacity(count);
             return new WriterIndex<T>(memory, index);
         }
         catch { memory.Dispose(); throw; }
