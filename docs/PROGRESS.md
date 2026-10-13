@@ -40,6 +40,16 @@ three negative controls pass; original inputs are unchanged. Final integrated
 ordinary/reference/package qualification uses one batched hosted checkpoint.
 Unaffected visuals retain the identified `97c38d5` writer evidence.
 
+The developer file adapter also avoids clearing known-size buffers before a full
+read overwrites them. Direct handles, short-read loops and EOF rejection preserve
+fresh complete input transfer; unknown/zero lengths still read to completion.
+All thirteen probe CLI checks pass, including binary payload integrity and empty-
+input prior-output preservation. A same-library sparse pair reduces time
+6.54 → 5.96 ms (8.9%) with separated IQRs and identical output hashes. This is a
+transport improvement; all original reads/copies remain timed. The earlier
+FileStream trial is unretained, with every observation kept. Final combined
+26-outcome/three-control validation passes with unchanged input hashes.
+
 Continue with the largest demonstrated reader/writer or transport cost. Sparse
 selection still includes the full physical input read. Preserve all thirteen
 cells, immutable public copying, meaningful limits and independent controls.

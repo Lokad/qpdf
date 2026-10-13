@@ -73,6 +73,18 @@ parser-only pair removes about 302 KB and remains identified as an intermediate
 candidate. Existing limits, cache ownership, cancellation and public aliases
 retain their behavior; this adds no workload, parsed-job cache or global pool.
 
+The developer file adapter removes redundant clearing from known-length input
+reads, using the same direct-handle operations as the
+[pinned .NET 10.0.12 reader](https://github.com/dotnet/runtime/blob/v10.0.12/src/libraries/System.Private.CoreLib/src/System/IO/File.cs#L637).
+It fills a fresh buffer completely before host transfer, loops over short reads,
+rejects premature EOF and handles unknown/zero lengths through stream copying.
+Full original input reads and public output copies remain timed. With identical
+compiled libraries and intentionally different adapters, sparse medians fall
+6.54 → 5.96 ms (8.9%); IQRs 6.45–6.85 and 5.95–6.05 ms are separated. Output
+hashes match and allocations are effectively unchanged. This is a transport gain;
+the native warmed median is 1.79 ms, so parity remains unmet. The unretained
+FileStream trial (6.85 → 7.84 ms, overlapping IQRs) remains in the raw archive.
+
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
 preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate
 managed-only memory diagnostics. Every sample and summary number is retained;

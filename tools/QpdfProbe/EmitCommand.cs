@@ -1,5 +1,6 @@
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
+using Microsoft.Win32.SafeHandles;
 
 namespace Lokad.Qpdf.Probe;
 
@@ -75,7 +76,7 @@ internal static class EmitCommand
             // inside the timed emit call, using the consuming memory host itself.
             // The reference adapter below still supports lazy filename aliases.
             foreach ((string logical, string file) in available)
-            { host.AddInput(QpdfPath.From(logical), File.ReadAllBytes(file), QpdfInputOwnership.Transfer); }
+            { host.AddInput(QpdfPath.From(logical), ReadInputBytes(file), QpdfInputOwnership.Transfer); }
             executionHost = host;
         }
         else { executionHost = new InputAliases(host, available); }
@@ -153,13 +154,44 @@ internal static class EmitCommand
             {
                 // This fresh file array has no caller alias. The host owns it;
                 // cloning it again provides no additional isolation.
-                host.AddInput(QpdfPath.From(name), File.ReadAllBytes(file), QpdfInputOwnership.Transfer);
+                host.AddInput(QpdfPath.From(name), ReadInputBytes(file), QpdfInputOwnership.Transfer);
             }
             return host.OpenInputAsync(QpdfPath.From(name), cancellationToken);
         }
 
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
             => host.CreateOutputAsync(path, cancellationToken);
+    }
+
+    private static byte[] ReadInputBytes(string path)
+    {
+        FileOptions options = OperatingSystem.IsWindows() ? FileOptions.SequentialScan : FileOptions.None;
+        using SafeFileHandle input = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.Read, options);
+        long length;
+        try { length = RandomAccess.GetLength(input); }
+        catch (NotSupportedException) { return ReadUnknownInputBytes(input); }
+        if (length == 0L) { return ReadUnknownInputBytes(input); }
+        if (length > Array.MaxLength) { throw new IOException("Input exceeds the supported buffer size."); }
+        // Fill every byte before ownership transfers; premature EOF fails here.
+        // The complete fresh file read remains inside each measured public job.
+        byte[] bytes = GC.AllocateUninitializedArray<byte>((int)length);
+        int filled = 0;
+        while (filled < bytes.Length)
+        {
+            int read = RandomAccess.Read(input, bytes.AsSpan(filled), filled);
+            if (read == 0) { throw new EndOfStreamException("Input ended before its declared length."); }
+            filled += read;
+        }
+        return bytes;
+    }
+
+    private static byte[] ReadUnknownInputBytes(SafeFileHandle input)
+    {
+        // An unknown length, including procfs, need not mean an empty file.
+        using FileStream stream = new(input, FileAccess.Read);
+        using MemoryStream storage = new();
+        stream.CopyTo(storage);
+        return storage.ToArray();
     }
 
     private static string GetOption(string[] args, string name)

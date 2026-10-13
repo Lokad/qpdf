@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using System.Text;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Reading;
 
 namespace Lokad.Qpdf.Tests;
 
@@ -242,6 +245,51 @@ public sealed class ProbeCliTests
         (int exit, _, string stderr) = RunProbe("emit", "--workdir", missing, "--", "inputs/a.pdf", "--check");
         Assert.Equal(1, exit);
         Assert.Contains("Workdir not found", stderr, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProbeEmitPreservesCompleteBinaryInputAndPriorOutputOnEmptyInput(bool empty)
+    {
+        DirectoryInfo directory = Directory.CreateTempSubdirectory("qpdfprobe-input-");
+        string tempRoot = Path.GetFullPath(Path.GetTempPath());
+        try
+        {
+            byte[] payload = Enumerable.Range(0, 98304).Select(i => (byte)(i % 256)).ToArray();
+            byte[] input = empty ? [] : TolerantObjectLoadingTests.Pdf(
+                ["<< /Length 98304 >>\nstream\n" + Encoding.Latin1.GetString(payload) + "\nendstream"], false);
+            string inputs = Directory.CreateDirectory(Path.Combine(directory.FullName, "inputs")).FullName;
+            File.WriteAllBytes(Path.Combine(inputs, "a.pdf"), input);
+            string target = Path.Combine(directory.FullName, "out.pdf");
+            File.WriteAllBytes(target, "prior"u8.ToArray());
+            (int exit, _, _) = RunProbe("emit", "--workdir", directory.FullName, "--out", "out.pdf=" + target,
+                "--", "inputs/a.pdf", "--stream-data=uncompress", "out.pdf");
+            byte[] output = File.ReadAllBytes(target);
+            if (empty)
+            {
+                Assert.Equal(2, exit);
+                Assert.Equal("prior"u8.ToArray(), output);
+            }
+            else
+            {
+                Assert.Equal(0, exit);
+                using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(output);
+                Assert.Equal(1, independent.NumberOfPages);
+                InMemoryQpdfHost host = new();
+                host.AddInput(QpdfPath.From("out.pdf"), output, QpdfInputOwnership.Copy);
+                await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("out.pdf"), CancellationToken.None);
+                PdfDictionary page = document.PageReferences[0].Page;
+                Assert.True(page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+                PdfStream stream = Assert.IsType<PdfStream>(audit is PdfReference reference ? document.GetObject(reference.ObjectNumber) : audit);
+                Assert.Equal(payload, stream.Data);
+            }
+        }
+        finally
+        {
+            Assert.StartsWith(tempRoot, Path.GetFullPath(directory.FullName), StringComparison.OrdinalIgnoreCase);
+            Directory.Delete(directory.FullName, true);
+        }
     }
 
     [Fact]
