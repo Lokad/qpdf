@@ -432,11 +432,7 @@ public sealed class PdfDictionary : QpdfObject, IEquatable<PdfDictionary>
     private readonly IReadOnlyDictionary<PdfName, QpdfObject> _entries;
 
     private PdfDictionary(Dictionary<PdfName, QpdfObject> ownedEntries) { _entries = ownedEntries; }
-    private PdfDictionary(PdfNameTable<QpdfObject> ownedEntries)
-    {
-        _entries = ownedEntries;
-        _ = ownedEntries.DictionaryKeys;
-    }
+    private PdfDictionary(PdfNameTable<QpdfObject> ownedEntries) { _entries = ownedEntries; }
 
     // The parser has admitted and populated this private dictionary. No caller
     // may retain mutable access after transfer; public construction still copies.

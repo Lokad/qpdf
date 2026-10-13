@@ -47,9 +47,8 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     internal int Capacity => _entries.Length;
     internal long StorageBytes => checked(WrapperBytes + ArrayBytes(Capacity));
     public IEnumerable<PdfName> Keys => this;
-    // Publication has dropped the 24-byte construction weak reference. Its
-    // admission now covers this 24-byte view; the table includes its cache slot.
-    // Keep the dictionary's nongeneric key enumeration distinct from entries.
+    // Frozen storage caches a key view on demand. Keep the dictionary's
+    // nongeneric key enumeration distinct from the table's entries.
     internal IEnumerable<PdfName> DictionaryKeys
     {
         get
