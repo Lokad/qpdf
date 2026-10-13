@@ -2,10 +2,10 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: the clean
-`97c38d5` panel meets parity in one cell, with ratios 0.86–3.46×. Two near-parity
-cells (1.08× / 1.04×) met it in the previous panel; differing host load prevents
+`e2451c5` panel meets parity in one cell, with ratios 0.79–3.40×. M500 selection
+and checking are near parity (1.06× / 1.05×); differing host load prevents
 attributing separate-panel times to source changes. Sparse selection remains the
-largest gap at 7.18 / 2.07 ms: managed transport reads the entire 16.8 MB input.
+largest gap at 8.36 / 2.46 ms: managed transport reads the entire 16.8 MB input.
 [Results](BENCHMARK-RESULTS.md) preserve all observations and corrections;
 [the protocol](BENCHMARKS.md) separates complete jobs, memory diagnostics and
 startup-inclusive measurements. Performance commits require reduced time or
@@ -20,6 +20,15 @@ source. One push-triggered run qualified decoder-local parser reuse; no manual r
 
 ## Current correction and next work
 
+The [e2451c5 hosted run](https://github.com/Lokad/qpdf/actions/runs/38327442961)
+passes Ubuntu and pinned reference, but Windows exposed a short cancellation-test
+window: all eight stream copies completed before the sleeping observer canceled.
+The test controller now polls without sleeping, retaining the original payload,
+limits, timeout/retries and required canceled outcome, nested reservation and
+cleanup assertions. Production sources are unchanged. All 41 parser-ownership
+checks and five independent runs of the exact failure pass. Full qualification
+uses one corrective push, with no manual rerun or repeated production benchmark.
+
 Owned PDF dictionaries defer their cached key-view wrapper until `Keys` is
 requested. Internal entry-only consumers avoid that allocation. Generic and
 nongeneric key order, lookup, immutable publication and surviving aliases retain
@@ -30,8 +39,9 @@ overlap; claim allocation only.
 All 9,342 affected foundation/parser/copier/serializer checks pass, with zero
 failures/skips. Release build/pack, inspection and the fresh locked consumer pass,
 including the unchanged 2 MiB multisource limit. All 26 fresh managed/native
-outcomes and three negative controls pass; original inputs are unchanged. Full
-ordinary/reference/package qualification uses the next push-triggered CI run.
+outcomes and three negative controls pass; original inputs are unchanged. The
+clean final panel preserves 12,719 observations. Full ordinary/reference/package
+qualification uses the corrective push-triggered CI run.
 Unaffected visual behavior retains the identified `97c38d5` evidence.
 
 Continue with one measured parser/writer or reader/host cost at a time. Parser

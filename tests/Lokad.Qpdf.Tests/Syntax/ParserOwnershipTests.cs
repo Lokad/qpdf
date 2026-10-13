@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Objects;
@@ -281,10 +282,18 @@ public sealed class ParserOwnershipTests
                 // Observe admission of the material payload. The parser owns
                 // one fresh buffer, so a second defensive-copy charge is no
                 // longer a signal of stream-copy work.
-                bool reached = SpinWait.SpinUntil(() => CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + bytes || loading.IsCompleted, TimeSpan.FromSeconds(10));
-                Assert.True(reached);
-                bool observed = CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + bytes;
+                // SpinUntil eventually sleeps; a fast bounded copy can finish
+                // entirely between polls. Keep this test controller awake for
+                // the short admission window, with the same timeout/retry cap.
+                long started = Stopwatch.GetTimestamp();
+                bool observed = false;
+                while (!observed && !loading.IsCompleted && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
+                {
+                    observed = CounterObservation.Snapshot(canceled).LiveMemoryBytes >= retained + bytes;
+                    if (!observed) { Thread.SpinWait(64); }
+                }
                 cancellation.Cancel();
+                Assert.True(observed || loading.IsCompleted);
                 try
                 {
                     Assert.IsType<PdfStream>(await loading.WaitAsync(TimeSpan.FromSeconds(10)));
