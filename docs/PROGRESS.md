@@ -30,13 +30,21 @@ All 4,124 focused reader/parser/practical-memory checks pass (24s). The existing
 rejected-header/alias control now exercises a later nested stream-length load
 and independent dictionary/string/stream values after document closure.
 Recovery/retry, cancellation, meaningful limits and cleanup remain covered.
-Final fresh semantics, package/consumer checks and one clean complete panel will
-qualify the accepted source batch before its single hosted push.
+Dictionary conversion now creates its private destination frozen, omitting a
+construction weak reference which was immediately dropped on publication.
+Mutable construction guards and conversion ownership are unchanged. The
+identical-driver pair saves another 51.4 KB/job in object-heavy rewriting
+(6.7178 → 6.6663 MB) and 5.2 KB/job in X100 (796.3 → 791.1 KB), with matching
+hashes. Medians 35.561 → 35.405 ms / 2.872 → 2.675 ms have overlapping IQRs;
+claim allocation only. All 4,148 affected reader/parser/name-storage/practical-
+memory checks pass (22s), including cancellation, overlap rejection and published
+aliases that release their completed execution state.
 
-Next, omit the temporary construction weak reference in conversion targets that
-are published frozen. Preserve mutable construction guards, collision/order,
-failed-conversion source ownership and published aliases. Reuse existing name
-storage controls and public workload pairs. Sparse full-input transport remains
+Windows/Linux Release builds and explicit pack/inspection/fresh locked consumer/
+rejections pass (34s), preserving the 2 MiB multisource ceiling. All 26 fresh
+managed/native outcomes and three negative controls pass; inputs are unchanged.
+One clean complete panel and one hosted push qualify this accepted source batch.
+Sparse full-input transport remains
 the largest boundary gap; prepared-memory diagnostics do not close its original
 comparison. Capture consolidation remains deferred for its small contribution.
 

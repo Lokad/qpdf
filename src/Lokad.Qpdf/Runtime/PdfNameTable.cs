@@ -27,18 +27,25 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         [AllowNull] internal T Value;
     }
 
-    private PdfNameTable(ParserMemoryScope memory, long entryBytes)
-    { _origin = new WeakReference<ParserMemoryScope>(memory); _entryBytes = entryBytes; }
+    private PdfNameTable(ParserMemoryScope memory, long entryBytes, bool frozen)
+    {
+        _origin = frozen ? null : new WeakReference<ParserMemoryScope>(memory);
+        _entryBytes = entryBytes; _frozen = frozen;
+    }
 
     internal static PdfNameTable<T> Create(ParserMemoryScope memory, ResourceGovernor governor,
         long valueBytes, CancellationToken token)
+        => CreateCore(memory, governor, valueBytes, token, false);
+
+    private static PdfNameTable<T> CreateCore(ParserMemoryScope memory, ResourceGovernor governor,
+        long valueBytes, CancellationToken token, bool frozen)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(valueBytes);
         ArgumentNullException.ThrowIfNull(memory); ArgumentNullException.ThrowIfNull(governor);
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         long entryBytes = checked((16L + valueBytes + 7L) / 8L * 8L);
         governor.ChargeWork(1L); memory.Reserve(WrapperBytes);
-        try { return new PdfNameTable<T>(memory, entryBytes); }
+        try { return new PdfNameTable<T>(memory, entryBytes, frozen); }
         catch { memory.Release(WrapperBytes); throw; }
     }
 
@@ -239,7 +246,9 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         // conversion will not retain a larger capacity than the copying path.
         int finalCapacity = _count == 0 ? 0 : _count <= 3 ? 3 : _count <= 7 ? 7 : _count;
         if (Capacity != finalCapacity) { result = null; return false; }
-        PdfNameTable<TResult> target = PdfNameTable<TResult>.Create(memory, governor, valueBytes, token);
+        // The destination stays private through every fallible conversion and
+        // is always published frozen. It never needs a construction reference.
+        PdfNameTable<TResult> target = PdfNameTable<TResult>.CreateCore(memory, governor, valueBytes, token, true);
         long entryBytes = Capacity == 0 ? 0L : checked(32L + target._entryBytes * Capacity);
         long retired = checked(WrapperBytes + (Capacity == 0 ? 0L : 32L + _entryBytes * Capacity));
         PdfNameTable<TResult>.Entry[] entries;
@@ -266,7 +275,6 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         // Every fallible conversion finishes before ownership moves. Source
         // remains usable on failure; success invalidates its old enumerators.
         target._entries = entries; target._buckets = _buckets; target._count = _count;
-        target._frozen = true; target._origin = null;
         _entries = Array.Empty<Entry>(); _buckets = Array.Empty<int>(); _count = 0;
         _origin = null; _frozen = true; _version = unchecked(_version + 1);
         memory.Release(retired); result = target; return true;
