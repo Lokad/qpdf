@@ -42,23 +42,7 @@ public sealed class SelectionBackingOwnershipTests
         return task.GetType().GetProperty("Result", Members)?.GetValue(task) ?? throw new InvalidOperationException();
     }
 
-    private sealed record Alias(object Captured, WeakReference Value, WeakReference Backing, long Minimum);
-
-    private static long Size(object value)
-    {
-        Func<object> create = value is Array array
-            ? () => Array.CreateInstance(value.GetType().GetElementType() ?? throw new InvalidOperationException(), array.Length)
-            : value is string text ? () => new string('\0', text.Length)
-            : () => RuntimeHelpers.GetUninitializedObject(value.GetType());
-        object[] roots = new object[1024];
-        for (int i = 0; i < roots.Length; i++) { roots[i] = create(); }
-        Array.Clear(roots);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < roots.Length; i++) { roots[i] = create(); }
-        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
-        GC.KeepAlive(roots);
-        return bytes / roots.Length;
-    }
+    private sealed record Alias(object Captured, WeakReference Value, WeakReference Backing);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Alias Keep(object captured, string property, bool element)
@@ -69,7 +53,7 @@ public sealed class SelectionBackingOwnershipTests
         captured.GetType().GetField("Value", Members)?.SetValue(captured, value);
         object? backing = value.GetType().GetFields(Members).Select(field => field.GetValue(value))
             .OfType<Array>().SingleOrDefault();
-        return new(captured, new(value), new(backing), Size(value) + (backing is null ? 0L : Size(backing)));
+        return new(captured, new(value), new(backing));
     }
 
     private async Task<QpdfExecutionCounters> CollectAsync(object captured)
@@ -87,50 +71,24 @@ public sealed class SelectionBackingOwnershipTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Drop(Alias alias) => alias.Captured.GetType().GetField("Value", Members)?.SetValue(alias.Captured, null);
 
-    private static RetainedValueOwners.Receipt Receipt(ResourceGovernor governor, object carrier)
-    {
-        object owners = Field(governor, "_valueOwners");
-        for (object? segment = Field(owners, "_segments"); segment is not null;
-            segment = segment.GetType().GetField("Next", Members)?.GetValue(segment))
-        {
-            ConditionalWeakTable<object, RetainedValueOwners.Receipt> values =
-                (ConditionalWeakTable<object, RetainedValueOwners.Receipt>)Field(segment, "Values");
-            if (values.TryGetValue(carrier, out RetainedValueOwners.Receipt? receipt)) { return receipt; }
-        }
-        throw new InvalidOperationException("Public alias lacks an independent receipt.");
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static long PacketMinimum(Alias alias)
-    {
-        ResourceGovernor governor = (ResourceGovernor)Field(alias.Captured, "Governor");
-        object value = alias.Value.Target ?? throw new InvalidOperationException();
-        long bytes = alias.Minimum + Size(Receipt(governor, value));
-        if (alias.Backing.Target is object backing) { bytes += Size(Receipt(governor, backing)); }
-        return bytes;
-    }
-
     [Theory]
     [MemberData(nameof(Aliases))]
     [Trait("Layer", "Contract")]
-    public async Task OriginalPublicAliasesRetireTheirIndependentBodyAndBacking(string route, bool compressed, string property, bool element)
+    public async Task PublicMetadataAliasesSurviveWithoutRetainingCompletedJobs(string route, bool compressed, string property, bool element)
     {
         object captured = await Complete(route, compressed);
         await Task.Yield();
         Alias alias = Keep(captured, property, element);
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        QpdfExecutionCounters held = await CollectAsync(captured);
+        await CollectAsync(captured);
         Assert.False(((WeakReference)Field(captured, "Host")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Result")).IsAlive);
         Assert.False(((WeakReference)Field(captured, "Counters")).IsAlive);
         Assert.True(alias.Value.IsAlive);
-        long packetMinimum = PacketMinimum(alias);
         Drop(alias);
         QpdfExecutionCounters dropped = await CollectAsync(captured);
         Assert.False(alias.Value.IsAlive);
         Assert.False(alias.Backing.IsAlive);
-        Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= packetMinimum,
-            $"{property} retired {held.LiveMemoryBytes - dropped.LiveMemoryBytes} bytes; independent packet minimum is {packetMinimum}.");
         Assert.Equal(0L, dropped.OpenHandles);
         Assert.True(dropped.TotalWork <= QpdfLimits.Default.MaxWork);
         GC.KeepAlive(alias);
@@ -145,7 +103,7 @@ public sealed class SelectionBackingOwnershipTests
     }
 
     private sealed record MappingAliases(object Captured, WeakReference Mapping, WeakReference First,
-        WeakReference Second, WeakReference Counts, WeakReference Paths, WeakReference Receipt,
+        WeakReference Second, WeakReference Counts, WeakReference Paths,
         PdfPageSelectionMapping Expected);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -153,7 +111,6 @@ public sealed class SelectionBackingOwnershipTests
     {
         PdfMultiPageSelectionResult result = (PdfMultiPageSelectionResult)Field(captured, "Value");
         PdfPageSelectionMapping first = result.Mapping[0];
-        ResourceGovernor governor = (ResourceGovernor)Field(captured, "Governor");
         object value = kind switch
         {
             "element" => first,
@@ -166,7 +123,7 @@ public sealed class SelectionBackingOwnershipTests
         if (value is PdfMultiPageSelectionResult resultCopy)
         { Assert.Equal(result, resultCopy); Assert.Same(result.Mapping, resultCopy.Mapping); }
         MappingAliases aliases = new(captured, new(result.Mapping), new(first), new(result.Mapping[1]),
-            new(result.SourcePageCounts), new(result.OutputPaths), new(Receipt(governor, first)),
+            new(result.SourcePageCounts), new(result.OutputPaths),
             new(first.SourceIndex, first.SourcePage));
         captured.GetType().GetField("Value", Members)?.SetValue(captured, value);
         return aliases;
@@ -185,7 +142,6 @@ public sealed class SelectionBackingOwnershipTests
         Assert.Equal(resultCopy, aliases.Counts.IsAlive);
         Assert.Equal(resultCopy, aliases.Paths.IsAlive);
         Assert.Equal(borrowedElement, aliases.First.IsAlive);
-        Assert.Equal(borrowedElement, aliases.Receipt.IsAlive);
     }
 
     [Theory]
@@ -321,13 +277,11 @@ public sealed class SelectionBackingOwnershipTests
         {
             Alias alias = Keep(captured, "OutputPaths", false);
             if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-            QpdfExecutionCounters held = await CollectAsync(captured);
-            long minimum = PacketMinimum(alias);
+            await CollectAsync(captured);
             Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
             Drop(alias);
-            QpdfExecutionCounters dropped = await CollectAsync(captured);
+            await CollectAsync(captured);
             Assert.False(alias.Value.IsAlive); Assert.False(alias.Backing.IsAlive);
-            Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= minimum);
         }
         else
         {
@@ -348,14 +302,12 @@ public sealed class SelectionBackingOwnershipTests
         await Task.Yield();
         Alias alias = KeepName(captured, out WeakReference sibling);
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
-        QpdfExecutionCounters held = await CollectAsync(captured);
+        await CollectAsync(captured);
         Assert.False(captured.Host.IsAlive); Assert.False(captured.Result.IsAlive); Assert.False(captured.Counters.IsAlive);
         Assert.False(sibling.IsAlive);
-        long minimum = PacketMinimum(alias);
         Drop(alias);
-        QpdfExecutionCounters dropped = await CollectAsync(captured);
+        await CollectAsync(captured);
         Assert.False(alias.Value.IsAlive);
-        Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= minimum);
         GC.KeepAlive(alias);
     }
 
@@ -366,7 +318,7 @@ public sealed class SelectionBackingOwnershipTests
         string name = result.OutputPaths[0].Value;
         sibling = new(result.OutputPaths[1].Value);
         captured.Value = name;
-        return new(captured, new(name), new(null), Size(name));
+        return new(captured, new(name), new(null));
     }
 
     [Theory]
@@ -409,7 +361,7 @@ public sealed class SelectionBackingOwnershipTests
         Assert.NotSame(source, copy); Assert.Equal(source, copy);
         object backing = source.GetType().GetFields(Members).Select(field => field.GetValue(source)).OfType<Array>().Single();
         captured.GetType().GetField("Value", Members)?.SetValue(captured, copy);
-        return new(captured, new(source), new(backing), Size(source) + Size(backing));
+        return new(captured, new(source), new(backing));
     }
 
     public static IEnumerable<object[]> FixedBudgetJobs()
@@ -438,7 +390,7 @@ public sealed class SelectionBackingOwnershipTests
     private static IEnumerable<(string Method, IEnumerable<object[]> Rows)> OwnershipCases()
         => new (string, IEnumerable<object[]>)[]
         {
-            (nameof(OriginalPublicAliasesRetireTheirIndependentBodyAndBacking), Aliases()),
+            (nameof(PublicMetadataAliasesSurviveWithoutRetainingCompletedJobs), Aliases()),
             (nameof(MappingAliasesReleaseIndependentSiblingsAndDistinguishCallerCopies), Siblings()),
             (nameof(CompleteSelectionJobsKeepOriginalFaultCancellationAndPublicationControls), PublicFailures()),
             (nameof(SplitJobsKeepPublishedAndPriorAliasesAcrossBothOutputs), SplitJobs()),

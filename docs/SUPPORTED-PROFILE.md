@@ -381,6 +381,9 @@ rather than public/release obligations. Validate the approximate target with the
 small representative normal/adversarial workloads. Preserve meaningful size/work
 limits, cancellation, cleanup, immutable usable outputs and actual leak/growth
 regressions. Concurrent jobs, host buffers and caller outputs need host policy.
+Page/source result metadata keeps its material storage admission through the
+operation's publication and cleanup scope. Returned immutable collections remain
+usable afterward; individual metadata aliases need no separate accounting receipt.
 
 Canonical object inspection admits bounded character chunks, dictionary sort
 scratch and its immutable result before allocation. It borrows immutable key

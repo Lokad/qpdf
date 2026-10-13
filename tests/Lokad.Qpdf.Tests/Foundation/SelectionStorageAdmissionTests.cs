@@ -1,93 +1,45 @@
-using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
-[Collection(nameof(CompletedJobOwnershipCollection))]
 public sealed class SelectionStorageAdmissionTests
 {
-    private sealed class Capture(ResourceGovernor governor, object value)
+    [Theory]
+    [InlineData("normal")]
+    [InlineData("memory")]
+    [InlineData("work")]
+    [InlineData("canceled")]
+    public void ScopedMetadataPreservesMaterialAdmissionAndImmutableCopies(string mode)
     {
-        internal readonly ResourceGovernor Governor = governor;
-        internal object? Value = value;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Capture Create(QpdfLimits limits, CancellationToken token, bool mapping)
-    {
-        ResourceGovernor governor = new(limits, token);
-        using OwnedAllocationBatch storage = OwnedAllocationBatch.Create(governor, mapping ? 1 : 2, token);
-        object value;
-        if (mapping)
+        QpdfLimits limits = mode == "memory" ? QpdfLimits.Default with { MaxMemoryBytes = 4096L }
+            : mode == "work" ? QpdfLimits.Default with { MaxWork = 128L } : QpdfLimits.Default;
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        int[] source = Enumerable.Range(1, mode == "memory" ? 4096 : 256).ToArray();
+        IReadOnlyList<int>? result = null;
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            storage.Memory.Reserve(24L);
-            PdfPageSelectionMapping entry = new(0, 1);
-            storage.Add(entry, 24L);
-            value = entry;
-        }
-        else { value = ResultCollectionStorage.Copy(storage, new[] { 2, 1 }, sizeof(int)); }
-        storage.RetainWithPrepaidRetirement();
-        return new(governor, value);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Capture? Prepare(string boundary)
-    {
-        Assert.True(GC.TryStartNoGCRegion(16L * 1024L * 1024L));
-        Capture? capture = null;
-        try
-        {
-            bool mapping = boundary.StartsWith("work", StringComparison.Ordinal);
-            Capture baseline = Create(QpdfLimits.Default, CancellationToken.None, mapping);
-            QpdfExecutionCounters counters = baseline.Governor.Snapshot();
-            QpdfLimits limits = QpdfLimits.Default with
+            if (mode == "canceled")
             {
-                MaxMemoryBytes = mapping ? QpdfLimits.Default.MaxMemoryBytes : counters.PeakMemoryBytes - (boundary == "memory-short" ? 1 : 0),
-                // One fresh mapping has no identity-chain collision. Array/view
-                // admission can visit a bucket collision, so its paired jobs
-                // prove exact memory while work stays under the default limit.
-                MaxWork = mapping ? counters.TotalWork + 1L - (boundary == "work-short" ? 1 : 0) : QpdfLimits.Default.MaxWork,
-                CancellationCheckInterval = 1L,
-            };
-            if (boundary == "pre-canceled") { Assert.ThrowsAny<OperationCanceledException>(() => Create(limits, new CancellationToken(true), mapping)); }
-            else if (boundary.EndsWith("short", StringComparison.Ordinal))
+                Assert.ThrowsAny<OperationCanceledException>(() => ResultCollectionStorage.Copy(memory, source,
+                    sizeof(int), governor, new CancellationToken(true)));
+            }
+            else if (mode is "memory" or "work")
             {
-                QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => Create(limits, CancellationToken.None, mapping));
-                Assert.Equal(boundary == "memory-short" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), error.LimitName);
+                QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => ResultCollectionStorage.Copy(memory,
+                    source, sizeof(int), governor, CancellationToken.None));
+                Assert.Equal(mode == "memory" ? nameof(QpdfLimits.MaxMemoryBytes) : nameof(QpdfLimits.MaxWork), failure.LimitName);
             }
             else
             {
-                capture = Create(limits, CancellationToken.None, mapping);
-                if (mapping) { Assert.Equal(new PdfPageSelectionMapping(0, 1), capture.Value); }
-                else { Assert.Equal(new[] { 2, 1 }, (IReadOnlyList<int>)(capture.Value ?? throw new InvalidOperationException())); }
-                if (!mapping) { Assert.Equal(counters.PeakMemoryBytes, capture.Governor.Snapshot().PeakMemoryBytes); }
-                else { Assert.Equal(counters.TotalWork, capture.Governor.Snapshot().TotalWork); }
+                result = ResultCollectionStorage.Copy(memory, source, sizeof(int), governor, CancellationToken.None);
+                Assert.True(governor.Snapshot().LiveMemoryBytes >= source.Length * sizeof(int));
+                source[0] = 99;
+                Assert.Throws<NotSupportedException>(() => ((IList<int>)result)[0] = 99);
             }
-            GC.KeepAlive(baseline);
         }
-        finally { GC.EndNoGCRegion(); }
-        return capture;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void Drop(Capture capture) => capture.Value = null;
-
-    [Theory]
-    [InlineData("memory-exact")]
-    [InlineData("memory-short")]
-    [InlineData("work-exact")]
-    [InlineData("work-short")]
-    [InlineData("pre-canceled")]
-    public void ExactAdmissionIncludesBothPacketsAndTheirRetirementWork(string boundary)
-    {
-        Capture? capture = Prepare(boundary);
-        if (capture is not null)
-        {
-            Drop(capture);
-            for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
-            for (int boundaryIndex = 0; boundaryIndex < 4; boundaryIndex++) { capture.Governor.ReserveMemory(0L); }
-            Assert.Equal(0L, capture.Governor.Snapshot().LiveMemoryBytes);
-            GC.KeepAlive(capture);
-        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
+        Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
+        if (result is not null) { Assert.Equal(1, result[0]); Assert.Equal(256, result[^1]); }
     }
 }

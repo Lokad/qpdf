@@ -6,8 +6,8 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `2489596` passed [hosted CI run 38480170263](https://github.com/Lokad/qpdf/actions/runs/38480170263):
-Windows 7m08s, Ubuntu 5m37s, pinned reference 5m44s. Both platforms pass 17,865
+Pushed `f19187b` passed [hosted CI run 38482755196](https://github.com/Lokad/qpdf/actions/runs/38482755196):
+Windows 7m22s, Ubuntu 5m49s, pinned reference 4m03s. Both platforms pass 17,865
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. The current correction passed local
@@ -15,29 +15,30 @@ qualification; its integration runs the comprehensive gates on push.
 
 ## Current correction and next work
 
-Page copying creates the admitted inheritance dictionary only for its first
-materialized value. Empty results use the BCL immutable empty dictionary.
-All three consumers read the existing interface; copier null validation stays
-unchanged. MediaBox validation reuses the existing immutable lookup key.
-Ancestry traversal, attribute resolution and source identity remain unchanged.
+Page/source result metadata uses operation storage through publication and
+cleanup. Single-source admission spans input-close cleanup; merge and split
+reuse the existing selection scope. Copied arrays/read-only views, mapping
+records and split names retain material admission while the job runs, without
+individual alias receipts or a registration array per mapping. Returned metadata
+remains immutable and usable; diagnostic and binary ownership stay unchanged.
 
-Identical-driver pairs reduce allocation by about 27.3 KB/job for M500
-(17.8925 → 17.8652 MB) and 5.6 KB for X100 (740.2 → 734.6 KB).
-Every output hash matches. Medians 19.196 → 20.596 ms and 2.663 → 2.602 ms
-have overlapping IQRs; claim allocation only.
+Same-driver allocation falls about 78.6 KB/job for M500 rewriting, 16.3 KB for
+X100, 77.4 KB for merging and 82.3 KB for splitting. All output hashes match.
+Splitting medians fall 27.133 → 25.364 ms (6.5%), with separated IQRs
+27.025–27.912 / 25.010–26.580 ms; the other timing ranges overlap. This paired
+evidence does not establish stable parity across all workloads.
 
-All 2,132 affected writing/inheritance/split/practical-memory checks pass (52s).
-The existing public null-MediaBox fallback case now mixes inherited, local and
-duplicate pages and checks cleanup after reopening the output. Existing controls
-retain all four inheritable attributes, null/indirect resolution, ancestry failure,
-limits, cancellation, output immutability and failed publication.
-Windows/Linux Release builds and explicit pack, inspection, fresh locked consumer
-and rejection controls pass (28s), preserving the 2 MiB multisource ceiling.
-All 26 fresh managed/native outcomes and three negative controls pass; original
-inputs are unchanged. The clean committed-source panel preserves all 23,604
-observations and an empty source diff. Four cells meet parity and nine remain
-above it; sparse selection is 3.71×. Different panels under varying host load
-do not isolate source gains. One hosted push qualifies code and report.
+All 4,176 affected writing/selection/ownership/practical-memory checks pass (77s).
+The scope-order correction has final-source controls for input-close faults,
+surviving results, split success/failure/cancellation, prior outputs and cleanup.
+Exact CLR-size/individual metadata-receipt assertions and the five exact
+packet/retirement cases were consolidated into four representative material
+memory/work/cancellation/copy checks. Actual weak-reference leak/collection,
+immutability and public-job controls remain. Windows/Linux Release builds,
+explicit pack, inspection, fresh locked consumer and rejection controls pass
+(24s), preserving the 2 MiB multisource ceiling. All 26 fresh managed/native
+outcomes and three negative controls pass; original inputs are unchanged.
+One clean complete panel and one hosted push qualify the committed source.
 
 Sparse full-input transport remains the largest boundary gap. The timed emitter
 already reads the full remaining span and the exclusive memory host borrows its
