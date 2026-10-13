@@ -5,7 +5,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Syntax;
 
-/// <summary>Resolves indirect references during parsing (wired to xref in 05b).</summary>
+/// <summary>Resolves indirect references through the document's xref table during parsing.</summary>
 internal interface IIndirectResolver
 {
     /// <summary>Tries to resolve a reference to its object.</summary>
@@ -87,6 +87,7 @@ internal sealed class PdfParser
     internal void BeginTolerantObject()
     {
         ObjectAborted = false;
+        BorrowedStreamData = false;
         ToleratedErrors = 0L;
         _nearbyErrors = 0;
         _goodTokens = 0;

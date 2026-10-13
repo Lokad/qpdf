@@ -89,6 +89,13 @@ internal sealed class PdfTokenizer
         return TryReadTokenCore(out token, false);
     }
 
+    internal void ResetForObject(long position)
+    {
+        SetPosition(position);
+        _governor = null;
+        _scanWork = 0;
+    }
+
     internal bool TryReadToken(out PdfToken token, bool tolerateErrors, ResourceGovernor governor)
     {
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));

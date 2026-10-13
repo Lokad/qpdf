@@ -64,6 +64,15 @@ hashes, key order and generic/nongeneric enumeration. Identical-driver times
 56.20 → 52.11 ms overlap; claim allocation only. Significant-storage admission,
 work, cancellation and immutable surviving aliases retain their existing behavior.
 
+Classic object loading reuses one idle parser/tokenizer per document, keeping
+active nested loads separate. Per-object error/borrowed observations and cursor
+scan work reset; disposal drops the cached input reference. The identical-driver
+object-heavy pair removes about 423 KB/job (8.902 → 8.479 MB), preserving hashes.
+Median times 47.18 → 52.90 ms overlap; claim allocation only. The earlier
+parser-only pair removes about 302 KB and remains identified as an intermediate
+candidate. Existing limits, cache ownership, cancellation and public aliases
+retain their behavior; this adds no workload, parsed-job cache or global pool.
+
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
 preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate
 managed-only memory diagnostics. Every sample and summary number is retained;

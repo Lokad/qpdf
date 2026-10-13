@@ -30,6 +30,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     private bool _valuesEscape = true;
     private long _reservedInput;
     private bool _borrowedStreamData;
+    private PdfParser? _idleParser;
+    private PdfTokenizer? _idleTokenizer;
     internal bool BorrowImmutableStreamData { get; set; }
     private Dictionary<int, CachedObject>? _cache;
     private HashSet<int>? _cachedNulls;
@@ -196,6 +198,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         _decodingStreams = null;
         _inspectionObjects = null;
         _inspectionTrailer = null;
+        _idleParser = null;
+        _idleTokenizer = null;
         _data = default;
         XRefTable? table = _table;
         _table = null;
@@ -388,29 +392,40 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
             _governor.ChargeWork(1L);
             using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
-            PdfTokenizer tokenizer = new(_data);
-            tokenizer.SetPosition(entry.First);
+            PdfTokenizer tokenizer = _idleTokenizer ?? new(_data);
+            _idleTokenizer = null;
+            tokenizer.ResetForObject(entry.First);
             _governor.ReserveMemory(128L);
             int foundNumber;
             int foundGeneration;
             QpdfObject value;
+            // A nested stream-length load needs a separate active parser.
+            PdfParser? parser = _idleParser;
+            _idleParser = null;
             try
             {
-                bool reconstructed = Table.XrefOffset < 0L;
-                QpdfLimits parserLimits = reconstructed
-                    ? _limits with { MaxContainerSize = Math.Min(_limits.MaxContainerSize, _limits.MaxContainerSizeDamaged) }
-                    : _limits;
-                PdfParser parser = new(parserLimits, _governor, _diagnostics, this)
+                if (parser is null)
                 {
-                    TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
-                    SanityChecks = reconstructed,
-                    BorrowImmutableStreamData = BorrowImmutableStreamData && !_valuesEscape && _ownsTable,
-                };
+                    bool reconstructed = Table.XrefOffset < 0L;
+                    QpdfLimits parserLimits = reconstructed
+                        ? _limits with { MaxContainerSize = Math.Min(_limits.MaxContainerSize, _limits.MaxContainerSizeDamaged) }
+                        : _limits;
+                    parser = new(parserLimits, _governor, _diagnostics, this)
+                    {
+                        TolerateObjectErrors = _recovery != QpdfRecoveryMode.Strict,
+                        SanityChecks = reconstructed,
+                    };
+                }
+                parser.BorrowImmutableStreamData = BorrowImmutableStreamData && !_valuesEscape && _ownsTable;
                 (foundNumber, foundGeneration, value) = parser.ParseIndirectObject(tokenizer, 0, memory);
                 _borrowedStreamData |= parser.BorrowedStreamData;
             }
             finally
             {
+                // The parser restores its attempt scope even on failure. Keep
+                // one idle instance; any nested instance can now retire.
+                _idleParser = parser;
+                _idleTokenizer = tokenizer;
                 _governor.ReleaseMemory(128L);
             }
             if (foundNumber != number || foundGeneration != entry.Second)

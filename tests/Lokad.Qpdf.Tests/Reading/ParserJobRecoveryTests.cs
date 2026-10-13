@@ -100,6 +100,42 @@ public sealed class ParserJobRecoveryTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task AbortedClassicObjectDoesNotCorruptFollowingNestedStreamLoad(bool job, bool brokenXref)
+    {
+        byte[] input = TolerantObjectLoadingTests.Pdf(
+            ["[6 0 R 7 0 R 9 0 R]", "[ @ 6 ]",
+             "<< /Length 8 0 R /Nested 8 0 R >>\nstream\nabc\nendstream", "00003", "(kept)"], brokenXref);
+        InMemoryQpdfHost host = Host(input);
+        QpdfExecutionResult result = await Rewrite(host, job, 1);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("out.pdf"), out byte[] output));
+        host.AddInput(QpdfPath.From("reread.pdf"), output, QpdfInputOwnership.Copy);
+        PdfStream stream;
+        PdfByteString kept;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None))
+        {
+            PdfDictionary page = Assert.IsType<PdfDictionary>(document.GetObject(3));
+            Assert.True(page.TryGet(PdfName.FromAscii("Audit"), out QpdfObject audit));
+            PdfArray values = Assert.IsType<PdfArray>(Resolve(document, audit));
+            Assert.Equal(3, values.Count);
+            Assert.IsType<PdfNull>(Resolve(document, values[0]));
+            stream = Assert.IsType<PdfStream>(Resolve(document, values[1]));
+            Assert.True(stream.Dictionary.TryGet(PdfName.FromAscii("Nested"), out QpdfObject nested));
+            Assert.Equal(3L, Assert.IsType<PdfInteger>(Resolve(document, nested)).Value);
+            kept = Assert.IsType<PdfByteString>(Resolve(document, values[2]));
+        }
+        Assert.Equal("abc"u8.ToArray(), stream.Data);
+        Assert.Equal("kept"u8.ToArray(), kept.Value);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CompressedDictionaryDoesNotStartFileStreamRecovery(bool job)

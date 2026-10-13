@@ -11,46 +11,42 @@ largest gap at 8.36 / 2.46 ms: managed transport reads the entire 16.8 MB input.
 startup-inclusive measurements. Performance commits require reduced time or
 allocation, without a minimum percentage gain.
 
-Pushed `97c38d5` passed [hosted CI run 38325794775](https://github.com/Lokad/qpdf/actions/runs/38325794775):
-Windows 6m25s, Ubuntu 4m30s, pinned reference 5m02s. Both platforms pass 17,827
+Pushed `b70b9f0` passed [hosted CI run 38328414537](https://github.com/Lokad/qpdf/actions/runs/38328414537):
+Windows 6m30s, Ubuntu 5m33s, pinned reference 6m01s. Both platforms pass 17,827
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. Seven visuals and both controls pass on the same writer
-source. One push-triggered run qualified decoder-local parser reuse; no manual rerun.
+source. The corrective push preserved actual CPU cancellation after stream admission; no manual rerun.
 
 ## Current correction and next work
 
-The [e2451c5 hosted run](https://github.com/Lokad/qpdf/actions/runs/38327442961)
-passes Ubuntu and pinned reference, but Windows exposed a short cancellation-test
-window: all eight stream copies completed before the sleeping observer canceled.
-The test controller now polls without sleeping, retaining the original payload,
-limits, timeout/retries and required canceled outcome, nested reservation and
-cleanup assertions. Production sources are unchanged. All 41 parser-ownership
-checks and five independent runs of the exact failure pass. Full qualification
-uses one corrective push, with no manual rerun or repeated production benchmark.
+Classic object loads reuse one idle parser and tokenizer per document. Active
+nested stream-length loads keep separate instances. The existing object entry
+resets repair state and borrowed-stream observations; tokenizer reuse resets
+position, governor and scan work. Disposal drops both cached instances and their
+input references. Per-active admission, cache ownership, limits and cancellation
+remain unchanged; no parsed-document reuse or global pool was added.
 
-Owned PDF dictionaries defer their cached key-view wrapper until `Keys` is
-requested. Internal entry-only consumers avoid that allocation. Generic and
-nongeneric key order, lookup, immutable publication and surviving aliases retain
-their existing behavior. The identical-driver object-heavy pair removes about
-106 KB/job (9.009 → 8.902 MB), with unchanged hashes. Times 56.20 → 52.11 ms
-overlap; claim allocation only.
+All 3,906 affected syntax/reader/recovery/ownership checks pass, including new
+argv/job cases with an aborted classic object, following nested stream load and
+surviving stream/string aliases under valid/reconstructed xrefs. An identical-
+driver object-heavy pair removes about 423 KB/job (8.902 → 8.479 MB), preserving
+hashes. Medians 47.18 → 52.90 ms overlap; claim allocation only. The intermediate
+parser-only pair (302 KB less) remains identified in the raw archive.
 
-All 9,342 affected foundation/parser/copier/serializer checks pass, with zero
-failures/skips. Release build/pack, inspection and the fresh locked consumer pass,
-including the unchanged 2 MiB multisource limit. All 26 fresh managed/native
-outcomes and three negative controls pass; original inputs are unchanged. The
-clean final panel preserves 12,719 observations. Full ordinary/reference/package
-qualification uses the corrective push-triggered CI run.
-Unaffected visual behavior retains the identified `97c38d5` evidence.
+Release build/pack/inspection and the fresh locked consumer pass, including the
+unchanged 2 MiB multisource ceiling. All 26 fresh managed/native outcomes and
+three negative controls pass; original inputs are unchanged. Final integrated
+ordinary/reference/package qualification uses one batched hosted checkpoint.
+Unaffected visuals retain the identified `97c38d5` writer evidence.
 
-Continue with one measured parser/writer or reader/host cost at a time. Parser
-construction/validation per classic indirect object is a candidate; reuse must
-preserve nested loads, repair state, borrowed payload policy and scoped ownership.
-Sparse file transport remains explicit; changing input boundaries or dropping
-public defensive copies cannot establish parity. Keep all thirteen cells and
-important interactions. Use narrow probes and focused checks while debugging,
-then qualify accepted source batches with the existing comprehensive machinery.
+Continue with the largest demonstrated reader/writer or transport cost. Sparse
+selection still includes the full physical input read. Preserve all thirteen
+cells, immutable public copying, meaningful limits and independent controls.
+Use narrow probes and focused checks during implementation, then qualify accepted
+source batches with the existing comprehensive machinery. Earlier dictionary
+key-view and test-controller corrections are integrated in green `b70b9f0`; their
+observations and original failed checkpoint remain in the benchmark/raw records.
 
 ## Useful completed work
 
