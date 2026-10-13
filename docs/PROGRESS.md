@@ -2,20 +2,22 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: clean
-`2a09384` meets parity in one cell, with ratios 0.69–3.46×. M500 selection
-is near parity at 1.0088×; ordinary/streamed rewriting are 1.35× / 1.74×. Sparse
-selection is the largest gap (6.41 / 1.85 ms), including the full 16.8 MB input
+`15900ba` meets parity in four cells, with ratios 0.68–3.57×. Ordinary/streamed
+rewriting are 1.33× / 1.45×. Sparse selection is the largest gap (5.94 / 1.66 ms),
+including the full 16.8 MB input
 read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
 percentage gain.
 
-Pushed `2a09384` passed [hosted CI run 38363529995](https://github.com/Lokad/qpdf/actions/runs/38363529995):
+The preceding `2a09384` passed [hosted CI run 38363529995](https://github.com/Lokad/qpdf/actions/runs/38363529995):
 Windows 6m37s, Ubuntu 4m57s, pinned reference 3m54s. Both platforms pass 17,853
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. The clean final-source benchmark panel retains all
-22,437 observations, fresh semantics and original input hashes. The current
-reader correction has local qualification; its integrated CI run is next.
+and 442 rewrite trios. The current reader correction passed local qualification;
+CI verifies its integrated source, packages and pinned references on push.
+The clean `15900ba` benchmark panel retains all 24,675 observations, fresh
+semantics and original input hashes. The accompanying report update changes
+documentation/raw artifacts only.
 
 ## Current correction and next work
 
@@ -36,8 +38,9 @@ All 4,120 affected reader/parser/practical-memory checks pass (18s).
 Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
 and rejection controls pass (package checks 15s). All 26 fresh managed/native
 outcomes and three negative controls pass; original inputs and the 2 MiB
-multisource ceiling remain. Integration runs the comprehensive ordinary/reference
-checks once and records one clean thirteen-cell performance panel.
+multisource ceiling remain. The clean thirteen-cell panel is recorded in
+[benchmarks](BENCHMARKS.md); integration runs comprehensive ordinary/reference
+checks once. Separate panels under varying load do not isolate source gains.
 
 Next, measure the largest remaining reader/writer/transport costs. Object-stream
 capture consolidation is deferred: current X100 rewriting emits no object streams,
