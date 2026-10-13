@@ -1,50 +1,44 @@
 # Progress
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
-in thirteen codec-free structural workloads. The goal remains open: the clean
-`bb2fad5` panel records three cells at or below 1.0×, with ratios 0.70–3.07×.
-[Benchmarks](BENCHMARKS.md) gives comparative figures, the protocol and raw
-results. Performance commits need reduced time or allocation, with no minimum
-percentage gain.
+in thirteen codec-free structural workloads. The target remains open. The last
+clean `bb2fad5` panel records three cells at or below 1.0×, with ratios 0.70–3.07×.
+[Benchmarks](BENCHMARKS.md) gives the current comparison and reproducible protocol.
+Performance commits need reduced time or allocation, with no minimum percentage.
 
-The preceding `5bbd318` passed [hosted CI run 38447125751](https://github.com/Lokad/qpdf/actions/runs/38447125751):
-Windows 6m41s, Ubuntu 5m04s, pinned reference 6m11s. Both platforms pass 17,856
+Pushed `773848e` passed [hosted CI run 38450794451](https://github.com/Lokad/qpdf/actions/runs/38450794451):
+Windows 6m29s, Ubuntu 5m41s, pinned reference 5m57s. Both platforms pass 17,858
 ordinary checks without failures/skips, locked Release build/pack, inspection,
-fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. The current reader correction passed local qualification;
-CI verifies its integrated source and package on push.
+fresh consumer and rejection controls. Reference covers 1,858 exact object
+comparisons and 442 rewrite trios. That source remains the qualified checkpoint
+while the current allocation batch completes integration.
 
 ## Current correction and next work
 
-Object-stream decoding uses one scratch owner for its member loop. Cache
-acceptance transfers storage; skipped members discard their charge before
-advancing. Nested decoders retain separate owners. The scope closes on failure
-and cancellation, while accepted public values remain usable after disposal.
-No scope is reopened and no pool or global cache is introduced.
+Uncompressed loads reuse one empty document-local scratch owner alongside the
+idle parser/tokenizer. Nested loads keep independent owners and close them on
+return. Cache acceptance transfers values before scratch is discarded; rejected
+attempts discard their storage before reuse. Document disposal closes the idle
+owner. No disposed scope is reopened and no global pool/cache is introduced.
 
-The identical-driver X100 pair reduces allocation 804.5 → 800.3 KB/job (about
-4.2 KB less), with identical output hashes. Medians 3.457 → 3.536 ms and
-IQRs 3.207–3.690 / 3.364–4.008 overlap; claim allocation only. The native
-median is 2.656 ms and the 1.33× parity gap remains.
+The identical-driver pair reduces object-heavy allocation 6.8045 → 6.7175 MB/job
+(about 87 KB less) and X100 800.4 → 796.2 KB/job (about 4.2 KB less). Output hashes
+match. Medians 39.666 → 42.117 ms / 2.919 → 3.108 ms have overlapping IQRs;
+claim allocation only. Both native parity gaps remain.
 
-All 4,124 focused reader/parser/practical-memory checks pass (22s), including
-raw/Flate member boundaries, trailing-member rejection/retry, repair, cache
-replacement, cancellation and surviving aliases. Two new cases distinguish
-skipped-member charges from actual retained memory and protect the following
-accepted value's budget. Windows/Linux Release builds and explicit pack,
-inspection, fresh locked consumer and rejection controls pass (package checks
-34s). All 26 fresh managed/native outcomes and three negative controls pass;
-original input hashes and the 2 MiB multisource ceiling remain unchanged.
-The clean final-source panel preserves all 11,809 observations and an empty
-source diff. Timing varies substantially under host load; comparisons between
-separate panels do not establish source gains or regressions.
+All 4,124 focused reader/parser/practical-memory checks pass (24s). The existing
+rejected-header/alias control now exercises a later nested stream-length load
+and independent dictionary/string/stream values after document closure.
+Recovery/retry, cancellation, meaningful limits and cleanup remain covered.
+Final fresh semantics, package/consumer checks and one clean complete panel will
+qualify the accepted source batch before its single hosted push.
 
-The next measured gap is full-input transport in sparse selection. Changing
-that boundary needs an explicit ranged-reading design with bounded acquisition,
-cleanup and immutable output lifetimes. Preserve the original comparison;
-prepared-memory diagnostics do not close its parity obligation. Object-stream
-capture consolidation remains deferred because its measured payload contribution
-is small and ordinary X100 rewriting emits no object streams.
+Next, omit the temporary construction weak reference in conversion targets that
+are published frozen. Preserve mutable construction guards, collision/order,
+failed-conversion source ownership and published aliases. Reuse existing name
+storage controls and public workload pairs. Sparse full-input transport remains
+the largest boundary gap; prepared-memory diagnostics do not close its original
+comparison. Capture consolidation remains deferred for its small contribution.
 
 ## Useful completed work
 

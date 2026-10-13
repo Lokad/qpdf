@@ -82,22 +82,34 @@ public sealed class ReaderAcceptanceTests
     [Fact]
     public async Task AcceptedValueAfterRejectedHeaderKeepsItsAlias()
     {
-        byte[] input = BadHeader(["(" + new string('A', 4096) + ")", "(kept)"], false);
+        byte[] input = BadHeader(["(" + new string('A', 4096) + ")", "(kept)",
+            "<< /Length 8 0 R >>\nstream\nabc\nendstream", "3",
+            "<< /Name /Last#20Value >>"], false);
         InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("inputs/a.pdf"), input, QpdfInputOwnership.Copy);
+        PdfByteString kept;
+        PdfStream nested;
+        PdfDictionary last;
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None))
         {
             Assert.Throws<QpdfParseException>(() => document.GetObject(5));
-            PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
+            kept = Assert.IsType<PdfByteString>(document.GetObject(6));
+            nested = Assert.IsType<PdfStream>(document.GetObject(7));
+            Assert.Equal(3L, Assert.IsType<PdfInteger>(document.GetObject(8)).Value);
+            last = Assert.IsType<PdfDictionary>(document.GetObject(9));
             long baseline = Observe(document).LiveMemoryBytes;
             for (int i = 0; i < 20; i++)
             {
                 Assert.Throws<QpdfParseException>(() => document.GetObject(5));
                 Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
                 Assert.Same(kept, document.GetObject(6));
+                Assert.Same(nested, document.GetObject(7));
             }
-            Assert.Equal("kept"u8.ToArray(), kept.Value);
         }
+        Assert.Equal("kept"u8.ToArray(), kept.Value);
+        Assert.Equal("abc"u8.ToArray(), nested.Data);
+        Assert.True(last.TryGet(PdfName.FromAscii("Name"), out QpdfObject name));
+        Assert.Equal("Last Value"u8.ToArray(), Assert.IsType<PdfName>(name).RawBytes);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
