@@ -344,7 +344,7 @@ public static partial class Qpdf
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
             PageLocation location = document.PageReferences[pageNumber - 1];
-            Dictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
+            IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
             (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
             RequireMediaBox(page);
             kids.Add(new PdfReference(pageId, 0));
@@ -885,7 +885,7 @@ public static partial class Qpdf
                 cancellationToken.ThrowIfCancellationRequested();
                 governor.ChargeWork(1L);
                 PageLocation location = document.PageReferences[pageNumber - 1];
-                Dictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
+                IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
                 (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
                 RequireMediaBox(page);
                 taken.Add((copier, pageId, page, pageNumber));
@@ -4644,21 +4644,21 @@ public static partial class Qpdf
         ShowLinearization(document, inputPath, limits, governor, diagnostics, cancellationToken);
     }
 
+    private static readonly PdfName WriterMediaBox = PdfName.FromAscii("MediaBox");
     private static readonly PdfName[] WriterInherited =
-        [PdfName.FromAscii("Resources"), PdfName.FromAscii("MediaBox"), PdfName.FromAscii("CropBox"), PdfName.FromAscii("Rotate")];
+        [PdfName.FromAscii("Resources"), WriterMediaBox, PdfName.FromAscii("CropBox"), PdfName.FromAscii("Rotate")];
 
-    private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
+    private static IReadOnlyDictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine, PageLocation location, GraphCopier copier,
         ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken)
         => MaterializeAncestors(engine, location, copier, governor, limits, cancellationToken, null);
 
-    private static Dictionary<PdfName, QpdfObject> MaterializeAncestors(
+    private static IReadOnlyDictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine, PageLocation location, GraphCopier copier,
         ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken,
         ParserMemoryScope? ownership)
     {
-        Dictionary<PdfName, QpdfObject> extra = ownership is null ? new()
-            : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
+        Dictionary<PdfName, QpdfObject>? extra = null;
         foreach (PdfName key in WriterInherited)
         {
             governor.CheckCancellation();
@@ -4668,15 +4668,17 @@ public static partial class Qpdf
             if (value is null) { continue; }
             QpdfObject copied = copier.CopyValue(value, 0);
             if (copied is PdfNull) { continue; }
+            extra ??= ownership is null ? new()
+                : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
             if (ownership is not null) { ParserContainers.EnsureEntryCapacity(ownership, extra, IntPtr.Size); }
             extra[key] = copied;
         }
-        return extra;
+        return extra is null ? System.Collections.ObjectModel.ReadOnlyDictionary<PdfName, QpdfObject>.Empty : extra;
     }
 
     private static void RequireMediaBox(PdfDictionary page)
     {
-        if (!page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject box) || box is PdfNull)
+        if (!page.TryGet(WriterMediaBox, out QpdfObject box) || box is PdfNull)
         {
             throw new QpdfParseException("Selected page has no /MediaBox in its ancestry.", null, null);
         }

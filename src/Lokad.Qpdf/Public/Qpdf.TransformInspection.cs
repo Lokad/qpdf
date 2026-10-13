@@ -157,7 +157,7 @@ public static partial class Qpdf
                     {
                         PageLocation location = sourceDocument.PageReferences[pageNumber - 1];
                         sourceCopier.AdvanceNextId(pool.NextId);
-                        Dictionary<PdfName, QpdfObject> extra = MaterializeAncestors(sourceDocument.Engine, location,
+                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(sourceDocument.Engine, location,
                             sourceCopier, governor, limits, cancellationToken, memory);
                         (int id, PdfDictionary page) = sourceCopier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
                         selected = new InspectionPage(id, 0, page);

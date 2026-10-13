@@ -6,8 +6,8 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `c55d2c2` passed [hosted CI run 38464498817](https://github.com/Lokad/qpdf/actions/runs/38464498817):
-Windows 6m29s, Ubuntu 5m52s, pinned reference 5m48s. Both platforms pass 17,864
+Pushed `2489596` passed [hosted CI run 38480170263](https://github.com/Lokad/qpdf/actions/runs/38480170263):
+Windows 7m08s, Ubuntu 5m37s, pinned reference 5m44s. Both platforms pass 17,865
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. The current correction passed local
@@ -15,28 +15,27 @@ qualification; its integration runs the comprehensive gates on push.
 
 ## Current correction and next work
 
-Parsing reuses twelve fixed immutable plain ASCII syntax names. Arbitrary,
-escaped, binary and repaired names keep their owned path. Public byte access
-still copies; only the exact process constants omit per-job retained-value
-receipts. Both original short-name decode work/cancellation checks remain.
-The bounded vocabulary retains no input, governor or operation owner.
+Page copying creates the admitted inheritance dictionary only for its first
+materialized value. Empty results use the BCL immutable empty dictionary.
+All three consumers read the existing interface; copier null validation stays
+unchanged. MediaBox validation reuses the existing immutable lookup key.
+Ancestry traversal, attribute resolution and source identity remain unchanged.
 
-Identical-driver pairs reduce allocation by about 169.7 KB/job for M500
-(18.0619 → 17.8922 MB) and 34.8 KB for X100 (775.0 → 740.2 KB).
-Every output hash matches. Medians 23.857 → 22.771 ms and 2.793 → 2.817 ms
+Identical-driver pairs reduce allocation by about 27.3 KB/job for M500
+(17.8925 → 17.8652 MB) and 5.6 KB for X100 (740.2 → 734.6 KB).
+Every output hash matches. Medians 19.196 → 20.596 ms and 2.663 → 2.602 ms
 have overlapping IQRs; claim allocation only.
 
-All 4,186 affected reader/syntax/name-storage/practical-memory checks pass (32s),
-including a new public plain/escaped/arbitrary-name case retaining immutable
-bytes after reader closure. Existing controls retain grammar, duplicate/order
-behavior, work/size limits, cancellation, failed publication and cleanup.
-Windows/Linux Release builds and explicit pack, inspection, fresh locked
-consumer and rejection controls pass (26s), preserving the 2 MiB multisource
-ceiling. All 26 fresh managed/native outcomes and three negative controls pass;
-original inputs are unchanged. The clean committed-source panel preserves all
-24,690 observations and an empty source diff. Four cells meet parity and nine
-remain above it; sparse selection is 3.52×. Separate panels under differing host
-load do not isolate source gains. One hosted push qualifies code and report.
+All 2,132 affected writing/inheritance/split/practical-memory checks pass (52s).
+The existing public null-MediaBox fallback case now mixes inherited, local and
+duplicate pages and checks cleanup after reopening the output. Existing controls
+retain all four inheritable attributes, null/indirect resolution, ancestry failure,
+limits, cancellation, output immutability and failed publication.
+Windows/Linux Release builds and explicit pack, inspection, fresh locked consumer
+and rejection controls pass (28s), preserving the 2 MiB multisource ceiling.
+All 26 fresh managed/native outcomes and three negative controls pass; original
+inputs are unchanged. One clean complete panel and one hosted push qualify the
+committed source.
 
 Sparse full-input transport remains the largest boundary gap. The timed emitter
 already reads the full remaining span and the exclusive memory host borrows its

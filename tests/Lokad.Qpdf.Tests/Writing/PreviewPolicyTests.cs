@@ -229,15 +229,22 @@ public sealed class PreviewPolicyTests
         InMemoryQpdfHost host = HostWith("inputs/nullbox.pdf", bytes);
         await Qpdf.SelectPageAsync(
             host, QpdfPath.From("inputs/nullbox.pdf"), QpdfPath.From("outputs/nullbox.pdf"),
-            PdfPageSelectionOptions.FromPages([1]), CancellationToken.None);
+            PdfPageSelectionOptions.FromPages([1, 2, 1]), CancellationToken.None);
         host.AddInput(QpdfPath.From("inputs/reread.pdf"), host.TryGetOutput(QpdfPath.From("outputs/nullbox.pdf"), out byte[] pub) ? pub : throw new Xunit.Sdk.XunitException("missing"), QpdfInputOwnership.Copy);
-        await using QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None);
-        PdfDictionary page = OutputPage(output, 0);
-        Assert.True(page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject boxRaw));
-        PdfArray box = Assert.IsType<PdfArray>(boxRaw);
-        Assert.Equal(4, box.Count);
-        Assert.Equal(111L, Assert.IsType<PdfInteger>(box[2]).Value);
-        Assert.Equal(222L, Assert.IsType<PdfInteger>(box[3]).Value);
+        await using (QpdfDocument output = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/reread.pdf"), CancellationToken.None))
+        {
+            Assert.Equal(3, output.PageCount);
+            for (int index = 0; index < output.PageCount; index++)
+            {
+                PdfDictionary page = OutputPage(output, index);
+                Assert.True(page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject boxRaw));
+                PdfArray box = Assert.IsType<PdfArray>(boxRaw);
+                Assert.Equal(4, box.Count);
+                Assert.Equal(index == 1 ? 612L : 111L, Assert.IsType<PdfInteger>(box[2]).Value);
+                Assert.Equal(index == 1 ? 792L : 222L, Assert.IsType<PdfInteger>(box[3]).Value);
+            }
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
