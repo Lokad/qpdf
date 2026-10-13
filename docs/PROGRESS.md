@@ -9,11 +9,11 @@ read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
 percentage gain.
 
-The preceding `7054999` passed [hosted CI run 38367082387](https://github.com/Lokad/qpdf/actions/runs/38367082387):
-Windows 6m30s, Ubuntu 4m47s, pinned reference 5m53s. Both platforms pass 17,860
+The preceding `805a2ed` passed [hosted CI run 38437341502](https://github.com/Lokad/qpdf/actions/runs/38437341502):
+Windows 6m28s, Ubuntu 6m08s, pinned reference 5m52s. Both platforms pass 17,846
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. The current writer correction passed local qualification;
+and 442 rewrite trios. The current reader correction passed local qualification;
 CI verifies its integrated source, packages and pinned references on push.
 The clean `4b44276` benchmark panel retains all 24,825 observations, fresh
 semantics and original input hashes. The accompanying report update changes
@@ -21,28 +21,24 @@ documentation/raw artifacts only.
 
 ## Current correction and next work
 
-Writer indexes with exact serializer counts reserve their initial backing once
-through the existing governed growth path. Classic offsets, streamed lookup and
-the sorted QDF lookup use the hint; tight memory/work jobs retain normal growth.
-Signed/sparse keys, duplicate handling, insertion order and subsequent growth
-remain. No host, public immutability or execution boundaries change.
+Object-stream decoding reuses one tokenizer alongside its existing parser within
+each decoder invocation. Every member resets its bounded input window, relative
+position, governor and scan work. Nested decoders keep separate instances; repair
+state, trailing-byte rejection, cache ownership and cancellation remain.
 
-The identical-driver pair reduces X100 allocation 827.4 → 814.6 KB/job and
-object-heavy allocation 7.0902 → 6.8488 MB/job, with matching hashes. Object-heavy
-medians 32.823 → 30.022 ms have separated IQRs (31.254–34.500 / 29.300–31.024),
-an 8.5% lower observed median. X100 medians 2.669 → 2.579 ms overlap;
-claim allocation only there. Native medians 26.497 / 1.849 ms leave ratios
-1.13× / 1.39×, so the parity goal remains open.
+The identical-driver X100 pair reduces allocation 814.6 → 808.8 KB/job
+(about 5.8 KB less), with matching output hashes. Medians 3.510 → 3.340 ms
+have broad overlapping IQRs (2.823–3.850 / 2.966–3.764); claim allocation only.
+Native is 2.325 ms in this pair, so parity remains open. No global pool,
+parsed-job cache, forced GC or CPU workers were added.
 
-All 2,081 affected writer/practical-memory checks pass (43s). Exact capacity/
-receipt formulas were removed from the paused-publication tests, consolidating
-18 duplicate row/index cases while preserving all routes, failure/cancellation,
-cleanup and surviving values. Actual backing-retention regressions and meaningful
-large-lookup limits remain. Four new cases cover sparse collision chains, growth
-past the hint and memory/work fallback; no replacement measurement framework.
+All 4,122 affected reader/parser/practical-memory checks pass (23s), including
+raw/Flate member boundaries, independent repair/retry scopes, cancellation and
+immutable name values surviving document closure. Useful prior writer-index
+test consolidation and actual backing-retention regressions remain intact.
 
 Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
-and rejection controls pass (package checks 17s). All 26 fresh managed/native
+and rejection controls pass (package checks 18s). All 26 fresh managed/native
 outcomes and three negative controls pass; original inputs and the 2 MiB
 multisource ceiling remain. The clean thirteen-cell panel is recorded in
 [benchmarks](BENCHMARKS.md); integration runs comprehensive ordinary/reference
@@ -73,7 +69,9 @@ independent negative controls. Sampled GC suspension does not establish a leak.
   scratch retains complete source identity, cycles, cancellation and work limits.
 - Numeric/reference lookahead avoids scanning large following strings, with
   grammar/repair ordering preserved. Known global digit literals have no job-owned
-  text receipt. Decoder-local parser reuse resets each compressed member's errors.
+  text receipt. Decoder-local parser/tokenizer reuse resets each member's state.
+- Exact-count writer hints avoid growth copies where current memory/work permits;
+  tight jobs keep normal growth, with sparse keys and publication cleanup preserved.
 - Bounded reverse xref-tail search preserves the window and final-marker grammar,
   removing the per-byte scan while retaining malformed-tail rejection and cleanup.
 - Developer input transfer removes a private redundant copy. Benchmark validation

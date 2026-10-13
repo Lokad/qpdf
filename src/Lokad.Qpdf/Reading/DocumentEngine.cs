@@ -536,16 +536,18 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             }
 
             PdfParser? memberParser = null;
+            PdfTokenizer? memberTokenizer = null;
             for (int i = 0; i < pairs.Count; i++)
             {
                 int start = first + pairs[i].Offset;
                 int end = i + 1 < pairs.Count ? first + pairs[i + 1].Offset : decoded.Length;
-                PdfTokenizer tokenizer = new(decoded.Slice(start, end - start));
                 using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
                 _governor.ReserveMemory(128L);
                 QpdfObject value;
                 try
                 {
+                    PdfTokenizer tokenizer = memberTokenizer ??= new(ReadOnlyMemory<byte>.Empty);
+                    tokenizer.ResetForMember(decoded.Slice(start, end - start));
                     // ParseObjectValue resets member repair state and restores
                     // its private owner, so this decoder can reuse one parser.
                     // Nested decoders keep separate instances; admission remains

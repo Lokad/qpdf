@@ -199,6 +199,27 @@ public sealed class ReaderAcceptanceTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task MemberWindowsKeepIndependentValuesAfterDocumentClosure(bool flate)
+    {
+        byte[] input = ObjectStreamPdf("/First", "/Second#20Name", flate, true, null);
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("in.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Copy);
+        PdfName first;
+        PdfName second;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None))
+        {
+            first = Assert.IsType<PdfName>(document.GetObject(6));
+            second = Assert.IsType<PdfName>(document.GetObject(7));
+        }
+        Assert.Equal("First"u8.ToArray(), first.RawBytes);
+        Assert.Equal("Second Name"u8.ToArray(), second.RawBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task RejectedCompressedMembersReleaseValuesAndKeepPriorCache(bool flate)
     {
         string kept = "(" + new string('K', 4096) + ")";

@@ -54,7 +54,7 @@ internal readonly struct PdfToken
 /// </summary>
 internal sealed class PdfTokenizer
 {
-    private readonly ReadOnlyMemory<byte> _data;
+    private ReadOnlyMemory<byte> _data;
     private int _position;
     private ResourceGovernor? _governor;
     private int _scanWork;
@@ -94,6 +94,12 @@ internal sealed class PdfTokenizer
         SetPosition(position);
         _governor = null;
         _scanWork = 0;
+    }
+
+    internal void ResetForMember(ReadOnlyMemory<byte> data)
+    {
+        _data = data;
+        ResetForObject(0L);
     }
 
     internal bool TryReadToken(out PdfToken token, bool tolerateErrors, ResourceGovernor governor)
