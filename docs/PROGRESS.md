@@ -1,8 +1,8 @@
 # Progress
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
-in thirteen codec-free structural workloads. The target remains open. The last
-clean `bb2fad5` panel records three cells at or below 1.0×, with ratios 0.70–3.07×.
+in thirteen codec-free structural workloads. The target remains open. The clean
+`fa10643` panel records four cells at or below 1.0×, with ratios 0.65–2.81×.
 [Benchmarks](BENCHMARKS.md) gives the current comparison and reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
@@ -43,7 +43,9 @@ aliases that release their completed execution state.
 Windows/Linux Release builds and explicit pack/inspection/fresh locked consumer/
 rejections pass (34s), preserving the 2 MiB multisource ceiling. All 26 fresh
 managed/native outcomes and three negative controls pass; inputs are unchanged.
-One clean complete panel and one hosted push qualify this accepted source batch.
+The clean final-source panel preserves all 12,669 observations and an empty
+source diff. Timing varies substantially under host load; different panels do
+not establish source gains or regressions. One hosted push qualifies this batch.
 Sparse full-input transport remains
 the largest boundary gap; prepared-memory diagnostics do not close its original
 comparison. Capture consolidation remains deferred for its small contribution.
