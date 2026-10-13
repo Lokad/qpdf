@@ -9,11 +9,11 @@ read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
 percentage gain.
 
-The preceding `805a2ed` passed [hosted CI run 38437341502](https://github.com/Lokad/qpdf/actions/runs/38437341502):
-Windows 6m28s, Ubuntu 6m08s, pinned reference 5m52s. Both platforms pass 17,846
+The preceding `6b0dc4d` passed [hosted CI run 38440263946](https://github.com/Lokad/qpdf/actions/runs/38440263946):
+Windows 6m31s, Ubuntu 5m51s, pinned reference 5m47s. Both platforms pass 17,848
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. The current reader correction passed local qualification;
+and 442 rewrite trios. The current writer correction passed local qualification;
 CI verifies its integrated source, packages and pinned references on push.
 The clean `7d2874a` benchmark panel retains all 23,256 observations, fresh
 semantics and original input hashes. The accompanying report update changes
@@ -21,24 +21,27 @@ documentation/raw artifacts only.
 
 ## Current correction and next work
 
-Object-stream decoding reuses one tokenizer alongside its existing parser within
-each decoder invocation. Every member resets its bounded input window, relative
-position, governor and scan work. Nested decoders keep separate instances; repair
-state, trailing-byte rejection, cache ownership and cancellation remain.
+Classic counting proves dense increasing numbering before omitting its offset
+index. It tracks the first oversized offset and rejects it at the original xref
+stage, after object processing. Sparse/duplicate numbering and actual emission
+retain the existing index. Fixed-width counting reuses formatting size checks
+and conservative numeric work admission, with unchanged headers, trailers and IDs.
 
-The identical-driver X100 pair reduces allocation 814.6 → 808.8 KB/job
-(about 5.8 KB less), with matching output hashes. Medians 3.510 → 3.340 ms
-have broad overlapping IQRs (2.823–3.850 / 2.966–3.764); claim allocation only.
-Native is 2.325 ms in this pair, so parity remains open. No global pool,
-parsed-job cache, forced GC or CPU workers were added.
+The identical-driver pair reduces X100 allocation 808.8 → 804.4 KB/job and
+object-heavy allocation 6.8488 → 6.8054 MB/job (about 4.4 / 43.4 KB less).
+Output hashes match. Medians 4.380 → 3.983 ms and 40.292 → 39.224 ms have
+broad overlapping IQRs under load; claim allocation only. Both parity gaps remain.
+No global pool, parsed-job cache, forced GC or CPU workers were added.
 
-All 4,122 affected reader/parser/practical-memory checks pass (23s), including
-raw/Flate member boundaries, independent repair/retry scopes, cancellation and
-immutable name values surviving document closure. Useful prior writer-index
-test consolidation and actual backing-retention regressions remain intact.
+All 2,086 affected writer/practical-memory checks pass (75s); eight final counting
+controls pass (161ms), covering dense/sparse/duplicate lengths, oversized offsets
+at the first or later object and object-error precedence. Cancellation, cleanup,
+meaningful limits and actual backing-retention regressions remain protected.
+Rejected formatter, sequential-hint and chunked-read trials remain in raw evidence;
+none established a useful gain and all their source changes were restored.
 
 Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
-and rejection controls pass (package checks 18s). All 26 fresh managed/native
+and rejection controls pass (package checks 40s). All 26 fresh managed/native
 outcomes and three negative controls pass; original inputs and the 2 MiB
 multisource ceiling remain. The clean thirteen-cell panel is recorded in
 [benchmarks](BENCHMARKS.md); integration runs comprehensive ordinary/reference

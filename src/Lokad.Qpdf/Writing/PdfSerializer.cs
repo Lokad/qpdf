@@ -143,7 +143,12 @@ internal sealed partial class PdfSerializer
         }
 
         await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
-        using WriterIndex<long> offsets = WriterIndex<long>.Create(objects.Count, sizeof(long), _governor, cancellationToken);
+        CountingSink? counter = sink as CountingSink;
+        bool denseCounting = counter is not null && HasDenseIncreasingNumbers(objects, cancellationToken);
+        using WriterIndex<long>? offsets = denseCounting ? null
+            : WriterIndex<long>.Create(objects.Count, sizeof(long), _governor, cancellationToken);
+        int oversizedNumber = 0;
+        long oversizedOffset = 0L;
         int maxNumber = 0;
         for (int i = 0; i < objects.Count; i++)
         {
@@ -154,7 +159,9 @@ internal sealed partial class PdfSerializer
                 throw new QpdfException($"Publication reached invalid object number {objects[i].Number}.");
             }
 
-            offsets[objects[i].Number] = sink.Length;
+            if (offsets is not null) { offsets[objects[i].Number] = sink.Length; }
+            else if (oversizedNumber == 0 && sink.Length > 9_999_999_999L)
+            { oversizedNumber = objects[i].Number; oversizedOffset = sink.Length; }
             if (objects[i].Number > maxNumber)
             {
                 maxNumber = objects[i].Number;
@@ -171,6 +178,18 @@ internal sealed partial class PdfSerializer
         for (int number = 1; number <= maxNumber; number++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (denseCounting && counter is not null)
+            {
+                if (number == oversizedNumber)
+                { throw new QpdfException($"Object offset {oversizedOffset} exceeds the classic xref field width."); }
+                // Fixed-width sizing needs no stored offsets or formatted digits.
+                // Retain the established conservative numeric work allowance.
+                _governor.ChargeWork(20L);
+                await AppendFormattedAsync([WriterPart.Spaces(10), WriterPart.Text(" 00000 n \n")], counter,
+                    cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+            if (offsets is null) { throw new InvalidOperationException("Classic emission needs its offset index."); }
             if (!offsets.TryGetValue(number, out long offset))
             {
                 await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
@@ -185,11 +204,21 @@ internal sealed partial class PdfSerializer
             await AppendFormattedAsync([WriterPart.ZeroPaddedNumber(offset, 10), WriterPart.Text(" 00000 n \n")], sink, cancellationToken).ConfigureAwait(false);
         }
 
-        offsets.Dispose();
+        offsets?.Dispose();
 
         await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(maxNumber + 1), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
+    }
+
+    private bool HasDenseIncreasingNumbers(IReadOnlyList<NumberedObject> objects, CancellationToken token)
+    {
+        for (int index = 0; index < objects.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
+            if (objects[index].Number != index + 1) { return false; }
+        }
+        return true;
     }
 
     /// <summary>
