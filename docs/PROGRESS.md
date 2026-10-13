@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: clean
-`15900ba` meets parity in four cells, with ratios 0.68–3.57×. Ordinary/streamed
-rewriting are 1.33× / 1.45×. Sparse selection is the largest gap (5.94 / 1.66 ms),
+`4b44276` meets parity in four cells, with ratios 0.66–3.48×. Ordinary/streamed
+rewriting are 1.33× / 1.43×. Sparse selection is the largest gap (5.83 / 1.68 ms),
 including the full 16.8 MB input
 read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
@@ -15,7 +15,7 @@ ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
 and 442 rewrite trios. The current writer correction passed local qualification;
 CI verifies its integrated source, packages and pinned references on push.
-The clean `15900ba` benchmark panel retains all 24,675 observations, fresh
+The clean `4b44276` benchmark panel retains all 24,825 observations, fresh
 semantics and original input hashes. The accompanying report update changes
 documentation/raw artifacts only.
 
