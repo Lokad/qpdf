@@ -68,6 +68,32 @@ public sealed class SplitReplaceTests
         Assert.Equal(2, both.PageCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SplitQdfKeepsOriginalNumberCommentsUnlessSuppressed(bool suppress)
+    {
+        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        List<string> arguments = ["inputs/a.pdf", "--qdf", "--static-id", "--split-pages"];
+        if (suppress) { arguments.Add("--no-original-object-ids"); }
+        arguments.AddRange(["--pages", ".", "2", ".", "1", "--", "outputs/split.pdf"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(arguments), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        foreach (string path in new[] { "outputs/split-1.pdf", "outputs/split-2.pdf" })
+        {
+            Assert.True(host.TryGetOutput(QpdfPath.From(path), out byte[] bytes));
+            string text = Encoding.ASCII.GetString(bytes);
+            Assert.Contains("%QDF-1.0", text, StringComparison.Ordinal);
+            Assert.Equal(!suppress, text.Contains("%% Original object ID:", StringComparison.Ordinal));
+            await using (QpdfDocument document = await Reopen(host, path))
+            {
+                Assert.Equal(1, document.PageCount);
+            }
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task SplitPercentDPatternApplies()
     {

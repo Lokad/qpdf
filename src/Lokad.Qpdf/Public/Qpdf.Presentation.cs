@@ -93,7 +93,7 @@ public static partial class Qpdf
     private static async ValueTask<PreparedSplitPublication> PreparePresentationOutputAsync(PdfVersion version,
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[]? originalId, bool staticId, bool newlineBeforeEndstream,
-        QdfOptions qdf, IReadOnlyDictionary<int, int> originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
+        QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         PreparedSplitPublication publication = PreparedSplitPublication.Create(limits, governor, path, pass1, cancellationToken);
@@ -122,7 +122,7 @@ public static partial class Qpdf
     private static async ValueTask SerializePresentationOutputAsync(PdfVersion version,
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[] id1, byte[] id2, bool newlineBeforeEndstream,
-        QdfOptions qdf, IReadOnlyDictionary<int, int> originalIds, bool linearize, IByteSink counter, IByteSink? firstPass,
+        QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, IByteSink counter, IByteSink? firstPass,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);

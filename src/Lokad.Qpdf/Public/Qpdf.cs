@@ -522,13 +522,16 @@ public static partial class Qpdf
 
         List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
         IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
-        List<IReadOnlyDictionary<int, int>> singleOriginalMaps = new() { copier.SourceToDestination };
-        foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
+        IReadOnlyDictionary<int, int>? singleOriginalIds = null;
+        if (qdf.Enabled)
         {
-            singleOriginalMaps.Add(overlayCopier.SourceToDestination);
+            List<IReadOnlyDictionary<int, int>> singleOriginalMaps = new() { copier.SourceToDestination };
+            foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
+            {
+                singleOriginalMaps.Add(overlayCopier.SourceToDestination);
+            }
+            singleOriginalIds = InvertOriginals(singleOriginalMaps);
         }
-
-        Dictionary<int, int> singleOriginalIds = InvertOriginals(singleOriginalMaps);
         using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, 2, cancellationToken);
         IReadOnlyList<int> sourcePages = ResultCollectionStorage.Copy(resultStorage, requested, sizeof(int));
         resultStorage.RetainWithPrepaidRetirement();
@@ -1203,18 +1206,20 @@ public static partial class Qpdf
 
         List<List<int>> multiGroups = PlanObjectStreamGroups(multiCompressed, governor);
         IReadOnlyList<IReadOnlyList<int>>? multiStreams = multiGroups.Count == 0 ? null : multiGroups;
-        List<IReadOnlyDictionary<int, int>> multiOriginalMaps = new();
-        foreach (GraphCopier sourceCopier in copiers)
+        IReadOnlyDictionary<int, int>? multiOriginalIds = null;
+        if (qdf.Enabled)
         {
-            multiOriginalMaps.Add(sourceCopier.SourceToDestination);
+            List<IReadOnlyDictionary<int, int>> multiOriginalMaps = new();
+            foreach (GraphCopier sourceCopier in copiers)
+            {
+                multiOriginalMaps.Add(sourceCopier.SourceToDestination);
+            }
+            foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
+            {
+                multiOriginalMaps.Add(overlayCopier.SourceToDestination);
+            }
+            multiOriginalIds = InvertOriginals(multiOriginalMaps);
         }
-
-        foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
-        {
-            multiOriginalMaps.Add(overlayCopier.SourceToDestination);
-        }
-
-        Dictionary<int, int> multiOriginalIds = InvertOriginals(multiOriginalMaps);
         Content.CopiedForm? multiCombined = removeAcroform
             ? null
             : Content.AcroFormCopy.Combine(NonNullForms(renameForms));
@@ -1467,12 +1472,16 @@ public static partial class Qpdf
             HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber);
             List<List<int>> groupGroups = PlanObjectStreamGroups(groupCompressed, governor);
             IReadOnlyList<IReadOnlyList<int>>? groupStreams = groupGroups.Count == 0 ? null : groupGroups;
-            Dictionary<int, int> groupOriginalIds = new();
-            foreach (int keptId in kept)
+            Dictionary<int, int>? groupOriginalIds = null;
+            if (multiOriginalIds is not null)
             {
-                if (renumber.TryGetValue(keptId, out int renamed) && multiOriginalIds.TryGetValue(keptId, out int source))
+                groupOriginalIds = new();
+                foreach (int keptId in kept)
                 {
-                    groupOriginalIds[renamed] = source;
+                    if (renumber.TryGetValue(keptId, out int renamed) && multiOriginalIds.TryGetValue(keptId, out int source))
+                    {
+                        groupOriginalIds[renamed] = source;
+                    }
                 }
             }
 
