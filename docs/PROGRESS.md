@@ -2,20 +2,19 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The goal remains open: clean
-`fe2dd1d` meets parity in one cell, with ratios 0.74–3.40×; M500 selection and
-single splitting remain near parity at 1.0121× / 1.0178×. Ordinary/streamed
-rewriting are 1.45× / 1.51×. Sparse selection is the largest gap (5.69 / 1.67 ms),
-including the required full 16.8 MB input read. [Results](BENCHMARK-RESULTS.md)
-preserve all observations; [the protocol](BENCHMARKS.md) separates complete jobs,
-memory diagnostics and startup-inclusive measurements. Performance commits need reduced time or
-allocation, without a minimum percentage gain.
+`d4032b3` meets parity in three cells, with ratios 0.67–3.61×. Structural checking
+is near parity at 1.0088×; ordinary/streamed rewriting are 1.44× / 1.48×. Sparse
+selection is the largest gap (6.17 / 1.71 ms), including the full 16.8 MB input
+read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
+results. Performance commits need reduced time or allocation, with no minimum
+percentage gain.
 
-Pushed `a8a08cc` passed [hosted CI run 38340347635](https://github.com/Lokad/qpdf/actions/runs/38340347635):
-Windows 6m45s, Ubuntu 4m09s, pinned reference 6m01s. Both platforms pass 17,845
+Pushed `d4032b3` passed [hosted CI run 38342431222](https://github.com/Lokad/qpdf/actions/runs/38342431222):
+Windows 6m44s, Ubuntu 5m48s, pinned reference 5m35s. Both platforms pass 17,850
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. Production is unchanged from the clean `fe2dd1d` panel;
-its 24,480 observations/fresh semantics remain valid without retiming.
+and 442 rewrite trios. The clean final-source benchmark panel retains all
+22,820 observations, fresh semantics and original input hashes.
 
 ## Current correction and next work
 
@@ -39,7 +38,7 @@ and valid bytes after source closure. Release build/pack/inspection, fresh locke
 consumer, 26 fresh managed/native outcomes and three negative controls pass.
 The unchanged 2 MiB multisource ceiling and every original input hash remain.
 Comprehensive ordinary/reference/package qualification uses the integrated push.
-The raw archive preserves thirty-nine runs, including failed CI checkpoints,
+The raw archive preserves the measured runs, including failed CI checkpoints,
 accepted/rejected candidates and contended observations without dropping samples.
 
 Continue with measured reader/writer/transport costs. Object-stream members still
@@ -69,7 +68,7 @@ reuse them. Sampled GC suspension does not establish retained-memory leaks.
   rejects no-op checking, marker-only object streams and wrong content/order.
 
 Earlier corrections, rejected trials and source/artifact identities remain in
-[benchmark results](BENCHMARK-RESULTS.md) and its raw archives. Historical counts
+[benchmarks](BENCHMARKS.md) and its raw archives. Historical counts
 and individual test identities are not release quotas. Closed supported features
 remain closed; further work must name a concrete defect or bounded verification.
 
