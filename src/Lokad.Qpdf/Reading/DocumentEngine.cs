@@ -537,11 +537,14 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
             PdfParser? memberParser = null;
             PdfTokenizer? memberTokenizer = null;
+            // Accepted members transfer their storage to the cache; all other
+            // storage retires before advancing. Only this decoder owns the
+            // scratch scope, including when a member triggers a nested load.
+            using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
             for (int i = 0; i < pairs.Count; i++)
             {
                 int start = first + pairs[i].Offset;
                 int end = i + 1 < pairs.Count ? first + pairs[i + 1].Offset : decoded.Length;
-                using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
                 _governor.ReserveMemory(128L);
                 QpdfObject value;
                 try
@@ -579,6 +582,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                 {
                     StoreCached(pairs[i].Number, value, memory, false);
                 }
+                memory.Discard();
             }
         }
         finally

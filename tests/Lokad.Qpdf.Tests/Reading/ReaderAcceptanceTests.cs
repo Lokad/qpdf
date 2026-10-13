@@ -199,6 +199,38 @@ public sealed class ReaderAcceptanceTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task SkippedFirstMemberDoesNotChargeTheFollowingAcceptedValue(bool flate)
+    {
+        string skipped = "(" + new string('A', 4096) + ")";
+        string padding = "null %" + new string('A', skipped.Length - 7) + "\n";
+        string header = $"7 0 6 {skipped.Length + 1} ";
+        InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("input.pdf");
+        QpdfPath control = QpdfPath.From("control.pdf");
+        host.AddInput(input, ObjectStreamPdf(skipped, "(kept)", flate, false, header), QpdfInputOwnership.Copy);
+        host.AddInput(control, ObjectStreamPdf(padding, "(kept)", flate, false, header), QpdfInputOwnership.Copy);
+        PdfByteString kept;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, input, CancellationToken.None))
+        await using (QpdfDocument expected = await QpdfDocument.OpenAsync(host, control, CancellationToken.None))
+        {
+            document.GetObject(5); expected.GetObject(5);
+            long before = Observe(document).LiveMemoryBytes;
+            long controlBefore = Observe(expected).LiveMemoryBytes;
+            kept = Assert.IsType<PdfByteString>(document.GetObject(6));
+            expected.GetObject(6);
+            // Compare unreleased charges, not CLR retained memory. A skipped
+            // member must not consume the later value's working-storage budget.
+            Assert.Equal(Observe(expected).LiveMemoryBytes - controlBefore,
+                Observe(document).LiveMemoryBytes - before);
+            Assert.Same(kept, document.GetObject(6));
+        }
+        Assert.Equal("kept"u8.ToArray(), kept.Value);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task MemberWindowsKeepIndependentValuesAfterDocumentClosure(bool flate)
     {
         byte[] input = ObjectStreamPdf("/First", "/Second#20Name", flate, true, null);

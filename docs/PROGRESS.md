@@ -1,60 +1,47 @@
 # Progress
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
-in thirteen codec-free structural workloads. The goal remains open: clean
-`0a5837c` meets parity in three cells, with ratios 0.80–3.56×. Ordinary/streamed
-rewriting are 1.53× / 1.36×. Sparse selection is the largest gap (6.57 / 1.85 ms),
-including the full 16.8 MB input
-read. [Benchmarks](BENCHMARKS.md) gives the current figures, protocol and raw
+in thirteen codec-free structural workloads. The goal remains open: the last
+clean `0a5837c` panel meets parity in three cells, with ratios 0.80–3.56×.
+[Benchmarks](BENCHMARKS.md) gives comparative figures, the protocol and raw
 results. Performance commits need reduced time or allocation, with no minimum
 percentage gain.
 
-The preceding `6b0dc4d` passed [hosted CI run 38440263946](https://github.com/Lokad/qpdf/actions/runs/38440263946):
-Windows 6m31s, Ubuntu 5m51s, pinned reference 5m47s. Both platforms pass 17,848
+The preceding `5bbd318` passed [hosted CI run 38447125751](https://github.com/Lokad/qpdf/actions/runs/38447125751):
+Windows 6m41s, Ubuntu 5m04s, pinned reference 6m11s. Both platforms pass 17,856
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. The current writer correction passed local qualification;
-CI verifies its integrated source, packages and pinned references on push.
-The clean `0a5837c` benchmark panel retains all 17,946 observations, fresh
-semantics and original input hashes. The accompanying report update changes
-documentation/raw artifacts only.
-This panel has substantial timing variability; separate panels under differing
-host load do not establish a source regression or gain. All observations remain.
+and 442 rewrite trios. The current reader correction passed local qualification;
+CI verifies its integrated source and package on push.
 
 ## Current correction and next work
 
-Classic counting proves dense increasing numbering before omitting its offset
-index. It tracks the first oversized offset and rejects it at the original xref
-stage, after object processing. Sparse/duplicate numbering and actual emission
-retain the existing index. Fixed-width counting reuses formatting size checks
-and conservative numeric work admission, with unchanged headers, trailers and IDs.
+Object-stream decoding uses one scratch owner for its member loop. Cache
+acceptance transfers storage; skipped members discard their charge before
+advancing. Nested decoders retain separate owners. The scope closes on failure
+and cancellation, while accepted public values remain usable after disposal.
+No scope is reopened and no pool or global cache is introduced.
 
-The identical-driver pair reduces X100 allocation 808.8 → 804.4 KB/job and
-object-heavy allocation 6.8488 → 6.8054 MB/job (about 4.4 / 43.4 KB less).
-Output hashes match. Medians 4.380 → 3.983 ms and 40.292 → 39.224 ms have
-broad overlapping IQRs under load; claim allocation only. Both parity gaps remain.
-No global pool, parsed-job cache, forced GC or CPU workers were added.
+The identical-driver X100 pair reduces allocation 804.5 → 800.3 KB/job (about
+4.2 KB less), with identical output hashes. Medians 3.457 → 3.536 ms and
+IQRs 3.207–3.690 / 3.364–4.008 overlap; claim allocation only. The native
+median is 2.656 ms and the 1.33× parity gap remains.
 
-All 2,086 affected writer/practical-memory checks pass (75s); eight final counting
-controls pass (161ms), covering dense/sparse/duplicate lengths, oversized offsets
-at the first or later object and object-error precedence. Cancellation, cleanup,
-meaningful limits and actual backing-retention regressions remain protected.
-Rejected formatter, sequential-hint and chunked-read trials remain in raw evidence;
-none established a useful gain and all their source changes were restored.
+All 4,124 focused reader/parser/practical-memory checks pass (22s), including
+raw/Flate member boundaries, trailing-member rejection/retry, repair, cache
+replacement, cancellation and surviving aliases. Two new cases distinguish
+skipped-member charges from actual retained memory and protect the following
+accepted value's budget. Windows/Linux Release builds and explicit pack,
+inspection, fresh locked consumer and rejection controls pass (package checks
+34s). All 26 fresh managed/native outcomes and three negative controls pass;
+original input hashes and the 2 MiB multisource ceiling remain unchanged.
 
-Release Windows/Linux builds, explicit pack/inspection, fresh locked consumer
-and rejection controls pass (package checks 40s). All 26 fresh managed/native
-outcomes and three negative controls pass; original inputs and the 2 MiB
-multisource ceiling remain. The clean thirteen-cell panel is recorded in
-[benchmarks](BENCHMARKS.md); integration runs comprehensive ordinary/reference
-checks once. Separate panels under varying load do not isolate source gains.
-
-Next, measure the largest remaining reader/writer/transport costs. Object-stream
-capture consolidation is deferred: current X100 rewriting emits no object streams,
-and the generation cell's 103 members occupy only 8.7 KB of combined payloads
-against 922 KB allocated per job. Sparse selection remains the largest gap and
-includes full-input transport. Keep all thirteen cells, public immutability and
-independent negative controls. Sampled GC suspension does not establish a leak.
+The next measured gap is full-input transport in sparse selection. Changing
+that boundary needs an explicit ranged-reading design with bounded acquisition,
+cleanup and immutable output lifetimes. Preserve the original comparison;
+prepared-memory diagnostics do not close its parity obligation. Object-stream
+capture consolidation remains deferred because its measured payload contribution
+is small and ordinary X100 rewriting emits no object streams.
 
 ## Useful completed work
 
