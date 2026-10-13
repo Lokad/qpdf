@@ -78,6 +78,26 @@ public sealed class GovernedBufferStreamTests
     }
 
     [Fact]
+    public void LargeGapsAndTruncatedStorageAreZeroedAcrossCapacityGrowth()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using GovernedBufferStream stream = new(governor, 65536L, nameof(QpdfLimits.MaxOutputBytes));
+        byte[] dirty = new byte[16384]; Array.Fill(dirty, (byte)0xA5);
+        stream.Write(dirty);
+        stream.SetLength(4L);
+        stream.SetLength(12000L);
+        byte[] reextended = stream.ToArray();
+        Assert.Equal(dirty.AsSpan(0, 4).ToArray(), reextended.AsSpan(0, 4).ToArray());
+        Assert.True(reextended.AsSpan(4).IndexOfAnyExcept((byte)0) < 0);
+        stream.Seek(20000L, SeekOrigin.Begin);
+        stream.Write([7, 8]);
+        byte[] grown = stream.ToArray();
+        Assert.Equal(20002, grown.Length);
+        Assert.True(grown.AsSpan(4, 19996).IndexOfAnyExcept((byte)0) < 0);
+        Assert.Equal(new byte[] { 7, 8 }, grown.AsSpan(20000).ToArray());
+    }
+
+    [Fact]
     public void OutputLimitRejectsBeforeAllocating()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);

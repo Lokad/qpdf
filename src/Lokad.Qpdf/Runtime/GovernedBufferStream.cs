@@ -179,7 +179,7 @@ internal sealed class GovernedBufferStream : Stream
         {
             if (memory is not null) { _governor.ChargeWork(_length); }
             CheckCancellation(cancellationToken);
-            byte[] result = new byte[_length];
+            byte[] result = GC.AllocateUninitializedArray<byte>(_length);
             Copy(_buffer.AsSpan(0, _length), result, cancellationToken);
             return result;
         }
@@ -206,7 +206,9 @@ internal sealed class GovernedBufferStream : Stream
         try
         {
             CheckCancellation(cancellationToken);
-            byte[] next = new byte[capacity];
+            // Only written bytes are copied. Write and SetLength explicitly
+            // clear gaps before exposing them; unused capacity stays private.
+            byte[] next = GC.AllocateUninitializedArray<byte>(capacity);
             Copy(_buffer.AsSpan(0, _length), next, cancellationToken);
             long previous = _buffer.Length == 0 ? 0L : _buffer.Length + ArrayOverheadBytes;
             _buffer = next;

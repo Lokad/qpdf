@@ -441,6 +441,7 @@ internal sealed class RetainedValueOwners
             case PdfNull or PdfBoolean:
                 return;
             case PdfInteger integer:
+                if (integer.IsSharedValue) { return; }
                 if (!Register(integer, 32L, acceptance)) { return; }
                 if (!integer.HasSharedText)
                 { Register(integer.Text, checked(32L + integer.Text.Length * 2L), acceptance); }

@@ -544,6 +544,10 @@ internal sealed class PdfParser
     private PdfInteger ParseInteger(PdfToken token)
     {
         long value = ParseIntegerText(token);
+        // These ten immutable canonical values have process-lifetime storage,
+        // just like booleans/null. Keep signed and padded spellings independent.
+        if (token.Data.Length == 1 && token.Data.Span[0] is >= (byte)'0' and <= (byte)'9')
+        { return PdfInteger.GetSingleDigitValue((int)value); }
         // Keep the original token for lossless writing. The numeric scan is
         // governed even for arbitrarily many leading zeros; admit the UTF-16
         // string and scalar before materializing them.
@@ -1046,7 +1050,7 @@ internal sealed class PdfParser
         ReadOnlySpan<byte> span = raw.Span;
         int length = UnescapeNameCore(span, Span<byte>.Empty, offset, false);
         ReserveMemory(checked(64L + length));
-        byte[] result = new byte[length];
+        byte[] result = GC.AllocateUninitializedArray<byte>(length);
         _ = UnescapeNameCore(span, result, offset, true);
         return result;
     }
@@ -1102,7 +1106,7 @@ internal sealed class PdfParser
         ReadOnlySpan<byte> span = raw.Span;
         int length = UnescapeLiteralCore(span, Span<byte>.Empty, offset, false);
         ReserveMemory(checked(32L + length));
-        byte[] result = new byte[length];
+        byte[] result = GC.AllocateUninitializedArray<byte>(length);
         _ = UnescapeLiteralCore(span, result, offset, true);
         return result;
     }
@@ -1244,7 +1248,7 @@ internal sealed class PdfParser
         int outCount = count / 2 + count % 2;
         _governor.CheckCancellation();
         ReserveMemory(checked(32L + outCount));
-        byte[] result = new byte[outCount];
+        byte[] result = GC.AllocateUninitializedArray<byte>(outCount);
         nextWork = 0L;
         int high = -1, position = 0;
         for (int i = 0; i < span.Length; i++)

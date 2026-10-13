@@ -186,4 +186,38 @@ public sealed class NumericParserTests
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseObjectValue(new PdfTokenizer("9223372036854775808"u8.ToArray()), 0));
         Assert.Equal(nameof(QpdfLimits.MaxDiagnostics), error.LimitName);
     }
+
+    [Theory]
+    [InlineData("0", 0L)]
+    [InlineData("7", 7L)]
+    [InlineData("9", 9L)]
+    public void CanonicalDigitsShareImmutableValuesAcrossParsers(string text, long expected)
+    {
+        PdfInteger first = ParseInteger(text);
+        PdfInteger second = ParseInteger(text);
+        Assert.Same(first, second);
+        Assert.Equal(text, first.Text);
+        Assert.Equal(expected, first.Value);
+        Assert.False(new PdfInteger(text, expected).IsSharedValue);
+    }
+
+    [Theory]
+    [InlineData("+7", 7L)]
+    [InlineData("007", 7L)]
+    [InlineData("-0", 0L)]
+    [InlineData("17", 17L)]
+    public void OtherIntegerSpellingsKeepTheirOriginalText(string text, long expected)
+    {
+        PdfInteger first = ParseInteger(text);
+        Assert.NotSame(first, ParseInteger(text));
+        Assert.Equal(text, first.Text);
+        Assert.Equal(expected, first.Value);
+    }
+
+    private static PdfInteger ParseInteger(string text)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new(governor), null);
+        return Assert.IsType<PdfInteger>(parser.ParseValue(new PdfTokenizer(System.Text.Encoding.ASCII.GetBytes(text)), 0));
+    }
 }

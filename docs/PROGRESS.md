@@ -1,52 +1,52 @@
 # Progress
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
-in thirteen codec-free structural workloads. The goal remains open: the clean
-`8f69bb7` panel meets parity in three cells, with ratios 0.76–3.23×. Content-ID
-and streamed rewriting remain 1.68× / 1.62×; differing host load prevents
-attributing separate-panel times to source changes. Sparse selection remains the
-largest gap at 7.17 / 2.22 ms: managed transport reads the entire 16.8 MB input.
-[Results](BENCHMARK-RESULTS.md) preserve all observations and corrections;
+in thirteen codec-free structural workloads. The goal remains open: clean
+`fc5a304` meets parity in two cells, with ratios 0.70–3.60×; M500 selection is
+near parity at 1.0088×. Ordinary/streamed rewriting remain 1.60× / 1.50×.
+Sparse selection is the largest gap (6.43 / 1.78 ms), including the required
+full 16.8 MB input read. [Results](BENCHMARK-RESULTS.md) preserve all observations;
 [the protocol](BENCHMARKS.md) separates complete jobs, memory diagnostics and
-startup-inclusive measurements. Performance commits require reduced time or
+startup-inclusive measurements. Performance commits need reduced time or
 allocation, without a minimum percentage gain.
 
-Pushed `8f69bb7` passed [hosted CI run 38332182116](https://github.com/Lokad/qpdf/actions/runs/38332182116):
-Windows 6m28s, Ubuntu 5m23s, pinned reference 3m32s. Both platforms pass 17,833
+Pushed `fc5a304` passed [hosted CI run 38335308941](https://github.com/Lokad/qpdf/actions/runs/38335308941):
+Windows 6m29s, Ubuntu 4m46s, pinned reference 4m33s. Both platforms pass 17,837
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 object comparisons
-and 442 rewrite trios. Seven visuals and both controls pass on the same writer
-source. One push qualified reader and adapter corrections; no manual rerun.
+and 442 rewrite trios. Unaffected visuals retain identified writer evidence.
+The clean final panel records all 21,903 observations and fresh semantic checks.
 
 ## Current correction and next work
 
-Batching borrows bounded scratch for explicitly synchronous hash and built-in
-memory-host destinations. The capability passes through governed transactions;
-custom/retaining hosts keep immutable packets and the original async path.
-Shared admission preserves host-operation counts, output-byte charging, limits,
-cancellation and publication. Large payloads avoid async dispatch where supported.
-No public API, digest algorithm, global pool or CPU parallelism was added.
+Canonical one-digit integers reuse ten immutable process-lifetime values,
+removing parsed scalar allocation and individual ownership receipts. Original
+numeric validation/work/cancellation still runs. Signed/padded spellings, references
+and public authored instances retain their original behavior and ownership.
+No unbounded interning, parsed-job cache, public API or CPU parallelism was added.
 
-All 3,377 affected writer/host/ID/QDF/linearization/retention/publication checks
-pass, including true/false capability, scratch reuse and failure/cancellation.
-The identical-driver content-ID pair removes about 238 KB/job (18.906 → 18.667 MB)
-and reduces medians 36.324 → 32.694 ms, with separated IQRs and matching hashes.
-Native is 26.667 ms (1.23×): parity remains open. Streamed allocation falls
-898.0 → 873.7 KB/job; timings overlap, so claim allocation only. The intermediate
-hash-only pair (119 KB less) remains identified in the raw archive.
+The identical-driver pair removes about 67.6 KB/job from object-heavy rewriting
+(8.1466 → 8.0790 MB) and 6.6 KB/job from streamed rewriting (873.6 → 867.0 KB).
+Hashes match. Medians 54.238 → 48.257 ms and 3.499 → 3.195 ms have overlapping
+IQRs; claim allocation only. Fully overwritten parser arrays and governed-buffer
+snapshots/growth also avoid redundant clearing, retaining explicit zeroed gaps.
+Their separate pair provides no measured gain. An async-wrapper prototype lacked
+a measured gain and was restored; every observation remains in the raw archive.
 
+All 11,788 affected parser/foundation/writer/ownership checks pass (4m43s),
+including original limits, cancellation, cleanup and new spelling/gap regressions.
 Release build/pack/inspection, fresh locked consumer and final 26 fresh managed/
 native outcomes plus three negative controls pass. The unchanged 2 MiB multisource
 ceiling and original input hashes remain. Comprehensive ordinary/reference/package
-qualification uses one integrated hosted run; unaffected visuals retain identified
-writer evidence. The raw archive includes thirty-three runs and the clean prior
-panel, without dropping candidates or contended samples.
+qualification uses the integrated push-triggered hosted run. The raw archive now
+preserves thirty-seven runs without dropping candidates or contended samples.
 
-Continue with the largest demonstrated reader/writer or transport cost. Current
-profiles place content-ID hashing and writer dispatch among contributors; sampled
-GC suspension does not prove retained-memory leaks. Preserve all thirteen cells,
-original inputs, public immutability, practical limits and independent controls.
-Use narrow probes and focused checks, then qualify coherent accepted source batches.
+Continue with a concrete measured reader/writer or transport cost. One short
+ordinary-rewrite profile attributes most sampled copying to required host staging,
+transport and public defensive copies; preserve those boundaries. Sampled GC
+suspension does not establish retained-memory leaks. Use narrow allocation probes
+and focused checks, then qualify coherent accepted batches. Keep all thirteen
+cells, original inputs, public immutability and independent negative controls.
 
 ## Useful completed work
 

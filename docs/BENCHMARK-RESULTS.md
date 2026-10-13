@@ -1,13 +1,12 @@
-# Linux benchmark comparison — 2026-10-12
+# Linux benchmark comparison
 
 The current goal is single-CPU parity (≤1.0×) in every agreed structural workload;
-it remains open. The clean `8f69bb7` panel meets parity in three of thirteen
-codec-free cells. Ten gaps remain, including sparse selection at
-7.17 / 2.22 ms (3.23×). Content-ID and streamed rewriting are 1.68× / 1.62×.
-Fresh semantics and every original input are preserved;
-differing load prevents attributing separate-panel times to source changes.
-Required full-input transport remains timed; the managed reader receives all
-16.8 MB while native can read selected objects lazily.
+it remains open. The clean `fc5a304` panel meets parity in two of thirteen
+codec-free cells. Sparse selection is the largest gap: 6.43 / 1.78 ms (3.60×).
+Ordinary and streamed rewriting remain 1.60× / 1.50×. Fresh semantics and every
+original input are preserved. Required full-input transport remains timed:
+managed receives all 16.8 MB while native can read selected objects lazily.
+Separate panels under differing load do not isolate source gains.
 
 Recent production corrections remove split-wide scans, redundant writer clearing,
 uncompressed counting buffers and unescaped-name buffers. Same-driver measurements
@@ -97,8 +96,24 @@ The intermediate hash-only pair (119 KB less) remains identified. No digest
 algorithm, bytes, global buffer pool or public API changed. Existing retention/
 publication controls and fresh independent outputs pass.
 
+Reusing the ten immutable canonical single-digit integer values removes parsed
+scalar objects and their individual ownership receipts. Public authored instances
+and signed/padded spellings retain their original text and ownership. The same-driver
+pair removes about 67.6 KB/job from object-heavy rewriting (8.1466 → 8.0790 MB)
+and 6.6 KB/job from streamed rewriting (873.6 → 867.0 KB), with matching hashes.
+Times 54.238 → 48.257 ms and 3.499 → 3.195 ms have overlapping IQRs: claim
+allocation only. Limits, cancellation, cleanup and public immutability remain.
+
+Fully overwritten parser decode arrays and governed snapshot/growth buffers
+avoid redundant clearing. Stream gaps remain explicitly zeroed. Their separate
+pair has effectively unchanged allocation and overlapping time distributions;
+this simple structural removal supplies no measured speed claim. An async-wrapper
+prototype also lacked a measured gain and was restored. Its high-load observations,
+passing fresh semantic controls and every earlier trial remain identified.
+
 [Parity progress raw observations](../benchmarks/results/2026-10-12-parity-progress.json.gz)
-preserve the thirteen-cell baseline, final source confirmation, correction/transport pairs and separate
+preserve thirty-seven runs: the thirteen-cell baseline, final source confirmations,
+accepted/rejected correction and transport pairs, plus separate
 managed-only memory diagnostics. Every sample and summary number is retained;
 local paths/hostnames are redacted. The diagnostic compares memory-host Copy and
 immutable Transfer: 2.68 / 1.14 ms medians, 16.26 MiB / 247 KiB allocation. It
@@ -106,26 +121,27 @@ supplies no native ratio and does not replace the complete file-job comparison.
 
 ## Current thirteen-cell checkpoint
 
-Clean `8f69bb7`, seven sequential alternating 350 ms batches per engine after
-warmup; medians in milliseconds, Q1–Q3 in parentheses. All 20,791 observations
-are retained. Variable host load broadens these distributions; separate panels
-do not isolate individual changes. Earlier panels remain in the raw archive.
+Clean `fc5a304`, seven sequential alternating 350 ms batches per engine after
+warmup; medians in milliseconds, Q1–Q3 in parentheses. All 21,903 observations
+are retained. Two cells meet parity; select-M500 at 1.0088× remains above the
+goal. Variable host load prevents attributing separate-panel times to changes.
+Earlier panels and every candidate remain in the raw archive.
 
 | Workload | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.62 (0.58–0.65) | 0.82 (0.78–0.83) | 0.76× |
-| select-M500 | 21.60 (21.25–24.99) | 23.01 (22.05–23.82) | 0.94× |
-| merge-250x2 | 28.33 (27.22–28.42) | 20.58 (19.53–21.77) | 1.38× |
-| split-M500 | 35.12 (32.77–43.34) | 29.44 (27.78–29.78) | 1.19× |
-| rewrite-M500 | 38.70 (31.26–55.75) | 25.18 (22.65–39.65) | 1.54× |
-| rewrite-X100 | 3.41 (3.19–4.09) | 2.11 (2.05–2.22) | 1.62× |
-| object-streams-X100 | 3.16 (3.01–3.18) | 2.61 (2.50–2.68) | 1.21× |
-| linearize-M500 | 32.96 (31.05–42.12) | 22.37 (22.02–23.35) | 1.47× |
-| check-X100 | 2.84 (2.61–3.58) | 2.56 (2.41–2.85) | 1.11× |
-| rewrite-ID-M500 | 51.93 (44.42–78.10) | 30.96 (30.80–51.09) | 1.68× |
-| rewrite-objects | 51.81 (48.08–56.80) | 36.80 (34.28–37.36) | 1.41× |
-| select-sparse | 7.17 (7.01–7.25) | 2.22 (2.13–2.32) | 3.23× |
-| split-single | 7.08 (7.06–8.01) | 7.32 (7.29–7.42) | 0.97× |
+| select-S10 | 0.59 (0.58–0.62) | 0.84 (0.81–0.87) | 0.7037× |
+| select-M500 | 22.00 (20.65–23.67) | 21.81 (21.54–22.19) | 1.0088× |
+| merge-250x2 | 25.81 (25.60–27.71) | 19.96 (19.46–20.60) | 1.2934× |
+| split-M500 | 32.07 (30.15–36.55) | 26.37 (26.22–27.49) | 1.2162× |
+| rewrite-M500 | 24.74 (23.80–26.53) | 15.43 (15.15–15.67) | 1.6034× |
+| rewrite-X100 | 3.03 (2.89–3.19) | 2.02 (1.93–2.23) | 1.5007× |
+| object-streams-X100 | 3.13 (3.07–3.37) | 2.57 (2.51–2.75) | 1.2176× |
+| linearize-M500 | 32.13 (28.95–43.65) | 21.99 (21.19–22.15) | 1.4613× |
+| check-X100 | 2.72 (2.53–2.89) | 2.60 (2.43–2.67) | 1.0471× |
+| rewrite-ID-M500 | 36.68 (34.67–41.45) | 25.79 (24.28–27.25) | 1.4219× |
+| rewrite-objects | 47.49 (46.01–50.43) | 32.86 (29.27–39.96) | 1.4454× |
+| select-sparse | 6.43 (6.20–6.59) | 1.78 (1.78–1.83) | 3.6048× |
+| split-single | 6.76 (6.56–8.17) | 7.80 (7.24–8.16) | 0.8662× |
 
 The previously qualified nine-cell **2× target** on `219eca3` is historical evidence;
 its ratios range from 0.66× to 1.77× pinned native qpdf 12.4.2.
