@@ -623,6 +623,15 @@ internal sealed class PdfParser
 
     private QpdfObject ParseName(PdfToken token)
     {
+        _governor.CheckCancellation();
+        if (PdfName.FindSharedAscii(token.Data.Span) is PdfName shared)
+        {
+            // Keep both bounded decode-pass work checks. Constant storage has
+            // process lifetime and needs no per-attempt allocation receipt.
+            ChargeWork(1L); _governor.CheckCancellation();
+            ChargeWork(1L); _governor.CheckCancellation();
+            return shared;
+        }
         long before = Memory.ReservedBytes;
         try
         {

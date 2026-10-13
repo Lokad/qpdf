@@ -454,6 +454,7 @@ internal sealed class RetainedValueOwners
                 Register(reference, 32L, acceptance);
                 return;
             case PdfName name:
+                if (name.IsSharedValue) { return; }
                 if (!Register(name, 24L, acceptance)) { return; }
                 Register(name.AllocationCarrier, checked(40L + name.RawSpan.Length), acceptance);
                 return;

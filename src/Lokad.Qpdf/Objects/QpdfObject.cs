@@ -174,6 +174,40 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 {
     private readonly byte[] _raw;
 
+    // A finite syntax vocabulary, independent of any input or execution owner.
+    // Public byte access still returns copies. Arbitrary/escaped names are owned.
+    private static class SharedSyntaxNames
+    {
+        internal static readonly PdfName[] Values =
+        [
+            FromAscii("Type"), FromAscii("Page"), FromAscii("Pages"), FromAscii("Parent"),
+            FromAscii("Length"), FromAscii("Resources"), FromAscii("Contents"), FromAscii("Kids"),
+            FromAscii("Count"), FromAscii("MediaBox"), FromAscii("Catalog"), FromAscii("Font"),
+        ];
+    }
+
+    internal static PdfName? FindSharedAscii(ReadOnlySpan<byte> raw)
+    {
+        if (raw.Length is < 4 or > 9) { return null; }
+        foreach (PdfName name in SharedSyntaxNames.Values)
+        {
+            if (raw.SequenceEqual(name._raw)) { return name; }
+        }
+        return null;
+    }
+
+    internal bool IsSharedValue
+    {
+        get
+        {
+            foreach (PdfName name in SharedSyntaxNames.Values)
+            {
+                if (ReferenceEquals(this, name)) { return true; }
+            }
+            return false;
+        }
+    }
+
     /// <summary>Creates a name, copying the raw bytes.</summary>
     /// <exception cref="ArgumentNullException">The bytes are null.</exception>
     public PdfName(byte[] rawBytes) : this(rawBytes, true) { }

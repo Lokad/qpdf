@@ -6,8 +6,8 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `f31e2a9` passed [hosted CI run 38460486021](https://github.com/Lokad/qpdf/actions/runs/38460486021):
-Windows 6m44s, Ubuntu 5m10s, pinned reference 4m57s. Both platforms pass 17,862
+Pushed `c55d2c2` passed [hosted CI run 38464498817](https://github.com/Lokad/qpdf/actions/runs/38464498817):
+Windows 6m29s, Ubuntu 5m52s, pinned reference 5m48s. Both platforms pass 17,864
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. The current correction passed local
@@ -15,36 +15,31 @@ qualification; its integration runs the comprehensive gates on push.
 
 ## Current correction and next work
 
-Single-source and multisource copying now prepare original object-number map
-lists/inversions only when QDF is enabled. Split groups likewise prepare their
-renumbered original-number maps only for QDF. Private split helper parameters
-accept the existing optional-map writer contract. QDF comments retain their
-previous source order and values; original document IDs and hashing are separate.
-Normal, streamed and linearized output use their unchanged writer paths.
+Parsing reuses twelve fixed immutable plain ASCII syntax names. Arbitrary,
+escaped, binary and repaired names keep their owned path. Public byte access
+still copies; only the exact process constants omit per-job retained-value
+receipts. Both original short-name decode work/cancellation checks remain.
+The bounded vocabulary retains no input, governor or operation owner.
 
-Identical-driver pairs reduce allocation by about 73.3 KB/job for M500
-(18.1356 → 18.0623 MB), 16.5 KB for X100 (791.4 → 774.9 KB), 154.0 KB for
-object-heavy rewriting (6.4282 → 6.2743 MB) and 32.3 KB for individual splitting
-(1.5202 → 1.4879 MB). Every output hash matches. All timing ranges overlap under
-substantial variability; claim allocation only.
+Identical-driver pairs reduce allocation by about 169.7 KB/job for M500
+(18.0619 → 17.8922 MB) and 34.8 KB for X100 (775.0 → 740.2 KB).
+Every output hash matches. Medians 23.857 → 22.771 ms and 2.793 → 2.817 ms
+have overlapping IQRs; claim allocation only.
 
-All 2,124 affected writing/split/practical-memory checks pass (49s), including
-two new QDF split cases for retained/suppressed original-number comments and
-valid independently reopened groups. Existing controls protect document IDs,
-content hashing, stream/linearized offsets, output immutability, cancellation,
-failed publication and cleanup. Windows/Linux Release builds and explicit pack,
-inspection, fresh locked consumer and rejection controls pass (21s), preserving
-the 2 MiB multisource ceiling. All 26 fresh managed/native outcomes and three
-negative controls pass; original inputs are unchanged. One clean complete panel
-and one hosted push qualify the committed source. The clean final-source panel
-preserves all 14,161 observations and an empty source diff. Timing varies
-substantially under host load; different panels do not establish source gains
-or regressions.
+All 4,186 affected reader/syntax/name-storage/practical-memory checks pass (32s),
+including a new public plain/escaped/arbitrary-name case retaining immutable
+bytes after reader closure. Existing controls retain grammar, duplicate/order
+behavior, work/size limits, cancellation, failed publication and cleanup.
+Windows/Linux Release builds and explicit pack, inspection, fresh locked
+consumer and rejection controls pass (26s), preserving the 2 MiB multisource
+ceiling. All 26 fresh managed/native outcomes and three negative controls pass;
+original inputs are unchanged. One clean complete panel and one hosted push
+qualify the committed source.
 
-The current ordinary-rewrite profile identifies required staging/public output
-copies as the dominant bulk copying. Its int-map resize samples exposed this
-unused preparation. Sparse full-input transport remains the largest boundary
-gap; its original comparison and every agreed workload remain in scope.
+Sparse full-input transport remains the largest boundary gap. The timed emitter
+already reads the full remaining span and the exclusive memory host borrows its
+immutable snapshot. Lazy parsing alone cannot remove this required full read;
+the original comparison and every agreed workload remain in scope.
 
 ## Useful completed work
 

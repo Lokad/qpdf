@@ -261,6 +261,35 @@ public sealed class ReaderAcceptanceTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
+    [Fact]
+    public async Task PlainAndEscapedSyntaxNamesKeepImmutableBytesAfterDocumentClosure()
+    {
+        byte[] input = TolerantObjectLoadingTests.Pdf(["/Type", "/Type", "/#54ype", "/Arbitrary"], false);
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("names.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Copy);
+        PdfName first;
+        PdfName second;
+        PdfName escaped;
+        PdfName arbitrary;
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None))
+        {
+            first = Assert.IsType<PdfName>(document.GetObject(5));
+            second = Assert.IsType<PdfName>(document.GetObject(6));
+            escaped = Assert.IsType<PdfName>(document.GetObject(7));
+            arbitrary = Assert.IsType<PdfName>(document.GetObject(8));
+            byte[] copy = first.RawBytes;
+            copy[0] = 0;
+            Assert.Equal("Type"u8.ToArray(), second.RawBytes);
+            Assert.Equal("Type"u8.ToArray(), escaped.RawBytes);
+        }
+        Assert.Equal("Type"u8.ToArray(), first.RawBytes);
+        Assert.Equal("Type"u8.ToArray(), second.RawBytes);
+        Assert.Equal("Type"u8.ToArray(), escaped.RawBytes);
+        Assert.Equal("Arbitrary"u8.ToArray(), arbitrary.RawBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
