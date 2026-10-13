@@ -2,7 +2,7 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The clean
-`3ff6573` panel records four cells at or below 1.0×, with ratios 0.66–3.71×.
+`4d4f273` panel records four cells at or below 1.0×, with ratios 0.62–3.73×.
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
@@ -38,7 +38,11 @@ immutability and public-job controls remain. Windows/Linux Release builds,
 explicit pack, inspection, fresh locked consumer and rejection controls pass
 (24s), preserving the 2 MiB multisource ceiling. All 26 fresh managed/native
 outcomes and three negative controls pass; original inputs are unchanged.
-One clean complete panel and one hosted push qualify the committed source.
+The clean committed-source panel preserves all 24,089 observations and an empty
+source diff. Four cells meet parity and nine remain above it, including near-parity
+object-stream generation at 1.0033×. Host-load variability remains substantial;
+separate panels do not attribute source time gains. One hosted push qualifies
+code and report.
 
 Sparse full-input transport remains the largest boundary gap. The timed emitter
 already reads the full remaining span and the exclusive memory host borrows its
