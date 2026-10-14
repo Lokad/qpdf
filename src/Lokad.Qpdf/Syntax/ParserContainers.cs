@@ -83,15 +83,20 @@ internal static class ParserContainers
         ResizeEntryCapacity(memory, entries, valueBytes, previous, target, upper);
     }
 
-    // Use a concrete, already parsed cardinality only for an empty destination.
-    // Tight jobs and incremental overlaps retain the normal growth path.
+    // Default hints apply only to empty destinations. Validated cache fills
+    // may opt in after accepting a value; tight jobs retain normal growth.
     internal static void HintEntryCapacity<TKey, TValue>(ParserMemoryScope memory,
         Dictionary<TKey, TValue> entries, int count, long valueBytes, ResourceGovernor governor) where TKey : notnull
+        => HintEntryCapacity(memory, entries, count, valueBytes, governor, false);
+
+    internal static void HintEntryCapacity<TKey, TValue>(ParserMemoryScope memory,
+        Dictionary<TKey, TValue> entries, int count, long valueBytes, ResourceGovernor governor,
+        bool allowPopulated) where TKey : notnull
     {
         memory.CheckOwner(governor); governor.CheckCancellation();
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         int previous = entries.EnsureCapacity(0);
-        if (entries.Count != 0 || count <= previous) { return; }
+        if ((!allowPopulated && entries.Count != 0) || count <= previous) { return; }
         int allowance = PrimeCapacityAllowance(count);
         long upper = DictionaryArrays(allowance, valueBytes);
         if (upper > governor.RemainingMemoryBytes / 4L

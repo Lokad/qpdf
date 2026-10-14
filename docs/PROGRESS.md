@@ -17,6 +17,14 @@ including slower/rejected trials and insensitive probes.
 
 ## Current implementation and verification
 
+Accepted object-stream groups now use their validated member count to hint cache
+capacity, while rejected/unmatched attempts and tight budgets keep normal growth.
+All 213 affected checks pass. The original streamed-xref rewrite pair reduces
+allocation 569,216 ->561,010 B/job; medians 5.329/5.332 ms have broad overlapping
+ranges, establishing no speedup. All 1,962 observations and byte-identical validated
+outputs remain. This local allocation correction will share a later integration
+checkpoint; the published tables still identify `30bd234`.
+
 Private single-source copies borrow input payloads under existing document/job
 funding through publication, including preopened whole-file sources. Accepted
 sources still close before output. Public readers, multisource storage, bounded

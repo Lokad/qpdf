@@ -548,11 +548,15 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             scratch.Reserve(checked((long)pairs.Count + 32L));
             bool[] previouslyCached = new bool[pairs.Count];
             long lastOffset = -1L;
+            int eligible = 0;
             for (int i = 0; i < pairs.Count; i++)
             {
                 _governor.ChargeWork(1L);
                 previouslyCached[i] = Cache.ContainsKey(pairs[i].Number)
                     || (_cachedNulls is not null && _cachedNulls.Contains(pairs[i].Number));
+                if (!previouslyCached[i] && Table.Entries.TryGetValue(pairs[i].Number, out XrefEntry candidate)
+                    && candidate.Kind == XrefEntryKind.Compressed && candidate.First == streamNumber)
+                { eligible++; }
                 if (pairs[i].Offset <= lastOffset)
                 {
                     throw new QpdfParseException($"Object stream {streamNumber} offsets must ascend.", null, streamNumber);
@@ -584,6 +588,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             // storage retires before advancing. Only this decoder owns the
             // scratch scope, including when a member triggers a nested load.
             using ParserMemoryScope memory = ParserMemoryScope.Create(_governor);
+            bool hinted = false;
             for (int i = 0; i < pairs.Count; i++)
             {
                 int start = first + pairs[i].Offset;
@@ -623,6 +628,15 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                     && target.First == streamNumber
                     && !previouslyCached[i])
                 {
+                    if (!hinted && (value is not PdfNull || _valuesEscape))
+                    {
+                        // This decoder visits the whole validated group. Hint
+                        // only after a member can be accepted, so rejected and
+                        // unmatched attempts do not grow the cache speculatively.
+                        int capacity = (int)Math.Min(Table.Entries.Count, (long)Cache.Count + eligible);
+                        ParserContainers.HintEntryCapacity(Metadata, Cache, capacity, 24L, _governor, true);
+                        hinted = true;
+                    }
                     StoreCached(pairs[i].Number, value, memory, false);
                 }
                 memory.Discard();
