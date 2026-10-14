@@ -6,32 +6,31 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `7d90ede` passed [hosted CI run 38540104491](https://github.com/Lokad/qpdf/actions/runs/38540104491):
-Windows 7m13s, Ubuntu 5m07s, pinned reference 4m37s. Both platforms pass 17,878
+Pushed `b8dd51f` passed [hosted CI run 38545444161](https://github.com/Lokad/qpdf/actions/runs/38545444161):
+Windows 5m44s, Ubuntu 6m25s, pinned reference 5m21s. Both platforms pass 17,879
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
 ## Current correction and next work
 
-The graph copier uses the validated requested output-page count to hint its
-empty destination map through the existing bounded capacity helper. Duplicate
-occurrences still produce distinct pages; source identities are not assumed
-unique. Tight memory/work jobs retain geometric growth and scoped cleanup.
+The parser keeps the first four array members in bounded local value storage,
+then creates one admitted owned backing. Larger arrays use the existing governed
+list path without rescanning. Parsing order, container limits, nesting, work,
+cancellation, discarded values and immutable public copies remain unchanged.
 
-An original X100 rewrite allocates 715.569→703.080 KB/job, about 12.5 KB less,
-with identical independently validated output bytes. Medians 2.789→2.661 ms
-have overlapping IQRs (2.413–3.087 / 2.409–3.495); retain allocation only.
-All 1,840 focused selection/merge/split/cleanup checks pass (16s), and the
-expanded 2/64-copy public identity check passes (170ms). All 26 fresh managed/
-native outcomes and three negative controls pass with original inputs.
-Locked Release build/explicit pack, inspection, fresh consumer and rejection
-controls pass (17s), including the unchanged 2 MiB multisource ceiling.
-The clean-source comparison retains all 26,748 observations with original inputs
-and independent semantic/physical checks. Selection S10/M500, object streams,
-checking and individual splitting meet parity in this run; sparse selection is
-3.60×. Separate comparisons do not isolate source-change timing effects.
-One hosted push qualifies the implementation and refreshed report together.
+The original X100 rewrite allocates 703.119→694.034 KB/job, about 9.1 KB less,
+with identical independently validated output bytes. Medians 2.934→2.785 ms
+have overlapping IQRs (2.640–4.360 / 2.497–3.635); retain allocation only.
+The wider parser/public-selection/cleanup run passes 3,720 cases. Six final
+array order/defensive-copy/container-limit checks pass (33ms), covering empty,
+four/five-member and larger containers. Two initial limit fixtures accidentally
+exercised earlier lexer rejection; correcting only those new fixtures preserves
+lexer precedence and every original input/limit. All 26 fresh managed/native
+outcomes and three negative controls pass, original inputs unchanged. Locked
+Release build/explicit pack, inspection/fresh consumer/rejections pass (18s),
+including the unchanged 2 MiB multisource ceiling. The clean comparison and
+one hosted push qualify the integrated implementation and report.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and

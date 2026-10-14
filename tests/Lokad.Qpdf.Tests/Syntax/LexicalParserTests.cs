@@ -8,6 +8,39 @@ namespace Lokad.Qpdf.Tests.Syntax;
 
 public sealed class LexicalParserTests
 {
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(17)]
+    public void ArrayValuesPreserveOrderAndDefensiveCopies(int count)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
+        string text = "[" + string.Join(" ", Enumerable.Range(1, count)) + "]";
+        PdfArray value = Assert.IsType<PdfArray>(parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+        Assert.Equal(count, value.Count);
+        QpdfObject[] publicCopy = value.Items;
+        Array.Fill(publicCopy, PdfNull.Instance);
+        for (int index = 0; index < count; index++)
+        { Assert.Equal(index + 1L, Assert.IsType<PdfInteger>(value[index]).Value); }
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void ArrayLimitRejectsBeforeParsingAnotherValueAndReleasesStorage(int count)
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxContainerSize = count };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        string text = "[" + string.Join(" ", Enumerable.Range(1, count)) + " [@]]";
+        QpdfParseException error = Assert.Throws<QpdfParseException>(() =>
+            parser.ParseObjectValue(new PdfTokenizer(Encoding.ASCII.GetBytes(text)), 0));
+        Assert.Contains("top-level items", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     // Independently authored inputs and exact values checked with qpdf 12.4.2.
     // No reference tool or checkout is required by these tests.
     internal static IEnumerable<(string Body, string Kept, int Errors, bool Warns)> Cases(bool sanity)

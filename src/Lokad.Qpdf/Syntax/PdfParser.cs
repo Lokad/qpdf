@@ -1,5 +1,6 @@
 using System.Buffers.Text;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 
@@ -679,9 +680,19 @@ internal sealed class PdfParser
         }
     }
 
+    [InlineArray(4)]
+    private struct ArrayPrefix
+    {
+        private QpdfObject _first;
+    }
+
     private QpdfObject ParseArrayContents(PdfTokenizer tokenizer, int depth)
     {
-        List<QpdfObject> items = ParserContainers.CreateList(Memory);
+        // Common four-item boxes need no growable heap storage. Larger arrays
+        // spill once into the existing admitted list path without rescanning.
+        ArrayPrefix prefix = default;
+        List<QpdfObject>? items = null;
+        int count = 0;
         while (true)
         {
             if (!TryReadValueToken(tokenizer, out PdfToken token))
@@ -691,17 +702,33 @@ internal sealed class PdfParser
 
             if (token.Kind == PdfTokenKind.ArrayClose)
             {
-                ChargeWork(items.Count);
+                ChargeWork(count);
                 _governor.CheckCancellation();
-                return ParserContainers.CopyArray(Memory, items);
+                if (items is not null) { return ParserContainers.CopyArray(Memory, items); }
+                Memory.Reserve(64L + IntPtr.Size * (long)count);
+                QpdfObject[] kept = count == 0 ? Array.Empty<QpdfObject>() : new QpdfObject[count];
+                for (int index = 0; index < count; index++) { kept[index] = prefix[index]; }
+                return PdfArray.FromOwnedItems(kept);
             }
 
-            if (items.Count >= _limits.MaxContainerSize)
+            if (count >= _limits.MaxContainerSize)
             {
                 throw new QpdfParseException($"Array holds more than {_limits.MaxContainerSize} top-level items.", token.Offset, null);
             }
 
-            ParserContainers.AddItem(Memory, items, ParseToken(tokenizer, token, depth + 1));
+            QpdfObject value = ParseToken(tokenizer, token, depth + 1);
+            if (count < 4) { prefix[count] = value; }
+            else
+            {
+                if (items is null)
+                {
+                    items = ParserContainers.CreateList(Memory);
+                    for (int index = 0; index < 4; index++)
+                    { ParserContainers.AddItem(Memory, items, prefix[index]); }
+                }
+                ParserContainers.AddItem(Memory, items, value);
+            }
+            count++;
         }
     }
 
