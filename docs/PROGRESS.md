@@ -6,35 +6,28 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `b8dd51f` passed [hosted CI run 38545444161](https://github.com/Lokad/qpdf/actions/runs/38545444161):
-Windows 5m44s, Ubuntu 6m25s, pinned reference 5m21s. Both platforms pass 17,879
+Pushed `2fbb88d` passed [hosted CI run 38547746561](https://github.com/Lokad/qpdf/actions/runs/38547746561):
+Windows 6m34s, Ubuntu 5m59s, pinned reference 6m01s. Both platforms pass 17,885
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
 ## Current correction and next work
 
-The parser keeps the first four array members in bounded local value storage,
-then creates one admitted owned backing. Larger arrays use the existing governed
-list path without rescanning. Parsing order, container limits, nesting, work,
-cancellation, discarded values and immutable public copies remain unchanged.
+Xref-stream reading hints its empty destination dictionary from the validated
+row count only for ordered, disjoint index ranges. Object zero is excluded;
+reversed/overlapping ranges keep ordinary growth. The existing quarter-headroom
+memory/work guard, row grammar, cancellation and ownership cleanup remain.
 
-The original X100 rewrite allocates 703.119→694.034 KB/job, about 9.1 KB less,
-with identical independently validated output bytes. Medians 2.934→2.785 ms
-have overlapping IQRs (2.640–4.360 / 2.497–3.635); retain allocation only.
-The wider parser/public-selection/cleanup run passes 3,720 cases. Six final
-array order/defensive-copy/container-limit checks pass (33ms), covering empty,
-four/five-member and larger containers. Two initial limit fixtures accidentally
-exercised earlier lexer rejection; correcting only those new fixtures preserves
-lexer precedence and every original input/limit. All 26 fresh managed/native
-outcomes and three negative controls pass, original inputs unchanged. Locked
-Release build/explicit pack, inspection/fresh consumer/rejections pass (18s),
-including the unchanged 2 MiB multisource ceiling. The clean comparison and
-one hosted push qualify the integrated implementation and report.
-The clean final-source comparison preserves all 26,628 observations and fresh
-independent semantics. Five cells meet parity; grouped splitting at 1.0016×
-remains open. Sparse selection is the largest gap at 3.42×. Separate panels
-do not establish timing attribution for source changes.
+The original X100 rewrite allocates 694.175→669.955 KB/job, about 24.2 KB less,
+with identical independently validated output bytes. Medians 2.244→2.147 ms
+have overlapping IQRs (2.169–2.378 / 2.076–2.250); retain allocation only.
+All 3,480 focused reader/public-selection/cleanup checks pass (22s), including
+four public range controls: ordered/reversed success, duplicate rejection and
+row-count mismatch rejection. All 26 fresh managed/native outcomes and three
+negative controls pass with original inputs. Locked Release build/explicit pack,
+inspection/fresh consumer/rejections pass (19s), unchanged 2 MiB multisource
+ceiling. One clean comparison and combined code/report hosted push follow.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and
@@ -47,6 +40,8 @@ limit, cancellation, cleanup and immutable-output guarantee remains in scope.
 
 ## Useful completed work
 
+- Four-slot local array scratch removes temporary small-array lists; larger
+  arrays retain governed growth, with public copies and discard cleanup intact.
 - Names, concrete dictionary enumeration, known arrays and parser scratch avoid
   redundant allocations. Private dictionary finalization reuses established
   bucket/hash chains at unchanged capacity; conversion failures retain ownership.

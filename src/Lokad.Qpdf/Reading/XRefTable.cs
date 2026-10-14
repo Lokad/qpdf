@@ -579,11 +579,20 @@ internal sealed class XRefTable : IDisposable
     {
         int entrySize = widths[0] + widths[1] + widths[2];
         long total = 0L;
+        long previousEnd = 0L;
+        bool orderedDisjoint = true;
+        bool includesZero = false;
         foreach ((int first, int count) in index)
         {
             checked
             {
                 total += count;
+            }
+            if (count > 0)
+            {
+                if (first < previousEnd) { orderedDisjoint = false; }
+                previousEnd = (long)first + count;
+                includesZero |= first == 0;
             }
         }
 
@@ -596,6 +605,14 @@ internal sealed class XRefTable : IDisposable
         }
 
         Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
+        // Shape validation establishes the row count. Only ordered, disjoint
+        // ranges establish the dictionary count; object zero is never stored.
+        // Other shapes and tight budgets retain ordinary admitted growth.
+        if (entrySize > 0 && orderedDisjoint && total <= int.MaxValue)
+        {
+            int storedCount = checked((int)total - (includesZero ? 1 : 0));
+            ParserContainers.HintEntryCapacity(memory, entries, storedCount, 24L, governor);
+        }
         int position = 0;
         Span<long> fields = stackalloc long[3];
         foreach ((int first, int count) in index)

@@ -81,6 +81,51 @@ public sealed class XrefCollectionTests
         _ => throw new ArgumentException("Unknown fixture shape.", nameof(kind)),
     };
 
+    [Theory]
+    [InlineData("ordered")]
+    [InlineData("reversed")]
+    [InlineData("overlap")]
+    [InlineData("length")]
+    public async Task PublicReaderPreservesStreamIndexRangesAndFailures(string shape)
+    {
+        byte[] input = Stream(4, false, false);
+        byte[] marker = "/Index [1 9]"u8.ToArray();
+        int at = input.AsSpan().IndexOf(marker);
+        Assert.True(at >= 0);
+        string index = shape switch
+        {
+            "ordered" => "/Index [1 4 5 5]",
+            "reversed" => "/Index [5 5 1 4]",
+            "overlap" => "/Index [1 4 1 5]",
+            _ => "/Index [1 4 5 4]",
+        };
+        if (shape == "reversed")
+        {
+            int data = at + input.AsSpan(at).IndexOf("stream\n"u8) + 7;
+            byte[] rows = input.AsSpan(data, 9 * 7).ToArray();
+            rows.AsSpan(4 * 7).CopyTo(input.AsSpan(data));
+            rows.AsSpan(0, 4 * 7).CopyTo(input.AsSpan(data + 5 * 7));
+        }
+        input = [.. input.AsSpan(0, at), .. Encoding.ASCII.GetBytes(index), .. input.AsSpan(at + marker.Length)];
+        InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("in.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Copy);
+        if (shape is "overlap" or "length")
+        {
+            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(
+                () => QpdfDocument.OpenAsync(host, path, CancellationToken.None).AsTask());
+            Assert.Contains(shape == "overlap" ? "Duplicate xref entry" : "Cross-reference stream data holds",
+                failure.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None);
+            Assert.Equal(1, document.PageCount);
+            Assert.Equal(9, document.Engine.XRefEntries.Count);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     private static XRefTable Parse(byte[] input, ResourceGovernor governor, QpdfLimits limits)
         => XRefTable.Parse(input, limits, governor, new DiagnosticBag(governor), QpdfRecoveryMode.BoundedRepair);
 
