@@ -11,6 +11,11 @@ internal static class PageInheritance
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
         => FindCore(engine, location, name.RawSpan, false, false, limits, governor, cancellationToken);
 
+    // Copying has already checked the leaf, including indirect null values.
+    internal static QpdfObject? FindAncestor(DocumentEngine engine, PageLocation location, PdfName name,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        => FindCore(engine, location, name.RawSpan, false, true, limits, governor, cancellationToken);
+
     internal static bool HasDictionaryAncestor(DocumentEngine engine, PageLocation location, ReadOnlySpan<byte> name,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
         => FindCore(engine, location, name, true, true, limits, governor, cancellationToken) is not null;

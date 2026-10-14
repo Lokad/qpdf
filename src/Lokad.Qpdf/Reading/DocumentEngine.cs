@@ -546,17 +546,17 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
 
             List<(int Number, int Offset)> pairs = ReadObjStmPairs(decoded, count, streamNumber, scratch);
             scratch.Reserve(checked((long)pairs.Count + 32L));
-            bool[] previouslyCached = new bool[pairs.Count];
+            bool[] accept = new bool[pairs.Count];
             long lastOffset = -1L;
             int eligible = 0;
             for (int i = 0; i < pairs.Count; i++)
             {
                 _governor.ChargeWork(1L);
-                previouslyCached[i] = Cache.ContainsKey(pairs[i].Number)
+                bool previouslyCached = Cache.ContainsKey(pairs[i].Number)
                     || (_cachedNulls is not null && _cachedNulls.Contains(pairs[i].Number));
-                if (!previouslyCached[i] && Table.Entries.TryGetValue(pairs[i].Number, out XrefEntry candidate)
+                if (!previouslyCached && Table.Entries.TryGetValue(pairs[i].Number, out XrefEntry candidate)
                     && candidate.Kind == XrefEntryKind.Compressed && candidate.First == streamNumber)
-                { eligible++; }
+                { accept[i] = true; eligible++; }
                 if (pairs[i].Offset <= lastOffset)
                 {
                     throw new QpdfParseException($"Object stream {streamNumber} offsets must ascend.", null, streamNumber);
@@ -623,10 +623,9 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
                     _governor.ReleaseMemory(128L);
                 }
 
-                if (Table.Entries.TryGetValue(pairs[i].Number, out XrefEntry target)
-                    && target.Kind == XrefEntryKind.Compressed
-                    && target.First == streamNumber
-                    && !previouslyCached[i])
+                // The validated header already established eligibility against
+                // this immutable xref table and the pre-pass cache snapshot.
+                if (accept[i])
                 {
                     if (!hinted && (value is not PdfNull || _valuesEscape))
                     {

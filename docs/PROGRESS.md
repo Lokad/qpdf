@@ -25,6 +25,13 @@ ranges, establishing no speedup. All 1,962 observations and byte-identical valid
 outputs remain. This local allocation correction will share a later integration
 checkpoint; the published tables still identify `30bd234`.
 
+Object-stream acceptance now reuses its validated header bitmap, and copying
+starts inherited-attribute searches at the parent after checking the leaf. All
+486 affected checks pass. The paired rewrite probe records 2.954 ->3.379 ms
+(IQR 2.918-2.992 /2.924-3.475), with approximately 561 KB allocated in both lanes.
+Its slower median and all 3,498 observations remain; no measured gain is attributed
+to these structural lookup removals. Final batch qualification remains pending.
+
 Private single-source copies borrow input payloads under existing document/job
 funding through publication, including preopened whole-file sources. Accepted
 sources still close before output. Public readers, multisource storage, bounded

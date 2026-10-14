@@ -4829,7 +4829,7 @@ public static partial class Qpdf
             governor.CheckCancellation();
             if (location.Page.TryGet(key, out QpdfObject present)
                 && PageInheritance.Resolve(engine, present, limits, governor) is not PdfNull) { continue; }
-            QpdfObject? value = PageInheritance.Find(engine, location, key, limits, governor, cancellationToken);
+            QpdfObject? value = PageInheritance.FindAncestor(engine, location, key, limits, governor, cancellationToken);
             if (value is null) { continue; }
             QpdfObject copied = copier.CopyValue(value, 0);
             if (copied is PdfNull) { continue; }
