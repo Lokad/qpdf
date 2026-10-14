@@ -17,6 +17,14 @@ prior observations, including failed, slower and insensitive trials.
 
 ## Current implementation
 
+Scalar serialization returns existing formatting operations directly rather than
+creating an outer recursive async state machine. All 187 affected writer/public
+cancellation checks pass. The paired streamed-xref rewrite records 2.490 ->2.355 ms
+with overlapping IQRs 2.385-2.693 /2.252-2.624; allocation is approximately 561 KB
+in both lanes. No firm speedup or allocation gain is claimed; all 4,104 observations
+and validated byte-identical outputs remain. This local structural correction will
+share a later integration checkpoint; the comparative tables still identify `f292c5e`.
+
 Accepted object-stream groups use their validated member count to hint existing
 cache capacity at first accepted insertion. Rejected/unmatched attempts and tight
 budgets retain normal growth. The original streamed-xref rewrite pair reduces

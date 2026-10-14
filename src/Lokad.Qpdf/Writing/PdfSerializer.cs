@@ -570,7 +570,7 @@ internal sealed partial class PdfSerializer
         => WriterNumber.WriteUInt(output, value);
 
 
-    internal async ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
+    internal ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
         if (depth > _limits.MaxNestingDepth)
         {
@@ -580,40 +580,44 @@ internal sealed partial class PdfSerializer
         _governor.ChargeWork(1L);
         if (value is PdfNull)
         {
-            await AppendAsciiAsync("null", sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendAsciiAsync("null", sink, cancellationToken);
         }
 
         if (value is PdfBoolean flag)
         {
-            await AppendAsciiAsync(flag.Value ? "true" : "false", sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendAsciiAsync(flag.Value ? "true" : "false", sink, cancellationToken);
         }
 
         if (value is PdfInteger integer)
         {
-            await AppendAsciiAsync(integer.Text, sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendAsciiAsync(integer.Text, sink, cancellationToken);
         }
 
         if (value is PdfReal real)
         {
-            await AppendAsciiAsync(real.Text, sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendAsciiAsync(real.Text, sink, cancellationToken);
         }
 
         if (value is PdfName name)
         {
-            await AppendNameAsync(name, sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendNameAsync(name, sink, cancellationToken);
         }
 
         if (value is PdfByteString text)
         {
-            await AppendStringAsync(text, sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendStringAsync(text, sink, cancellationToken);
         }
 
+        if (value is PdfReference reference)
+        {
+            return AppendFormattedAsync([WriterPart.Number(reference.ObjectNumber), WriterPart.Text(" 0 R")], sink, cancellationToken);
+        }
+
+        return AppendContainerAsync(value, sink, depth, newlineBeforeEndstream, cancellationToken);
+    }
+
+    private async ValueTask AppendContainerAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
+    {
         if (value is PdfArray array)
         {
             await AppendAsciiAsync("[", sink, cancellationToken).ConfigureAwait(false);
@@ -651,12 +655,6 @@ internal sealed partial class PdfSerializer
             }
 
             await AppendAsciiAsync(">>", sink, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        if (value is PdfReference reference)
-        {
-            await AppendFormattedAsync([WriterPart.Number(reference.ObjectNumber), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
             return;
         }
 
