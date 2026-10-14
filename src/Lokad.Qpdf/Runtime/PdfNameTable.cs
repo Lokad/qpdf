@@ -191,7 +191,8 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     private int Find(PdfName key, Visits visits, out int hash)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return Find(key.RawSpan, key, visits, out hash);
+        visits.Step(); hash = visits.Hash(key);
+        return FindBucket(new PdfNameBytes(key.RawSpan), key, visits, hash);
     }
 
     private int Find(ReadOnlySpan<byte> key, PdfName? identityKey, Visits visits, out int hash)
@@ -200,6 +201,11 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     private int Find(PdfNameBytes key, PdfName? identityKey, Visits visits, out int hash)
     {
         visits.Step(); hash = visits.Hash(key);
+        return FindBucket(key, identityKey, visits, hash);
+    }
+
+    private int FindBucket(PdfNameBytes key, PdfName? identityKey, Visits visits, int hash)
+    {
         if (_buckets.Length == 0) { return -1; }
         visits.Step(); int slot = _buckets[(uint)hash % (uint)_buckets.Length] - 1;
         while (slot >= 0)
@@ -336,6 +342,11 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     {
         internal void Step() => Units(1L);
         internal void Units(long count) { token.ThrowIfCancellationRequested(); governor?.CheckCancellation(); governor?.ChargeWork(count); }
+        internal int Hash(PdfName name)
+        {
+            Units(Math.Min(name.RawSpan.Length, 16) + 2L);
+            return name.GetHashCode();
+        }
         internal int Hash(PdfNameBytes bytes)
         {
             int count = Math.Min(bytes.Length, 16);

@@ -173,6 +173,7 @@ public sealed class PdfReal : QpdfObject, IEquatable<PdfReal>
 public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 {
     private readonly byte[] _raw;
+    private readonly int _hash;
 
     // A finite syntax vocabulary, independent of any input or execution owner.
     // Public byte access still returns copies. Arbitrary/escaped names are owned.
@@ -220,6 +221,7 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         }
 
         _raw = copy ? (byte[])rawBytes.Clone() : rawBytes;
+        _hash = CalculateHash(_raw);
     }
 
     internal static PdfName FromOwnedBytes(byte[] rawBytes) => new(rawBytes, false);
@@ -299,16 +301,18 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
     }
 
     /// <summary>Returns the hash code for this instance.</summary>
-    public override int GetHashCode()
+    public override int GetHashCode() => _hash;
+
+    private static int CalculateHash(ReadOnlySpan<byte> raw)
     {
         HashCode hash = new();
-        int count = Math.Min(_raw.Length, 16);
+        int count = Math.Min(raw.Length, 16);
         for (int i = 0; i < count; i++)
         {
-            hash.Add(_raw[i]);
+            hash.Add(raw[i]);
         }
 
-        hash.Add(_raw.Length);
+        hash.Add(raw.Length);
         return hash.ToHashCode();
     }
 

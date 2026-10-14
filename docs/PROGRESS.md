@@ -24,6 +24,16 @@ streamed-xref rewrite records 1.995 ->1.983 ms, overlapping IQRs 1.993-2.199 /
 allocation gain is established; all 4,689 observations remain. This local structural
 change will share a later integration checkpoint; current tables identify `5854144`.
 
+Immutable names cache their existing bounded hash, and governed name-object lookup
+reuses it with unchanged work charges. All 192 affected checks pass. The paired
+streamed-xref rewrite falls 2.128 ->2.065 ms, with non-overlapping IQRs
+2.085-2.311 /2.032-2.074. Allocation rises approximately 493 B/job; the correction
+is retained for time reduction. All 4,664 observations and identical outputs remain.
+An integer-lookahead replay trial passed 1,327 checks but added state/allocation
+without a demonstrated gain; its patch, binaries and 4,571 observations remain,
+and the implementation is restored. Widening dictionary scratch was also rejected:
+all 100 pages in the original streamed-xref fixture already fit four entries.
+
 Scalar serialization, counted/shared token formatting and small writes return
 existing operations directly. This avoids redundant async state machines while
 preserving container recursion/order/depth, meaningful work and cancellation,
