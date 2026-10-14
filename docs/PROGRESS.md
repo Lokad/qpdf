@@ -1,64 +1,54 @@
 # Progress
 
-Performance targets single-CPU parity (<=1.0x) with pinned qpdf 12.4.2 using
-comparable operations, options and input delivery. Clean `641ff35` records 7/13
-file-backed medians at parity; the target remains open. Sparse selection is
-0.350x via argv and 0.359x via job JSON. Remaining gaps are grouped splitting
-1.628x, ordinary rewriting 1.398x, linearization 1.283x, streamed-xref rewriting
-1.115x, content IDs 1.101x and object-heavy rewriting 1.016x. Wide ranges remain
-visible; separate panels do not establish attribution. [Benchmarks](BENCHMARKS.md)
-has the comparisons, resource figures and reproducible commands in three tables.
+Single-CPU parity (<=1.0x) against pinned qpdf 12.4.2 remains open. Clean source
+`679a213` records 5/13 comparable warmed file-backed medians at parity;
+supplementary sparse job JSON is 0.424x. Remaining cells: rewrite-M500 1.345x,
+linearize-M500 1.341x, rewrite-X100 1.333x, merge-250x2 1.258x, rewrite-ID-M500
+1.250x, object-streams-X100 1.108x, select-M500 1.044x, rewrite-objects 1.032x.
+[Benchmarks](BENCHMARKS.md) leads with comparative figures and preserves ranges,
+resource figures and commands in three tables. Separate panels establish no causal
+attribution, and unchanged-source timing noise does not justify reruns.
 
-The original thirteen memory-host measurements (`bf03d9a`) remain end-to-end
-evidence, including fresh complete input acquisition, registration and output
-export. Native opens files and can read less. The original sparse 3.4732x result
-is unchanged; a different input path never turns it into a pass. The raw archive
-preserves all 159 runs and every earlier run object unchanged.
+Original `bf03d9a` memory-host results stay end-to-end evidence: fresh complete
+input acquisition/registration, staging, public output export and file writes.
+Native can read less from files. Sparse selection's original 3.4732x result stays
+unchanged; a different input path cannot turn it into a pass. All 164 archived runs
+preserve previous observations, including rejected/slower trials.
 
-## Current correction and verification
+## Current implementation and verification
 
-Prepared split serialization now uses the existing bounded batching sink for main,
-identifier and pass1 captures. Prepared storage copies synchronously, allowing
-scratch reuse; both captures flush before lengths/IDs/publication are consumed.
-All 3,124 affected writer/split/presentation/publication checks pass (46s).
-The unchanged file-backed 500-page split pair reduces allocation from 34.940848
-to 34.646845 MB/job. Median 33.856 ->33.253 ms has overlapping IQRs; no speedup
-claim. All ten outputs remain byte-identical and independently valid; every
-observation remains. This local change will share a later integration checkpoint
-with further useful corrections; current published figures still identify `641ff35`.
+Prepared split serialization uses existing bounded batching for main, identifier and
+pass1 captures. Synchronous owned storage allows scratch reuse, with explicit
+flushes before lengths/IDs/publication. Geometric segments avoid intermediate
+arrays, cap capacity at 32 KiB and expose only filled prefixes. Growth-overlap
+admission, bounded work/cancellation and immutable retained output chunks remain.
 
-Prepared segments now grow through powers of two, capped at 32 KiB, avoiding
-intermediate arrays. Only filled prefixes escape, allowing uninitialized backing
-allocation. All 2,669 affected checks pass (82s). Its separate paired split probe
-reduces allocation 34.649050 ->30.964657 MB/job with identical validated outputs.
-Median 95.229 ->80.494 ms has overlapping IQRs 81.073-130.862 /70.472-118.241;
-no speedup is claimed. All 195 observations remain, including outliers; wall 78.05s.
+Two same-driver split probes reduce cumulative managed allocation 34.940848 to
+34.646845 MB/job, then 34.649050 to 30.964657 MB/job. All ten outputs match each
+baseline and pass independent checks. Timing IQRs overlap; no speedup is claimed.
+The second trial's worker RSS increases, so allocation savings establish neither
+lower retained memory nor lower RSS. A copy-loop trial without a qualifying gain was
+reverted; every observation remains. There is no new pool or ownership model.
 
-Argv/job single-page and one-source range selection reuse bounded classic-xref
-reads on custom hosts. Catalog behavior and recovery defaults remain. Omitted
-required ranges, diagnostics or uncertain parsing retry once on the same stable
-lease with the requested recovery mode, before publication. Accepted range sources
-close before output creation, preserving one-handle limits and close-fault output
-protection. Other layouts/operations and public/in-memory storage contracts remain.
-Job `suppressRecovery:false` now matches an absent flag; true stays strict.
+All 3,124 affected writer/split/presentation/publication controls pass (46s), and
+2,669 affected growth checks pass (82s). Final-source checks pass: 26 fresh semantic
+outcomes plus three negatives; seven visual cases plus two negatives; locked Release
+restore/build/explicit pack, inspection, fresh consumer and rejection controls. The
+unchanged 2 MiB multisource consumer ceiling passes. WSL build/
+semantics/file-panel/job phases take 32.26/84.08/245.67/18.95s; package/consumer
+79.85s and visual 22.15s. All thirteen managed output sets match the preceding
+panel; original inputs remain unchanged. The final panels retain all 18,208 file and
+5,346 job observations. Required Windows/Ubuntu ordinary and pinned-reference
+integration results are published by
+[CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
 
-Five regressions fail on the prior implementation and pass on `641ff35`.
-All 6,254 affected selection/recovery/catalog/content/publication/job checks pass
-(68s). They cover bounded/short reads, changing future inputs, required catalog
-payloads, repair versus strict rejection, limits, cancellation and failed cleanup.
-The earlier unused compressed-source inventory removal remains integrated.
-
-Final-source checks pass: 26 fresh semantic outcomes and three negative controls;
-seven visual cases and two negatives; locked Release restore/build/explicit pack,
-package inspection, fresh consumer and rejection controls. The unchanged 2 MiB
-multisource consumer ceiling passes. Build/semantic/file-panel/job phases take
-59.48/46.14/328.86/24.42s; package/consumer 21.93s, visual 17.94s. All 13 managed
-output sets are byte-identical to the prior panel; inputs stay unchanged. There
-are 13,538 file-panel and 2,776 supplementary job observations, with no exclusions.
-
-Superseded hosted run 38626502356 was canceled after the lease-order defect was
-found, conserving runner time. Ordinary Windows/Ubuntu and pinned-reference
-verification accompany the corrected combined push. No extra benchmark CI jobs.
+Argv/job single-page and one-source range selection retain bounded classic-xref
+reads, catalog behavior and default bounded recovery. Missing ranges, diagnostics or
+uncertain parsing retry once on the same stable lease before publication. Accepted
+range sources close before output creation, preserving one-handle limits and
+close-fault protection. Job `suppressRecovery:false` matches absent/default repair;
+true remains strict. Five regressions demonstrated those prior failures; 6,254
+affected public checks pass. Earlier useful corrections remain integrated.
 
 ## Preserved scope
 
@@ -66,13 +56,12 @@ The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK remains
 opaque, Zopfli is unavailable, and crypto including empty-password inputs is
 excluded. Other [compatibility requirements](COMPATIBILITY.md) are not waived.
 
-`MaxMemoryBytes` bounds approximate charged working storage. Significant buffers,
-copy/growth overlap, allocation/decompression amplification, work limits,
-cancellation, host boundaries, cleanup, integrity, immutability and surviving
-aliases remain protected. Unreleased charges do not prove retained memory.
-Exact CLR sizes, individual small-object/metadata-alias receipts, fixed GC rounds
-and precise bookkeeping charges remain withdrawn; see
-[governance](SUPPORTED-PROFILE.md#governance). Historical test counts add no gates.
+`MaxMemoryBytes` bounds approximate charged working storage. Significant capacity,
+copy/growth overlap, allocation/decompression amplification, work, cancellation,
+host boundaries, cleanup, integrity, immutability and surviving aliases remain
+protected. Charges do not establish retained memory. Exact CLR sizes, individual
+small-object/metadata-alias receipts, fixed GC rounds and precise bookkeeping
+charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
 
 No CPU parallelism, forced production GC, parsed-document cache, runtime native
 bridge or new accounting/benchmark framework. Pins, five reviewed temporary
