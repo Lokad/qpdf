@@ -6,36 +6,27 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `755898c` passed [hosted CI run 38534888853](https://github.com/Lokad/qpdf/actions/runs/38534888853):
-Windows 6m34s, Ubuntu 5m51s, pinned reference 5m40s. Both platforms pass 17,875
+Pushed `7d90ede` passed [hosted CI run 38540104491](https://github.com/Lokad/qpdf/actions/runs/38540104491):
+Windows 7m13s, Ubuntu 5m07s, pinned reference 4m37s. Both platforms pass 17,878
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
 ## Current correction and next work
 
-Object-stream capture reuses the ordinary token batch once per group, avoiding
-individual formatted reference/token buffers. The owned destination consumes
-spans synchronously. Each completed member flushes to grouped storage; failed
-attempts reset private batch state and truncate only the unfinished member.
-Tight memory/work jobs retain direct capture, and QDF's 32 KiB controls remain.
+The graph copier uses the validated requested output-page count to hint its
+empty destination map through the existing bounded capacity helper. Duplicate
+occurrences still produce distinct pages; source identities are not assumed
+unique. Tight memory/work jobs retain geometric growth and scoped cleanup.
 
-The original X100 object-stream job allocates 789.912→748.572 KB/job, about
-41.3 KB less, with identical independently validated output hashes. Median time
-falls 2.512→2.284 ms (9.1%); IQRs 2.368–3.393 / 2.278–2.334 are separated.
-Wide ranges/outliers remain in the raw results. Native is 2.393 ms (ratio 0.9546×).
-The wider writer/resource run passes 2,083 cases; all three corrected mixed-budget
-cases pass focused. Coverage includes ordinary, 4 KiB memory and 4,096-unit work
-ceilings, failed growth/retry, cancellation and retained-task cleanup. All 26
-fresh managed/native outcomes and three negative controls pass with unchanged
-inputs. Locked Release solution build/explicit pack, package inspection, fresh
-consumer and rejection controls pass (23s), including the unchanged 2 MiB
-multisource ceiling. The clean final-source panel retains all 26,197 observations
-and independent semantics. Selection S10/M500, object-stream generation and
-checking meet parity; individual splitting at 1.0067× remains open. Object
-streams measure 2.300/2.371 ms (0.9702×); sparse selection remains the largest
-gap at 3.48×. Different host load prevents attributing separate-panel changes to
-source changes. One hosted push qualifies code and the current report.
+An original X100 rewrite allocates 715.569→703.080 KB/job, about 12.5 KB less,
+with identical independently validated output bytes. Medians 2.789→2.661 ms
+have overlapping IQRs (2.413–3.087 / 2.409–3.495); retain allocation only.
+All 1,840 focused selection/merge/split/cleanup checks pass (16s), and the
+expanded 2/64-copy public identity check passes (170ms). All 26 fresh managed/
+native outcomes and three negative controls pass with original inputs. Locked Release build/explicit pack, inspection, fresh consumer and rejection
+controls pass (17s), including the unchanged 2 MiB multisource ceiling.
+The clean-source comparison and one hosted run qualify the integrated change.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and

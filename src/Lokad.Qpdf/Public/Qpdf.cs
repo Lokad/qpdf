@@ -338,6 +338,7 @@ public static partial class Qpdf
         {
             copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
         }
+        copier.HintPageCapacity(requested.Count);
         List<PdfReference> kids = new(requested.Count);
         List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(requested.Count);
         foreach (int pageNumber in requested)
@@ -880,6 +881,7 @@ public static partial class Qpdf
             {
                 copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
             }
+            copier.HintPageCapacity(requested.Count);
             List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)> taken = new(requested.Count);
             foreach (int pageNumber in requested)
             {

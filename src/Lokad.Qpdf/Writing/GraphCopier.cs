@@ -85,6 +85,17 @@ internal sealed class GraphCopier
         }
     }
 
+    internal void HintPageCapacity(int count)
+    {
+        if (_ownership is not null)
+        {
+            // Each requested occurrence produces a destination page, including
+            // duplicates. Source identities need not be distinct, so only hint
+            // the destination map. Tight jobs retain ordinary bounded growth.
+            ParserContainers.HintEntryCapacity(_ownership, _copied, count, IntPtr.Size, _governor);
+        }
+    }
+
     private void Reserve(long bytes)
     {
         if (_ownership is null) { _governor.ReserveMemory(bytes); }

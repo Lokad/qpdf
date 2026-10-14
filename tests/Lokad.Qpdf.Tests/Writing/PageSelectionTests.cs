@@ -179,15 +179,17 @@ public sealed class PageSelectionTests
         Assert.Contains("Second", markers[2], StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task DuplicatePagesAreDistinctObjects()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(64)]
+    public async Task DuplicatePagesAreDistinctObjects(int copies)
     {
         (InMemoryQpdfHost host, byte[] _) = await LoadFixture("minimal-2page.pdf");
         await Qpdf.SelectPageAsync(
             host,
             QpdfPath.From("inputs/minimal-2page.pdf"),
             QpdfPath.From("outputs/dup.pdf"),
-            PdfPageSelectionOptions.FromPages([1, 1]),
+            PdfPageSelectionOptions.FromPages(Enumerable.Repeat(1, copies).ToArray()),
             CancellationToken.None);
         if (!host.TryGetOutput(QpdfPath.From("outputs/dup.pdf"), out byte[] published))
         {
@@ -197,12 +199,13 @@ public sealed class PageSelectionTests
         QpdfPath rereadPath = QpdfPath.From("inputs/reread.pdf");
         host.AddInput(rereadPath, published, QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, rereadPath, CancellationToken.None);
-        Assert.Equal(2, document.PageCount);
-        int? first = document.PageReferences[0].Source?.ObjectNumber;
-        int? second = document.PageReferences[1].Source?.ObjectNumber;
-        Assert.NotNull(first);
-        Assert.NotNull(second);
-        Assert.NotEqual(first, second);
+        Assert.Equal(copies, document.PageCount);
+        HashSet<int> identities = new();
+        foreach (var page in document.PageReferences)
+        {
+            Assert.NotNull(page.Source);
+            Assert.True(identities.Add(page.Source.ObjectNumber));
+        }
     }
 
     [Fact]
