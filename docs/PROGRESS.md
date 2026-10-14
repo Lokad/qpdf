@@ -6,41 +6,38 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `37fc77f` passed [hosted CI run 38488628072](https://github.com/Lokad/qpdf/actions/runs/38488628072):
-Windows 7m35s, Ubuntu 5m54s, pinned reference 6m28s. Both platforms pass 17,867
+Pushed `3e5637b` passed [hosted CI run 38491270654](https://github.com/Lokad/qpdf/actions/runs/38491270654):
+Windows 5m11s, Ubuntu 5m08s, pinned reference 4m42s. Both platforms pass 17,871
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
-comparisons and 442 rewrite trios. The current diagnostic changes development
-tools only; production sources, dependency pins and release version are unchanged.
+comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
-## Current diagnostic and next work
+## Current correction and next work
 
-The existing warmed probe accepts a separate read-input component request through
-the complete-job emitter's same full-file loader. Length/hash checks occur after
-timing and synchronous per-thread allocation capture. The existing comparison
-runner can collect thirty samples for one selected single-input workload with
---input-read-diagnostic, preserving every original complete-job sample, option,
-input, limit, expected output and negative control.
+The writer reuses admitted scratch when a small formatted/ASCII token crosses a
+batch boundary and the destination consumes writes synchronously. Retaining or
+asynchronous destinations keep immutable packets and the existing fallback.
+The shared flush helper clears scratch on both success and failure. Logical
+offsets, output bytes, cancellation, cleanup and resource ceilings are preserved.
 
-The clean committed-source sparse comparison records managed/native complete-job
-medians 9.14/3.29 ms (2.78×). Thirty separate full-input loads have median
-9.56 ms (Q1–Q3 2.73–15.27), allocating 16.798 MB each; all length/hash checks
-match the original fixture. Wide host/heap-state variation prevents subtracting
-these medians, claiming a universal floor or blaming GC. Earlier preliminary
-counter observations remain in the raw archive; the complete-job counters and
-all original thirteen-cell comparisons are preserved.
-
-Windows/Linux Release probe builds and all seventeen CLI checks pass (3s),
-including different complete inputs and malformed diagnostic requests. The final
-source diff is empty and production sources/pins/version match the qualified
-implementation. No full thirteen-cell or local package requalification for this
-development-only diagnostic; one hosted push qualifies the tool and report.
+Same-driver public jobs allocate about 0.3 KB less for X100 and 4.0 KB less for
+the object-heavy fixture; all output hashes match. Their 2.370→2.358 and
+33.076→32.116 ms medians have overlapping IQRs: allocation benefit only.
+All 2,080 affected writer/resource checks pass (45s), including token-boundary
+reuse, retaining aliases, failed flush cleanup and practical host-operation
+budgets. All 26 fresh managed/native outcomes and three negative controls pass
+with unchanged original inputs. Locked Release build/pack, package inspection,
+fresh consumer and rejection controls pass (20s), including the unchanged 2 MiB
+multisource ceiling. Final integration qualification follows; the comparative
+table remains the last clean panel.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and
 the memory host borrows its immutable snapshot. Parser-only changes cannot remove
-the emitter's required full read. One bounded fresh-allocation strategy probe is
-next; a larger reader/host redesign may be necessary. Every original comparison,
+the emitter's required full read. A fresh pinned-array trial gave overlapping
+timings and unchanged allocation; it was restored. A ranged-reader redesign
+would also need asynchronous nested resolution and explicit storage ownership;
+it cannot silently replace the original full-read comparison. Every original comparison,
 limit, cancellation, cleanup and immutable-output guarantee remains in scope.
 
 ## Useful completed work

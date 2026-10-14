@@ -71,7 +71,13 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         _ = Memory; CheckCancellation(token);
         long next = checked(_length + length);
         if (next > _maximum) { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _maximum); }
-        return length <= _capacity - Scratch.Length;
+        if (length <= _capacity - Scratch.Length) { return true; }
+        if (length > _capacity || _destination is not ISynchronousByteSink synchronous
+            || !synchronous.CanAppendSynchronously) { return false; }
+        // A complete small token can reuse scratch after a synchronous flush.
+        // Async/retaining destinations keep the immutable-packet fallback.
+        FlushSynchronously(synchronous, token);
+        return true;
     }
 
     internal bool TryAppendFormatting(ReadOnlySpan<WriterPart> parts, QpdfLimits limits, CancellationToken token)
@@ -146,9 +152,7 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         {
             // The span cannot survive this synchronous call. Retaining/async
             // destinations below still receive independent immutable packets.
-            try { synchronous.Append(Scratch.WrittenSpan, cancellationToken); }
-            finally { Scratch.ResetWrittenBytes(); }
-            CheckCancellation(cancellationToken);
+            FlushSynchronously(synchronous, cancellationToken);
             return;
         }
         byte[]? packet = Scratch.ToArray(memory, cancellationToken);
@@ -162,6 +166,13 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
             CheckCancellation(cancellationToken);
         }
         finally { packet = null; memory.Release(admission); }
+    }
+
+    private void FlushSynchronously(ISynchronousByteSink destination, CancellationToken token)
+    {
+        try { destination.Append(Scratch.WrittenSpan, token); }
+        finally { Scratch.ResetWrittenBytes(); }
+        CheckCancellation(token);
     }
 
     private void CheckCancellation(CancellationToken token)

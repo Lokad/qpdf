@@ -8,6 +8,47 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class BatchingSinkTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FormattingAcrossBatchBoundaryReusesOnlySynchronousScratch(bool synchronous)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        SynchronousSink destination = new(false) { CanAppendSynchronously = synchronous };
+        using (BatchingSink sink = BatchingSink.Create(destination, QpdfLimits.Default, governor, CancellationToken.None))
+        {
+            await sink.AppendAsync(new byte[250], CancellationToken.None);
+            Assert.Equal(synchronous, sink.TryAppendFormatting(
+                [WriterPart.Number(123456), WriterPart.Text(" 0 R")], QpdfLimits.Default, CancellationToken.None));
+            if (!synchronous)
+            {
+                await new PdfSerializer(QpdfLimits.Default, governor).AppendValueAsync(
+                    new PdfReference(123456, 0), sink, 0, false, CancellationToken.None);
+            }
+            await sink.AppendAsync("!"u8.ToArray(), CancellationToken.None);
+            await sink.FlushAsync(CancellationToken.None);
+            Assert.Equal(261L, sink.Length);
+        }
+        Assert.Equal(new byte[250].Concat("123456 0 R!"u8.ToArray()).ToArray(), destination.Bytes.ToArray());
+        if (!synchronous)
+        { Assert.Equal(destination.Bytes.ToArray(), destination.Retained.SelectMany(chunk => chunk.ToArray()).ToArray()); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
+    public async Task FormattingBoundaryFlushFailureReleasesScratch()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        SynchronousSink destination = new(true);
+        using (BatchingSink sink = BatchingSink.Create(destination, QpdfLimits.Default, governor, CancellationToken.None))
+        {
+            await sink.AppendAsync(new byte[250], CancellationToken.None);
+            Assert.Throws<IOException>(() => sink.TryAppendFormatting(
+                [WriterPart.Number(123456), WriterPart.Text(" 0 R")], QpdfLimits.Default, CancellationToken.None));
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public async Task DirectTokenFormattingPreservesEscapesAndNumbers()
     {
