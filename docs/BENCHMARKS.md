@@ -1,29 +1,29 @@
 # Benchmarks
 
-In this run, Lokad.qpdf is at or below native qpdf 12.4.2 in **5 of 13**
-codec-free structural workloads on this machine. 8 remain above the ≤1.0×
-target; `select-sparse` is the largest gap at **3.94×**. These are warmed,
+In this run, Lokad.qpdf is at or below native qpdf 12.4.2 in **4 of 13**
+codec-free structural workloads on this machine. 9 remain above the ≤1.0×
+target; `select-sparse` is the largest gap at **3.59×**. These are warmed,
 complete public jobs, including input reads, publication and output writes.
 
-Clean Release source `4d7e683`; median milliseconds per job,
+Clean Release source `832e35b`; median milliseconds per job,
 with Q1–Q3 in parentheses. M/N is computed before rounding times; near-parity
-ratios above 1.0 remain open. All 19,976 observations are retained.
+ratios above 1.0 remain open. All 26,495 observations are retained.
 
 | Workload | Lokad.qpdf ms (Q1–Q3) | qpdf ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.61 (0.59–0.80) | 0.87 (0.83–0.92) | 0.6989× |
-| select-M500 | 22.99 (22.72–23.42) | 27.93 (26.75–29.20) | 0.8231× |
-| merge-250x2 | 24.14 (23.82–29.03) | 23.60 (22.01–24.64) | 1.0226× |
-| split-M500 | 25.91 (25.42–27.49) | 25.88 (25.35–26.58) | 1.0013× |
-| rewrite-M500 | 19.78 (19.06–23.23) | 15.53 (14.73–17.43) | 1.2733× |
-| rewrite-X100 | 2.36 (2.35–2.46) | 1.88 (1.86–2.02) | 1.2602× |
-| object-streams-X100 | 5.58 (3.62–6.49) | 5.79 (4.04–6.59) | 0.9636× |
-| linearize-M500 | 25.23 (24.13–32.71) | 20.66 (20.20–21.29) | 1.2212× |
-| check-X100 | 2.48 (2.32–3.82) | 2.53 (2.42–2.55) | 0.9814× |
-| rewrite-ID-M500 | 30.78 (30.69–34.43) | 26.52 (25.85–28.56) | 1.1607× |
-| rewrite-objects | 44.44 (34.01–45.46) | 33.96 (30.05–57.95) | 1.3086× |
-| select-sparse | 7.45 (6.57–9.31) | 1.89 (1.85–3.26) | 3.9428× |
-| split-single | 9.00 (8.70–11.31) | 10.34 (10.06–10.48) | 0.8708× |
+| select-S10 | 0.45 (0.45–0.46) | 0.74 (0.73–0.74) | 0.6122× |
+| select-M500 | 19.85 (19.12–21.10) | 22.12 (21.99–24.50) | 0.8970× |
+| merge-250x2 | 21.55 (20.86–22.39) | 17.92 (17.89–18.51) | 1.2023× |
+| split-M500 | 25.05 (24.33–25.35) | 23.95 (23.88–24.01) | 1.0458× |
+| rewrite-M500 | 18.09 (17.42–18.38) | 13.81 (13.79–13.85) | 1.3096× |
+| rewrite-X100 | 2.26 (2.26–2.28) | 1.76 (1.76–1.76) | 1.2837× |
+| object-streams-X100 | 2.38 (2.36–2.40) | 2.37 (2.35–2.43) | 1.0027× |
+| linearize-M500 | 29.35 (26.08–44.94) | 23.95 (21.40–37.77) | 1.2257× |
+| check-X100 | 2.11 (2.10–2.23) | 2.26 (2.25–2.31) | 0.9350× |
+| rewrite-ID-M500 | 27.81 (27.64–28.19) | 22.65 (22.51–22.76) | 1.2276× |
+| rewrite-objects | 29.92 (29.34–30.35) | 24.72 (24.58–25.44) | 1.2104× |
+| select-sparse | 5.75 (5.63–5.77) | 1.60 (1.55–1.61) | 3.5932× |
+| split-single | 5.59 (5.53–6.48) | 6.74 (6.62–6.84) | 0.8289× |
 
 S10 has 10 pages. M500 and merge sources have 500/250 pages with about 10 KiB
 of content per page; split-M500 produces ten 50-page files. X100 has 100 pages,
@@ -39,27 +39,21 @@ comparison covers these inputs and the built-in memory host, not every PDF,
 operation or custom host. Separate runs under different load do not isolate
 the effect of a source change.
 
-A separate thirty-load diagnostic of the original 16.8 MB sparse input records
-9.56 ms median (Q1–Q3 2.73–15.27), allocating 16.798 MB per fresh load. In its
-same run, complete managed/native jobs measure 9.14/3.29 ms. Length/hash checks
-follow timing. The broad variation prevents subtracting medians or attributing
-it to GC; full input allocation/reading is a boundary cost to address. Production
-source is unchanged from the table above. This component supplies no engine ratio.
 | Workload | Managed allocation MB/job | Peak RSS MiB managed / native | Output KiB managed / native |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.087 | 72.6 / 6.4 | 3.9 / 4.1 |
-| select-M500 | 17.782 | 152.6 / 7.8 | 5096.3 / 5105.1 |
-| merge-250x2 | 22.897 | 165.8 / 8.4 | 5096.7 / 5105.5 |
-| split-M500 | 30.611 | 146.5 / 8.0 | 5101.1 / 5108.7 |
-| rewrite-M500 | 17.777 | 154.5 / 7.6 | 5096.3 / 5095.9 |
-| rewrite-X100 | 0.716 | 75.2 / 6.5 | 69.5 / 69.5 |
-| object-streams-X100 | 0.801 | 76.0 / 6.5 | 65.8 / 65.8 |
-| linearize-M500 | 19.947 | 153.8 / 8.1 | 5099.2 / 5109.0 |
-| check-X100 | 0.656 | 72.5 / 6.7 | 0.0 / 0.0 |
-| rewrite-ID-M500 | 17.803 | 155.8 / 7.7 | 5096.3 / 5095.9 |
-| rewrite-objects | 6.193 | 85.3 / 10.6 | 293.1 / 295.0 |
-| select-sparse | 16.942 | 114.8 / 6.3 | 1.1 / 1.1 |
-| split-single | 1.423 | 75.6 / 6.5 | 68.9 / 62.6 |
+| select-S10 | 0.087 | 72.8 / 6.3 | 3.9 / 4.1 |
+| select-M500 | 17.781 | 150.6 / 7.8 | 5096.3 / 5105.1 |
+| merge-250x2 | 22.896 | 170.9 / 8.4 | 5096.7 / 5105.5 |
+| split-M500 | 30.611 | 146.5 / 7.9 | 5101.1 / 5108.7 |
+| rewrite-M500 | 17.775 | 150.0 / 7.5 | 5096.3 / 5095.9 |
+| rewrite-X100 | 0.716 | 76.3 / 6.4 | 69.5 / 69.5 |
+| object-streams-X100 | 0.801 | 76.7 / 6.4 | 65.8 / 65.8 |
+| linearize-M500 | 19.946 | 159.6 / 8.0 | 5099.2 / 5109.0 |
+| check-X100 | 0.656 | 74.3 / 6.7 | 0.0 / 0.0 |
+| rewrite-ID-M500 | 17.784 | 158.3 / 7.7 | 5096.3 / 5095.9 |
+| rewrite-objects | 6.188 | 86.4 / 10.6 | 293.1 / 295.0 |
+| select-sparse | 16.941 | 115.8 / 6.3 | 1.1 / 1.1 |
+| split-single | 1.422 | 75.9 / 6.5 | 68.9 / 62.6 |
 
 Allocation is cumulative managed allocation, not retained memory. RSS is each
 dedicated worker's high-water mark, including warmup, runtime and host storage;
@@ -146,9 +140,6 @@ license, with no third-party assets; native creates the streamed variant before
 the incremental metadata update. The runners require the clean pinned native
 source and Release build. Read the archive with
 `gzip -dc benchmarks/results/2026-10-12-parity-progress.json.gz`.
-
-For the sparse input diagnostic, add `--workload select-sparse --input-read-diagnostic`
-to the warmed comparison command. Component samples remain separate from jobs.
 
 For a narrow probe, add `--workload rewrite-X100` (usually under one minute).
 Preserve a baseline probe directory and use `--baseline-probe <dir>/QpdfProbe.dll`
