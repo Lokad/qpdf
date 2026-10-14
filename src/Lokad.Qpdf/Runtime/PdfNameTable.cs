@@ -152,9 +152,12 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     }
 
     internal bool TryAdd(ParserMemoryScope memory, ResourceGovernor governor, PdfName key, T value, CancellationToken token)
-        => Store(memory, governor, key, value, token, false);
+        => Store(memory, governor, key, value, token, false, out _);
+    internal bool TryAdd(ParserMemoryScope memory, ResourceGovernor governor, PdfName key, T value,
+        CancellationToken token, [MaybeNullWhen(true)] out T previous)
+        => Store(memory, governor, key, value, token, false, out previous);
     internal void Assign(ParserMemoryScope memory, ResourceGovernor governor, PdfName key, T value, CancellationToken token)
-        => Store(memory, governor, key, value, token, true);
+        => Store(memory, governor, key, value, token, true, out _);
 
     internal int EnsureCapacity(ParserMemoryScope memory, ResourceGovernor governor, int required, CancellationToken token)
     {
@@ -166,15 +169,18 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         return Capacity;
     }
 
-    private bool Store(ParserMemoryScope memory, ResourceGovernor governor, PdfName key, T value, CancellationToken token, bool replace)
+    private bool Store(ParserMemoryScope memory, ResourceGovernor governor, PdfName key, T value,
+        CancellationToken token, bool replace, [MaybeNullWhen(true)] out T previous)
     {
         CheckConstruction(memory, governor); Visits visits = new(governor, token, null);
         int found = Find(key, visits, out int hash);
         if (found >= 0)
         {
+            previous = _entries[found].Value;
             if (replace) { visits.Step(); _entries[found].Value = value; _version = unchecked(_version + 1); }
             return false;
         }
+        previous = default;
         visits.Step();
         if (_count == Capacity)
         { Grow(memory, visits, (int)Math.Min(Array.MaxLength, Math.Max(3L, Capacity * 2L + 1L))); }

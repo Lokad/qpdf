@@ -805,7 +805,9 @@ internal sealed class PdfParser
             }
 
             long discardedBytes = 0L;
-            if (entries.TryGetValue(key, _governor, _governor.CancellationToken, out ParsedValue previous))
+            // Insert ordinary keys with one hash/probe. Duplicates leave the
+            // stored value intact until their warning/repair checks succeed.
+            if (!entries.TryAdd(Memory, _governor, key, value, _governor.CancellationToken, out ParsedValue previous))
             {
                 if (!SuppressRepairDiagnostics)
                 {
@@ -828,8 +830,8 @@ internal sealed class PdfParser
                 // This newly parsed key and the old value cease to be retained.
                 discardedBytes = checked(keyBytes + previous.ReservedBytes);
                 previous = default;
+                entries.Assign(Memory, _governor, key, value, _governor.CancellationToken);
             }
-            entries.Assign(Memory, _governor, key, value, _governor.CancellationToken);
             ReleaseMemory(discardedBytes);
             if (missingValue)
             {

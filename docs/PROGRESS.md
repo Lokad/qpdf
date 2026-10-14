@@ -7,40 +7,39 @@ ratios 0.61–3.40×. [Benchmarks](BENCHMARKS.md) gives current comparative figu
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
-Pushed `e36d3e4` passed [hosted CI run 38552302663](https://github.com/Lokad/qpdf/actions/runs/38552302663):
-Windows 6m28s, Ubuntu 5m45s, pinned reference 6m04s. Each ordinary job passes
-17,890 checks without failures/skips, locked Release build/pack, inspection,
+Pushed `3e30201` passed [hosted CI run 38559796408](https://github.com/Lokad/qpdf/actions/runs/38559796408):
+Windows 6m48s, Ubuntu 4m46s, pinned reference 6m01s. Each ordinary job passes
+17,898 checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and version are unchanged.
 
 ## Current correction
 
-Private strict selections on custom hosts now prefetch bounded ranges from
-standalone classic xrefs, skipping large unused extents. The existing parser
-and copier consume the ranges. Missing data, diagnostics or parse failures retry
-once through the complete reader on the same open lease, before publication.
-Public documents, memory-host jobs and other operations retain their existing
-contracts. Full logical input limits apply before reads; material buffers and
-short-read assembly overlap are admitted. No parallelism or parser rewrite.
+Dictionary parsing inserts ordinary keys with one hash/probe through the existing
+name table. Duplicate insertion returns the prior value without mutation, keeping
+warning/repair checks before replacement, first-key identity, insertion order
+and discarded-value cleanup. No new table, storage contract or ownership scheme.
 
-An additional typed file-host comparison uses the original sparse fixture:
-managed 5.649→0.667 ms/job, versus native 1.628 ms (0.410×); managed allocation
-16.933→0.156 MB/job. Both managed revisions use the same file adapter and driver.
-Their output bytes match; native/PdfPig semantics and the wrong-content control
-pass. This additional job does not replace or close the original memory-host
-sparse comparison, whose complete fresh input read remains its largest cost.
+The original X100 paired probe records 2.352→2.216 ms/job, with overlapping IQRs
+(2.212–2.631 / 2.184–2.537); no confirmed speedup is claimed. Allocation remains
+about 0.670 MB/job. The same fresh public job uses 270,249→264,269 charged work
+units at unchanged charged peak memory, with identical independently validated
+output bytes. The redundant lookup is removed structurally.
 
-Eight public controls cover normal/short reads, retained metadata across omitted
-payload, required-payload and warning fallback, physical error offsets, input
-limits, cancellation, nonprogressing reads, cleanup and surviving prior output.
-All pass (589ms); the wider reader/selection/presentation/cleanup run passes
-3,980 checks. Locked Release build/explicit pack/inspection/fresh consumer and
-rejections pass (17s), preserving the 2 MiB multisource consumer ceiling.
-Clean-source qualification retains all 26,031 primary observations and 6,330
-additional file-host observations, fresh independent semantics and original inputs.
-The current file-host ratio is 0.430×. Grouped splitting is narrowly above parity
-(1.034×); separate panels do not isolate timing effects. One combined hosted push
-qualifies the committed implementation and current report.
+All 4,184 focused syntax, name-table, reader and selection checks pass (20s).
+The existing collision regression now checks prior-value return and nonmutation
+on duplicate insertion, alongside first-key identity/order. Recovery, warning,
+work/cancellation and discarded-value controls remain. All 26 fresh managed/native
+outcomes and three negative controls pass with unchanged inputs. Locked Release
+build/explicit pack/inspection/fresh consumer/rejections pass (25s), preserving
+the 2 MiB multisource consumer ceiling. Committed-source qualification follows.
+
+Private strict file-host selection retains bounded input prefetch and one
+complete-reader retry on the same lease before publication. Public documents,
+memory-host jobs and other operations retain their storage contracts. Logical
+input limits precede reads; significant buffers and short-read overlap are
+admitted. Its additional benchmark stays separate from the original thirteen
+memory-host cells, including the unresolved full-input sparse boundary cost.
 
 ## Preserved scope
 

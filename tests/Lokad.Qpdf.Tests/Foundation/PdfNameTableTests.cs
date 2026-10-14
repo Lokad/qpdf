@@ -73,9 +73,15 @@ public sealed class PdfNameTableTests
         PdfNameTable<object> table = PdfNameTable<object>.Create(memory, governor, IntPtr.Size, CancellationToken.None);
         PdfName[] keys = Enumerable.Range(0, 32).Select(number => Key(number, 512)).ToArray(); object[] values = keys.Select(_ => new object()).ToArray();
         Assert.Single(keys.Select(key => key.GetHashCode()).Distinct());
-        for (int index = 0; index < keys.Length; index++) { Assert.True(table.TryAdd(memory, governor, keys[index], values[index], CancellationToken.None)); }
+        for (int index = 0; index < keys.Length; index++)
+        {
+            Assert.True(table.TryAdd(memory, governor, keys[index], values[index], CancellationToken.None, out object? previous));
+            Assert.Null(previous);
+        }
         for (int index = 0; index < keys.Length; index++) { Assert.True(table.TryGetValue(Key(index, 512), governor, CancellationToken.None, out object? found)); Assert.Same(values[index], found); }
-        Assert.False(table.TryAdd(memory, governor, Key(7, 512), new object(), CancellationToken.None));
+        Assert.False(table.TryAdd(memory, governor, Key(7, 512), new object(), CancellationToken.None, out object? duplicate));
+        Assert.Same(values[7], duplicate);
+        Assert.Same(values[7], table[keys[7]]);
         object replacement = new(); table.Assign(memory, governor, Key(7, 512), replacement, CancellationToken.None);
         Assert.Equal(32, table.Count); Assert.Same(replacement, table[keys[7]]);
         KeyValuePair<PdfName, object>[] rows = Enumerable.ToArray<KeyValuePair<PdfName, object>>(table); Assert.Equal(keys.Length, rows.Length);
