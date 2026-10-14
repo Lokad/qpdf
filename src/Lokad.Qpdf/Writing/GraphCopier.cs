@@ -30,6 +30,7 @@ internal sealed class GraphCopier
     private readonly ResourceGovernor _governor;
     private readonly QpdfLimits _limits;
     private readonly Dictionary<int, int> _mapping;
+    private readonly int _sourceObjectCount;
     private readonly Dictionary<int, QpdfObject> _copied;
     private readonly ParserMemoryScope? _ownership;
     private int _nextId;
@@ -63,6 +64,7 @@ internal sealed class GraphCopier
 
         limits.Validate();
         _resolver = (IIndirectResolver)engine;
+        _sourceObjectCount = engine.XRefEntries.Count;
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _limits = limits;
         if (firstId <= 0)
@@ -115,7 +117,9 @@ internal sealed class GraphCopier
     {
         if (_ownership is not null && !_mapping.ContainsKey(source))
         {
-            ParserContainers.EnsureEntryCapacity(_ownership, _mapping, sizeof(int));
+            // Keys identify source objects. Duplicate destination pages do not
+            // increase this cardinality; their separate map keeps normal growth.
+            ParserContainers.EnsureEntryCapacity(_ownership, _mapping, sizeof(int), _sourceObjectCount);
         }
         _mapping[source] = destination;
     }

@@ -106,7 +106,8 @@ requiring arrays materialize only the slice under
 their scratch owner; serialization can borrow it through publication.
 
 Copying memoizes identities per source, so equal object numbers from different
-inputs never collide. Selected pages register before recursive copying, allowing
+inputs never collide. Validated source cardinality caps source-map growth
+overshoot; duplicate destination pages retain independent capacity. Selected pages register before recursive copying, allowing
 forward links to later selected pages. Omitted-page links become null; duplicate
 occurrences get distinct page objects while permitted resources share. Four
 inheritable page attributes materialize before copying. Catalog/forms, labels,

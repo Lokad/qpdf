@@ -13,6 +13,7 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal sealed partial class PdfSerializer
 {
+    private static readonly PdfName QdfTypeKey = PdfName.FromAscii("Type");
     private static readonly byte[] QdfBinaryLine = [0x25, 0xBF, 0xF7, 0xA2, 0xFE, 0x0A];
 
     internal async ValueTask<long> SerializeQdfAsync(
@@ -605,9 +606,9 @@ internal sealed partial class PdfSerializer
     private static bool IsDiscardedXRefStream(QpdfObject value)
     {
         return value is PdfStream stream
-            && stream.Dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject? type)
+            && stream.Dictionary.TryGet(QdfTypeKey, out QpdfObject? type)
             && type is PdfName name
-            && name.DisplayText == "XRef";
+            && name.RawSpan.SequenceEqual("XRef"u8);
     }
 
     private async ValueTask<bool> AppendQdfStreamAsync(PdfStream stream, IByteSink sink, bool newlineBeforeEndstream, CancellationToken cancellationToken)

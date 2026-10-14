@@ -85,6 +85,8 @@ internal sealed record OutlineTable(
 /// </summary>
 internal static class LinearizationCheck
 {
+    private static readonly PdfName FilterKey = PdfName.FromAscii("Filter");
+    private static readonly PdfName DecodeParmsKey = PdfName.FromAscii("DecodeParms");
     private const int ScanBytes = 1024;
     private const int ScanTokens = 200;
 
@@ -685,14 +687,14 @@ internal static class LinearizationCheck
         ParserMemoryScope memory, CancellationToken token)
     {
         byte[] raw = stream.ArrayData(memory, governor, token);
-        if (!stream.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter) || filter is PdfNull)
+        if (!stream.Dictionary.TryGet(FilterKey, out QpdfObject filter) || filter is PdfNull)
         {
             return raw;
         }
 
-        if (filter is PdfName name && name.DisplayText == "FlateDecode")
+        if (filter is PdfName name && name.RawSpan.SequenceEqual("FlateDecode"u8))
         {
-            if (stream.Dictionary.TryGet(PdfName.FromAscii("DecodeParms"), out QpdfObject parms) && parms is not PdfNull)
+            if (stream.Dictionary.TryGet(DecodeParmsKey, out QpdfObject parms) && parms is not PdfNull)
             {
                 throw new QpdfParseException("Hint streams with decode parameters are unsupported.", null, null);
             }
