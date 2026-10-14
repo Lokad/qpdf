@@ -2,7 +2,7 @@
 
 Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
 thirteen codec-free public workloads. The target remains open. The latest full
-panel (`ead62b0`) records five cells at parity, with ratios 0.60-3.60x.
+panel (`bf03d9a`) records five cells at parity, with ratios 0.61-3.47x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
@@ -34,10 +34,14 @@ not managed/native speed ratios. Public output copies and staging dominate the
 copy stacks. Larger ownership changes need bounded retention and alias guarantees.
 
 Locked Release restore/build/explicit pack/inspection/fresh consumer/rejection
-checks pass (22s), preserving the unchanged 2 MiB multisource ceiling. Full
-comparison, visual and hosted checks follow on the committed source.
-Earlier useful corrections and native interaction controls remain
-integrated; separate panels do not establish source-change attribution.
+checks pass (22s), preserving the unchanged 2 MiB multisource ceiling. All 26 fresh
+managed/native outcomes and three negative controls pass with unchanged inputs.
+The clean committed-source panel retains 23,507 observations; ordinary rewrite is
+1.2417x and original sparse selection 3.4732x. The separate file-host case is
+0.3747x. Seven visual cases and both negatives pass (29s) outside timing with
+unchanged tolerances. Hosted qualification follows. Earlier useful corrections,
+native interaction controls and all raw runs remain; separate panels do not
+establish source-change attribution.
 ## Preserved scope
 
 The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK JPEG
