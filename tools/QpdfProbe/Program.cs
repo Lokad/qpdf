@@ -70,8 +70,8 @@ internal static class Program
         Console.WriteLine("  QpdfProbe page-text --input <pdf> (independent PdfPig page text, JSON array)");
         Console.WriteLine("  QpdfProbe compare --qpdf-exe <path> --input <pdf> --expected-npages <N>");
         Console.WriteLine("  QpdfProbe compare-raster --left <ppm> --right <ppm> --expected-width <1..4096> --expected-height <1..4096> --max-mean-error <0..1> --max-changed-fraction <0..1> --channel-threshold <0..255>");
-        Console.WriteLine("  QpdfProbe emit --workdir <dir> --out <logical>=<physical> [--out ...] -- <argv...>");
-        Console.WriteLine("  QpdfProbe emit-job --workdir <dir> --job <job.json> --out <logical>=<physical> [--out ...]");
+        Console.WriteLine("  QpdfProbe emit --workdir <dir> [--file-input] --out <logical>=<physical> [--out ...] -- <argv...>");
+        Console.WriteLine("  QpdfProbe emit-job --workdir <dir> [--file-input] --job <job.json> --out <logical>=<physical> [--out ...]");
         Console.WriteLine("  QpdfProbe batch (bounded sequential JSON requests on stdin; developer harness only)");
         Console.WriteLine("  QpdfProbe warm (bounded sequential emit requests; internal job timing, no process startup)");
         Console.WriteLine("  QpdfProbe select-file <input.pdf> <output.pdf> (additional typed first-page selection through a file host)");

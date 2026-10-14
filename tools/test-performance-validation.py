@@ -21,6 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("repo", "dotnet", "probe", "qpdf", "input-root", "work-root"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--file-input", action="store_true", help="Validate the comparable file-backed argv lane")
     args = parser.parse_args()
     repo, dotnet, probe, qpdf, inputs, root = (
         getattr(args, name).resolve() for name in ("repo", "dotnet", "probe", "qpdf", "input_root", "work_root"))
@@ -36,11 +37,18 @@ def main():
     hashes = {p.name: comparison.sha(p) for p in (root / "inputs").glob("*.pdf")}
     os.chdir(root)
     accepted = []
+
+    def command(case, engine, directory):
+        argv = comparison.commands(case, engine, directory, root, dotnet, probe, qpdf)
+        if args.file_input and engine == "managed":
+            argv.insert(3, "--file-input")
+        return argv
+
     for case in cases:
         for engine in ("native", "managed"):
             directory = root / case["Name"] / engine / "outputs"
             directory.mkdir(parents=True)
-            output = comparison.run(comparison.commands(case, engine, directory, root, dotnet, probe, qpdf))
+            output = comparison.run(command(case, engine, directory))
             if engine == "managed" and b"emit: status=Completed exit=0" not in output:
                 raise AssertionError("Managed validation job did not succeed")
             if case["Name"].startswith("linearize-"):
@@ -51,7 +59,7 @@ def main():
             if case["Name"] == "rewrite-ID-M500":
                 repeated = directory.parent / "repeated"
                 repeated.mkdir()
-                comparison.run(comparison.commands(case, engine, repeated, root, dotnet, probe, qpdf))
+                comparison.run(command(case, engine, repeated))
                 if comparison.output_identity(case, repeated) != comparison.output_identity(case, directory):
                     raise AssertionError("Content-derived IDs/output are not repeatable: " + engine)
     check = next(c for c in cases if c["Name"] == "check-X100")
@@ -78,7 +86,7 @@ def main():
             "no-op managed checker")
     if any(comparison.sha(root / "inputs" / name) != identity for name, identity in hashes.items()):
         raise AssertionError("Original input changed")
-    report = {"accepted": accepted, "negativeControlsRejected": ["outputless wrong expectation",
+    report = {"inputDelivery": "file-backed" if args.file_input else "memory-host", "accepted": accepted, "negativeControlsRejected": ["outputless wrong expectation",
         "marker-only classic PDF", "no-op managed checker"], "inputs": hashes}
     (root / "validation-results.json").write_text(json.dumps(report, indent=2) + "\n")
     print(f"Passed {len(accepted)} fresh outcomes and three negative controls; inputs unchanged.")

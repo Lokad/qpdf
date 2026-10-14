@@ -34,19 +34,25 @@ internal static class EmitCommand
             argv.Add(args[i]);
         }
 
-        return Execute(workdir, outs, null, argv, requireSuccess);
+        return Execute(workdir, outs, null, argv, requireSuccess, args.AsSpan(0, sep).Contains("--file-input"));
     }
 
     internal static int RunEmitJob(string[] args)
+        => RunEmitJob(args, false);
+
+    internal static int RunWarmEmitJob(string[] args)
+        => RunEmitJob(args, true);
+
+    private static int RunEmitJob(string[] args, bool requireSuccess)
     {
         string workdir = GetOption(args, "--workdir");
         string jobFile = GetOption(args, "--job");
         List<string> outs = GetAllOptions(args, "--out");
         string jobJson = File.ReadAllText(jobFile);
-        return Execute(workdir, outs, jobJson, null, false);
+        return Execute(workdir, outs, jobJson, null, requireSuccess, args.Contains("--file-input", StringComparer.Ordinal));
     }
 
-    private static int Execute(string workdir, List<string> outs, string? jobJson, List<string>? argv, bool requireSuccess)
+    private static int Execute(string workdir, List<string> outs, string? jobJson, List<string>? argv, bool requireSuccess, bool fileInput)
     {
         if (!Directory.Exists(workdir))
         {
@@ -69,7 +75,8 @@ internal static class EmitCommand
 
         QpdfExecutionResult result;
         IQpdfHost executionHost;
-        if (requireSuccess)
+        if (fileInput) { executionHost = new FileSelectionCommand.FileHost(host, available); }
+        else if (requireSuccess)
         {
             // Warmed workloads contain exactly their required inputs under
             // canonical logical names. Keep file reads and owned-buffer transfer

@@ -311,8 +311,8 @@ public static partial class Qpdf
         QpdfPath? linearizePass1,
         CancellationToken cancellationToken)
     {
-        bool selectiveCandidate = recovery == QpdfRecoveryMode.Strict && host is not Hosting.InMemoryQpdfHost
-            && !preserveCatalog && !preserveUnreferenced && !linearize && linearizePass1 is null && !qdf.Enabled
+        bool selectiveCandidate = host is not Hosting.InMemoryQpdfHost
+            && !preserveUnreferenced && !linearize && linearizePass1 is null && !qdf.Enabled
             && !coalesceContents && !normalizeContent && !externalizeInlineImages && !optimize.Optimize
             && underlays.Count == 0 && overlays.Count == 0 && !flattenRotation
             && flattenAnnotations is null && !generateAppearances;
@@ -331,7 +331,7 @@ public static partial class Qpdf
                     await using QpdfDocument document = stableInput is null
                         ? await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
                         : await QpdfDocument.OpenSelectionInputAsync(stableInput, inputPath, limits, governor, diagnostics,
-                            attempt == 0, cancellationToken).ConfigureAwait(false);
+                            recovery, attempt == 0, cancellationToken).ConfigureAwait(false);
                     retryParse = document.Engine.HasSelectiveInput;
                     if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                     int total = document.PageReferences.Count;
@@ -836,6 +836,46 @@ public static partial class Qpdf
         if (preparedSource is not null
             && (sources.Count != 1 || preparedSource.Path.Value != sources[0].Input.Value))
         { throw new InvalidOperationException("A prepared document requires its single original source."); }
+        // A pages block uses the multisource copier even with one source. Keep
+        // that catalog/selection behavior, retrying its complete preparation on
+        // the same lease if a bounded read cannot establish the original result.
+        if (preparedSource is null && sources.Count == 1 && host is not Hosting.InMemoryQpdfHost
+            && !emptyPrimary && !replaceInput && !splitPages.HasValue
+            && !preserveUnreferenced && !linearize && linearizePass1 is null && !qdf.Enabled
+            && !coalesceContents && !normalizeContent && !externalizeInlineImages && !optimize.Optimize
+            && underlays.Count == 0 && overlays.Count == 0 && !flattenRotation
+            && flattenAnnotations is null && !generateAppearances)
+        {
+            IQpdfInput input = await GovernedHost.OpenInputAsync(host, sources[0].Input,
+                governor, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                for (int attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        await using QpdfDocument document = await QpdfDocument.OpenSelectionInputAsync(input,
+                            sources[0].Input, limits, governor, diagnostics, recovery, attempt == 0,
+                            cancellationToken).ConfigureAwait(false);
+                        return await SelectPagesCoreAsync(host, sources, outputPath, primaryInput,
+                            pruneUnreachableFields, limits, recovery, collation, rotations, labels, removeLabels,
+                            verbatimLabels, splitPages, replaceInput, minVersion, forceVersion, deterministicId,
+                            staticId, newlineBeforeEndstream, objectStreams, preserveUnreferenced, compression,
+                            removeInfo, removeAcroform, removeStructure, removeMetadata, edits, coalesceContents,
+                            normalizeContent, externalizeInlineImages, iiMinBytes, underlays, overlays,
+                            flattenRotation, flattenAnnotations, generateAppearances, optimize, qdf, prune,
+                            preserveCatalog, governor, diagnostics, linearize, linearizePass1, emptyPrimary,
+                            document, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (CompleteInputRequiredException) when (attempt == 0) { }
+                }
+            }
+            finally
+            {
+                try { await input.DisposeAsync().ConfigureAwait(false); }
+                finally { governor.FinishDocumentCounters(); }
+            }
+        }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
         List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
@@ -881,153 +921,161 @@ public static partial class Qpdf
                 // let mostly unused inputs retire before the next source opens.
                 ?? await QpdfDocument.OpenCore(host, sources[s].Input, limits, governor, diagnostics, recovery, cancellationToken,
                     false, sources.Count == 1).ConfigureAwait(false);
-            if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
-            ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
-            PdfVersion sourceVersion = document.OwnVersion();
-            if (version is null || IsNewerVersion(sourceVersion, version))
+            try
             {
-                version = sourceVersion;
-            }
-
-            if (s == 0)
-            {
-                originalId1 = TryGetOriginalId(document.Engine);
-            }
-
-            sourceCompressed.Add(CollectCompressedOriginals(document.Engine, objectStreams is not ("disable" or "generate")));
-
-            IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxWork);
-            foreach (int pageNumber in requested)
-            {
-                if (pageNumber > document.PageReferences.Count)
+                if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
+                ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
+                PdfVersion sourceVersion = document.OwnVersion();
+                if (version is null || IsNewerVersion(sourceVersion, version))
                 {
-                    throw new ArgumentOutOfRangeException(nameof(sources), $"Source {s} page {pageNumber} exceeds the page count of {document.PageReferences.Count}.");
-                }
-            }
-
-            selected += requested.Count;
-            if (selected > limits.MaxWork)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), selected, limits.MaxWork);
-            }
-
-            GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
-            foreach (int pageNumber in requested)
-            {
-                copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
-            }
-            copier.HintPageCapacity(requested.Count);
-            List<(GraphCopier Copier, int Id, int SourcePage)> taken = new(requested.Count);
-            foreach (int pageNumber in requested)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.ChargeWork(1L);
-                PageLocation location = document.PageReferences[pageNumber - 1];
-                IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
-                (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
-                RequireMediaBox(page);
-                taken.Add((copier, pageId, pageNumber));
-            }
-
-            if (preserveUnreferenced && s == primaryIdx && !emptyPrimary)
-            {
-                HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
-                foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken))
-                {
-                    allPreserved.Add(preserved);
-                }
-            }
-
-            Content.CopiedForm? sourceForm = removeAcroform
-                ? null
-                : Content.AcroFormCopy.TryCopySourceForm(
-                    document.Engine,
-                    copier,
-                    KeptLocations(document, requested),
-                    pruneUnreachableFields,
-                    limits,
-                    governor,
-                    diagnostics,
-                    cancellationToken);
-            multiForms.Add(sourceForm);
-            gateForms.Add(removeAcroform
-                ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, diagnostics, cancellationToken)
-                : sourceForm);
-            if (needSourceLabels)
-            {
-                multiLabels.Add(Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken));
-            }
-            else
-            {
-                multiLabels.Add(null);
-            }
-
-            if (verbatimLabels is not null && s == 0)
-            {
-                verbatimCopied = copier.CopyValue(verbatimLabels, 0);
-            }
-
-            if (s == primaryIdx && !emptyPrimary)
-            {
-                (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
-                primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
-                (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
-                primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
-                if (primaryInfo is not null)
-                {
-                    catalogExtraIds.Add(primaryInfo.ObjectNumber);
+                    version = sourceVersion;
                 }
 
-                if (primaryMetadata is not null)
+                if (s == 0)
                 {
-                    catalogExtraIds.Add(primaryMetadata.ObjectNumber);
-                }
-                if (primaryOutlines is not null)
-                {
-                    catalogExtraIds.Add(primaryOutlines.ObjectNumber);
+                    originalId1 = TryGetOriginalId(document.Engine);
                 }
 
-                if (primaryStructTree is not null)
+                sourceCompressed.Add(CollectCompressedOriginals(document.Engine, objectStreams is not ("disable" or "generate")));
+
+                IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxWork);
+                foreach (int pageNumber in requested)
                 {
-                    catalogExtraIds.Add(primaryStructTree.ObjectNumber);
+                    if (pageNumber > document.PageReferences.Count)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(sources), $"Source {s} page {pageNumber} exceeds the page count of {document.PageReferences.Count}.");
+                    }
                 }
 
-                if (primaryMarkInfo is PdfReference primaryMarkRef)
+                selected += requested.Count;
+                if (selected > limits.MaxWork)
                 {
-                    catalogExtraIds.Add(primaryMarkRef.ObjectNumber);
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), selected, limits.MaxWork);
                 }
 
-                primaryExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
-                primaryPageMode = ReadInputPageMode(document.Engine);
+                GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
+                foreach (int pageNumber in requested)
+                {
+                    copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
+                }
+                copier.HintPageCapacity(requested.Count);
+                List<(GraphCopier Copier, int Id, int SourcePage)> taken = new(requested.Count);
+                foreach (int pageNumber in requested)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    governor.ChargeWork(1L);
+                    PageLocation location = document.PageReferences[pageNumber - 1];
+                    IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
+                    (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                    RequireMediaBox(page);
+                    taken.Add((copier, pageId, pageNumber));
+                }
+
+                if (preserveUnreferenced && s == primaryIdx && !emptyPrimary)
+                {
+                    HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
+                    foreach (int preserved in copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken))
+                    {
+                        allPreserved.Add(preserved);
+                    }
+                }
+
+                Content.CopiedForm? sourceForm = removeAcroform
+                    ? null
+                    : Content.AcroFormCopy.TryCopySourceForm(
+                        document.Engine,
+                        copier,
+                        KeptLocations(document, requested),
+                        pruneUnreachableFields,
+                        limits,
+                        governor,
+                        diagnostics,
+                        cancellationToken);
+                multiForms.Add(sourceForm);
+                gateForms.Add(removeAcroform
+                    ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), pruneUnreachableFields, limits, governor, diagnostics, cancellationToken)
+                    : sourceForm);
+                if (needSourceLabels)
+                {
+                    multiLabels.Add(Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken));
+                }
+                else
+                {
+                    multiLabels.Add(null);
+                }
+
+                if (verbatimLabels is not null && s == 0)
+                {
+                    verbatimCopied = copier.CopyValue(verbatimLabels, 0);
+                }
+
+                if (s == primaryIdx && !emptyPrimary)
+                {
+                    (primaryInfo, primaryMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+                    primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
+                    (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
+                    primaryExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
+                    if (primaryInfo is not null)
+                    {
+                        catalogExtraIds.Add(primaryInfo.ObjectNumber);
+                    }
+
+                    if (primaryMetadata is not null)
+                    {
+                        catalogExtraIds.Add(primaryMetadata.ObjectNumber);
+                    }
+                    if (primaryOutlines is not null)
+                    {
+                        catalogExtraIds.Add(primaryOutlines.ObjectNumber);
+                    }
+
+                    if (primaryStructTree is not null)
+                    {
+                        catalogExtraIds.Add(primaryStructTree.ObjectNumber);
+                    }
+
+                    if (primaryMarkInfo is PdfReference primaryMarkRef)
+                    {
+                        catalogExtraIds.Add(primaryMarkRef.ObjectNumber);
+                    }
+
+                    primaryExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
+                    primaryPageMode = ReadInputPageMode(document.Engine);
+                }
+
+                if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && compression.CompressStreams is not null))
+                {
+                    TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
+                }
+
+                Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, cancellationToken, preserveUnreferenced, out bool sourcePrune);
+                if (sourceTransforms is not null)
+                {
+                    List<int> takenIds = new(taken.Count);
+                    foreach ((GraphCopier _, int takenId, int _) in taken)
+                    {
+                        takenIds.Add(takenId);
+                    }
+                    Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
+                }
+
+                if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
+                {
+                    needAppearances = true;
+                }
+
+                nextId = copier.NextId;
+                copiers.Add(copier);
+                perSource.Add(taken);
+                // Copied containers still borrow immutable source scalars/keys.
+                // Keep their coarse admission until this complete job releases them.
+                document.Engine.TransferExclusiveValuesTo(selectionMemory);
+                // No reader is consulted by the remaining graph preparation or
+                // publication. A later writer failure must never retry output.
+                document.Engine.AcceptSelectiveInput();
             }
-
-            if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && compression.CompressStreams is not null))
-            {
-                TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
-            }
-
-            Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, cancellationToken, preserveUnreferenced, out bool sourcePrune);
-            if (sourceTransforms is not null)
-            {
-                List<int> takenIds = new(taken.Count);
-                foreach ((GraphCopier _, int takenId, int _) in taken)
-                {
-                    takenIds.Add(takenId);
-                }
-                Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
-            }
-
-            if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
-            {
-                needAppearances = true;
-            }
-
-            nextId = copier.NextId;
-            copiers.Add(copier);
-            perSource.Add(taken);
-            // Copied containers still borrow immutable source scalars/keys.
-            // Keep their coarse admission until this complete job releases them.
-            document.Engine.TransferExclusiveValuesTo(selectionMemory);
+            catch (QpdfParseException) when (document.Engine.HasSelectiveInput)
+            { throw new CompleteInputRequiredException(); }
         }
 
         List<(int Source, int Slot)> order = CollateOrder(perSource, collation);

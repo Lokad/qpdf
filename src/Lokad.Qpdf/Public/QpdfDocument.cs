@@ -301,9 +301,9 @@ public sealed class QpdfDocument : IAsyncDisposable
             valuesEscape, borrowInputStreams, false, false);
 
     internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
-        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, bool selective,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
         CancellationToken cancellationToken)
-        => OpenInputDocument(input, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict,
+        => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
             cancellationToken, false, false, true, selective);
 
     private static async ValueTask<QpdfDocument> OpenInputDocument(

@@ -30,9 +30,10 @@ internal static class WarmCommand
             }
             bool inputOnly = arguments[0] == "read-input";
             bool fileSelection = arguments[0] == "select-file";
+            bool jobJson = arguments[0] == "emit-job";
             if (inputOnly && count != 2) { throw new ProbeException("read-input needs one file path.", 1); }
-            if (!inputOnly && !fileSelection && arguments[0] != "emit")
-            { throw new ProbeException("warm accepts emit jobs or read-input diagnostics.", 1); }
+            if (!inputOnly && !fileSelection && !jobJson && arguments[0] != "emit")
+            { throw new ProbeException("warm accepts emit/emit-job jobs, select-file or read-input diagnostics.", 1); }
             long allocated = inputOnly ? GC.GetAllocatedBytesForCurrentThread() : GC.GetTotalAllocatedBytes(false);
             int[] collections = [GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2)];
             Console.SetOut(TextWriter.Null);
@@ -44,6 +45,7 @@ internal static class WarmCommand
             {
                 if (inputOnly) { input = EmitCommand.ReadInputBytes(arguments[1]); exit = 0; }
                 else if (fileSelection) { exit = FileSelectionCommand.Run(arguments[1..]); }
+                else if (jobJson) { exit = EmitCommand.RunWarmEmitJob(arguments[1..]); }
                 else { exit = EmitCommand.RunWarmEmit(arguments[1..]); }
             }
             finally { Console.SetOut(protocol); Console.SetError(errors); }

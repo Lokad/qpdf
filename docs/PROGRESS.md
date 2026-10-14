@@ -1,8 +1,10 @@
 # Progress
 
-Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
-thirteen codec-free public workloads. The target remains open. The latest full
-panel (`bf03d9a`) records five cells at parity, with ratios 0.61-3.47x.
+Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 using
+equivalent operations, options and input delivery. The target remains open. The
+original thirteen memory-host workloads (`bf03d9a`, ratios 0.61-3.47x) remain
+end-to-end evidence, including complete fresh input acquisition. Comparable
+file-backed measurements supplement them; they never replace an original result.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
@@ -14,22 +16,27 @@ and 442 rewrite trios. Pins, advisory exceptions and version remain unchanged.
 
 ## Current correction
 
-Compressed-object source inventories are skipped when output explicitly disables
-or regenerates object streams. Preserve/default modes keep their existing scans;
-attachment copies use the same decision. Validation order, forced-version behavior
-and source maps remain. All 3,557 affected object-stream/selection/attachment/
-version/publication checks pass (39s).
+Argv/job single-page and one-source range selections now use the existing bounded
+classic-xref reader on custom hosts. Catalog copying remains intact. Missing
+ranges, diagnostics or uncertain parsing retry once on the same lease with the
+requested recovery policy; publication never retries. Other layouts/operations
+and public/in-memory storage contracts remain. All 3,535 focused selection,
+recovery, catalog, content and publication checks pass (32s), including bounded
+reads, short reads, changing future inputs, required catalog payloads, default
+repair versus strict rejection, limits, cancellation and failed publication.
 
-The original 500-page rewrite pair against `d67be39` has identical independently
-valid output. Median 20.022 ->18.804 ms has overlapping IQRs 17.980-22.420 /
-17.347-31.160; no speedup is claimed. Allocation 17.180594 ->17.180484 MB/job is
-essentially unchanged for this classic input. The unused traversal is removed
-without a percentage gate. Full observations, including slow batches, remain.
+Original sparse-input file-backed pairs against saved `79061c7`, with the same
+driver/options and independently validated output: argv 5.969 ->0.734 ms versus
+native 1.771 ms (0.414x); job JSON 6.522 ->0.862 ms versus native 1.876 ms (0.459x).
+Both paired probes finish under one minute. Managed output is byte-identical to
+the baseline. The original memory-host sparse measurement remains 3.4732x with
+full acquisition explicit. Final integration qualification is pending.
 
-This local correction will share the comprehensive checkpoint with the bounded
-immutable-payload staging experiment. Existing public output copies, cancellation,
-cleanup and proportional retained-storage guarantees remain required. Earlier
-completed corrections, rejected writer-wrapper trial and raw evidence stay intact.
+The earlier unused compressed-inventory removal remains integrated; default/
+preserve behavior and validation order remain. Its overlapping rewrite timing
+does not establish a speedup. The unmeasured staging prototype is set aside.
+Earlier completed corrections, rejected trials and all raw evidence remain.
+
 ## Preserved scope
 
 The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK JPEG

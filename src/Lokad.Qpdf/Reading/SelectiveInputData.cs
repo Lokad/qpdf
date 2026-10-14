@@ -4,8 +4,9 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Reading;
 
-// A bounded prefetch for private strict selections. Consumers stay synchronous:
-// a missing range deoptimizes the whole selection once, before publication.
+// A bounded strict prefetch for private selections. Consumers stay synchronous:
+// missing ranges or uncertain parsing retry the complete reader with the job's
+// requested recovery policy, on the same lease and before publication.
 internal sealed class SelectiveInputData : IDisposable
 {
     private const int MaximumMetadata = 65536;

@@ -85,6 +85,22 @@ def measure_input_read(worker, path, expected, warmup_seconds):
             "measurementCount": len(measured), "warmupCount": count}}
 
 
+def selection_job(case, output):
+    arguments = case["Arguments"]
+    pages = arguments.index("--pages")
+    if arguments[pages:] != ["--pages", ".", "1", "--", "outputs/out.pdf"]:
+        raise ValueError("Job comparison requires the original single-page selection")
+    names = {"stream-data": "streamData", "decode-level": "decodeLevel", "compress-streams": "compressStreams",
+        "object-streams": "objectStreams", "force-version": "forceVersion", "static-id": "staticId",
+        "remove-unreferenced-resources": "removeUnreferencedResources"}
+    job = {"inputFile": arguments[0], "outputFile": output}
+    for option in arguments[1:pages]:
+        name, separator, value = option.removeprefix("--").partition("=")
+        job[names[name]] = value if separator else ""
+    job["pages"] = [{"file": ".", "range": "1"}]
+    return job
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("repo", "dotnet", "qpdf", "native-source", "native-build", "input-root", "work-root"):
@@ -96,7 +112,13 @@ def main():
     parser.add_argument("--baseline-probe", type=Path, help="Previously built managed probe for interleaved revision measurements")
     parser.add_argument("--input-read-diagnostic", action="store_true", help="After one single-input workload, collect thirty separate managed-only full-input loads")
     parser.add_argument("--file-input-selection", action="store_true", help="Additional typed file-host sparse selection; preserves the original memory-host comparison")
+    parser.add_argument("--file-input", action="store_true", help="Use file-backed input leases for public argv jobs; original memory-host results remain separate")
+    parser.add_argument("--job-selection", action="store_true", help="Equivalent sparse-selection job JSON on both engines; requires --file-input")
     args = parser.parse_args()
+    if args.file_input_selection and (args.file_input or args.job_selection):
+        parser.error("Typed selection and argv/job file-input comparisons are separate variants")
+    if args.job_selection and (not args.file_input or args.workload != ["select-sparse"]):
+        parser.error("Job selection requires --file-input --workload select-sparse")
     if args.file_input_selection and args.workload != ["select-sparse"]:
         parser.error("The additional file-host selector requires --workload select-sparse")
     if args.samples < 5 or args.sample_seconds <= 0 or args.warmup_seconds <= 0:
@@ -160,8 +182,22 @@ def main():
             command = commands(case, "managed" if engine == "baseline" else engine, directory, workload_root, dotnet, probe, qpdf)
             if args.file_input_selection and engine != "native":
                 arguments = ["select-file", str(workload_inputs / case["Inputs"][0]), str(directory / case["Outputs"][0])]
+            elif args.job_selection:
+                job_path = directory.parent / "job.json"
+                job_path.write_text(json.dumps(selection_job(case, str(directory / case["Outputs"][0]))))
+                if engine == "native":
+                    arguments = ["--job-json-file=" + str(job_path)]
+                else:
+                    # Keep PDF paths logical for the same host mapping used by argv.
+                    managed_job = json.loads(job_path.read_text())
+                    managed_job["outputFile"] = "outputs/" + case["Outputs"][0]
+                    job_path.write_text(json.dumps(managed_job))
+                    arguments = ["emit-job", "--file-input", "--workdir", str(workload_root),
+                        "--job", str(job_path), "--out", "outputs/" + case["Outputs"][0] + "=" + str(directory / case["Outputs"][0])]
             else:
                 arguments = command[1:] if engine == "native" else command[2:]
+                if args.file_input and engine != "native":
+                    arguments.insert(1, "--file-input")
             sample = workers[engine].job(arguments)
             identity = output_identity(case, directory)
             if phase == "validation":
@@ -232,7 +268,12 @@ def main():
     for name, identity in inputs.items():
         if sha(root / "inputs" / name) != identity["sha256"]:
             raise ValueError("Input changed")
-    result = {"comparisonVariant": "typed-file-selection" if args.file_input_selection else "complete-memory-host",
+    variant = ("typed-file-selection" if args.file_input_selection else
+        "job-file-selection" if args.job_selection else "argv-file-host" if args.file_input else "complete-memory-host")
+    result = {"comparisonVariant": variant,
+        "workloadArguments": {c["Name"]: c["Arguments"] for c in cases},
+        "inputDelivery": "Both engines open fresh file-backed inputs; no managed eager full acquisition." if args.file_input or args.file_input_selection else
+            "Managed includes fresh full-input acquisition and memory-host registration; native opens files and may read less. End-to-end evidence, not an equivalent prepared-input engine comparison.",
         "nativeSelectionOptions": case["Arguments"] if args.file_input_selection else None,
         "sourceCommit": run(["git", "-C", repo, "rev-parse", "HEAD"]).decode().strip(),
         "sourceDiff": run(["git", "-C", repo, "diff", "HEAD"]).decode(), "inputs": inputs,

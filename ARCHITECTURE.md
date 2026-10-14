@@ -81,11 +81,13 @@ governed containers as needed. Frozen results retain the shared object storage.
 The object cache grows lazily; validated xref cardinality caps geometric capacity
 overshoot without preallocating for unread objects.
 
-Private strict selections on custom hosts can prefetch bounded object ranges
+Private typed, argv and job selections on custom hosts can prefetch bounded object ranges
 from a standalone classic xref, omitting large unused extents. The same parser
 and copier consume those windows. A needed omitted range, diagnostic or parse
-error triggers one complete-input retry on the same open lease before output
-publication. Other layouts and operations keep complete reads; public documents
+error triggers one complete-input retry on the same open lease with the requested
+recovery policy before output publication. Argv/job catalog copying and recovery
+defaults remain intact; single-page and one-source range plans share this behavior.
+Other layouts and operations keep complete reads; public documents
 and the built-in memory host retain their existing storage contracts. The full
 logical input length is checked before reading, and range buffers plus short-read
 assembly overlap receive memory admission.
