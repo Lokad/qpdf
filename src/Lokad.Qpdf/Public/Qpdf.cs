@@ -359,7 +359,7 @@ public static partial class Qpdf
                     }
                     copier.HintPageCapacity(requested.Count);
                     List<PdfReference> kids = new(requested.Count);
-                    List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(requested.Count);
+                    List<(GraphCopier Copier, int Id)> occurrences = new(requested.Count);
                     foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -369,10 +369,13 @@ public static partial class Qpdf
                         (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
                         RequireMediaBox(page);
                         kids.Add(new PdfReference(pageId, 0));
-                        occurrences.Add((copier, pageId, page));
+                        occurrences.Add((copier, pageId));
                     }
 
-                    ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, copyMemory), governor, copyMemory);
+                    if (rotations.Count != 0)
+                    {
+                        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, copyMemory), governor, copyMemory);
+                    }
                     if (preserveUnreferenced)
                     {
                         HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
@@ -403,20 +406,14 @@ public static partial class Qpdf
                     }
 
                     List<int> occurrenceIds = new(occurrences.Count);
-                    foreach ((GraphCopier _, int occurrenceId, PdfDictionary _) in occurrences)
+                    foreach ((GraphCopier _, int occurrenceId) in occurrences)
                     {
                         occurrenceIds.Add(occurrenceId);
                     }
 
                     ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
-                    List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
-                    foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
-                    {
-                        overlayOccurrences.Add((occurrenceCopier, occurrenceId));
-                    }
-
-                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, overlayOccurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
+                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
 
                     int flattenAllocator = overlayApplied.NextId;
                     bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
@@ -424,7 +421,7 @@ public static partial class Qpdf
                     if (singleGenerated)
                     {
                         Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, diagnostics, cancellationToken);
-                        HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken);
+                        HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken);
                         List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = new(1 + overlayApplied.FieldImports.Count)
                         {
                             (copier.CopiedObjects, gateForm),
@@ -435,20 +432,20 @@ public static partial class Qpdf
                         }
 
                         HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
-                        flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        flattenAllocator = Content.GenerateAppearances.Apply(occurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
                         needAppearances = false;
                     }
                     if (flattenAnnotations is not null)
                     {
-                        flattenAllocator = Content.FlattenAnnotations.Apply(overlayOccurrences, flattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                        flattenAllocator = Content.FlattenAnnotations.Apply(occurrences, flattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
                     }
                     if (flattenRotation)
                     {
-                        flattenAllocator = Content.FlattenRotation.Apply(overlayOccurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                        flattenAllocator = Content.FlattenRotation.Apply(occurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
                     }
                     if (optimize.Optimize)
                     {
-                        Content.ImageOptimizer.Apply(overlayOccurrences, optimize, limits, governor, cancellationToken);
+                        Content.ImageOptimizer.Apply(occurrences, optimize, limits, governor, cancellationToken);
                     }
 
 
@@ -509,7 +506,7 @@ public static partial class Qpdf
                             copier,
                             KeptLocations(document, requested),
                             true,
-                            overlayOccurrences,
+                            occurrences,
                             singlePool,
                             overlayApplied.FieldImports,
                             limits,
@@ -1031,25 +1028,22 @@ public static partial class Qpdf
         List<(int Source, int Slot)> order = CollateOrder(perSource, collation);
         List<PdfPageSelectionMapping> mapping = ParserContainers.CreateList<PdfPageSelectionMapping>(selectionMemory);
         List<PdfReference> kids = new(order.Count);
-        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(order.Count);
+        List<(GraphCopier Copier, int Id)> occurrences = new(order.Count);
         foreach ((int source, int slot) in order)
         {
-            (GraphCopier copier, int pageId, PdfDictionary page, int pageNumber) = perSource[source][slot];
+            (GraphCopier copier, int pageId, PdfDictionary _, int pageNumber) = perSource[source][slot];
             kids.Add(new PdfReference(pageId, 0));
             selectionMemory.Reserve(24L);
             ParserContainers.AddItem(selectionMemory, mapping, new PdfPageSelectionMapping(source, pageNumber), IntPtr.Size);
-            occurrences.Add((copier, pageId, page));
+            occurrences.Add((copier, pageId));
         }
 
-        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
-
-        List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
-        foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
+        if (rotations.Count != 0)
         {
-            overlayOccurrences.Add((occurrenceCopier, occurrenceId));
+            ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, overlayOccurrences, underlays, overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, underlays, overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null).ConfigureAwait(false);
 
         int multiFlattenAllocator = overlayApplied.NextId;
         bool multiGenerated = generateAppearances && needAppearances;
@@ -1064,7 +1058,7 @@ public static partial class Qpdf
                 }
             }
 
-            HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken);
+            HashSet<int> multiSurvivors = Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken);
             List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> multiGateParts = new(copiers.Count + overlayApplied.FieldImports.Count);
             for (int s = 0; s < copiers.Count && s < gateForms.Count; s++)
             {
@@ -1076,21 +1070,21 @@ public static partial class Qpdf
             }
 
             HashSet<int>? multiReached = CollectGenerateReached(multiGateParts, multiSurvivors, pruneUnreachableFields, limits, governor, cancellationToken);
-            multiFlattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
+            multiFlattenAllocator = Content.GenerateAppearances.Apply(occurrences, multiFormResources, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiReached, !pruneUnreachableFields, multiFlattenAllocator);
             needAppearances = false;
         }
         if (flattenAnnotations is not null)
         {
-            multiFlattenAllocator = Content.FlattenAnnotations.Apply(overlayOccurrences, flattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            multiFlattenAllocator = Content.FlattenAnnotations.Apply(occurrences, flattenAnnotations, needAppearances, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
 
         if (flattenRotation)
         {
-            nextId = Content.FlattenRotation.Apply(overlayOccurrences, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
+            nextId = Content.FlattenRotation.Apply(occurrences, multiCompress, multiLevel, limits, governor, diagnostics, cancellationToken, multiFlattenAllocator);
         }
         if (optimize.Optimize)
         {
-            Content.ImageOptimizer.Apply(overlayOccurrences, optimize, limits, governor, cancellationToken);
+            Content.ImageOptimizer.Apply(occurrences, optimize, limits, governor, cancellationToken);
         }
 
         if (replaceInput && splitPages.HasValue)
@@ -1297,7 +1291,7 @@ public static partial class Qpdf
             : Content.AcroFormCopy.BuildCatalogForm(
                 multiCombined,
                 pool,
-                Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken),
+                Content.AcroFormCopy.CollectAnnotRefs(occurrences, governor, cancellationToken),
                 pruneUnreachableFields,
                 limits,
                 governor,
@@ -1599,10 +1593,30 @@ public static partial class Qpdf
     }
 
     private static void ApplyRotations(
-        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences,
+        List<(GraphCopier Copier, int Id)> occurrences,
         List<List<(PdfRotationMode Mode, int Angle)>> folds,
         ResourceGovernor governor)
         => ApplyRotations(occurrences, folds, governor, null);
+
+    private static void ApplyRotations(
+        List<(GraphCopier Copier, int Id)> occurrences,
+        List<List<(PdfRotationMode Mode, int Angle)>> folds,
+        ResourceGovernor governor, ParserMemoryScope? ownership)
+    {
+        // Selection transforms can replace a page after copying. Resolve its
+        // current dictionary only when rotations need the shared snapshot path.
+        List<(GraphCopier Copier, int Id, PdfDictionary Page)> pages = new(occurrences.Count);
+        foreach ((GraphCopier copier, int id) in occurrences)
+        {
+            governor.CheckCancellation(); governor.ChargeWork(1L);
+            if (!copier.CopiedObjects.TryGetValue(id, out QpdfObject? value) || value is not PdfDictionary page)
+            {
+                throw new QpdfException("Rotation reached a missing copied page dictionary.");
+            }
+            pages.Add((copier, id, page));
+        }
+        ApplyRotations(pages, folds, governor, ownership);
+    }
 
     private static void ApplyRotations(
         List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences,
@@ -1619,8 +1633,9 @@ public static partial class Qpdf
                 continue;
             }
 
+            PdfDictionary page = occurrences[i].Page;
             int current = 0;
-            if (occurrences[i].Page.TryGet(rotateKey, out QpdfObject raw))
+            if (page.TryGet(rotateKey, out QpdfObject raw))
             {
                 if (raw is PdfNull)
                 {
@@ -1651,16 +1666,16 @@ public static partial class Qpdf
             if (ownership is null) { governor.ReserveMemory(64L); }
             Dictionary<PdfName, QpdfObject> entries = ownership is null ? new()
                 : ParserContainers.CreateDictionary<PdfName, QpdfObject>(ownership);
-            foreach (PdfName key in occurrences[i].Page.Keys)
+            foreach (PdfName key in page.Keys)
             {
-                if (occurrences[i].Page.TryGet(key, out QpdfObject value))
+                if (page.TryGet(key, out QpdfObject entryValue))
                 {
                     if (ownership is not null)
                     {
                         governor.ChargeWork(1L);
                         ParserContainers.EnsureEntryCapacity(ownership, entries, IntPtr.Size);
                     }
-                    entries[key] = value;
+                    entries[key] = entryValue;
                 }
             }
 

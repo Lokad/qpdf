@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -167,6 +168,40 @@ public sealed class ContentTransformsTests
         using JsonDocument document = await InspectAsync(HostWith("inputs/a.pdf", pdf), "--json", "--json-key=pages");
         JsonElement contents = document.RootElement.GetProperty("pages")[0].GetProperty("contents");
         Assert.Equal(1, contents.GetArrayLength());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RotationAfterMergePreservesCoalescedPageContents(bool job)
+    {
+        byte[] fixture = BuildPdf(string.Empty, " /Contents [4 0 R 5 0 R]",
+            [("<< /Length 1 >>", "q"u8.ToArray()), ("<< /Length 1 >>", "Q"u8.ToArray())]);
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+        host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host,
+                """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","pages":[{"file":".","range":"1"},{"file":"inputs/b.pdf","range":"1"}],"coalesceContents":true,"rotate":["+90:2"]}""",
+                CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host,
+                new QpdfCommandInvocation(["inputs/a.pdf", "--coalesce-contents", "--rotate=+90:2", "--pages", ".", "1", "inputs/b.pdf", "1", "--", "outputs/a.pdf"]),
+                CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+        using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(pdf);
+        Assert.Equal(2, independent.NumberOfPages);
+        InMemoryQpdfHost reread = HostWith("inputs/a.pdf", pdf);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(reread, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
+        foreach (var location in document.PageReferences)
+        {
+            Assert.True(location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents));
+            if (contents is PdfArray array) { Assert.Single(array.Items); }
+            else { Assert.IsType<PdfReference>(contents); }
+        }
+        Assert.True(document.PageReferences[1].Page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject rotate));
+        Assert.Equal(90L, Assert.IsType<PdfInteger>(rotate).Value);
+        Assert.Equal("q\nQ", Encoding.ASCII.GetString(await PageContentAsync(pdf)));
     }
 
     [Fact]

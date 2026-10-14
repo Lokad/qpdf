@@ -6,51 +6,38 @@ panel (`a71a1ca`) records six cells at parity, with ratios 0.60-3.39x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
-Pushed `2c6ee48` passes [hosted CI run 38598202274](https://github.com/Lokad/qpdf/actions/runs/38598202274):
-Windows 6m25s, Ubuntu 4m14s, reference 6m06s. Both ordinary platforms pass 17,915
+Pushed `6db2221` passes [hosted CI run 38602960010](https://github.com/Lokad/qpdf/actions/runs/38602960010):
+Windows 6m29s, Ubuntu 4m42s, reference 5m16s. Both ordinary platforms pass 17,916
 checks without failures/skips, locked Release build/pack, inspection, fresh
 consumer and rejection controls. Reference covers 1,858 exact object comparisons
 and 442 rewrite trios. Pins, advisory exceptions and version remain unchanged.
 
 ## Current correction
 
-The graph copier reuses immutable references whose validated source identity
-already equals their destination identity. Resolver validation still precedes
-memo reuse; first-copy mapping, traversal and storage still occur. Cycles remain
-copied and stale generations still become PDF null. Unchanged containers can
-then use the existing copy-on-change path.
+Multi-source coalescing followed by rotation could restore an earlier page
+snapshot, leaving two content streams instead of the requested single stream.
+Both argv and job-JSON regressions reproduced this defect before correction.
+Rotation now reads current copier pages; inspection retains its existing snapshot
+path. Other transformations share one compact occurrence vector, removing the
+second vector and its stale dictionaries. Source/output ownership stays unchanged.
 
-Single-source/grouped page Kids and form Fields/calculation-order arrays now pass
-existing lists to the unchanged copying PdfArray constructor. This removes four
-intermediate arrays while retaining its immutable defensive copy and item order.
-No new API, cache or ownership mechanism is added.
+Both selection cores also skip rotation preparation when no rotations are
+requested. Actual requests retain the existing folding/application logic.
+The original streamed-input rewrite pair changes allocation 578.1 ->572.6 KB/job
+and median time 2.111 ->2.063 ms, with identical independently valid bytes.
+Timing IQRs 2.101-2.193 /2.036-2.080 are separated in this probe; ratio 1.1605x
+remains above parity. These are complete warmed public jobs on the same driver.
 
-All 5,410 focused writer/form/selection/split/merge/publication checks pass (71s),
-including source-identity cycles, stale generations, limits, cancellation, cleanup
-and surviving output values. The reference-reuse pair removes about 132 bytes
-per original rewrite job with identical independently valid output. Median time
-16.266 ->17.069 ms has overlapping IQRs; no speedup is claimed. A separate ancestry
-leaf-skip trial showed no time/allocation improvement and was reverted; its raw
-observations remain preserved. The array pair allocates 17.246767 ->17.243798 MB
-per job (about 3 KB less), with identical independently valid bytes. Median time
-18.094 ->17.151 ms has overlapping IQRs 16.838-18.762 /15.872-17.783; no speedup
-is claimed. All 26 fresh managed/native outcomes and three negative controls
-pass with unchanged inputs. Locked Release build/explicit pack/inspection/fresh
-consumer/rejections pass (20s), preserving the 2 MiB multisource ceiling.
-The final full panel retains 27,717 primary observations. Sparse full-input
-selection remains 3.3898x; the separate file-host result is 0.3763x and replaces
-no original case. Seven visual cases and two negative controls pass (18s) after
-timing at unchanged tolerances. Hosted qualification is pending.
-
-A paired check of the original 64-output split confirms about 1.7 KB less
-allocation/job and byte-identical outputs. Medians 6.254 ->5.640 ms have slightly
-overlapping IQRs 5.923-6.573 /5.536-5.952; no speedup is claimed. The larger
-allocation difference between full panels cannot be attributed to this change.
-
-Earlier parser scratch, approximate ownership, immutable borrowing, source/cache
-capacity reductions, staged content-ID hashing, xref ranges, filtered hint lists
-and publication remapping stay integrated. All earlier raw runs are preserved.
-Different full panels do not establish causal speedups.
+All 5,634 focused selection/content/rotation/inspection/overlay/appearance/
+flattening/publication checks pass (73s). Two new regressions check coalescing
+survives rotation, independent page counts, decoded content and closed host leases.
+The vector pair removes another 2.5 KB/job (572.6 ->570.1 KB), with identical
+normal output. Medians 2.200 ->2.131 ms have overlapping IQRs; no speedup is claimed.
+The existing four-second allocation sampler identified empty per-page rotation
+lists in 1,293 fresh verified jobs. Approximate ticks are diagnostic leads, not
+exact per-type allocation, retained memory or native timing measurements.
+Final comparison, native interaction, package/consumer, visual and hosted
+qualification are pending. Earlier corrections and every raw run stay preserved.
 
 ## Preserved scope
 
