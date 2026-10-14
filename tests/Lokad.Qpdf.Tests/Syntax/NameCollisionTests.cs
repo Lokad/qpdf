@@ -55,14 +55,20 @@ public sealed class NameCollisionTests
     {
         Dictionary<PdfName, QpdfObject> entries = new();
         for (int index = 0; index < 32; index++) { entries.Add(PdfName.FromAscii(Name(index)), PdfNull.Instance); }
+        // Unchanged dictionaries can be borrowed without building a name table.
+        // Require generation normalization so colliding keys are really inserted.
+        PdfReference changed = new(1, 7);
+        PdfName first = PdfName.FromAscii(Name(0)); entries[first] = changed;
         PdfDictionary input = new(entries);
         QpdfLimits limits = QpdfLimits.Default with { MaxWork = 50000L }; ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
         using WriterIndex<int> map = WriterIndex<int>.Create(sizeof(int), governor, CancellationToken.None);
+        map.Add(1, 1);
         long before = governor.Snapshot().LiveMemoryBytes;
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => WriterValue.Remap(input, map, governor, CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(97L, prior.ReservedBytes); Assert.Equal(32, input.Count);
-        Assert.All(input.Keys, key => { Assert.True(input.TryGet(key, out QpdfObject value)); Assert.Same(PdfNull.Instance, value); });
+        Assert.All(input.Keys, key => { Assert.True(input.TryGet(key, out QpdfObject value)); Assert.Same(key.Equals(first) ? changed : PdfNull.Instance, value); });
+        Assert.Equal(7, changed.Generation);
     }
 }

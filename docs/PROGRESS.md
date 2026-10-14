@@ -35,7 +35,11 @@ managed/native outcomes and three negative controls pass with unchanged inputs.
 Locked Release build/explicit pack/inspection/fresh consumer/rejections pass
 (17s), preserving the 2 MiB multisource ceiling. Seven visual cases and two
 negative controls pass (18s) after timing, at unchanged tolerances. Hosted full
-tests and reference qualification are pending.
+tests are pending. Initial hosted run `38597042520` passes reference (4m), but
+both ordinary platforms find one collision-work fixture that no longer builds a
+dictionary. Require generation normalization to exercise actual collision work
+under its unchanged 50,000-work ceiling; production code and timings are unchanged.
+All 48 focused collision/remapping checks pass (11s) after this fixture correction.
 
 Earlier parser scratch, approximate ownership, immutable borrowing, source/cache
 capacity reductions, staged content-ID hashing, direct classic xref ranges and
