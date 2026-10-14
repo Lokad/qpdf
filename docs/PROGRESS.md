@@ -27,6 +27,13 @@ claim. All ten outputs remain byte-identical and independently valid; every
 observation remains. This local change will share a later integration checkpoint
 with further useful corrections; current published figures still identify `641ff35`.
 
+Prepared segments now grow through powers of two, capped at 32 KiB, avoiding
+intermediate arrays. Only filled prefixes escape, allowing uninitialized backing
+allocation. All 2,669 affected checks pass (82s). Its separate paired split probe
+reduces allocation 34.649050 ->30.964657 MB/job with identical validated outputs.
+Median 95.229 ->80.494 ms has overlapping IQRs 81.073-130.862 /70.472-118.241;
+no speedup is claimed. All 195 observations remain, including outliers; wall 78.05s.
+
 Argv/job single-page and one-source range selection reuse bounded classic-xref
 reads on custom hosts. Catalog behavior and recovery defaults remain. Omitted
 required ranges, diagnostics or uncertain parsing retry once on the same stable

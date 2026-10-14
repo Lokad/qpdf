@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Runtime;
+using System.Numerics;
 
 namespace Lokad.Qpdf.Writing;
 
@@ -68,13 +69,13 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
         if (_tail is Segment existing && existing.Used < existing.Bytes.Length) { return existing; }
         if (_tail is Segment growing && growing.Bytes.Length < SegmentCapacity)
         {
-            int capacity = Math.Min(SegmentCapacity, Math.Max(growing.Used + incoming, growing.Bytes.Length * 2));
+            int capacity = CapacityFor(Math.Max(growing.Used + incoming, growing.Bytes.Length * 2));
             long bytes = ArrayBytes(capacity);
             _governor.ChargeWork(capacity); Memory.Reserve(bytes);
             try
             {
                 CheckCancellation(token);
-                byte[] next = new byte[capacity]; Copy(growing.Written.Span, next, token);
+                byte[] next = GC.AllocateUninitializedArray<byte>(capacity); Copy(growing.Written.Span, next, token);
                 long previous = ArrayBytes(growing.Bytes.Length);
                 // The segment object survives capacity growth, while the old
                 // array becomes unreachable before its admission is released.
@@ -83,18 +84,25 @@ internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
             }
             catch { Memory.Release(bytes); throw; }
         }
-        int initial = Math.Max(1, incoming);
+        int initial = CapacityFor(incoming);
         long reservation = 40L + ArrayBytes(initial);
         _governor.ChargeWork(initial); Memory.Reserve(reservation);
         try
         {
             CheckCancellation(token);
-            Segment segment = new(new byte[initial]);
+            // Written exposes only the prefix filled by Copy; capacity slack
+            // remains private, including after growth or canceled appends.
+            Segment segment = new(GC.AllocateUninitializedArray<byte>(initial));
             if (_tail is null) { _head = segment; } else { _tail.Next = segment; }
             _tail = segment; _segments++; return segment;
         }
         catch { Memory.Release(reservation); throw; }
     }
+
+    // Powers of two avoid successive irregular capacities for stream chunks.
+    // Published tails stay within twice their written bytes and the 32 KiB cap.
+    private static int CapacityFor(int minimum)
+        => Math.Min(SegmentCapacity, (int)BitOperations.RoundUpToPowerOf2((uint)Math.Max(1, minimum)));
 
     private static long ArrayBytes(int capacity) => (24L + capacity + 7L) & ~7L;
 
