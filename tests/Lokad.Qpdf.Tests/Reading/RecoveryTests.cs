@@ -141,6 +141,29 @@ public sealed class RecoveryTests
     }
 
     [Fact]
+    public async Task FalseJobRecoverySuppressionMatchesTheAbsentFlag()
+    {
+        byte[] broken = WithBrokenStartXref(await FixtureBytes("minimal-1page.pdf"));
+        byte[]? expected = null;
+        foreach (string setting in new[] { "", "\"suppressRecovery\":false,", "\"suppressRecovery\":true," })
+        {
+            InMemoryQpdfHost host = HostWith("inputs/broken.pdf", broken);
+            string json = "{" + setting + "\"inputFile\":\"inputs/broken.pdf\",\"outputFile\":\"outputs/x.pdf\",\"pages\":[{\"file\":\".\",\"range\":\"1\"}]}";
+            QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, json, CancellationToken.None);
+            bool strict = setting.Contains("true", StringComparison.Ordinal);
+            Assert.Equal(strict ? QpdfExitCode.Error : QpdfExitCode.Warning, result.ExitCode);
+            Assert.Equal(0L, host.OpenLeaseCount);
+            Assert.Equal(!strict, host.TryGetOutput(QpdfPath.From("outputs/x.pdf"), out byte[] output));
+            if (!strict)
+            {
+                Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.RecoveryEngaged);
+                expected ??= output;
+                Assert.Equal(expected, output);
+            }
+        }
+    }
+
+    [Fact]
     public async Task RepairedOutputMatchesStrictOutput()
     {
         byte[] intact = await FixtureBytes("minimal-1page.pdf");

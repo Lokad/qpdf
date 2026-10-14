@@ -87,6 +87,8 @@ and copier consume those windows. A needed omitted range, diagnostic or parse
 error triggers one complete-input retry on the same open lease with the requested
 recovery policy before output publication. Argv/job catalog copying and recovery
 defaults remain intact; single-page and one-source range plans share this behavior.
+Range plans close each accepted source before opening output, including close-fault
+and one-handle hosts; speculative failures keep the lease only for fallback.
 Other layouts and operations keep complete reads; public documents
 and the built-in memory host retain their existing storage contracts. The full
 logical input length is checked before reading, and range buffers plus short-read

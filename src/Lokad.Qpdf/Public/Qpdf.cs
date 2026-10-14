@@ -1072,7 +1072,7 @@ public static partial class Qpdf
                 document.Engine.TransferExclusiveValuesTo(selectionMemory);
                 // No reader is consulted by the remaining graph preparation or
                 // publication. A later writer failure must never retry output.
-                document.Engine.AcceptSelectiveInput();
+                document.AcceptSelectionInput();
             }
             catch (QpdfParseException) when (document.Engine.HasSelectiveInput)
             { throw new CompleteInputRequiredException(); }

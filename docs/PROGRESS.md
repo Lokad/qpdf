@@ -20,8 +20,12 @@ Argv/job single-page and one-source range selections now use the existing bounde
 classic-xref reader on custom hosts. Catalog copying remains intact. Missing
 ranges, diagnostics or uncertain parsing retry once on the same lease with the
 requested recovery policy; publication never retries. Other layouts/operations
-and public/in-memory storage contracts remain. All 3,535 focused selection,
-recovery, catalog, content and publication checks pass (32s), including bounded
+and public/in-memory storage contracts remain. Accepted range sources close before
+output creation, preserving one-handle execution and prepublication close faults.
+Job `suppressRecovery:false` now keeps default repair, matching an absent flag;
+true still requests strict parsing. Five regressions fail on the prior source.
+All 6,254 focused selection, recovery, catalog, content, publication and job
+checks pass (68s), including bounded
 reads, short reads, changing future inputs, required catalog payloads, default
 repair versus strict rejection, limits, cancellation and failed publication.
 
@@ -40,7 +44,9 @@ All 26 fresh semantic outcomes/three negatives pass with unchanged inputs.
 Build/semantic/panel/job phases take 41.11/42.74/252.48/20.45s. Seven visual cases
 and two negatives pass (38.18s); locked Release restore/build/explicit pack,
 inspection/fresh consumer/rejections pass (50.74s), with the unchanged 2 MiB
-multisource ceiling. Ordinary/reference hosted verification accompanies the push.
+multisource ceiling. These measurements precede the close-order/false-flag
+correction; its final qualification is pending. Superseded hosted run 38626502356
+was canceled after the close-order defect was found, conserving runner time.
 
 The earlier unused compressed-inventory removal remains integrated; default/
 preserve behavior and validation order remain. Its overlapping rewrite timing

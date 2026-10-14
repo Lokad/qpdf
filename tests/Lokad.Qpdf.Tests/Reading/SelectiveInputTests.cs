@@ -87,7 +87,11 @@ public sealed class SelectiveInputTests
             }
             public ValueTask DisposeAsync()
             {
-                if (!_disposed) { _disposed = true; host.Leases--; }
+                if (!_disposed)
+                {
+                    _disposed = true; host.Leases--;
+                    if (host.Failure == "close") { throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed); }
+                }
                 return ValueTask.CompletedTask;
             }
         }
@@ -201,6 +205,30 @@ public sealed class SelectiveInputTests
         Assert.Equal(mode == "write" ? 1 : 0, host.OutputAttempts);
         if (mode == "input") { Assert.Empty(host.Reads); }
         Assert.True(host.Outputs.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task RangeSelectionClosesInputBeforeOpeningOutput(bool job, bool failClose)
+    {
+        Host host = new(Sparse, int.MaxValue) { Failure = failClose ? "close" : "" };
+        await using (IQpdfOutputTransaction prior = await host.Outputs.CreateOutputAsync(Output, CancellationToken.None))
+        { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
+        QpdfExecutionResult result = await Execute(host, job, "1-1", false,
+            QpdfLimits.Default with { MaxOpenHandles = failClose ? 2L : 1L }, CancellationToken.None);
+        Assert.Equal(failClose ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(1, host.Opened); Assert.Equal(0, host.Leases);
+        Assert.Equal(failClose ? 0 : 1, host.OutputAttempts);
+        Assert.True(host.Outputs.TryGetOutput(Output, out byte[] output));
+        if (failClose) { Assert.Equal("prior"u8.ToArray(), output); }
+        else
+        {
+            using UglyToad.PdfPig.PdfDocument independent = UglyToad.PdfPig.PdfDocument.Open(output);
+            Assert.Equal(1, independent.NumberOfPages);
+        }
     }
 
     [Theory]

@@ -1158,13 +1158,12 @@ internal static class JobJsonParser
                     case "suppressRecovery":
                         if (seenSuppressRecovery && !configurationLayers)
                         {
-                                throw new QpdfParseException("Duplicate job key suppressRecovery.", 0L, null);
+                            throw new QpdfParseException("Duplicate job key suppressRecovery.", 0L, null);
                         }
 
                         seenSuppressRecovery = true;
-                    suppressRecovery = RequireBareFlag(property.Value, "suppressRecovery", textStorage);
-                    recovery = QpdfRecoveryMode.Strict;
                         suppressRecovery = RequireBareFlag(property.Value, "suppressRecovery", textStorage);
+                        recovery = suppressRecovery ? QpdfRecoveryMode.Strict : QpdfRecoveryMode.BoundedRepair;
                         break;
                     default:
                         throw new QpdfParseException($"Unsupported job key '{property.Name}' in the narrow selection profile.", 0L, null);

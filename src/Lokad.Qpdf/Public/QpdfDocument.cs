@@ -306,6 +306,15 @@ public sealed class QpdfDocument : IAsyncDisposable
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
             cancellationToken, false, false, true, selective);
 
+    // A multisource copy closes each source before publication. During a
+    // speculative attempt the caller keeps its lease for fallback; once all
+    // source reads succeed, restore the document's ordinary close ownership.
+    internal void AcceptSelectionInput()
+    {
+        Engine.AcceptSelectiveInput();
+        _leaveInputOpen = false;
+    }
+
     private static async ValueTask<QpdfDocument> OpenInputDocument(
         IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
