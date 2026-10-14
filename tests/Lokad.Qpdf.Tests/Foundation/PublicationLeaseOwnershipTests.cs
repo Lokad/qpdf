@@ -28,19 +28,14 @@ public sealed class PublicationLeaseOwnershipTests
         DiagnosticBag bag = new(governor);
         using ExecutionPresentation? presentation = ExecutionPresentation.Create(governor, bag, false, false, false, false, false, CancellationToken.None);
         Assert.NotNull(presentation);
-        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
-            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
-        Assert.True(retirement > 0L);
-        governor.ChargeWork(32768L - governor.Snapshot().TotalWork - retirement);
+        governor.ChargeWork(32768L - governor.Snapshot().TotalWork);
         Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
         long work = governor.Snapshot().TotalWork;
-        Assert.Equal(32768L, work + retirement);
+        Assert.Equal(32768L, work);
         long peak = governor.Snapshot().PeakMemoryBytes;
         governor.PrepareExecutionPresentation();
         Assert.Null(governor.CompleteExecutionPresentation());
         Assert.Equal(work, governor.Snapshot().TotalWork); Assert.Equal(peak, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(retirement, Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
-            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor)));
     }
 
     [Theory]

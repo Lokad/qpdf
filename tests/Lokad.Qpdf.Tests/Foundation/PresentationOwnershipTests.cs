@@ -117,6 +117,34 @@ public sealed class PresentationOwnershipTests
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, Inner(host).OpenLeaseCount);
     }
 
+    [Fact]
+    public async Task FailureDiagnosticsRemainReadableAfterAnotherPublicJob()
+    {
+        const string flags = "verbose progress report-memory-usage";
+        object baselineHost = await Prepare("whole", false, true);
+        QpdfExecutionResult baseline = await Run(baselineHost, "argv", "whole", flags, QpdfLimits.Default);
+        Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
+        long ceiling = baseline.Diagnostics.Sum(item => (long)Encoding.UTF8.GetByteCount(item.Message)) - 1L;
+        object host = await Prepare("whole", false, true);
+        QpdfExecutionResult failed = await Run(host, "argv", "whole", flags,
+            QpdfLimits.Default with { MaxDiagnosticBytes = ceiling });
+        Assert.Equal(QpdfExecutionStatus.Failed, failed.Status);
+        Assert.Equal(QpdfExitCode.Error, failed.ExitCode);
+        IReadOnlyList<QpdfDiagnostic> diagnostics = failed.Diagnostics;
+        (QpdfDiagnosticCode Code, string Message)[] expected = diagnostics.Select(item => (item.Code, item.Message)).ToArray();
+        Assert.Contains(expected, item => item.Code == QpdfDiagnosticCode.DuplicateKey);
+        Assert.Contains(expected, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.Equal(0L, Inner(host).OpenLeaseCount);
+
+        QpdfExecutionResult completed = await Run(host, "argv", "whole", "", QpdfLimits.Default);
+        Assert.Equal(QpdfExecutionStatus.Completed, completed.Status);
+        Assert.Equal(expected, diagnostics.Select(item => (item.Code, item.Message)).ToArray());
+        Assert.Equal(expected.Length, diagnostics.Count);
+        for (int index = 0; index < expected.Length; index++)
+        { Assert.Equal(expected[index], (diagnostics[index].Code, diagnostics[index].Message)); }
+        Assert.Equal(0L, Inner(host).OpenLeaseCount);
+    }
+
     public static IEnumerable<object[]> WarningJobs()
     {
         foreach (string route in new[] { "argv", "job", "mixed", "response" })

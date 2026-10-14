@@ -6,32 +6,30 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `2fbb88d` passed [hosted CI run 38547746561](https://github.com/Lokad/qpdf/actions/runs/38547746561):
-Windows 6m34s, Ubuntu 5m59s, pinned reference 6m01s. Both platforms pass 17,885
+Pushed `5236035` passed [hosted CI run 38549929205](https://github.com/Lokad/qpdf/actions/runs/38549929205):
+Windows 6m30s, Ubuntu 5m42s, pinned reference 3m49s. Both platforms pass 17,889
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
 ## Current correction and next work
 
-Xref-stream reading hints its empty destination dictionary from the validated
-row count only for ordered, disjoint index ranges. Object zero is excluded;
-reversed/overlapping ranges keep ordinary growth. The existing quarter-headroom
-memory/work guard, row grammar, cancellation and ownership cleanup remain.
+Failure presentation keeps its small precreated view under the existing coarse
+operation reservation, removing a separate weak-table receipt and success-time
+retirement. Material diagnostic arrays/text retain their existing owners.
+Warning history, suppression, failure preparation, cancellation and cleanup stay
+covered, including retained failure diagnostics after another public job.
 
-The original X100 rewrite allocates 694.175→669.955 KB/job, about 24.2 KB less,
-with identical independently validated output bytes. Medians 2.244→2.147 ms
-have overlapping IQRs (2.169–2.378 / 2.076–2.250); retain allocation only.
-All 3,480 focused reader/public-selection/cleanup checks pass (22s), including
-four public range controls: ordered/reversed success, duplicate rejection and
-row-count mismatch rejection. All 26 fresh managed/native outcomes and three
-negative controls pass with original inputs. Locked Release build/explicit pack,
-inspection/fresh consumer/rejections pass (19s), unchanged 2 MiB multisource
-ceiling. The clean-source comparison retains all 24,062 observations, original
-inputs and independent semantics. Five cells meet parity; sparse selection
-remains the largest gap at 3.43×. Wide timing ranges remain visible; separate
-panels do not establish source-change timing attribution. One combined hosted
-push qualifies implementation and refreshed report.
+The original X100 rewrite allocates 670.078→669.456 KB/job (about 0.62 KB less),
+with identical independently validated output bytes. Medians 3.289→3.101 ms
+have overlapping IQRs (2.840–3.597 / 2.756–3.643); retain allocation only.
+The wider failure/presentation/publication run passes 1,006 checks. Three final
+controls pass (261ms). One test's positive private retirement-work requirement
+was removed with the receipt; its original 32,768-unit ceiling, exhaustion check
+and no-unrequested-formatting invariant remain. All 26 fresh managed/native
+outcomes and three negative controls pass with original inputs. Locked Release
+build/explicit pack/inspection/fresh consumer/rejections pass (18s), unchanged
+2 MiB multisource ceiling. One clean comparison and combined hosted push follow.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and

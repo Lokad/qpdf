@@ -12,7 +12,6 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
     private ParserMemoryScope? _memory;
     private DiagnosticProjection? _prepared;
     private FailureProjection? _failure;
-    private RetainedValueOwners.Receipt? _failureReceipt;
     private readonly byte _flags;
 
     private sealed class FailureProjection : IReadOnlyList<QpdfDiagnostic>
@@ -77,31 +76,30 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
     }
 
     private ExecutionPresentation(ResourceGovernor governor, DiagnosticBag bag, ParserMemoryScope memory,
-        FailureProjection failure, RetainedValueOwners.Receipt failureReceipt, byte flags)
-    { _governor = governor; _bag = bag; _memory = memory; _failure = failure; _failureReceipt = failureReceipt; _flags = flags; }
+        FailureProjection failure, byte flags)
+    { _governor = governor; _bag = bag; _memory = memory; _failure = failure; _flags = flags; }
 
     internal static ExecutionPresentation? Create(ResourceGovernor governor, DiagnosticBag bag,
         bool verbose, bool memoryUsage, bool progress, bool noWarn, bool warningExitZero, CancellationToken token)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        FailureProjection? failure = null;
-        RetainedValueOwners.Receipt? receipt = null;
         try
         {
+            // Precreate failure metadata under the operation allowance. Its
+            // referenced diagnostic arrays/text retain their existing owners;
+            // the small view needs no independently retiring receipt.
             memory.Reserve(72L + 40L);
-            failure = new();
-            receipt = memory.RetainAllocationReceipt(failure, 40L);
+            FailureProjection failure = new();
             byte flags = (byte)((verbose ? 1 : 0) | (memoryUsage ? 2 : 0) | (progress ? 4 : 0)
                 | (noWarn ? 8 : 0) | (warningExitZero ? 16 : 0));
-            ExecutionPresentation presentation = new(governor, bag, memory, failure, receipt, flags);
+            ExecutionPresentation presentation = new(governor, bag, memory, failure, flags);
             governor.AttachExecutionPresentation(presentation);
             bag.SuppressWarningStorage = noWarn;
             return presentation;
         }
         catch
         {
-            if (failure is not null && receipt is not null) { governor.DropAllocation(failure, receipt); }
             memory.Dispose(); throw;
         }
     }
@@ -178,7 +176,7 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
         { accepted = history.Transfer(); _prepared = null; }
         bool hasAccepted = failure.Freeze(accepted, diagnostics, (_flags & 8) != 0, Bag.HasNonWarningEntries, (_flags & 15) == 0);
         if ((_flags & 15) == 0 && !hasAccepted) { return null; }
-        _failure = null; _failureReceipt = null;
+        _failure = null;
         return failure;
     }
 
@@ -188,8 +186,7 @@ internal sealed class ExecutionPresentation : ExecutionPreparation, IDisposable
         if (governor is null) { return; }
         governor.DetachExecutionPresentation(this);
         _prepared?.Dispose(); _prepared = null;
-        if (_failure is not null && _failureReceipt is not null) { governor.DropAllocation(_failure, _failureReceipt); }
-        _failure = null; _failureReceipt = null; _bag = null; _governor = null;
+        _failure = null; _bag = null; _governor = null;
         ParserMemoryScope? memory = _memory; _memory = null; memory?.Dispose();
     }
 }
