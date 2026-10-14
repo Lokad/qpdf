@@ -6,40 +6,32 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `3e5637b` passed [hosted CI run 38491270654](https://github.com/Lokad/qpdf/actions/runs/38491270654):
-Windows 5m11s, Ubuntu 5m08s, pinned reference 4m42s. Both platforms pass 17,871
+Pushed `4c4a6b6` passed [hosted CI run 38531623876](https://github.com/Lokad/qpdf/actions/runs/38531623876):
+Windows 5m50s, Ubuntu 5m39s, pinned reference 4m27s. Both platforms pass 17,874
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
 ## Current correction and next work
 
-The writer reuses admitted scratch when a small formatted/ASCII token crosses a
-batch boundary and the destination consumes writes synchronously. Retaining or
-asynchronous destinations keep immutable packets and the existing fallback.
-The shared flush helper clears scratch on both success and failure. Logical
-offsets, output bytes, cancellation, cleanup and resource ceilings are preserved.
+Object-stream members now serialize into one governed buffer per group, with
+known-count end offsets. Payload assembly borrows completed slices rather than
+copying every member into an array first. A failed append truncates the unfinished
+tail, preserves earlier members and can retry. Disposing completed owners/tasks
+releases both the offset table and grouped backing. Groups start at 256 bytes
+and use existing governed growth, preserving the 32 KiB QDF controls.
 
-Same-driver public jobs allocate about 0.3 KB less for X100 and 4.0 KB less for
-the object-heavy fixture; all output hashes match. Their 2.370→2.358 and
-33.076→32.116 ms medians have overlapping IQRs: allocation benefit only.
-All 2,080 affected writer/resource checks pass (45s), including token-boundary
-reuse, retaining aliases, failed flush cleanup and practical host-operation
-budgets. All 26 fresh managed/native outcomes and three negative controls pass
-with unchanged original inputs. Locked Release build/pack, package inspection,
-fresh consumer and rejection controls pass (20s), including the unchanged 2 MiB
-multisource ceiling. The clean final-source panel preserves all 26,495
-observations and independent semantics. Selection S10/M500, checking and
-individual splitting meet parity; object streams at 1.0027× remain open.
-Sparse selection is 5.75/1.60 ms (3.59×). Different host load across panels
-prevents attributing timing changes to this correction. One hosted push qualifies
-the implementation, controls and current comparison.
-
-Cancellation fixtures keep the Flate observer runnable and use observed recovery
-input to cancel during admitted candidate/tail storage. Both token routes,
-original inputs, thresholds, limits and cleanup assertions remain. All 56
-affected checks pass on Windows/WSL (735/806ms). These test-only scheduling
-corrections leave production sources and the benchmark panel unchanged.
+The original X100 object-stream job allocates 801.090→789.711 KB/job, about
+11.4 KB less, with identical independently validated output hashes. Baseline and
+candidate medians 2.365/2.329 ms overlap in IQR: allocation benefit only.
+The same run's native median is 2.393 ms (managed/native 0.9732×).
+All 2,081 affected writer/resource checks pass (45s), including failure after
+buffer growth, retry, retained-task cleanup and the original tight budgets.
+All 26 fresh managed/native outcomes and three negative controls pass with
+unchanged inputs. Locked Release solution build/pack, package inspection, fresh
+consumer and rejection controls pass (26s), including the unchanged 2 MiB
+multisource ceiling. Final integration qualification follows; the comparative
+table remains the last clean thirteen-job panel.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and

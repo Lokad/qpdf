@@ -133,12 +133,12 @@ internal sealed class ObjectStreamPayload : IDisposable
             {
                 if (headers is not null)
                 {
-                    byte[] header = headers[index];
-                    GovernedBufferStream.CopyBytes(header, raw.AsSpan(position, header.Length), governor, cancellationToken, CancellationToken.None);
+                    ReadOnlyMemory<byte> header = headers[index];
+                    GovernedBufferStream.CopyBytes(header.Span, raw.AsSpan(position, header.Length), governor, cancellationToken, CancellationToken.None);
                     position += header.Length;
                 }
-                byte[] body = bodies[index];
-                GovernedBufferStream.CopyBytes(body, raw.AsSpan(position, body.Length), governor, cancellationToken, CancellationToken.None);
+                ReadOnlyMemory<byte> body = bodies[index];
+                GovernedBufferStream.CopyBytes(body.Span, raw.AsSpan(position, body.Length), governor, cancellationToken, CancellationToken.None);
                 position += body.Length;
             }
             byte[] stored = compress ? FlateFilter.Encode(raw, compressionLevel, limits, governor, memory, cancellationToken) : raw;

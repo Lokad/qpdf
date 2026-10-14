@@ -15,6 +15,10 @@ internal sealed class BufferedSink : IByteSink, IDisposable
     }
 
     internal static BufferedSink Create(QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        => Create(limits, governor, cancellationToken, 8192);
+
+    internal static BufferedSink Create(QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken,
+        int initialCapacity)
     {
         ArgumentNullException.ThrowIfNull(limits);
         ArgumentNullException.ThrowIfNull(governor);
@@ -23,7 +27,7 @@ internal sealed class BufferedSink : IByteSink, IDisposable
         try
         {
             memory.Reserve(64L + 128L);
-            GovernedBufferStream buffer = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), cancellationToken);
+            GovernedBufferStream buffer = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), cancellationToken, initialCapacity);
             try { return new BufferedSink(memory, buffer); }
             catch { buffer.Dispose(); throw; }
         }
@@ -34,6 +38,15 @@ internal sealed class BufferedSink : IByteSink, IDisposable
 
     public long Length => Buffer.Length;
 
+    // The capture owner keeps this backing alive through synchronous assembly.
+    internal ReadOnlyMemory<byte> WrittenMemory => Buffer.WrittenMemory;
+
+    internal void CheckOwner(ResourceGovernor governor)
+        => (_memory ?? throw new ObjectDisposedException(nameof(BufferedSink))).CheckOwner(governor);
+
+    internal void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
+        => Buffer.Write(chunk, cancellationToken);
+
     public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         => Buffer.WriteAsync(chunk, cancellationToken);
 
@@ -41,6 +54,8 @@ internal sealed class BufferedSink : IByteSink, IDisposable
         => Buffer.ToArray(memory, cancellationToken);
 
     internal void ResetWrittenBytes() => Buffer.ResetWrittenBytes();
+
+    internal void TruncateWrittenBytes(int length) => Buffer.TruncateWrittenBytes(length);
 
     public void Dispose()
     {

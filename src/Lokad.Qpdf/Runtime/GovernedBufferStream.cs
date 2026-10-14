@@ -58,13 +58,28 @@ internal sealed class GovernedBufferStream : Stream
         }
     }
 
+    internal ReadOnlyMemory<byte> WrittenMemory
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _buffer.AsMemory(0, _length);
+        }
+    }
+
     // Scratch reset retains admitted capacity but drops its logical contents.
     // It is constant-time cleanup after a completed copy, so it cannot cancel.
     internal void ResetWrittenBytes()
+        => TruncateWrittenBytes(0);
+
+    // Roll back a failed append without cancellation or changing admitted capacity.
+    internal void TruncateWrittenBytes(int length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _length = 0;
-        _position = 0;
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(length, _length);
+        _length = length;
+        _position = length;
     }
 
     internal void PrepareCapacity(int count, CancellationToken token)

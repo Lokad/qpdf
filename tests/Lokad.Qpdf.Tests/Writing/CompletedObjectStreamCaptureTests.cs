@@ -57,21 +57,19 @@ public sealed class CompletedObjectStreamCaptureTests
         long totalCaptured = 0L;
         foreach (ObjectStreamCapture owner in owners)
         {
-            byte[]?[] members = typeof(ObjectStreamCapture).GetField("_members", Instance)?.GetValue(owner) as byte[]?[]
+            int[] ends = typeof(ObjectStreamCapture).GetField("_ends", Instance)?.GetValue(owner) as int[]
                 ?? throw new InvalidOperationException("Expected member table.");
             ParserMemoryScope scope = typeof(ObjectStreamCapture).GetField("_memory", Instance)?.GetValue(owner) as ParserMemoryScope
                 ?? throw new InvalidOperationException("Expected capture scope.");
-            long reserved = 64L + 32L + members.Length * (long)IntPtr.Size;
-            arrays.Add(new WeakReference(members));
-            foreach (byte[]? bytes in members)
+            arrays.Add(new WeakReference(ends));
+            for (int index = 0; index < owner.Count; index++)
             {
-                Assert.NotNull(bytes);
-                if (bytes is null) { throw new InvalidOperationException("Expected completed member."); }
-                reserved += bytes.Length + 32L;
-                totalCaptured += bytes.Length;
-                arrays.Add(new WeakReference(bytes));
+                totalCaptured += owner[index].Length;
             }
-            Assert.Equal(reserved, scope.ReservedBytes);
+            Assert.True(System.Runtime.InteropServices.MemoryMarshal.TryGetArray(owner[0], out ArraySegment<byte> backing));
+            Assert.NotNull(backing.Array);
+            arrays.Add(new WeakReference(backing.Array));
+            Assert.InRange(scope.ReservedBytes, ends.Length * (long)sizeof(int), QpdfLimits.Default.MaxMemoryBytes);
             scopes.Add(scope);
         }
         Assert.True(totalCaptured >= 4096L * 4L);
@@ -101,7 +99,7 @@ public sealed class CompletedObjectStreamCaptureTests
             }
             else { await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await writing); }
             Assert.All(scopes, scope => Assert.Equal(0L, scope.ReservedBytes));
-            Assert.All(owners, owner => Assert.Null(typeof(ObjectStreamCapture).GetField("_members", Instance)?.GetValue(owner)));
+            Assert.All(owners, owner => Assert.Null(typeof(ObjectStreamCapture).GetField("_ends", Instance)?.GetValue(owner)));
             await ObserveAsync(governor, 3);
             Assert.All(arrays, value => Assert.False(value.IsAlive));
             GC.KeepAlive(writing); GC.KeepAlive(sink); GC.KeepAlive(owners); GC.KeepAlive(scopes);
