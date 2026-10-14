@@ -2,7 +2,7 @@
 
 Performance work targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2
 in thirteen codec-free public workloads. The target remains open. The latest full
-panel (`946af8b`) records five cells at parity, with ratios 0.58-3.55x.
+panel (`f89d242`) records four cells at parity, with ratios 0.57-3.50x.
 [Benchmarks](BENCHMARKS.md) gives current comparisons and reproducible commands.
 Keep changes reducing time or allocation; no minimum percentage applies.
 
@@ -29,10 +29,20 @@ output bytes. Medians 27.265 ->26.148 ms have overlapping IQRs
 26.477-28.167 /26.008-27.514, so no confirmed speedup is claimed. Its ratio 1.041x
 remains above parity. All observations remain in the raw evidence.
 
-All 4,484 initial reader/parser/cache/ownership checks pass. Final focused and
-integration qualification is pending. The original input/options/limits,
-2 MiB multisource consumer ceiling, independent reference checks, negative controls
-and additional file-host comparison remain unchanged.
+All 8,067 final reader/parser/writer/publication checks pass (78s), including
+normal/tight-budget growth beyond an initial cardinality hint. All 26 fresh
+managed/native outcomes and three negative controls pass, inputs unchanged.
+Locked Release build/explicit pack/inspection/fresh consumer/rejections pass (21s),
+preserving the 2 MiB multisource ceiling. Seven visual cases and two negative
+controls pass (21s) at unchanged tolerances; codecs/rendering are outside timing.
+
+The clean-source panels retain 24,459 primary and 4,549 additional file-host
+observations. Four original cells meet parity; sparse full-input selection stays
+3.4995x, while the separate file-host cell is 0.3998x. Broad object-stream and
+linearization timings prompted one paired check: it shows overlapping revision
+distributions, lower allocation and unchanged bytes, without a demonstrated
+source-related slowdown. The complete panel is retained without substitution.
+Hosted qualification of this correction is pending.
 
 The bounded async-wrapper and dense-xref-count trials had overlapping timings and
 unchanged allocations; both were reverted. Their measurements remain available.
