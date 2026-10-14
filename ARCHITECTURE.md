@@ -76,6 +76,9 @@ lengths preserve binary bytes; recovery scans stay within physical object
 boundaries, charge work and observe cancellation. Repaired copies use accepted
 payload lengths. Compressed members do not use file-stream recovery offsets.
 
+Small arrays and dictionaries use bounded inline parser scratch, spilling into
+governed containers as needed. Frozen results retain the shared object storage.
+
 Private strict selections on custom hosts can prefetch bounded object ranges
 from a standalone classic xref, omitting large unused extents. The same parser
 and copier consume those windows. A needed omitted range, diagnostic or parse

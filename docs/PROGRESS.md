@@ -7,47 +7,43 @@ ratios 0.59–3.54×. [Benchmarks](BENCHMARKS.md) gives current comparative figu
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
-Pushed `0210afd` passed [hosted CI run 38562169705](https://github.com/Lokad/qpdf/actions/runs/38562169705):
-Windows 6m20s, Ubuntu 5m25s, pinned reference 4m47s. Each ordinary job passes
+Pushed `2b8235c` passed [hosted CI run 38565450608](https://github.com/Lokad/qpdf/actions/runs/38565450608):
+Windows 6m39s, Ubuntu 6m11s, pinned reference 4m07s. Each ordinary job passes
 17,898 checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and version are unchanged.
 
 ## Current correction
 
-Mutable name tables now hold their active construction scope directly, removing
-one temporary weak-reference wrapper per table and its target lookups. Freeze,
-conversion and discard still clear the link; public dictionaries require frozen
-storage. Completed immutable values/keys remain independent of execution state.
-Owner validation, cancellation and storage admission retain their existing paths.
+The parser keeps up to four dictionary entries in bounded inline scratch and
+constructs their final frozen name table once. Larger dictionaries, orphan-key
+repair and per-value receipt callers spill into the existing table path. Duplicate
+warnings/repair checks precede replacement, retaining first-key identity/order.
+Scratch lookup reuses the name table's bounded comparison; public dictionary
+storage, enumeration, immutability and execution-state cleanup remain unchanged.
 
-The original X100 paired probe allocates 669.534→661.882 KB/job (about 7.65 KB
-less), with identical independently validated bytes. Medians 3.597→3.230 ms have
-overlapping IQRs (3.302–3.613 / 3.116–3.318); retain allocation, with no confirmed
-speedup. All 4,184 affected syntax/table/reader/selection checks pass (29s),
-including frozen values after cleanup, conversion cancellation/failure, wrong
-owners, collisions, warning/repair ordering and discarded-value cleanup.
-All 26 fresh managed/native outcomes and three negative controls pass with
-original inputs unchanged. Locked Release build/explicit pack/inspection/fresh
-consumer/rejections pass (32s), preserving the 2 MiB multisource ceiling.
-Clean-source comparisons retain all 27,289 primary and 6,638 additional file-host
-observations, fresh independent semantics and original inputs. Five primary cells
-meet parity; sparse full-input selection remains 3.54×, additional file-host
-selection 0.401×. Separate panels establish no timing attribution.
+The original 2,000-object rewrite probe allocates 5.854→4.824 MB/job (about
+1.03 MB less). Its median falls 28.945→25.965 ms, with separated IQRs
+27.833–30.339 / 25.733–27.342, and identical independently validated bytes.
+The subsequent shared-comparison probe records 25.753→25.611 ms with overlapping
+IQRs and unchanged allocation; no isolated speedup is claimed for that adjustment.
+The near-parity probe ratios remain above 1.0; the complete goal stays open.
 
-A separate raw-name hashing fast path was tested and restored: allocation was
-essentially unchanged, and 2.135→2.122 ms had overlapping IQRs. Its focused
-checks passed; all observations remain in the raw archive. No additional
-benchmark cell, cache or accounting framework was introduced. Two existing six-second
-profiles verify every fresh output hash: ID rewriting points to writing/hashing;
-object-heavy rewriting points to parsing. Traces and summaries are in the raw
-archive. Sampled GC polling intervals are not exact CPU or explicit GC calls.
+All 4,188 affected syntax/table/reader/selection checks pass (18s). Four new
+public rewrite cases cover three/four/five/nine keys, duplicates before/after
+spilling, escaped names/strings, independently readable output and immutable
+values/key aliases surviving cleanup. All 26 original fresh managed/native
+outcomes and three negative controls pass with unchanged inputs. Locked Release
+build/explicit pack/inspection/fresh consumer/rejections pass (23s), preserving
+the 2 MiB multisource consumer ceiling.
 
-The earlier single-lookup dictionary insertion and bounded private file-host
-selection remain integrated. The latter keeps complete-reader fallback on the
-same lease before publication; public documents and memory-host jobs retain
-their storage contracts. Its additional comparison stays separate from the
-original thirteen memory-host cells and their unresolved full-input sparse cost.
+A four-second allocation profile on the qualified prior binary checks every fresh
+output hash; sampled types point to temporary/final dictionary backings. Counts
+are approximate allocation samples, not retained-memory measurements. Existing
+CPU profiles identify object-heavy parsing and content-ID writing/hashing as
+remaining costs. Earlier name-table ownership, single-lookup insertion and bounded
+private file-host reads remain integrated. The separate file-host comparison
+does not replace the original thirteen memory-host cells or their sparse cost.
 
 ## Preserved scope
 

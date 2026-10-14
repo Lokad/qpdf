@@ -329,6 +329,9 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
         public void Dispose() { }
     }
 
+    internal static bool NamesEqual(PdfName left, PdfName right, ResourceGovernor governor, CancellationToken token)
+        => new Visits(governor, token, null).Equal(left, right);
+
     private readonly struct Visits(ResourceGovernor? governor, CancellationToken token, Action? observe)
     {
         internal void Step() => Units(1L);

@@ -746,9 +746,45 @@ internal sealed class PdfParser
         }
     }
 
-    private QpdfObject ParseDictionaryContentsOrStream(PdfTokenizer tokenizer, int depth, long offset)
+    [InlineArray(4)]
+    private struct DictionaryPrefix
+    {
+        private KeyValuePair<PdfName, ParsedValue> _first;
+    }
+
+    private PdfNameTable<ParsedValue> SpillDictionaryPrefix(ref DictionaryPrefix prefix, int count)
     {
         PdfNameTable<ParsedValue> entries = ParserContainers.CreateDictionary(Memory, _governor);
+        entries.EnsureCapacity(Memory, _governor, count, _token);
+        for (int index = 0; index < count; index++)
+        { entries.Assign(Memory, _governor, prefix[index].Key, prefix[index].Value, _token); }
+        prefix = default;
+        Memory.Release(PdfNameTable<ParsedValue>.WrapperBytes);
+        return entries;
+    }
+
+    private PdfDictionary CompleteDictionaryPrefix(ref DictionaryPrefix prefix, int count)
+    {
+        PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(Memory, _governor, IntPtr.Size, _token);
+        entries.EnsureCapacity(Memory, _governor, count, _token);
+        for (int index = 0; index < count; index++)
+        { entries.Assign(Memory, _governor, prefix[index].Key, prefix[index].Value.Value, _token); }
+        entries.Freeze(Memory, _governor, _token);
+        Memory.Reserve(32L);
+        PdfDictionary result = PdfDictionary.FromOwnedEntries(entries);
+        prefix = default;
+        Memory.Release(PdfNameTable<ParsedValue>.WrapperBytes);
+        return result;
+    }
+
+    private QpdfObject ParseDictionaryContentsOrStream(PdfTokenizer tokenizer, int depth, long offset)
+    {
+        // Common small dictionaries need no growable receipt table. Larger or
+        // repaired dictionaries spill once into the existing construction path.
+        Memory.Reserve(PdfNameTable<ParsedValue>.WrapperBytes);
+        DictionaryPrefix prefix = default;
+        int prefixCount = 0;
+        PdfNameTable<ParsedValue>? entries = null;
         List<ParsedValue>? missingKeys = null;
         while (true)
         {
@@ -762,7 +798,7 @@ internal sealed class PdfParser
                 break;
             }
 
-            if (entries.Count + (long)(missingKeys?.Count ?? 0) >= _limits.MaxContainerSize)
+            if ((entries?.Count ?? prefixCount) + (long)(missingKeys?.Count ?? 0) >= _limits.MaxContainerSize)
             {
                 throw new QpdfParseException($"Dictionary holds more than {_limits.MaxContainerSize} top-level entries.", token.Offset, null);
             }
@@ -774,6 +810,7 @@ internal sealed class PdfParser
                     throw new QpdfParseException($"Dictionary key must be a name, not {token.Kind}.", token.Offset, null);
                 }
 
+                entries ??= SpillDictionaryPrefix(ref prefix, prefixCount);
                 if (missingKeys is null)
                 {
                     missingKeys = ParserContainers.CreateOwnedList(Memory);
@@ -805,9 +842,30 @@ internal sealed class PdfParser
             }
 
             long discardedBytes = 0L;
-            // Insert ordinary keys with one hash/probe. Duplicates leave the
-            // stored value intact until their warning/repair checks succeed.
-            if (!entries.TryAdd(Memory, _governor, key, value, _governor.CancellationToken, out ParsedValue previous))
+            int prefixIndex = -1;
+            if (entries is null)
+            {
+                for (int index = 0; index < prefixCount; index++)
+                {
+                    ChargeWork(1L); _governor.CheckCancellation();
+                    if (ReferenceEquals(prefix[index].Key, key)
+                        || PdfNameTable<ParsedValue>.NamesEqual(prefix[index].Key, key, _governor, _token))
+                    { prefixIndex = index; break; }
+                }
+                if (prefixIndex < 0 && prefixCount == 4)
+                { entries = SpillDictionaryPrefix(ref prefix, prefixCount); }
+            }
+            ParsedValue previous = default;
+            bool inserted;
+            if (entries is not null)
+            { inserted = entries.TryAdd(Memory, _governor, key, value, _token, out previous); }
+            else if (prefixIndex >= 0)
+            { previous = prefix[prefixIndex].Value; inserted = false; }
+            else
+            { prefix[prefixCount++] = new(key, value); inserted = true; }
+            // Duplicates leave the stored value intact until warning/repair
+            // checks succeed, retaining the first equal key and its position.
+            if (!inserted)
             {
                 if (!SuppressRepairDiagnostics)
                 {
@@ -830,7 +888,8 @@ internal sealed class PdfParser
                 // This newly parsed key and the old value cease to be retained.
                 discardedBytes = checked(keyBytes + previous.ReservedBytes);
                 previous = default;
-                entries.Assign(Memory, _governor, key, value, _governor.CancellationToken);
+                if (entries is not null) { entries.Assign(Memory, _governor, key, value, _token); }
+                else { prefix[prefixIndex] = new(prefix[prefixIndex].Key, value); }
             }
             ReleaseMemory(discardedBytes);
             if (missingValue)
@@ -841,6 +900,7 @@ internal sealed class PdfParser
 
         if (missingKeys is not null)
         {
+            PdfNameTable<ParsedValue> repaired = entries ?? throw new InvalidOperationException("Dictionary repair requires name storage.");
             if (SanityChecks)
             {
                 WarnRepair("Ignored orphan dictionary values during xref recovery.", offset);
@@ -857,19 +917,21 @@ internal sealed class PdfParser
                 long fakeIndex = 0L;
                 foreach (ParsedValue value in missingKeys)
                 {
-                    PdfName key = FreshFakeKey(entries, ref fakeIndex);
+                    PdfName key = FreshFakeKey(repaired, ref fakeIndex);
                     WarnRepair("Inserted a missing dictionary key.", offset);
-                    entries.TryAdd(Memory, _governor, key, value, _governor.CancellationToken);
+                    repaired.TryAdd(Memory, _governor, key, value, _governor.CancellationToken);
                 }
             }
 
             ParserContainers.ReleaseOwnedList(Memory, missingKeys);
         }
 
-        ChargeWork(entries.Count);
+        ChargeWork(entries?.Count ?? prefixCount);
         _governor.CheckCancellation();
         bool preserveReceipts = depth == _dictionaryReceiptDepth;
-        PdfDictionary dictionary = ParserContainers.CopyDictionary(Memory, _governor, entries, preserveReceipts);
+        if (preserveReceipts && entries is null) { entries = SpillDictionaryPrefix(ref prefix, prefixCount); }
+        PdfDictionary dictionary = entries is null ? CompleteDictionaryPrefix(ref prefix, prefixCount)
+            : ParserContainers.CopyDictionary(Memory, _governor, entries, preserveReceipts);
         if (preserveReceipts) { _dictionaryReceipts = entries; }
         if (!AllowStreams) { return dictionary; }
         long beforeNext = tokenizer.Position;
