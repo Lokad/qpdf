@@ -2,7 +2,7 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The clean
-`7632540` panel records four cells at or below 1.0×, with ratios 0.63–3.48×.
+`d9cb8ef` panel records five cells at or below 1.0×, with ratios 0.61–3.60×.
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
@@ -24,9 +24,14 @@ with identical independently validated output bytes. Medians 2.789→2.661 ms
 have overlapping IQRs (2.413–3.087 / 2.409–3.495); retain allocation only.
 All 1,840 focused selection/merge/split/cleanup checks pass (16s), and the
 expanded 2/64-copy public identity check passes (170ms). All 26 fresh managed/
-native outcomes and three negative controls pass with original inputs. Locked Release build/explicit pack, inspection, fresh consumer and rejection
+native outcomes and three negative controls pass with original inputs.
+Locked Release build/explicit pack, inspection, fresh consumer and rejection
 controls pass (17s), including the unchanged 2 MiB multisource ceiling.
-The clean-source comparison and one hosted run qualify the integrated change.
+The clean-source comparison retains all 26,748 observations with original inputs
+and independent semantic/physical checks. Selection S10/M500, object streams,
+checking and individual splitting meet parity in this run; sparse selection is
+3.60×. Separate comparisons do not isolate source-change timing effects.
+One hosted push qualifies the implementation and refreshed report together.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and
