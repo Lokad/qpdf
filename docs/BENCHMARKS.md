@@ -39,6 +39,12 @@ comparison covers these inputs and the built-in memory host, not every PDF,
 operation or custom host. Separate runs under different load do not isolate
 the effect of a source change.
 
+A separate thirty-load diagnostic of the original 16.8 MB sparse input records
+9.56 ms median (Q1–Q3 2.73–15.27), allocating 16.798 MB per fresh load. In its
+same run, complete managed/native jobs measure 9.14/3.29 ms. Length/hash checks
+follow timing. The broad variation prevents subtracting medians or attributing
+it to GC; full input allocation/reading is a boundary cost to address. Production
+source is unchanged from the table above. This component supplies no engine ratio.
 | Workload | Managed allocation MB/job | Peak RSS MiB managed / native | Output KiB managed / native |
 | --- | ---: | ---: | ---: |
 | select-S10 | 0.087 | 72.6 / 6.4 | 3.9 / 4.1 |
@@ -140,6 +146,9 @@ license, with no third-party assets; native creates the streamed variant before
 the incremental metadata update. The runners require the clean pinned native
 source and Release build. Read the archive with
 `gzip -dc benchmarks/results/2026-10-12-parity-progress.json.gz`.
+
+For the sparse input diagnostic, add `--workload select-sparse --input-read-diagnostic`
+to the warmed comparison command. Component samples remain separate from jobs.
 
 For a narrow probe, add `--workload rewrite-X100` (usually under one minute).
 Preserve a baseline probe directory and use `--baseline-probe <dir>/QpdfProbe.dll`

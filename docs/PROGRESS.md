@@ -22,29 +22,26 @@ runner can collect thirty samples for one selected single-input workload with
 --input-read-diagnostic, preserving every original complete-job sample, option,
 input, limit, expected output and negative control.
 
-Initial sparse component probes observe a wide distribution: corrected load-only
-median 8.50 ms (Q1–Q3 4.69–13.19), with 16.798 MB allocated per fresh load.
-A contemporary complete-job run measures managed 7.13 ms (6.56–8.16) and native
-2.37 ms (2.04–2.99). Separate-run variability prevents subtracting these medians
-or claiming an exact engine/GC cost. Fifteen of thirty loads have a Gen2
-collection, but this does not prove GC causes the slower samples. All complete
-load hashes match the original 16.8 MB fixture; the compiled library hash matches
-the qualified comparison. The first approximate total-allocation counter
-understated the known input size and is retained as preliminary evidence;
-complete-job allocation statistics remain unchanged.
+The clean committed-source sparse comparison records managed/native complete-job
+medians 9.14/3.29 ms (2.78×). Thirty separate full-input loads have median
+9.56 ms (Q1–Q3 2.73–15.27), allocating 16.798 MB each; all length/hash checks
+match the original fixture. Wide host/heap-state variation prevents subtracting
+these medians, claiming a universal floor or blaming GC. Earlier preliminary
+counter observations remain in the raw archive; the complete-job counters and
+all original thirteen-cell comparisons are preserved.
 
 Windows/Linux Release probe builds and all seventeen CLI checks pass (3s),
-including different complete inputs and malformed diagnostic requests. One clean
-committed-source sparse comparison with the separate component diagnostic records
-the final evidence. The thirteen-cell parity target remains open; input-only
-measurements do not replace a cell or establish an engine-speed comparison.
+including different complete inputs and malformed diagnostic requests. The final
+source diff is empty and production sources/pins/version match the qualified
+implementation. No full thirteen-cell or local package requalification for this
+development-only diagnostic; one hosted push qualifies the tool and report.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
-read selected objects lazily; the current managed reader consumes contiguous
-storage and the memory host borrows its immutable snapshot. Parser-only changes
-cannot remove the emitter's required full read. The next correction must address
-this boundary explicitly while retaining the original comparison and practical
-limits, cancellation, cleanup and immutable output guarantees.
+read selected objects lazily; the managed reader consumes contiguous storage and
+the memory host borrows its immutable snapshot. Parser-only changes cannot remove
+the emitter's required full read. One bounded fresh-allocation strategy probe is
+next; a larger reader/host redesign may be necessary. Every original comparison,
+limit, cancellation, cleanup and immutable-output guarantee remains in scope.
 
 ## Useful completed work
 
