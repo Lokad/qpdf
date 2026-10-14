@@ -175,7 +175,7 @@ public sealed class ContentTransformsTests
     [InlineData(true)]
     public async Task RotationAfterMergePreservesCoalescedPageContents(bool job)
     {
-        byte[] fixture = BuildPdf(string.Empty, " /Contents [4 0 R 5 0 R]",
+        byte[] fixture = BuildPdf(string.Empty, " /Resources << >> /Contents [4 0 R 5 0 R]",
             [("<< /Length 1 >>", "q"u8.ToArray()), ("<< /Length 1 >>", "Q"u8.ToArray())]);
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
         host.AddInput(QpdfPath.From("inputs/b.pdf"), fixture, QpdfInputOwnership.Copy);
