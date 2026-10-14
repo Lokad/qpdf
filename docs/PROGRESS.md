@@ -1,84 +1,59 @@
 # Progress
 
 Single-CPU parity (<=1.0x) against pinned qpdf 12.4.2 remains open. Clean source
-`679a213` records 5/13 comparable warmed file-backed medians at parity;
-supplementary sparse job JSON is 0.424x. Remaining cells: rewrite-M500 1.345x,
-linearize-M500 1.341x, rewrite-X100 1.333x, merge-250x2 1.258x, rewrite-ID-M500
-1.250x, object-streams-X100 1.108x, select-M500 1.044x, rewrite-objects 1.032x.
-[Benchmarks](BENCHMARKS.md) leads with comparative figures and preserves ranges,
-resource figures and commands in three tables. Separate panels establish no causal
-attribution, and unchanged-source timing noise does not justify reruns.
+`30bd234` records 8/13 comparable warmed file-backed medians at parity;
+supplementary sparse job JSON is 0.446x. Remaining cells: rewrite-X100 1.294x,
+merge-250x2 1.207x, linearize-M500 1.018x, object-streams-X100 1.011x,
+rewrite-objects 1.011x. [Benchmarks](BENCHMARKS.md) leads with current comparisons,
+ranges, resource figures and reproducible commands in three tables. Separate panels
+establish no causal attribution; unchanged-source timing noise does not justify
+reruns.
 
 Original `bf03d9a` memory-host results stay end-to-end evidence: fresh complete
 input acquisition/registration, staging, public output export and file writes.
-Native can read less from files. Sparse selection's original 3.4732x result stays
-unchanged; a different input path cannot turn it into a pass. All 164 archived runs
-preserve previous observations, including rejected/slower trials.
+Native can read less from files. Original sparse 3.4732x stays unchanged; a new path
+cannot turn it into a pass. All 168 archived runs preserve prior observations,
+including slower/rejected trials and insensitive probes.
 
 ## Current implementation and verification
 
-Private single-source copies now borrow input payloads under the existing job
-ownership through publication. Public readers, multisource storage, bounded ranges
-and stable fallback retain their contracts. Classic/linearized/QDF writers isolate
-input-backed payloads in bounded immutable packets for retaining or async sinks;
-synchronous output and prepared captures can consume them directly.
+Private single-source copies borrow input payloads under existing document/job
+funding through publication, including preopened whole-file sources. Accepted
+sources still close before output. Public readers, multisource storage, bounded
+ranges, default recovery/catalog behavior and same-lease complete fallback remain.
+Classic/linearized/QDF writers isolate input-backed payloads into fresh immutable
+packets of at most 32 KiB for retaining or async sinks. Synchronous output and
+prepared captures consume them directly. No new reader API, pool or ownership
+system.
 
 The original 500-page file-host rewrite pair falls 22.031 ->16.980 ms, with
-non-overlapping IQRs, and 22.320429 ->17.187246 MB allocated/job. Independently
-validated output is byte-identical; all 524 observations remain. Native is
-15.787 ms (1.076x), so parity remains open. Worker RSS rises slightly; no retained
-memory reduction is claimed. The affected 8,946 checks pass, followed by 219 checks
-for the final bounded packets and seven complete public jobs with a 96 KiB payload
-and 2 MiB omitted stream. Disabling isolation exposes large retained backings in
-five jobs. Write failure/cancellation preserve prior output and close input leases.
-This useful batch awaits final integration qualification; published tables still
-identify `679a213`.
+non-overlapping IQRs 21.226-28.871 /16.778-20.067; allocation falls 22.320429 ->
+17.187246 MB/job. Independently validated output is byte-identical; all 524
+observations remain. Native 15.787 ms gives 1.076x, so that pair stays above target.
+Worker RSS rises slightly; no retained-memory/RSS reduction is claimed.
 
-Object-stream decoding reuses the existing array helper: full immutable arrays are
-borrowed; slices materialize under scratch ownership. All 2,951 affected reader,
-filter and object-stream checks pass (27s). The narrow streamed-xref rewrite input
-has unfiltered object streams, so its overlapping 2.380/2.384 ms pair does not
-measure this filtered-decode correction. No timing or allocation gain is attributed
-to that probe; its complete observations remain. Published figures still identify
-the qualified `679a213` implementation until the next useful integration batch.
+All 8,946 affected checks pass before the bounded-packet refinement; 219 final
+focused checks pass, including seven complete public jobs with 96 KiB payload and 2
+MiB omitted stream under 8 MiB memory/256 KiB output limits. Five deliberate
+isolation-disabled jobs retain the large input backing; guarded jobs preserve output
+aliases, prior targets on write failure/cancellation, and closed leases. These
+observe actual backings, rather than equating charges with retained heap.
 
-Prepared split serialization uses existing bounded batching for main, identifier and
-pass1 captures. Synchronous owned storage allows scratch reuse, with explicit
-flushes before lengths/IDs/publication. Geometric segments avoid intermediate
-arrays, cap capacity at 32 KiB and expose only filled prefixes. Growth-overlap
-admission, bounded work/cancellation and immutable retained output chunks remain.
+Filtered object-stream decoding also reuses existing ArrayData: full immutable
+arrays borrow and slices materialize under scratch. All 2,951 affected checks pass.
+The original streamed/incremental rewrite fixture has UNFILTERED object streams, so
+its overlapping 2.380/2.384 ms pair is insensitive to that correction. No timing or
+allocation improvement is attributed to it; all 4,303 observations remain.
 
-Two same-driver split probes reduce cumulative managed allocation 34.940848 to
-34.646845 MB/job, then 34.649050 to 30.964657 MB/job. All ten outputs match each
-baseline and pass independent checks. Timing IQRs overlap; no speedup is claimed.
-The second trial's worker RSS increases, so allocation savings establish neither
-lower retained memory nor lower RSS. A copy-loop trial without a qualifying gain was
-reverted; every observation remains. There is no new pool or ownership model.
-
-All 3,124 affected writer/split/presentation/publication controls pass (46s), and
-2,669 affected growth checks pass (82s). Final-source checks pass: 26 fresh semantic
-outcomes plus three negatives; seven visual cases plus two negatives; locked Release
-restore/build/explicit pack, inspection, fresh consumer and rejection controls. The
-unchanged 2 MiB multisource consumer ceiling passes. WSL build/
-semantics/file-panel/job phases take 32.26/84.08/245.67/18.95s; package/consumer
-79.85s and visual 22.15s. All thirteen managed output sets match the preceding
-panel; original inputs remain unchanged. The final panels retain all 18,208 file and
-5,346 job observations. Required Windows/Ubuntu ordinary and pinned-reference
-integration results are published by
+Final-source qualification passes 26 fresh semantic outcomes plus three negatives;
+seven visual cases plus two negatives; locked Release restore/build/explicit pack,
+inspection, fresh consumer and rejection controls. The unchanged 2 MiB multisource
+consumer ceiling passes. WSL build/semantics/file-panel/job phases take
+20.98/28.78/225.62/17.97s; package/consumer 22.10s, visual 18.99s. All thirteen
+managed output sets match the preceding panel, original inputs remain unchanged, and
+all 23,750 file/4,965 job observations remain. Required Windows/Ubuntu ordinary and
+pinned-reference integration results are published by
 [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
-
-Reader cancellation fixtures use the shared input-read observer and 16 KiB payloads,
-preserving in-flight cancellation, scratch rollback and accepted-cache checks without
-a scheduling race between parsing and a polling thread. All 90 affected reader/recovery
-checks pass. These fixture changes leave runtime code unchanged.
-
-Argv/job single-page and one-source range selection retain bounded classic-xref
-reads, catalog behavior and default bounded recovery. Missing ranges, diagnostics or
-uncertain parsing retry once on the same stable lease before publication. Accepted
-range sources close before output creation, preserving one-handle limits and
-close-fault protection. Job `suppressRecovery:false` matches absent/default repair;
-true remains strict. Five regressions demonstrated those prior failures; 6,254
-affected public checks pass. Earlier useful corrections remain integrated.
 
 ## Preserved scope
 
@@ -87,9 +62,9 @@ opaque, Zopfli is unavailable, and crypto including empty-password inputs is
 excluded. Other [compatibility requirements](COMPATIBILITY.md) are not waived.
 
 `MaxMemoryBytes` bounds approximate charged working storage. Significant capacity,
-copy/growth overlap, allocation/decompression amplification, work, cancellation,
-host boundaries, cleanup, integrity, immutability and surviving aliases remain
-protected. Charges do not establish retained memory. Exact CLR sizes, individual
+copy/growth overlap, allocation/decompression amplification, work/cancellation, host
+boundaries, cleanup, integrity, immutability and surviving aliases remain protected.
+Charges do not establish retained heap. Exact CLR sizes, individual
 small-object/metadata-alias receipts, fixed GC rounds and precise bookkeeping
 charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
 
