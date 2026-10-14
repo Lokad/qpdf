@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The latest
-qualified primary panel (`6a8f6c4`) records five cells at or below 1.0×, with
-ratios 0.56–3.40×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
+qualified primary panel (`946af8b`) records five cells at or below 1.0×, with
+ratios 0.58–3.55×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
@@ -42,7 +42,12 @@ the 2 MiB multisource consumer ceiling.
 Earlier bounded parser scratch, scoped ownership, immutable borrowing and writer
 allocation improvements remain integrated. The additional file-host comparison
 stays separate from all thirteen original memory-host cells and their unresolved
-full-input sparse cost. Final committed-source qualification follows.
+full-input sparse cost. Clean-source qualification retains all 27,152 primary
+and 6,931 additional file-host observations, original inputs/options and fresh
+independent semantics. Five primary cells meet parity; ID rewriting remains
+1.020× and sparse full-input selection 3.547×. The additional file-host cell is
+0.375×. All seven existing visual cases pass at unchanged tolerances; misplaced
+image/stale-appearance negatives reject. Rendering/codecs remain outside timing.
 
 ## Preserved scope
 
