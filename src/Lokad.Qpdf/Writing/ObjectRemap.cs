@@ -7,8 +7,7 @@ namespace Lokad.Qpdf.Writing;
 /// <summary>
 /// Shared object-identity remapping for publication paths that renumber the
 /// destination graph (split groups, QDF length insertion). References remap
-/// through the table; arrays, dictionaries and stream headers rebuild;
-/// anything else passes through.
+/// through the table; immutable containers rebuild only along changed paths.
 /// </summary>
 internal static class ObjectRemap
 {
@@ -99,30 +98,32 @@ internal static class ObjectRemap
                 throw new QpdfException($"Publication reached unmapped object {reference.ObjectNumber}.");
             }
 
+            if (mapped == reference.ObjectNumber && reference.Generation == 0) { return reference; }
             memory?.Reserve(32L);
             return new PdfReference(mapped, 0);
         }
 
         if (value is PdfArray array)
         {
-            if (memory is not null)
-            {
-                memory.Reserve(checked(64L + IntPtr.Size * (long)array.Count));
-                governor.ChargeWork(array.Count);
-                QpdfObject[] owned = new QpdfObject[array.Count];
-                for (int i = 0; i < owned.Length; i++)
-                {
-                    owned[i] = RemapIds(array[i], renumber, memory, governor, cancellationToken, checked(depth + 1L));
-                }
-                return PdfArray.FromOwnedItems(owned);
-            }
-            List<QpdfObject> items = new(array.Count);
+            if (memory is not null) { governor.ChargeWork(array.Count); }
+            QpdfObject[]? items = null;
             for (int i = 0; i < array.Count; i++)
             {
-                items.Add(RemapIds(array[i], renumber, null, governor, cancellationToken, checked(depth + 1L)));
+                QpdfObject mapped = RemapIds(array[i], renumber, memory, governor, cancellationToken, checked(depth + 1L));
+                if (items is null && !ReferenceEquals(mapped, array[i]))
+                {
+                    memory?.Reserve(checked(64L + IntPtr.Size * (long)array.Count));
+                    items = new QpdfObject[array.Count];
+                    governor.ChargeWork(i);
+                    for (int prefix = 0; prefix < i; prefix++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        items[prefix] = array[prefix];
+                    }
+                }
+                if (items is not null) { items[i] = mapped; }
             }
-
-            return new PdfArray(items);
+            return items is null ? array : PdfArray.FromOwnedItems(items);
         }
 
         if (value is PdfDictionary dictionary)
@@ -137,6 +138,7 @@ internal static class ObjectRemap
                 throw new QpdfException("Publication reached a non-dictionary stream header.");
             }
 
+            if (ReferenceEquals(remapped, stream.Dictionary)) { return stream; }
             memory?.Reserve(32L);
             return stream.WithDictionary(remapped);
         }
@@ -147,14 +149,9 @@ internal static class ObjectRemap
     private static PdfDictionary RemapDictionary(PdfDictionary dictionary, NumberMap renumber,
         ParserMemoryScope? memory, ResourceGovernor governor, CancellationToken cancellationToken, long depth, int? lengthNumber)
     {
-        IReadOnlyDictionary<PdfName, QpdfObject> entries;
-        if (memory is null) { entries = new Dictionary<PdfName, QpdfObject>(); }
-        else
-        {
-            PdfNameTable<QpdfObject> names = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, cancellationToken);
-            names.EnsureCapacity(memory, governor, checked(dictionary.Count + (lengthNumber.HasValue ? 1 : 0)), cancellationToken);
-            entries = names;
-        }
+        IReadOnlyDictionary<PdfName, QpdfObject>? entries = lengthNumber.HasValue
+            ? CreateEntries(memory, governor, cancellationToken, checked(dictionary.Count + 1)) : null;
+        int processed = 0;
         PdfName? lengthKey = null;
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext())
@@ -166,15 +163,21 @@ internal static class ObjectRemap
             if (entry.Value is not null)
             {
                 QpdfObject mapped = RemapIds(entry.Value, renumber, memory, governor, cancellationToken, checked(depth + 1L));
-                AddEntry(memory, governor, cancellationToken, entries, entry.Key, mapped);
+                if (entries is null && !ReferenceEquals(mapped, entry.Value))
+                { entries = CopyPrefix(dictionary, processed, memory, governor, cancellationToken); }
+                if (entries is not null) { AddEntry(memory, governor, cancellationToken, entries, entry.Key, mapped); }
             }
+            else if (entries is null)
+            { entries = CopyPrefix(dictionary, processed, memory, governor, cancellationToken); }
+            processed++;
         }
         if (lengthNumber.HasValue)
         {
+            entries ??= CreateEntries(memory, governor, cancellationToken, checked(dictionary.Count + 1));
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(7L);
             if (lengthKey is null)
             {
-                // FromAscii allocates one temporary array and one immutable copy.
+                // Admit the fixed lookup name before creating its owned bytes.
                 memory?.Reserve(108L);
                 lengthKey = PdfName.FromAscii("Length");
                 memory?.Release(38L);
@@ -183,10 +186,36 @@ internal static class ObjectRemap
             PdfReference length = new(lengthNumber.Value, 0);
             AddEntry(memory, governor, cancellationToken, entries, lengthKey, length);
         }
+        if (entries is null) { return dictionary; }
         memory?.Reserve(32L);
         if (memory is not null && entries is PdfNameTable<QpdfObject> owned)
         { owned.Freeze(memory, governor, cancellationToken); return PdfDictionary.FromOwnedEntries(owned); }
         return PdfDictionary.FromOwnedEntries((Dictionary<PdfName, QpdfObject>)entries);
+    }
+
+    private static IReadOnlyDictionary<PdfName, QpdfObject> CreateEntries(ParserMemoryScope? memory,
+        ResourceGovernor governor, CancellationToken token, int count)
+    {
+        if (memory is null) { return new Dictionary<PdfName, QpdfObject>(); }
+        PdfNameTable<QpdfObject> names = PdfNameTable<QpdfObject>.Create(memory, governor, IntPtr.Size, token);
+        names.EnsureCapacity(memory, governor, count, token);
+        return names;
+    }
+
+    private static IReadOnlyDictionary<PdfName, QpdfObject> CopyPrefix(PdfDictionary dictionary, int count,
+        ParserMemoryScope? memory, ResourceGovernor governor, CancellationToken token)
+    {
+        // Earlier children were validated and stayed identical. Their immutable
+        // storage remains owned by the source model through publication.
+        IReadOnlyDictionary<PdfName, QpdfObject> entries = CreateEntries(memory, governor, token, dictionary.Count);
+        using PdfDictionary.EntryEnumerator prefix = dictionary.GetEntryEnumerator();
+        for (int index = 0; index < count && prefix.MoveNext(); index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            KeyValuePair<PdfName, QpdfObject> entry = prefix.Current;
+            if (entry.Value is not null) { AddEntry(memory, governor, token, entries, entry.Key, entry.Value); }
+        }
+        return entries;
     }
 
     private static void AddEntry(ParserMemoryScope? memory, ResourceGovernor governor, CancellationToken token,
