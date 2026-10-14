@@ -39,6 +39,12 @@ and three negative controls pass, original inputs unchanged. Locked Release
 build/explicit pack/inspection/fresh consumer/rejections pass (23s), preserving
 the 2 MiB multisource consumer ceiling.
 
+Hosted qualification exposed one obsolete late-lifetime assertion: completed
+classic bodies can release their index wrappers before the trailer. The check
+now accepts absent retired wrappers while still requiring any surviving wrapper
+to be detached. All 38 focused lifetime/identifier checks pass; active backing,
+failure, cancellation and cleanup checks remain.
+
 Earlier bounded parser scratch, scoped ownership, immutable borrowing and writer
 allocation improvements remain integrated. The additional file-host comparison
 stays separate from all thirteen original memory-host cells and their unresolved
