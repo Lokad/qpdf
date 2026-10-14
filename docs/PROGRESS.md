@@ -2,7 +2,7 @@
 
 Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
 thirteen codec-free public workloads. The target remains open. The latest full
-panel (`a06e339`) records five cells at parity, with ratios 0.58-3.35x.
+panel (`d66d5de`) records five cells at parity, with ratios 0.58-3.56x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep changes reducing time or allocation; no minimum percentage applies.
 
@@ -30,15 +30,18 @@ All 5,006 focused writer/linearization/split/publication checks pass (82s),
 including five new finite regressions for borrowing, unmapped references,
 generation/prefix handling, null elision and defensive copies. Six QDF cleanup
 cases now require a real generation change, preserving actual-storage retirement
-checks while removing an obsolete exact metadata-charge threshold. Final full
-comparison, package/consumer, visual and hosted qualification are pending.
+checks while removing an obsolete exact metadata-charge threshold. All 26 fresh
+managed/native outcomes and three negative controls pass with unchanged inputs.
+Locked Release build/explicit pack/inspection/fresh consumer/rejections pass
+(17s), preserving the 2 MiB multisource ceiling. Seven visual cases and two
+negative controls pass (18s) after timing, at unchanged tolerances. Hosted full
+tests and reference qualification are pending.
 
 Earlier parser scratch, approximate ownership, immutable borrowing, source/cache
 capacity reductions, staged content-ID hashing, direct classic xref ranges and
-hint-list filtering remain integrated. All 128 published raw runs are preserved.
-The latest qualified full panels contain
-27,111 primary and 6,731 additional file-host samples. Sparse full-input selection
-remains 3.3476x; the separate file-host cell is 0.3791x and replaces no primary case.
+hint-list filtering remain integrated. All earlier raw runs are preserved.
+The latest full primary panel contains 25,803 samples. Sparse full-input selection
+remains 3.5623x; the separate file-host cell is 0.3796x and replaces no primary case.
 Different full panels do not establish causal speedups.
 
 ## Preserved scope
