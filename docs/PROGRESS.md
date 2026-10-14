@@ -25,6 +25,15 @@ in both lanes. No firm speedup or allocation gain is claimed; all 4,104 observat
 and validated byte-identical outputs remain. This local structural correction will
 share a later integration checkpoint; the comparative tables still identify `f292c5e`.
 
+Small token writes and counted/shared token formatting also return existing
+operations directly; large writes keep bounded splitting and encoded storage stays
+owned through completion. All 187 affected checks pass. The paired rewrite records
+2.276 ->2.158 ms with overlapping IQRs 2.172-2.345 /2.129-2.206 and approximately
+561 KB allocation in both lanes; all 4,483 observations remain, without a firm
+speedup claim. One test helper now uses typed delegates so direct private-method
+limit exceptions are observed without reflection wrapping; its budget and
+before-write rejection assertions are unchanged. Final batch qualification follows.
+
 Accepted object-stream groups use their validated member count to hint existing
 cache capacity at first accepted insertion. Rejected/unmatched attempts and tight
 budgets retain normal growth. The original streamed-xref rewrite pair reduces

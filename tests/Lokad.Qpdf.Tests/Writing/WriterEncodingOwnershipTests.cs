@@ -29,8 +29,15 @@ public sealed class WriterEncodingOwnershipTests
         }
         MethodInfo method = writer.GetType().GetMethod(ascii ? "AppendAsciiAsync" : "AppendQdfValueAsync", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Expected preceding-compatible formatter.");
-        object? result = method.Invoke(writer, ascii ? new[] { source, sink, (object)token } : new[] { source, sink, 0, (object)token });
-        return result is ValueTask pending ? pending.AsTask() : throw new InvalidOperationException("Expected formatting task.");
+        if (ascii)
+        {
+            Func<string, IByteSink, CancellationToken, ValueTask> append =
+                method.CreateDelegate<Func<string, IByteSink, CancellationToken, ValueTask>>(writer);
+            return append((string)source, sink, token).AsTask();
+        }
+        Func<QpdfObject, IByteSink, int, CancellationToken, ValueTask> appendQdf =
+            method.CreateDelegate<Func<QpdfObject, IByteSink, int, CancellationToken, ValueTask>>(writer);
+        return appendQdf((QpdfObject)source, sink, 0, token).AsTask();
     }
 
     public static IEnumerable<object[]> Routes()

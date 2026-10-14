@@ -766,31 +766,41 @@ internal sealed partial class PdfSerializer
         }
     }
 
-    private async ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
+    private ValueTask AppendAsciiAsync(string text, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {
             counter.AppendLength(WriterEncoding.MeasureAscii(text, _limits, _governor, cancellationToken), cancellationToken);
-            return;
+            return ValueTask.CompletedTask;
         }
         if (WriterEncoding.TryGetSharedAscii(text, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> literal))
         {
-            await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendBytesAsync(literal, sink, cancellationToken);
         }
-        if (sink is BatchingSink batch && batch.TryAppendAscii(text, _limits, cancellationToken)) { return; }
-        using WriterEncoding encoded = WriterEncoding.Ascii(text, _limits, _governor, cancellationToken);
-        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
+        if (sink is BatchingSink batch && batch.TryAppendAscii(text, _limits, cancellationToken))
+        { return ValueTask.CompletedTask; }
+        return AppendEncodingAsync(WriterEncoding.Ascii(text, _limits, _governor, cancellationToken), sink, cancellationToken);
     }
 
-    private async ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
+    private ValueTask AppendBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {
             _governor.CheckCancellation();
             counter.AppendLength(chunk.Length, cancellationToken);
-            return;
+            return ValueTask.CompletedTask;
         }
+        if (chunk.IsEmpty) { return ValueTask.CompletedTask; }
+        if (chunk.Length <= WriteSplitBytes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return sink.AppendAsync(chunk, cancellationToken);
+        }
+        return AppendSplitBytesAsync(chunk, sink, cancellationToken);
+    }
+
+    private async ValueTask AppendSplitBytesAsync(ReadOnlyMemory<byte> chunk, IByteSink sink, CancellationToken cancellationToken)
+    {
         int offset = 0;
         while (offset < chunk.Length)
         {
@@ -801,18 +811,22 @@ internal sealed partial class PdfSerializer
         }
     }
 
-    private async ValueTask AppendNameAsync(PdfName name, IByteSink sink, CancellationToken cancellationToken)
+    private ValueTask AppendNameAsync(PdfName name, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {
             counter.AppendLength(WriterEncoding.MeasureName(name, _limits, _governor, cancellationToken), cancellationToken);
-            return;
+            return ValueTask.CompletedTask;
         }
         if (WriterEncoding.TryGetSharedName(name, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> literal))
         {
-            await AppendBytesAsync(literal, sink, cancellationToken).ConfigureAwait(false);
-            return;
+            return AppendBytesAsync(literal, sink, cancellationToken);
         }
+        return AppendUnsharedNameAsync(name, sink, cancellationToken);
+    }
+
+    private async ValueTask AppendUnsharedNameAsync(PdfName name, IByteSink sink, CancellationToken cancellationToken)
+    {
         if (WriterEncoding.TryGetUnescapedName(name, _limits, _governor, cancellationToken, out ReadOnlyMemory<byte> raw))
         {
             await AppendAsciiAsync("/", sink, cancellationToken).ConfigureAwait(false);
@@ -824,17 +838,24 @@ internal sealed partial class PdfSerializer
         await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask AppendStringAsync(PdfByteString text, IByteSink sink, CancellationToken cancellationToken)
+    private ValueTask AppendStringAsync(PdfByteString text, IByteSink sink, CancellationToken cancellationToken)
     {
         if (sink is CountingSink counter)
         {
             counter.AppendLength(WriterEncoding.MeasureString(text, _limits, _governor, cancellationToken), cancellationToken);
-            return;
+            return ValueTask.CompletedTask;
         }
-        if (sink is BatchingSink batch && batch.TryAppendString(text, _limits, cancellationToken)) { return; }
-        using WriterEncoding encoded = WriterEncoding.String(text, _limits, _governor, cancellationToken);
-        await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
+        if (sink is BatchingSink batch && batch.TryAppendString(text, _limits, cancellationToken))
+        { return ValueTask.CompletedTask; }
+        return AppendEncodingAsync(WriterEncoding.String(text, _limits, _governor, cancellationToken), sink, cancellationToken);
     }
 
+    private async ValueTask AppendEncodingAsync(WriterEncoding encoded, IByteSink sink, CancellationToken cancellationToken)
+    {
+        using (encoded)
+        {
+            await AppendBytesAsync(encoded.Data, sink, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
 }
