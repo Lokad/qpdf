@@ -1,86 +1,71 @@
 # Progress
 
-Single-CPU parity (<=1.0x) against pinned qpdf 12.4.2 remains open. Clean source
-`30bd234` records 8/13 comparable warmed file-backed medians at parity;
-supplementary sparse job JSON is 0.446x. Remaining cells: rewrite-X100 1.294x,
-merge-250x2 1.207x, linearize-M500 1.018x, object-streams-X100 1.011x,
-rewrite-objects 1.011x. [Benchmarks](BENCHMARKS.md) leads with current comparisons,
-ranges, resource figures and reproducible commands in three tables. Separate panels
-establish no causal attribution; unchanged-source timing noise does not justify
-reruns.
+Single-CPU warmed parity (<=1.0x) against pinned qpdf 12.4.2 remains open.
+Clean source `f292c5e` records 6/13 comparable file-backed medians at parity;
+supplementary sparse job JSON is 0.480x. Remaining cells: rewrite-X100 1.294x,
+rewrite-M500 1.125x, rewrite-objects 1.039x, linearize-M500 1.036x,
+merge-250x2 1.022x, rewrite-ID-M500 1.015x, object-streams-X100 1.008x.
+[Benchmarks](BENCHMARKS.md) contains current comparisons, ranges, resource figures
+and commands in three tables. Separate panels establish no causal attribution;
+unchanged-source timing noise does not justify favorable reruns.
 
-Original `bf03d9a` memory-host results stay end-to-end evidence: fresh complete
-input acquisition/registration, staging, public output export and file writes.
-Native can read less from files. Original sparse 3.4732x stays unchanged; a new path
-cannot turn it into a pass. All 168 archived runs preserve prior observations,
-including slower/rejected trials and insensitive probes.
+Original `bf03d9a` memory-host results remain end-to-end evidence: fresh complete
+acquisition/registration, staging, defensive public output export and file writes.
+Native opens files and can read less. Original sparse 3.4732x stays unchanged;
+a different input path cannot substitute a pass. All 172 archived runs preserve
+prior observations, including failed, slower and insensitive trials.
 
-## Current implementation and verification
+## Current implementation
 
-Accepted object-stream groups now use their validated member count to hint cache
-capacity, while rejected/unmatched attempts and tight budgets keep normal growth.
-All 213 affected checks pass. The original streamed-xref rewrite pair reduces
-allocation 569,216 ->561,010 B/job; medians 5.329/5.332 ms have broad overlapping
-ranges, establishing no speedup. All 1,962 observations and byte-identical validated
-outputs remain. This local allocation correction will share a later integration
-checkpoint; the published tables still identify `30bd234`.
+Accepted object-stream groups use their validated member count to hint existing
+cache capacity at first accepted insertion. Rejected/unmatched attempts and tight
+budgets retain normal growth. The original streamed-xref rewrite pair reduces
+allocation 569,216 ->561,010 B/job; 5.329/5.332 ms medians have broad overlapping
+ranges, establishing no speedup. All 1,962 observations remain.
 
-Object-stream acceptance now reuses its validated header bitmap, and copying
-starts inherited-attribute searches at the parent after checking the leaf. All
-486 affected checks pass. The paired rewrite probe records 2.954 ->3.379 ms
-(IQR 2.918-2.992 /2.924-3.475), with approximately 561 KB allocated in both lanes.
-Its slower median and all 3,498 observations remain; no measured gain is attributed
-to these structural lookup removals. Final batch qualification remains pending.
+Object-stream acceptance reuses its validated header bitmap. Copied inherited
+attributes start at the parent after the leaf was checked, preserving nulls and
+parent/cycle handling. Its paired rewrite is slower: 2.954 ->3.379 ms (IQR
+2.918-2.992 /2.924-3.475), approximately 561 KB allocated in both lanes. All 3,498
+observations remain; no measured gain is attributed to these structural removals.
+The next bounded investigation is scalar serialization overhead using existing
+formatting and sink helpers, targeting the streamed-xref rewrite gap.
 
-Private single-source copies borrow input payloads under existing document/job
-funding through publication, including preopened whole-file sources. Accepted
-sources still close before output. Public readers, multisource storage, bounded
-ranges, default recovery/catalog behavior and same-lease complete fallback remain.
-Classic/linearized/QDF writers isolate input-backed payloads into fresh immutable
-packets of at most 32 KiB for retaining or async sinks. Synchronous output and
-prepared captures consume them directly. No new reader API, pool or ownership
-system.
+Existing bounded argv/job selection preserves catalog behavior, default recovery,
+stable leases and same-lease complete-read fallback. Private single-source copies
+borrow immutable payloads under document/job funding through publication; accepted
+inputs still close before output. Public-reader, multisource and ranged-buffer
+independence remain. Classic/linearized/QDF writers give retaining/async sinks
+fresh immutable packets of at most 32 KiB. Guard-disabled tests expose actual
+retained input backings; protected jobs preserve output aliases, prior targets on
+failure/cancellation and closed leases. No new ownership system or buffer pool.
 
-The original 500-page file-host rewrite pair falls 22.031 ->16.980 ms, with
-non-overlapping IQRs 21.226-28.871 /16.778-20.067; allocation falls 22.320429 ->
-17.187246 MB/job. Independently validated output is byte-identical; all 524
-observations remain. Native 15.787 ms gives 1.076x, so that pair stays above target.
-Worker RSS rises slightly; no retained-memory/RSS reduction is claimed.
+## Verification
 
-All 8,946 affected checks pass before the bounded-packet refinement; 219 final
-focused checks pass, including seven complete public jobs with 96 KiB payload and 2
-MiB omitted stream under 8 MiB memory/256 KiB output limits. Five deliberate
-isolation-disabled jobs retain the large input backing; guarded jobs preserve output
-aliases, prior targets on write failure/cancellation, and closed leases. These
-observe actual backings, rather than equating charges with retained heap.
+All 213 cache/reader checks and 486 lookup/selection/default/resource/transform
+checks pass. Final-source qualification passes 26 fresh semantic outcomes plus
+three negatives, seven visual cases plus two negatives, locked Release
+restore/build/explicit pack, inspection, fresh consumer and rejection controls.
+The unchanged 2 MiB multisource consumer ceiling passes. All thirteen managed output
+sets are byte-identical to the preceding panel; original inputs remain unchanged.
+All 168 previous archived run objects are preserved unchanged.
 
-Filtered object-stream decoding also reuses existing ArrayData: full immutable
-arrays borrow and slices materialize under scratch. All 2,951 affected checks pass.
-The original streamed/incremental rewrite fixture has UNFILTERED object streams, so
-its overlapping 2.380/2.384 ms pair is insensitive to that correction. No timing or
-allocation improvement is attributed to it; all 4,303 observations remain.
-
-Final-source qualification passes 26 fresh semantic outcomes plus three negatives;
-seven visual cases plus two negatives; locked Release restore/build/explicit pack,
-inspection, fresh consumer and rejection controls. The unchanged 2 MiB multisource
-consumer ceiling passes. WSL build/semantics/file-panel/job phases take
-20.98/28.78/225.62/17.97s; package/consumer 22.10s, visual 18.99s. All thirteen
-managed output sets match the preceding panel, original inputs remain unchanged, and
-all 23,750 file/4,965 job observations remain. Required Windows/Ubuntu ordinary and
-pinned-reference integration results are published by
-[CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
+WSL build/semantics/file-panel/job phases take 30.14/33.03/236.84/18.26s;
+package/consumer takes 33.09s, visual 20.04s. Hosted Windows/Ubuntu ordinary and
+pinned-reference qualification, test logs/TRX and reference reports are available
+through [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
 
 ## Preserved scope
 
-The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK remains
+The [supported profile](SUPPORTED-PROFILE.md) remains delivered. CMYK/YCCK stays
 opaque, Zopfli is unavailable, and crypto including empty-password inputs is
 excluded. Other [compatibility requirements](COMPATIBILITY.md) are not waived.
 
-`MaxMemoryBytes` bounds approximate charged working storage. Significant capacity,
-copy/growth overlap, allocation/decompression amplification, work/cancellation, host
-boundaries, cleanup, integrity, immutability and surviving aliases remain protected.
-Charges do not establish retained heap. Exact CLR sizes, individual
-small-object/metadata-alias receipts, fixed GC rounds and precise bookkeeping
+`MaxMemoryBytes` bounds approximate charged working storage, not retained heap or
+RSS. Significant capacity, growth/copy overlap, allocation/decompression
+amplification, work/cancellation, host boundaries, cleanup, integrity, immutability
+and surviving aliases remain protected. Exact CLR sizes, individual
+small-object/metadata-alias receipts, prescribed GC rounds and precise bookkeeping
 charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
 
 No CPU parallelism, forced production GC, parsed-document cache, runtime native
