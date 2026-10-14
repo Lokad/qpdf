@@ -2,7 +2,7 @@
 
 Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
 thirteen codec-free public workloads. The target remains open. The latest full
-panel (`2323d30`) records five cells at parity, with ratios 0.58-3.67x.
+panel (`a06e339`) records five cells at parity, with ratios 0.58-3.35x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep changes reducing time or allocation; no minimum percentage applies.
 
@@ -29,15 +29,18 @@ confirmed speedup is claimed; ratio 1.0832x remains above parity.
 All 3,239 focused hint/linearization/publication checks pass (27s). Two new public
 jobs cover spaced live source IDs, a shared font and many private objects, with
 classic/generated object streams, independent page/text checks and lease cleanup.
-Their initial fixture failed in the existing dense-xref assembler; unused slots
-now contain null objects. Production behavior and existing limits were unchanged.
-Integration qualification is pending.
+All 26 fresh managed/native outcomes and three negative controls pass, with
+original inputs unchanged. Locked Release build/explicit pack/inspection/fresh
+consumer/rejections pass (30s), preserving the 2 MiB multisource ceiling. Seven
+visual cases and two negative controls pass (18s) at unchanged tolerances, after
+timing. Hosted qualification is pending.
 
 Earlier parser scratch, approximate ownership, immutable borrowing, source/cache
 capacity reductions, staged content-ID hashing and direct classic xref ranges
-remain integrated. All 125 previous raw runs are preserved. The latest full
-panels contain 25,318 primary and 6,870 additional file-host samples. Sparse
-full-input selection remains 3.6723x; the separate file-host cell is 0.3762x.
+remain integrated. All 128 raw runs are preserved. The latest full panels contain
+27,111 primary and 6,731 additional file-host samples. Sparse full-input selection
+remains 3.3476x; the separate file-host cell is 0.3791x and replaces no primary case.
+Different full panels do not establish causal speedups.
 
 ## Preserved scope
 
