@@ -20,6 +20,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     private readonly record struct CachedObject(QpdfObject Value, long ReservedBytes, bool Borrowed);
 
     private ReadOnlyMemory<byte> _data;
+    private SelectiveInputData? _selectiveInput;
     private XRefTable? _table;
     private readonly QpdfLimits _limits;
     private readonly ResourceGovernor _governor;
@@ -109,6 +110,21 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         }
         catch { engine.Dispose(); throw; }
     }
+
+    internal static DocumentEngine CreateSelectiveOwned(SelectiveInputData input, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics)
+    {
+        XRefTable table = input.DetachTable();
+        try
+        {
+            return new DocumentEngine(ReadOnlyMemory<byte>.Empty, table, limits, governor, diagnostics, QpdfRecoveryMode.Strict)
+            { _valuesEscape = false, _ownsTable = true, _selectiveInput = input };
+        }
+        catch { table.Dispose(); input.Dispose(); throw; }
+    }
+
+    internal bool HasSelectiveInput => _selectiveInput is not null;
+    internal void AcceptSelectiveInput() => _selectiveInput?.Accept();
 
     private bool TryGetCached(int number, out QpdfObject value)
     {
@@ -204,6 +220,8 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         _idleMemory?.Dispose();
         _idleMemory = null;
         _data = default;
+        _selectiveInput?.Dispose();
+        _selectiveInput = null;
         XRefTable? table = _table;
         _table = null;
         ParserMemoryScope? metadata = _metadata;
@@ -398,9 +416,11 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             _idleMemory = null;
             try
             {
-                PdfTokenizer tokenizer = _idleTokenizer ?? new(_data);
+                ReadOnlyMemory<byte> data = _selectiveInput is null ? _data : _selectiveInput.At(entry.First);
+                PdfTokenizer tokenizer = _idleTokenizer ?? new(data);
                 _idleTokenizer = null;
-                tokenizer.ResetForObject(entry.First);
+                if (_selectiveInput is null) { tokenizer.ResetForObject(entry.First); }
+                else { tokenizer.ResetForMember(data); }
                 _governor.ReserveMemory(128L);
                 int foundNumber;
                 int foundGeneration;

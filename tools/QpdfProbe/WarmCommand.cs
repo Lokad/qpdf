@@ -29,8 +29,9 @@ internal static class WarmCommand
                 if (characters > 4 * 1024 * 1024) { throw new ProbeException("Warm request too large.", 1); }
             }
             bool inputOnly = arguments[0] == "read-input";
+            bool fileSelection = arguments[0] == "select-file";
             if (inputOnly && count != 2) { throw new ProbeException("read-input needs one file path.", 1); }
-            if (!inputOnly && arguments[0] != "emit")
+            if (!inputOnly && !fileSelection && arguments[0] != "emit")
             { throw new ProbeException("warm accepts emit jobs or read-input diagnostics.", 1); }
             long allocated = inputOnly ? GC.GetAllocatedBytesForCurrentThread() : GC.GetTotalAllocatedBytes(false);
             int[] collections = [GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2)];
@@ -42,6 +43,7 @@ internal static class WarmCommand
             try
             {
                 if (inputOnly) { input = EmitCommand.ReadInputBytes(arguments[1]); exit = 0; }
+                else if (fileSelection) { exit = FileSelectionCommand.Run(arguments[1..]); }
                 else { exit = EmitCommand.RunWarmEmit(arguments[1..]); }
             }
             finally { Console.SetOut(protocol); Console.SetError(errors); }

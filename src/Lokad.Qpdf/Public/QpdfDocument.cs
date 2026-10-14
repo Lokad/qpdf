@@ -19,6 +19,7 @@ public sealed class QpdfDocument : IAsyncDisposable
     private static readonly PdfName RootKey = PdfName.FromAscii("Root");
     private static readonly PdfName PagesKey = PdfName.FromAscii("Pages");
     private IQpdfInput? _input;
+    private bool _leaveInputOpen;
     private DocumentEngine? _engine;
     private readonly ResourceGovernor _governor;
     private readonly DiagnosticBag _diagnostics;
@@ -286,7 +287,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             borrowInputStreams && host is Hosting.InMemoryQpdfHost).ConfigureAwait(false);
     }
 
-    private static async ValueTask<QpdfDocument> OpenInputDocument(
+    private static ValueTask<QpdfDocument> OpenInputDocument(
         IQpdfInput input,
         QpdfPath path,
         QpdfLimits limits,
@@ -296,9 +297,23 @@ public sealed class QpdfDocument : IAsyncDisposable
         CancellationToken cancellationToken,
         bool valuesEscape,
         bool borrowInputStreams)
+        => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
+            valuesEscape, borrowInputStreams, false, false);
+
+    internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, bool selective,
+        CancellationToken cancellationToken)
+        => OpenInputDocument(input, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict,
+            cancellationToken, false, false, true, selective);
+
+    private static async ValueTask<QpdfDocument> OpenInputDocument(
+        IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
+        bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, bool allowSelectiveInput)
     {
         DocumentEngine? engine = null;
         XRefTable? table = null;
+        SelectiveInputData? selectiveInput = null;
         ParserMemoryScope? pageStorage = null;
         List<PageLocation>? pages = null;
         byte[]? bytes = null;
@@ -321,21 +336,38 @@ public sealed class QpdfDocument : IAsyncDisposable
                 throw new QpdfParseException("Input is empty.", 0L, null);
             }
 
-            long inputBytes = checked(input.Length + GovernedBufferStream.ArrayOverheadBytes);
-            governor.ReserveMemory(inputBytes);
-            reservedInput = inputBytes;
-            // Private complete jobs may borrow an immutable host snapshot. Public
-            // documents retain the fresh-read contract, as do arbitrary hosts.
-            if (valuesEscape || !GovernedHost.TryReadInputSnapshot(input, cancellationToken, out data))
+            if (allowSelectiveInput)
             {
-                bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
-                data = bytes;
+                selectiveInput = await SelectiveInputData.TryCreateAsync(input, limits, governor,
+                    diagnostics, cancellationToken).ConfigureAwait(false);
+            }
+            if (selectiveInput is not null)
+            {
+                data = selectiveInput.At(0L);
+                engine = DocumentEngine.CreateSelectiveOwned(selectiveInput, limits, governor, diagnostics);
+                selectiveInput = null;
+            }
+            else
+            {
+                long inputBytes = checked(input.Length + GovernedBufferStream.ArrayOverheadBytes);
+                governor.ReserveMemory(inputBytes);
+                reservedInput = inputBytes;
+                // Public documents retain fresh reading; exclusive memory-host
+                // jobs retain their existing immutable snapshot path.
+                if (valuesEscape || !GovernedHost.TryReadInputSnapshot(input, cancellationToken, out data))
+                {
+                    bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                    data = bytes;
+                }
             }
             cancellationToken.ThrowIfCancellationRequested();
             VersionParts headerParts = ParseHeader(data);
             cancellationToken.ThrowIfCancellationRequested();
-            table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
-            engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape);
+            if (engine is null)
+            {
+                table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
+                engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape);
+            }
             engine.BorrowImmutableStreamData = borrowInputStreams;
             table = null;
             reservedInput = 0L;
@@ -350,19 +382,23 @@ public sealed class QpdfDocument : IAsyncDisposable
             PdfVersion? version = valuesEscape && effectiveParts.HasValue
                 ? governor.OwnVersion(effectiveParts.Value.Major, effectiveParts.Value.Minor) : headerVersion;
             QpdfDocument document = new(input, engine, governor, diagnostics, pages, pageStorage, path, limits, version, headerVersion, headerParts, effectiveParts ?? headerParts);
+            document._leaveInputOpen = leaveInputOpen;
             pageStorage = null;
             return document;
         }
-        catch
+        catch (Exception error)
         {
+            bool retry = error is QpdfParseException && diagnostics.ReadingPartialInput;
             bytes = null;
             data = default;
             pages = null;
             pageStorage?.Dispose();
             engine?.Dispose();
+            selectiveInput?.Dispose();
             table?.Dispose();
             governor.ReleaseMemory(reservedInput);
-            await input.DisposeAsync().ConfigureAwait(false);
+            if (!leaveInputOpen) { await input.DisposeAsync().ConfigureAwait(false); }
+            if (retry) { throw new CompleteInputRequiredException(); }
             throw;
         }
     }
@@ -405,7 +441,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             _pageStorage = null;
             try
             {
-                if (input is not null) { await input.DisposeAsync().ConfigureAwait(false); }
+                if (input is not null && !_leaveInputOpen) { await input.DisposeAsync().ConfigureAwait(false); }
             }
             finally
             {
@@ -413,7 +449,7 @@ public sealed class QpdfDocument : IAsyncDisposable
                 finally
                 {
                     try { pageStorage?.Dispose(); }
-                    finally { _governor.FinishDocumentCounters(); }
+                    finally { if (!_leaveInputOpen) { _governor.FinishDocumentCounters(); } }
                 }
             }
         }

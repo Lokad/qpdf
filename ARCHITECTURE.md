@@ -76,6 +76,15 @@ lengths preserve binary bytes; recovery scans stay within physical object
 boundaries, charge work and observe cancellation. Repaired copies use accepted
 payload lengths. Compressed members do not use file-stream recovery offsets.
 
+Private strict selections on custom hosts can prefetch bounded object ranges
+from a standalone classic xref, omitting large unused extents. The same parser
+and copier consume those windows. A needed omitted range, diagnostic or parse
+error triggers one complete-input retry on the same open lease before output
+publication. Other layouts and operations keep complete reads; public documents
+and the built-in memory host retain their existing storage contracts. The full
+logical input length is checked before reading, and range buffers plus short-read
+assembly overlap receive memory admission.
+
 Failed parser attempts discard their temporary values while preserving accepted
 nested/cache loads. Disposal drops input, table, cache and lease references;
 public immutable values and snapshots remain usable under their documented

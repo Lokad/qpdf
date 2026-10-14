@@ -313,232 +313,268 @@ public static partial class Qpdf
         QpdfPath? linearizePass1,
         CancellationToken cancellationToken)
     {
-        using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
-        using ParserMemoryScope resultStorage = ParserMemoryScope.Create(governor);
-        await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
-        if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
-        int total = document.PageReferences.Count;
-        IReadOnlyList<int> requested = options.Resolve(total, limits.MaxWork);
-        if ((long)requested.Count > limits.MaxWork)
+        bool selectiveCandidate = recovery == QpdfRecoveryMode.Strict && host is not Hosting.InMemoryQpdfHost
+            && !preserveCatalog && !preserveUnreferenced && !linearize && linearizePass1 is null && !qdf.Enabled
+            && !coalesceContents && !normalizeContent && !externalizeInlineImages && !optimize.Optimize
+            && underlays.Count == 0 && overlays.Count == 0 && !flattenRotation
+            && flattenAnnotations is null && !generateAppearances;
+        IQpdfInput? stableInput = null;
+        try
         {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested.Count, limits.MaxWork);
-        }
-
-        foreach (int pageNumber in requested)
-        {
-            if (pageNumber > total)
+            for (int attempt = 0; ; attempt++)
             {
-                throw new ArgumentOutOfRangeException(nameof(options), $"Page {pageNumber} exceeds the page count of {total}.");
+                bool retryParse = false;
+                try
+                {
+                    using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
+                    using ParserMemoryScope resultStorage = ParserMemoryScope.Create(governor);
+                    if (selectiveCandidate && stableInput is null)
+                    { stableInput = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false); }
+                    await using QpdfDocument document = stableInput is null
+                        ? await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+                        : await QpdfDocument.OpenSelectionInputAsync(stableInput, inputPath, limits, governor, diagnostics,
+                            attempt == 0, cancellationToken).ConfigureAwait(false);
+                    retryParse = document.Engine.HasSelectiveInput;
+                    if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
+                    int total = document.PageReferences.Count;
+                    IReadOnlyList<int> requested = options.Resolve(total, limits.MaxWork);
+                    if ((long)requested.Count > limits.MaxWork)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), requested.Count, limits.MaxWork);
+                    }
+
+                    foreach (int pageNumber in requested)
+                    {
+                        if (pageNumber > total)
+                        {
+                            throw new ArgumentOutOfRangeException(nameof(options), $"Page {pageNumber} exceeds the page count of {total}.");
+                        }
+                    }
+
+                    using ParserMemoryScope copyMemory = ParserMemoryScope.Create(governor);
+                    GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 3, copyMemory);
+                    foreach (int pageNumber in requested)
+                    {
+                        copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
+                    }
+                    copier.HintPageCapacity(requested.Count);
+                    List<PdfReference> kids = new(requested.Count);
+                    List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(requested.Count);
+                    foreach (int pageNumber in requested)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        governor.ChargeWork(1L);
+                        PageLocation location = document.PageReferences[pageNumber - 1];
+                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
+                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
+                        RequireMediaBox(page);
+                        kids.Add(new PdfReference(pageId, 0));
+                        occurrences.Add((copier, pageId, page));
+                    }
+
+                    ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, copyMemory), governor, copyMemory);
+                    if (preserveUnreferenced)
+                    {
+                        HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
+                        copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken);
+                    }
+
+                    (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
+                    PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
+                    (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
+                    Dictionary<GraphCopier, PdfDictionary?> singleFormResources = new();
+                    if (!removeAcroform)
+                    {
+                        PdfDictionary? singleDefaultResources = Content.AcroFormCopy.TryCopyFormDR(document.Engine, copier, governor, cancellationToken);
+                        if (singleDefaultResources is not null)
+                        {
+                            singleFormResources[copier] = singleDefaultResources;
+                        }
+                    }
+
+                    Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
+                    SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, copyMemory, cancellationToken);
+                    string? singlePageMode = ReadInputPageMode(document.Engine);
+
+                    (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(compression, qdf.Enabled);
+                    if (singleCompress || singleDecode != "none" || (singleMetadata is not null && compression.CompressStreams is not null))
+                    {
+                        TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
+                    }
+
+                    List<int> occurrenceIds = new(occurrences.Count);
+                    foreach ((GraphCopier _, int occurrenceId, PdfDictionary _) in occurrences)
+                    {
+                        occurrenceIds.Add(occurrenceId);
+                    }
+
+                    ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
+
+                    List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
+                    foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
+                    {
+                        overlayOccurrences.Add((occurrenceCopier, occurrenceId));
+                    }
+
+                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, overlayOccurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
+
+                    int flattenAllocator = overlayApplied.NextId;
+                    bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
+                    bool singleGenerated = generateAppearances && needAppearances;
+                    if (singleGenerated)
+                    {
+                        Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, diagnostics, cancellationToken);
+                        HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken);
+                        List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = new(1 + overlayApplied.FieldImports.Count)
+                        {
+                            (copier.CopiedObjects, gateForm),
+                        };
+                        foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
+                        {
+                            gateParts.Add((import.Copier.CopiedObjects, import.Part));
+                        }
+
+                        HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
+                        flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
+                        needAppearances = false;
+                    }
+                    if (flattenAnnotations is not null)
+                    {
+                        flattenAllocator = Content.FlattenAnnotations.Apply(overlayOccurrences, flattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                    }
+                    if (flattenRotation)
+                    {
+                        flattenAllocator = Content.FlattenRotation.Apply(overlayOccurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
+                    }
+                    if (optimize.Optimize)
+                    {
+                        Content.ImageOptimizer.Apply(overlayOccurrences, optimize, limits, governor, cancellationToken);
+                    }
+
+
+                    (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), minVersion, forceVersion, governor);
+                    string streamMode = ResolveObjectStreamMode(objectStreams);
+                    if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
+                    {
+                        streamMode = "disable";
+                    }
+
+                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine);
+                    Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
+                    foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
+                    {
+                        foreach (KeyValuePair<int, QpdfObject> overlayEntry in overlayCopier.CopiedObjects)
+                        {
+                            singlePool[overlayEntry.Key] = overlayEntry.Value;
+                        }
+                    }
+                    List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> singleSources = new(2)
+                    {
+                        (copier.SourceToDestination, compressedOrig),
+                    };
+                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
+                    PdfVersion effective = negotiated;
+                    int extensionLevel = negotiatedExtension;
+                    if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
+                    {
+                        effective = governor.OwnVersion(1, 5);
+                        extensionLevel = 0;
+                    }
+
+                    PdfDictionary? singleLabels = null;
+                    if (labels.Count > 0)
+                    {
+                        singleLabels = BuildPageLabels(labels, kids.Count, governor);
+                    }
+                    else if (!removeLabels && Content.PageLabelMerge.HasLabels(document.Engine))
+                    {
+                        Content.SourceLabels singleSource = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken);
+                        List<(Content.SourceLabels Source, int Page)> singleOccurrences = new(requested.Count);
+                        foreach (int pageNumber in requested)
+                        {
+                            singleOccurrences.Add((singleSource, pageNumber));
+                        }
+
+                        List<(int Index, PdfDictionary Label)> singleItems = Content.PageLabelMerge.Merge(singleOccurrences, limits, governor, cancellationToken, copyMemory);
+                        singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
+                    }
+
+                    byte[]? originalId = TryGetOriginalId(document.Engine);
+                    string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    PdfDictionary? singleAcroForm = removeAcroform
+                        ? null
+                        : Content.AcroFormCopy.BuildSingle(
+                            document.Engine,
+                            copier,
+                            KeptLocations(document, requested),
+                            true,
+                            overlayOccurrences,
+                            singlePool,
+                            overlayApplied.FieldImports,
+                            limits,
+                            governor,
+                            diagnostics,
+                            cancellationToken,
+                            false);
+                    if (singleGenerated)
+                    {
+                        singleAcroForm = ClearNeedAppearances(singleAcroForm, governor);
+                    }
+
+                    PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras);
+                    PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
+                    {
+                        [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
+                        [PdfName.FromAscii("Kids")] = new PdfArray([.. kids]),
+                        [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
+                    });
+                    List<NumberedObject> model = new()
+                    {
+                        new NumberedObject(1, catalog),
+                        new NumberedObject(2, pages),
+                    };
+                    List<int> ids = new(singlePool.Keys);
+                    ids.Sort();
+                    foreach (int id in ids)
+                    {
+                        model.Add(new NumberedObject(id, singlePool[id]));
+                    }
+
+                    List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
+                    IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
+                    IReadOnlyDictionary<int, int>? singleOriginalIds = null;
+                    if (qdf.Enabled)
+                    {
+                        List<IReadOnlyDictionary<int, int>> singleOriginalMaps = new() { copier.SourceToDestination };
+                        foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
+                        {
+                            singleOriginalMaps.Add(overlayCopier.SourceToDestination);
+                        }
+                        singleOriginalIds = InvertOriginals(singleOriginalMaps);
+                    }
+                    // Metadata admission stays with this operation through publication.
+                    // Returned immutable arrays do not retain an execution owner.
+                    IReadOnlyList<int> sourcePages = ResultCollectionStorage.Copy(resultStorage, requested, sizeof(int), governor, cancellationToken);
+                    // All source resolution is finished. The writer receives only its
+                    // immutable prepared graph, so fallback cannot follow publication.
+                    document.Engine.AcceptSelectiveInput();
+                    retryParse = false;
+                    await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
+                    return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
+                }
+                catch (CompleteInputRequiredException) when (attempt == 0 && stableInput is not null) { }
+                catch (QpdfParseException) when (attempt == 0 && retryParse) { }
             }
         }
-
-        using ParserMemoryScope copyMemory = ParserMemoryScope.Create(governor);
-        GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 3, copyMemory);
-        foreach (int pageNumber in requested)
+        finally
         {
-            copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
-        }
-        copier.HintPageCapacity(requested.Count);
-        List<PdfReference> kids = new(requested.Count);
-        List<(GraphCopier Copier, int Id, PdfDictionary Page)> occurrences = new(requested.Count);
-        foreach (int pageNumber in requested)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.ChargeWork(1L);
-            PageLocation location = document.PageReferences[pageNumber - 1];
-            IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
-            (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
-            RequireMediaBox(page);
-            kids.Add(new PdfReference(pageId, 0));
-            occurrences.Add((copier, pageId, page));
-        }
-
-        ApplyRotations(occurrences, ResolveRotationFolds(rotations, kids.Count, governor, limits, copyMemory), governor, copyMemory);
-        if (preserveUnreferenced)
-        {
-            HashSet<int> excluded = PreservationExclusions(document.Engine, KeptLocations(document, requested), limits, governor, cancellationToken);
-            copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, cancellationToken);
-        }
-
-        (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyCatalogExtras(copier, document.Engine, removeInfo, removeMetadata, diagnostics);
-        PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, preserveCatalog, linearize, governor, cancellationToken);
-        (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, preserveCatalog, removeStructure, governor, cancellationToken);
-        Dictionary<GraphCopier, PdfDictionary?> singleFormResources = new();
-        if (!removeAcroform)
-        {
-            PdfDictionary? singleDefaultResources = Content.AcroFormCopy.TryCopyFormDR(document.Engine, copier, governor, cancellationToken);
-            if (singleDefaultResources is not null)
+            if (stableInput is not null)
             {
-                singleFormResources[copier] = singleDefaultResources;
+                try { await stableInput.DisposeAsync().ConfigureAwait(false); }
+                finally { governor.FinishDocumentCounters(); }
             }
         }
-
-        Dictionary<PdfName, QpdfObject> singleExtras = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, preserveCatalog, removeAcroform, governor, cancellationToken);
-        SortedDictionary<string, PdfReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, edits, limits, governor, diagnostics, copyMemory, cancellationToken);
-        string? singlePageMode = ReadInputPageMode(document.Engine);
-
-        (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(compression, qdf.Enabled);
-        if (singleCompress || singleDecode != "none" || (singleMetadata is not null && compression.CompressStreams is not null))
-        {
-            TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
-        }
-
-        List<int> occurrenceIds = new(occurrences.Count);
-        foreach ((GraphCopier _, int occurrenceId, PdfDictionary _) in occurrences)
-        {
-            occurrenceIds.Add(occurrenceId);
-        }
-
-        ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
-
-        List<(GraphCopier Copier, int Id)> overlayOccurrences = new(occurrences.Count);
-        foreach ((GraphCopier occurrenceCopier, int occurrenceId, PdfDictionary _) in occurrences)
-        {
-            overlayOccurrences.Add((occurrenceCopier, occurrenceId));
-        }
-
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, overlayOccurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
-
-        int flattenAllocator = overlayApplied.NextId;
-        bool needAppearances = (flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine);
-        bool singleGenerated = generateAppearances && needAppearances;
-        if (singleGenerated)
-        {
-            Content.CopiedForm? gateForm = Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, KeptLocations(document, requested), true, limits, governor, diagnostics, cancellationToken);
-            HashSet<int> gateSurvivors = Content.AcroFormCopy.CollectAnnotRefs(overlayOccurrences, governor, cancellationToken);
-            List<(IReadOnlyDictionary<int, QpdfObject> Pool, Content.CopiedForm? Part)> gateParts = new(1 + overlayApplied.FieldImports.Count)
-            {
-                (copier.CopiedObjects, gateForm),
-            };
-            foreach (Content.AcroFormCopy.OverlayFieldImport import in overlayApplied.FieldImports)
-            {
-                gateParts.Add((import.Copier.CopiedObjects, import.Part));
-            }
-
-            HashSet<int>? gateReached = CollectGenerateReached(gateParts, gateSurvivors, true, limits, governor, cancellationToken);
-            flattenAllocator = Content.GenerateAppearances.Apply(overlayOccurrences, singleFormResources, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, gateReached, false, flattenAllocator);
-            needAppearances = false;
-        }
-        if (flattenAnnotations is not null)
-        {
-            flattenAllocator = Content.FlattenAnnotations.Apply(overlayOccurrences, flattenAnnotations, needAppearances, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
-        }
-        if (flattenRotation)
-        {
-            flattenAllocator = Content.FlattenRotation.Apply(overlayOccurrences, singleCompress, singleLevel, limits, governor, diagnostics, cancellationToken, flattenAllocator);
-        }
-        if (optimize.Optimize)
-        {
-            Content.ImageOptimizer.Apply(overlayOccurrences, optimize, limits, governor, cancellationToken);
-        }
-
-
-        (PdfVersion negotiated, int negotiatedExtension) = NegotiateVersion(document.OwnVersion(), minVersion, forceVersion, governor);
-        string streamMode = ResolveObjectStreamMode(objectStreams);
-        if (forceVersion is not null && CompareVersions(negotiated.Major, negotiated.Minor, 1, 5) < 0)
-        {
-            streamMode = "disable";
-        }
-
-        HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine);
-        Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
-        foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
-        {
-            foreach (KeyValuePair<int, QpdfObject> overlayEntry in overlayCopier.CopiedObjects)
-            {
-                singlePool[overlayEntry.Key] = overlayEntry.Value;
-            }
-        }
-        List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> singleSources = new(2)
-        {
-            (copier.SourceToDestination, compressedOrig),
-        };
-        AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
-        HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
-        PdfVersion effective = negotiated;
-        int extensionLevel = negotiatedExtension;
-        if (singleCompressed.Count > 0 && CompareVersions(effective.Major, effective.Minor, 1, 5) < 0)
-        {
-            effective = governor.OwnVersion(1, 5);
-            extensionLevel = 0;
-        }
-
-        PdfDictionary? singleLabels = null;
-        if (labels.Count > 0)
-        {
-            singleLabels = BuildPageLabels(labels, kids.Count, governor);
-        }
-        else if (!removeLabels && Content.PageLabelMerge.HasLabels(document.Engine))
-        {
-            Content.SourceLabels singleSource = Content.PageLabelMerge.ReadSource(document.Engine, copier, limits, governor, diagnostics, cancellationToken);
-            List<(Content.SourceLabels Source, int Page)> singleOccurrences = new(requested.Count);
-            foreach (int pageNumber in requested)
-            {
-                singleOccurrences.Add((singleSource, pageNumber));
-            }
-
-            List<(int Index, PdfDictionary Label)> singleItems = Content.PageLabelMerge.Merge(singleOccurrences, limits, governor, cancellationToken, copyMemory);
-            singleLabels = singleItems.Count == 0 ? null : NumbersDictionary(singleItems, governor);
-        }
-
-        byte[]? originalId = TryGetOriginalId(document.Engine);
-        string countText = kids.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        PdfDictionary? singleAcroForm = removeAcroform
-            ? null
-            : Content.AcroFormCopy.BuildSingle(
-                document.Engine,
-                copier,
-                KeptLocations(document, requested),
-                true,
-                overlayOccurrences,
-                singlePool,
-                overlayApplied.FieldImports,
-                limits,
-                governor,
-                diagnostics,
-                cancellationToken,
-                false);
-        if (singleGenerated)
-        {
-            singleAcroForm = ClearNeedAppearances(singleAcroForm, governor);
-        }
-
-        PdfDictionary catalog = NewCatalog(singleLabels, effective, extensionLevel, singleMetadata, singleAttached.NamesRef, singleAttached.PageMode, singleOutlines, singleAcroForm, singleStructTree, singleMarkInfo, singleExtras);
-        PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
-        {
-            [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-            [PdfName.FromAscii("Kids")] = new PdfArray([.. kids]),
-            [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
-        });
-        List<NumberedObject> model = new()
-        {
-            new NumberedObject(1, catalog),
-            new NumberedObject(2, pages),
-        };
-        List<int> ids = new(singlePool.Keys);
-        ids.Sort();
-        foreach (int id in ids)
-        {
-            model.Add(new NumberedObject(id, singlePool[id]));
-        }
-
-        List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
-        IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
-        IReadOnlyDictionary<int, int>? singleOriginalIds = null;
-        if (qdf.Enabled)
-        {
-            List<IReadOnlyDictionary<int, int>> singleOriginalMaps = new() { copier.SourceToDestination };
-            foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
-            {
-                singleOriginalMaps.Add(overlayCopier.SourceToDestination);
-            }
-            singleOriginalIds = InvertOriginals(singleOriginalMaps);
-        }
-        // Metadata admission stays with this operation through publication.
-        // Returned immutable arrays do not retain an execution owner.
-        IReadOnlyList<int> sourcePages = ResultCollectionStorage.Copy(resultStorage, requested, sizeof(int), governor, cancellationToken);
-        await PublishModelAsync(host, effective, extensionLevel, model, singleStreams, singleCompress, singleLevel, singleInfo?.ObjectNumber, originalId, staticId, newlineBeforeEndstream, qdf, singleOriginalIds, linearize, linearizePass1, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
-        return new PageSelectionOutcome(total, sourcePages, kids.Count, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
     }
 
     /// <summary>

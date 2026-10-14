@@ -95,7 +95,10 @@ def main():
     parser.add_argument("--samples", type=int, default=7)
     parser.add_argument("--baseline-probe", type=Path, help="Previously built managed probe for interleaved revision measurements")
     parser.add_argument("--input-read-diagnostic", action="store_true", help="After one single-input workload, collect thirty separate managed-only full-input loads")
+    parser.add_argument("--file-input-selection", action="store_true", help="Additional typed file-host sparse selection; preserves the original memory-host comparison")
     args = parser.parse_args()
+    if args.file_input_selection and args.workload != ["select-sparse"]:
+        parser.error("The additional file-host selector requires --workload select-sparse")
     if args.samples < 5 or args.sample_seconds <= 0 or args.warmup_seconds <= 0:
         parser.error("Require at least five positive-duration samples and warmup")
     repo, dotnet, qpdf, native_source, native_build, input_root, root = (
@@ -129,6 +132,10 @@ def main():
     inputs = {p.name: {"sha256": sha(p), "bytes": p.stat().st_size} for p in (root / "inputs").glob("*.pdf")}
     records, summaries, components = [], {}, {}
     for case in cases:
+        if args.file_input_selection:
+            case = dict(case, Arguments=[arg for arg in case["Arguments"]
+                if arg not in ("--static-id", "--force-version=1.5")])
+            case["Arguments"][1:1] = ["--deterministic-id", "--suppress-recovery"]
         # The consuming memory host registers this directory eagerly. Expose
         # only this job's required inputs to both lanes, with unchanged bytes.
         workload_root = root / "workloads" / case["Name"]
@@ -151,7 +158,11 @@ def main():
             counter += 1
             directory.mkdir(parents=True)
             command = commands(case, "managed" if engine == "baseline" else engine, directory, workload_root, dotnet, probe, qpdf)
-            sample = workers[engine].job(command[1:] if engine == "native" else command[2:])
+            if args.file_input_selection and engine != "native":
+                arguments = ["select-file", str(workload_inputs / case["Inputs"][0]), str(directory / case["Outputs"][0])]
+            else:
+                arguments = command[1:] if engine == "native" else command[2:]
+            sample = workers[engine].job(arguments)
             identity = output_identity(case, directory)
             if phase == "validation":
                 if case["Name"] == "linearize-M500":
@@ -221,7 +232,9 @@ def main():
     for name, identity in inputs.items():
         if sha(root / "inputs" / name) != identity["sha256"]:
             raise ValueError("Input changed")
-    result = {"sourceCommit": run(["git", "-C", repo, "rev-parse", "HEAD"]).decode().strip(),
+    result = {"comparisonVariant": "typed-file-selection" if args.file_input_selection else "complete-memory-host",
+        "nativeSelectionOptions": case["Arguments"] if args.file_input_selection else None,
+        "sourceCommit": run(["git", "-C", repo, "rev-parse", "HEAD"]).decode().strip(),
         "sourceDiff": run(["git", "-C", repo, "diff", "HEAD"]).decode(), "inputs": inputs,
         "librarySHA256": sha(probe.parent / "Lokad.Qpdf.dll"), "probeSHA256": sha(probe),
         "driverSHA256": sha(driver), "nativeSHA256": sha(qpdf), "nativeCommit": PIN,

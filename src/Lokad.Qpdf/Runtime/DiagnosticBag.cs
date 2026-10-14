@@ -17,6 +17,7 @@ internal sealed class DiagnosticBag
     internal bool HasNonWarningEntries { get; private set; }
     internal bool SuppressWarningStorage { get; set; }
     internal bool HasAcceptedWarnings { get; private set; }
+    internal bool ReadingPartialInput { get; set; }
 
     internal IReadOnlyList<QpdfDiagnostic> Entries
     {
@@ -99,6 +100,7 @@ internal sealed class DiagnosticBag
 
     internal void Add(QpdfDiagnosticCode code, QpdfDiagnosticSeverity severity, string message)
     {
+        if (ReadingPartialInput) { throw new CompleteInputRequiredException(); }
         ArgumentNullException.ThrowIfNull(message);
         long utf8Bytes = CheckMessage(message, out int messageHash, out bool ascii);
         if (_stage is DiagnosticStage stage)
@@ -172,6 +174,7 @@ internal sealed class DiagnosticBag
 
     internal void AddParts(QpdfDiagnosticCode code, QpdfDiagnosticSeverity severity, ReadOnlySpan<DiagnosticPart> parts)
     {
+        if (ReadingPartialInput) { throw new CompleteInputRequiredException(); }
         DiagnosticTextInfo info = DiagnosticMessage.Check(_governor, parts);
         if (_stage is DiagnosticStage stage)
         {

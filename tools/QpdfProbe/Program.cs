@@ -33,6 +33,7 @@ internal static class Program
                 "emit-job" => EmitCommand.RunEmitJob(args[1..]),
                 "batch" => BatchCommand.Run(args[1..]),
                 "warm" => WarmCommand.Run(args[1..]),
+                "select-file" => FileSelectionCommand.Run(args[1..]),
                 "fix-qdf" => FixQdfCommand.RunFixQdf(args[1..]),
                 "zlib-flate" => ZlibFlateCommand.RunZlibFlate(args[1..]),
                 "probe-jpeg" => ProbeJpeg(),
@@ -73,6 +74,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe emit-job --workdir <dir> --job <job.json> --out <logical>=<physical> [--out ...]");
         Console.WriteLine("  QpdfProbe batch (bounded sequential JSON requests on stdin; developer harness only)");
         Console.WriteLine("  QpdfProbe warm (bounded sequential emit requests; internal job timing, no process startup)");
+        Console.WriteLine("  QpdfProbe select-file <input.pdf> <output.pdf> (additional typed first-page selection through a file host)");
         Console.WriteLine("    read-input <file> requests measure fresh full-input loading only; length/hash validation is outside timing.");
         Console.WriteLine("  QpdfProbe fix-qdf --workdir <dir> --in <logical-input> --out <logical>=<physical>");
         Console.WriteLine("  QpdfProbe zlib-flate --workdir <dir> --in <logical-input> --out <logical>=<physical> --mode <compress|uncompress> [--level 1..9]");

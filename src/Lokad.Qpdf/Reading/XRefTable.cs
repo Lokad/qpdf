@@ -261,6 +261,45 @@ internal sealed class XRefTable : IDisposable
         return CreateOwned(xrefOffset, merged, trailers[0], trailers, governor, memory, values, valuesEscape);
     }
 
+    internal static long ReadTailOffset(ReadOnlyMemory<byte> data)
+    {
+        long marker = FindStartXRef(data);
+        PdfTokenizer tokenizer = new(data);
+        tokenizer.SetPosition(marker);
+        if (!tokenizer.TryReadToken(out PdfToken keyword) || keyword.Kind != PdfTokenKind.StartXRef
+            || !tokenizer.TryReadToken(out PdfToken offset) || offset.Kind != PdfTokenKind.Integer)
+        { throw new CompleteInputRequiredException(); }
+        long position = ParseOffset(offset);
+        ExpectEndOfFile(data, offset);
+        return position;
+    }
+
+    // Only a complete standalone classic section can use a compact input.
+    // Parsing/coverage use the ordinary helpers. Local error offsets never
+    // escape: the owner retries the complete reader on any speculative error.
+    internal static XRefTable ReadClassicWindow(ReadOnlyMemory<byte> window, long physicalOffset,
+        int inputLength, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics)
+    {
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope values = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope section = ParserMemoryScope.Create(governor);
+        PdfTokenizer tokenizer = new(window);
+        if (!tokenizer.TryReadToken(out PdfToken keyword) || keyword.Kind != PdfTokenKind.XRef)
+        { throw new CompleteInputRequiredException(); }
+        (Dictionary<int, XrefEntry> entries, PdfDictionary trailer) = ParseClassicSection(
+            window, limits, governor, diagnostics, tokenizer, 0L, values, section);
+        if ((PdfDictionaryLookup.TryGet(trailer, "Prev"u8, governor, governor.CancellationToken, out QpdfObject previous) && previous is not PdfNull)
+            || (PdfDictionaryLookup.TryGet(trailer, "XRefStm"u8, governor, governor.CancellationToken, out QpdfObject hybrid) && hybrid is not PdfNull))
+        { throw new CompleteInputRequiredException(); }
+        int size = ReadSize(trailer, governor);
+        Dictionary<int, XrefEntry> merged = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
+        MergeSection(merged, entries, size, inputLength, physicalOffset, governor, memory);
+        ValidateUnionCoverage(merged, size, governor);
+        List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(memory);
+        ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
+        return CreateOwned(physicalOffset, merged, trailer, trailers, governor, memory, values, false);
+    }
+
     private static long? ProcessSection(
         ReadOnlyMemory<byte> data,
         QpdfLimits limits,
