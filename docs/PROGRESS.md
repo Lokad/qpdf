@@ -2,7 +2,7 @@
 
 Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
 thirteen codec-free public workloads. The target remains open. The latest full
-panel (`a71a1ca`) records six cells at parity, with ratios 0.60-3.39x.
+panel (`610191b`) records five cells at parity, with ratios 0.58-3.36x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
@@ -36,8 +36,18 @@ normal output. Medians 2.200 ->2.131 ms have overlapping IQRs; no speedup is cla
 The existing four-second allocation sampler identified empty per-page rotation
 lists in 1,293 fresh verified jobs. Approximate ticks are diagnostic leads, not
 exact per-type allocation, retained memory or native timing measurements.
-Final comparison, native interaction, package/consumer, visual and hosted
-qualification are pending. Earlier corrections and every raw run stay preserved.
+Locked Release build/explicit pack/inspection/fresh consumer/rejections pass (41s),
+preserving the 2 MiB multisource ceiling. The valid interaction fixture passes
+pinned native checking/content/rotation assertions for native and both managed
+routes; the saved baseline still fails coalescing on its rotated page. The new
+fixture initially omitted Resources; adding the required empty dictionary changes
+only the fixture, with both new tests passing again. All 26 fresh managed/native
+outcomes and three negative controls pass, with original inputs unchanged.
+The final panel preserves 26,664 primary samples. Sparse full-input selection is
+3.3560x; the additional file-host case is 0.3737x and replaces no original cell.
+Seven visual cases and two negative controls pass (18s) after timing at unchanged
+tolerances. Hosted qualification is pending. Earlier corrections and raw runs stay
+preserved; separate full panels do not establish source-change attribution.
 
 ## Preserved scope
 
