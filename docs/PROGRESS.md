@@ -2,7 +2,7 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The clean
-`832e35b` panel records four cells at or below 1.0×, with ratios 0.61–3.59×.
+`f09aaef` panel records four cells at or below 1.0×, with ratios 0.62–3.47×.
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
@@ -30,8 +30,11 @@ buffer growth, retry, retained-task cleanup and the original tight budgets.
 All 26 fresh managed/native outcomes and three negative controls pass with
 unchanged inputs. Locked Release solution build/pack, package inspection, fresh
 consumer and rejection controls pass (26s), including the unchanged 2 MiB
-multisource ceiling. Final integration qualification follows; the comparative
-table remains the last clean thirteen-job panel.
+multisource ceiling. The clean final-source panel retains all 26,605 observations
+and independent semantics. Selection S10/M500, checking and individual splitting
+meet parity; object streams at 1.0069× remain open. Sparse selection is
+5.79/1.67 ms (3.47×). Different host load across panels prevents attributing
+timing changes to this correction. One hosted push qualifies code and report.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and
