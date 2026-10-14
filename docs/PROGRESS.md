@@ -35,11 +35,11 @@ Sparse selection is 5.75/1.60 ms (3.59×). Different host load across panels
 prevents attributing timing changes to this correction. One hosted push qualifies
 the implementation, controls and current comparison.
 
-The Flate cancellation fixture keeps its observer runnable while a dedicated
-test thread performs codec work. It preserves both token routes, the observed
-work threshold, original limits and cleanup assertions. All eleven scoped Flate
-checks pass locally; this test-only scheduling correction leaves production and
-the clean benchmark source unchanged.
+Cancellation fixtures keep the Flate observer runnable and use observed recovery
+input to cancel during admitted candidate/tail storage. Both token routes,
+original inputs, thresholds, limits and cleanup assertions remain. All 56
+affected checks pass on Windows/WSL (735/806ms). These test-only scheduling
+corrections leave production sources and the benchmark panel unchanged.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and

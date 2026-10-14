@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
@@ -158,51 +159,39 @@ public sealed class RecoveryOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CancellationDuringCandidateOrTailReleasesEarlierTrials(bool tail)
+    public void CancellationDuringCandidateOrTailReleasesEarlierTrials(bool tail)
     {
         string large = Literal(tail ? 60000 : 16 * 1024 * 1024);
         byte[] input = tail ? Input(Enumerable.Repeat(Literal(4096), 10).ToArray(), "<< /Size 15 /Root 1 0 R /Unused " + large + " >>")
             : Input(Enumerable.Repeat(Literal(4096), 10).Append(large).ToArray(), "<< /Size 16 /Root 1 0 R >>");
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
         long threshold = tail ? 50000L : 16L * 1024L * 1024L;
-        // A bounded tail can finish before the observer is scheduled, especially
-        // during another test's forced GC. Completion is not cancellation evidence.
-        for (int attempt = 0; attempt < 8; attempt++)
+        using CancellationTokenSource cancellation = new();
+        ResourceGovernor governor = new(limits, cancellation.Token);
+        bool observed = false;
+        // Observe a real parser read while its candidate/tail storage is live.
+        // Cancel the token here; recovery must detect it and unwind its owners.
+        using ObservedInput storage = new(input, () =>
         {
-            using CancellationTokenSource cancellation = new();
-            ResourceGovernor governor = new(limits, cancellation.Token);
-            using CancellationTokenSource observation = new();
-            TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
-            Task observer = Task.Factory.StartNew(() =>
+            if (!observed && governor.Snapshot().LiveMemoryBytes >= threshold)
             {
-                ready.SetResult();
-                while (!observation.IsCancellationRequested)
-                {
-                    if (governor.Snapshot().LiveMemoryBytes >= threshold)
-                    {
-                        cancellation.Cancel();
-                        return;
-                    }
-                    Thread.SpinWait(16);
-                }
-            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            await ready.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            Task<XRefTable> parsing = Task.Factory.StartNew(() => XRefRecovery.Recover(input, limits, governor, new DiagnosticBag(governor), "authored damage"),
-                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            try { (await parsing.WaitAsync(TimeSpan.FromSeconds(10))).Dispose(); }
-            catch (OperationCanceledException)
-            {
-                Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
-                Assert.True(governor.Snapshot().TotalWork > 0L);
-                return;
+                observed = true;
+                cancellation.Cancel();
             }
-            finally
-            {
-                observation.Cancel();
-                await observer.WaitAsync(TimeSpan.FromSeconds(10));
-            }
-        }
-        Assert.Fail("Recovery completed before cancellation could be observed in eight attempts.");
+        });
+        Assert.ThrowsAny<OperationCanceledException>(() => XRefRecovery.Recover(
+            storage.Memory, limits, governor, new DiagnosticBag(governor), "authored damage"));
+        Assert.True(observed);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.True(governor.Snapshot().TotalWork > 0L);
+    }
+
+    private sealed class ObservedInput(byte[] input, Action observe) : MemoryManager<byte>
+    {
+        public override Span<byte> GetSpan() { observe(); return input; }
+        public override MemoryHandle Pin(int elementIndex) => throw new NotSupportedException();
+        public override void Unpin() { }
+        protected override void Dispose(bool disposing) { }
     }
 
     [Theory]
