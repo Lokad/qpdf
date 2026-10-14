@@ -663,8 +663,10 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         using FilterPlan stageOwner = stages;
 
         if (stages.Count == 0) { return stream.RawMemory; }
-        scratch.Reserve(checked((long)stream.RawMemory.Length + 32L));
-        return FilterChain.Decode(stream.Data, stages, _limits, _governor, scratch);
+        // Filters borrow immutable input. Full payload arrays already have an
+        // owner; only slices need a materialized array under this scratch scope.
+        byte[] encoded = stream.ArrayData(scratch, _governor, _governor.CancellationToken);
+        return FilterChain.Decode(encoded, stages, _limits, _governor, scratch);
     }
 
     private List<(int Number, int Offset)> ReadObjStmPairs(

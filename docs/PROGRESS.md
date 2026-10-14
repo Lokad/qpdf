@@ -17,6 +17,14 @@ preserve previous observations, including rejected/slower trials.
 
 ## Current implementation and verification
 
+Object-stream decoding reuses the existing array helper: full immutable arrays are
+borrowed; slices materialize under scratch ownership. All 2,951 affected reader,
+filter and object-stream checks pass (27s). The narrow streamed-xref rewrite input
+has unfiltered object streams, so its overlapping 2.380/2.384 ms pair does not
+measure this filtered-decode correction. No timing or allocation gain is attributed
+to that probe; its complete observations remain. Published figures still identify
+the qualified `679a213` implementation until the next useful integration batch.
+
 Prepared split serialization uses existing bounded batching for main, identifier and
 pass1 captures. Synchronous owned storage allows scratch reuse, with explicit
 flushes before lengths/IDs/publication. Geometric segments avoid intermediate
@@ -45,7 +53,7 @@ integration results are published by
 Reader cancellation fixtures use the shared input-read observer and 16 KiB payloads,
 preserving in-flight cancellation, scratch rollback and accepted-cache checks without
 a scheduling race between parsing and a polling thread. All 90 affected reader/recovery
-checks pass. Runtime code and the qualified benchmark implementation remain unchanged.
+checks pass. These fixture changes leave runtime code unchanged.
 
 Argv/job single-page and one-source range selection retain bounded classic-xref
 reads, catalog behavior and default bounded recovery. Missing ranges, diagnostics or
