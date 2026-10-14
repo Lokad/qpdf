@@ -4,48 +4,41 @@ Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
 thirteen codec-free public workloads. The target remains open. The latest full
 panel (`d66d5de`) records five cells at parity, with ratios 0.58-3.56x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
-Keep changes reducing time or allocation; no minimum percentage applies.
+Keep reduced time or allocation; no minimum percentage applies.
 
-Pushed `2f20ee6` passes [hosted CI run 38592938536](https://github.com/Lokad/qpdf/actions/runs/38592938536):
-Windows 6m34s, Ubuntu 8m57s, reference 6m05s. Both ordinary platforms pass 17,910
+Pushed `2c6ee48` passes [hosted CI run 38598202274](https://github.com/Lokad/qpdf/actions/runs/38598202274):
+Windows 6m25s, Ubuntu 4m14s, reference 6m06s. Both ordinary platforms pass 17,915
 checks without failures/skips, locked Release build/pack, inspection, fresh
 consumer and rejection controls. Reference covers 1,858 exact object comparisons
 and 442 rewrite trios. Pins, advisory exceptions and version remain unchanged.
 
 ## Current correction
 
-Publication remapping borrows unchanged immutable references, arrays, dictionaries
-and streams, rebuilding only changed paths. It still visits every child for map
-validation, generation normalization, work/depth limits and cancellation. Changed
-arrays allocate once. Dictionary ordering, CLR-null elision and QDF's explicit
-Length replacement/reordering remain unchanged. Existing source/job ownership
-keeps borrowed values alive through complete publication; no new cache is added.
+The graph copier reuses immutable references whose validated source identity
+already equals their destination identity. Resolver validation still precedes
+memo reuse; first-copy mapping, traversal and storage still occur. Cycles remain
+copied and stale generations still become PDF null. Unchanged containers can
+then use the existing copy-on-change path.
 
-The paired original linearization job allocates 19.225128 ->19.047407 MB
-(177.7 KB less), with byte-identical independently valid output. Median time
-25.284 ->28.550 ms has overlapping IQRs 24.327-27.969 /25.146-47.084, so no
-speedup is claimed; candidate/native ratio 1.0099x remains above parity.
+Single-source/grouped page Kids and form Fields/calculation-order arrays now pass
+existing lists to the unchanged copying PdfArray constructor. This removes four
+intermediate arrays while retaining its immutable defensive copy and item order.
+No new API, cache or ownership mechanism is added.
 
-All 5,006 focused writer/linearization/split/publication checks pass (82s),
-including five new finite regressions for borrowing, unmapped references,
-generation/prefix handling, null elision and defensive copies. Six QDF cleanup
-cases now require a real generation change, preserving actual-storage retirement
-checks while removing an obsolete exact metadata-charge threshold. All 26 fresh
-managed/native outcomes and three negative controls pass with unchanged inputs.
-Locked Release build/explicit pack/inspection/fresh consumer/rejections pass
-(17s), preserving the 2 MiB multisource ceiling. Seven visual cases and two
-negative controls pass (18s) after timing, at unchanged tolerances. Hosted full
-tests are pending. Initial hosted run `38597042520` passes reference (4m), but
-both ordinary platforms find one collision-work fixture that no longer builds a
-dictionary. Require generation normalization to exercise actual collision work
-under its unchanged 50,000-work ceiling; production code and timings are unchanged.
-All 48 focused collision/remapping checks pass (11s) after this fixture correction.
+All 5,410 focused writer/form/selection/split/merge/publication checks pass (71s),
+including source-identity cycles, stale generations, limits, cancellation, cleanup
+and surviving output values. The reference-reuse pair removes about 132 bytes
+per original rewrite job with identical independently valid output. Median time
+16.266 ->17.069 ms has overlapping IQRs; no speedup is claimed. A separate ancestry
+leaf-skip trial showed no time/allocation improvement and was reverted; its raw
+observations remain preserved. The array pair allocates 17.246767 ->17.243798 MB
+per job (about 3 KB less), with identical independently valid bytes. Median time
+18.094 ->17.151 ms has overlapping IQRs 16.838-18.762 /15.872-17.783; no speedup
+is claimed. Final comparison and qualification are pending.
 
 Earlier parser scratch, approximate ownership, immutable borrowing, source/cache
-capacity reductions, staged content-ID hashing, direct classic xref ranges and
-hint-list filtering remain integrated. All earlier raw runs are preserved.
-The latest full primary panel contains 25,803 samples. Sparse full-input selection
-remains 3.5623x; the separate file-host cell is 0.3796x and replaces no primary case.
+capacity reductions, staged content-ID hashing, xref ranges, filtered hint lists
+and publication remapping stay integrated. All earlier raw runs are preserved.
 Different full panels do not establish causal speedups.
 
 ## Preserved scope

@@ -526,7 +526,7 @@ public static partial class Qpdf
                     PdfDictionary pages = new(new Dictionary<PdfName, QpdfObject>
                     {
                         [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-                        [PdfName.FromAscii("Kids")] = new PdfArray([.. kids]),
+                        [PdfName.FromAscii("Kids")] = new PdfArray(kids),
                         [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
                     });
                     List<NumberedObject> model = new()
@@ -1697,7 +1697,7 @@ public static partial class Qpdf
         return new PdfDictionary(new Dictionary<PdfName, QpdfObject>
         {
             [PdfName.FromAscii("Type")] = PdfName.FromAscii("Pages"),
-            [PdfName.FromAscii("Kids")] = new PdfArray([.. groupKids]),
+            [PdfName.FromAscii("Kids")] = new PdfArray(groupKids),
             [PdfName.FromAscii("Count")] = new PdfInteger(text, groupKids.Count),
         });
     }

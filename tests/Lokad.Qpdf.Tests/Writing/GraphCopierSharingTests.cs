@@ -84,6 +84,34 @@ public sealed class GraphCopierSharingTests
     }
 
     [Fact]
+    public async Task IdentityReferencesStillValidateGenerationsAndCopyReachableCycles()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        var objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        objects.Add((6, "<< /Self 6 0 R /Text (kept) >>", null));
+        InMemoryQpdfHost host = new(); QpdfPath path = QpdfPath.From("source.pdf");
+        host.AddInput(path, CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, path,
+            QpdfLimits.Default, governor, new(governor), QpdfRecoveryMode.Strict, CancellationToken.None);
+        using ParserMemoryScope ownership = ParserMemoryScope.Create(governor);
+        GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 6, ownership);
+        PdfReference reference = new(6, 0);
+        PdfArray source = new([Dictionary(("Link", reference)), reference]);
+        Assert.Same(source, copier.CopyValue(source, 0));
+        KeyValuePair<int, QpdfObject> copied = Assert.Single(copier.CopiedObjects);
+        Assert.Equal(6, copied.Key);
+        PdfDictionary cycle = Assert.IsType<PdfDictionary>(copied.Value);
+        Assert.True(cycle.TryGet(PdfName.FromAscii("Self"), out QpdfObject self));
+        Assert.Equal(6, Assert.IsType<PdfReference>(self).ObjectNumber);
+        Assert.Same(PdfNull.Instance, copier.CopyValue(new PdfReference(6, 1), 0));
+        Assert.Single(copier.CopiedObjects);
+        await document.DisposeAsync();
+        Assert.True(cycle.TryGet(PdfName.FromAscii("Text"), out QpdfObject text));
+        Assert.Equal("kept"u8.ToArray(), Assert.IsType<PdfByteString>(text).Value);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
     public void RemovedEntriesAndRepairedLengthsPreserveRemainingOrder()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);

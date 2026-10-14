@@ -595,6 +595,7 @@ internal sealed class GraphCopier
 
         if (_mapping.TryGetValue(reference.ObjectNumber, out int mapped))
         {
+            if (mapped == reference.ObjectNumber && reference.Generation == 0) { return reference; }
             _ownership?.Reserve(24L);
             return new PdfReference(mapped, 0);
         }
@@ -622,6 +623,7 @@ internal sealed class GraphCopier
         Map(reference.ObjectNumber, id);
         QpdfObject copied = CopyValue(resolved, depth + 1);
         Store(id, copied);
+        if (id == reference.ObjectNumber && reference.Generation == 0) { return reference; }
         _ownership?.Reserve(24L);
         return new PdfReference(id, 0);
     }

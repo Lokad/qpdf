@@ -1986,7 +1986,7 @@ internal static class AcroFormCopy
         Dictionary<PdfName, QpdfObject> entries = new();
         if (combined.HasFields)
         {
-            entries[PdfName.FromAscii("Fields")] = new PdfArray([.. fields]);
+            entries[PdfName.FromAscii("Fields")] = new PdfArray(fields);
         }
         if (combined.HasNeedAppearances)
         {
@@ -2000,7 +2000,7 @@ internal static class AcroFormCopy
 
         if (combined.HasCalculationOrder)
         {
-            entries[PdfName.FromAscii("CO")] = new PdfArray([.. order]);
+            entries[PdfName.FromAscii("CO")] = new PdfArray(order);
         }
 
         foreach (KeyValuePair<PdfName, QpdfObject> extra in combined.Extras)
