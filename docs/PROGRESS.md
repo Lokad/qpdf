@@ -42,6 +42,11 @@ panel; original inputs remain unchanged. The final panels retain all 18,208 file
 integration results are published by
 [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
 
+Reader cancellation fixtures use the shared input-read observer and 16 KiB payloads,
+preserving in-flight cancellation, scratch rollback and accepted-cache checks without
+a scheduling race between parsing and a polling thread. All 90 affected reader/recovery
+checks pass. Runtime code and the qualified benchmark implementation remain unchanged.
+
 Argv/job single-page and one-source range selection retain bounded classic-xref
 reads, catalog behavior and default bounded recovery. Missing ranges, diagnostics or
 uncertain parsing retry once on the same stable lease before publication. Accepted

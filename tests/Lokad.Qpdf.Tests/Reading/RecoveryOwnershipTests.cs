@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
@@ -184,14 +183,6 @@ public sealed class RecoveryOwnershipTests
         Assert.True(observed);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().TotalWork > 0L);
-    }
-
-    private sealed class ObservedInput(byte[] input, Action observe) : MemoryManager<byte>
-    {
-        public override Span<byte> GetSpan() { observe(); return input; }
-        public override MemoryHandle Pin(int elementIndex) => throw new NotSupportedException();
-        public override void Unpin() { }
-        protected override void Dispose(bool disposing) { }
     }
 
     [Theory]

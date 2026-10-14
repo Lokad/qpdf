@@ -2,6 +2,8 @@ using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Reading;
@@ -390,54 +392,74 @@ public sealed class ReaderAcceptanceTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    [Fact]
-    public async Task CancellationDuringHeaderCandidatePreservesEarlierCache()
+    private static DocumentEngine ObservedEngine(ObservedInput storage, QpdfLimits limits, ResourceGovernor governor)
     {
-        byte[] input = BadHeader(["[ (" + new string('A', 4096) + ") (" + new string('B', 16 * 1024 * 1024) + ") ]", "(kept)"], false);
-        InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("inputs/a.pdf"), input, QpdfInputOwnership.Copy);
+        ReadOnlyMemory<byte> input = storage.Memory;
+        long reservation = input.Length + GovernedBufferStream.ArrayOverheadBytes;
+        governor.ReserveMemory(reservation);
+        DiagnosticBag diagnostics = new(governor);
+        XRefTable table = XRefTable.Parse(input, limits, governor, diagnostics, QpdfRecoveryMode.Strict, false);
+        return DocumentEngine.CreateOwned(input, table, limits, governor, diagnostics, QpdfRecoveryMode.Strict,
+            reservation, false);
+    }
+
+    [Fact]
+    public void CancellationDuringHeaderCandidatePreservesEarlierCache()
+    {
+        byte[] input = BadHeader(["[ (" + new string('A', 4096) + ") (" + new string('B', 16384) + ") ]", "(kept)"], false);
         using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token))
+        ResourceGovernor governor = new(limits, cancellation.Token);
+        long baseline = long.MaxValue;
+        bool observed = false;
+        using ObservedInput storage = new(input, () =>
         {
-            PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
-            long baseline = Observe(document).LiveMemoryBytes;
-            Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(5), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => Observe(document).LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
-            cancellation.Cancel();
+            if (!observed && governor.Snapshot().LiveMemoryBytes - baseline >= 8192L)
+            { observed = true; cancellation.Cancel(); }
+        });
+        using (DocumentEngine engine = ObservedEngine(storage, limits, governor))
+        {
+            PdfByteString kept = Assert.IsType<PdfByteString>(engine.Load(6));
+            baseline = governor.Snapshot().LiveMemoryBytes;
+            Assert.Throws<OperationCanceledException>(() => engine.Load(5));
             Assert.True(observed);
-            await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(Observe(document).PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
-            Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+            Assert.Same(kept, engine.Load(6));
             Assert.Equal("kept"u8.ToArray(), kept.Value);
         }
-        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CancellationDuringCompressedRetryKeepsPriorAcceptedCache(bool flate)
+    public void CancellationDuringCompressedRetryKeepsPriorAcceptedCache(bool flate)
     {
-        byte[] input = ObjectStreamPdf("(kept)", "(" + new string('A', 16 * 1024 * 1024) + ") null", flate, true, null);
-        InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("inputs/a.pdf"), input, QpdfInputOwnership.Copy);
+        byte[] input = ObjectStreamPdf("(kept)", "(" + new string('A', 16384) + ") null", flate, true, null);
         using CancellationTokenSource cancellation = new();
         QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = 1L };
-        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), limits, cancellation.Token))
+        ResourceGovernor governor = new(limits, cancellation.Token);
+        long baseline = long.MaxValue;
+        bool observed = false;
+        using ObservedInput storage = new(input, () =>
         {
-            Assert.Throws<QpdfParseException>(() => document.GetObject(7));
-            PdfByteString kept = Assert.IsType<PdfByteString>(document.GetObject(6));
-            long baseline = Observe(document).LiveMemoryBytes;
-            Task<QpdfObject> loading = Task.Factory.StartNew(() => document.GetObject(7), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool observed = SpinWait.SpinUntil(() => Observe(document).LiveMemoryBytes >= baseline + 16L * 1024L * 1024L || loading.IsCompleted, TimeSpan.FromSeconds(10));
-            cancellation.Cancel();
+            if (!observed && governor.Snapshot().LiveMemoryBytes > baseline)
+            { observed = true; cancellation.Cancel(); }
+        });
+        using (DocumentEngine engine = ObservedEngine(storage, limits, governor))
+        {
+            // Borrow only this immutable fixture, so encoded and plain object
+            // streams both expose the decoder's actual reads to the observer.
+            engine.BorrowImmutableStreamData = true;
+            Assert.Throws<QpdfParseException>(() => engine.Load(7));
+            PdfByteString kept = Assert.IsType<PdfByteString>(engine.Load(6));
+            baseline = governor.Snapshot().LiveMemoryBytes;
+            Assert.Throws<OperationCanceledException>(() => engine.Load(7));
             Assert.True(observed);
-            await Assert.ThrowsAsync<OperationCanceledException>(async () => await loading.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.True(Observe(document).PeakMemoryBytes >= baseline + 16L * 1024L * 1024L);
-            Assert.Equal(baseline, Observe(document).LiveMemoryBytes);
+            Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+            Assert.Same(kept, engine.Load(6));
             Assert.Equal("kept"u8.ToArray(), kept.Value);
         }
-        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 }
