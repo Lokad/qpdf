@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The latest
-qualified primary panel (`9767caa`) records five cells at or below 1.0×, with
-ratios 0.59–3.54×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
+qualified primary panel (`6a8f6c4`) records five cells at or below 1.0×, with
+ratios 0.56–3.40×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
@@ -36,6 +36,13 @@ values/key aliases surviving cleanup. All 26 original fresh managed/native
 outcomes and three negative controls pass with unchanged inputs. Locked Release
 build/explicit pack/inspection/fresh consumer/rejections pass (23s), preserving
 the 2 MiB multisource consumer ceiling.
+Clean-source comparisons retain all 25,941 primary and 6,243 additional file-host
+observations, original inputs/options and independently valid fresh outputs. Five
+primary cells meet parity; object-heavy rewriting remains 1.098×, sparse full-input
+selection 3.395×. The additional file-host cell is 0.405×. Separate panels establish
+no timing attribution for the source change. Seven existing visual integration
+cases pass with unchanged tolerances; misplaced-image and stale-appearance controls
+reject. Renderer/codec qualification is separate from performance timings.
 
 A four-second allocation profile on the qualified prior binary checks every fresh
 output hash; sampled types point to temporary/final dictionary backings. Counts
