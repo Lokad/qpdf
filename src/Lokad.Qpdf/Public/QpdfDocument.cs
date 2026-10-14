@@ -281,8 +281,9 @@ public sealed class QpdfDocument : IAsyncDisposable
         bool borrowInputStreams)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        // Custom output hosts may retain immutable write chunks after the job.
-        // Borrow input slices only when publication consumes them synchronously.
+        // Default readers borrow only for the memory host. Complete copy jobs
+        // may opt in while funding input through publication and isolating any
+        // slices passed to retaining output sinks.
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken, valuesEscape,
             borrowInputStreams && host is Hosting.InMemoryQpdfHost).ConfigureAwait(false);
     }

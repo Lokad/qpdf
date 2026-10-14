@@ -696,7 +696,7 @@ internal sealed partial class PdfSerializer
 
         await AppendFormattedAsync([WriterPart.Text("/Length "), WriterPart.Number(data.Length), WriterPart.Text(" ")], sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync(">>\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
+        await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
         if (newlineBeforeEndstream)
         {
             await AppendAsciiAsync("\nendstream", sink, cancellationToken).ConfigureAwait(false);
@@ -705,6 +705,47 @@ internal sealed partial class PdfSerializer
         {
             await AppendAsciiAsync("endstream", sink, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private async ValueTask AppendStreamPayloadAsync(PdfStream stream, IByteSink sink, CancellationToken cancellationToken)
+    {
+        ReadOnlyMemory<byte> data = stream.RawMemory;
+        if (!NeedsPayloadCopy(stream, sink))
+        { await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false); return; }
+        using ParserMemoryScope payload = ParserMemoryScope.Create(_governor);
+        for (int offset = 0; offset < data.Length;)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            int count = Math.Min(WriteSplitBytes, data.Length - offset);
+            long bytes = count + GovernedBufferStream.ArrayOverheadBytes;
+            payload.Reserve(bytes);
+            byte[]? packet = null;
+            try
+            {
+                // Each retaining write owns its bounded immutable packet. A
+                // large source stream does not require a second full-size copy.
+                packet = GC.AllocateUninitializedArray<byte>(count);
+                GovernedBufferStream.CopyBytes(data.Span.Slice(offset, count), packet, _governor,
+                    cancellationToken, _governor.CancellationToken);
+                await sink.AppendAsync(packet, cancellationToken).ConfigureAwait(false);
+            }
+            finally { packet = null; payload.Release(bytes); }
+            offset += count;
+        }
+    }
+
+    private static bool NeedsPayloadCopy(PdfStream stream, IByteSink sink)
+    {
+        if (stream.RawMemory.Length == ((byte[])stream.AllocationCarrier).Length) { return false; }
+        // A retained small slice must not pin a private document's complete input.
+        // Counting, synchronous consumption and prepared copying do not retain it.
+        return sink switch
+        {
+            CountingSink => false,
+            ISynchronousByteSink synchronous => !synchronous.CanAppendSynchronously,
+            BatchingSink batch => !batch.CanBorrowPayload,
+            _ => true,
+        };
     }
 
     private ValueTask AppendFormattedAsync(ReadOnlySpan<WriterPart> parts, IByteSink sink, CancellationToken cancellationToken)

@@ -99,11 +99,14 @@ nested/cache loads. Disposal drops input, table, cache and lease references;
 public immutable values and snapshots remain usable under their documented
 lifetime contracts.
 
-Exclusive single-source jobs using the built-in memory host may borrow stream slices
-from immutable input storage; its output transactions consume writes synchronously.
+Exclusive single-source copies may borrow stream slices from immutable input
+storage, funded through publication by the document or its existing job scope.
 Before a copied graph outlives its reader, the existing job scope adopts the full
-input charge, including bytes outside the selected payload. Public readers keep
-independent payloads, as do custom hosts that may retain write chunks.
+input charge, including bytes outside the selected payload. The writer consumes
+borrowed payloads directly for synchronous sinks and prepared captures. Before
+passing an input-backed payload to a retaining or async sink, it copies bounded
+immutable packets, including on QDF paths. Retained output chunks cannot pin unused
+input bytes. Public readers keep independent payloads.
 Multisource copying also keeps independent payloads so each mostly unused input
 can retire before the next reader opens. Consumers
 requiring arrays materialize only the slice under

@@ -17,6 +17,23 @@ preserve previous observations, including rejected/slower trials.
 
 ## Current implementation and verification
 
+Private single-source copies now borrow input payloads under the existing job
+ownership through publication. Public readers, multisource storage, bounded ranges
+and stable fallback retain their contracts. Classic/linearized/QDF writers isolate
+input-backed payloads in bounded immutable packets for retaining or async sinks;
+synchronous output and prepared captures can consume them directly.
+
+The original 500-page file-host rewrite pair falls 22.031 ->16.980 ms, with
+non-overlapping IQRs, and 22.320429 ->17.187246 MB allocated/job. Independently
+validated output is byte-identical; all 524 observations remain. Native is
+15.787 ms (1.076x), so parity remains open. Worker RSS rises slightly; no retained
+memory reduction is claimed. The affected 8,946 checks pass, followed by 219 checks
+for the final bounded packets and seven complete public jobs with a 96 KiB payload
+and 2 MiB omitted stream. Disabling isolation exposes large retained backings in
+five jobs. Write failure/cancellation preserve prior output and close input leases.
+This useful batch awaits final integration qualification; published tables still
+identify `679a213`.
+
 Object-stream decoding reuses the existing array helper: full immutable arrays are
 borrowed; slices materialize under scratch ownership. All 2,951 affected reader,
 filter and object-stream checks pass (27s). The narrow streamed-xref rewrite input

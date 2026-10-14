@@ -332,6 +332,8 @@ public static partial class Qpdf
                         ? await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
                         : await QpdfDocument.OpenSelectionInputAsync(stableInput, inputPath, limits, governor, diagnostics,
                             recovery, attempt == 0, cancellationToken).ConfigureAwait(false);
+                    // This private reader remains alive through publication.
+                    document.Engine.BorrowImmutableStreamData = !document.Engine.HasSelectiveInput;
                     retryParse = document.Engine.HasSelectiveInput;
                     if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                     int total = document.PageReferences.Count;
@@ -923,6 +925,10 @@ public static partial class Qpdf
                     false, sources.Count == 1).ConfigureAwait(false);
             try
             {
+                // The existing source transfer funds a single complete input
+                // until publication. Multiple inputs and ranged buffers remain
+                // independent; retaining output sinks receive isolated payloads.
+                document.Engine.BorrowImmutableStreamData = sources.Count == 1 && !document.Engine.HasSelectiveInput;
                 if (externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline)) { document.PrepareInlinePageResources(cancellationToken); }
                 ParserContainers.AddItem(selectionMemory, sourceCounts, document.PageReferences.Count, sizeof(int));
                 PdfVersion sourceVersion = document.OwnVersion();

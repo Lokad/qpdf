@@ -43,6 +43,11 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
     private GovernedBufferStream Scratch => _scratch ?? throw new ObjectDisposedException(nameof(BatchingSink));
     public long Length { get { _ = Memory; return _length; } }
 
+    // Large writes bypass scratch; borrowing is safe only when that destination
+    // consumes the bytes before returning. Small writes always copy into scratch.
+    internal bool CanBorrowPayload => _destination is CountingSink
+        || _destination is ISynchronousByteSink synchronous && synchronous.CanAppendSynchronously;
+
     void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken token)
     {
         _ = Memory; CheckCancellation(token);

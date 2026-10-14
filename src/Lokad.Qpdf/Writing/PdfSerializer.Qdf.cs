@@ -345,7 +345,7 @@ internal sealed partial class PdfSerializer
                 remapped.Dispose();
                 ReadOnlyMemory<byte> data = stream.RawMemory;
                 await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-                await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
+                await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
                 bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
                 if (addedNewline)
                 {
@@ -616,7 +616,7 @@ internal sealed partial class PdfSerializer
         ReadOnlyMemory<byte> data = stream.RawMemory;
         await AppendQdfDictionaryAsync(stream.Dictionary, sink, 0, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-        await AppendBytesAsync(data, sink, cancellationToken).ConfigureAwait(false);
+        await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
         bool addedNewline = newlineBeforeEndstream || data.Length == 0 || data.Span[data.Length - 1] != 0x0A;
         if (addedNewline)
         {
@@ -708,7 +708,7 @@ internal sealed partial class PdfSerializer
         {
             await AppendQdfDictionaryAsync(stream.Dictionary, sink, level, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("\nstream\n", sink, cancellationToken).ConfigureAwait(false);
-            await AppendBytesAsync(stream.RawMemory, sink, cancellationToken).ConfigureAwait(false);
+            await AppendStreamPayloadAsync(stream, sink, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("endstream", sink, cancellationToken).ConfigureAwait(false);
             return;
         }
