@@ -11,9 +11,9 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     private readonly long _entryBytes;
     private int[] _buckets = Array.Empty<int>();
     private Entry[] _entries = Array.Empty<Entry>();
-    // Mutable tables borrow their construction scope weakly; publication drops
-    // even that reference. Immutable aliases retain storage without execution state.
-    private WeakReference<ParserMemoryScope>? _origin;
+    // Construction is private to the active scope. Publication drops this
+    // reference; immutable aliases retain storage without execution state.
+    private ParserMemoryScope? _origin;
     private DictionaryKeyView? _dictionaryKeys;
     private int _count;
     private int _version;
@@ -29,7 +29,7 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
 
     private PdfNameTable(ParserMemoryScope memory, long entryBytes, bool frozen)
     {
-        _origin = frozen ? null : new WeakReference<ParserMemoryScope>(memory);
+        _origin = frozen ? null : memory;
         _entryBytes = entryBytes; _frozen = frozen;
     }
 
@@ -74,15 +74,14 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
     {
         if (_frozen) { throw new InvalidOperationException("Frozen name storage cannot change."); }
         memory.CheckOwner(governor);
-        if (_origin is null || !_origin.TryGetTarget(out ParserMemoryScope? owner) || !ReferenceEquals(owner, memory))
+        if (!ReferenceEquals(_origin, memory))
         { throw new InvalidOperationException("Name storage belongs to its construction scope."); }
     }
 
     private void CheckRead(ResourceGovernor governor)
     {
         if (_frozen) { return; }
-        if (_origin is null || !_origin.TryGetTarget(out ParserMemoryScope? owner))
-        { throw new InvalidOperationException("Name construction scope is unavailable."); }
+        ParserMemoryScope owner = _origin ?? throw new InvalidOperationException("Name construction scope is unavailable.");
         owner.CheckOwner(governor);
     }
 
