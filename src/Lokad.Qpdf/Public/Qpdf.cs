@@ -241,9 +241,7 @@ public static partial class Qpdf
         return new PdfDictionary(entries);
     }
 
-    private static void ApplySourceContentTransforms(
-        GraphCopier copier,
-        IReadOnlyList<int> pageIds,
+    private static Content.ContentTransformRequest? PrepareSourceContentTransforms(
         bool coalesceContents,
         bool normalizeContent,
         bool externalizeInlineImages,
@@ -255,20 +253,19 @@ public static partial class Qpdf
         DocumentEngine engine,
         QpdfLimits limits,
         ResourceGovernor governor,
-        DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
-        bool preserveUnreferenced)
+        bool preserveUnreferenced,
+        out bool pruneHere)
     {
-        bool pruneHere = prune.Enabled && (prune.Mode == "yes"
+        pruneHere = prune.Enabled && (prune.Mode == "yes"
             || (prune.Mode is null or "auto" && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
         if (!coalesceContents && !normalizeContent && !pruneHere && !externalizeInlineImages)
         {
-            return;
+            return null;
         }
 
-        Content.ContentTransformRequest request = new(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes)
+        return new Content.ContentTransformRequest(coalesceContents, normalizeContent, compress, level, externalizeInlineImages, iiMinBytes)
         { PreserveUnreferenced = preserveUnreferenced, FilterOptions = filterOptions };
-        Content.ContentTransforms.ApplyPageTransforms(copier, pageIds, request, pruneHere, limits, governor, diagnostics, cancellationToken);
     }
 
 
@@ -406,13 +403,16 @@ public static partial class Qpdf
                         TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
                     }
 
-                    List<int> occurrenceIds = new(occurrences.Count);
-                    foreach ((GraphCopier _, int occurrenceId) in occurrences)
+                    Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, cancellationToken, preserveUnreferenced, out bool singlePrune);
+                    if (singleTransforms is not null)
                     {
-                        occurrenceIds.Add(occurrenceId);
+                        List<int> occurrenceIds = new(occurrences.Count);
+                        foreach ((GraphCopier _, int occurrenceId) in occurrences)
+                        {
+                            occurrenceIds.Add(occurrenceId);
+                        }
+                        Content.ContentTransforms.ApplyPageTransforms(copier, occurrenceIds, singleTransforms, singlePrune, limits, governor, diagnostics, cancellationToken);
                     }
-
-                    ApplySourceContentTransforms(copier, occurrenceIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, singleCompress, singleLevel, StreamTransformer.Options(singleDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
                     Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, underlays, overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null).ConfigureAwait(false);
 
@@ -1006,13 +1006,16 @@ public static partial class Qpdf
                 TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
             }
 
-            List<int> takenIds = new(taken.Count);
-            foreach ((GraphCopier _, int takenId, int _) in taken)
+            Content.ContentTransformRequest? sourceTransforms = PrepareSourceContentTransforms(coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, cancellationToken, preserveUnreferenced, out bool sourcePrune);
+            if (sourceTransforms is not null)
             {
-                takenIds.Add(takenId);
+                List<int> takenIds = new(taken.Count);
+                foreach ((GraphCopier _, int takenId, int _) in taken)
+                {
+                    takenIds.Add(takenId);
+                }
+                Content.ContentTransforms.ApplyPageTransforms(copier, takenIds, sourceTransforms, sourcePrune, limits, governor, diagnostics, cancellationToken);
             }
-
-            ApplySourceContentTransforms(copier, takenIds, coalesceContents, normalizeContent, externalizeInlineImages || (optimize.Optimize && !optimize.KeepInline), iiMinBytes, multiCompress, multiLevel, StreamTransformer.Options(multiDecode, compression.RecompressFlate), prune, document.Engine, limits, governor, diagnostics, cancellationToken, preserveUnreferenced);
 
             if ((flattenAnnotations is not null || generateAppearances) && Content.FlattenAnnotations.NeedsAppearances(document.Engine))
             {

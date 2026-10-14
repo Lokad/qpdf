@@ -6,42 +6,38 @@ panel (`ead62b0`) records five cells at parity, with ratios 0.60-3.60x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
-Pushed `dee6921` passes [hosted CI run 38612060274](https://github.com/Lokad/qpdf/actions/runs/38612060274):
-Windows 6m59s, Ubuntu 5m56s, reference 5m56s. Both ordinary platforms pass 17,918
+Pushed `f777881` passes [hosted CI run 38615811907](https://github.com/Lokad/qpdf/actions/runs/38615811907):
+Windows 5m05s, Ubuntu 6m00s, reference 5m40s. Both ordinary platforms pass 17,918
 checks without failures/skips, locked Release build/pack, inspection, fresh
 consumer and rejection controls. Reference covers 1,858 exact object comparisons
 and 442 rewrite trios. Pins, advisory exceptions and version remain unchanged.
 
 ## Current correction
 
-Single/multi-source publication models enumerate concrete pool entries directly,
-then sort their numbered records in place with the existing governed numeric
-sorter. Catalogue and page-tree entries stay first. This removes temporary key
-lists and repeated dictionary lookups while retaining capacity admission,
-work/cancellation checks and output order. Earlier source-record/capacity and
-coalescing-plus-rotation corrections remain integrated.
+Single/multi-source selection resolves the existing pruning heuristic once and
+creates page-ID projection lists only when a content transform will run. Ordinary
+copying with transforms disabled avoids unused lists. Auto/yes/no pruning,
+coalescing, normalization and inline-image behavior keep their shared pipeline.
 
-The original 500-page paired rewrite allocates 17.186530 ->17.181110 MB/job
-(5.4 KB less), with byte-identical independently valid output. Median time
-42.304 ->51.447 ms has overlapping IQRs 38.894-50.698 /37.440-58.706; native is
-30.413 ms. The slower candidate observation remains preserved; no speedup is
-claimed. Retain the structural allocation reduction, with no percentage gate.
-Charged estimates are not retained-memory readings.
+All 3,638 affected selection/merge/split/content/pruning/rotation/inspection/
+overlay/appearance/flattening/publication checks pass (24s). The original
+500-page paired rewrite allocates 17.181247 ->17.180683 MB/job (0.6 KB less), with
+byte-identical independently valid output. Median 16.708 ->16.980 ms has overlapping
+IQRs 16.268-17.083 /16.258-18.418; native 14.461 ms. Retain the structural allocation
+reduction; no speedup is claimed.
 
-All 5,634 focused selection/merge/split/rotation/content/inspection/overlay/
-appearance/flattening/publication checks pass (74s), including failure,
-cancellation, cleanup, surviving outputs and the prior rotation regressions.
+An async-wrapper removal trial passed 2,105 writer checks but supplied no qualifying
+gain and was reverted; its patch and all observations remain preserved. A single
+six-second profile of the restored green source places 24.5% of sampled job
+intervals in memory copies and 20.5% in GC waits; these are diagnostic observations,
+not managed/native speed ratios. Public output copies and staging dominate the
+copy stacks. Larger ownership changes need bounded retention and alias guarantees.
+
 Locked Release restore/build/explicit pack/inspection/fresh consumer/rejection
-checks pass (17s), preserving the unchanged 2 MiB multisource ceiling. All 26
-fresh managed/native outcomes and three negatives pass with unchanged inputs.
-The final clean panel retains 26,858 observations; ordinary rewrite is 1.2171x
-and original sparse selection 3.6037x. The separate file-host case is 0.3890x.
-An initial panel overlapped an independently observed compiler/test workload;
-it remains preserved, with one replacement after that pipeline ended. Seven
-visual cases and both negatives pass (17s) outside timed phases at unchanged
-tolerances. Hosted qualification follows. Previous raw runs and native interaction
-controls remain preserved; separate panels do not establish attribution.
-
+checks pass (22s), preserving the unchanged 2 MiB multisource ceiling. Full
+comparison, visual and hosted checks follow on the committed source.
+Earlier useful corrections and native interaction controls remain
+integrated; separate panels do not establish source-change attribution.
 ## Preserved scope
 
 The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK JPEG
