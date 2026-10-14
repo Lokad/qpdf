@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The latest
-qualified primary panel (`c29c5a3`) records five cells at or below 1.0×, with
-ratios 0.58–3.55×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
+qualified primary panel (`9767caa`) records five cells at or below 1.0×, with
+ratios 0.59–3.54×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
@@ -30,11 +30,18 @@ owners, collisions, warning/repair ordering and discarded-value cleanup.
 All 26 fresh managed/native outcomes and three negative controls pass with
 original inputs unchanged. Locked Release build/explicit pack/inspection/fresh
 consumer/rejections pass (32s), preserving the 2 MiB multisource ceiling.
+Clean-source comparisons retain all 27,289 primary and 6,638 additional file-host
+observations, fresh independent semantics and original inputs. Five primary cells
+meet parity; sparse full-input selection remains 3.54×, additional file-host
+selection 0.401×. Separate panels establish no timing attribution.
 
 A separate raw-name hashing fast path was tested and restored: allocation was
 essentially unchanged, and 2.135→2.122 ms had overlapping IQRs. Its focused
 checks passed; all observations remain in the raw archive. No additional
-benchmark cell, cache or accounting framework was introduced.
+benchmark cell, cache or accounting framework was introduced. Two existing six-second
+profiles verify every fresh output hash: ID rewriting points to writing/hashing;
+object-heavy rewriting points to parsing. Traces and summaries are in the raw
+archive. Sampled GC polling intervals are not exact CPU or explicit GC calls.
 
 The earlier single-lookup dictionary insertion and bounded private file-host
 selection remain integrated. The latter keeps complete-reader fallback on the
