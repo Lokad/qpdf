@@ -58,6 +58,33 @@ def describe(values):
         "min": min(values), "max": max(values)}
 
 
+def measure_input_read(worker, path, expected, warmup_seconds):
+    """Bounded managed-only component samples; complete jobs keep their own metrics."""
+    samples = []
+    start = time.monotonic()
+
+    def sample(phase):
+        value = worker.job(["read-input", str(path)])
+        if value["inputBytes"] != path.stat().st_size or value["inputSha256"].lower() != expected:
+            raise ValueError("Fresh full-input load differs from original")
+        value["phase"] = phase
+        samples.append(value)
+
+    count = 0
+    while count < 30 or time.monotonic() - start < warmup_seconds:
+        sample("warmup")
+        count += 1
+    for _ in range(30):
+        sample("measurement")
+    measured = [s for s in samples if s["phase"] == "measurement"]
+    return {"note": "Managed-only fresh full-input load; no native engine ratio. Length/hash validation follows timing and per-thread allocation capture. Complete-job samples remain separate.",
+        "input": {"name": path.name, "bytes": path.stat().st_size, "sha256": expected},
+        "wallSeconds": time.monotonic() - start, "samples": samples,
+        "summary": {"milliseconds": describe([s["elapsedMilliseconds"] for s in measured]),
+            "allocatedBytes": statistics.mean(s["allocatedBytes"] for s in measured),
+            "measurementCount": len(measured), "warmupCount": count}}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("repo", "dotnet", "qpdf", "native-source", "native-build", "input-root", "work-root"):
@@ -67,6 +94,7 @@ def main():
     parser.add_argument("--warmup-seconds", type=float, default=2.0)
     parser.add_argument("--samples", type=int, default=7)
     parser.add_argument("--baseline-probe", type=Path, help="Previously built managed probe for interleaved revision measurements")
+    parser.add_argument("--input-read-diagnostic", action="store_true", help="After one single-input workload, collect thirty separate managed-only full-input loads")
     args = parser.parse_args()
     if args.samples < 5 or args.sample_seconds <= 0 or args.warmup_seconds <= 0:
         parser.error("Require at least five positive-duration samples and warmup")
@@ -88,6 +116,8 @@ def main():
         if set(args.workload) - {c["Name"] for c in cases}:
             raise ValueError("Unknown workload")
         cases = [c for c in cases if c["Name"] in args.workload]
+    if args.input_read_diagnostic and (len(cases) != 1 or len(cases[0]["Inputs"]) != 1):
+        raise ValueError("Input-read diagnostic requires one selected single-input workload")
     probe = repo / "tools/QpdfProbe/bin/Release/net10.0/QpdfProbe.dll"
     driver = root / "qpdf-warm"
     compile_command = ["g++", "-std=c++17", "-O3", "-DNDEBUG", "-I" + str(native_source / "include"),
@@ -97,7 +127,7 @@ def main():
     needed_inputs = {name for case in cases for name in case["Inputs"]}
     sources = {name: fingerprints(qpdf, root / "inputs" / name) for name in sorted(needed_inputs)}
     inputs = {p.name: {"sha256": sha(p), "bytes": p.stat().st_size} for p in (root / "inputs").glob("*.pdf")}
-    records, summaries = [], {}
+    records, summaries, components = [], {}, {}
     for case in cases:
         # The consuming memory host registers this directory eagerly. Expose
         # only this job's required inputs to both lanes, with unchanged bytes.
@@ -179,6 +209,11 @@ def main():
             if args.baseline_probe:
                 summaries[case["Name"]]["improvementPercent"] = 100 * (1 - summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["baseline"]["milliseconds"]["median"])
             print(case["Name"], json.dumps(summaries[case["Name"]]), flush=True)
+            if args.input_read_diagnostic:
+                name = case["Inputs"][0]
+                components["input-read"] = measure_input_read(workers["managed"], workload_inputs / name,
+                    inputs[name]["sha256"], args.warmup_seconds)
+                print("input-read", json.dumps(components["input-read"]["summary"]), flush=True)
         finally:
             for worker in workers.values():
                 worker.close()
@@ -194,7 +229,7 @@ def main():
         "dotnetInfo": run([dotnet, "--info"]).decode(), "cpu": run(["lscpu"]).decode(),
         "os": run(["uname", "-a"]).decode(), "compileCommand": compile_command,
         "protocol": "Fresh public jobs, warm runtime and file cache; only each workload's required inputs are exposed to both lanes; necessary host/file transport included; no parsed-document reuse, fsync, IPC, validation or cleanup in job timing. Sequential alternating batches; all samples retained. Each sample batch runs at least three jobs and the selected accumulated timed duration. Peak RSS is each dedicated workload worker's process high-water mark.",
-        "summary": summaries, "samples": records}
+        "summary": summaries, "samples": records, "componentDiagnostics": components}
     (root / "results.json").write_text(json.dumps(result, indent=2) + "\n")
 
 

@@ -6,46 +6,45 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `d06beef` passed [hosted CI run 38486253203](https://github.com/Lokad/qpdf/actions/runs/38486253203):
-Windows 6m22s, Ubuntu 5m54s, pinned reference 5m54s. Both platforms pass 17,864
+Pushed `37fc77f` passed [hosted CI run 38488628072](https://github.com/Lokad/qpdf/actions/runs/38488628072):
+Windows 7m35s, Ubuntu 5m54s, pinned reference 6m28s. Both platforms pass 17,867
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
-comparisons and 442 rewrite trios. The current correction passed local
-qualification; its integration runs the comprehensive gates on push.
+comparisons and 442 rewrite trios. The current diagnostic changes development
+tools only; production sources, dependency pins and release version are unchanged.
 
-## Current correction and next work
+## Current diagnostic and next work
 
-Classic emission stores offsets in the existing admitted WriterOrder<long> when
-model numbers are validated dense/increasing and memory/work headroom permits.
-Sparse, duplicate, reordered and low-headroom layouts keep the current dictionary
-path. Counting remains allocation-free for dense offsets. The existing sequence
-owner clears storage and controller references on success, failure and cancellation;
-offset storage retires before unrelated trailer output. No new index or cache.
+The existing warmed probe accepts a separate read-input component request through
+the complete-job emitter's same full-file loader. Length/hash checks occur after
+timing and synchronous per-thread allocation capture. The existing comparison
+runner can collect thirty samples for one selected single-input workload with
+--input-read-diagnostic, preserving every original complete-job sample, option,
+input, limit, expected output and negative control.
 
-Identical-driver allocation falls about 2.6 KB/job for X100 (718.4 → 715.8 KB)
-and 25.7 KB for object-heavy rewriting (6.2177 → 6.1920 MB). Every output hash
-matches. Medians 2.401 → 2.465 ms and 30.504 → 30.516 ms have overlapping
-IQRs; claim allocation only.
+Initial sparse component probes observe a wide distribution: corrected load-only
+median 8.50 ms (Q1–Q3 4.69–13.19), with 16.798 MB allocated per fresh load.
+A contemporary complete-job run measures managed 7.13 ms (6.56–8.16) and native
+2.37 ms (2.04–2.99). Separate-run variability prevents subtracting these medians
+or claiming an exact engine/GC cost. Fifteen of thirty loads have a Gen2
+collection, but this does not prove GC causes the slower samples. All complete
+load hashes match the original 16.8 MB fixture; the compiled library hash matches
+the qualified comparison. The first approximate total-allocation counter
+understated the known input size and is retained as preliminary evidence;
+complete-job allocation statistics remain unchanged.
 
-All 2,096 affected writing/practical-memory checks pass (46s). Existing completed-
-task/retained-host controls, offset-width and later-body-error precedence remain;
-added reordered counting/emission and two tight-memory rejection/cleanup cases.
-An initial raw-array prototype failed the completed-writer witness; reviewing
-failure cleanup led to reuse of the established sequence owner. Failed evidence
-is retained and the incomplete prototype was not committed. Windows/Linux Release
-builds, explicit pack, inspection, fresh locked consumer and rejection controls
-pass (24s), preserving the 2 MiB multisource ceiling. All 26 fresh managed/native
-outcomes and three negative controls pass; original inputs are unchanged.
-The clean committed-source panel preserves all 19,976 observations and an empty
-source diff. Five cells meet parity and eight remain above it; splitting at
-1.0013× remains open. Host-load variability is substantial, and separate panels
-do not attribute gains to a source change. One hosted push qualifies code and
-report.
+Windows/Linux Release probe builds and all seventeen CLI checks pass (3s),
+including different complete inputs and malformed diagnostic requests. One clean
+committed-source sparse comparison with the separate component diagnostic records
+the final evidence. The thirteen-cell parity target remains open; input-only
+measurements do not replace a cell or establish an engine-speed comparison.
 
-Sparse full-input transport remains the largest boundary gap. The timed emitter
-already reads the full remaining span and the exclusive memory host borrows its
-immutable snapshot. Lazy parsing alone cannot remove this required full read;
-the original comparison and every agreed workload remain in scope.
+Full fresh input allocation/reading is a demonstrated boundary cost. Native can
+read selected objects lazily; the current managed reader consumes contiguous
+storage and the memory host borrows its immutable snapshot. Parser-only changes
+cannot remove the emitter's required full read. The next correction must address
+this boundary explicitly while retaining the original comparison and practical
+limits, cancellation, cleanup and immutable output guarantees.
 
 ## Useful completed work
 

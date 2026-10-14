@@ -163,7 +163,7 @@ internal static class EmitCommand
             => host.CreateOutputAsync(path, cancellationToken);
     }
 
-    private static byte[] ReadInputBytes(string path)
+    internal static byte[] ReadInputBytes(string path)
     {
         FileOptions options = OperatingSystem.IsWindows() ? FileOptions.SequentialScan : FileOptions.None;
         using SafeFileHandle input = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.Read, options);

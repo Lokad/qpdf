@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Tests.Reading;
@@ -39,6 +41,9 @@ public sealed class ProbeCliTests
     }
 
     private static (int ExitCode, string Stdout, string Stderr) RunProbe(params string[] probeArgs)
+        => RunProbeInput(null, probeArgs);
+
+    private static (int ExitCode, string Stdout, string Stderr) RunProbeInput(string? input, params string[] probeArgs)
     {
         string probeDll = FindProbeDll();
         ProcessStartInfo start = new()
@@ -46,6 +51,7 @@ public sealed class ProbeCliTests
             FileName = "dotnet",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = input is not null,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
@@ -84,6 +90,7 @@ public sealed class ProbeCliTests
         };
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
+        if (input is not null) { process.StandardInput.Write(input); process.StandardInput.Close(); }
         Assert.True(process.WaitForExit(30000), "QpdfProbe timed out after 30s.");
         process.WaitForExit();
         return (process.ExitCode, stdout.ToString(), stderr.ToString());
@@ -135,6 +142,40 @@ public sealed class ProbeCliTests
         Assert.Contains("probe-oracle", stdout, StringComparison.Ordinal);
         Assert.Contains("validate", stdout, StringComparison.Ordinal);
         Assert.Contains("compare", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WarmInputDiagnosticChecksEachCompleteInputWithoutExternalTools()
+    {
+        string[] paths = [Path.Combine(FixtureDir(), "minimal-1page.pdf"), Path.Combine(FixtureDir(), "minimal-2page.pdf")];
+        string requests = string.Concat(paths.Select(path => "2\nread-input\n" + path + "\n"));
+        (int exit, string stdout, string stderr) = RunProbeInput(requests, "warm");
+        Assert.Equal(0, exit); Assert.Empty(stderr);
+        string[] lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(paths.Length, lines.Length);
+        for (int index = 0; index < paths.Length; index++)
+        {
+            Assert.StartsWith("WARM ", lines[index], StringComparison.Ordinal);
+            using JsonDocument document = JsonDocument.Parse(lines[index][5..]);
+            JsonElement sample = document.RootElement;
+            byte[] expected = File.ReadAllBytes(paths[index]);
+            Assert.Equal(expected.Length, sample.GetProperty("inputBytes").GetInt32());
+            Assert.Equal(Convert.ToHexString(SHA256.HashData(expected)), sample.GetProperty("inputSha256").GetString());
+            Assert.Equal(0, sample.GetProperty("exitCode").GetInt32());
+            Assert.True(sample.GetProperty("allocatedBytes").GetInt64() >= expected.Length);
+            Assert.True(sample.GetProperty("elapsedMilliseconds").GetDouble() >= 0);
+        }
+    }
+
+    [Theory]
+    [InlineData("1\nread-input\n")]
+    [InlineData("3\nread-input\nfirst\nsecond\n")]
+    [InlineData("1\nunknown\n")]
+    public void WarmInputDiagnosticRejectsInvalidRequests(string request)
+    {
+        (int exit, _, string stderr) = RunProbeInput(request, "warm");
+        Assert.NotEqual(0, exit);
+        Assert.Contains("qpdfprobe:", stderr, StringComparison.Ordinal);
     }
 
     [Fact]
