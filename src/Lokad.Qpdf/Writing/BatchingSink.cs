@@ -143,6 +143,14 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         }
     }
 
+    internal void AppendPendingTo(ISynchronousByteSink observer, CancellationToken token)
+    {
+        _ = Memory; CheckCancellation(token);
+        if (!observer.CanAppendSynchronously) { throw new InvalidOperationException("Pending bytes require synchronous consumption."); }
+        observer.Append(Scratch.WrittenSpan, token);
+        CheckCancellation(token);
+    }
+
     internal async ValueTask FlushAsync(CancellationToken cancellationToken)
     {
         ParserMemoryScope memory = Memory;

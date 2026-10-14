@@ -7,50 +7,42 @@ ratios 0.56–3.40×. [Benchmarks](BENCHMARKS.md) gives current comparative figu
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
-Pushed `2b8235c` passed [hosted CI run 38565450608](https://github.com/Lokad/qpdf/actions/runs/38565450608):
-Windows 6m39s, Ubuntu 6m11s, pinned reference 4m07s. Each ordinary job passes
-17,898 checks without failures/skips, locked Release build/pack, inspection,
+Pushed `84e8b40` passed [hosted CI run 38569926250](https://github.com/Lokad/qpdf/actions/runs/38569926250):
+Windows 7m04s, Ubuntu 4m45s, pinned reference 6m01s. Each ordinary job passes
+17,902 checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and version are unchanged.
 
 ## Current correction
 
-The parser keeps up to four dictionary entries in bounded inline scratch and
-constructs their final frozen name table once. Larger dictionaries, orphan-key
-repair and per-value receipt callers spill into the existing table path. Duplicate
-warnings/repair checks precede replacement, retaining first-key identity/order.
-Scratch lookup reuses the name table's bounded comparison; public dictionary
-storage, enumeration, immutability and execution-state cleanup remain unchanged.
+Classic content-derived IDs now hash the body while it is staged, then hash the
+identical placeholder trailer before writing real IDs. The shared serializer
+separates body/trailer; bounded pending bytes enter the hash without an extra
+host write. Existing ID bytes, first-ID preservation, offsets, counting/capacity
+hints and staged commit remain. Static IDs, QDF, object streams and linearization
+retain their established routes. No complete placeholder PDF or writer framework.
 
-The original 2,000-object rewrite probe allocates 5.854→4.824 MB/job (about
-1.03 MB less). Its median falls 28.945→25.965 ms, with separated IQRs
-27.833–30.339 / 25.733–27.342, and identical independently validated bytes.
-The subsequent shared-comparison probe records 25.753→25.611 ms with overlapping
-IQRs and unchanged allocation; no isolated speedup is claimed for that adjustment.
-The near-parity probe ratios remain above 1.0; the complete goal stays open.
+The final original ID-M500 pair records 26.754→24.290 ms/job with overlapping IQRs
+(26.213–31.071 / 23.526–29.088), so no confirmed speedup is claimed for the final
+variant. Allocation falls 17.308769→17.300866 MB/job (about 7.9 KB less), with
+identical independently validated bytes. Its ratio 1.050× remains above parity;
+separate whole panels do not establish timing attribution.
 
-All 4,188 affected syntax/table/reader/selection checks pass (18s). Four new
-public rewrite cases cover three/four/five/nine keys, duplicates before/after
-spilling, escaped names/strings, independently readable output and immutable
-values/key aliases surviving cleanup. All 26 original fresh managed/native
-outcomes and three negative controls pass with unchanged inputs. Locked Release
+All 2,725 focused writer/publication/presentation/cleanup checks pass (10s).
+Seven final public controls pass (501ms): complete placeholder-file MD5, small
+pending/large prefixes, preserved 3-/256-byte first IDs, newline handling, retained
+immutable host packets, output limits before opening, footer failure/cancellation,
+prior output and closed leases, and the successful static job's host-call ceiling.
+The initial failure fixture was corrected to the documented host exception type;
+production error handling did not change. All 26 fresh managed/native outcomes
+and three negative controls pass, original inputs unchanged. Locked Release
 build/explicit pack/inspection/fresh consumer/rejections pass (23s), preserving
 the 2 MiB multisource consumer ceiling.
-Clean-source comparisons retain all 25,941 primary and 6,243 additional file-host
-observations, original inputs/options and independently valid fresh outputs. Five
-primary cells meet parity; object-heavy rewriting remains 1.098×, sparse full-input
-selection 3.395×. The additional file-host cell is 0.405×. Separate panels establish
-no timing attribution for the source change. Seven existing visual integration
-cases pass with unchanged tolerances; misplaced-image and stale-appearance controls
-reject. Renderer/codec qualification is separate from performance timings.
 
-A four-second allocation profile on the qualified prior binary checks every fresh
-output hash; sampled types point to temporary/final dictionary backings. Counts
-are approximate allocation samples, not retained-memory measurements. Existing
-CPU profiles identify object-heavy parsing and content-ID writing/hashing as
-remaining costs. Earlier name-table ownership, single-lookup insertion and bounded
-private file-host reads remain integrated. The separate file-host comparison
-does not replace the original thirteen memory-host cells or their sparse cost.
+Earlier bounded parser scratch, scoped ownership, immutable borrowing and writer
+allocation improvements remain integrated. The additional file-host comparison
+stays separate from all thirteen original memory-host cells and their unresolved
+full-input sparse cost. Final committed-source qualification follows.
 
 ## Preserved scope
 

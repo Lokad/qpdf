@@ -114,7 +114,7 @@ public sealed class WriterControlsTests
         return host;
     }
 
-    private static byte[] BuildOnePage(string headerVersion, byte[] streamData, string catalogExtra, string trailerExtra)
+    internal static byte[] BuildOnePage(string headerVersion, byte[] streamData, string catalogExtra, string trailerExtra)
     {
         List<string> bodies = new()
         {
@@ -196,7 +196,7 @@ public sealed class WriterControlsTests
         return Encoding.ASCII.GetString(pdf, 0, Math.Min(8, pdf.Length));
     }
 
-    private static (string Id1, string Id2) IdsOf(byte[] pdf)
+    internal static (string Id1, string Id2) IdsOf(byte[] pdf)
     {
         string text = Encoding.ASCII.GetString(pdf);
         string marker = "/ID [<";

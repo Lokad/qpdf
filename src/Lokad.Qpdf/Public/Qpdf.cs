@@ -1995,6 +1995,9 @@ public static partial class Qpdf
             return (_hash ?? throw new ObjectDisposedException(nameof(IdentifierHashSink))).GetHashAndReset();
         }
 
+        internal void AdmitOutputMirror()
+            => (_memory ?? throw new ObjectDisposedException(nameof(IdentifierHashSink))).Reserve(64L);
+
         public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         {
             Append(chunk.Span, cancellationToken);
@@ -2026,6 +2029,30 @@ public static partial class Qpdf
             IncrementalHash? hash = _hash; ParserMemoryScope? memory = _memory;
             _hash = null; _memory = null;
             try { hash?.Dispose(); } finally { memory?.Dispose(); }
+        }
+    }
+
+    private sealed class IdentifierOutputSink(TransactionSink destination, IdentifierHashSink hash)
+        : ISynchronousByteSink, IOutputCapacityHint
+    {
+        private bool _hashing = true;
+        public long Length => destination.Length;
+        public bool CanAppendSynchronously => destination.CanAppendSynchronously;
+        internal void FinishPrefix() => _hashing = false;
+
+        void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken token)
+            => ((IOutputCapacityHint)destination).EnsureCapacity(length, token);
+
+        public void Append(ReadOnlySpan<byte> chunk, CancellationToken token)
+        {
+            if (_hashing) { hash.Append(chunk, token); }
+            destination.Append(chunk, token);
+        }
+
+        public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken token)
+        {
+            if (_hashing) { hash.Append(chunk.Span, token); }
+            return destination.AppendAsync(chunk, token);
         }
     }
 
@@ -2337,12 +2364,21 @@ public static partial class Qpdf
         {
             id2 = (byte[])StaticIdBytes.Clone();
             id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken).ConfigureAwait(false);
+            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken, null, false).ConfigureAwait(false);
             return;
         }
 
         byte[] placeholderId1 = originalId1 is null ? (byte[])PlaceholderIdBytes.Clone() : (byte[])originalId1.Clone();
         byte[] placeholderId2 = (byte[])PlaceholderIdBytes.Clone();
+        if (!qdf.Enabled && (objectStreamGroups is null || objectStreamGroups.Count == 0))
+        {
+            using IdentifierHashSink identifiers = IdentifierHashSink.Create(limits, governor, cancellationToken);
+            identifiers.AdmitOutputMirror();
+            await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel,
+                infoRef, placeholderId1, placeholderId2, newlineBeforeEndstream, qdf, originalIds, path, limits,
+                governor, cancellationToken, identifiers, originalId1 is null).ConfigureAwait(false);
+            return;
+        }
         PdfSerializer probe = new(limits, governor);
         using IdentifierHashSink memory = IdentifierHashSink.Create(limits, governor, cancellationToken);
         using BatchingSink hashed = BatchingSink.Create(memory, limits, governor, cancellationToken);
@@ -2364,7 +2400,7 @@ public static partial class Qpdf
         memory.Dispose();
         id2 = digest;
         id1 = originalId1 is null ? (byte[])id2.Clone() : (byte[])originalId1.Clone();
-        await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken).ConfigureAwait(false);
+        await PublishWithIdsAsync(host, version, model, objectStreamGroups, compressStreams, compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, qdf, originalIds, path, limits, governor, cancellationToken, null, false).ConfigureAwait(false);
     }
 
     private static async ValueTask PublishLinearizedAsync(
@@ -2472,7 +2508,9 @@ public static partial class Qpdf
         QpdfPath path,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IdentifierHashSink? identifiers,
+        bool deriveFirstId)
     {
         PdfSerializer serializer = new(limits, governor);
         CountingSink counter = new();
@@ -2499,10 +2537,30 @@ public static partial class Qpdf
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink destination = new(transaction, governor);
-            using BatchingSink sink = BatchingSink.Create(destination, limits, governor, cancellationToken);
+            IByteSink target = identifiers is null ? destination : new IdentifierOutputSink(destination, identifiers);
+            using BatchingSink sink = BatchingSink.Create(target, limits, governor, cancellationToken);
             ((IOutputCapacityHint)sink).EnsureCapacity(counted, cancellationToken);
             long written;
-            if (qdf.Enabled)
+            if (identifiers is not null)
+            {
+                (int size, long xrefOffset) = await serializer.SerializeClassicBodyAsync(version, model,
+                    newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+                // Include the bounded pending prefix without forcing an extra
+                // host write. The real footer keeps the same lengths/offsets.
+                sink.AppendPendingTo(identifiers, cancellationToken);
+                ((IdentifierOutputSink)target).FinishPrefix();
+                await serializer.AppendClassicTrailerAsync(size, infoRef, id1, id2, xrefOffset,
+                    identifiers, cancellationToken).ConfigureAwait(false);
+                if (identifiers.Length != counted)
+                { throw new QpdfException($"Identifier replay mismatch: counted {counted} bytes but hashed {identifiers.Length}."); }
+                byte[] digest = identifiers.Complete(cancellationToken);
+                digest.CopyTo(id2, 0);
+                if (deriveFirstId) { digest.CopyTo(id1, 0); }
+                await serializer.AppendClassicTrailerAsync(size, infoRef, id1, id2, xrefOffset,
+                    sink, cancellationToken).ConfigureAwait(false);
+                written = sink.Length;
+            }
+            else if (qdf.Enabled)
             {
                 written = await serializer.SerializeQdfAsync(version, model, objectStreamGroups, originalIds, infoRef, id1, id2, qdf, newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
             }

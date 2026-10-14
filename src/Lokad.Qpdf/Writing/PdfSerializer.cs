@@ -142,6 +142,16 @@ internal sealed partial class PdfSerializer
             throw new ArgumentOutOfRangeException(nameof(id2), "Document identifiers must hold 1..256 bytes.");
         }
 
+        (int size, long xrefOffset) = await SerializeClassicBodyAsync(version, objects,
+            newlineBeforeEndstream, sink, cancellationToken).ConfigureAwait(false);
+        await AppendClassicTrailerAsync(size, infoRef, id1, id2, xrefOffset, sink, cancellationToken).ConfigureAwait(false);
+        return sink.Length;
+    }
+
+    internal async ValueTask<(int Size, long XrefOffset)> SerializeClassicBodyAsync(PdfVersion version,
+        IReadOnlyList<NumberedObject> objects, bool newlineBeforeEndstream,
+        IByteSink sink, CancellationToken cancellationToken)
+    {
         await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         CountingSink? counter = sink as CountingSink;
         bool denseCounting = counter is not null && HasDenseIncreasingNumbers(objects, cancellationToken);
@@ -218,9 +228,14 @@ internal sealed partial class PdfSerializer
         offsets?.Dispose();
         denseOffsets?.Dispose();
 
-        await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(maxNumber + 1), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
+        return (maxNumber + 1, xrefOffset);
+    }
+
+    internal async ValueTask AppendClassicTrailerAsync(int size, int? infoRef, byte[] id1, byte[] id2,
+        long xrefOffset, IByteSink sink, CancellationToken cancellationToken)
+    {
+        await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(size), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
-        return sink.Length;
     }
 
     private bool HasDenseIncreasingNumbers(IReadOnlyList<NumberedObject> objects, CancellationToken token)
