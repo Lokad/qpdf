@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Objects;
@@ -533,12 +534,11 @@ public static partial class Qpdf
                         new NumberedObject(1, catalog),
                         new NumberedObject(2, pages),
                     };
-                    List<int> ids = new(singlePool.Keys);
-                    ids.Sort();
-                    foreach (int id in ids)
+                    foreach (KeyValuePair<int, QpdfObject> entry in singlePool)
                     {
-                        model.Add(new NumberedObject(id, singlePool[id]));
+                        model.Add(new NumberedObject(entry.Key, entry.Value));
                     }
+                    GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
 
                     List<List<int>> singleGroups = PlanObjectStreamGroups(singleCompressed, governor);
                     IReadOnlyList<IReadOnlyList<int>>? singleStreams = singleGroups.Count == 0 ? null : singleGroups;
@@ -1312,12 +1312,11 @@ public static partial class Qpdf
                 new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras)),
                 new NumberedObject(2, PagesNode(kids)),
             };
-            List<int> orderedPoolIds = new(pool.Keys);
-            orderedPoolIds.Sort();
-            foreach (int orderedPoolId in orderedPoolIds)
+            foreach (KeyValuePair<int, QpdfObject> entry in pool)
             {
-                model.Add(new NumberedObject(orderedPoolId, pool[orderedPoolId]));
+                model.Add(new NumberedObject(entry.Key, entry.Value));
             }
+            GovernedSort.Sort(CollectionsMarshal.AsSpan(model)[2..], new WriterObjectOrder(), governor, cancellationToken);
 
             IReadOnlyList<PdfPageSelectionMapping> resultMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
             IReadOnlyList<int> resultCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
