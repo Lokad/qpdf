@@ -410,20 +410,19 @@ internal sealed class LinearizedWriter
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(_governor);
         List<int> groups = ParserContainers.CreateList<int>(scratch);
+        // Source identities map uniquely to assigned numbers. Indexing them
+        // directly lets each page filter membership before sorting its users.
+        GovernedIntDictionary<int> groupIndex = GovernedIntDictionary<int>.Create(scratch, _governor, sizeof(int), cancellationToken);
         foreach (int old in part6)
         {
+            groupIndex.Assign(scratch, old, groups.Count);
             ParserContainers.AddItem(scratch, groups, renumber[old], sizeof(int));
         }
 
         foreach (int old in part8)
         {
+            groupIndex.Assign(scratch, old, groups.Count);
             ParserContainers.AddItem(scratch, groups, renumber[old], sizeof(int));
-        }
-
-        GovernedIntDictionary<int> groupIndex = GovernedIntDictionary<int>.Create(scratch, _governor, sizeof(int), cancellationToken);
-        for (int i = 0; i < groups.Count; i++)
-        {
-            groupIndex.Assign(scratch, groups[i], i);
         }
 
         List<long> groupLengths = ParserContainers.CreateList<long>(scratch);
@@ -437,31 +436,16 @@ internal sealed class LinearizedWriter
         List<long> pageLengths = ParserContainers.CreateList<long>(scratch);
         List<List<int>> pageShared = ParserContainers.CreateList<List<int>>(scratch);
         ParserContainers.AddItem(scratch, pageCounts, part6.Count, sizeof(int));
-        List<int> part6New = ParserContainers.CreateList<int>(scratch);
-        foreach (int old in part6)
-        {
-            ParserContainers.AddItem(scratch, part6New, renumber[old], sizeof(int));
-        }
-
-        ParserContainers.AddItem(scratch, pageLengths, RunLength(counted, part6New), sizeof(long));
+        ParserContainers.AddItem(scratch, pageLengths, RunLength(counted, part6, renumber), sizeof(long));
         ParserContainers.AddItem(scratch, pageShared, ParserContainers.CreateList<int>(scratch), IntPtr.Size);
         for (int i = 1; i < pages.Count; i++)
         {
-            List<int> run = ParserContainers.CreateList<int>(scratch);
-            foreach (int old in part7[i - 1])
-            {
-                ParserContainers.AddItem(scratch, run, renumber[old], sizeof(int));
-            }
-            ParserContainers.AddItem(scratch, pageCounts, run.Count, sizeof(int));
-            ParserContainers.AddItem(scratch, pageLengths, RunLength(counted, run), sizeof(long));
-            ParserContainers.AddItem(scratch, pageShared, SortedShared(pageUsers, renumber, i, groupIndex, scratch, cancellationToken), IntPtr.Size);
-        }
-
-        List<int> outlineNew = ParserContainers.CreateList<int>(scratch);
-        foreach (int old in outlines)
-        {
             cancellationToken.ThrowIfCancellationRequested();
-            ParserContainers.AddItem(scratch, outlineNew, renumber[old], sizeof(int));
+            _governor.CheckCancellation();
+            IReadOnlyList<int> run = part7[i - 1];
+            ParserContainers.AddItem(scratch, pageCounts, run.Count, sizeof(int));
+            ParserContainers.AddItem(scratch, pageLengths, RunLength(counted, run, renumber), sizeof(long));
+            ParserContainers.AddItem(scratch, pageShared, SortedShared(pageUsers, i, groupIndex, scratch, cancellationToken), IntPtr.Size);
         }
 
         long firstPageOffset = counted.Starts[renumber[pages[0]]];
@@ -472,14 +456,14 @@ internal sealed class LinearizedWriter
         int outlineFirst = 0;
         long outlineOffset = 0L;
         long outlineLength = 0L;
-        if (outlineNew.Count > 0 && outlinesDirect)
+        if (outlines.Count > 0 && outlinesDirect)
         {
-            outlineFirst = outlineNew[0];
+            outlineFirst = renumber[outlines[0]];
             outlineOffset = counted.Starts[outlineFirst];
-            outlineLength = RunLength(counted, outlineNew);
+            outlineLength = RunLength(counted, outlines, renumber);
         }
 
-        using HintPayload tables = EncodeHintTablesOwned(part6.Count, pageCounts, pageLengths, pageShared, groupLengths, firstPageOffset, firstSharedObj, firstSharedOffset, groups.Count, outlineFirst, outlineOffset, outlineNew.Count, outlineLength, out long sharedAt, out long outlineAt, cancellationToken);
+        using HintPayload tables = EncodeHintTablesOwned(part6.Count, pageCounts, pageLengths, pageShared, groupLengths, firstPageOffset, firstSharedObj, firstSharedOffset, groups.Count, outlineFirst, outlineOffset, outlines.Count, outlineLength, out long sharedAt, out long outlineAt, cancellationToken);
         byte[] data = tables.Bytes;
         bool flate = compressHints;
         if (flate)
@@ -489,8 +473,8 @@ internal sealed class LinearizedWriter
 
         using WriterFormatting head = WriterFormatting.Create([WriterPart.Number(hintNumber), WriterPart.Text(" 0 obj\n<<"),
             WriterPart.Text(flate ? " /Filter /FlateDecode" : ""), WriterPart.Text(" /S "), WriterPart.Number(sharedAt),
-            WriterPart.Text(outlineNew.Count > 0 && outlinesDirect ? " /O " : ""),
-            outlineNew.Count > 0 && outlinesDirect ? WriterPart.Number(outlineAt) : default,
+            WriterPart.Text(outlines.Count > 0 && outlinesDirect ? " /O " : ""),
+            outlines.Count > 0 && outlinesDirect ? WriterPart.Number(outlineAt) : default,
             WriterPart.Text(" /Length "), WriterPart.Number(data.Length), WriterPart.Text(" >>\nstream\n")],
             _limits, _governor, cancellationToken);
         ReadOnlyMemory<byte> prefix = head.Data;
@@ -518,15 +502,16 @@ internal sealed class LinearizedWriter
         return length;
     }
 
-    private static long RunLength(LinearizedLayout counted, IReadOnlyList<int> run)
+    private static long RunLength(LinearizedLayout counted, IReadOnlyList<int> run,
+        GovernedIntDictionary<int> renumber)
     {
         if (run.Count == 0)
         {
             throw new QpdfParseException("Linearized publication reached an empty page run.", null, null);
         }
 
-        long start = counted.Starts[run[0]];
-        int last = run[run.Count - 1];
+        long start = counted.Starts[renumber[run[0]]];
+        int last = renumber[run[run.Count - 1]];
         return checked(counted.Starts[last] + ObjectLength(counted, last) - start);
     }
 
@@ -535,25 +520,24 @@ internal sealed class LinearizedWriter
         public int Compare(int left, int right) => left.CompareTo(right);
     }
 
-    private List<int> SortedShared(IReadOnlyList<IReadOnlyCollection<int>> pageUsers, GovernedIntDictionary<int> renumber,
+    private List<int> SortedShared(IReadOnlyList<IReadOnlyCollection<int>> pageUsers,
         int page, GovernedIntDictionary<int> groupIndex, ParserMemoryScope memory, CancellationToken cancellationToken)
     {
-        List<int> olds = ParserContainers.CreateList<int>(memory);
+        // Group keys are source identities. Keep only actual group users before
+        // sorting, so discarded private IDs cannot inflate retained capacity.
+        List<int> identifiers = ParserContainers.CreateList<int>(memory);
         foreach (int old in pageUsers[page])
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.ChargeWork(1L);
-            ParserContainers.AddItem(memory, olds, old, sizeof(int));
+            if (groupIndex.ContainsKey(old))
+            { ParserContainers.AddItem(memory, identifiers, old, sizeof(int)); }
         }
-        GovernedSort.Sort(CollectionsMarshal.AsSpan(olds), new HintNumberComparer(), _governor, cancellationToken);
-        List<int> identifiers = ParserContainers.CreateList<int>(memory);
-        foreach (int old in olds)
+        GovernedSort.Sort(CollectionsMarshal.AsSpan(identifiers), new HintNumberComparer(), _governor, cancellationToken);
+        for (int index = 0; index < identifiers.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (renumber.TryGetValue(old, out int number) && groupIndex.TryGetValue(number, out int index))
-            {
-                ParserContainers.AddItem(memory, identifiers, index, sizeof(int));
-            }
+            identifiers[index] = groupIndex[identifiers[index]];
         }
         return identifiers;
     }

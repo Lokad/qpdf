@@ -49,6 +49,42 @@ public sealed class LinearizedWriterTests
         Assert.Equal(pages, reread.NumberOfPages);
     }
 
+    [Theory]
+    [InlineData("disable")]
+    [InlineData("generate")]
+    public async Task SharedHintsPreserveSparseIdentitiesAmongPrivatePageObjects(string objectStreams)
+    {
+        List<(int Number, string Dict, byte[]? StreamData)> objects =
+        [
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R 21 0 R 41 0 R] /Count 3 >>", null),
+            (51, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
+        ];
+        int[] pageNumbers = [3, 21, 41];
+        for (int page = 0; page < pageNumbers.Length; page++)
+        {
+            int firstPrivate = 60 + 20 * page;
+            string privateRefs = string.Join(" ", Enumerable.Range(firstPrivate, 12).Select(number => $"{number} 0 R"));
+            int number = pageNumbers[page];
+            objects.Add((number, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 51 0 R >> >> /Contents {number + 1} 0 R /Private [{privateRefs}] >>", null));
+            byte[] content = Encoding.ASCII.GetBytes($"BT /F1 12 Tf 10 10 Td (Page{page + 1}) Tj ET\n");
+            objects.Add((number + 1, $"<< /Length {content.Length} >>", content));
+            for (int item = 0; item < 12; item++)
+            { objects.Add((firstPrivate + item, $"<< /Value (private-{page}-{item}) >>", null)); }
+        }
+        HashSet<int> authored = objects.Select(item => item.Number).ToHashSet();
+        for (int number = 1; number <= 111; number++)
+        { if (!authored.Contains(number)) { objects.Add((number, "null", null)); } }
+        InMemoryQpdfHost host = HostWith("inputs/a.pdf", Inspection.CheckTests.Assemble(objects, 1));
+        (QpdfExecutionResult result, byte[] pdf) = await RunAsync(host, "--linearize",
+            "--object-streams=" + objectStreams, "--stream-data=preserve", "--static-id");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await CheckLinearizedAsync(pdf, 3);
+        using PdfDocument reread = PdfDocument.Open(pdf);
+        Assert.Equal(new[] { "Page1", "Page2", "Page3" }, reread.GetPages().Select(page => page.Text));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     [Fact]
     public async Task TwoPageLinearizePassesOwnCheck()
     {
