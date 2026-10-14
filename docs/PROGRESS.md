@@ -17,6 +17,16 @@ preserves all 159 runs and every earlier run object unchanged.
 
 ## Current correction and verification
 
+Prepared split serialization now uses the existing bounded batching sink for main,
+identifier and pass1 captures. Prepared storage copies synchronously, allowing
+scratch reuse; both captures flush before lengths/IDs/publication are consumed.
+All 3,124 affected writer/split/presentation/publication checks pass (46s).
+The unchanged file-backed 500-page split pair reduces allocation from 34.940848
+to 34.646845 MB/job. Median 33.856 ->33.253 ms has overlapping IQRs; no speedup
+claim. All ten outputs remain byte-identical and independently valid; every
+observation remains. This local change will share a later integration checkpoint
+with further useful corrections; current published figures still identify `641ff35`.
+
 Argv/job single-page and one-source range selection reuse bounded classic-xref
 reads on custom hosts. Catalog behavior and recovery defaults remain. Omitted
 required ranges, diagnostics or uncertain parsing retry once on the same stable

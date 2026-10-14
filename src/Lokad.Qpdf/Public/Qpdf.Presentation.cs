@@ -129,18 +129,21 @@ public static partial class Qpdf
         // Two counters and the serializer/writer wrappers; the shared writers own
         // their dynamic scratch. The identifier arrays are borrowed, never changed.
         memory.Reserve(linearize ? 128L : 96L);
+        using BatchingSink buffered = BatchingSink.Create(counter, limits, governor, cancellationToken);
+        using BatchingSink? bufferedFirstPass = firstPass is null ? null
+            : BatchingSink.Create(firstPass, limits, governor, cancellationToken);
         if (linearize)
         {
             LinearizedWriter writer = new(limits, governor);
             if (objectStreams is not null && objectStreams.Count > 0)
             {
                 await writer.WriteLinearizedStreamedAsync(version, model, objectStreams, infoRef, id1, id2,
-                    newlineBeforeEndstream, compressStreams, compressionLevel, counter, firstPass, cancellationToken).ConfigureAwait(false);
+                    newlineBeforeEndstream, compressStreams, compressionLevel, buffered, bufferedFirstPass, cancellationToken).ConfigureAwait(false);
             }
             else
             {
                 await writer.WriteLinearizedAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream,
-                    compressStreams, compressionLevel, counter, firstPass, cancellationToken).ConfigureAwait(false);
+                    compressStreams, compressionLevel, buffered, bufferedFirstPass, cancellationToken).ConfigureAwait(false);
             }
         }
         else
@@ -148,14 +151,19 @@ public static partial class Qpdf
             PdfSerializer serializer = new(limits, governor);
             if (qdf.Enabled)
             { await serializer.SerializeQdfAsync(version, model, objectStreams, originalIds, infoRef, id1, id2,
-                qdf, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false); }
+                qdf, newlineBeforeEndstream, buffered, cancellationToken).ConfigureAwait(false); }
             else if (objectStreams is null || objectStreams.Count == 0)
             { await serializer.SerializeAsync(version, model, infoRef, id1, id2, newlineBeforeEndstream,
-                counter, cancellationToken).ConfigureAwait(false); }
+                buffered, cancellationToken).ConfigureAwait(false); }
             else
             { await serializer.SerializeStreamedAsync(version, model, objectStreams, compressStreams,
-                compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, counter, cancellationToken).ConfigureAwait(false); }
+                compressionLevel, infoRef, id1, id2, newlineBeforeEndstream, buffered, cancellationToken).ConfigureAwait(false); }
         }
+        // Identifiers, publication lengths and segment counts are consumed by
+        // the caller only after both captures contain their complete bytes.
+        await buffered.FlushAsync(cancellationToken).ConfigureAwait(false);
+        if (bufferedFirstPass is not null)
+        { await bufferedFirstPass.FlushAsync(cancellationToken).ConfigureAwait(false); }
     }
 
     private static async ValueTask PublishPreparedOutputAsync(IQpdfHost host, QpdfPath path, PreparedOutputSink output,

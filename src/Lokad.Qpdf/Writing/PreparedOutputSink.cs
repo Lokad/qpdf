@@ -3,7 +3,7 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>Scopes serialized output without imposing a contiguous-array size ceiling.</summary>
-internal sealed class PreparedOutputSink : IByteSink, IDisposable
+internal sealed class PreparedOutputSink : ISynchronousByteSink, IDisposable
 {
     internal sealed class Segment(byte[] bytes)
     {
@@ -37,12 +37,22 @@ internal sealed class PreparedOutputSink : IByteSink, IDisposable
     internal long SegmentCount { get { _ = Memory; return _segments; } }
     internal Segment? First { get { _ = Memory; return _head; } }
 
+    public bool CanAppendSynchronously => true;
+
     public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
+    {
+        Append(chunk.Span, cancellationToken);
+        return ValueTask.CompletedTask;
+    }
+
+    // Preparation copies every byte before returning. Batching can therefore
+    // reuse its private formatting scratch without creating immutable packets.
+    public void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
     {
         _ = Memory; CheckCancellation(cancellationToken);
         if (chunk.Length > _maximum - _length)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), checked(_length + chunk.Length), _maximum); }
-        ReadOnlySpan<byte> remaining = chunk.Span;
+        ReadOnlySpan<byte> remaining = chunk;
         while (!remaining.IsEmpty)
         {
             CheckCancellation(cancellationToken); _governor.ChargeWork(1L);
@@ -51,7 +61,6 @@ internal sealed class PreparedOutputSink : IByteSink, IDisposable
             Copy(remaining[..count], tail.Bytes.AsSpan(tail.Used, count), cancellationToken);
             tail.Used += count; _length += count; remaining = remaining[count..];
         }
-        return ValueTask.CompletedTask;
     }
 
     private Segment EnsureTail(int incoming, CancellationToken token)
