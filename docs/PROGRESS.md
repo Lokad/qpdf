@@ -6,42 +6,30 @@ panel (`bf03d9a`) records five cells at parity, with ratios 0.61-3.47x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
-Pushed `f777881` passes [hosted CI run 38615811907](https://github.com/Lokad/qpdf/actions/runs/38615811907):
-Windows 5m05s, Ubuntu 6m00s, reference 5m40s. Both ordinary platforms pass 17,918
+Pushed `d67be39` passes [hosted CI run 38620390134](https://github.com/Lokad/qpdf/actions/runs/38620390134):
+Windows 7m14s, Ubuntu 5m57s, reference 6m12s. Both ordinary platforms pass 17,918
 checks without failures/skips, locked Release build/pack, inspection, fresh
 consumer and rejection controls. Reference covers 1,858 exact object comparisons
 and 442 rewrite trios. Pins, advisory exceptions and version remain unchanged.
 
 ## Current correction
 
-Single/multi-source selection resolves the existing pruning heuristic once and
-creates page-ID projection lists only when a content transform will run. Ordinary
-copying with transforms disabled avoids unused lists. Auto/yes/no pruning,
-coalescing, normalization and inline-image behavior keep their shared pipeline.
+Compressed-object source inventories are skipped when output explicitly disables
+or regenerates object streams. Preserve/default modes keep their existing scans;
+attachment copies use the same decision. Validation order, forced-version behavior
+and source maps remain. All 3,557 affected object-stream/selection/attachment/
+version/publication checks pass (39s).
 
-All 3,638 affected selection/merge/split/content/pruning/rotation/inspection/
-overlay/appearance/flattening/publication checks pass (24s). The original
-500-page paired rewrite allocates 17.181247 ->17.180683 MB/job (0.6 KB less), with
-byte-identical independently valid output. Median 16.708 ->16.980 ms has overlapping
-IQRs 16.268-17.083 /16.258-18.418; native 14.461 ms. Retain the structural allocation
-reduction; no speedup is claimed.
+The original 500-page rewrite pair against `d67be39` has identical independently
+valid output. Median 20.022 ->18.804 ms has overlapping IQRs 17.980-22.420 /
+17.347-31.160; no speedup is claimed. Allocation 17.180594 ->17.180484 MB/job is
+essentially unchanged for this classic input. The unused traversal is removed
+without a percentage gate. Full observations, including slow batches, remain.
 
-An async-wrapper removal trial passed 2,105 writer checks but supplied no qualifying
-gain and was reverted; its patch and all observations remain preserved. A single
-six-second profile of the restored green source places 24.5% of sampled job
-intervals in memory copies and 20.5% in GC waits; these are diagnostic observations,
-not managed/native speed ratios. Public output copies and staging dominate the
-copy stacks. Larger ownership changes need bounded retention and alias guarantees.
-
-Locked Release restore/build/explicit pack/inspection/fresh consumer/rejection
-checks pass (22s), preserving the unchanged 2 MiB multisource ceiling. All 26 fresh
-managed/native outcomes and three negative controls pass with unchanged inputs.
-The clean committed-source panel retains 23,507 observations; ordinary rewrite is
-1.2417x and original sparse selection 3.4732x. The separate file-host case is
-0.3747x. Seven visual cases and both negatives pass (29s) outside timing with
-unchanged tolerances. Hosted qualification follows. Earlier useful corrections,
-native interaction controls and all raw runs remain; separate panels do not
-establish source-change attribution.
+This local correction will share the comprehensive checkpoint with the bounded
+immutable-payload staging experiment. Existing public output copies, cancellation,
+cleanup and proportional retained-storage guarantees remain required. Earlier
+completed corrections, rejected writer-wrapper trial and raw evidence stay intact.
 ## Preserved scope
 
 The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK JPEG

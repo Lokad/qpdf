@@ -457,7 +457,7 @@ public static partial class Qpdf
                         streamMode = "disable";
                     }
 
-                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine);
+                    HashSet<int> compressedOrig = CollectCompressedOriginals(document.Engine, streamMode == "preserve");
                     Dictionary<int, QpdfObject> singlePool = new(copier.CopiedObjects);
                     foreach (GraphCopier overlayCopier in overlayApplied.Copiers)
                     {
@@ -470,7 +470,7 @@ public static partial class Qpdf
                     {
                         (copier.SourceToDestination, compressedOrig),
                     };
-                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, edits, singlePageMode, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, governor);
                     PdfVersion effective = negotiated;
                     int extensionLevel = negotiatedExtension;
@@ -894,7 +894,7 @@ public static partial class Qpdf
                 originalId1 = TryGetOriginalId(document.Engine);
             }
 
-            sourceCompressed.Add(CollectCompressedOriginals(document.Engine));
+            sourceCompressed.Add(CollectCompressedOriginals(document.Engine, objectStreams is not ("disable" or "generate")));
 
             IReadOnlyList<int> requested = sources[s].Selection.Resolve(document.PageReferences.Count, limits.MaxWork);
             foreach (int pageNumber in requested)
@@ -1172,7 +1172,7 @@ public static partial class Qpdf
             multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
         }
 
-        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
+        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, edits, primaryPageMode, multiCompress, multiLevel, objectStreams is not ("disable" or "generate"), multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
 
         List<(int Index, PdfDictionary Label)> explicitItems = labels.Count > 0
             ? ResolveLabelItems(labels, kids.Count, governor, selectionMemory)
@@ -2755,7 +2755,7 @@ public static partial class Qpdf
         throw new QpdfParseException("--object-streams mode must be disable, preserve, or generate.", 0L, null);
     }
 
-    private static HashSet<int> CollectCompressedOriginals(DocumentEngine engine)
+    private static HashSet<int> CollectCompressedOriginals(DocumentEngine engine, bool preserve)
     {
         if (engine is null)
         {
@@ -2763,6 +2763,7 @@ public static partial class Qpdf
         }
 
         HashSet<int> compressed = new();
+        if (!preserve) { return compressed; }
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             if (entry.Value.Kind == XrefEntryKind.Compressed)
@@ -3369,6 +3370,7 @@ public static partial class Qpdf
         string? inputPageMode,
         bool compress,
         int? level,
+        bool preserveObjectStreams,
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> compressibleSources,
         QpdfRecoveryMode recovery,
         QpdfLimits limits,
@@ -3545,7 +3547,7 @@ public static partial class Qpdf
                 pool[id] = copyCopier.CopiedObjects[id];
             }
 
-            compressibleSources.Add((copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine)));
+            compressibleSources.Add((copyCopier.SourceToDestination, CollectCompressedOriginals(source.Engine, preserveObjectStreams)));
             source.Engine.TransferExclusiveValuesTo(ownership);
         }
 
