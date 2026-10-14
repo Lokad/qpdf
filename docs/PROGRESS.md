@@ -28,14 +28,24 @@ repair versus strict rejection, limits, cancellation and failed publication.
 Original sparse-input file-backed pairs against saved `79061c7`, with the same
 driver/options and independently validated output: argv 5.969 ->0.734 ms versus
 native 1.771 ms (0.414x); job JSON 6.522 ->0.862 ms versus native 1.876 ms (0.459x).
-Both paired probes finish under one minute. Managed output is byte-identical to
-the baseline. The original memory-host sparse measurement remains 3.4732x with
-full acquisition explicit. Final integration qualification is pending.
+Allocation falls from about 16.9 MB/job to 0.132/0.158 MB. Both paired probes finish
+under one minute; managed output is byte-identical to the baseline.
+
+Clean `dfeb2ab` comparable file-backed panel: 6/13 observed medians <=1.0x;
+16,091 observations retained. Sparse argv is 0.550x; a separate fresh job run is
+0.463x (4,433 observations). Linearization is the largest remaining gap, 1.749x.
+Wide timing ranges stay visible; separate panels do not establish attribution.
+The original memory-host sparse result remains 3.4732x with full acquisition.
+All 26 fresh semantic outcomes/three negatives pass with unchanged inputs.
+Build/semantic/panel/job phases take 41.11/42.74/252.48/20.45s. Seven visual cases
+and two negatives pass (38.18s); locked Release restore/build/explicit pack,
+inspection/fresh consumer/rejections pass (50.74s), with the unchanged 2 MiB
+multisource ceiling. Ordinary/reference hosted verification accompanies the push.
 
 The earlier unused compressed-inventory removal remains integrated; default/
 preserve behavior and validation order remain. Its overlapping rewrite timing
-does not establish a speedup. The unmeasured staging prototype is set aside.
-Earlier completed corrections, rejected trials and all raw evidence remain.
+does not establish a speedup. Earlier completed corrections, rejected trials and
+all raw evidence remain. The benchmark document has three current tables.
 
 ## Preserved scope
 
