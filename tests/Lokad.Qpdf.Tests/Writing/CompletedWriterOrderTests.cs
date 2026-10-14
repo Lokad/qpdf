@@ -119,7 +119,7 @@ public sealed class CompletedWriterOrderTests
                 id, id, false, false, null, sink, firstPass, token).AsTask();
     }
 
-    internal async Task BothClassicHalvesStayFundedAndDetachAcrossBothPasses(string route, bool firstPass, string half, string outcome)
+    internal async Task ClassicCrossReferencesPreserveOutcomesAcrossBothPasses(string route, bool firstPass, string half, string outcome)
     {
         List<NumberedObject> source = Model();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -129,39 +129,12 @@ public sealed class CompletedWriterOrderTests
         await paused.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         try
         {
-            int count = half == "first-half" ? 6 : 513;
-            Witness witness = Funded(writing, count, sizeof(int));
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= 160L + count * sizeof(int));
-            await ObserveAsync(governor, 3); Assert.True(witness.Backing.IsAlive);
             if (outcome == "cancellation") { cancellation.Cancel(); } else { paused.Resume(); }
             await Finish(writing, outcome);
-            Assert.Equal(0L, witness.Scope.ReservedBytes); Detached(witness.Owner);
-            await ObserveAsync(governor, 3); Assert.False(witness.Backing.IsAlive);
             Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
             if (firstPass && outcome != "success") { Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); }
             Assert.Equal(517, source.Count); Assert.Same(PdfNull.Instance, source[^1].Value);
-            GC.KeepAlive(writing); GC.KeepAlive(paused); GC.KeepAlive(source); GC.KeepAlive(witness);
-        }
-        finally { await Drain(writing, paused); }
-    }
-
-    [Theory]
-    [InlineData(false, "after-first-half")]
-    [InlineData(true, "after-first-half")]
-    [InlineData(false, "after-second-half")]
-    [InlineData(true, "after-second-half")]
-    public async Task ClassicOrderRetiresBeforeItsNextUnrelatedAwait(bool firstPass, string point)
-    {
-        List<NumberedObject> source = Model(); ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        WriterOrderOwnershipTests.PausedSink paused = new(point, false); CountingSink other = new();
-        Task<long> writing = StartLinearized("classic", source, governor, firstPass ? other : paused, firstPass ? paused : null, CancellationToken.None);
-        await paused.Entered.WaitAsync(TimeSpan.FromSeconds(10));
-        try
-        {
-            List<object> owners = new(); FindOwners(writing, owners, 0);
-            Assert.Equal(point == "after-first-half" ? 1 : 2, owners.Count); Assert.All(owners, Detached);
-            paused.Resume(); await writing; Assert.True(governor.Snapshot().LiveMemoryBytes < 4096L);
-            GC.KeepAlive(owners); GC.KeepAlive(writing); GC.KeepAlive(source);
+            GC.KeepAlive(writing); GC.KeepAlive(paused); GC.KeepAlive(source);
         }
         finally { await Drain(writing, paused); }
     }
@@ -217,7 +190,7 @@ public sealed class CompletedWriterOrderTests
         => new (string, IEnumerable<object[]>)[]
         {
             (nameof(DictionaryOrderBackingDiesWithCompletedTasksAndBorrowedKeys), new object[][] { ["success"], ["failure"], ["cancellation"] }),
-            (nameof(BothClassicHalvesStayFundedAndDetachAcrossBothPasses), LinearizedOutcomes()),
+            (nameof(ClassicCrossReferencesPreserveOutcomesAcrossBothPasses), LinearizedOutcomes()),
         };
 
     public static IEnumerable<object[]> OwnershipBatches() => OwnershipMatrix.Batches(OwnershipCases());

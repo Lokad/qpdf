@@ -171,11 +171,14 @@ internal sealed class LinearizedWriter
             layout.RecordLength(parts.LindictNumber, checked(sink.Length - layout.Starts[parts.LindictNumber]));
 
             layout.FirstXref = sink.Length;
-            using WriterOrder<int> firstHalf = FirstHalfNumbers(parts, cancellationToken);
-            await AppendFormattedAsync([WriterPart.Text("xref\n"), WriterPart.Number(firstHalf[0]), WriterPart.Text(" "), WriterPart.Number(firstHalf.Count), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
-            foreach (int number in firstHalf)
+            // AssignNumbers places the main xref below LindictNumber. The first
+            // xref starts there and includes the dictionary and hint objects.
+            int firstEnd = checked(parts.Lookup.Count + 3);
+            await AppendFormattedAsync([WriterPart.Text("xref\n"), WriterPart.Number(parts.LindictNumber), WriterPart.Text(" "), WriterPart.Number(firstEnd - parts.LindictNumber), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
+            for (int number = parts.LindictNumber; number < firstEnd; number++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                _governor.ChargeWork(1L);
                 long offset = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
                 if (offset > MaxOffsetField)
                 {
@@ -185,8 +188,7 @@ internal sealed class LinearizedWriter
             }
 
             await AppendFormattedAsync([WriterPart.Text("trailer << /Root "), WriterPart.Number(catalogNew), WriterPart.Text(" 0 R")], sink, cancellationToken).ConfigureAwait(false);
-            await AppendFormattedAsync([WriterPart.Text(" /Size "), WriterPart.Number(firstHalf[^1] + 1)], sink, cancellationToken).ConfigureAwait(false);
-            firstHalf.Dispose();
+            await AppendFormattedAsync([WriterPart.Text(" /Size "), WriterPart.Number(firstEnd)], sink, cancellationToken).ConfigureAwait(false);
             long prevValue = final && counted is not null ? checked(counted.MainXrefTable + HintLength(hintObject)) : 0L;
             await AppendFormattedAsync([WriterPart.Text(" /Prev "), WriterPart.RightPaddedNumber(prevValue, PrevFieldWidth)], sink, cancellationToken).ConfigureAwait(false);
             if (infoNew.HasValue)
@@ -223,14 +225,14 @@ internal sealed class LinearizedWriter
             await EmitObjectsAsync(parts, parts.Part9, emitted, newlineBeforeEndstream, layout, sink, cancellationToken).ConfigureAwait(false);
 
             layout.MainXrefTable = sink.Length;
-            using WriterOrder<int> secondHalf = SecondHalfNumbers(parts, cancellationToken);
-            await AppendFormattedAsync([WriterPart.Text("xref\n0 "), WriterPart.Number(secondHalf.Count + 1)], sink, cancellationToken).ConfigureAwait(false);
+            await AppendFormattedAsync([WriterPart.Text("xref\n0 "), WriterPart.Number(parts.LindictNumber)], sink, cancellationToken).ConfigureAwait(false);
             layout.MainXref = sink.Length;
             await AppendAsciiAsync("\n", sink, cancellationToken).ConfigureAwait(false);
             await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
-            foreach (int number in secondHalf)
+            for (int number = 1; number < parts.LindictNumber; number++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                _governor.ChargeWork(1L);
                 long position = XrefOffset(parts.HintNumber, counted, hintObject, final, number);
                 if (position > MaxOffsetField)
                 {
@@ -240,8 +242,7 @@ internal sealed class LinearizedWriter
                 await AppendFormattedAsync([WriterPart.ZeroPaddedNumber(position, 10), WriterPart.Text(" 00000 n \n")], sink, cancellationToken).ConfigureAwait(false);
             }
 
-            await AppendFormattedAsync([WriterPart.Text("trailer << /Size "), WriterPart.Number(secondHalf[^1] + 1), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
-            secondHalf.Dispose();
+            await AppendFormattedAsync([WriterPart.Text("trailer << /Size "), WriterPart.Number(parts.LindictNumber), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
             await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(layout.FirstXref), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
             layout.FileSize = sink.Length;
             return layout;
@@ -262,45 +263,6 @@ internal sealed class LinearizedWriter
         }
 
         return recorded;
-    }
-
-    private WriterOrder<int> FirstHalfNumbers(LinearizedParts parts, CancellationToken cancellationToken)
-    {
-        WriterOrder<int> numbers = WriterOrder<int>.Create(checked(2 + parts.Part4.Count + parts.Part6.Count), sizeof(int), _governor, cancellationToken);
-        try
-        {
-            numbers.Add(parts.LindictNumber);
-            foreach (int old in parts.Part4) { numbers.Add(parts.Renumber[old]); }
-            numbers.Add(parts.HintNumber);
-            foreach (int old in parts.Part6) { numbers.Add(parts.Renumber[old]); }
-            numbers.Sort(new WriterNumberOrder());
-            return numbers;
-        }
-        catch {numbers.Dispose(); throw;}
-    }
-
-    private WriterOrder<int> SecondHalfNumbers(LinearizedParts parts, CancellationToken cancellationToken)
-    {
-        int capacity = checked(parts.Part8.Count + parts.Part9.Count);
-        foreach (IReadOnlyList<int> run in parts.Part7)
-        {
-            cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
-            capacity = checked(capacity + run.Count);
-        }
-        WriterOrder<int> numbers = WriterOrder<int>.Create(capacity, sizeof(int), _governor, cancellationToken);
-        try
-        {
-            foreach (IReadOnlyList<int> run in parts.Part7)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); _governor.ChargeWork(1L);
-                foreach (int old in run) { numbers.Add(parts.Renumber[old]); }
-            }
-            foreach (int old in parts.Part8) { numbers.Add(parts.Renumber[old]); }
-            foreach (int old in parts.Part9) { numbers.Add(parts.Renumber[old]); }
-            numbers.Sort(new WriterNumberOrder());
-            return numbers;
-        }
-        catch {numbers.Dispose(); throw;}
     }
 
     private WriterFormatting LindictInner(GovernedIntDictionary<int> renumber, IReadOnlyList<int> pages,

@@ -143,7 +143,8 @@ object numbering, xref entries, QDF and object-stream packing use shared helpers
 Classic content IDs hash the staged prefix and original placeholder trailer;
 final IDs precede commit. Other layouts retain their identifier prepass.
 Linearization classifies physical parts, generates hints and replays a two-pass
-layout. The checker compares hints with actual object ends, page runs, compressed
+layout. Classic xrefs traverse the contiguous assigned number ranges directly.
+The checker compares hints with actual object ends, page runs, compressed
 owners and shared/outline spans. Different valid layouts can have different hint
 bytes; semantic and physical invariants decide validity.
 

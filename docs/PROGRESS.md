@@ -28,7 +28,19 @@ output bytes. Medians 26.998 ->25.510 ms have overlapping IQRs
 25.217-27.045 /24.989-27.381, so no confirmed speedup is claimed. Its ratio 1.032x
 remains above parity. All 2,991 focused copier/selection/merge/QDF/linearization/
 publication checks pass (15s), including duplicate destinations and cleanup.
-Integration qualification is pending.
+
+A six-second profile of 174 fresh linearization jobs identified unnecessary xref
+number-list construction and sorting. Classic numbering already forms contiguous
+intervals; both passes now emit those intervals directly. Offset checks, hints,
+IDs, layout and publication replay remain. Allocation falls
+19.393707 ->19.344938 MB/job (48.8 KB less), with byte-identical validated output.
+Medians 23.029 ->21.348 ms overlap in IQR (21.702-24.599 /20.877-31.644), so no
+confirmed speedup is claimed; ratio 1.072x remains above parity.
+
+All 3,075 focused linearization/writer/publication checks pass (25s). Both passes
+and the classic/fallback routes retain success/failure/cancellation coverage.
+Four tests observing only the eliminated list wrappers were removed. Integration
+qualification of the combined batch is pending.
 
 The preceding reader-cache growth cap, parser scratch, scoped ownership,
 immutable payload borrowing and staged content-ID hashing remain integrated.
