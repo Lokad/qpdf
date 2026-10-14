@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The latest
-qualified primary panel (`7a55bff`) records five cells at or below 1.0×, with
-ratios 0.61–3.40×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
+qualified primary panel (`c29c5a3`) records five cells at or below 1.0×, with
+ratios 0.58–3.55×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
@@ -32,7 +32,11 @@ on duplicate insertion, alongside first-key identity/order. Recovery, warning,
 work/cancellation and discarded-value controls remain. All 26 fresh managed/native
 outcomes and three negative controls pass with unchanged inputs. Locked Release
 build/explicit pack/inspection/fresh consumer/rejections pass (25s), preserving
-the 2 MiB multisource consumer ceiling. Committed-source qualification follows.
+the 2 MiB multisource consumer ceiling. Clean committed-source qualification
+retains all 26,993 primary and 6,468 additional file-host observations, fresh
+independent semantics and unchanged inputs. Five primary cells meet parity; the
+original sparse full-input cell remains 3.55×. Additional file-host selection is
+0.416×. Separate panels do not isolate timing effects of the parser change.
 
 Private strict file-host selection retains bounded input prefetch and one
 complete-reader retry on the same lease before publication. Public documents,
