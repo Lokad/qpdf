@@ -2,7 +2,7 @@
 
 Performance targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2 in
 thirteen codec-free public workloads. The target remains open. The latest full
-panel (`610191b`) records five cells at parity, with ratios 0.58-3.36x.
+panel (`f43d48e`) records five cells at parity, with ratios 0.57-3.56x.
 [Benchmarks](BENCHMARKS.md) gives current figures and reproducible commands.
 Keep reduced time or allocation; no minimum percentage applies.
 
@@ -31,8 +31,13 @@ appearance/flattening/publication checks pass (70s), including the coalescing-pl
 rotation regressions, failure, cancellation, cleanup and surviving outputs.
 Locked Release build/explicit pack/inspection/fresh consumer/rejections pass
 (21s) on these final source contents, preserving the 2 MiB multisource ceiling.
-Final clean comparison, visual and hosted qualification are pending. Earlier
-corrections, native interaction controls and all raw runs remain preserved.
+All 26 fresh managed/native outcomes and three negative controls pass with
+unchanged original inputs. The clean panel preserves 26,818 primary observations.
+Sparse full-input selection remains 3.5593x; the separate file-host case is
+0.3830x and replaces no original cell. Seven visual cases and two negative
+controls pass (19s) after timing at unchanged tolerances. Hosted qualification
+is pending. Earlier corrections, native interaction controls and raw runs remain
+preserved; separate full panels do not establish source-change attribution.
 
 ## Preserved scope
 

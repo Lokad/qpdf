@@ -2,24 +2,24 @@
 
 Lokad.qpdf meets the ≤1.0× native qpdf 12.4.2 target in **5 of 13** warmed,
 codec-free memory-host workloads in this run. The target remains open.
-Clean Release source `610191b`; median milliseconds/job with Q1–Q3. Ratios use
-unrounded values; all 26,664 observations remain in the raw results.
+Clean Release source `f43d48e`; median milliseconds/job with Q1–Q3. Ratios use
+unrounded values; all 26,818 observations remain in the raw results.
 
 | Workload | Lokad.qpdf ms (Q1–Q3) | qpdf ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.43 (0.42–0.44) | 0.73 (0.73–0.74) | 0.5840× |
-| select-M500 | 16.25 (16.08–16.47) | 19.65 (19.59–19.77) | 0.8270× |
-| merge-250x2 | 19.89 (19.58–20.75) | 18.00 (17.87–18.37) | 1.1052× |
-| split-M500 | 24.68 (24.29–25.87) | 24.15 (23.96–24.27) | 1.0217× |
-| rewrite-M500 | 16.68 (16.61–16.76) | 13.82 (13.63–13.98) | 1.2072× |
-| rewrite-X100 | 2.10 (2.01–2.30) | 1.79 (1.73–1.90) | 1.1706× |
-| object-streams-X100 | 2.42 (2.40–2.62) | 2.50 (2.43–2.81) | 0.9674× |
-| linearize-M500 | 21.36 (20.98–21.43) | 19.88 (18.23–20.45) | 1.0743× |
-| check-X100 | 1.99 (1.95–2.01) | 2.27 (2.19–2.28) | 0.8755× |
-| rewrite-ID-M500 | 23.62 (23.10–23.78) | 22.66 (21.50–22.91) | 1.0426× |
-| rewrite-objects | 25.65 (24.92–26.50) | 25.60 (24.99–25.78) | 1.0020× |
-| select-sparse | 5.59 (5.58–5.65) | 1.67 (1.55–1.68) | 3.3560× |
-| split-single | 5.98 (5.92–6.11) | 6.64 (6.50–6.85) | 0.9006× |
+| select-S10 | 0.42 (0.42–0.43) | 0.74 (0.73–0.79) | 0.5712× |
+| select-M500 | 16.87 (16.71–17.39) | 20.22 (20.12–20.25) | 0.8340× |
+| merge-250x2 | 19.65 (19.54–20.81) | 18.68 (18.57–20.19) | 1.0519× |
+| split-M500 | 24.66 (22.81–29.47) | 24.56 (23.56–27.79) | 1.0041× |
+| rewrite-M500 | 17.78 (17.05–19.67) | 14.16 (14.03–14.47) | 1.2551× |
+| rewrite-X100 | 2.09 (2.07–2.27) | 1.79 (1.79–1.87) | 1.1643× |
+| object-streams-X100 | 2.14 (2.13–2.16) | 2.41 (2.40–2.43) | 0.8852× |
+| linearize-M500 | 21.79 (21.01–21.97) | 20.35 (19.91–20.52) | 1.0708× |
+| check-X100 | 2.16 (2.06–2.25) | 2.38 (2.32–2.58) | 0.9075× |
+| rewrite-ID-M500 | 23.80 (23.36–24.35) | 22.81 (22.55–23.17) | 1.0431× |
+| rewrite-objects | 24.12 (23.93–25.22) | 23.57 (23.48–24.71) | 1.0233× |
+| select-sparse | 5.84 (5.72–5.93) | 1.64 (1.63–1.66) | 3.5593× |
+| split-single | 5.54 (5.38–5.63) | 6.57 (6.46–7.48) | 0.8438× |
 
 S10/M500 have 10/500 pages; merge combines two 250-page files. M500 content is
 about 10 KiB/page; splitting produces ten 50-page files. X100 has streamed xrefs
@@ -29,19 +29,19 @@ Shared fonts, forms and metadata exercise interactions. Codecs and rendering are
 
 | Workload | Managed allocation MB/job | Peak RSS MiB managed / native | Output KiB managed / native |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.067 | 73.0 / 6.3 | 3.9 / 4.1 |
-| select-M500 | 17.211 | 150.3 / 7.8 | 5096.3 / 5105.1 |
-| merge-250x2 | 22.339 | 171.4 / 8.4 | 5096.7 / 5105.5 |
-| split-M500 | 29.808 | 143.3 / 7.9 | 5101.1 / 5108.7 |
-| rewrite-M500 | 17.207 | 151.3 / 7.6 | 5096.3 / 5095.9 |
-| rewrite-X100 | 0.570 | 76.3 / 6.5 | 69.5 / 69.5 |
-| object-streams-X100 | 0.629 | 76.2 / 6.4 | 65.8 / 65.8 |
-| linearize-M500 | 19.008 | 153.0 / 8.1 | 5099.2 / 5109.0 |
-| check-X100 | 0.537 | 75.5 / 6.6 | 0.0 / 0.0 |
-| rewrite-ID-M500 | 17.208 | 159.7 / 7.6 | 5096.3 / 5095.9 |
-| rewrite-objects | 4.641 | 85.2 / 10.5 | 293.1 / 295.0 |
+| select-S10 | 0.066 | 73.0 / 6.4 | 3.9 / 4.1 |
+| select-M500 | 17.190 | 150.5 / 7.8 | 5096.3 / 5105.1 |
+| merge-250x2 | 22.318 | 165.8 / 8.4 | 5096.7 / 5105.5 |
+| split-M500 | 29.803 | 144.5 / 8.0 | 5101.1 / 5108.7 |
+| rewrite-M500 | 17.187 | 150.3 / 7.6 | 5096.3 / 5095.9 |
+| rewrite-X100 | 0.564 | 77.8 / 6.5 | 69.5 / 69.5 |
+| object-streams-X100 | 0.623 | 77.8 / 6.5 | 65.8 / 65.8 |
+| linearize-M500 | 18.988 | 156.1 / 8.2 | 5099.2 / 5109.0 |
+| check-X100 | 0.537 | 74.6 / 6.7 | 0.0 / 0.0 |
+| rewrite-ID-M500 | 17.188 | 156.4 / 7.8 | 5096.3 / 5095.9 |
+| rewrite-objects | 4.545 | 85.3 / 10.6 | 293.1 / 295.0 |
 | select-sparse | 16.900 | 118.6 / 6.4 | 1.1 / 1.1 |
-| split-single | 1.249 | 77.1 / 6.4 | 68.9 / 62.6 |
+| split-single | 1.248 | 76.4 / 6.6 | 68.9 / 62.6 |
 
 Allocation is cumulative, not retained memory. RSS includes each dedicated worker's
 warmup, runtime and host storage; it is not a per-job working set. Split sizes sum
@@ -54,7 +54,7 @@ which includes its complete fresh input read. Current comparison:
 
 | Job | Managed ms (Q1–Q3) | Native ms (Q1–Q3) | M/N | Managed MB/job | Peak RSS MiB M/N | Output KiB M/N |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Sparse file-host selection | 0.61 (0.59–0.61) | 1.63 (1.61–1.64) | 0.3737× | 0.120 | 78.3 / 6.5 | 1.1 / 1.1 |
+| Sparse file-host selection | 0.61 (0.60–0.62) | 1.60 (1.58–1.66) | 0.3830× | 0.120 | 78.3 / 6.5 | 1.1 / 1.1 |
 
 ## Measurement and correctness
 
