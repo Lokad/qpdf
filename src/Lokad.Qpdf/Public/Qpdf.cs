@@ -526,7 +526,9 @@ public static partial class Qpdf
                         [PdfName.FromAscii("Kids")] = new PdfArray(kids),
                         [PdfName.FromAscii("Count")] = new PdfInteger(countText, kids.Count),
                     });
-                    List<NumberedObject> model = new()
+                    int modelCount = checked(singlePool.Count + 2);
+                    copyMemory.Reserve(checked(64L + 16L * modelCount));
+                    List<NumberedObject> model = new(modelCount)
                     {
                         new NumberedObject(1, catalog),
                         new NumberedObject(2, pages),
@@ -837,7 +839,7 @@ public static partial class Qpdf
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
         List<int> sourceCounts = ParserContainers.CreateList<int>(selectionMemory);
-        List<List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)>> perSource = new(sources.Count);
+        List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource = new(sources.Count);
         int nextId = 3;
         bool needAppearances = false;
         List<GraphCopier> copiers = new(sources.Count);
@@ -915,7 +917,7 @@ public static partial class Qpdf
                 copier.RegisterPageRoot(document.PageReferences[pageNumber - 1].Source?.ObjectNumber);
             }
             copier.HintPageCapacity(requested.Count);
-            List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)> taken = new(requested.Count);
+            List<(GraphCopier Copier, int Id, int SourcePage)> taken = new(requested.Count);
             foreach (int pageNumber in requested)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -924,7 +926,7 @@ public static partial class Qpdf
                 IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
                 (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra);
                 RequireMediaBox(page);
-                taken.Add((copier, pageId, page, pageNumber));
+                taken.Add((copier, pageId, pageNumber));
             }
 
             if (preserveUnreferenced && s == primaryIdx && !emptyPrimary)
@@ -1005,7 +1007,7 @@ public static partial class Qpdf
             }
 
             List<int> takenIds = new(taken.Count);
-            foreach ((GraphCopier _, int takenId, PdfDictionary _, int _) in taken)
+            foreach ((GraphCopier _, int takenId, int _) in taken)
             {
                 takenIds.Add(takenId);
             }
@@ -1031,7 +1033,7 @@ public static partial class Qpdf
         List<(GraphCopier Copier, int Id)> occurrences = new(order.Count);
         foreach ((int source, int slot) in order)
         {
-            (GraphCopier copier, int pageId, PdfDictionary _, int pageNumber) = perSource[source][slot];
+            (GraphCopier copier, int pageId, int pageNumber) = perSource[source][slot];
             kids.Add(new PdfReference(pageId, 0));
             selectionMemory.Reserve(24L);
             ParserContainers.AddItem(selectionMemory, mapping, new PdfPageSelectionMapping(source, pageNumber), IntPtr.Size);
@@ -1303,7 +1305,9 @@ public static partial class Qpdf
 
         if (!splitPages.HasValue)
         {
-            List<NumberedObject> model = new()
+            int modelCount = checked(pool.Count + 2);
+            selectionMemory.Reserve(checked(64L + 16L * modelCount));
+            List<NumberedObject> model = new(modelCount)
             {
                 new NumberedObject(1, NewCatalog(catalogLabels, effective, extensionLevel, primaryMetadata, multiAttached.NamesRef, multiAttached.PageMode, primaryOutlines, multiAcroForm, primaryStructTree, primaryMarkInfo, primaryExtras)),
                 new NumberedObject(2, PagesNode(kids)),
@@ -1698,7 +1702,7 @@ public static partial class Qpdf
     }
 
     private static List<(int Source, int Slot)> CollateOrder(
-        List<List<(GraphCopier Copier, int Id, PdfDictionary Page, int SourcePage)>> perSource,
+        List<List<(GraphCopier Copier, int Id, int SourcePage)>> perSource,
         PdfPageCollation? collation)
     {
         List<int> counts = new(perSource.Count);
