@@ -3,7 +3,7 @@ using Lokad.Qpdf.Runtime;
 namespace Lokad.Qpdf.Writing;
 
 /// <summary>Owns captured byte capacities; returned copies transfer to a caller scope.</summary>
-internal sealed class BufferedSink : IByteSink, IDisposable
+internal sealed class BufferedSink : ISynchronousByteSink, IDisposable
 {
     private ParserMemoryScope? _memory;
     private GovernedBufferStream? _buffer;
@@ -46,6 +46,10 @@ internal sealed class BufferedSink : IByteSink, IDisposable
 
     internal void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
         => Buffer.Write(chunk, cancellationToken);
+
+    bool ISynchronousByteSink.CanAppendSynchronously => true;
+    void ISynchronousByteSink.Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
+        => Append(chunk, cancellationToken);
 
     public ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
         => Buffer.WriteAsync(chunk, cancellationToken);

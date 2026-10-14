@@ -6,35 +6,32 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `4c4a6b6` passed [hosted CI run 38531623876](https://github.com/Lokad/qpdf/actions/runs/38531623876):
-Windows 5m50s, Ubuntu 5m39s, pinned reference 4m27s. Both platforms pass 17,874
+Pushed `755898c` passed [hosted CI run 38534888853](https://github.com/Lokad/qpdf/actions/runs/38534888853):
+Windows 6m34s, Ubuntu 5m51s, pinned reference 5m40s. Both platforms pass 17,875
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. Dependency pins and release version are unchanged.
 
 ## Current correction and next work
 
-Object-stream members now serialize into one governed buffer per group, with
-known-count end offsets. Payload assembly borrows completed slices rather than
-copying every member into an array first. A failed append truncates the unfinished
-tail, preserves earlier members and can retry. Disposing completed owners/tasks
-releases both the offset table and grouped backing. Groups start at 256 bytes
-and use existing governed growth, preserving the 32 KiB QDF controls.
+Object-stream capture reuses the ordinary token batch once per group, avoiding
+individual formatted reference/token buffers. The owned destination consumes
+spans synchronously. Each completed member flushes to grouped storage; failed
+attempts reset private batch state and truncate only the unfinished member.
+Tight memory/work jobs retain direct capture, and QDF's 32 KiB controls remain.
 
-The original X100 object-stream job allocates 801.090→789.711 KB/job, about
-11.4 KB less, with identical independently validated output hashes. Baseline and
-candidate medians 2.365/2.329 ms overlap in IQR: allocation benefit only.
-The same run's native median is 2.393 ms (managed/native 0.9732×).
-All 2,081 affected writer/resource checks pass (45s), including failure after
-buffer growth, retry, retained-task cleanup and the original tight budgets.
-All 26 fresh managed/native outcomes and three negative controls pass with
-unchanged inputs. Locked Release solution build/pack, package inspection, fresh
-consumer and rejection controls pass (26s), including the unchanged 2 MiB
-multisource ceiling. The clean final-source panel retains all 26,605 observations
-and independent semantics. Selection S10/M500, checking and individual splitting
-meet parity; object streams at 1.0069× remain open. Sparse selection is
-5.79/1.67 ms (3.47×). Different host load across panels prevents attributing
-timing changes to this correction. One hosted push qualifies code and report.
+The original X100 object-stream job allocates 789.912→748.572 KB/job, about
+41.3 KB less, with identical independently validated output hashes. Median time
+falls 2.512→2.284 ms (9.1%); IQRs 2.368–3.393 / 2.278–2.334 are separated.
+Wide ranges/outliers remain in the raw results. Native is 2.393 ms (ratio 0.9546×).
+The wider writer/resource run passes 2,083 cases; all three corrected mixed-budget
+cases pass focused. Coverage includes ordinary, 4 KiB memory and 4,096-unit work
+ceilings, failed growth/retry, cancellation and retained-task cleanup. All 26
+fresh managed/native outcomes and three negative controls pass with unchanged
+inputs. Locked Release solution build/explicit pack, package inspection, fresh
+consumer and rejection controls pass (23s), including the unchanged 2 MiB
+multisource ceiling. Final-source integration qualification follows; the
+comparative table remains the last clean thirteen-job panel.
 
 Full fresh input allocation/reading is a demonstrated boundary cost. Native can
 read selected objects lazily; the managed reader consumes contiguous storage and

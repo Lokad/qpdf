@@ -9,6 +9,40 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class ObjectStreamCaptureTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task MixedFormattedAndCopiedMembersPreserveBytesWithinLimits(bool tightMemory, bool tightWork)
+    {
+        QpdfLimits limits = QpdfLimits.Default with
+        {
+            MaxMemoryBytes = tightMemory ? 4096L : QpdfLimits.Default.MaxMemoryBytes,
+            MaxWork = tightWork ? 4096L : QpdfLimits.Default.MaxWork, MaxOutputBytes = 1024L,
+        };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using (ObjectStreamCapture members = ObjectStreamCapture.Create(3, limits, governor, CancellationToken.None))
+        {
+            PdfSerializer serializer = new(limits, governor);
+            PdfArray first = new([new PdfReference(12345, 0), PdfName.FromAscii("A B"),
+                new PdfInteger("123456789", 123456789L), new PdfByteString([0, 255], true)]);
+            await members.AppendAsync(serializer, first, false, CancellationToken.None);
+            using (BufferedSink external = BufferedSink.Create(limits, governor, CancellationToken.None, 256))
+            {
+                byte[] bytes = Enumerable.Repeat((byte)'A', 384).ToArray();
+                await external.AppendAsync(bytes, CancellationToken.None);
+                members.Append(external, CancellationToken.None);
+                Array.Fill(bytes, (byte)'X');
+            }
+            await members.AppendAsync(serializer, new PdfReference(54321, 0), false, CancellationToken.None);
+            Assert.Equal("[12345 0 R /A#20B 123456789 <00FF>]"u8.ToArray(), members[0].ToArray());
+            Assert.Equal(Enumerable.Repeat((byte)'A', 384).ToArray(), members[1].ToArray());
+            Assert.Equal("54321 0 R"u8.ToArray(), members[2].ToArray());
+            Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, limits.MaxMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public async Task MembersAndOffsetsStayOwnedUntilDisposal()
     {

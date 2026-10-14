@@ -11,6 +11,7 @@ internal sealed class ObjectStreamCapture : IDisposable
     private ParserMemoryScope? _memory;
     private int[]? _ends;
     private BufferedSink? _scratch;
+    private BatchingSink? _batch;
     private int _count;
 
     private ObjectStreamCapture(QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, int[] ends)
@@ -69,7 +70,20 @@ internal sealed class ObjectStreamCapture : IDisposable
         int start = checked((int)capture.Length);
         try
         {
-            await serializer.AppendValueAsync(value, capture, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+            // Reuse the ordinary token formatter for this bounded group. Tight
+            // jobs retain direct capture without another scratch admission.
+            if (_batch is null && _governor.RemainingMemoryBytes >= 4096L && _governor.RemainingWorkUnits >= 4096L)
+            { _batch = BatchingSink.Create(capture, _limits, _governor, cancellationToken); }
+            if (_batch is BatchingSink batch)
+            {
+                batch.ResetWrittenBytes();
+                await serializer.AppendValueAsync(value, batch, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+                await batch.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await serializer.AppendValueAsync(value, capture, 0, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+            }
             CompleteMember(capture, cancellationToken);
         }
         catch { RollBack(capture, start); throw; }
@@ -103,6 +117,7 @@ internal sealed class ObjectStreamCapture : IDisposable
 
     private void RollBack(BufferedSink capture, int start)
     {
+        _batch?.ResetWrittenBytes();
         if (_count == 0) { ReleaseScratch(); }
         else { capture.TruncateWrittenBytes(start); }
     }
@@ -119,6 +134,9 @@ internal sealed class ObjectStreamCapture : IDisposable
 
     private void ReleaseScratch()
     {
+        BatchingSink? batch = _batch;
+        _batch = null;
+        batch?.Dispose();
         BufferedSink? scratch = _scratch;
         _scratch = null;
         scratch?.Dispose();

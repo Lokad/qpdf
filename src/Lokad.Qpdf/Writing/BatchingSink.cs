@@ -178,6 +178,15 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
     private void CheckCancellation(CancellationToken token)
     { token.ThrowIfCancellationRequested(); _governor.CheckCancellation(); }
 
+    // Capture owns destination rollback. Reuse only this member's scratch/count;
+    // pending bytes are private and cleanup must also work after cancellation.
+    internal void ResetWrittenBytes()
+    {
+        _ = Memory;
+        Scratch.ResetWrittenBytes();
+        _length = 0L;
+    }
+
     public void Dispose()
     {
         GovernedBufferStream? scratch = _scratch;
