@@ -2,8 +2,8 @@
 
 Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
 in thirteen codec-free structural workloads. The target remains open. The latest
-qualified primary panel (`bd38a35`) records six cells at or below 1.0×, with
-ratios 0.61–3.49×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
+qualified primary panel (`7a55bff`) records five cells at or below 1.0×, with
+ratios 0.61–3.40×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
 and reproducible commands. Keep changes that reduce time or allocation; no
 minimum percentage applies.
 
@@ -36,7 +36,11 @@ limits, cancellation, nonprogressing reads, cleanup and surviving prior output.
 All pass (589ms); the wider reader/selection/presentation/cleanup run passes
 3,980 checks. Locked Release build/explicit pack/inspection/fresh consumer and
 rejections pass (17s), preserving the 2 MiB multisource consumer ceiling.
-Final integration qualification follows on the combined committed source.
+Clean-source qualification retains all 26,031 primary observations and 6,330
+additional file-host observations, fresh independent semantics and original inputs.
+The current file-host ratio is 0.430×. Grouped splitting is narrowly above parity
+(1.034×); separate panels do not isolate timing effects. One combined hosted push
+qualifies the committed implementation and current report.
 
 ## Preserved scope
 
