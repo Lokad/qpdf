@@ -6,10 +6,13 @@ namespace Lokad.Qpdf.Tests.Foundation;
 public sealed class ParserDictionaryGrowthTests
 {
     [Theory]
-    [InlineData("normal")]
-    [InlineData("memory")]
-    [InlineData("work")]
-    public void KnownFirstSectionAndLaterGrowthPreserveSignedKeysUnderExistingCeilings(string budget)
+    [InlineData("normal", false)]
+    [InlineData("memory", false)]
+    [InlineData("work", false)]
+    [InlineData("normal", true)]
+    [InlineData("memory", true)]
+    [InlineData("work", true)]
+    public void KnownFirstSectionAndLaterGrowthPreserveSignedKeysUnderExistingCeilings(string budget, bool bounded)
     {
         QpdfLimits limits = budget switch
         {
@@ -26,7 +29,10 @@ public sealed class ParserDictionaryGrowthTests
             for (int index = 0; index < keys.Length; index++)
             {
                 governor.ChargeWork(1L);
-                ParserContainers.EnsureEntryCapacity(memory, entries, sizeof(int));
+                // A cardinality estimate remains a hint if later input adds
+                // more identities. Both paths preserve accepted entries.
+                if (bounded) { ParserContainers.EnsureEntryCapacity(memory, entries, sizeof(int), 16); }
+                else { ParserContainers.EnsureEntryCapacity(memory, entries, sizeof(int)); }
                 entries.Add(keys[index], index);
             }
             // A later overlapping section must not discard the populated map.

@@ -70,11 +70,16 @@ internal static class ParserContainers
 
     internal static void EnsureEntryCapacity<TKey, TValue>(
         ParserMemoryScope memory, Dictionary<TKey, TValue> entries, long valueBytes) where TKey : notnull
+        => EnsureEntryCapacity(memory, entries, valueBytes, Array.MaxLength);
+
+    internal static void EnsureEntryCapacity<TKey, TValue>(ParserMemoryScope memory,
+        Dictionary<TKey, TValue> entries, long valueBytes, int maximumCount) where TKey : notnull
     {
         int previous = entries.EnsureCapacity(0);
         if (entries.Count < previous) { return; }
         int required = checked(entries.Count + 1);
-        (int target, long upper) = ReserveGrowth(memory, previous, required, checked(12L + IntPtr.Size + valueBytes));
+        (int target, long upper) = ReserveGrowth(memory, previous, required,
+            checked(12L + IntPtr.Size + valueBytes), maximumCount);
         ResizeEntryCapacity(memory, entries, valueBytes, previous, target, upper);
     }
 
@@ -165,8 +170,14 @@ internal static class ParserContainers
     }
 
     private static (int Target, long Upper) ReserveGrowth(ParserMemoryScope memory, int previous, int required, long slotBytes)
+        => ReserveGrowth(memory, previous, required, slotBytes, Array.MaxLength);
+
+    private static (int Target, long Upper) ReserveGrowth(ParserMemoryScope memory, int previous,
+        int required, long slotBytes, int maximumCount)
     {
-        int target = GrowthCapacity(previous, required);
+        // A validated cardinality can cap geometric overshoot without eagerly
+        // allocating for objects which an operation never reaches.
+        int target = Math.Max(required, Math.Min(GrowthCapacity(previous, required), maximumCount));
         long upper = CollectionArrays(PrimeCapacityAllowance(target), slotBytes);
         try { memory.Reserve(upper); }
         catch (QpdfLimitException failure) when (target > required && failure.LimitName == nameof(QpdfLimits.MaxMemoryBytes))

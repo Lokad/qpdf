@@ -172,7 +172,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
             }
             return;
         }
-        if (!replacing) { ParserContainers.EnsureEntryCapacity(Metadata, Cache, 24L); }
+        if (!replacing) { ParserContainers.EnsureEntryCapacity(Metadata, Cache, 24L, Table.Entries.Count); }
         _governor.CheckCancellation();
         long discarded = replacing && !previous.Borrowed ? previous.ReservedBytes : 0L;
         long nextUnborrowed = checked(_unborrowedBytes - discarded + (borrowed ? 0L : parsed.ReservedBytes));

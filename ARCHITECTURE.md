@@ -78,6 +78,8 @@ payload lengths. Compressed members do not use file-stream recovery offsets.
 
 Small arrays and dictionaries use bounded inline parser scratch, spilling into
 governed containers as needed. Frozen results retain the shared object storage.
+The object cache grows lazily; validated xref cardinality caps geometric capacity
+overshoot without preallocating for unread objects.
 
 Private strict selections on custom hosts can prefetch bounded object ranges
 from a standalone classic xref, omitting large unused extents. The same parser

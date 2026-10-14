@@ -1,81 +1,59 @@
 # Progress
 
-Performance work targets single-CPU parity (≤1.0×) with pinned native qpdf 12.4.2
-in thirteen codec-free structural workloads. The target remains open. The latest
-qualified primary panel (`946af8b`) records five cells at or below 1.0×, with
-ratios 0.58–3.55×. [Benchmarks](BENCHMARKS.md) gives current comparative figures
-and reproducible commands. Keep changes that reduce time or allocation; no
-minimum percentage applies.
+Performance work targets single-CPU parity (<=1.0x) with pinned native qpdf 12.4.2
+in thirteen codec-free public workloads. The target remains open. The latest full
+panel (`946af8b`) records five cells at parity, with ratios 0.58-3.55x.
+[Benchmarks](BENCHMARKS.md) gives current comparisons and reproducible commands.
+Keep changes reducing time or allocation; no minimum percentage applies.
 
-Pushed `84e8b40` passed [hosted CI run 38569926250](https://github.com/Lokad/qpdf/actions/runs/38569926250):
-Windows 7m04s, Ubuntu 4m45s, pinned reference 6m01s. Each ordinary job passes
-17,902 checks without failures/skips, locked Release build/pack, inspection,
-fresh consumer and rejection controls. Reference covers 1,858 exact object
-comparisons and 442 rewrite trios. Dependency pins and version are unchanged.
+Pushed `086cd58` passes [hosted CI run 38577278896](https://github.com/Lokad/qpdf/actions/runs/38577278896):
+Windows 5m29s, Ubuntu 5m43s, pinned reference 5m48s. Each ordinary platform passes
+17,909 checks without failures/skips, locked Release build/explicit pack,
+inspection, fresh consumer and rejection controls. Reference includes 1,858 exact
+object comparisons and 442 rewrite trios. Pins, advisory exceptions and version
+are unchanged.
 
 ## Current correction
 
-Classic content-derived IDs now hash the body while it is staged, then hash the
-identical placeholder trailer before writing real IDs. The shared serializer
-separates body/trailer; bounded pending bytes enter the hash without an extra
-host write. Existing ID bytes, first-ID preservation, offsets, counting/capacity
-hints and staged commit remain. Static IDs, QDF, object streams and linearization
-retain their established routes. No complete placeholder PDF or writer framework.
+The object cache still grows lazily, but validated xref cardinality now caps
+geometric capacity overshoot. The existing container helper retains admission
+before allocation, growth overlap and tight-budget fallback. It can grow beyond
+a stale cardinality hint without losing accepted entries. No eager cache fill,
+parsed-document reuse or new ownership machinery.
 
-The final original ID-M500 pair records 26.754→24.290 ms/job with overlapping IQRs
-(26.213–31.071 / 23.526–29.088), so no confirmed speedup is claimed for the final
-variant. Allocation falls 17.308769→17.300866 MB/job (about 7.9 KB less), with
-identical independently validated bytes. Its ratio 1.050× remains above parity;
-separate whole panels do not establish timing attribution.
+A four-second allocation trace on the qualified binary identifies cache-entry
+arrays among material allocations (140 fresh object-heavy rewrites, every output
+hash checked). The paired original object-heavy workload records allocation
+4.824324 ->4.748851 MB/job, about 75.5 KB less, with identical independently valid
+output bytes. Medians 27.265 ->26.148 ms have overlapping IQRs
+26.477-28.167 /26.008-27.514, so no confirmed speedup is claimed. Its ratio 1.041x
+remains above parity. All observations remain in the raw evidence.
 
-All 2,725 focused writer/publication/presentation/cleanup checks pass (10s).
-Seven final public controls pass (501ms): complete placeholder-file MD5, small
-pending/large prefixes, preserved 3-/256-byte first IDs, newline handling, retained
-immutable host packets, output limits before opening, footer failure/cancellation,
-prior output and closed leases, and the successful static job's host-call ceiling.
-The initial failure fixture was corrected to the documented host exception type;
-production error handling did not change. All 26 fresh managed/native outcomes
-and three negative controls pass, original inputs unchanged. Locked Release
-build/explicit pack/inspection/fresh consumer/rejections pass (23s), preserving
-the 2 MiB multisource consumer ceiling.
+All 4,484 initial reader/parser/cache/ownership checks pass. Final focused and
+integration qualification is pending. The original input/options/limits,
+2 MiB multisource consumer ceiling, independent reference checks, negative controls
+and additional file-host comparison remain unchanged.
 
-Hosted qualification exposed one obsolete late-lifetime assertion: completed
-classic bodies can release their index wrappers before the trailer. The check
-now accepts absent retired wrappers while still requiring any surviving wrapper
-to be detached. All 38 focused lifetime/identifier checks pass; active backing,
-failure, cancellation and cleanup checks remain.
-
-Earlier bounded parser scratch, scoped ownership, immutable borrowing and writer
-allocation improvements remain integrated. The additional file-host comparison
-stays separate from all thirteen original memory-host cells and their unresolved
-full-input sparse cost. Clean-source qualification retains all 27,152 primary
-and 6,931 additional file-host observations, original inputs/options and fresh
-independent semantics. Five primary cells meet parity; ID rewriting remains
-1.020× and sparse full-input selection 3.547×. The additional file-host cell is
-0.375×. All seven existing visual cases pass at unchanged tolerances; misplaced
-image/stale-appearance negatives reject. Rendering/codecs remain outside timing.
+The bounded async-wrapper and dense-xref-count trials had overlapping timings and
+unchanged allocations; both were reverted. Their measurements remain available.
+Existing parser scratch, scoped ownership, immutable payload borrowing, staged
+content-ID hashing and writer allocation improvements remain integrated.
 
 ## Preserved scope
 
-Useful completed allocation, parser, copier and writer improvements remain in
-place. Further work must name a concrete defect or finite verification task;
-closed supported features and historical test counts add no obligations.
-Source/artifact identities and all observations, including rejected trials,
-remain in the [benchmark raw archives](BENCHMARKS.md).
-
 The [supported profile](SUPPORTED-PROFILE.md) stays delivered. CMYK/YCCK JPEG
 remains opaque with warnings, Zopfli is unavailable, and crypto including
-empty-password inputs is excluded. These limitations are explicit and tested;
-other [compatibility requirements](COMPATIBILITY.md) are not waived.
+empty-password inputs is excluded. Other [compatibility requirements](COMPATIBILITY.md)
+are not waived. Closed features and historical test counts add no obligations.
 
 `MaxMemoryBytes` bounds approximate charged working storage. Admit significant
-buffers, material growth/copy overlap and decompression/allocation amplification;
-retain work limits, cancellation, host boundaries, cleanup and output integrity.
-Unreleased charges do not prove retained memory. Exact CLR sizes, individual
-small-object/metadata-alias receipts, fixed GC rounds and precise bookkeeping
-charges remain withdrawn; see [governance](SUPPORTED-PROFILE.md#governance).
-No CPU parallelism, forced production GC, parsed-job cache, runtime native bridge
-or replacement accounting/benchmark framework was introduced.
+buffers, growth/copy overlap and decompression/allocation amplification; preserve
+work limits, cancellation, host boundaries, cleanup, output integrity, public
+immutability and surviving aliases. Unreleased charges do not prove retained
+memory. Exact CLR sizes, individual small-object/metadata-alias receipts, fixed
+GC rounds and precise bookkeeping charges remain withdrawn; see
+[governance](SUPPORTED-PROFILE.md#governance).
 
-Runtime pins and the five reviewed temporary ImageSharp 3.1.12 advisory exceptions
-remain unchanged. No release-version change, tagging or package publication.
+No CPU parallelism, forced production GC, parsed-job cache, runtime native bridge,
+new accounting/benchmark framework, dependency/version change, tagging or package
+publication. The five reviewed temporary ImageSharp 3.1.12 exceptions remain.
