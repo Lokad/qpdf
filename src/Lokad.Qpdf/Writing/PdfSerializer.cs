@@ -145,7 +145,9 @@ internal sealed partial class PdfSerializer
         await AppendFormattedAsync([WriterPart.Text("%PDF-"), WriterPart.Number(version.Major), WriterPart.Text("."), WriterPart.Number(version.Minor), WriterPart.Text("\n")], sink, cancellationToken).ConfigureAwait(false);
         CountingSink? counter = sink as CountingSink;
         bool denseCounting = counter is not null && HasDenseIncreasingNumbers(objects, cancellationToken);
-        using WriterIndex<long>? offsets = denseCounting ? null
+        using WriterOrder<long>? denseOffsets = counter is null
+            ? TryCreateDenseOffsets(objects, cancellationToken) : null;
+        using WriterIndex<long>? offsets = denseCounting || denseOffsets is not null ? null
             : WriterIndex<long>.Create(objects.Count, sizeof(long), _governor, cancellationToken);
         int oversizedNumber = 0;
         long oversizedOffset = 0L;
@@ -159,7 +161,11 @@ internal sealed partial class PdfSerializer
                 throw new QpdfException($"Publication reached invalid object number {objects[i].Number}.");
             }
 
-            if (offsets is not null) { offsets[objects[i].Number] = sink.Length; }
+            if (denseOffsets is not null)
+            {
+                denseOffsets.Add(sink.Length);
+            }
+            else if (offsets is not null) { offsets[objects[i].Number] = sink.Length; }
             else if (oversizedNumber == 0 && sink.Length > 9_999_999_999L)
             { oversizedNumber = objects[i].Number; oversizedOffset = sink.Length; }
             if (objects[i].Number > maxNumber)
@@ -189,8 +195,13 @@ internal sealed partial class PdfSerializer
                     cancellationToken).ConfigureAwait(false);
                 continue;
             }
-            if (offsets is null) { throw new InvalidOperationException("Classic emission needs its offset index."); }
-            if (!offsets.TryGetValue(number, out long offset))
+            long offset;
+            if (denseOffsets is not null)
+            {
+                offset = denseOffsets[number - 1];
+            }
+            else if (offsets is null) { throw new InvalidOperationException("Classic emission needs its offset index."); }
+            else if (!offsets.TryGetValue(number, out offset))
             {
                 await AppendAsciiAsync("0000000000 65535 f \n", sink, cancellationToken).ConfigureAwait(false);
                 continue;
@@ -205,6 +216,7 @@ internal sealed partial class PdfSerializer
         }
 
         offsets?.Dispose();
+        denseOffsets?.Dispose();
 
         await AppendFormattedAsync([WriterPart.Text("trailer\n<< /Size "), WriterPart.Number(maxNumber + 1), WriterPart.Text(" /Root 1 0 R"), WriterPart.Text(infoRef.HasValue ? " /Info " : ""), infoRef.HasValue ? WriterPart.Number(infoRef.Value) : default, WriterPart.Text(infoRef.HasValue ? " 0 R" : ""), WriterPart.Text(" /ID [<"), WriterPart.Hex(id1), WriterPart.Text("><"), WriterPart.Hex(id2), WriterPart.Text(">] >>\n")], sink, cancellationToken).ConfigureAwait(false);
         await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
@@ -219,6 +231,19 @@ internal sealed partial class PdfSerializer
             if (objects[index].Number != index + 1) { return false; }
         }
         return true;
+    }
+
+    private WriterOrder<long>? TryCreateDenseOffsets(IReadOnlyList<NumberedObject> objects,
+        CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+        long bytes = checked(160L + sizeof(long) * (long)objects.Count);
+        // Validate existing model numbers, not declared counts. Leave tight jobs
+        // on the established dictionary/growth path without an extra scan.
+        if (objects.Count > Array.MaxLength || bytes > _governor.RemainingMemoryBytes / 4L
+            || 1L + 9L * objects.Count > _governor.RemainingWorkUnits / 4L
+            || !HasDenseIncreasingNumbers(objects, token)) { return null; }
+        return WriterOrder<long>.Create(objects.Count, sizeof(long), _governor, token);
     }
 
     /// <summary>

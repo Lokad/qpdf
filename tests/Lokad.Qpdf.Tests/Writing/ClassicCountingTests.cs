@@ -26,11 +26,13 @@ public sealed class ClassicCountingTests
     [InlineData("dense")]
     [InlineData("sparse")]
     [InlineData("duplicate")]
+    [InlineData("reordered")]
     public async Task ClassicCountMatchesEmissionAcrossNumberingShapes(string shape)
     {
         List<NumberedObject> model = WriterIndexOwnershipTests.Model(41);
         if (shape == "sparse") { model.RemoveAt(20); }
         if (shape == "duplicate") { model.Add(new NumberedObject(4, PdfNull.Instance)); }
+        if (shape == "reordered") { (model[0], model[1]) = (model[1], model[0]); }
         ResourceGovernor counting = new(QpdfLimits.Default, CancellationToken.None);
         CountingSink counter = new();
         long expected = await Write(model, counting, counter, CancellationToken.None);
@@ -81,5 +83,24 @@ public sealed class ClassicCountingTests
         Assert.Equal(emittedError.Message, countError.Message);
         Assert.Equal(0L, counting.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, emitting.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TightEmissionRejectsLargeIndexesAndReleasesStorage(bool reordered)
+    {
+        List<NumberedObject> model = WriterIndexOwnershipTests.Model(513);
+        if (reordered) { (model[0], model[1]) = (model[1], model[0]); }
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        OutputSink sink = new(0L);
+        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
+            new PdfSerializer(limits, governor).SerializeAsync(new PdfVersion(1, 7), model,
+                null, new byte[16], new byte[16], false, sink, CancellationToken.None).AsTask());
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 0L, limits.MaxMemoryBytes);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(513, model.Count);
     }
 }

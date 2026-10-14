@@ -6,8 +6,8 @@ in thirteen codec-free structural workloads. The target remains open. The clean
 [Benchmarks](BENCHMARKS.md) gives comparative figures and the reproducible protocol.
 Performance commits need reduced time or allocation, with no minimum percentage.
 
-Pushed `f19187b` passed [hosted CI run 38482755196](https://github.com/Lokad/qpdf/actions/runs/38482755196):
-Windows 7m22s, Ubuntu 5m49s, pinned reference 4m03s. Both platforms pass 17,865
+Pushed `d06beef` passed [hosted CI run 38486253203](https://github.com/Lokad/qpdf/actions/runs/38486253203):
+Windows 6m22s, Ubuntu 5m54s, pinned reference 5m54s. Both platforms pass 17,864
 ordinary checks without failures/skips, locked Release build/pack, inspection,
 fresh consumer and rejection controls. Reference covers 1,858 exact object
 comparisons and 442 rewrite trios. The current correction passed local
@@ -15,34 +15,28 @@ qualification; its integration runs the comprehensive gates on push.
 
 ## Current correction and next work
 
-Page/source result metadata uses operation storage through publication and
-cleanup. Single-source admission spans input-close cleanup; merge and split
-reuse the existing selection scope. Copied arrays/read-only views, mapping
-records and split names retain material admission while the job runs, without
-individual alias receipts or a registration array per mapping. Returned metadata
-remains immutable and usable; diagnostic and binary ownership stay unchanged.
+Classic emission stores offsets in the existing admitted WriterOrder<long> when
+model numbers are validated dense/increasing and memory/work headroom permits.
+Sparse, duplicate, reordered and low-headroom layouts keep the current dictionary
+path. Counting remains allocation-free for dense offsets. The existing sequence
+owner clears storage and controller references on success, failure and cancellation;
+offset storage retires before unrelated trailer output. No new index or cache.
 
-Same-driver allocation falls about 78.6 KB/job for M500 rewriting, 16.3 KB for
-X100, 77.4 KB for merging and 82.3 KB for splitting. All output hashes match.
-Splitting medians fall 27.133 → 25.364 ms (6.5%), with separated IQRs
-27.025–27.912 / 25.010–26.580 ms; the other timing ranges overlap. This paired
-evidence does not establish stable parity across all workloads.
+Identical-driver allocation falls about 2.6 KB/job for X100 (718.4 → 715.8 KB)
+and 25.7 KB for object-heavy rewriting (6.2177 → 6.1920 MB). Every output hash
+matches. Medians 2.401 → 2.465 ms and 30.504 → 30.516 ms have overlapping
+IQRs; claim allocation only.
 
-All 4,176 affected writing/selection/ownership/practical-memory checks pass (77s).
-The scope-order correction has final-source controls for input-close faults,
-surviving results, split success/failure/cancellation, prior outputs and cleanup.
-Exact CLR-size/individual metadata-receipt assertions and the five exact
-packet/retirement cases were consolidated into four representative material
-memory/work/cancellation/copy checks. Actual weak-reference leak/collection,
-immutability and public-job controls remain. Windows/Linux Release builds,
-explicit pack, inspection, fresh locked consumer and rejection controls pass
-(24s), preserving the 2 MiB multisource ceiling. All 26 fresh managed/native
+All 2,096 affected writing/practical-memory checks pass (46s). Existing completed-
+task/retained-host controls, offset-width and later-body-error precedence remain;
+added reordered counting/emission and two tight-memory rejection/cleanup cases.
+An initial raw-array prototype failed the completed-writer witness; reviewing
+failure cleanup led to reuse of the established sequence owner. Failed evidence
+is retained and the incomplete prototype was not committed. Windows/Linux Release
+builds, explicit pack, inspection, fresh locked consumer and rejection controls
+pass (24s), preserving the 2 MiB multisource ceiling. All 26 fresh managed/native
 outcomes and three negative controls pass; original inputs are unchanged.
-The clean committed-source panel preserves all 24,089 observations and an empty
-source diff. Four cells meet parity and nine remain above it, including near-parity
-object-stream generation at 1.0033×. Host-load variability remains substantial;
-separate panels do not attribute source time gains. One hosted push qualifies
-code and report.
+One clean complete panel and one hosted push qualify the committed source.
 
 Sparse full-input transport remains the largest boundary gap. The timed emitter
 already reads the full remaining span and the exclusive memory host borrows its
