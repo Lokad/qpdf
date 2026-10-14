@@ -85,6 +85,14 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
         return true;
     }
 
+    internal bool TryAppendBytes(ReadOnlySpan<byte> bytes, CancellationToken token)
+    {
+        if (bytes.Length >= _capacity || !Fits(bytes.Length, token)) { return false; }
+        Scratch.Write(bytes, token);
+        _length += bytes.Length;
+        return true;
+    }
+
     internal bool TryAppendFormatting(ReadOnlySpan<WriterPart> parts, QpdfLimits limits, CancellationToken token)
     {
         long length = WriterFormatting.MeasureParts(parts, limits, _governor, token);

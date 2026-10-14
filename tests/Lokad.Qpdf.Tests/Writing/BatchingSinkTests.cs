@@ -35,6 +35,34 @@ public sealed class BatchingSinkTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SmallByteBoundaryHonorsSynchronousCapabilityAndCopiesCallerBytes(bool synchronous)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        SynchronousSink destination = new(false) { CanAppendSynchronously = synchronous };
+        byte[] token = "immutable"u8.ToArray();
+        using (BatchingSink sink = BatchingSink.Create(destination, QpdfLimits.Default, governor, CancellationToken.None))
+        {
+            await sink.AppendAsync(new byte[250], CancellationToken.None);
+            bool appended = sink.TryAppendBytes(token, CancellationToken.None);
+            Assert.Equal(synchronous, appended);
+            if (!appended)
+            {
+                await sink.AppendAsync(token, CancellationToken.None);
+            }
+            Array.Fill(token, (byte)'x');
+            await sink.AppendAsync("!"u8.ToArray(), CancellationToken.None);
+            await sink.FlushAsync(CancellationToken.None);
+            Assert.Equal(260L, sink.Length);
+        }
+        Assert.Equal(new byte[250].Concat("immutable!"u8.ToArray()).ToArray(), destination.Bytes.ToArray());
+        if (!synchronous)
+        { Assert.Equal(destination.Bytes.ToArray(), destination.Retained.SelectMany(chunk => chunk.ToArray()).ToArray()); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public async Task FormattingBoundaryFlushFailureReleasesScratch()
     {

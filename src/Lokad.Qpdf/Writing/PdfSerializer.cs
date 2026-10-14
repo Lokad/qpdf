@@ -794,6 +794,8 @@ internal sealed partial class PdfSerializer
         if (chunk.Length <= WriteSplitBytes)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (sink is BatchingSink batch && batch.TryAppendBytes(chunk.Span, cancellationToken))
+            { return ValueTask.CompletedTask; }
             return sink.AppendAsync(chunk, cancellationToken);
         }
         return AppendSplitBytesAsync(chunk, sink, cancellationToken);

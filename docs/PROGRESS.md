@@ -16,6 +16,14 @@ prior observations, including failed, slower and insensitive trials.
 
 ## Current implementation
 
+Small fixed-byte writes now use the existing governed batching scratch when they
+fit, preserving the asynchronous/retaining fallback and large-write path. All 189
+affected checks and both strengthened boundary/alias cases pass. The paired
+streamed-xref rewrite records 1.995 ->1.983 ms, overlapping IQRs 1.993-2.199 /
+1.976-2.163, with approximately 561 KB allocated in both lanes. No speedup or
+allocation gain is established; all 4,689 observations remain. This local structural
+change will share a later integration checkpoint; current tables identify `5854144`.
+
 Scalar serialization, counted/shared token formatting and small writes return
 existing operations directly. This avoids redundant async state machines while
 preserving container recursion/order/depth, meaningful work and cancellation,
