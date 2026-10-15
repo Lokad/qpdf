@@ -28,6 +28,12 @@ disposal remain. All 2,117 writer/inventory checks pass in 42s. The paired media
 Readiness diagnostics show compilation continuing beyond the previous two-second
 warmup, so final comparison will first wait for managed compilation to settle.
 
+The existing warm driver now reports process-wide JIT counters after timing and
+allocation capture. Warmup retains thirty fresh jobs/two seconds minimum and waits
+for two seconds without compilation changes, with bounded time/request limits.
+Readiness and any later compilation remain in raw results. Six deterministic
+guard tests pass; no input acquisition or output work moves outside job timing.
+
 Canonical integers 0–255 reuse a fixed set of immutable values instead of fresh
 objects and strings. The set has 256 values, with no document/input/host/governor
 retention or per-job growth. Signed, padded and larger numbers preserve their

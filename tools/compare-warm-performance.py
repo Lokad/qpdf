@@ -58,6 +58,32 @@ def describe(values):
         "min": min(values), "max": max(values)}
 
 
+def warm_up(sample_job, minimum_seconds, require_jit):
+    """Warm fresh jobs until the managed compiler has also settled."""
+    start = time.monotonic()
+    last_change, previous = start, None
+    maximum_seconds = max(30.0, minimum_seconds + 10.0)
+    for count in range(1, 50001):
+        sample = sample_job()
+        now = time.monotonic()
+        if require_jit:
+            current = (sample.get("jitCompiledMethods"), sample.get("jitCompilationMilliseconds"))
+            if any(not isinstance(value, (int, float)) or value < 0 for value in current):
+                raise ValueError("Rebuild the managed warm driver with JIT readiness diagnostics")
+            if previous is not None and any(value < prior for value, prior in zip(current, previous)):
+                raise ValueError("Managed JIT readiness counters moved backwards")
+            if current != previous:
+                last_change, previous = now, current
+        if count >= 30 and now - start >= minimum_seconds and (not require_jit or now - last_change >= 2.0):
+            return {"jobs": count, "wallSeconds": now - start,
+                "jitQuietSeconds": now - last_change if require_jit else None,
+                "jitCompiledMethods": previous[0] if require_jit else None,
+                "jitCompilationMilliseconds": previous[1] if require_jit else None}
+        if now - start >= maximum_seconds:
+            raise RuntimeError("Managed compilation did not settle within the bounded warmup")
+    raise RuntimeError("Warmup exhausted its request allowance before reaching readiness")
+
+
 def measure_input_read(worker, path, expected, warmup_seconds):
     """Bounded managed-only component samples; complete jobs keep their own metrics."""
     samples = []
@@ -69,11 +95,9 @@ def measure_input_read(worker, path, expected, warmup_seconds):
             raise ValueError("Fresh full-input load differs from original")
         value["phase"] = phase
         samples.append(value)
+        return value
 
-    count = 0
-    while count < 30 or time.monotonic() - start < warmup_seconds:
-        sample("warmup")
-        count += 1
+    readiness = warm_up(lambda: sample("warmup"), warmup_seconds, True)
     for _ in range(30):
         sample("measurement")
     measured = [s for s in samples if s["phase"] == "measurement"]
@@ -82,7 +106,8 @@ def measure_input_read(worker, path, expected, warmup_seconds):
         "wallSeconds": time.monotonic() - start, "samples": samples,
         "summary": {"milliseconds": describe([s["elapsedMilliseconds"] for s in measured]),
             "allocatedBytes": statistics.mean(s["allocatedBytes"] for s in measured),
-            "measurementCount": len(measured), "warmupCount": count}}
+            "measurementCount": len(measured), "warmupCount": readiness["jobs"]},
+        "warmup": readiness}
 
 
 def selection_job(case, output):
@@ -152,7 +177,7 @@ def main():
     needed_inputs = {name for case in cases for name in case["Inputs"]}
     sources = {name: fingerprints(qpdf, root / "inputs" / name) for name in sorted(needed_inputs)}
     inputs = {p.name: {"sha256": sha(p), "bytes": p.stat().st_size} for p in (root / "inputs").glob("*.pdf")}
-    records, summaries, components = [], {}, {}
+    records, summaries, components, warmups = [], {}, {}, {}
     for case in cases:
         if args.file_input_selection:
             case = dict(case, Arguments=[arg for arg in case["Arguments"]
@@ -228,12 +253,9 @@ def main():
                 job(engine, "validation", -1)
             for name in case["Inputs"]:
                 (workload_inputs / name).read_bytes()
-            for engine in workers:
-                start = time.monotonic()
-                count = 0
-                while count < 30 or time.monotonic() - start < args.warmup_seconds:
-                    job(engine, "warmup", -1)
-                    count += 1
+            warmups[case["Name"]] = {engine: warm_up(
+                lambda: job(engine, "warmup", -1), args.warmup_seconds, engine != "native")
+                for engine in workers}
             batches = {e: [] for e in workers}
             for repetition in range(args.samples):
                 order = list(workers)
@@ -252,6 +274,11 @@ def main():
                 "outputBytes": sum(v["bytes"] for v in identities[e].values())} for e in workers}
             for engine in workers:
                 summaries[case["Name"]][engine]["outputs"] = identities[engine]
+                if engine != "native":
+                    last = next(r for r in reversed(records) if r["workload"] == case["Name"] and r["engine"] == engine)
+                    ready = warmups[case["Name"]][engine]
+                    summaries[case["Name"]][engine]["jitCompiledMethodsAfterWarmup"] = last["jitCompiledMethods"] - ready["jitCompiledMethods"]
+                    summaries[case["Name"]][engine]["jitCompilationMillisecondsAfterWarmup"] = last["jitCompilationMilliseconds"] - ready["jitCompilationMilliseconds"]
             summaries[case["Name"]]["ratio"] = summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["native"]["milliseconds"]["median"]
             if args.baseline_probe:
                 summaries[case["Name"]]["improvementPercent"] = 100 * (1 - summaries[case["Name"]]["managed"]["milliseconds"]["median"] / summaries[case["Name"]]["baseline"]["milliseconds"]["median"])
@@ -262,6 +289,8 @@ def main():
                     inputs[name]["sha256"], args.warmup_seconds)
                 print("input-read", json.dumps(components["input-read"]["summary"]), flush=True)
         finally:
+            # Keep validation/warmup observations too if readiness or execution fails.
+            (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
             for worker in workers.values():
                 worker.close()
         (root / "samples.json").write_text(json.dumps(records, indent=2) + "\n")
@@ -280,10 +309,13 @@ def main():
         "librarySHA256": sha(probe.parent / "Lokad.Qpdf.dll"), "probeSHA256": sha(probe),
         "driverSHA256": sha(driver), "nativeSHA256": sha(qpdf), "nativeCommit": PIN,
         "baselineProbeSHA256": sha(args.baseline_probe.resolve()) if args.baseline_probe else None,
+        "baselineLibrarySHA256": sha(args.baseline_probe.resolve().parent / "Lokad.Qpdf.dll") if args.baseline_probe else None,
         "dotnetInfo": run([dotnet, "--info"]).decode(), "cpu": run(["lscpu"]).decode(),
         "os": run(["uname", "-a"]).decode(), "compileCommand": compile_command,
         "protocol": "Fresh public jobs, warm runtime and file cache; only each workload's required inputs are exposed to both lanes; necessary host/file transport included; no parsed-document reuse, fsync, IPC, validation or cleanup in job timing. Sequential alternating batches; all samples retained. Each sample batch runs at least three jobs and the selected accumulated timed duration. Peak RSS is each dedicated workload worker's process high-water mark.",
-        "summary": summaries, "samples": records, "componentDiagnostics": components}
+        "summary": summaries, "samples": records, "componentDiagnostics": components,
+        "warmupDiagnostics": warmups,
+        "managedWarmup": "At least thirty fresh jobs and the selected minimum duration, then two seconds without changes in process-wide JIT method count or compilation time. Counters are outside job timing/allocation capture; bounded warmup, no parsed-document reuse."}
     (root / "results.json").write_text(json.dumps(result, indent=2) + "\n")
 
 

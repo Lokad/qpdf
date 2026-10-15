@@ -57,10 +57,14 @@ internal static class WarmCommand
             int? inputBytes = input?.Length;
             string? inputSha256 = input is null ? null : Convert.ToHexString(SHA256.HashData(input));
             input = null;
+            // Readiness diagnostics stay outside job timing and allocation capture.
+            long jitCompiledMethods = System.Runtime.JitInfo.GetCompiledMethodCount(false);
+            double jitCompilationMilliseconds = System.Runtime.JitInfo.GetCompilationTime(false).TotalMilliseconds;
             protocol.WriteLine("WARM " + JsonSerializer.Serialize(new
             {
                 elapsedMilliseconds = elapsed, exitCode = exit,
                 allocatedBytes, collections = collectionDelta, inputBytes, inputSha256,
+                jitCompiledMethods, jitCompilationMilliseconds,
             }));
             protocol.Flush();
             if (exit != 0) { return exit; }
