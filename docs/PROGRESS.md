@@ -23,6 +23,13 @@ wide/negative-field fallbacks for synchronous and retaining sinks. The final pai
 X100 medians 1.922 ->1.888 ms overlap; no firm speedup or allocation benefit is
 claimed. Integration qualification follows; the complete panel above is unchanged.
 
+The governor checks whether cancellation was requested before reading cleanup-
+suppression flags, and interval polling reuses that check. Work counters,
+intervals, requested cancellation and cleanup suppression remain. All 7,181
+affected governance/resource/publication/cancellation checks pass in 75s. A 68s
+paired X100 probe observes 1.918 ->1.840 ms with overlapping ranges; its 1.0031x
+native ratio is still above target. Final combined-source qualification follows.
+
 Qualified readonly parser tokens, single-entry copier reads, readonly writer
 fields and split async container state remain. The insensitive work-charging JIT
 hint stays restored, with its trial preserved.

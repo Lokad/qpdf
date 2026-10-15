@@ -893,7 +893,9 @@ internal sealed class ResourceGovernor
 
     internal void CheckCancellation()
     {
-        if (!_finishingDiagnosticFailure && !_finishingExecution && !_buildingExecutionResult) { _cancellationToken.ThrowIfCancellationRequested(); }
+        if (_cancellationToken.IsCancellationRequested
+            && !_finishingDiagnosticFailure && !_finishingExecution && !_buildingExecutionResult)
+        { _cancellationToken.ThrowIfCancellationRequested(); }
     }
 
     internal void NoteOperation()
@@ -906,7 +908,7 @@ internal sealed class ResourceGovernor
         if (_operationsSinceCheck >= _limits.CancellationCheckInterval)
         {
             _operationsSinceCheck = 0L;
-            if (!_finishingDiagnosticFailure && !_finishingExecution && !_buildingExecutionResult) { _cancellationToken.ThrowIfCancellationRequested(); }
+            CheckCancellation();
         }
     }
 
