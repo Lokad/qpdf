@@ -1,71 +1,55 @@
 # Progress
 
 Single-CPU warmed parity (<=1.0x) against pinned qpdf 12.4.2 remains open.
-Clean source `5854144` records 10/13 comparable file-backed medians at parity;
-sparse job JSON is 0.425x. Remaining cells: streamed-xref rewrite-X100 1.093x,
-ordinary rewrite-M500 1.069x and content-ID rewrite-ID-M500 1.037x.
-[Benchmarks](BENCHMARKS.md) contains current figures, ranges, resource measurements
-and commands in three tables. Separate panels establish no causal attribution;
-unchanged-source noise does not justify favorable reruns.
+Clean source `8cf8cfb` records 11/13 comparable file-backed medians at parity;
+sparse job JSON is 0.432x. Remaining full-panel cells: streamed-xref rewrite-X100
+1.150x and scalar-heavy rewrite-objects 1.131x. [Benchmarks](BENCHMARKS.md) contains
+current figures, ranges, resource measurements and commands in three tables.
+Separate panels establish no causal attribution; unchanged-source noise does not
+justify favorable reruns.
 
 Original `bf03d9a` memory-host results remain end-to-end evidence: fresh complete
 acquisition/registration, staging, defensive public output export and file writes.
 Native opens files and can read less. Original sparse 3.4732x stays unchanged;
-a different input path cannot substitute a pass. All 176 archived runs preserve
+a different input path cannot substitute a pass. All 182 archived runs preserve
 prior observations, including failed, slower and insensitive trials.
 
-## Current implementation
+## Current implementation and next correction
 
-Small fixed-byte writes now use the existing governed batching scratch when they
-fit, preserving the asynchronous/retaining fallback and large-write path. All 189
-affected checks and both strengthened boundary/alias cases pass. The paired
-streamed-xref rewrite records 1.995 ->1.983 ms, overlapping IQRs 1.993-2.199 /
-1.976-2.163, with approximately 561 KB allocated in both lanes. No speedup or
-allocation gain is established; all 4,689 observations remain. This local structural
-change will share a later integration checkpoint; current tables identify `5854144`.
+Small fixed-byte writes use existing governed batching scratch when they fit.
+Synchronous capability/flush checks, immutable retaining/async packets and large
+writes retain their existing behavior. All 189 affected checks and two strengthened
+boundary/caller-byte-alias cases pass. The paired rewrite's 1.995/1.983 ms ranges
+overlap; no speedup or allocation gain is established.
 
-Immutable names cache their existing bounded hash, and governed name-object lookup
-reuses it with unchanged work charges. All 192 affected checks pass. The paired
-streamed-xref rewrite falls 2.128 ->2.065 ms, with non-overlapping IQRs
-2.085-2.311 /2.032-2.074. Allocation rises approximately 493 B/job; the correction
-is retained for time reduction. All 4,664 observations and identical outputs remain.
-An integer-lookahead replay trial passed 1,327 checks but added state/allocation
-without a demonstrated gain; its patch, binaries and 4,571 observations remain,
-and the implementation is restored. Widening dictionary scratch was also rejected:
-all 100 pages in the original streamed-xref fixture already fit four entries.
+Immutable names cache their bounded hash, reused by governed name-object lookup
+with the same work charges and raw-byte comparison. All 192 affected checks pass.
+The streamed-xref pair falls 2.128 ->2.065 ms, with non-overlapping IQRs
+2.085-2.311 /2.032-2.074; allocation rises about 493 B/job. A scalar-heavy concern
+check records 24.268 ->24.799 ms with broadly overlapping ranges and about 81 KB
+more allocation. Its paired 0.907x does not close the full-panel 1.131x cell.
+The next correction moves cached hashes to the existing fixed shared-name vocabulary
+so ordinary names keep their prior footprint; final batch qualification follows.
 
-Scalar serialization, counted/shared token formatting and small writes return
-existing operations directly. This avoids redundant async state machines while
-preserving container recursion/order/depth, meaningful work and cancellation,
-bounded large writes and encoded-buffer ownership through awaited completion.
-Existing synchronous, retaining and async sink paths keep their publication and
-immutability behavior; there is no new buffer pool or ownership system.
-
-All 187 affected writer/public cancellation checks pass. The two paired streamed-
-xref rewrite probes record 2.490 ->2.355 ms and 2.276 ->2.158 ms. Both distributions
-overlap and allocate approximately 561 KB/job; no firm speedup or allocation gain
-is claimed. All 4,104/4,483 observations and byte-identical validated outputs remain.
-One test helper uses typed delegates to observe a direct private-method limit
-exception without reflection wrapping; its original budget, before-write rejection
-and cleanup assertions remain. The initial failed run remains recorded.
-
-Bounded argv/job selection retains catalog behavior, default recovery, stable
-leases and same-lease complete-read fallback. Single-source payload borrowing,
-bounded immutable publication packets, multisource independence and validated
-cache-capacity hints remain. Guard-disabled backing-retention regressions and
-representative public success/failure/cancellation jobs keep their safeguards.
+Rejected integer-lookahead replay passed 1,327 checks but added state/allocation
+without demonstrated target-workload benefit; its implementation is restored.
+The patch, artifacts and all 4,571 observations remain. Wider dictionary scratch
+was rejected before implementation: all 100 original streamed-xref pages already
+fit four entries. One existing six-second profile collected 2,136 hash-validated
+jobs; selected intervals are diagnostic, not native CPU ratios or retained-memory
+measurements. No forced collection was added.
 
 ## Verification
 
-Final-source qualification passes 26 fresh semantic outcomes plus three negatives,
-seven visual cases plus two negatives, locked Release restore/build/explicit pack,
-inspection, fresh consumer and rejection controls. The unchanged 2 MiB multisource
-consumer ceiling passes. All thirteen output sets match the preceding panel byte
-for byte; original inputs and all 172 prior archived run objects are unchanged.
-All 27,237 file/5,724 job observations remain.
+Source `8cf8cfb` passes 26 fresh semantic outcomes plus three negatives, seven visual
+cases plus two negatives, locked Release restore/build/explicit pack, inspection,
+fresh consumer and rejection controls. The unchanged 2 MiB multisource consumer
+ceiling passes. All thirteen output sets match the preceding panel byte for byte;
+original inputs and all 176 preceding archived run objects are unchanged.
+All 27,400 file/4,363 job observations remain.
 
-WSL build/semantics/file-panel/job phases take 17.70/27.49/215.44/18.69s;
-package/consumer takes 22.35s, visual 16.72s. Hosted Windows/Ubuntu ordinary and
+WSL build/semantics/file-panel/job phases take 16.59/32.55/220.33/20.21s;
+package/consumer takes 24.58s, visual 16.47s. Hosted Windows/Ubuntu ordinary and
 pinned-reference qualification, test logs/TRX and reference reports are available
 through [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
 
@@ -75,13 +59,15 @@ The [supported profile](SUPPORTED-PROFILE.md) remains delivered. CMYK/YCCK stays
 opaque, Zopfli is unavailable, and crypto including empty-password inputs is
 excluded. Other [compatibility requirements](COMPATIBILITY.md) are not waived.
 
-Memory accounting remains approximate: significant capacity, growth/copy overlap,
-allocation/decompression amplification, work/cancellation, cleanup, integrity and
-surviving aliases stay protected. Charges do not establish retained heap or RSS.
+Bounded argv/job reading, catalog/default recovery, stable leases/complete fallback,
+input funding/early closure, immutable publication packets and multisource
+independence remain. Approximate accounting protects significant capacity and
+copy/growth overlap, allocation/decompression amplification, work/cancellation,
+cleanup, integrity and surviving aliases. Charges are not retained heap or RSS.
 Exact CLR sizes, per-small-object/metadata-alias receipts, prescribed GC rounds and
 precise bookkeeping charges remain withdrawn; see
 [governance](SUPPORTED-PROFILE.md#governance).
 
-No CPU parallelism, forced production GC, parsed-document cache, runtime native
-bridge or new accounting/benchmark framework. Pins, five reviewed temporary
-ImageSharp 3.1.12 exceptions and release version remain. No tags or publication.
+No CPU parallelism, parsed-document cache, runtime native bridge or new accounting/
+benchmark framework. Pins, five reviewed temporary ImageSharp 3.1.12 exceptions and
+release version remain. No tags or publication.

@@ -1,27 +1,27 @@
 # Benchmarks
 
-Lokad.qpdf reaches ≤1.0× native qpdf 12.4.2 in **10 of 13** comparable warmed
-file-backed workloads; the target remains open. Release source `5854144`, unchanged
+Lokad.qpdf reaches ≤1.0× native qpdf 12.4.2 in **11 of 13** comparable warmed
+file-backed workloads; the target remains open. Release source `8cf8cfb`, unchanged
 fixtures/options, fresh inputs and file destinations. Median milliseconds/job
 (Q1–Q3); ratios use unrounded values. The extra job-JSON row tests the same sparse
 selection through both engines' job-file interfaces.
 
 | File-backed workload | Lokad.qpdf ms (Q1–Q3) | qpdf ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.53 (0.53–0.58) | 0.76 (0.75–0.77) | 0.7054× |
-| select-M500 | 15.95 (15.00–16.67) | 20.63 (20.09–21.71) | 0.7731× |
-| merge-250x2 | 18.26 (17.95–19.57) | 18.30 (18.26–18.41) | 0.9980× |
-| split-M500 | 23.45 (22.32–24.41) | 25.08 (24.96–25.74) | 0.9350× |
-| rewrite-M500 | 15.61 (15.25–16.34) | 14.61 (14.17–14.70) | 1.0688× |
-| rewrite-X100 | 2.02 (2.00–2.16) | 1.85 (1.72–1.94) | 1.0934× |
-| object-streams-X100 | 2.48 (2.29–3.67) | 2.60 (2.49–2.89) | 0.9542× |
-| linearize-M500 | 20.21 (19.00–21.68) | 20.36 (19.54–21.47) | 0.9927× |
-| check-X100 | 2.15 (2.15–2.23) | 2.33 (2.30–2.33) | 0.9259× |
-| rewrite-ID-M500 | 24.10 (21.31–24.40) | 23.25 (21.53–25.73) | 1.0367× |
-| rewrite-objects | 24.83 (24.43–25.41) | 25.98 (25.53–27.04) | 0.9557× |
-| select-sparse | 0.70 (0.67–0.70) | 1.66 (1.62–1.68) | 0.4200× |
-| split-single | 5.63 (5.39–5.68) | 6.69 (6.60–6.97) | 0.8414× |
-| select-sparse (job JSON) | 0.75 (0.72–0.79) | 1.76 (1.69–1.83) | 0.4251× |
+| select-S10 | 0.50 (0.49–0.51) | 0.70 (0.70–0.71) | 0.7184× |
+| select-M500 | 14.01 (13.61–14.34) | 18.69 (18.57–19.41) | 0.7497× |
+| merge-250x2 | 18.33 (18.14–19.77) | 19.20 (19.16–20.55) | 0.9544× |
+| split-M500 | 22.63 (22.57–24.79) | 24.83 (24.69–26.11) | 0.9113× |
+| rewrite-M500 | 15.97 (15.66–16.38) | 15.99 (15.11–16.47) | 0.9987× |
+| rewrite-X100 | 1.98 (1.92–2.21) | 1.72 (1.71–1.77) | 1.1498× |
+| object-streams-X100 | 2.52 (2.21–3.21) | 2.69 (2.59–2.88) | 0.9360× |
+| linearize-M500 | 18.29 (18.18–20.77) | 19.26 (18.92–20.28) | 0.9497× |
+| check-X100 | 2.43 (2.21–2.52) | 2.46 (2.39–2.87) | 0.9904× |
+| rewrite-ID-M500 | 21.80 (21.53–22.37) | 23.20 (22.75–23.74) | 0.9398× |
+| rewrite-objects | 35.54 (31.49–54.23) | 31.41 (29.91–32.38) | 1.1314× |
+| select-sparse | 0.73 (0.70–0.85) | 1.74 (1.63–1.85) | 0.4211× |
+| split-single | 5.23 (5.22–5.36) | 6.81 (6.78–7.04) | 0.7671× |
+| select-sparse (job JSON) | 0.96 (0.94–1.00) | 2.22 (2.09–2.57) | 0.4316× |
 
 Fixtures cover 10/500 pages, two 250-page inputs, streamed/incremental xrefs,
 2,000 reachable scalars, a 16 MiB omitted stream and 64 individual outputs.
@@ -58,20 +58,20 @@ set. Split sizes sum all outputs; valid physical layouts can differ.
 
 | File-backed workload | Managed MB allocated/job | Peak RSS MiB managed / native | Output KiB managed / native |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.071 | 73.9 / 6.3 | 3.9 / 4.1 |
-| select-M500 | 17.193 | 110.0 / 7.7 | 5096.3 / 5105.1 |
-| merge-250x2 | 22.321 | 113.8 / 8.4 | 5096.7 / 5105.5 |
-| split-M500 | 25.831 | 140.1 / 7.9 | 5101.1 / 5108.7 |
-| rewrite-M500 | 17.187 | 113.0 / 7.6 | 5096.3 / 5095.9 |
-| rewrite-X100 | 0.561 | 77.5 / 6.5 | 69.5 / 69.5 |
-| object-streams-X100 | 0.625 | 79.2 / 6.5 | 65.8 / 65.8 |
-| linearize-M500 | 18.987 | 114.4 / 8.1 | 5099.2 / 5109.0 |
-| check-X100 | 0.543 | 77.4 / 6.8 | 0.0 / 0.0 |
-| rewrite-ID-M500 | 17.189 | 116.2 / 7.8 | 5096.3 / 5095.9 |
-| rewrite-objects | 4.538 | 85.9 / 10.6 | 293.1 / 295.0 |
-| select-sparse | 0.132 | 74.2 / 6.3 | 1.1 / 1.1 |
-| split-single | 1.123 | 78.9 / 6.6 | 68.9 / 62.6 |
-| select-sparse (job JSON) | 0.158 | 75.7 / 6.6 | 1.1 / 1.1 |
+| select-S10 | 0.072 | 74.0 / 6.4 | 3.9 / 4.1 |
+| select-M500 | 17.193 | 111.3 / 7.7 | 5096.3 / 5105.1 |
+| merge-250x2 | 22.321 | 115.8 / 8.5 | 5096.7 / 5105.5 |
+| split-M500 | 25.832 | 142.4 / 7.9 | 5101.1 / 5108.7 |
+| rewrite-M500 | 17.188 | 111.7 / 7.6 | 5096.3 / 5095.9 |
+| rewrite-X100 | 0.562 | 77.3 / 6.5 | 69.5 / 69.5 |
+| object-streams-X100 | 0.625 | 79.1 / 6.5 | 65.8 / 65.8 |
+| linearize-M500 | 18.987 | 114.8 / 8.0 | 5099.2 / 5109.0 |
+| check-X100 | 0.543 | 77.6 / 6.8 | 0.0 / 0.0 |
+| rewrite-ID-M500 | 17.190 | 116.5 / 7.8 | 5096.3 / 5095.9 |
+| rewrite-objects | 4.620 | 88.3 / 10.5 | 293.1 / 295.0 |
+| select-sparse | 0.132 | 74.5 / 6.4 | 1.1 / 1.1 |
+| split-single | 1.128 | 77.7 / 6.5 | 68.9 / 62.6 |
+| select-sparse (job JSON) | 0.159 | 75.4 / 6.6 | 1.1 / 1.1 |
 
 Persistent workers warm for ≥30 fresh jobs/two seconds, then alternate seven
 sequential batches/engine, each ≥350 ms/three jobs. Both use warm ext4 caches,
