@@ -1872,7 +1872,7 @@
           "RecoveryHeaderTests.RecoveryEntriesUseCompleteHeadersRatherThanDigitSuffixes",
           "TolerantObjectLoadingTests.HostCeilingPreventsInvocationFromRaisingItsErrorBudget",
           "DocumentValueOwnerTests.ParsedByteStringsKeepOwnedBytesWhenInputAndPublicCopiesChange",
-          "DocumentValueOwnerTests.CollectedStandaloneValuesReleaseTheirAdmissionAcrossParserRoutes",
+          "DocumentValueOwnerTests.StandalonePayloadsDoNotRemainAnchoredToTheParser",
           "DocumentValueOwnerTests.FailedParsingPreservesIndependentAcceptedNumericText",
           "DocumentValueOwnerTests.FailedRetentionRollsBackOnlyItsNewCarriersAndCanRepeat",
           "DocumentValueOwnerTests.WorkFailureDuringIndexGrowthPreservesAcceptedValues",
