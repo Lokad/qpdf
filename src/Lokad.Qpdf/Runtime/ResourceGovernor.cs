@@ -303,15 +303,23 @@ internal sealed class ResourceGovernor
         else
         {
             long heldPublicationUnits = _publicationWork?.Remaining ?? 0L;
-            if (units > long.MaxValue - _reservedWork || units + _reservedWork > long.MaxValue - heldPublicationUnits
-                || units + _reservedWork + heldPublicationUnits > long.MaxValue - _reservedResultWork)
-            { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-            long capacity = units + _reservedWork + heldPublicationUnits + _reservedResultWork;
-            CheckWorkCapacity(capacity);
+            // Each reservation is admitted against the same remaining budget.
+            // Subtracting those nonnegative bounds cannot overflow; construct
+            // the potentially overflowing requested total only on failure.
+            long available = _limits.MaxWork - _totalWork - _reservedWork - heldPublicationUnits - _reservedResultWork;
+            if (units > available) { CheckReservedWorkCapacity(units, heldPublicationUnits); }
         }
         _totalWork = checked(_totalWork + units);
 
         NoteOperation();
+    }
+
+    private void CheckReservedWorkCapacity(long units, long heldPublicationUnits)
+    {
+        if (units > long.MaxValue - _reservedWork || units + _reservedWork > long.MaxValue - heldPublicationUnits
+            || units + _reservedWork + heldPublicationUnits > long.MaxValue - _reservedResultWork)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
+        CheckWorkCapacity(units + _reservedWork + heldPublicationUnits + _reservedResultWork);
     }
 
     internal void ChargeDecodedBytes(long bytes)

@@ -53,6 +53,30 @@ public sealed class GovernorTests
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
     }
 
+    [Theory]
+    [InlineData(100000L, false)]
+    [InlineData(100000L, true)]
+    [InlineData(long.MaxValue, false)]
+    [InlineData(long.MaxValue, true)]
+    public void WorkCapacityPreservesReservationsAndSaturatesOverflowDiagnostics(long maximum, bool reservePublication)
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxWork = maximum, MaxHostOperations = long.MaxValue }, CancellationToken.None);
+        using PublicationWorkReservation? publication = reservePublication
+            ? PublicationWorkReservation.Create(governor, maximum / 2L) : null;
+        long available = governor.RemainingWorkUnits;
+        governor.ChargeWork(available);
+        governor.ChargeWork(0L);
+        Assert.Equal(0L, governor.RemainingWorkUnits);
+        Assert.Equal(available, governor.Snapshot().TotalWork);
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
+        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
+        Assert.Equal(maximum == long.MaxValue ? long.MaxValue : maximum + 1L, failure.Requested);
+        failure = Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(long.MaxValue));
+        Assert.Equal(long.MaxValue, failure.Requested);
+        Assert.Equal(available, governor.Snapshot().TotalWork);
+        Assert.Equal(reservePublication ? maximum / 2L : 0L, publication?.Remaining ?? 0L);
+    }
+
     [Fact]
     public void HandleBudgetIsEnforced()
     {

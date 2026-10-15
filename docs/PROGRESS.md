@@ -29,6 +29,13 @@ and public construction/byte access still copy. Its paired X100 median decreases
 parallelism is introduced. Qualified ranged reading, immutable graph/payload reuse,
 coarse ownership and readonly token/writer-field handling remain.
 
+Work admission now subtracts admitted reservations once on the ordinary success
+path; the existing overflow/requested-total diagnostics remain on the failure path.
+Diagnostic presentation and publication charging are unchanged. All 7,181 existing
+governance cases and four finite/maximum-budget boundary cases pass. Paired X100
+falls1.9085->1.8234ms (non-overlapping IQR), allocation effectively unchanged;
+complete-panel qualification follows before any parity verdict.
+
 ## Verification
 
 Focused checks pass: 2,119 writer/inventory cases, 7,181 governance/publication/
