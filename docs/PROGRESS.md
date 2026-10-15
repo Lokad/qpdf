@@ -24,8 +24,13 @@ All 634 affected name/parser/selection/writer/publication/cancellation checks pa
 in 12s. Paired original X100 records 2.099 ->2.063 ms with overlapping ranges;
 fresh independently validated outputs match the baseline byte for byte. This
 removes redundant construction work; no confirmed speedup or allocation gain is
-claimed. Final batch qualification follows the remaining small writer correction.
-The previous shared-ancestry implementation remains qualified and closed.
+claimed. Final batch qualification follows these source commits.
+The writer's two private fixed-token tables now use concrete dictionary fields,
+removing interface dispatch at their lookup sites. All 344 affected encoding,
+formatting, writer/publication and public-cancellation checks pass in 7s. Token
+bytes/storage/lifetimes and immutability are unchanged; no separate speedup is
+claimed for the declaration change. The previous shared-ancestry implementation
+remains qualified and closed.
 
 Two bounded hash trials were restored after overlapping slower X100 results:
 raw syntax shortcuts 2.024 ->2.081 ms and bulk prefix hashing 2.190 ->2.259 ms.

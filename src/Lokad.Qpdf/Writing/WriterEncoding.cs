@@ -10,7 +10,7 @@ internal sealed class WriterEncoding : IDisposable
     private const int VisitBytes = 8192;
     // Fixed PDF syntax has process lifetime and is never exposed for mutation.
     // Borrow it through sink awaits instead of allocating a scope and buffer per token.
-    private static readonly IReadOnlyDictionary<string, ReadOnlyMemory<byte>> AsciiLiterals =
+    private static readonly Dictionary<string, ReadOnlyMemory<byte>> AsciiLiterals =
         new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
         {
             [" "] = " "u8.ToArray(), ["\n"] = "\n"u8.ToArray(),
@@ -25,7 +25,7 @@ internal sealed class WriterEncoding : IDisposable
             ["0"] = "0"u8.ToArray(), ["1"] = "1"u8.ToArray(), ["2"] = "2"u8.ToArray(),
             ["3"] = "3"u8.ToArray(), ["4"] = "4"u8.ToArray(),
         };
-    private static readonly IReadOnlyDictionary<PdfName, ReadOnlyMemory<byte>> NameLiterals =
+    private static readonly Dictionary<PdfName, ReadOnlyMemory<byte>> NameLiterals =
         new Dictionary<PdfName, ReadOnlyMemory<byte>>
         {
             [PdfName.FromAscii("Type")] = "/Type"u8.ToArray(),
