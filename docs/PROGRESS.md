@@ -15,6 +15,15 @@ a different path cannot substitute a pass. Every earlier observation remains.
 
 ## Current implementation
 
+Canonical integers 0–255 reuse a fixed set of immutable values instead of fresh
+objects and strings. Signed, padded and larger numbers preserve their text;
+public construction stays independent. The fixed set retains no document, input,
+host or governor. All 7,989 affected checks pass in 1m50s. One paired probe
+allocates 4,539 ->4,500 KB/job on scalar rewriting; its 23.87 ->22.31 ms ranges
+overlap. X100 timing is unchanged. Allocation is the retained benefit; final
+combined qualification follows. Both preceding reference-token shortcuts were
+restored after insensitive probes, with their raw evidence retained.
+
 The parser transfers its already-unique four-entry prefix through the existing
 insertion code without a second duplicate search. Frozen backing, order, repair,
 limits and cancellation remain. All 634 affected checks pass in 12s; the public

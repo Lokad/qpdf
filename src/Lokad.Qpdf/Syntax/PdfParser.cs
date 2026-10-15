@@ -545,10 +545,12 @@ internal sealed class PdfParser
     private PdfInteger ParseInteger(PdfToken token)
     {
         long value = ParseIntegerText(token);
-        // These ten immutable canonical values have process-lifetime storage,
+        // These bounded immutable canonical values have process-lifetime storage,
         // just like booleans/null. Keep signed and padded spellings independent.
-        if (token.Data.Length == 1 && token.Data.Span[0] is >= (byte)'0' and <= (byte)'9')
-        { return PdfInteger.GetSingleDigitValue((int)value); }
+        if ((ulong)value < PdfInteger.SharedValueCount
+            && token.Data.Span[0] is >= (byte)'0' and <= (byte)'9'
+            && (token.Data.Length == 1 || token.Data.Span[0] != (byte)'0'))
+        { return PdfInteger.GetSharedValue((int)value); }
         // Keep the original token for lossless writing. The numeric scan is
         // governed even for arbitrarily many leading zeros; admit the UTF-16
         // string and scalar before materializing them.

@@ -191,7 +191,11 @@ public sealed class NumericParserTests
     [InlineData("0", 0L)]
     [InlineData("7", 7L)]
     [InlineData("9", 9L)]
-    public void CanonicalDigitsShareImmutableValuesAcrossParsers(string text, long expected)
+    [InlineData("10", 10L)]
+    [InlineData("17", 17L)]
+    [InlineData("200", 200L)]
+    [InlineData("255", 255L)]
+    public void CanonicalSmallIntegersShareImmutableValuesAcrossParsers(string text, long expected)
     {
         PdfInteger first = ParseInteger(text);
         PdfInteger second = ParseInteger(text);
@@ -205,7 +209,10 @@ public sealed class NumericParserTests
     [InlineData("+7", 7L)]
     [InlineData("007", 7L)]
     [InlineData("-0", 0L)]
-    [InlineData("17", 17L)]
+    [InlineData("+17", 17L)]
+    [InlineData("017", 17L)]
+    [InlineData("-17", -17L)]
+    [InlineData("256", 256L)]
     public void OtherIntegerSpellingsKeepTheirOriginalText(string text, long expected)
     {
         PdfInteger first = ParseInteger(text);
