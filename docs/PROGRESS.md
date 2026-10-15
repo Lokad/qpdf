@@ -1,9 +1,9 @@
 # Progress
 
 Single-CPU warmed parity (<=1.0x) against pinned qpdf 12.4.2 remains open.
-Clean source `593f134` has 12/13 comparable file-backed medians at parity;
-sparse job JSON is 0.4554x. The remaining cell is rewrite-X100 at
-1.0245x (1.881/1.836 ms).
+Clean source `f555a11`: 10/13 file-backed medians at parity; equivalent sparse
+job JSON 0.3880x. Remaining cells: rewrite-M500 1.0113x, rewrite-X100 1.0708x,
+and linearize-M500 1.0636x.
 [Benchmarks](BENCHMARKS.md) leads with comparisons and resources in three tables.
 Separate panels establish no causal attribution; paired probes replace no cell.
 
@@ -14,41 +14,37 @@ a different path cannot substitute a pass. All earlier observations remain.
 
 ## Current implementation
 
-Writer counting/emission read each concrete dictionary entry once; array and
-dictionary emission have separate async routines. Sizing/filling borrow readonly
-fields through existing synchronous loops/private calls, with no borrow across
-an await or added storage. Ordering, null/Length handling, work/depth checks,
-cancellation and disposal remain. The 46s paired X100 medians 2.038 ->1.978 ms
-overlap, with unchanged allocation (537 KB/job); no firm speedup is claimed.
+Ten private parser helpers borrow readonly tokens; three copier loops read each
+dictionary-entry pair once. Grammar, lookahead, repair/offsets, ordering/null
+semantics, work and ownership remain, with no borrow across await or added storage.
+All 6,250 affected syntax/reader/writer/inventory checks pass in 69s. The 62s paired
+X100 medians 1.961 ->1.936 ms overlap, with unchanged allocation (537 KB/job);
+these structural removals carry no confirmed speedup/allocation-benefit claim.
+The insensitive work-charging JIT hint was restored (2.020 ->2.018 ms overlaps,
+allocation unchanged); its trial is preserved. Rebuilt binaries match the qualified
+source byte-for-byte, so its complete panel is retained without another rerun.
 
-The warm driver records process-wide JIT counters after timing/allocation capture.
-Warmup keeps thirty fresh jobs/two seconds minimum, then waits for two seconds
-without compilation changes, with bounded time/request limits. Raw results retain
-readiness and later compilation; earlier protocols/results stay intact. All fresh
-acquisition, parsing, staging/export and file writes remain timed. No parsed cache,
-forced production GC, CPU parallelism or new measurement framework is introduced.
-Private parser helpers now borrow readonly tokens, and three copier loops read
-one dictionary-entry pair per visit. No borrow crosses an await; grammar,
-lookahead, repair/offsets, work and ownership remain. All 6,250 affected checks
-pass in 69s. The 62s paired X100 medians 1.961 ->1.936 ms overlap, without a firm
-speedup claim. Integration qualification follows; the complete panel above
-remains the measured result.
-Qualified ranged selection/catalog/recovery/leases/fallback, immutable graph/payload
-reuse, coarse ownership, checked sizing and fixed canonical integer atoms remain.
+Bounded warmup keeps thirty fresh jobs/two seconds minimum, then waits for two
+seconds without JIT counter changes. Counters follow job timing/allocation capture;
+raw results retain readiness and later compilation. Earlier protocols/results
+remain intact. Fresh acquisition, parsing, staging/export and file writes stay
+timed. No parsed cache, forced production GC, CPU parallelism or new measurement
+framework is introduced. Qualified ranged selection/catalog/recovery/leases/
+fallback, immutable graph/payload reuse, coarse ownership, checked sizing, readonly
+writer fields and fixed canonical integer atoms remain.
 
 ## Verification
 
-All 2,117 affected writer/inventory checks pass in 44s; six readiness tests pass.
 Final source passes 26 fresh semantic outcomes/three negatives, seven visual cases/
 two negatives, locked Release restore/build/explicit pack, inspection, fresh
 consumer and rejection controls. The unchanged 2 MiB multisource ceiling passes.
-Original fixtures and all thirteen output sets are unchanged. The archive retains
-217 runs with all 214 preceding objects intact, including original memory evidence
-and rejected/slower/insensitive/outlier trials. All 66,717 file/13,459 job
+Original inputs and all thirteen output sets are unchanged. The archive retains
+221 runs with all 217 preceding objects intact, including original memory evidence
+and rejected/slower/insensitive/outlier trials. All 54,842 file/10,819 job
 observations from this final comparison remain.
 
-WSL build/semantics/file-panel/job phases take 25.38/27.42/401.49/38.55s;
-package/consumer takes 26.45s, visual 18.20s. Current WSL kernel is
+WSL build/semantics/file-panel/job phases take 32.71/36.15/416.74/29.98s;
+package/consumer takes 33.58s, visual 19.35s. Current WSL kernel is
 6.18.54.1; original memory-host evidence records 6.18.40.1. Previous batch
 `858d4af` passes [hosted CI](https://github.com/Lokad/qpdf/actions/runs/38687938181):
 Ubuntu 5m44s, Windows 6m54s, reference 5m38s; each platform passes 17,940 tests,
