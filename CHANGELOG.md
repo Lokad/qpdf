@@ -10,6 +10,5 @@
 - Enforce practical allocation, decompression and work limits with approximate memory estimates; observe cancellation during numeric and JPEG work. Clean up leases and temporary storage while preserving committed outputs and surviving immutable aliases. Runtime code never forces GC.
 - Qualify Windows/Ubuntu ordinary tests, pinned-native reference comparisons, seven finite visual cases and fresh locked package consumers, including rejection controls. Historical audit counts and exact CLR accounting are not release requirements.
 
-See [supported behavior](docs/SUPPORTED-PROFILE.md),
-[native differences and option evidence](docs/COMPATIBILITY.md) and
-[qualification results](docs/PROGRESS.md).
+See [supported behavior](docs/SUPPORTED-PROFILE.md) and
+[native differences and option evidence](docs/COMPATIBILITY.md).

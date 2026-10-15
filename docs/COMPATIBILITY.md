@@ -3,9 +3,8 @@
 Lokad.qpdf's agreed [supported profile](SUPPORTED-PROFILE.md) is qualified against
 qpdf **12.4.2** on implementation `219eca3`. It covers non-cryptographic PDF
 structural operations through typed, argv and job-JSON entry points. Local
-Windows and Ubuntu qualification passed; [progress](PROGRESS.md) records the
-results. Completion means delivering this profile, including its explicit
-limitations. Other required compatibility mismatches need a correction or an
+Windows and Ubuntu qualification passed. Completion means delivering this profile,
+including its explicit limitations. Other required compatibility mismatches need a correction or an
 explicit scope decision.
 
 ## Limitations that affect callers
@@ -110,8 +109,8 @@ changed behavior, failures or a specific unresolved concern. Historical case
 identities, counts, exact CLR receipts and prescribed GC rounds add no obligations.
 Practical byte/work/decompression limits, cancellation, cleanup and actual memory
 growth remain protected by the small representative workload set.
-See [development tooling](DEVELOPMENT.md) for commands and
-[progress](PROGRESS.md) for qualified source/artifact identities and timings.
+See [development tooling](DEVELOPMENT.md) for verification commands and
+[benchmarks](BENCHMARKS.md) for performance measurements and artifact identities.
 
 ## Codec implementation notes
 

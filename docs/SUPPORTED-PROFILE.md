@@ -5,7 +5,7 @@ reference target, known differences and per-option evidence.
 
 This is the agreed delivery profile, qualified on `219eca3` by local Windows
 and Ubuntu Release/package/consumer checks plus pinned-reference and finite
-visual checks; see [progress](PROGRESS.md). The accepted codec/build limitations
+visual checks. The accepted codec/build limitations
 remain explicit: four-component CMYK/YCCK JPEGs stay opaque with warnings where
 decoding is requested, and `--zopfli` fails explicitly with an unsupported-feature
 diagnostic and exit 2. These limitations have positive/negative controls; they
@@ -429,6 +429,5 @@ sanity checks release dropped orphans, while ordinary repair retains them under
 generated keys. Subtree receipts preserve independently loaded resolver/cache
 values. Finite-memory public bulk loads, retained aliases and post-overwrite
 failure/cancellation have regressions; public dictionary construction still
-copies caller storage. Integrated supported-profile qualification is recorded in
-[progress](PROGRESS.md). Concrete failures justify targeted corrections; there is
+copies caller storage. Concrete failures justify targeted corrections; there is
 no additional exhaustive cache/alias/BCL-container audit.

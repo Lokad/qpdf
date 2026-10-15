@@ -4,12 +4,12 @@ These instructions apply to this standalone repository.
 
 ## Scope and status
 
-Read `docs/PROGRESS.md`, `docs/COMPATIBILITY.md` and `ARCHITECTURE.md` before
+Read `docs/COMPATIBILITY.md` and `ARCHITECTURE.md` before
 implementation. Stay within the current requested task. A roadmap entry does
 not mean that functionality exists or that it has been verified.
 
 Implement authorized work in small, coherent local commits. Include meaningful
-tests and coverage/progress updates with each behavior change. Use imperative
+tests and relevant documentation updates with each behavior change. Use imperative
 `Area: summary` commit subjects, such as `Reader: resolve hybrid xrefs`.
 Keep commits buildable, preserve unrelated user edits, and continue without
 requesting approval after each authorized local commit. Pushing, tagging and
@@ -61,6 +61,6 @@ visible; `--check`, page-resource defaults and image processing span subsystems.
 Ordinary tests must work without `external/`; future reference-dependent jobs
 must be explicit and must not silently skip unavailable tools.
 
-Keep `docs/PROGRESS.md` concise enough for another agent to resume. Do not
+Keep documentation concise and current. Do not
 force-add ignored local plans, `external/`, packages or build outputs. Public files must
 contain no private repository details or machine-specific absolute paths.
