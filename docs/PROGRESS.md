@@ -14,19 +14,18 @@ slower and insensitive trials as well as useful corrections.
 
 ## Current batch
 
-Page materialization collects the four nearest non-null inherited attributes in
-one ancestry walk, then copies them in the existing key order. Four inline
-reference slots avoid an extra buffer. Single-key inspection shares parent
-resolution, cycle/depth checks and scoped traversal storage. Leaf precedence,
-indirect-null fallback, bounded work/cancellation and cleanup remain.
+The parser's bounded dictionary prefix already checks duplicate keys. Its final
+and spill transfers now append those proven-unique entries through the existing
+insertion code without searching again. Backing geometry, frozen enumeration,
+first-key/last-value repair, admission and cancellation remain. The public rewrite
+fixture also covers colliding hashes on both sides of the four-entry boundary.
 
-All 195 affected selection/merge/overlay/ranged/public-cancellation checks pass,
-including three public-route cases for nearest-parent precedence, indirect-null
-fallback and leaf overrides. Paired original X100 records 2.164 ->2.225 ms and
-M500 records 15.812 ->14.714 ms; both ranges overlap. The change removes repeated
-traversal; these timings establish no confirmed speedup. Fresh outputs match the
-baseline byte for byte. Paired allocation is effectively unchanged: about 561 KB/job
-for X100 and 17.19 MB/job for M500; sub-150 B fluctuations establish no heap gain.
+All 634 affected name/parser/selection/writer/publication/cancellation checks pass
+in 12s. Paired original X100 records 2.099 ->2.063 ms with overlapping ranges;
+fresh independently validated outputs match the baseline byte for byte. This
+removes redundant construction work; no confirmed speedup or allocation gain is
+claimed. Final batch qualification follows the remaining small writer correction.
+The previous shared-ancestry implementation remains qualified and closed.
 
 Two bounded hash trials were restored after overlapping slower X100 results:
 raw syntax shortcuts 2.024 ->2.081 ms and bulk prefix hashing 2.190 ->2.259 ms.

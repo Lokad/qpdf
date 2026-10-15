@@ -180,12 +180,29 @@ internal sealed class PdfNameTable<T> : IReadOnlyDictionary<PdfName, T>, IEnumer
             return false;
         }
         previous = default;
+        AppendEntry(memory, visits, key, value, hash);
+        return true;
+    }
+
+    // The parser's bounded prefix has already rejected equal keys. Transfer
+    // those entries without searching the destination for duplicates again.
+    internal void AppendKnownUnique(ParserMemoryScope memory, ResourceGovernor governor, PdfName key, T value,
+        CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(key); CheckConstruction(memory, governor);
+        Visits visits = new(governor, token, null);
+        int hash = visits.Hash(key);
+        AppendEntry(memory, visits, key, value, hash);
+    }
+
+    private void AppendEntry(ParserMemoryScope memory, Visits visits, PdfName key, T value, int hash)
+    {
         visits.Step();
         if (_count == Capacity)
         { Grow(memory, visits, (int)Math.Min(Array.MaxLength, Math.Max(3L, Capacity * 2L + 1L))); }
         int bucket = (int)((uint)hash % (uint)_buckets.Length);
         _entries[_count] = new Entry { Key = key, Hash = hash, Next = _buckets[bucket] - 1, Value = value };
-        _buckets[bucket] = ++_count; _version = unchecked(_version + 1); return true;
+        _buckets[bucket] = ++_count; _version = unchecked(_version + 1);
     }
 
     private int Find(PdfName key, Visits visits, out int hash)

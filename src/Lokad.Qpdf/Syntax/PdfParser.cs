@@ -757,7 +757,7 @@ internal sealed class PdfParser
         PdfNameTable<ParsedValue> entries = ParserContainers.CreateDictionary(Memory, _governor);
         entries.EnsureCapacity(Memory, _governor, count, _token);
         for (int index = 0; index < count; index++)
-        { entries.Assign(Memory, _governor, prefix[index].Key, prefix[index].Value, _token); }
+        { entries.AppendKnownUnique(Memory, _governor, prefix[index].Key, prefix[index].Value, _token); }
         prefix = default;
         Memory.Release(PdfNameTable<ParsedValue>.WrapperBytes);
         return entries;
@@ -768,7 +768,7 @@ internal sealed class PdfParser
         PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(Memory, _governor, IntPtr.Size, _token);
         entries.EnsureCapacity(Memory, _governor, count, _token);
         for (int index = 0; index < count; index++)
-        { entries.Assign(Memory, _governor, prefix[index].Key, prefix[index].Value.Value, _token); }
+        { entries.AppendKnownUnique(Memory, _governor, prefix[index].Key, prefix[index].Value.Value, _token); }
         entries.Freeze(Memory, _governor, _token);
         Memory.Reserve(32L);
         PdfDictionary result = PdfDictionary.FromOwnedEntries(entries);

@@ -8,15 +8,18 @@ namespace Lokad.Qpdf.Tests.Syntax;
 public sealed class DictionaryPrefixTests
 {
     [Theory]
-    [InlineData(3)]
-    [InlineData(4)]
-    [InlineData(5)]
-    [InlineData(9)]
-    public async Task PublicRewritePreservesDictionaryAcrossScratchBoundaryAndCleanup(int count)
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    [InlineData(5, false)]
+    [InlineData(9, false)]
+    [InlineData(4, true)]
+    [InlineData(5, true)]
+    public async Task PublicRewritePreservesDictionaryAcrossScratchBoundaryAndCleanup(int count, bool collisions)
     {
-        StringBuilder body = new("<< /A#30 (discard) /A0 [7 /Tag]");
-        for (int index = 1; index < count; index++) { body.Append($" /K{index} {index}"); }
-        body.Append(" /A0 (kept\\012) >>");
+        string prefix = collisions ? "abcdefghijklmnop" : string.Empty;
+        StringBuilder body = new($"<< /{prefix}A#30 (discard) /{prefix}A0 [7 /Tag]");
+        for (int index = 1; index < count; index++) { body.Append($" /{prefix}K{index} {index}"); }
+        body.Append($" /{prefix}A0 (kept\\012) >>");
         List<(int Number, string Body, byte[]? Data)> objects = CheckTests.SinglePage("<< /Length 0 >>", []);
         objects[0] = (1, "<< /Type /Catalog /Pages 2 0 R /Fixture 6 0 R >>", null);
         objects.Add((6, body.ToString(), null));
@@ -30,7 +33,8 @@ public sealed class DictionaryPrefixTests
             Assert.Equal(2, document.Warnings.Count(item => item.Code == QpdfDiagnosticCode.DuplicateKey));
         }
         IEnumerable<PdfName> keys = original.Keys;
-        Validate(original, count);
+        Validate(original, count, prefix);
+        if (collisions) { Assert.Single(keys.Select(key => key.GetHashCode()).Distinct()); }
 
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["in.pdf", "--static-id", "--stream-data=preserve", "out.pdf"]), CancellationToken.None);
@@ -48,23 +52,23 @@ public sealed class DictionaryPrefixTests
             PdfReference reference = Assert.IsType<PdfReference>(value);
             rewritten = Assert.IsType<PdfDictionary>(document.GetObject(reference.ObjectNumber));
         }
-        Validate(rewritten, count);
-        Validate(original, count);
-        Assert.Equal(new[] { "A0" }.Concat(Enumerable.Range(1, count - 1).Select(index => "K" + index)), keys.Select(key => key.DisplayText));
+        Validate(rewritten, count, prefix);
+        Validate(original, count, prefix);
+        Assert.Equal(new[] { prefix + "A0" }.Concat(Enumerable.Range(1, count - 1).Select(index => prefix + "K" + index)), keys.Select(key => key.DisplayText));
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    private static void Validate(PdfDictionary dictionary, int count)
+    private static void Validate(PdfDictionary dictionary, int count, string prefix)
     {
         Assert.Equal(count, dictionary.Count);
-        Assert.True(dictionary.TryGet(PdfName.FromAscii("A0"), out QpdfObject value));
+        Assert.True(dictionary.TryGet(PdfName.FromAscii(prefix + "A0"), out QpdfObject value));
         PdfByteString text = Assert.IsType<PdfByteString>(value);
         Assert.Equal("kept\n"u8.ToArray(), text.Value);
         byte[] copy = text.Value; Array.Clear(copy);
         Assert.Equal("kept\n"u8.ToArray(), text.Value);
         for (int index = 1; index < count; index++)
         {
-            Assert.True(dictionary.TryGet(PdfName.FromAscii("K" + index), out value));
+            Assert.True(dictionary.TryGet(PdfName.FromAscii(prefix + "K" + index), out value));
             Assert.Equal(index, Assert.IsType<PdfInteger>(value).Value);
         }
     }
