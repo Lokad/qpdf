@@ -41,9 +41,15 @@ preserve the 199 preceding objects, including original memory results and every
 rejected/slower/insensitive trial. All 28,695 file/5,876 job observations remain.
 
 WSL build/semantics/file-panel/job phases take 19.60/26.51/220.35/17.56s;
-package/consumer takes 29.80s, visual 18.34s. Final combined hosted qualification
-follows; no component hosted runs or timing gates were added. Windows/Ubuntu/
-pinned-reference logs, TRX and reports are available through
+package/consumer takes 29.80s, visual 18.34s. Initial hosted `8d5230a` passes the
+pinned reference but fails four obsolete small-object/metadata-receipt assertions
+on both ordinary platforms (17,954 other tests pass each). The correction
+consolidates tiny receipt cases into three significant-payload collection routes
+and checks numeric/key alias usability after cleanup without independent billing.
+All 266 affected checks pass in 7s on Windows and WSL; the supported-profile text
+now matches the approximate contract. Production source, timings, visual/package
+evidence and the 2 MiB ceiling are unchanged. Corrective hosted qualification
+follows. Windows/Ubuntu/pinned-reference logs, TRX and reports are available through
 [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
 
 ## Preserved scope

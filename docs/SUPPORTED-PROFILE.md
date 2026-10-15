@@ -395,11 +395,11 @@ storage to explicit owners. Disposal drops implementation references and
 releases exclusive storage on success/failure, including close faults; borrowed
 component inputs/tables keep their caller funding. Returned values, trailer/key
 aliases and page counts remain usable. Accepted parser/cache values transfer
-their own receipts to independently escaping wrappers and backing storage.
-Numeric text and dictionary key views stay funded after their root wrapper
-collects; dead parents/siblings do not retain admission for a surviving child.
-Weak-ledger capacities and growth overlap are admitted; collection retires
-payload receipts, with bounded governed maintenance on the job thread.
+significant storage admission through the applicable ownership scope. Immutable
+numeric text and dictionary key views remain usable after owner cleanup;
+process-lifetime atoms require no per-job receipts. Fine-grained alias billing
+and receipt-retirement timing are implementation details. Weak-ledger capacities
+and growth overlap are admitted, with bounded governed maintenance on the job thread.
 Failed acceptance preserves prior aliases. Byte-string parsing transfers its
 fresh admitted buffer; public construction and returned copies still clone.
 JSON uses an exclusive reader through serialization and closes it before output

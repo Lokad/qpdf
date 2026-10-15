@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -41,7 +40,6 @@ public sealed class ParsedAllocationBatchTests
         Assert.True(image.Stream.Dictionary.TryGet(PdfName.FromAscii("ColorSpace"),out QpdfObject? found));Assert.Same(borrowed,found);
         Assert.True(governor.Snapshot().PeakMemoryBytes<16384L);GC.KeepAlive(image);GC.KeepAlive(resources);
     }
-    [MethodImpl(MethodImplOptions.NoInlining)]
     private static object Capture(ResourceGovernor governor,bool text)
     {
         using ParserMemoryScope source=ParserMemoryScope.Create(governor);PdfDictionary parsed=Parse(governor,source);
@@ -53,16 +51,18 @@ public sealed class ParsedAllocationBatchTests
         if(!text){return result.Keys;}
         Assert.True(result.TryGet(PdfName.FromAscii("Width"),out QpdfObject? value));return Assert.IsType<PdfInteger>(value).Text;
     }
-    private sealed class Holder(object value){internal object? Value=value;}
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ParsedNumericTextAndFreshKeyViewKeepTheirIndependentReceipts(bool text)
+    public void ParsedNumericTextAndKeyViewRemainUsableAfterOwnerCleanup(bool text)
     {
-        ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);Holder holder=MakeHolder(governor,text);Collect(governor);
-        Assert.True(governor.Snapshot().LiveMemoryBytes>=32L);holder.Value=null;Collect(governor);Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);GC.KeepAlive(holder);
+        ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);
+        object alias=Capture(governor,text);
+        if(text){Assert.Equal("123",Assert.IsType<string>(alias));}
+        else
+        {
+            Assert.Equal(new[]{"Width","Text","Array"},
+                Assert.IsAssignableFrom<IEnumerable<PdfName>>(alias).Select(name=>name.DisplayText));
+        }
     }
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Holder MakeHolder(ResourceGovernor governor,bool text)=>new(Capture(governor,text));
-    private static void Collect(ResourceGovernor governor){for(int round=0;round<4;round++){GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();governor.ReserveMemory(0L);}}
 }

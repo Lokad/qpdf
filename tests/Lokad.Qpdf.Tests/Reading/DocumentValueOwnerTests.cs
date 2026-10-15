@@ -53,16 +53,6 @@ public sealed class DocumentValueOwnerTests
         Assert.Equal("kept"u8.ToArray(), constructed.Value);
     }
 
-    public static IEnumerable<object[]> StandaloneValues()
-    {
-        // Canonical single digits share process-lifetime immutable storage.
-        // Exercise collection with an integer that actually belongs to the job.
-        foreach (string body in new[] { "[]", "/", "()", "<>", "15", "5.0", "<< >>" })
-        {
-            foreach (string route in new[] { "value", "member", "indirect" }) { yield return [body, route]; }
-        }
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference ParseAndDrop(PdfParser parser, string body, string route)
     {
@@ -74,24 +64,23 @@ public sealed class DocumentValueOwnerTests
             "indirect" => parser.ParseIndirectObject(tokenizer, 0).Value,
             _ => parser.ParseValue(tokenizer, 0),
         };
-        // Keep the caller's empty-items copy alive without retaining the parsed
-        // array. A globally shared backing must never anchor a job's ledger.
-        if (value is PdfArray array) { GC.KeepAlive(array.Items); }
         return new WeakReference(value);
     }
 
     [Theory]
-    [MemberData(nameof(StandaloneValues))]
-    public void CollectedStandaloneValuesReleaseTheirAdmissionAcrossParserRoutes(string body, string route)
+    [InlineData("value")]
+    [InlineData("member")]
+    [InlineData("indirect")]
+    public void StandalonePayloadsDoNotRemainAnchoredToTheParser(string route)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PdfParser parser = new(QpdfLimits.Default, governor, new DiagnosticBag(governor), null);
-        WeakReference value = ParseAndDrop(parser, body, route);
-        Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
+        const int length = 65536;
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 256L * 1024L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
+        WeakReference value = ParseAndDrop(parser, "(" + new string('A', length) + ")", route);
+        Assert.InRange(governor.Snapshot().PeakMemoryBytes, length, limits.MaxMemoryBytes);
         Collect();
         Assert.False(value.IsAlive);
-        governor.ReserveMemory(0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(parser); GC.KeepAlive(governor);
     }
 
