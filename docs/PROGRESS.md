@@ -30,6 +30,14 @@ affected governance/resource/publication/cancellation checks pass in 75s. A 68s
 paired X100 probe observes 1.918 ->1.840 ms with overlapping ranges; its 1.0031x
 native ratio is still above target. Final combined-source qualification follows.
 
+The internal ASCII-name factory now reuses the existing twelve immutable syntax
+values. Unknown names keep ASCII validation and separate storage; public byte-array
+construction still copies. Shared-pool initialization uses the existing unshared
+creation path, avoiding recursion. All 6,277 affected syntax/reader/writer/ownership
+checks pass in 65s. The paired X100 median falls 1.932 ->1.895 ms (non-overlapping
+interquartile ranges), and allocation falls about 389 B/job. This is fixed syntax
+reuse, with no new name pool or document cache. Final qualification follows.
+
 Qualified readonly parser tokens, single-entry copier reads, readonly writer
 fields and split async container state remain. The insensitive work-charging JIT
 hint stays restored, with its trial preserved.

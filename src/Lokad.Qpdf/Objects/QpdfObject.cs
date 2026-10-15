@@ -192,9 +192,9 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
     {
         internal static readonly PdfName[] Values =
         [
-            FromAscii("Type"), FromAscii("Page"), FromAscii("Pages"), FromAscii("Parent"),
-            FromAscii("Length"), FromAscii("Resources"), FromAscii("Contents"), FromAscii("Kids"),
-            FromAscii("Count"), FromAscii("MediaBox"), FromAscii("Catalog"), FromAscii("Font"),
+            CreateAscii("Type"), CreateAscii("Page"), CreateAscii("Pages"), CreateAscii("Parent"),
+            CreateAscii("Length"), CreateAscii("Resources"), CreateAscii("Contents"), CreateAscii("Kids"),
+            CreateAscii("Count"), CreateAscii("MediaBox"), CreateAscii("Catalog"), CreateAscii("Font"),
         ];
         internal static readonly int[] Hashes = Array.ConvertAll(Values, static name => CalculateHash(name._raw));
     }
@@ -245,7 +245,7 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 
     internal static PdfName FromOwnedBytes(byte[] rawBytes) => new(rawBytes, false);
 
-    /// <summary>Creates a name from ASCII text, rejecting non-ASCII input.</summary>
+    /// <summary>Gets an immutable ASCII name, reusing the finite syntax vocabulary.</summary>
     /// <exception cref="ArgumentNullException">The text is null.</exception>
     /// <exception cref="ArgumentException">The text is not ASCII.</exception>
     internal static PdfName FromAscii(string text)
@@ -255,6 +255,18 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
             throw new ArgumentNullException(nameof(text));
         }
 
+        int index = text switch
+        {
+            "Type" => 0, "Page" => 1, "Pages" => 2, "Parent" => 3,
+            "Length" => 4, "Resources" => 5, "Contents" => 6, "Kids" => 7,
+            "Count" => 8, "MediaBox" => 9, "Catalog" => 10, "Font" => 11,
+            _ => -1,
+        };
+        return index < 0 ? CreateAscii(text) : SharedSyntaxNames.Values[index];
+    }
+
+    private static PdfName CreateAscii(string text)
+    {
         byte[] raw = new byte[text.Length];
         for (int i = 0; i < text.Length; i++)
         {

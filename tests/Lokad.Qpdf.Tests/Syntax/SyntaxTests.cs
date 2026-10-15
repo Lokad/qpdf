@@ -332,6 +332,28 @@ public sealed class ParserTests
 public sealed class ObjectModelTests
 {
     [Fact]
+    public void CommonAsciiNamesReuseImmutableSyntaxValuesWhilePublicConstructionCopies()
+    {
+        string[] names = ["Type", "Page", "Pages", "Parent", "Length", "Resources",
+            "Contents", "Kids", "Count", "MediaBox", "Catalog", "Font"];
+        foreach (string text in names)
+        {
+            byte[] raw = Encoding.ASCII.GetBytes(text);
+            PdfName shared = PdfName.FromAscii(text);
+            Assert.Same(PdfName.FindSharedAscii(raw), shared);
+            PdfName independent = new(raw);
+            Assert.NotSame(shared, independent);
+            raw[0] = 0;
+            byte[] returned = shared.RawBytes;
+            returned[0] = 0;
+            Assert.Equal(text, shared.DisplayText);
+            Assert.Equal(text, independent.DisplayText);
+        }
+        Assert.NotSame(PdfName.FromAscii("CallerKey"), PdfName.FromAscii("CallerKey"));
+        Assert.Throws<ArgumentException>(() => PdfName.FromAscii("Typé"));
+    }
+
+    [Fact]
     public void NamesCompareByRawBytes()
     {
         Assert.Equal(new PdfName([(byte)'A']), new PdfName([(byte)'A']));
