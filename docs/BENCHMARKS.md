@@ -1,30 +1,30 @@
 # Benchmarks
 
-Lokad.qpdf reaches ≤1.0× native qpdf 12.4.2 in **10 of 13** comparable warmed
-file-backed workloads; the target remains open. Release source `f555a11`, unchanged
+Lokad.qpdf reaches ≤1.0× native qpdf 12.4.2 in **12 of 13** comparable warmed
+file-backed workloads; the target remains open. Release source `6b0bc0e`, unchanged
 fixtures/options, fresh inputs and file destinations. Median milliseconds/job
 (Q1–Q3); ratios use unrounded values. The extra job-JSON row tests the same sparse
 selection through both engines' job-file interfaces.
 
 | File-backed workload | Lokad.qpdf ms (Q1–Q3) | qpdf ms (Q1–Q3) | M/N |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.87 (0.81–1.87) | 1.09 (1.06–1.33) | 0.8017× |
-| select-M500 | 39.25 (34.55–40.49) | 47.16 (45.96–50.59) | 0.8323× |
-| merge-250x2 | 18.72 (18.38–20.79) | 23.89 (21.62–25.02) | 0.7834× |
-| split-M500 | 23.54 (23.42–24.23) | 26.26 (26.08–27.00) | 0.8966× |
-| rewrite-M500 | 14.33 (14.29–14.40) | 14.17 (14.15–14.39) | 1.0113× |
-| rewrite-X100 | 1.94 (1.91–2.01) | 1.81 (1.78–1.89) | 1.0708× |
-| object-streams-X100 | 2.04 (2.02–2.07) | 2.35 (2.34–2.36) | 0.8674× |
-| linearize-M500 | 21.18 (19.52–22.45) | 19.91 (19.87–21.47) | 1.0636× |
-| check-X100 | 2.64 (2.40–3.05) | 2.75 (2.58–4.08) | 0.9593× |
-| rewrite-ID-M500 | 20.74 (20.68–21.05) | 22.81 (22.68–22.87) | 0.9094× |
-| rewrite-objects | 21.76 (21.70–21.96) | 25.28 (25.20–25.48) | 0.8608× |
-| select-sparse | 0.66 (0.65–0.66) | 1.64 (1.62–1.66) | 0.4007× |
-| split-single | 5.32 (5.22–5.42) | 6.59 (6.56–6.70) | 0.8072× |
-| select-sparse (job JSON) | 0.70 (0.70–0.71) | 1.80 (1.78–1.80) | 0.3880× |
+| select-S10 | 0.46 (0.46–0.47) | 0.69 (0.69–0.70) | 0.6636× |
+| select-M500 | 13.68 (13.56–13.76) | 20.17 (19.79–20.40) | 0.6783× |
+| merge-250x2 | 16.71 (16.59–18.66) | 18.64 (18.53–19.39) | 0.8963× |
+| split-M500 | 22.71 (22.53–22.89) | 25.10 (24.06–25.15) | 0.9048× |
+| rewrite-M500 | 13.65 (13.29–13.83) | 13.96 (13.41–14.34) | 0.9782× |
+| rewrite-X100 | 1.87 (1.82–2.65) | 1.81 (1.79–2.20) | 1.0307× |
+| object-streams-X100 | 3.69 (3.68–3.78) | 7.69 (7.63–8.00) | 0.4804× |
+| linearize-M500 | 19.49 (19.27–20.38) | 21.28 (21.07–22.09) | 0.9159× |
+| check-X100 | 1.98 (1.97–1.98) | 2.25 (2.24–2.26) | 0.8775× |
+| rewrite-ID-M500 | 20.61 (20.55–20.70) | 22.76 (22.69–23.55) | 0.9058× |
+| rewrite-objects | 21.59 (20.17–28.76) | 28.32 (26.84–46.05) | 0.7622× |
+| select-sparse | 0.98 (0.93–1.27) | 2.14 (2.05–3.28) | 0.4563× |
+| split-single | 5.57 (5.41–5.93) | 7.14 (7.05–7.19) | 0.7804× |
+| select-sparse (job JSON) | 0.77 (0.75–0.78) | 1.78 (1.75–1.94) | 0.4344× |
 
-Selection timings show substantial variability in this run; all samples remain
-recorded and no speedup is inferred from separate panels.
+Host snapshots show 97.5% idle before and 21.8% after, with background scan activity.
+All observations are retained; separate panels establish no causal speedup.
 
 Fixtures cover 10/500 pages, two 250-page inputs, streamed/incremental xrefs,
 2,000 reachable scalars, a 16 MiB omitted stream and 64 individual outputs.
@@ -61,20 +61,20 @@ set. Split sizes sum all outputs; valid physical layouts can differ.
 
 | File-backed workload | Managed MB allocated/job | Peak RSS MiB managed / native | Output KiB managed / native |
 | --- | ---: | ---: | ---: |
-| select-S10 | 0.076 | 74.6 / 6.3 | 3.9 / 4.1 |
-| select-M500 | 17.192 | 157.7 / 7.8 | 5096.3 / 5105.1 |
-| merge-250x2 | 22.320 | 147.7 / 8.4 | 5096.7 / 5105.5 |
-| split-M500 | 25.832 | 139.0 / 8.0 | 5101.1 / 5108.7 |
-| rewrite-M500 | 17.187 | 112.4 / 7.5 | 5096.3 / 5095.9 |
-| rewrite-X100 | 0.537 | 78.4 / 6.5 | 69.5 / 69.5 |
-| object-streams-X100 | 0.625 | 80.6 / 6.5 | 65.8 / 65.8 |
-| linearize-M500 | 18.987 | 118.1 / 8.1 | 5099.2 / 5109.0 |
-| check-X100 | 0.518 | 83.2 / 6.8 | 0.0 / 0.0 |
-| rewrite-ID-M500 | 17.190 | 117.5 / 7.8 | 5096.3 / 5095.9 |
-| rewrite-objects | 4.501 | 85.4 / 10.6 | 293.1 / 295.0 |
-| select-sparse | 0.132 | 75.1 / 6.3 | 1.1 / 1.1 |
-| split-single | 1.119 | 81.2 / 6.6 | 68.9 / 62.6 |
-| select-sparse (job JSON) | 0.158 | 82.0 / 6.5 | 1.1 / 1.1 |
+| select-S10 | 0.075 | 74.6 / 6.4 | 3.9 / 4.1 |
+| select-M500 | 17.192 | 113.7 / 7.7 | 5096.3 / 5105.1 |
+| merge-250x2 | 22.319 | 113.3 / 8.3 | 5096.7 / 5105.5 |
+| split-M500 | 25.827 | 145.1 / 7.9 | 5101.1 / 5108.7 |
+| rewrite-M500 | 17.186 | 120.8 / 7.5 | 5096.3 / 5095.9 |
+| rewrite-X100 | 0.536 | 77.5 / 6.5 | 69.5 / 69.5 |
+| object-streams-X100 | 0.624 | 80.9 / 6.4 | 65.8 / 65.8 |
+| linearize-M500 | 18.987 | 154.3 / 8.1 | 5099.2 / 5109.0 |
+| check-X100 | 0.518 | 83.2 / 6.7 | 0.0 / 0.0 |
+| rewrite-ID-M500 | 17.189 | 115.4 / 7.7 | 5096.3 / 5095.9 |
+| rewrite-objects | 4.500 | 87.3 / 10.5 | 293.1 / 295.0 |
+| select-sparse | 0.132 | 75.8 / 6.3 | 1.1 / 1.1 |
+| split-single | 1.094 | 79.5 / 6.6 | 68.9 / 62.6 |
+| select-sparse (job JSON) | 0.158 | 82.3 / 6.6 | 1.1 / 1.1 |
 
 Persistent workers run ≥30 fresh jobs/two seconds; managed revisions also wait
 for two seconds without JIT method-count/compilation-time changes (bounded warmup).
@@ -118,8 +118,8 @@ cmake -S external/qpdf -B external/qpdf-linux-build -G Ninja \
 cmake --build external/qpdf-linux-build --target qpdf --parallel 4
 dotnet restore benchmarks/Lokad.Qpdf.Benchmarks --locked-mode
 dotnet restore tools/QpdfProbe --locked-mode
-dotnet build benchmarks/Lokad.Qpdf.Benchmarks -c Release --no-restore
-dotnet build tools/QpdfProbe -c Release --no-restore
+dotnet build benchmarks/Lokad.Qpdf.Benchmarks -c Release --no-restore --disable-build-servers
+dotnet build tools/QpdfProbe -c Release --no-restore --disable-build-servers
 # Generate MIT-licensed fixtures; measure fresh processes separately.
 python3 tools/compare-linux-performance.py --repo "$PWD" \
   --dotnet "$(command -v dotnet)" --qpdf "$PWD/external/qpdf-linux-build/qpdf/qpdf" \
