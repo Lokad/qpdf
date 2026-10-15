@@ -1,59 +1,82 @@
 # Lokad.qpdf
 
-A .NET 10 library project for independently implementing qpdf's
-non-cryptographic PDF structural operations in managed, memory-safe C#.
-The intended embedding boundary is explicit inputs, host-mediated effects,
-resource limits, and structured outputs and diagnostics.
+Lokad.qpdf is a .NET 10 library for splitting, merging, reordering, checking and
+rewriting PDF documents. It implements qpdf's non-cryptographic operations in
+managed C#, with no native qpdf installation required at runtime.
 
-**Current status: the agreed supported profile is qualified.** The `0.1.0-alpha.1` package
-implements qpdf's non-cryptographic structural operations (strict reading with recovery,
-page selection and merge, writer controls, content transforms, overlays, appearances, JPEG
-processing, QDF, and linearization) through typed, argv, and job JSON routes with staged
-publication. See `docs/SUPPORTED-PROFILE.md` for the exact profile and
-`docs/COMPATIBILITY.md` for caller-facing limitations, known differences and the option inventory.
+Use typed C# methods, qpdf-style arguments or job JSON from your application.
+The library is currently prerelease and targets compatibility with qpdf 12.4.2;
+see [compatibility](docs/COMPATIBILITY.md) for supported behavior and differences.
 
-The compatibility target is qpdf **12.4.2**, commit
-`4eba95899886e851cc41d76886483b347612f2a8`. The initial inventory accounts for
-140 documented flags across 157 option/context entries; this is a scope map,
-not implemented feature coverage.
+## What you can do
 
-## Requirements
+- Extract, reorder, duplicate, merge, split and rotate pages.
+- Inspect document structure, check PDFs, and manage attachments and metadata.
+- Rewrite PDFs with compression, object streams and linearization for web delivery.
+- Apply overlays and underlays, generate form appearances, flatten annotations,
+  and process grayscale/RGB JPEG images.
 
-- Released .NET 10 SDK, pinned by `global.json`.
-- Public NuGet access for the first restore; later locked restores can use a
-  populated package cache.
-- PowerShell 7 for the package inspection script, including on Linux.
+## Example: reorder pages
 
-## Build and verify
+Reference the `Lokad.qpdf` package in a .NET 10 application. This example copies
+pages 2 and 1, in that order, from a PDF with at least two pages:
+
+```csharp
+using Lokad.Qpdf;
+using Lokad.Qpdf.Hosting;
+
+var host = new InMemoryQpdfHost();
+var input = QpdfPath.From("input.pdf");
+var output = QpdfPath.From("output.pdf");
+host.AddInput(input, await File.ReadAllBytesAsync("input.pdf"), QpdfInputOwnership.Copy);
+
+PdfPageSelectionResult result = await Qpdf.SelectPageAsync(
+    host, input, output,
+    PdfPageSelectionOptions.FromPages([2, 1]),
+    CancellationToken.None);
+
+if (!host.TryGetOutput(output, out byte[] bytes))
+{
+    throw new InvalidOperationException("No PDF was produced.");
+}
+
+await File.WriteAllBytesAsync("reordered.pdf", bytes);
+Console.WriteLine($"Wrote {result.PageCount} pages.");
+```
+
+The included host keeps PDFs in memory; your application handles file or cloud
+storage. Implement `IQpdfHost` to connect other storage directly. Operations accept
+cancellation tokens and configurable limits for input/output size, estimated memory
+and work. Results include warnings and resource counters.
+
+For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
+and `Qpdf.ExecuteJobAsync` accepts job JSON.
+
+## Limitations
+
+Encrypted PDFs, passwords, encryption/decryption and signature processing are
+unsupported. Rendering, OCR and text extraction are outside the library's scope.
+CMYK/YCCK JPEG images remain opaque when decoding is requested; Zopfli compression
+is unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
+
+## Build from source
+
+Use the .NET SDK pinned in `global.json`:
 
 ```sh
 dotnet restore Lokad.Qpdf.slnx --locked-mode
 dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
 dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
-pwsh -File tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
-pwsh -File tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
-pwsh -File tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.1.0-alpha.1.nupkg
 ```
 
-The library uses namespace/assembly `Lokad.Qpdf` and package ID `Lokad.qpdf`.
-Only explicit Release packing produces packages. Ordinary tests and builds
-do not require an upstream checkout, qpdf executable, Python, or a renderer.
-CI runs the offline checks plus the package consumer smoke on Windows and Linux.
+The package is written to `artifacts/nuget`. Ordinary builds and tests require no
+native qpdf or other external PDF tools. Package verification and reference checks
+are covered in the [development guide](docs/DEVELOPMENT.md).
 
-## Scope and dependencies
+- [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
+- [Benchmarks](docs/BENCHMARKS.md): current timing, memory and output-size comparisons.
+- [Architecture](ARCHITECTURE.md): components, storage boundaries and resource ownership.
+- [Development](docs/DEVELOPMENT.md): contribution workflow, tests and package verification.
 
-Passwords, encryption/decryption, cryptographic options, signing and signature
-validation are excluded. Rendering, OCR and text layout are outside the target.
-The implementation must not vendor code or depend on qpdf/libqpdf, wrappers,
-native PDF engines or subprocess fallbacks.
-
-The sole approved runtime package is **SixLabors.ImageSharp 3.1.12**, reserved
-for the governed JPEG adapter. Its exact version is pinned in the central
-versions, lock files and produced package dependency. SourceLink and test
-packages are development dependencies only.
-
-See `docs/COMPATIBILITY.md` for scope, `ARCHITECTURE.md` for the implemented
-boundary, `docs/DEVELOPMENT.md` for tooling, and `docs/PROGRESS.md` for current
-delivery status. These documents distinguish planned behavior from code
-that already exists.
+Licensed under the [MIT license](LICENSE.txt).
