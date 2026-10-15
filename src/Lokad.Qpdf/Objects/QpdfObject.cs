@@ -173,7 +173,6 @@ public sealed class PdfReal : QpdfObject, IEquatable<PdfReal>
 public sealed class PdfName : QpdfObject, IEquatable<PdfName>
 {
     private readonly byte[] _raw;
-    private readonly int _hash;
 
     // A finite syntax vocabulary, independent of any input or execution owner.
     // Public byte access still returns copies. Arbitrary/escaped names are owned.
@@ -185,17 +184,26 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
             FromAscii("Length"), FromAscii("Resources"), FromAscii("Contents"), FromAscii("Kids"),
             FromAscii("Count"), FromAscii("MediaBox"), FromAscii("Catalog"), FromAscii("Font"),
         ];
+        internal static readonly int[] Hashes = Array.ConvertAll(Values, static name => CalculateHash(name._raw));
     }
 
     internal static PdfName? FindSharedAscii(ReadOnlySpan<byte> raw)
     {
-        if (raw.Length is < 4 or > 9) { return null; }
-        foreach (PdfName name in SharedSyntaxNames.Values)
-        {
-            if (raw.SequenceEqual(name._raw)) { return name; }
-        }
-        return null;
+        int index = SharedSyntaxIndex(raw);
+        return index < 0 ? null : SharedSyntaxNames.Values[index];
     }
+
+    private static int SharedSyntaxIndex(ReadOnlySpan<byte> raw) => raw.Length switch
+    {
+        4 => raw.SequenceEqual("Type"u8) ? 0 : raw.SequenceEqual("Page"u8) ? 1
+            : raw.SequenceEqual("Kids"u8) ? 7 : raw.SequenceEqual("Font"u8) ? 11 : -1,
+        5 => raw.SequenceEqual("Pages"u8) ? 2 : raw.SequenceEqual("Count"u8) ? 8 : -1,
+        6 => raw.SequenceEqual("Parent"u8) ? 3 : raw.SequenceEqual("Length"u8) ? 4 : -1,
+        7 => raw.SequenceEqual("Catalog"u8) ? 10 : -1,
+        8 => raw.SequenceEqual("Contents"u8) ? 6 : raw.SequenceEqual("MediaBox"u8) ? 9 : -1,
+        9 => raw.SequenceEqual("Resources"u8) ? 5 : -1,
+        _ => -1,
+    };
 
     internal bool IsSharedValue
     {
@@ -221,7 +229,6 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
         }
 
         _raw = copy ? (byte[])rawBytes.Clone() : rawBytes;
-        _hash = CalculateHash(_raw);
     }
 
     internal static PdfName FromOwnedBytes(byte[] rawBytes) => new(rawBytes, false);
@@ -301,7 +308,11 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
     }
 
     /// <summary>Returns the hash code for this instance.</summary>
-    public override int GetHashCode() => _hash;
+    public override int GetHashCode()
+    {
+        int index = SharedSyntaxIndex(_raw);
+        return index < 0 ? CalculateHash(_raw) : SharedSyntaxNames.Hashes[index];
+    }
 
     private static int CalculateHash(ReadOnlySpan<byte> raw)
     {

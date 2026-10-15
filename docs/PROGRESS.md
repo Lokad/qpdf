@@ -31,6 +31,15 @@ more allocation. Its paired 0.907x does not close the full-panel 1.131x cell.
 The next correction moves cached hashes to the existing fixed shared-name vocabulary
 so ordinary names keep their prior footprint; final batch qualification follows.
 
+That correction now uses the twelve shared syntax names and length-based matching,
+with no per-name hash field. All 625 affected checks pass. Against the per-instance
+cache, streamed-xref rewrite falls 2.140 ->2.085 ms with non-overlapping IQRs
+2.118-2.196 /2.082-2.095, allocating about 626 B/job less. Scalar-heavy rewrite
+records 24.244 ->22.934 ms with overlapping IQRs and about 81.3 KB/job less
+allocation. Its paired 0.856x does not replace the prior full-panel result.
+All 5,009 observations and byte-identical validated outputs remain; final corrected
+source qualification follows before the combined push.
+
 Rejected integer-lookahead replay passed 1,327 checks but added state/allocation
 without demonstrated target-workload benefit; its implementation is restored.
 The patch, artifacts and all 4,571 observations remain. Wider dictionary scratch
