@@ -15,6 +15,12 @@ a different path cannot substitute a pass. Every earlier observation remains.
 
 ## Current implementation
 
+Writer counting, dictionary emission and stream emission read each concrete
+entry pair once. Ordering, null/Length handling, work, cancellation and iterator
+disposal remain; no API, owner or buffer is added. All 1,413 affected checks pass
+in 13s. Performance qualification follows; no speedup is claimed from this
+structural removal of duplicate reads.
+
 Canonical integers 0–255 reuse a fixed set of immutable values instead of fresh
 objects and strings. The set has 256 values, with no document/input/host/governor
 retention or per-job growth. Signed, padded and larger numbers preserve their

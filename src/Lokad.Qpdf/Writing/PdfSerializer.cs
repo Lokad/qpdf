@@ -675,9 +675,8 @@ internal sealed partial class PdfSerializer
         using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
         while (entries.MoveNext(_governor, token))
         {
-            PdfName key = entries.Current.Key;
+            (PdfName key, QpdfObject entry) = entries.Current;
             if (skipLength && key.RawSpan.SequenceEqual("Length"u8)) { continue; }
-            QpdfObject entry = entries.Current.Value;
             if (entry is null) { continue; }
             checked
             {
@@ -718,8 +717,7 @@ internal sealed partial class PdfSerializer
             using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
             while (entries.MoveNext(_governor, cancellationToken))
             {
-                PdfName key = entries.Current.Key;
-                QpdfObject entry = entries.Current.Value;
+                (PdfName key, QpdfObject entry) = entries.Current;
                 if (entry is null)
                 {
                     continue;
@@ -751,13 +749,12 @@ internal sealed partial class PdfSerializer
         using PdfDictionary.EntryEnumerator entries = stream.Dictionary.GetEntryEnumerator();
         while (entries.MoveNext(_governor, cancellationToken))
         {
-            PdfName key = entries.Current.Key;
+            (PdfName key, QpdfObject entry) = entries.Current;
             if (key.RawSpan.SequenceEqual("Length"u8))
             {
                 continue;
             }
 
-            QpdfObject entry = entries.Current.Value;
             if (entry is null)
             {
                 continue;
