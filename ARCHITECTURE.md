@@ -117,8 +117,8 @@ inputs never collide. Validated source cardinality caps source-map growth
 overshoot; duplicate destination pages retain independent capacity. Selected pages register before recursive copying, allowing
 forward links to later selected pages. Omitted-page links become null; duplicate
 occurrences get distinct page objects while permitted resources share. Four
-inheritable page attributes materialize before copying. Catalog/forms, labels,
-attachments and cross-document field handling use the same copier and resource
+inheritable page attributes materialize in one bounded ancestry walk before copying.
+Catalog/forms, labels, attachments and cross-document field handling use the same copier and resource
 helpers rather than route-specific engines.
 
 ### Content, filters and codecs
