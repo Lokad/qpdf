@@ -291,10 +291,10 @@ internal sealed class PdfParser
         // The root token opens the object; only following tokens participate
         // in the good-token gap used by container repair.
         _goodTokens = 0;
-        return ParseToken(tokenizer, token, depth);
+        return ParseToken(tokenizer, in token, depth);
     }
 
-    private QpdfObject ParseToken(PdfTokenizer tokenizer, PdfToken token, int depth)
+    private QpdfObject ParseToken(PdfTokenizer tokenizer, in PdfToken token, int depth)
     {
         if (depth > _limits.MaxNestingDepth)
         {
@@ -312,7 +312,7 @@ internal sealed class PdfParser
             case PdfTokenKind.Integer:
                 try
                 {
-                    return ParseIntegerOrReference(tokenizer, token);
+                    return ParseIntegerOrReference(tokenizer, in token);
                 }
                 catch (QpdfParseException) when (TolerateObjectErrors)
                 {
@@ -321,13 +321,13 @@ internal sealed class PdfParser
                     throw new RepairAbort("Numeric conversion failed; treating object as null.", token.Offset, null);
                 }
             case PdfTokenKind.Real:
-                return ParseReal(token);
+                return ParseReal(in token);
             case PdfTokenKind.Name:
-                return ParseName(token);
+                return ParseName(in token);
             case PdfTokenKind.LiteralString:
-                return ParseByteString(token, false);
+                return ParseByteString(in token, false);
             case PdfTokenKind.HexString:
-                return ParseByteString(token, true);
+                return ParseByteString(in token, true);
             case PdfTokenKind.ArrayOpen:
                 return ParseArray(tokenizer, depth);
             case PdfTokenKind.DictionaryOpen:
@@ -374,12 +374,12 @@ internal sealed class PdfParser
         }
     }
 
-    private ParsedValue ParseOwnedToken(PdfTokenizer tokenizer, PdfToken token, int depth)
+    private ParsedValue ParseOwnedToken(PdfTokenizer tokenizer, in PdfToken token, int depth)
     {
         // Measure only this attempt's contribution, never the global governor.
         // A nested resolver/cache load retains a separate scope's reservations.
         long before = Memory.ReservedBytes;
-        QpdfObject value = ParseToken(tokenizer, token, depth);
+        QpdfObject value = ParseToken(tokenizer, in token, depth);
         return new ParsedValue(value, checked(Memory.ReservedBytes - before));
     }
 
@@ -429,8 +429,8 @@ internal sealed class PdfParser
             throw new QpdfParseException("Expected 'obj'.", numberToken.Offset, null);
         }
 
-        int number = ParseObjectNumber(numberToken);
-        int generation = ParseGeneration(generationToken);
+        int number = ParseObjectNumber(in numberToken);
+        int generation = ParseGeneration(in generationToken);
         QpdfObject value;
         try
         {
@@ -458,7 +458,7 @@ internal sealed class PdfParser
         return (number, generation, value);
     }
 
-    private QpdfObject ParseIntegerOrReference(PdfTokenizer tokenizer, PdfToken first)
+    private QpdfObject ParseIntegerOrReference(PdfTokenizer tokenizer, in PdfToken first)
     {
         long saved = tokenizer.Position;
         bool reference = false;
@@ -491,8 +491,8 @@ internal sealed class PdfParser
             {
                 CountRepairToken(second.Offset);
                 CountRepairToken(third.Offset);
-                long number = ParseIntegerText(first);
-                long generation = ParseIntegerText(second);
+                long number = ParseIntegerText(in first);
+                long generation = ParseIntegerText(in second);
                 if (number < int.MinValue || number > int.MaxValue
                     || generation < int.MinValue || generation > int.MaxValue)
                 {
@@ -510,19 +510,19 @@ internal sealed class PdfParser
                 return new PdfReference((int)number, (int)generation);
             }
 
-            int objectNumber = ParseObjectNumber(first);
-            int objectGeneration = ParseGeneration(second);
+            int objectNumber = ParseObjectNumber(in first);
+            int objectGeneration = ParseGeneration(in second);
             ReserveMemory(32L);
             return new PdfReference(objectNumber, objectGeneration);
         }
 
         tokenizer.SetPosition(saved);
-        return ParseInteger(first);
+        return ParseInteger(in first);
     }
 
-    private int ParseObjectNumber(PdfToken token)
+    private int ParseObjectNumber(in PdfToken token)
     {
-        long value = ParseIntegerText(token);
+        long value = ParseIntegerText(in token);
         if (value < 0 || value > int.MaxValue)
         {
             throw new QpdfParseException($"Object number {value} is out of range.", token.Offset, null);
@@ -531,9 +531,9 @@ internal sealed class PdfParser
         return (int)value;
     }
 
-    private int ParseGeneration(PdfToken token)
+    private int ParseGeneration(in PdfToken token)
     {
-        long value = ParseIntegerText(token);
+        long value = ParseIntegerText(in token);
         if (value < 0 || value > 65535)
         {
             throw new QpdfParseException($"Generation {value} is out of range.", token.Offset, null);
@@ -542,9 +542,9 @@ internal sealed class PdfParser
         return (int)value;
     }
 
-    private PdfInteger ParseInteger(PdfToken token)
+    private PdfInteger ParseInteger(in PdfToken token)
     {
-        long value = ParseIntegerText(token);
+        long value = ParseIntegerText(in token);
         // These bounded immutable canonical values have process-lifetime storage,
         // just like booleans/null. Keep signed and padded spellings independent.
         if ((ulong)value < PdfInteger.SharedValueCount
@@ -566,7 +566,7 @@ internal sealed class PdfParser
         }
     }
 
-    private long ParseIntegerText(PdfToken token)
+    private long ParseIntegerText(in PdfToken token)
     {
         ReadOnlySpan<byte> span = token.Data.Span;
         int i = 0;
@@ -608,7 +608,7 @@ internal sealed class PdfParser
             : (long)magnitude;
     }
 
-    private PdfReal ParseReal(PdfToken token)
+    private PdfReal ParseReal(in PdfToken token)
     {
         long retained = checked((token.Data.Length * 2L) + 64L);
         ReserveMemory(retained);
@@ -624,7 +624,7 @@ internal sealed class PdfParser
         }
     }
 
-    private QpdfObject ParseName(PdfToken token)
+    private QpdfObject ParseName(in PdfToken token)
     {
         _governor.CheckCancellation();
         if (PdfName.FindSharedAscii(token.Data.Span) is PdfName shared)
@@ -649,7 +649,7 @@ internal sealed class PdfParser
         }
     }
 
-    private QpdfObject ParseByteString(PdfToken token, bool hex)
+    private QpdfObject ParseByteString(in PdfToken token, bool hex)
     {
         long before = Memory.ReservedBytes;
         ReserveMemory(32L);
@@ -718,7 +718,7 @@ internal sealed class PdfParser
                 throw new QpdfParseException($"Array holds more than {_limits.MaxContainerSize} top-level items.", token.Offset, null);
             }
 
-            QpdfObject value = ParseToken(tokenizer, token, depth + 1);
+            QpdfObject value = ParseToken(tokenizer, in token, depth + 1);
             if (count < 4) { prefix[count] = value; }
             else
             {
@@ -818,13 +818,13 @@ internal sealed class PdfParser
                     missingKeys = ParserContainers.CreateOwnedList(Memory);
                 }
 
-                ParserContainers.AddOwnedItem(Memory, missingKeys, ParseOwnedToken(tokenizer, token, depth + 1));
+                ParserContainers.AddOwnedItem(Memory, missingKeys, ParseOwnedToken(tokenizer, in token, depth + 1));
                 _dictionaryOrphans = missingKeys.Count;
                 continue;
             }
 
             long beforeKey = Memory.ReservedBytes;
-            PdfName key = (PdfName)ParseName(token);
+            PdfName key = (PdfName)ParseName(in token);
             long keyBytes = checked(Memory.ReservedBytes - beforeKey);
             if (!TryReadValueToken(tokenizer, out PdfToken valueToken))
             {
@@ -840,7 +840,7 @@ internal sealed class PdfParser
             }
             else
             {
-                value = ParseOwnedToken(tokenizer, valueToken, depth + 1);
+                value = ParseOwnedToken(tokenizer, in valueToken, depth + 1);
             }
 
             long discardedBytes = 0L;

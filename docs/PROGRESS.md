@@ -27,8 +27,12 @@ without compilation changes, with bounded time/request limits. Raw results retai
 readiness and later compilation; earlier protocols/results stay intact. All fresh
 acquisition, parsing, staging/export and file writes remain timed. No parsed cache,
 forced production GC, CPU parallelism or new measurement framework is introduced.
-The next correction targets readonly token passing and duplicate dictionary-entry
-reads in the profiled parser/copier paths, using existing tests and narrow probes.
+Private parser helpers now borrow readonly tokens, and three copier loops read
+one dictionary-entry pair per visit. No borrow crosses an await; grammar,
+lookahead, repair/offsets, work and ownership remain. All 6,250 affected checks
+pass in 69s. The 62s paired X100 medians 1.961 ->1.936 ms overlap, without a firm
+speedup claim. Integration qualification follows; the complete panel above
+remains the measured result.
 Qualified ranged selection/catalog/recovery/leases/fallback, immutable graph/payload
 reuse, coarse ownership, checked sizing and fixed canonical integer atoms remain.
 
@@ -46,11 +50,11 @@ observations from this final comparison remain.
 WSL build/semantics/file-panel/job phases take 25.38/27.42/401.49/38.55s;
 package/consumer takes 26.45s, visual 18.20s. Current WSL kernel is
 6.18.54.1; original memory-host evidence records 6.18.40.1. Previous batch
-`a80e896` passes [hosted CI](https://github.com/Lokad/qpdf/actions/runs/38686113424):
-Ubuntu 5m29s, Windows 6m15s, reference 6m03s; each platform passes 17,940 tests,
+`858d4af` passes [hosted CI](https://github.com/Lokad/qpdf/actions/runs/38687938181):
+Ubuntu 5m44s, Windows 6m54s, reference 5m38s; each platform passes 17,940 tests,
 reference passes 1,858 exact parser comparisons/442 rewrite trios. Release pack,
 inspection and fresh-consumer/rejection checks pass on both. One combined hosted
-qualification of the formatter batch follows; no component CI or timing gates.
+qualification of the parser/copier batch follows; no component CI or timing gates.
 
 ## Preserved scope
 

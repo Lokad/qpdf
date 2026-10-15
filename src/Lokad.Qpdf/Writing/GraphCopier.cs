@@ -466,7 +466,7 @@ internal sealed class GraphCopier
         {
             while (source.MoveNext(_governor, _governor.CancellationToken))
             {
-                PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
+                (PdfName key, QpdfObject value) = source.Current;
                 if (value is null) { continue; }
                 if (!retainSourceObjects && key.Equals(ParentKey)) { continue; }
 
@@ -639,7 +639,7 @@ internal sealed class GraphCopier
         using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
         while (source.MoveNext(_governor, _governor.CancellationToken))
         {
-            PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
+            (PdfName key, QpdfObject value) = source.Current;
             QpdfObject? copied;
             if (value is null) { copied = null; }
             else if (streamLength is not null && key.Equals(LengthKey))
@@ -682,7 +682,8 @@ internal sealed class GraphCopier
         for (int i = 0; i < count && prefix.MoveNext(_governor, _governor.CancellationToken); i++)
         {
             Reserve(32L);
-            SetEntry(entries, prefix.Current.Key, prefix.Current.Value);
+            (PdfName key, QpdfObject value) = prefix.Current;
+            SetEntry(entries, key, value);
         }
         return entries;
     }
