@@ -25,12 +25,21 @@ in 12s. Paired original X100 records 2.099 ->2.063 ms with overlapping ranges;
 fresh independently validated outputs match the baseline byte for byte. This
 removes redundant construction work; no confirmed speedup or allocation gain is
 claimed. Final batch qualification follows these source commits.
-The writer's two private fixed-token tables now use concrete dictionary fields,
-removing interface dispatch at their lookup sites. All 344 affected encoding,
-formatting, writer/publication and public-cancellation checks pass in 7s. Token
-bytes/storage/lifetimes and immutability are unchanged; no separate speedup is
-claimed for the declaration change. The previous shared-ancestry implementation
-remains qualified and closed.
+The writer's two private fixed-token tables now use concrete dictionary fields;
+344 affected checks pass in 7s. Token bytes/storage/lifetimes remain unchanged.
+
+Length-only value sizing now walks containers synchronously using the existing
+encoding/formatting size helpers and concrete entries. It returns checked sizes
+without async container frames or per-delimiter sink appends; no cache, buffer or
+owner is added. Nesting, work/output limits, cancellation, null handling, stream
+length replacement and replay/publication checks remain. All 702 affected checks
+pass in 14s, including a richer count/emission fixture with nested values, escaped
+bytes and replaced stream lengths. Paired original X100 records 2.105 ->2.043 ms;
+M500 14.699 ->14.597 ms. Both ranges overlap and allocation is effectively
+unchanged; no confirmed speedup is claimed. All 5,368 observations remain, 48.53s
+wall. Fresh independently valid outputs match byte for byte. These paired ratios
+do not replace the last complete panel. The combined source is next for final
+qualification; prior shared-ancestry qualification stays closed.
 
 Two bounded hash trials were restored after overlapping slower X100 results:
 raw syntax shortcuts 2.024 ->2.081 ms and bulk prefix hashing 2.190 ->2.259 ms.

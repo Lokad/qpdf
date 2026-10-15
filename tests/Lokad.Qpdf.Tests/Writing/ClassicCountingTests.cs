@@ -30,6 +30,17 @@ public sealed class ClassicCountingTests
     public async Task ClassicCountMatchesEmissionAcrossNumberingShapes(string shape)
     {
         List<NumberedObject> model = WriterIndexOwnershipTests.Model(41);
+        model.Add(new(42, new PdfArray([
+            PdfBoolean.True, PdfBoolean.False, new PdfInteger("-9", -9), new PdfReal("+1.250", 1.25),
+            new PdfName([0, 35, 32, 255]), new PdfByteString([0, 10, 13, 40, 41, 92, 255], false),
+            new PdfByteString([0, 255], true), new PdfArray([]),
+            new PdfDictionary(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Nested")] = new PdfReference(2, 0) }),
+        ])));
+        model.Add(new(43, new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("Length")] = new PdfInteger("999", 999),
+            [PdfName.FromAscii("Marker")] = PdfNull.Instance,
+        }), [0, 10, 13, 255])));
         if (shape == "sparse") { model.RemoveAt(20); }
         if (shape == "duplicate") { model.Add(new NumberedObject(4, PdfNull.Instance)); }
         if (shape == "reordered") { (model[0], model[1]) = (model[1], model[0]); }

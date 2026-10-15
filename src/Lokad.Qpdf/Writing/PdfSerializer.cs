@@ -572,12 +572,12 @@ internal sealed partial class PdfSerializer
 
     internal ValueTask AppendValueAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
-        if (depth > _limits.MaxNestingDepth)
+        if (sink is CountingSink counter)
         {
-            throw new QpdfParseException($"Serialization depth exceeds {_limits.MaxNestingDepth}.", null, null);
+            counter.AppendLength(MeasureValue(value, depth, newlineBeforeEndstream, cancellationToken), cancellationToken);
+            return ValueTask.CompletedTask;
         }
-
-        _governor.ChargeWork(1L);
+        CheckValueDepth(depth);
         if (value is PdfNull)
         {
             return AppendAsciiAsync("null", sink, cancellationToken);
@@ -615,6 +615,83 @@ internal sealed partial class PdfSerializer
 
         return AppendContainerAsync(value, sink, depth, newlineBeforeEndstream, cancellationToken);
     }
+
+    private void CheckValueDepth(int depth)
+    {
+        if (depth > _limits.MaxNestingDepth)
+        { throw new QpdfParseException($"Serialization depth exceeds {_limits.MaxNestingDepth}.", null, null); }
+        _governor.ChargeWork(1L);
+    }
+
+    // Length-only counting has no I/O or retained state. Reuse token sizing
+    // without async container frames or a sink append for every delimiter.
+    private long MeasureValue(QpdfObject value, int depth, bool newlineBeforeEndstream, CancellationToken token)
+    {
+        CheckValueDepth(depth);
+        checked
+        {
+            switch (value)
+            {
+                case PdfNull: return MeasureAscii("null", token);
+                case PdfBoolean flag: return MeasureAscii(flag.Value ? "true" : "false", token);
+                case PdfInteger integer: return MeasureAscii(integer.Text, token);
+                case PdfReal real: return MeasureAscii(real.Text, token);
+                case PdfName name: return WriterEncoding.MeasureName(name, _limits, _governor, token);
+                case PdfByteString text: return WriterEncoding.MeasureString(text, _limits, _governor, token);
+                case PdfReference reference:
+                    return WriterFormatting.MeasureParts([WriterPart.Number(reference.ObjectNumber), WriterPart.Text(" 0 R")],
+                        _limits, _governor, token);
+                case PdfArray array:
+                    long arrayLength = MeasureAscii("[", token);
+                    for (int index = 0; index < array.Count; index++)
+                    {
+                        if (index > 0) { arrayLength += MeasureAscii(" ", token); }
+                        arrayLength += MeasureValue(array[index], depth + 1, newlineBeforeEndstream, token);
+                    }
+                    return arrayLength + MeasureAscii("]", token);
+                case PdfDictionary dictionary:
+                    long dictionaryLength = MeasureAscii("<<", token);
+                    dictionaryLength += MeasureEntries(dictionary, depth, false, newlineBeforeEndstream, token);
+                    return dictionaryLength + MeasureAscii(">>", token);
+                case PdfStream stream:
+                    long streamLength = MeasureAscii("<<", token);
+                    streamLength += MeasureEntries(stream.Dictionary, depth, true, newlineBeforeEndstream, token);
+                    streamLength += WriterFormatting.MeasureParts(
+                        [WriterPart.Text("/Length "), WriterPart.Number(stream.RawMemory.Length), WriterPart.Text(" ")],
+                        _limits, _governor, token);
+                    streamLength += MeasureAscii(">>\nstream\n", token);
+                    _governor.CheckCancellation();
+                    streamLength += stream.RawMemory.Length;
+                    return streamLength + MeasureAscii(newlineBeforeEndstream ? "\nendstream" : "endstream", token);
+                default: throw new QpdfException($"Unsupported value of type {value.GetType().Name} during serialization.");
+            }
+        }
+    }
+
+    private long MeasureEntries(PdfDictionary dictionary, int depth, bool skipLength,
+        bool newlineBeforeEndstream, CancellationToken token)
+    {
+        long length = 0L;
+        using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
+        while (entries.MoveNext(_governor, token))
+        {
+            PdfName key = entries.Current.Key;
+            if (skipLength && key.RawSpan.SequenceEqual("Length"u8)) { continue; }
+            QpdfObject entry = entries.Current.Value;
+            if (entry is null) { continue; }
+            checked
+            {
+                length += WriterEncoding.MeasureName(key, _limits, _governor, token);
+                length += MeasureAscii(" ", token);
+                length += MeasureValue(entry, depth + 1, newlineBeforeEndstream, token);
+                length += MeasureAscii(" ", token);
+            }
+        }
+        return length;
+    }
+
+    private long MeasureAscii(string text, CancellationToken token)
+        => WriterEncoding.MeasureAscii(text, _limits, _governor, token);
 
     private async ValueTask AppendContainerAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
