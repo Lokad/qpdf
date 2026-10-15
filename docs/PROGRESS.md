@@ -1,11 +1,10 @@
 # Progress
 
-Single-CPU warmed parity (<=1.0x) against pinned qpdf 12.4.2 remains open.
-Clean source `6b0bc0e` has 12/13 comparable file-backed medians at parity;
-equivalent sparse job JSON is 0.4344x. Remaining rewrite-X100:
-1.0307x (1.869/1.814 ms).
+Clean source `83a9f93` reaches <=1.0x pinned qpdf 12.4.2 in 13/13 comparable
+file-backed workloads; equivalent sparse job JSON is 0.3919x.
+The comparable warmed median criterion is met.
 [Benchmarks](BENCHMARKS.md) leads with comparisons and resources in three tables.
-Separate panels establish no causality; paired probes replace no panel cell.
+Separate panels establish no causality; narrow probes replace no panel cell.
 
 Original `bf03d9a` memory-host results remain end-to-end evidence: fresh complete
 acquisition/registration, staging, defensive public export and file writes.
@@ -14,58 +13,43 @@ a different path cannot substitute a pass. All earlier observations remain.
 
 ## Current implementation
 
-Short numeric headers/references/xref rows format once in bounded synchronous
-scratch; three fixed suffixes use literal bytes. Tight limits and unsupported
-fields retain the existing path. Retaining sinks still receive immutable packets.
-The governor checks requested cancellation before cleanup flags; interval counts
-and cleanup suppression remain. These paired medians decrease with overlapping
-ranges; no firm speedup is claimed.
-
-The internal ASCII-name factory reuses the existing twelve syntax values. Pool
-initialization uses unshared creation, arbitrary names keep validation/storage,
-and public construction/byte access still copy. Its paired X100 median decreases
-1.932 ->1.895 ms with non-overlapping interquartile ranges; allocation decreases
-536,734 ->536,345 B/job. No new name pool, document cache, owner, forced GC or CPU
-parallelism is introduced. Qualified ranged reading, immutable graph/payload reuse,
-coarse ownership and readonly token/writer-field handling remain.
-
-Work admission now subtracts admitted reservations once on the ordinary success
-path; the existing overflow/requested-total diagnostics remain on the failure path.
-Diagnostic presentation and publication charging are unchanged. All 7,181 existing
-governance cases and four finite/maximum-budget boundary cases pass. Paired X100
-falls1.9085->1.8234ms (non-overlapping IQR), allocation effectively unchanged;
-complete-panel qualification follows before any parity verdict.
+Ordinary work charging subtracts admitted diagnostic/publication/result reservations
+once; the existing overflow/requested-total construction stays on the failure path.
+Diagnostic/publishing modes, work units, cancellation intervals and cleanup remain.
+No cached capacity, owner or storage is introduced. Paired X100 decreases
+1.9085->1.8234ms (4.46%, non-overlapping IQR); allocation stays about 536,400 B/job.
+The insensitive root-holding sort trial is restored and its evidence retained.
+Qualified ranged reading, immutable payload/graph reuse, coarse ownership, short
+formatting, readonly token/writer handling and existing fixed syntax atoms remain.
 
 ## Verification
 
-Focused checks pass: 2,119 writer/inventory cases, 7,181 governance/publication/
-cancellation cases, and 6,277 syntax/reader/writer/allocation-ownership cases.
-Final source passes 26 fresh semantic outcomes/three negatives, seven visual cases/
-two negatives, locked Release restore/build/explicit pack, inspection, fresh
-consumer and rejection controls. The unchanged 2 MiB multisource ceiling passes.
-Original inputs and thirteen output sets are unchanged. The archive retains
-231 runs, preserving all 221 preceding objects and every partial/intermediate/
-failed/noisy trial. All 53,078 file/13,643 job observations from this panel remain.
+All 7,181 existing governance cases plus four work-budget boundary cases pass.
+Final source passes 26 fresh semantic outcomes and three negative controls,
+seven visual cases and two controls, locked Release restore/build/explicit pack,
+inspection, fresh consumer and rejection controls.
+The unchanged 2 MiB multisource ceiling passes. Original inputs and all thirteen
+managed/native output sets remain unchanged. The archive preserves all 231 previous
+run objects, now 235 runs, including failed/insensitive/noisy trials and the bounded
+six-second profile; all 59,641 file/14,833 job observations remain.
 
-WSL build/semantics/file-panel/job phases take 21.99/26.28/426.15/37.69s;
-package/consumer takes 27.20s, visual 16.40s. Host snapshots show 97.5% idle
-before and 21.8% after, with background scan activity; retain this noisy panel
-without causal attribution or an unchanged-source favorable retry. Main/consumer
-preparatory builds disable shared compilation in their private environment;
-no unrelated process is stopped. Current kernel is 6.18.54.1 (original memory
-run: 6.18.40.1). One combined hosted qualification follows. Previous `3789b11`
-passes [CI](https://github.com/Lokad/qpdf/actions/runs/38691222840): Ubuntu 4m35s,
-Windows 6m28s, reference 6m49s; 17,940 tests/platform, 1,858 exact parser comparisons/
-442 rewrite trios and both package/fresh-consumer/rejection checks pass.
+WSL build/semantics/file-panel/job phases: 19.59/26.98/372.03/36.24s;
+package/consumer 25.54s, visual 16.97s. Host idle snapshots:
+89.5% before / 97.3% after. Main and child preparatory builds disable shared
+compilation privately; no unrelated process is stopped. Kernel 6.18.54.1 (original
+memory run 6.18.40.1). Previous `91d9642`
+passes [CI](https://github.com/Lokad/qpdf/actions/runs/38699801246): Ubuntu 4m47s,
+Windows 6m52s, pinned reference 5m38s, 17,943 tests/platform, 1,858 exact parser
+comparisons / 442 rewrite trios, package/fresh-consumer/rejection checks and three artifact bundles
+inspected. Benchmarks stay outside CI timing gates.
 
 ## Preserved scope
 
 The [supported profile](SUPPORTED-PROFILE.md) stays delivered: CMYK/YCCK opaque,
 Zopfli unavailable, crypto excluded. Other [compatibility](COMPATIBILITY.md)
-requirements are not waived. Approximate accounting protects significant capacity/
-growth overlap, amplification/decompression/work limits, cancellation, cleanup,
-host boundaries, integrity, immutability and surviving aliases. Charges are not
-retained heap/RSS. Exact CLR sizes, individual small-object/metadata-alias receipts,
-GC rounds and bookkeeping-byte precision remain withdrawn; see
-[governance](SUPPORTED-PROFILE.md#governance). Pins/version stay unchanged;
-no native bridge or package publication is introduced.
+requirements are not waived. Approximate accounting preserves meaningful capacity/
+growth overlap, decompression/amplification/work limits, cancellation, cleanup,
+host boundaries, output integrity, immutability and surviving aliases. Charges are
+not retained heap/RSS. Exact CLR sizes, small-object/metadata-alias receipts,
+GC rounds and bookkeeping precision remain withdrawn. Pins/version stay unchanged;
+no new framework, parallelism, forced GC, parsed cache, native bridge or publication.
