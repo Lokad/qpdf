@@ -29,6 +29,13 @@ parsing, staging/export and file writes remain timed. Earlier protocols/results
 stay intact. The next correction targets measured costs in the two rewrite gaps
 after compilation settles, using existing tools and narrow paired probes.
 
+Formatter sizing/filling now borrow readonly fields through their existing
+synchronous loops and private calls. No borrow crosses an await or adds storage.
+All 2,117 affected checks pass in 44s. A 46s paired X100 probe observes 2.038 ->
+1.978 ms with overlapping ranges and unchanged allocation (537 KB/job); this
+structural removal carries no confirmed speedup claim. Its integration
+qualification follows; the complete comparison above remains the measured result.
+
 Ranged argv/job selection, catalog/recovery defaults, stable leases and complete-
 read fallback remain qualified. Immutable graph/payload reuse, coarse private
 ownership, unique dictionary-prefix transfer, concrete writer tables, checked
@@ -48,10 +55,12 @@ from this final comparison remain.
 
 WSL build/semantics/file-panel/job phases take 25.91/26.30/388.45/27.86s;
 package/consumer takes 32.31s, visual 17.27s. Current WSL kernel is
-6.18.54.1; original memory-host evidence records 6.18.40.1. One combined hosted
-qualification follows; no component CI or timing gates. Windows/Ubuntu/pinned-
-reference logs, TRX and reports are available through
-[CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
+6.18.54.1; original memory-host evidence records 6.18.40.1. Published batch
+`a80e896` passes [hosted CI](https://github.com/Lokad/qpdf/actions/runs/38686113424):
+Ubuntu 5m29s, Windows 6m15s, pinned reference 6m03s. Each ordinary platform passes
+17,940 tests; reference passes 1,858 exact parser comparisons and 442 rewrite
+trios. Release pack, inspection and fresh-consumer/rejection checks pass on both
+platforms. No component CI or timing gates.
 
 ## Preserved scope
 

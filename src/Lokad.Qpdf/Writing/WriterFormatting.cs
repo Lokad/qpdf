@@ -46,11 +46,11 @@ internal sealed class WriterFormatting : IDisposable
         CheckCancellation(governor, cancellationToken);
         long maximum = Math.Min(limits.MaxOutputBytes, Array.MaxLength);
         long length = 0L;
-        foreach (WriterPart part in parts)
+        foreach (ref readonly WriterPart part in parts)
         {
             CheckCancellation(governor, cancellationToken);
             governor.ChargeWork(1L);
-            length = checked(length + Measure(part, governor));
+            length = checked(length + Measure(in part, governor));
             if (width.HasValue && length > width.Value)
             {
                 throw new QpdfParseException(overflowMessage ?? "Writer formatting exceeds its reserved space.", null, null);
@@ -79,7 +79,7 @@ internal sealed class WriterFormatting : IDisposable
         catch { memory.Dispose(); throw; }
     }
 
-    private static long Measure(WriterPart part, ResourceGovernor governor)
+    private static long Measure(in WriterPart part, ResourceGovernor governor)
     {
         switch (part.Type)
         {
@@ -104,15 +104,15 @@ internal sealed class WriterFormatting : IDisposable
         ResourceGovernor governor, CancellationToken token, Action? observeFill)
     {
         int used = 0;
-        foreach (WriterPart part in parts)
+        foreach (ref readonly WriterPart part in parts)
         {
             CheckCancellation(governor, token); governor.ChargeWork(1L);
-            Fill(part, target, ref used, governor, token, observeFill);
+            Fill(in part, target, ref used, governor, token, observeFill);
         }
         FillRepeated(target.Slice(used), (byte)' ', governor, token, observeFill);
     }
 
-    private static void Fill(WriterPart part, Span<byte> target, ref int used, ResourceGovernor governor, CancellationToken token,
+    private static void Fill(in WriterPart part, Span<byte> target, ref int used, ResourceGovernor governor, CancellationToken token,
         Action? observeFill)
     {
         if (part.Type == WriterPart.Kind.Empty) { return; }
