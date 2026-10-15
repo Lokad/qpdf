@@ -1,59 +1,46 @@
 # Progress
 
 Single-CPU warmed parity (<=1.0x) against pinned qpdf 12.4.2 remains open.
-Clean source `59536b5` records 10/13 comparable file-backed medians at parity;
-sparse job JSON is 0.432x. Remaining cells: streamed-xref rewrite-X100 1.131x,
-ordinary rewrite-M500 1.055x and linearize-M500 1.001x. The near-parity cell does
-not justify an unchanged-source timing retry. [Benchmarks](BENCHMARKS.md) leads
-with current figures, ranges, resource measurements and commands in three tables.
-Separate panels establish no causal attribution.
+The last complete comparable panel (`59536b5`) has 10/13 file-backed medians at
+parity and sparse job JSON at 0.432x. Open cells are rewrite-X100 1.131x,
+rewrite-M500 1.055x and linearize-M500 1.001x. No paired probe replaces these
+panel results. [Benchmarks](BENCHMARKS.md) keeps comparative figures, resources
+and reproduction commands in three tables.
 
 Original `bf03d9a` memory-host results remain end-to-end evidence: fresh complete
-acquisition/registration, staging, defensive public output export and file writes.
+acquisition/registration, staging, defensive public export and file writes.
 Native opens files and can read less. Original sparse 3.4732x stays unchanged;
-a different input path cannot substitute a pass. All 185 archived runs preserve
-prior observations, including failed, slower and insensitive trials.
+a different path cannot substitute a pass. Raw observations retain failed,
+slower and insensitive trials as well as useful corrections.
 
-## Current implementation
+## Current batch
 
-Small fixed-byte writes use existing governed batching scratch when they fit.
-Synchronous capability/flush checks, immutable retaining/async packets and large
-writes keep their existing behavior. All 189 affected checks and two strengthened
-boundary/caller-byte-alias cases pass. Its original paired timing ranges overlap;
-no measured gain is attributed to that structural removal.
+Page materialization collects the four nearest non-null inherited attributes in
+one ancestry walk, then copies them in the existing key order. Four inline
+reference slots avoid an extra buffer. Single-key inspection shares parent
+resolution, cycle/depth checks and scoped traversal storage. Leaf precedence,
+indirect-null fallback, bounded work/cancellation and cleanup remain.
 
-Bounded hashes are cached only for the existing twelve shared syntax names, with
-length-based matching and no per-name field. Governed name-object lookup keeps the
-same work charges and raw-byte/collision behavior. All 625 affected checks pass.
-Against the intermediate per-instance cache, streamed-xref rewrite falls
-2.140 ->2.085 ms, with non-overlapping IQRs 2.118-2.196 /2.082-2.095, allocating
-about 626 B/job less. Scalar-heavy rewrite records 24.244 ->22.934 ms with
-overlapping ranges and about 81.3 KB/job less allocation. All 5,009 observations
-and validated identical outputs remain. The intermediate allocation cost, its
-slower scalar-heavy probe and both full panels remain archived.
+All 195 affected selection/merge/overlay/ranged/public-cancellation checks pass,
+including three public-route cases for nearest-parent precedence, indirect-null
+fallback and leaf overrides. Paired original X100 records 2.164 ->2.225 ms and
+M500 records 15.812 ->14.714 ms; both ranges overlap. The change removes repeated
+traversal; these timings establish no confirmed speedup. Fresh outputs match the
+baseline byte for byte. Final integration qualification follows this source commit.
 
-Integer-lookahead replay passed 1,327 checks but added state/allocation without
-established target-workload benefit; its implementation is restored. Its patch,
-artifacts and 4,571 observations remain. Wider dictionary scratch was rejected
-before implementation: all 100 original streamed-xref pages already fit four
-entries. The existing six-second profile's 2,136 validated jobs remain diagnostic
-evidence; sampled runtime polling is not proof of forced GC or retained memory.
+Two bounded hash trials were restored after overlapping slower X100 results:
+raw syntax shortcuts 2.024 ->2.081 ms and bulk prefix hashing 2.190 ->2.259 ms.
+Both pass 631 focused checks, with identical validated outputs; patches, binaries
+and every observation remain. They do not change the accepted hash implementation.
 
-## Verification
+## Preserved qualification and scope
 
-Final source passes 26 fresh semantic outcomes plus three negatives, seven visual
-cases plus two negatives, locked Release restore/build/explicit pack, inspection,
-fresh consumer and rejection controls. The unchanged 2 MiB multisource ceiling
-passes. All thirteen output sets match the intermediate panel byte for byte;
-original inputs and all 182 preceding archived run objects are unchanged.
-All 28,074 file/5,483 job observations remain.
-
-WSL build/semantics/file-panel/job phases take 24.84/29.27/216.11/18.07s;
-package/consumer takes 31.06s, visual 17.57s. Hosted Windows/Ubuntu ordinary and
-pinned-reference qualification, test logs/TRX and reference reports are available
-through [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
-
-## Preserved scope
+The preceding integrated source passes 26 fresh semantic outcomes/three negatives,
+seven visual cases/two negatives, locked Release restore/build/explicit pack,
+inspection, fresh consumer and rejection controls. The unchanged 2 MiB multisource
+ceiling passes. Actual Windows/Ubuntu/pinned-reference CI is green; logs/TRX and
+reports are available through [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
+New source requires final batch qualification; passed features stay closed.
 
 The [supported profile](SUPPORTED-PROFILE.md) remains delivered. CMYK/YCCK stays
 opaque, Zopfli is unavailable, and crypto including empty-password inputs is
@@ -68,6 +55,5 @@ Exact CLR sizes, per-small-object/metadata-alias receipts, prescribed GC rounds 
 precise bookkeeping charges remain withdrawn; see
 [governance](SUPPORTED-PROFILE.md#governance).
 
-No CPU parallelism, forced production GC, parsed-document cache, runtime native
-bridge or new accounting/benchmark framework. Pins, five reviewed temporary
-ImageSharp 3.1.12 exceptions and release version remain. No tags or publication.
+No CPU parallelism, forced production GC, parsed-document cache, native runtime
+bridge, dependency/version change or package publication is introduced.

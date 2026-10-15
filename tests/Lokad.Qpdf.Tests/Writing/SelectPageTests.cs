@@ -136,6 +136,49 @@ public sealed class SelectPageTests
     }
 
     [Theory]
+    [InlineData("typed", "null")]
+    [InlineData("argv", "7 0 R")]
+    [InlineData("job", "7 0 R")]
+    public async Task InheritsNearestNonNullAttributesWithoutReplacingLeafValues(string route, string resources)
+    {
+        List<(int, string, byte[]?)> objects = CheckTests.SinglePage("<< /Length 4 >>", "q Q\n"u8.ToArray());
+        objects[1] = (2, "<< /Type /Pages /Kids [6 0 R] /Count 1 /MediaBox [0 0 612 792]"
+            + " /CropBox [0 0 600 780] /Rotate 180 /Resources << /Marker /Root >> >>", null);
+        objects[2] = (3, "<< /Type /Page /Parent 6 0 R /Contents 4 0 R /MediaBox 7 0 R"
+            + " /CropBox 7 0 R /Rotate 270 /Resources " + resources + " >>", null);
+        objects.Add((6, "<< /Type /Pages /Parent 2 0 R /Kids [3 0 R] /Count 1"
+            + " /Resources 7 0 R /CropBox [10 20 500 700] /Rotate 90 >>", null));
+        objects.Add((7, "null", null));
+        InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("in.pdf"), CheckTests.Assemble(objects, 1), QpdfInputOwnership.Copy);
+        if (route == "typed")
+        {
+            await Qpdf.SelectPageAsync(host, QpdfPath.From("in.pdf"), QpdfPath.From("out.pdf"),
+                new PdfPageSelectionOptions(1), CancellationToken.None);
+        }
+        else
+        {
+            QpdfExecutionResult result = route == "argv"
+                ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["in.pdf", "--pages", ".", "1", "--", "out.pdf"]), CancellationToken.None)
+                : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "in.pdf", outputFile = "out.pdf",
+                    pages = new[] { new { file = ".", range = "1" } } }), CancellationToken.None);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+        await using QpdfDocument output = await Reopen(host, "out.pdf");
+        PdfDictionary page = Assert.Single(output.PageReferences).Page;
+        Assert.True(page.TryGet(PdfName.FromAscii("MediaBox"), out QpdfObject media));
+        Assert.Equal(612L, Assert.IsType<PdfInteger>(Assert.IsType<PdfArray>(media)[2]).Value);
+        Assert.True(page.TryGet(PdfName.FromAscii("CropBox"), out QpdfObject crop));
+        Assert.Equal(10L, Assert.IsType<PdfInteger>(Assert.IsType<PdfArray>(crop)[0]).Value);
+        Assert.True(page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject rotate));
+        Assert.Equal(270L, Assert.IsType<PdfInteger>(rotate).Value);
+        Assert.True(page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject inherited));
+        Assert.True(Assert.IsType<PdfDictionary>(inherited).TryGet(PdfName.FromAscii("Marker"), out QpdfObject marker));
+        Assert.Equal(PdfName.FromAscii("Root"), marker);
+    }
+
+    [Theory]
     [InlineData("typed", "self")]
     [InlineData("argv", "repeated-parent")]
     [InlineData("job", "direct-prefix")]

@@ -4824,12 +4824,13 @@ public static partial class Qpdf
         ParserMemoryScope? ownership)
     {
         Dictionary<PdfName, QpdfObject>? extra = null;
-        foreach (PdfName key in WriterInherited)
+        PageInheritance.InheritedValues inherited = PageInheritance.FindAncestors(engine, location, WriterInherited,
+            limits, governor, cancellationToken);
+        for (int index = 0; index < WriterInherited.Length; index++)
         {
             governor.CheckCancellation();
-            if (location.Page.TryGet(key, out QpdfObject present)
-                && PageInheritance.Resolve(engine, present, limits, governor) is not PdfNull) { continue; }
-            QpdfObject? value = PageInheritance.FindAncestor(engine, location, key, limits, governor, cancellationToken);
+            PdfName key = WriterInherited[index];
+            QpdfObject? value = inherited[index];
             if (value is null) { continue; }
             QpdfObject copied = copier.CopyValue(value, 0);
             if (copied is PdfNull) { continue; }
