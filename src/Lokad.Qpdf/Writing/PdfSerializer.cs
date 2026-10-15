@@ -692,54 +692,50 @@ internal sealed partial class PdfSerializer
     private long MeasureAscii(string text, CancellationToken token)
         => WriterEncoding.MeasureAscii(text, _limits, _governor, token);
 
-    private async ValueTask AppendContainerAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
+    private ValueTask AppendContainerAsync(QpdfObject value, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
+        => value switch
+        {
+            PdfArray array => AppendArrayAsync(array, sink, depth, newlineBeforeEndstream, cancellationToken),
+            PdfDictionary dictionary => AppendDictionaryAsync(dictionary, sink, depth, newlineBeforeEndstream, cancellationToken),
+            PdfStream stream => AppendStreamAsync(stream, sink, depth, newlineBeforeEndstream, cancellationToken),
+            _ => ValueTask.FromException(new QpdfException($"Unsupported value of type {value.GetType().Name} during serialization.")),
+        };
+
+    private async ValueTask AppendArrayAsync(PdfArray array, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
     {
-        if (value is PdfArray array)
+        await AppendAsciiAsync("[", sink, cancellationToken).ConfigureAwait(false);
+        for (int i = 0; i < array.Count; i++)
         {
-            await AppendAsciiAsync("[", sink, cancellationToken).ConfigureAwait(false);
-            for (int i = 0; i < array.Count; i++)
+            if (i > 0)
             {
-                if (i > 0)
-                {
-                    await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
-                }
-
-                await AppendValueAsync(array[i], sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-            }
-
-            await AppendAsciiAsync("]", sink, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        if (value is PdfDictionary dictionary)
-        {
-            await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
-            using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
-            while (entries.MoveNext(_governor, cancellationToken))
-            {
-                (PdfName key, QpdfObject entry) = entries.Current;
-                if (entry is null)
-                {
-                    continue;
-                }
-
-                await AppendNameAsync(key, sink, cancellationToken).ConfigureAwait(false);
-                await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
-                await AppendValueAsync(entry, sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
                 await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
             }
 
-            await AppendAsciiAsync(">>", sink, cancellationToken).ConfigureAwait(false);
-            return;
+            await AppendValueAsync(array[i], sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
         }
 
-        if (value is PdfStream stream)
+        await AppendAsciiAsync("]", sink, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask AppendDictionaryAsync(PdfDictionary dictionary, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)
+    {
+        await AppendAsciiAsync("<<", sink, cancellationToken).ConfigureAwait(false);
+        using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
+        while (entries.MoveNext(_governor, cancellationToken))
         {
-            await AppendStreamAsync(stream, sink, depth, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
-            return;
+            (PdfName key, QpdfObject entry) = entries.Current;
+            if (entry is null)
+            {
+                continue;
+            }
+
+            await AppendNameAsync(key, sink, cancellationToken).ConfigureAwait(false);
+            await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
+            await AppendValueAsync(entry, sink, depth + 1, newlineBeforeEndstream, cancellationToken).ConfigureAwait(false);
+            await AppendAsciiAsync(" ", sink, cancellationToken).ConfigureAwait(false);
         }
 
-        throw new QpdfException($"Unsupported value of type {value.GetType().Name} during serialization.");
+        await AppendAsciiAsync(">>", sink, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask AppendStreamAsync(PdfStream stream, IByteSink sink, int depth, bool newlineBeforeEndstream, CancellationToken cancellationToken)

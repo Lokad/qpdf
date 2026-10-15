@@ -21,6 +21,13 @@ disposal remain; no API, owner or buffer is added. All 1,413 affected checks pas
 in 13s. Performance qualification follows; no speedup is claimed from this
 structural removal of duplicate reads.
 
+Array and dictionary emission now have separate async routines; stream emission
+returns its existing operation directly. Iteration, awaits, depth/work checks and
+disposal remain. All 2,117 writer/inventory checks pass in 42s. The paired median
+2.097 ->2.075 ms overlaps, with unchanged allocation; no firm speedup is claimed.
+Readiness diagnostics show compilation continuing beyond the previous two-second
+warmup, so final comparison will first wait for managed compilation to settle.
+
 Canonical integers 0–255 reuse a fixed set of immutable values instead of fresh
 objects and strings. The set has 256 values, with no document/input/host/governor
 retention or per-job growth. Signed, padded and larger numbers preserve their
