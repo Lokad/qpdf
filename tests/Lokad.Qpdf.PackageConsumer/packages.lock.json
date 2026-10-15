@@ -6,16 +6,7 @@
         "type": "Direct",
         "requested": "[0.1.0-alpha.1, )",
         "resolved": "0.1.0-alpha.1",
-        "contentHash": "POzKGxEc07Wnnto3w4vossu+8oSup56NSLTm/Dl5YK4W1lSEJr8FTkpBR+7OiTvHL0tP1pI3abaUUOx8NscaLQ==",
-        "dependencies": {
-          "SixLabors.ImageSharp": "[3.1.12]"
-        }
-      },
-      "SixLabors.ImageSharp": {
-        "type": "CentralTransitive",
-        "requested": "[3.1.12, 3.1.12]",
-        "resolved": "3.1.12",
-        "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
+        "contentHash": "KSy9o5sj8DHi3zmzASbbinwsQmkcYEsMgOKfPlaH66F/JHRBZumG5sVtTes3UQXVL52dAkVIL+7Nn/RWEBEWLQ=="
       }
     }
   }

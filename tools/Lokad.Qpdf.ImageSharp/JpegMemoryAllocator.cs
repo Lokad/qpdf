@@ -1,9 +1,8 @@
 using System.Buffers;
 using System.Runtime.InteropServices;
-using Lokad.Qpdf.Runtime;
 using SixLabors.ImageSharp.Memory;
 
-namespace Lokad.Qpdf.Filters;
+namespace Lokad.Qpdf.ImageSharp;
 
 /// <summary>Admits ImageSharp buffer owners against the job before allocating, without a shared pool.</summary>
 internal sealed class JpegMemoryAllocator : MemoryAllocator
@@ -11,11 +10,11 @@ internal sealed class JpegMemoryAllocator : MemoryAllocator
     // Conservative array alignment/header and owner-object allowance on the supported CLR.
     internal const long OwnerOverheadBytes = 96L;
 
-    private readonly ResourceGovernor _governor;
+    private readonly QpdfJpegCodecContext _context;
 
-    internal JpegMemoryAllocator(ResourceGovernor governor)
+    internal JpegMemoryAllocator(QpdfJpegCodecContext context)
     {
-        _governor = governor ?? throw new ArgumentNullException(nameof(governor));
+        _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
     protected override int GetBufferCapacityInBytes() => 4 * 1024 * 1024;
@@ -27,20 +26,20 @@ internal sealed class JpegMemoryAllocator : MemoryAllocator
             throw new ArgumentOutOfRangeException(nameof(length));
         }
 
-        _governor.CheckCancellation();
+        _context.CheckCancellation();
         T sample = default;
         int elementBytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref sample, 1)).Length;
         long reserved = checked((long)length * elementBytes + OwnerOverheadBytes);
-        _governor.ReserveMemory(reserved);
+        IDisposable reservation = _context.ReserveMemory(reserved);
         try
         {
             // Zero-initialization also satisfies AllocationOptions.Clean. A new owner has
             // exactly the requested capacity, with no uncharged cross-job pool retention.
-            return new BufferOwner<T>(new T[length], _governor, reserved);
+            return new BufferOwner<T>(new T[length], reservation);
         }
         catch
         {
-            _governor.ReleaseMemory(reserved);
+            reservation.Dispose();
             throw;
         }
     }
@@ -49,14 +48,12 @@ internal sealed class JpegMemoryAllocator : MemoryAllocator
         where T : struct
     {
         private T[]? _buffer;
-        private readonly ResourceGovernor _governor;
-        private readonly long _reserved;
+        private readonly IDisposable _reservation;
 
-        internal BufferOwner(T[] buffer, ResourceGovernor governor, long reserved)
+        internal BufferOwner(T[] buffer, IDisposable reservation)
         {
             _buffer = buffer;
-            _governor = governor;
-            _reserved = reserved;
+            _reservation = reservation;
         }
 
         public Memory<T> Memory => _buffer is T[] buffer
@@ -68,7 +65,7 @@ internal sealed class JpegMemoryAllocator : MemoryAllocator
             if (_buffer is not null)
             {
                 _buffer = null;
-                _governor.ReleaseMemory(_reserved);
+                _reservation.Dispose();
             }
         }
     }

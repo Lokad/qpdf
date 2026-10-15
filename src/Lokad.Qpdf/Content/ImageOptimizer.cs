@@ -348,6 +348,12 @@ internal static class ImageOptimizer
             return null;
         }
 
+        if (governor.JpegCodec is null)
+        {
+            throw new QpdfFilterException(QpdfFilterFailureReason.UnsupportedFilter, DctFilter.FilterName,
+                "JPEG image optimization requires a codec supplied by the host.");
+        }
+
         byte[] raw;
         try
         {

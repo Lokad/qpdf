@@ -4,7 +4,7 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>Lokad.qpdf</PackageId>
     <Title>Lokad.qpdf</Title>
-    <Description>Managed, host-mediated .NET implementation of qpdf's non-cryptographic PDF structural operations: strict reading, page selection and merge, writer controls, content transforms, overlays, appearances, JPEG processing, QDF, and linearization. Compatibility target: qpdf 12.4.2, non-cryptographic subset only.</Description>
+    <Description>Managed .NET library for splitting, merging, reordering, checking and rewriting PDFs, with no runtime NuGet dependencies. JPEG processing uses a caller-supplied codec. Compatibility target: qpdf 12.4.2, non-cryptographic subset.</Description>
     <Authors>Lokad</Authors>
     <Company>Lokad</Company>
     <Copyright>Copyright (c) 2026 Lokad</Copyright>
@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Managed non-cryptographic PDF structural operations, qualified against qpdf 12.4.2. CMYK/YCCK decoding and Zopfli are unavailable; see docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md for scope and differences.</PackageReleaseNotes>
+    <PackageReleaseNotes>Managed non-cryptographic PDF operations targeting qpdf 12.4.2. JPEG processing requires a caller-supplied codec; the core has no runtime package dependencies. CMYK/YCCK decoding and Zopfli remain unavailable; see docs/SUPPORTED-PROFILE.md and docs/COMPATIBILITY.md.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -31,7 +31,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 

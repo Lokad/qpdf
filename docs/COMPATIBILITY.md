@@ -1,17 +1,16 @@
 # Compatibility
 
-Lokad.qpdf's agreed [supported profile](SUPPORTED-PROFILE.md) is qualified against
-qpdf **12.4.2** on implementation `219eca3`. It covers non-cryptographic PDF
-structural operations through typed, argv and job-JSON entry points. Local
-Windows and Ubuntu qualification passed. Completion means delivering this profile,
-including its explicit limitations. Other required compatibility mismatches need a correction or an
-explicit scope decision.
+Lokad.qpdf targets qpdf **12.4.2** for non-cryptographic PDF structural operations
+through typed, argv and job-JSON entry points. Completion means delivering the
+agreed [supported profile](SUPPORTED-PROFILE.md), including the limitations below.
+Other required compatibility mismatches need a correction or an explicit scope decision.
 
 ## Limitations that affect callers
 
 | Boundary | Current behavior |
 | --- | --- |
-| Four-component JPEG | CMYK/YCCK stays opaque; decoding requests warn, and image optimization leaves it unchanged. This is an accepted limitation of the approved codec. |
+| JPEG processing | Grayscale/RGB decoding and recompression require a caller-supplied codec. Existing images can pass through unchanged without one. |
+| Four-component JPEG | CMYK/YCCK stays opaque; decoding requests warn, and image optimization leaves it unchanged. This is an accepted limitation of the supported JPEG contract. |
 | Zopfli | `--zopfli` reports unavailable and exits 2. Ordinary Flate compression is supported; `QPDF_ZOPFLI` is treated as unset. |
 | Crypto | Passwords, encryption/decryption, permission/restriction operations, signing and signature validation are excluded. Crypto options and encrypted inputs, including empty-password inputs, reject without publishing output. |
 | Host effects | Inputs, descriptors, environment and publication require host capabilities. Fileless text/binary results replace ambient stdout; companions use explicit host paths. |
@@ -54,8 +53,8 @@ Physical output can also differ while preserving PDF meaning:
   time-based IDs; `--static-id` uses the native test constant. Unspecified
   attachment timestamps are omitted because runtime code has no ambient clock.
 - BCL Flate levels map `1` to fastest, `2–8` to optimal and `9` to smallest size.
-  JPEG quality `0` maps to ImageSharp quality `1`; other accepted values map
-  directly. Compressed bytes and lossy samples need their appropriate comparisons.
+  JPEG providers receive quality `0–100`; the development ImageSharp adapter maps
+  `0` to `1`. Compressed bytes and lossy samples need their appropriate comparisons.
 - Object numbering/grouping follows managed packing rules. Rebuilt catalogs and
   page-tree roots stay direct; QDF/linearized exclusions remain explicit. Ordinary
   compressed xrefs use plain Flate without native's PNG predictor; linearized
@@ -109,18 +108,24 @@ changed behavior, failures or a specific unresolved concern. Historical case
 identities, counts, exact CLR receipts and prescribed GC rounds add no obligations.
 Practical byte/work/decompression limits, cancellation, cleanup and actual memory
 growth remain protected by the small representative workload set.
-See [development tooling](DEVELOPMENT.md) for verification commands and
+See [contributor checks](../AGENTS.md) for verification commands and
 [benchmarks](BENCHMARKS.md) for performance measurements and artifact identities.
 
 ## Codec implementation notes
 
-ImageSharp **3.1.12** is the sole runtime package, behind the JPEG adapter.
-Its public pixel API does not preserve raw CMYK/YCCK components, so conversion to
-RGB is not substituted for PDF sample fidelity. Frame dimensions/component counts
-are checked before pixel allocation; allocator owners, input/output growth and
-row work remain governed. Both codec directions receive cancellation tokens.
-The five temporary advisory exclusions and their reachability assessment are in
-[the development guide](DEVELOPMENT.md).
+The core has no runtime package dependencies. JPEG decoding/recompression requires
+a caller-supplied `IQpdfJpegCodec`, exposed by the host's `IQpdfJpegCodecHost`
+capability. Without it, opaque JPEG copying works, checks report decoding skipped,
+and eligible image optimization fails before publication. Frame dimensions and
+component counts are checked before sample allocation; the codec context admits
+private memory and work and provides cancellation. Providers must observe the
+[borrowed-buffer and cleanup contract](../src/Lokad.Qpdf/Public/IQpdfJpegCodec.cs).
+
+The development-only [ImageSharp 3.1.12 adapter](../tools/Lokad.Qpdf.ImageSharp)
+preserves the existing grayscale/RGB behavior. Its pixel API does not preserve raw
+CMYK/YCCK components, so RGB conversion is not substituted for PDF sample fidelity.
+The five temporary advisory exclusions and reachability assessment remain beside
+their declarations in [Directory.Build.props](../Directory.Build.props).
 
 Flate validates zlib framing and Adler-32 because BCL inflate can return short
 output for truncated data. Codec calls/refills are bounded in 8 KiB chunks. The
@@ -147,6 +152,6 @@ exits 2).
 | `bin/qpdf.exe` | `1bdaf878f37eaffea1ea3c30591214c77636a0f2fc7432427516b6e22e36c0ff` |
 
 The development-only oracle lives under ignored `external/oracle/`; setup and
-fresh-run requirements are in [the development guide](DEVELOPMENT.md).
+version/hash validation uses [bootstrap-qpdf.ps1](../tools/bootstrap-qpdf.ps1).
 Missing tools fail explicit reference jobs. Native qpdf, PdfPig and renderers
 never become production dependencies.

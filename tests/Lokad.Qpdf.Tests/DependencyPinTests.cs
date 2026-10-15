@@ -38,14 +38,14 @@ public sealed class DependencyPinTests
     }
 
     [Fact]
-    public void LibraryProjectReferencesOnlyImageSharpAtRuntime()
+    public void LibraryProjectHasNoRuntimePackageDependencies()
     {
         XDocument project = XDocument.Load(Path.Combine(RepoRoot(), "src", "Lokad.Qpdf", "Lokad.Qpdf.csproj"));
         List<string> runtime = project.Descendants("PackageReference")
             .Where(element => element.Attribute("PrivateAssets") is null)
             .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
             .ToList();
-        Assert.Equal(new[] { "SixLabors.ImageSharp" }, runtime);
+        Assert.Empty(runtime);
         Assert.DoesNotContain(project.Descendants("PackageReference"), element =>
             (element.Attribute("Include")?.Value ?? string.Empty).Contains("Drawing", StringComparison.OrdinalIgnoreCase));
     }
@@ -62,13 +62,10 @@ public sealed class DependencyPinTests
     }
 
     [Fact]
-    public void LibraryLockFileResolvesImageSharp312()
+    public void LibraryLockContainsOnlyPrivateBuildTooling()
     {
-        using JsonDocument inventory = JsonDocument.Parse(
-            File.ReadAllBytes(Path.Combine(RepoRoot(), "src", "Lokad.Qpdf", "packages.lock.json")));
-        string? resolved = inventory.RootElement
-            .GetProperty("dependencies").GetProperty("net10.0").GetProperty("SixLabors.ImageSharp")
-            .GetProperty("resolved").GetString();
-        Assert.Equal("3.1.12", resolved);
+        using JsonDocument inventory = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(RepoRoot(), "src", "Lokad.Qpdf", "packages.lock.json")));
+        string[] packages = inventory.RootElement.GetProperty("dependencies").GetProperty("net10.0").EnumerateObject().Select(p => p.Name).ToArray();
+        Assert.Equal(new[] { "Microsoft.Build.Tasks.Git", "Microsoft.SourceLink.Common", "Microsoft.SourceLink.GitHub" }, packages.OrderBy(name => name, StringComparer.Ordinal));
     }
 }

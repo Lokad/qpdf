@@ -40,8 +40,9 @@ version-specific package commands when changing the project version.
 - Target `net10.0`, nullable enabled, warnings as errors, and no unsafe blocks.
 - No vendored code, qpdf-related dependencies, native PDF engines, interop or
   runtime subprocess bridges. Public upstream code is reference material only.
-- SixLabors.ImageSharp **3.1.12** is the only approved runtime package. Keep it
-  behind the future JPEG adapter; do not add Drawing or another codec.
+- The core package has no runtime NuGet dependencies. JPEG codecs are supplied
+  by callers through the host capability. SixLabors.ImageSharp **3.1.12** is
+  development-only; preserve its pin and reviewed temporary advisory exceptions.
 - Runtime storage, descriptors, environment and publication must be host-mediated.
   Physical filesystem/process adapters belong in development tools or hosts.
 - Passwords and crypto are excluded, including empty-password encrypted inputs.

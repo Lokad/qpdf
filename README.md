@@ -3,6 +3,7 @@
 Lokad.qpdf is a .NET 10 library for splitting, merging, reordering, checking and
 rewriting PDF documents. It implements qpdf's non-cryptographic operations in
 managed C#, with no native qpdf installation required at runtime.
+The core package has no runtime NuGet dependencies.
 
 Use typed C# methods, qpdf-style arguments or job JSON from your application.
 The library is currently prerelease and targets compatibility with qpdf 12.4.2;
@@ -14,7 +15,7 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 - Inspect document structure, check PDFs, and manage attachments and metadata.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.
 - Apply overlays and underlays, generate form appearances, flatten annotations,
-  and process grayscale/RGB JPEG images.
+  and process grayscale/RGB JPEG images with a caller-supplied codec.
 
 ## Example: reorder pages
 
@@ -52,6 +53,12 @@ and work. Results include warnings and resource counters.
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
 and `Qpdf.ExecuteJobAsync` accepts job JSON.
 
+JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
+Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
+custom hosts expose it through `IQpdfJpegCodecHost`. Existing JPEGs can pass through
+unchanged without a codec. See the [codec contract](src/Lokad.Qpdf/Public/IQpdfJpegCodec.cs)
+for buffer ownership, cancellation and resource admission.
+
 ## Limitations
 
 Encrypted PDFs, passwords, encryption/decryption and signature processing are
@@ -71,12 +78,11 @@ dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 ```
 
 The package is written to `artifacts/nuget`. Ordinary builds and tests require no
-native qpdf or other external PDF tools. Package verification and reference checks
-are covered in the [development guide](docs/DEVELOPMENT.md).
+native qpdf or other external PDF tools. Contributor checks are listed in
+[AGENTS.md](AGENTS.md); reference checks use [the pinned-tool verifier](tools/bootstrap-qpdf.ps1).
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
 - [Benchmarks](docs/BENCHMARKS.md): current timing, memory and output-size comparisons.
 - [Architecture](ARCHITECTURE.md): components, storage boundaries and resource ownership.
-- [Development](docs/DEVELOPMENT.md): contribution workflow, tests and package verification.
 
 Licensed under the [MIT license](LICENSE.txt).

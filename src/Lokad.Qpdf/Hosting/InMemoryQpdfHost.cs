@@ -7,7 +7,7 @@ namespace Lokad.Qpdf.Hosting;
 /// bounded in-memory preview use case and for tests. All inputs, outputs,
 /// and leases live in memory; no filesystem, process, or network access.
 /// </summary>
-public sealed class InMemoryQpdfHost : IQpdfHost
+public sealed class InMemoryQpdfHost : IQpdfHost, IQpdfJpegCodecHost
 {
     private readonly QpdfLimits _limits;
     private readonly Dictionary<string, byte[]> _inputs = new(StringComparer.Ordinal);
@@ -24,6 +24,12 @@ public sealed class InMemoryQpdfHost : IQpdfHost
     /// <summary>Creates a host with explicit budgets.</summary>
     /// <exception cref="ArgumentNullException">The limits are null.</exception>
     public InMemoryQpdfHost(QpdfLimits limits)
+        : this(limits, null)
+    {
+    }
+
+    /// <summary>Creates a host with explicit budgets and an optional caller-supplied JPEG codec.</summary>
+    public InMemoryQpdfHost(QpdfLimits limits, IQpdfJpegCodec? jpegCodec)
     {
         if (limits is null)
         {
@@ -32,7 +38,11 @@ public sealed class InMemoryQpdfHost : IQpdfHost
 
         limits.Validate();
         _limits = limits;
+        JpegCodec = jpegCodec;
     }
+
+    /// <summary>Gets the JPEG codec supplied to this host, or null when JPEG processing is unavailable.</summary>
+    public IQpdfJpegCodec? JpegCodec { get; }
 
     /// <summary>Gets the number of currently open input and staging leases.</summary>
     public long OpenLeaseCount => _openLeases;

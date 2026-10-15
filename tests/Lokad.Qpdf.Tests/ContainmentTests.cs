@@ -6,7 +6,6 @@ public sealed class ContainmentTests
 {
     private static readonly string[] AllowedReferences =
     [
-        "SixLabors.ImageSharp",
         "System.Collections",
         "System.IO.Compression",
         "System.Linq",

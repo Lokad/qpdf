@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsQpdfCodecTool>true</IsQpdfCodecTool>
+    <Description>Development-only ImageSharp JPEG adapter for tests, probes and benchmarks.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" />
+    <ProjectReference Include="../../src/Lokad.Qpdf/Lokad.Qpdf.csproj" />
+    <InternalsVisibleTo Include="Lokad.Qpdf.Tests" />
+  </ItemGroup>
+</Project>

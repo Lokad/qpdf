@@ -4,7 +4,7 @@
 .DESCRIPTION
   Uses a new consumer directory, feed and package cache for every run. The copied
   lock binds only Lokad.qpdf's content hash to the supplied unsigned artifact;
-  all versions, dependency constraints and external hashes stay locked.
+  all versions and dependency constraints stay locked.
 .LINK
   https://learn.microsoft.com/en-us/nuget/consume-packages/package-source-mapping
 .LINK
@@ -27,9 +27,8 @@ if ($lock.version -ne 2 -or $lock.dependencies.Count -ne 1 -or
     throw 'Expected the reviewed net10.0 consumer lock.'
 }
 $dependencies = $lock.dependencies['net10.0']
-if ($dependencies.Count -ne 2 -or -not $dependencies.Contains('Lokad.qpdf') -or
-    -not $dependencies.Contains('SixLabors.ImageSharp')) {
-    throw 'Consumer dependencies must remain Lokad.qpdf and the approved ImageSharp package.'
+if ($dependencies.Count -ne 1 -or -not $dependencies.Contains('Lokad.qpdf')) {
+    throw 'Consumer must depend only on the core Lokad.qpdf package.'
 }
 
 $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
@@ -45,6 +44,9 @@ try {
     if ($metadata.id -cne 'Lokad.qpdf' -or
         $metadata.version -cne $dependencies['Lokad.qpdf'].resolved) {
         throw 'Artifact identity/version must match the reviewed consumer lock.'
+    }
+    if (@($metadata.SelectNodes('*[local-name()="dependencies"]/*[local-name()="group"]/*[local-name()="dependency"]')).Count -ne 0) {
+        throw 'The core package must have no runtime package dependencies.'
     }
     $library = $package.GetEntry('lib/net10.0/Lokad.Qpdf.dll')
     if ($null -eq $library) { throw 'Missing net10.0 library assembly.' }
@@ -69,8 +71,7 @@ $packageHasher = [System.Security.Cryptography.SHA512]::Create()
 try { $artifactHash = [Convert]::ToBase64String($packageHasher.ComputeHash($packageStream)) }
 finally { $packageHasher.Dispose(); $packageStream.Dispose() }
 
-# Only the locally rebuilt artifact changes. External content hashes and the
-# complete reviewed dependency graph are retained before the first restore.
+# Only the locally rebuilt artifact's hash changes; the reviewed graph stays locked.
 $dependencies['Lokad.qpdf'].contentHash = $artifactHash
 $copiedLock = Join-Path $projectDirectory 'packages.lock.json'
 [System.IO.File]::WriteAllText($copiedLock, ($lock | ConvertTo-Json -Depth 30) + "`n")
@@ -87,12 +88,10 @@ $config = @"
   <packageSources>
     <clear />
     <add key="artifact" value="$escapedFeed" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
   <packageSourceMapping>
     <clear />
     <packageSource key="artifact"><package pattern="Lokad.qpdf" /></packageSource>
-    <packageSource key="nuget.org"><package pattern="SixLabors.ImageSharp" /></packageSource>
   </packageSourceMapping>
 </configuration>
 "@
@@ -115,4 +114,4 @@ if ($LASTEXITCODE -ne 0) { throw "Fresh consumer smoke failed ($LASTEXITCODE)." 
 if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash) {
     throw 'The tracked consumer lock changed during verification.'
 }
-Write-Output 'Fresh artifact consumer passed; dependency graph/external hashes stayed locked and the tracked lock is unchanged.'
+Write-Output 'Fresh artifact consumer passed; dependency graph stayed locked and the tracked lock is unchanged.'

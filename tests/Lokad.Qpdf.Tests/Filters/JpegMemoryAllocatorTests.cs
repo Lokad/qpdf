@@ -1,4 +1,4 @@
-using Lokad.Qpdf.Filters;
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Runtime;
 using SixLabors.ImageSharp.Memory;
 
@@ -10,7 +10,8 @@ public sealed class JpegMemoryAllocatorTests
     public void OwnersKeepTheirActualTypedCapacityChargedUntilDisposal()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        JpegMemoryAllocator allocator = new(governor);
+        QpdfJpegCodecContext context = new(governor);
+        JpegMemoryAllocator allocator = new(context);
         using var first = allocator.Allocate<long>(128, AllocationOptions.Clean);
         using var second = allocator.Allocate<byte>(1024, AllocationOptions.None);
         Assert.Equal(128, first.Memory.Length);
@@ -29,7 +30,8 @@ public sealed class JpegMemoryAllocatorTests
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
-        JpegMemoryAllocator allocator = new(governor);
+        QpdfJpegCodecContext context = new(governor);
+        JpegMemoryAllocator allocator = new(context);
         long before = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<QpdfLimitException>(() => allocator.Allocate<byte>(1024 * 1024, AllocationOptions.None));
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
@@ -42,7 +44,8 @@ public sealed class JpegMemoryAllocatorTests
     {
         using CancellationTokenSource source = new();
         ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
-        JpegMemoryAllocator allocator = new(governor);
+        QpdfJpegCodecContext context = new(governor);
+        JpegMemoryAllocator allocator = new(context);
         source.Cancel();
         Assert.Throws<OperationCanceledException>(() => allocator.Allocate<byte>(1024, AllocationOptions.None));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);

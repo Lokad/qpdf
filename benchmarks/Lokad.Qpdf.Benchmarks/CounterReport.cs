@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 
@@ -62,7 +63,7 @@ internal static class CounterReport
 
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }

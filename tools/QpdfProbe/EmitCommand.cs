@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 using Microsoft.Win32.SafeHandles;
@@ -65,7 +66,7 @@ internal static class EmitCommand
             throw new ProbeException($"Inputs directory not found: {inputsDir}.", 1);
         }
 
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         Dictionary<string, string> available = new(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(inputsDir, "*", SearchOption.AllDirectories))
         {
@@ -150,8 +151,10 @@ internal static class EmitCommand
 
     // Development host policy: ./ names share the canonical input lease identity.
     // The library still receives the original filename key in its operation plan.
-    private sealed class InputAliases(InMemoryQpdfHost host, Dictionary<string, string> available) : IQpdfHost
+    private sealed class InputAliases(InMemoryQpdfHost host, Dictionary<string, string> available) : IQpdfHost, IQpdfJpegCodecHost
     {
+        public IQpdfJpegCodec? JpegCodec => host.JpegCodec;
+
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();

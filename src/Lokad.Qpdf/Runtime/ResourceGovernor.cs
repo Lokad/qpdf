@@ -61,6 +61,12 @@ internal sealed class ResourceGovernor
         _cancellationToken = cancellationToken;
     }
 
+    internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken, IQpdfHost host)
+        : this(limits, cancellationToken)
+    { JpegCodec = (host as IQpdfJpegCodecHost)?.JpegCodec; }
+
+    internal IQpdfJpegCodec? JpegCodec { get; init; }
+
     internal CancellationToken CancellationToken => _cancellationToken;
 
     internal long MaxNestingDepth => _limits.MaxNestingDepth;

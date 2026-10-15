@@ -37,8 +37,49 @@ internal static class Program
         }
     }
 
+    private sealed class SampleCodec : IQpdfJpegCodec
+    {
+        internal int Calls { get; private set; }
+        public void Decode(Stream encoded, QpdfJpegFrame frame, Memory<byte> samples, QpdfJpegCodecContext context)
+        {
+            using IDisposable working = context.ReserveMemory(4096L);
+            context.CheckCancellation(); context.ChargeWork(samples.Length);
+            Check(frame.Width == 1 && frame.Height == 1 && frame.Components == 1, "public JPEG descriptor");
+            Check(encoded.ReadByte() == 255 && encoded.ReadByte() == 216, "borrowed JPEG source");
+            samples.Span.Fill(123); Calls++;
+        }
+        public void Encode(ReadOnlyMemory<byte> samples, QpdfJpegFrame frame, int quality, Stream encoded, QpdfJpegCodecContext context)
+            => throw new NotSupportedException("This consumer fixture exercises decoding only.");
+    }
+
+    private static async Task VerifyCodecContractAsync()
+    {
+        // A synthetic frame header and mock samples prove injection, not JPEG decoding fidelity.
+        const string frame = "FFD8FFC0000B080001000101011100FFD9>";
+        string body = "<< /Length " + frame.Length + " /Filter [/ASCIIHexDecode /DCTDecode] >>\nstream\n" + frame + "\nendstream";
+        byte[] pdf = TwoPagePdf(body);
+        SampleCodec codec = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
+        host.AddInput(QpdfPath.From("codec.pdf"), pdf, QpdfInputOwnership.Copy);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["codec.pdf", "--show-object=8", "--filtered-stream-data"]), CancellationToken.None);
+        Check(argv.Status == QpdfExecutionStatus.Completed && argv.OutputBytes.GetValueOrDefault().Span.SequenceEqual(new byte[] { 123 }), "caller codec through argv");
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host,
+            """{"inputFile":"codec.pdf","showObject":"8","filteredStreamData":""}""", CancellationToken.None);
+        Check(job.Status == QpdfExecutionStatus.Completed && job.OutputBytes.GetValueOrDefault().Span.SequenceEqual(new byte[] { 123 }), "caller codec through job JSON");
+        QpdfCheckResult typed = await Qpdf.CheckAsync(host, QpdfPath.From("codec.pdf"), CancellationToken.None);
+        Check(typed.Checks.Any(c => c.Name == "streams" && c.Status == QpdfCheckStatus.Passed), "caller codec through typed checking");
+        Check(codec.Calls == 3 && host.OpenLeaseCount == 0, "public codec dispatch and cleanup");
+        InMemoryQpdfHost plain = NewHost("codec.pdf", pdf);
+        QpdfCheckResult checkedWithoutCodec = await Qpdf.CheckAsync(plain, QpdfPath.From("codec.pdf"), CancellationToken.None);
+        Check(checkedWithoutCodec.Checks.Any(c => c.Name == "streams" && c.Status == QpdfCheckStatus.Skipped), "missing codec is an explicit skipped check");
+        Check(!typeof(Qpdf).Assembly.GetReferencedAssemblies().Any(a => (a.Name ?? "").Contains("ImageSharp", StringComparison.Ordinal)), "core assembly has no ImageSharp reference");
+        Console.WriteLine("PASS dependency-free consumer with caller-supplied JPEG codec and explicit codec-free checks");
+    }
+
     private static async Task RunAsync()
     {
+        await VerifyCodecContractAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
         PdfPageSelectionResult typed = await Qpdf.SelectPageAsync(

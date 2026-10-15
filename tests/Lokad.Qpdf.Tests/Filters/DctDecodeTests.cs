@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Filters;
@@ -14,7 +15,7 @@ public sealed class DctDecodeTests
 {
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
@@ -358,7 +359,7 @@ public sealed class DctDecodeTests
         byte[] jpeg = EncodeGrayJpeg(8, 8);
         using CancellationTokenSource source = new();
         source.Cancel();
-        ResourceGovernor governor = new(QpdfLimits.Default, source.Token);
+        ResourceGovernor governor = new(QpdfLimits.Default, source.Token) { JpegCodec = ImageSharpJpegCodec.Instance };
         Assert.Throws<OperationCanceledException>(() => DctFilter.Decode(jpeg, QpdfLimits.Default, governor));
     }
     [Fact]
@@ -367,9 +368,9 @@ public sealed class DctDecodeTests
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         long frame = 1024L * 1024L;
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
-        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight, new ResourceGovernor(tight, CancellationToken.None)));
+        Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance }));
         QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 8L * frame };
-        ResourceGovernor governor = new(roomy, CancellationToken.None);
+        ResourceGovernor governor = new(roomy, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         byte[] decoded = DctFilter.Decode(jpeg, roomy, governor);
         Assert.Equal(frame, decoded.Length);
         Assert.True(governor.Snapshot().PeakMemoryBytes >= 2L * frame);
@@ -382,7 +383,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1536L * 1024L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, limits, governor));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
@@ -453,7 +454,7 @@ public sealed class DctDecodeTests
         Assert.Equal(30000, width);
         Assert.Equal(30000, height);
         Assert.Equal(1, components);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(patched, QpdfLimits.Default, governor));
     }
     [Fact]
@@ -520,7 +521,7 @@ public sealed class DctDecodeTests
 
     private static byte[] DecodeFully(byte[] data, PdfDictionary dictionary)
     {
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         using FilterPlan stages = FilterChain.Resolve(dictionary, null, governor, governor.CancellationToken);
         return FilterChain.Decode(data, stages, QpdfLimits.Default, governor);
     }
@@ -540,7 +541,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(8, 8);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 96L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         byte[] result = FilterChain.Decode(jpeg, [new FilterStage("DCTDecode", null, null)], limits, governor);
         Assert.Equal(64, result.Length);
         Assert.Equal(64L, governor.Snapshot().TotalDecodedBytes);
@@ -551,7 +552,7 @@ public sealed class DctDecodeTests
     {
         byte[] jpeg = EncodeGrayJpeg(1024, 1024);
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 1024L * 1024L + 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         byte[] first = DctFilter.Decode(jpeg, limits, governor);
         long peak = governor.Snapshot().PeakMemoryBytes;
         long before = GC.GetAllocatedBytesForCurrentThread();

@@ -14,5 +14,6 @@
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <ProjectReference Include="..\..\src\Lokad.Qpdf\Lokad.Qpdf.csproj" />
+    <ProjectReference Include="../../tools/Lokad.Qpdf.ImageSharp/Lokad.Qpdf.ImageSharp.csproj" />
   </ItemGroup>
 </Project>

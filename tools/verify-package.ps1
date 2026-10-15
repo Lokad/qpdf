@@ -23,8 +23,8 @@ try {
     $metadata = $manifest.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
     if ($metadata.id -cne 'Lokad.qpdf') { throw 'Incorrect package ID.' }
     $dependencies = @($metadata.SelectNodes('*[local-name()="dependencies"]/*[local-name()="group"]/*[local-name()="dependency"]'))
-    if ($dependencies.Count -ne 1 -or $dependencies[0].id -cne 'SixLabors.ImageSharp' -or $dependencies[0].version -cne '[3.1.12]') {
-        throw 'The only runtime dependency must be exactly SixLabors.ImageSharp [3.1.12].'
+    if ($dependencies.Count -ne 0) {
+        throw 'The core package must have no runtime package dependencies.'
     }
 }
 finally { $package.Dispose() }
@@ -43,4 +43,4 @@ try {
 }
 finally { $symbols.Dispose() }
 
-Write-Output 'Package and symbols contain only approved files; runtime dependency is pinned to ImageSharp 3.1.12.'
+Write-Output 'Package and symbols contain only approved files; the core package has no runtime package dependencies.'

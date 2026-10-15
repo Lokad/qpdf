@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Runtime;
 
@@ -12,7 +13,7 @@ public sealed class JpegEncodeTests
     {
         byte[] raw = new byte[32 * 24 * components];
         new Random(19).NextBytes(raw);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         byte[] encoded = components == 1
             ? JpegCodec.EncodeGray(raw, 32, 24, 75, QpdfLimits.Default, governor)
             : JpegCodec.EncodeRgb(raw, 32, 24, 75, QpdfLimits.Default, governor);
@@ -31,7 +32,7 @@ public sealed class JpegEncodeTests
     {
         byte[] raw = new byte[32 * 32];
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 10L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(
             () => JpegCodec.EncodeGray(raw, 32, 32, 75, limits, governor));
         Assert.Equal(nameof(QpdfLimits.MaxOutputBytes), error.LimitName);
@@ -43,7 +44,7 @@ public sealed class JpegEncodeTests
     {
         byte[] raw = new byte[1024 * 1024];
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         long before = GC.GetAllocatedBytesForCurrentThread();
         Assert.Throws<QpdfLimitException>(() => JpegCodec.EncodeGray(raw, 1024, 1024, 75, limits, governor));
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;

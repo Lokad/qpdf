@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -10,7 +11,7 @@ public sealed class ProgressiveJpegTests
     private static async Task<InMemoryQpdfHost> FixtureHost(string fixture)
     {
         byte[] pdf = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture));
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         host.AddInput(QpdfPath.From("inputs/a.pdf"), pdf, QpdfInputOwnership.Copy);
         return host;
     }
@@ -46,7 +47,7 @@ public sealed class ProgressiveJpegTests
         Assert.Equal(width, actualWidth);
         Assert.Equal(height, actualHeight);
         Assert.Equal(components, actualComponents);
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         byte[] samples = DctFilter.Decode(jpeg, QpdfLimits.Default, governor);
         Assert.Equal(width * height * components, samples.Length);
         Assert.Equal(-1, samples.AsSpan().IndexOfAnyExcept((byte)128));
@@ -69,7 +70,7 @@ public sealed class ProgressiveJpegTests
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("inputs/a.pdf"), CancellationToken.None);
         byte[] jpeg = Image(document).Data;
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 3L * samples + 256L * 1024L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ResourceGovernor governor = new(limits, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => DctFilter.Decode(jpeg, limits, governor));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);

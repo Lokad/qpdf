@@ -86,11 +86,17 @@ structured, sanitized and independently limited.
 
 ## Dependencies and development tools
 
-ImageSharp is the sole runtime package, behind the JPEG adapter.
-Grayscale/RGB JPEG processing is supported; CMYK/YCCK remains opaque. Crypto is
-excluded. Detailed limits and exceptions belong in the compatibility documentation.
+The core has no runtime NuGet dependencies. Hosts optionally implement
+`IQpdfJpegCodecHost` to supply an `IQpdfJpegCodec` for grayscale/RGB processing.
+The core validates frame sizes and owns sample/output buffers; codecs borrow them
+for one synchronous call. `QpdfJpegCodecContext` provides cancellation, work charges
+and memory reservations for private codec storage. Codecs must release their actual
+storage before returning; outstanding accounting charges retire with the call.
+Without a codec, JPEG pass-through works, decoding checks report skipped, and
+eligible image optimization fails explicitly. CMYK/YCCK remains opaque.
 
 Native qpdf, PdfPig and renderers serve development tests, probes and benchmarks;
-they are not shipped with the library. See
-[development](docs/DEVELOPMENT.md) for checks and
+they are not shipped with the library. The nonpackable
+[ImageSharp adapter](tools/Lokad.Qpdf.ImageSharp) exercises the public codec contract
+in tests, probes and benchmarks. See [AGENTS.md](AGENTS.md) for checks and
 [benchmarks](docs/BENCHMARKS.md) for performance measurements.

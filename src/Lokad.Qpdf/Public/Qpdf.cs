@@ -69,7 +69,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
         try
         {
@@ -129,7 +129,7 @@ public static partial class Qpdf
 
         limits.Validate();
         ArgumentNullException.ThrowIfNull(rotations);
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfPageSelectionResult.StorageBytes);
         try
         {
@@ -623,7 +623,7 @@ public static partial class Qpdf
         limits.Validate();
         if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
@@ -686,7 +686,7 @@ public static partial class Qpdf
         ArgumentNullException.ThrowIfNull(rotations);
         if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
@@ -756,7 +756,7 @@ public static partial class Qpdf
         ArgumentNullException.ThrowIfNull(mergeOptions.Labels, "labels");
         if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
@@ -3939,7 +3939,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfCheckResult.StorageBytes);
         try
         {
@@ -3984,7 +3984,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         DiagnosticBag diagnostics = new(governor);
         return await ListAttachmentsCoreAsync(host, inputPath, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
     }
@@ -4036,7 +4036,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfAttachmentExtraction.StorageBytes);
         try
         {
@@ -4091,7 +4091,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfJsonResult.StorageBytes);
         try
         {
@@ -4143,7 +4143,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfJsonImportResult.StorageBytes);
         try
         {
@@ -4193,7 +4193,7 @@ public static partial class Qpdf
         }
 
         limits.Validate();
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfJsonImportResult.StorageBytes);
         try
         {
@@ -4416,7 +4416,7 @@ public static partial class Qpdf
             AttachmentsToRemove = removes,
             AttachmentsToCopy = copies,
         };
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfAttachmentEditResult.StorageBytes);
         try
         {
@@ -4941,7 +4941,7 @@ public static partial class Qpdf
 
         options.Limits.Validate();
         if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
-        ResourceGovernor governor = new(options.Limits, cancellationToken);
+        ResourceGovernor governor = new(options.Limits, cancellationToken, host);
         governor.ExpectExecutionResult();
         DiagnosticBag diagnostics = new(governor);
         ExecutionOutcome result;
@@ -5109,7 +5109,7 @@ public static partial class Qpdf
 
         options.Limits.Validate();
         if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
-        ResourceGovernor governor = new(options.Limits, cancellationToken);
+        ResourceGovernor governor = new(options.Limits, cancellationToken, host);
         governor.ExpectExecutionResult();
         DiagnosticBag diagnostics = new(governor);
         JobJsonLoader.LoadedJob loaded;
@@ -5905,7 +5905,7 @@ public static partial class Qpdf
 
         limits.Validate();
         if (ExecutionResultAdmission.Reject(limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.ExpectExecutionResult();
         ExecutionOutcome result;
         try
@@ -6013,7 +6013,7 @@ public static partial class Qpdf
             { return ExecutionResultAdmission.InvalidZlibLevel; }
             return rejection;
         }
-        ResourceGovernor governor = new(limits, cancellationToken);
+        ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.ExpectExecutionResult();
         if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
         {

@@ -15,8 +15,12 @@
         "contentHash": "iAg6zifihXEFS/t7fiHhZBGAdCp3FavsF4i2ZIDp0JfeYeDVzvmlbY1CNhhIKimaIzrzSi5M/NBFcWvZT2rB/A=="
       },
       "lokad.qpdf": {
+        "type": "Project"
+      },
+      "lokad.qpdf.imagesharp": {
         "type": "Project",
         "dependencies": {
+          "Lokad.qpdf": "[0.1.0-alpha.1, )",
           "SixLabors.ImageSharp": "[3.1.12, 3.1.12]"
         }
       }

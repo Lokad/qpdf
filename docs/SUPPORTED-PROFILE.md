@@ -14,6 +14,14 @@ estimates and practical safeguards are described under Governance below.
 
 ## Entry paths
 
+The core package has no runtime NuGet dependencies. JPEG decoding and recompression
+require an `IQpdfJpegCodec` supplied through the host's `IQpdfJpegCodecHost`
+capability. This applies to every entry path. Without a provider, structural
+operations and opaque JPEG copying work; decoding checks report skipped, and
+eligible image optimization fails explicitly before publication. Tests and reference
+tools opt into the development-only ImageSharp adapter. Other profile requirements
+remain unchanged.
+
 Three routes converge on one selection plan executed by the shared engine:
 
 - Typed: `Qpdf.SelectPageAsync` with explicit, `FirstAndLast`, or `Normalized` page sets (plus per-page rotation overloads);
@@ -135,13 +143,13 @@ echoing values.
   `/Length` resolve with a load-cycle guard, unknown filter encodings pass through untouched, and
   copying a page needs no image support. Structural streams decode through Flate,
   LZW, ASCIIHex, ASCII85, and RunLength (direct or indirect filter specs), with
-  shared predictors, plus DCTDecode at `--decode-level=all` for 1- and 3-component JPEGs (four-component stays opaque); anything else fails explicitly as unsupported.
+  shared predictors, plus DCTDecode with a supplied codec at `--decode-level=all` for 1- and 3-component JPEGs (four-component stays opaque); anything else fails explicitly as unsupported.
 - Argv/job rewriting defaults to compression with generalized decoding. Stream-data,
   compression and decode setters apply in configuration order; job keys use lexical
   order, including mixed/file-chain layers. QDF fills unset defaults. Catalog XML
   metadata is uncompressed, and empty streams retain zero-length payloads. Broader
   transformation/default/grammar differences remain in the compatibility audit.
-- --optimize-images recompresses eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller, with --jpeg-quality remapping 0 to 1; already-DCT images recompress only under an explicit quality, large inline images externalize first unless --keep-inline-images, and every skip is silent.
+- --optimize-images uses the supplied codec to recompress eligible image XObjects (8-bit DeviceGray/DeviceRGB above the oi-min thresholds) as JPEG only when strictly smaller. Providers receive --jpeg-quality in 0–100 (the development ImageSharp adapter maps 0 to 1). Already-DCT images recompress only under an explicit quality; large inline images externalize first unless --keep-inline-images. Ineligible images skip silently; an eligible operation without a codec fails explicitly.
 - One input file per selection job, several per merge, through host-mediated ranged reads.
 
 ## Selection semantics
@@ -305,7 +313,7 @@ echoing values.
   `--recompress-flate` only takes effect with a decode level covering Flate.
   Decode coverage mirrors inspection (`generalized` adds ASCII/LZW/Flate,
   `specialized` adds RunLength); `all` additionally decodes 1- and 3-component
-  DCT JPEGs (four-component CMYK/YCCK stays opaque), warning per undecodable stream. Corrupt streams and unknown
+  DCT JPEGs when a codec is supplied (four-component CMYK/YCCK stays opaque), warning per undecodable stream. Corrupt streams and unknown
   specs are kept opaque under a warning; streams with more than `--max-stream-filters=n` filters (default 25, 0 keeps every filtered stream opaque) stay opaque under a warning on every decode path; `/Crypt` is never decoded. The
   typed default keeps preview stream bytes stable without flags.
 - `--preserve-unreferenced` keeps every input object the selection did not

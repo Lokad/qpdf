@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -18,11 +19,12 @@ public sealed class PublicCpuCancellationTests(ITestOutputHelper output)
 
     // Hold the first read only to locate the existing job governor. Resume
     // before observing CPU work; no cancellation is injected at a host boundary.
-    private sealed class Host : IQpdfHost
+    private sealed class Host : IQpdfHost, IQpdfJpegCodecHost
     {
-        internal readonly InMemoryQpdfHost Inner = new();
+        internal readonly InMemoryQpdfHost Inner = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _resume = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IQpdfJpegCodec? JpegCodec => Inner.JpegCodec;
         internal Task Entered => _entered.Task;
         internal void Resume() => _resume.TrySetResult();
 

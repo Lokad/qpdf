@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Filters;
+using Lokad.Qpdf.ImageSharp;
 using Lokad.Qpdf.Runtime;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -156,9 +157,9 @@ public sealed class CodecProbeTests
         long frame = 8L * 8L * 3L;
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
         Assert.Throws<QpdfLimitException>(
-            () => DctFilter.Decode(bytes, tight, new ResourceGovernor(tight, CancellationToken.None)));
+            () => DctFilter.Decode(bytes, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance }));
         QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 256L * 1024L };
-        byte[] decoded = DctFilter.Decode(bytes, roomy, new ResourceGovernor(roomy, CancellationToken.None));
+        byte[] decoded = DctFilter.Decode(bytes, roomy, new ResourceGovernor(roomy, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance });
         Assert.Equal(frame, decoded.Length);
     }
 
@@ -169,9 +170,9 @@ public sealed class CodecProbeTests
         long frame = 8L * 8L * 3L;
         QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = frame };
         Assert.Throws<QpdfLimitException>(
-            () => JpegCodec.EncodeRgb(raw, 8, 8, 75, tight, new ResourceGovernor(tight, CancellationToken.None)));
+            () => JpegCodec.EncodeRgb(raw, 8, 8, 75, tight, new ResourceGovernor(tight, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance }));
         QpdfLimits roomy = QpdfLimits.Default with { MaxMemoryBytes = 256L * 1024L };
-        byte[] encoded = JpegCodec.EncodeRgb(raw, 8, 8, 75, roomy, new ResourceGovernor(roomy, CancellationToken.None));
+        byte[] encoded = JpegCodec.EncodeRgb(raw, 8, 8, 75, roomy, new ResourceGovernor(roomy, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance });
         Assert.True(encoded.Length > 0);
     }
 

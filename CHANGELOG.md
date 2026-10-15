@@ -2,6 +2,11 @@
 
 ## 0.1.0-alpha.1 - qualified non-cryptographic supported profile
 
+- Make JPEG processing pluggable through the host; remove ImageSharp from the core
+  package's runtime dependencies. Keep the pinned adapter in development tools.
+  Codec-free hosts preserve opaque images and report unavailable decoding or
+  eligible optimization explicitly.
+
 - Implement qpdf 12.4.2 structural operations through shared typed, argv and job-JSON routes: reading/recovery, page selection/merge/split, inspection, attachments, writer controls, content transforms, overlays, appearances, grayscale/RGB JPEG processing, QDF and linearization.
 - Preserve the accepted limitations: four-component CMYK/YCCK images remain opaque with warnings when decoding is requested; Zopfli is unavailable. Crypto operations reject explicitly. Other native differences remain documented.
 - Resolve compression/decode setters in configuration order, apply native argv/job defaults and preserve typed opaque copying. Compose repeated/nested job files through the shared loader.

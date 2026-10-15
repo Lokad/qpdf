@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -20,7 +21,7 @@ public sealed class AttachmentTests
 
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
@@ -382,7 +383,7 @@ public sealed class AttachmentTests
             jpeg = buffer.ToArray();
         }
 
-        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = ImageSharpJpegCodec.Instance };
         byte[] expected = DctFilter.Decode(jpeg, QpdfLimits.Default, governor);
         Assert.Equal(144, expected.Length);
         byte[] fixture = BuildPdf(

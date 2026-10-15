@@ -48,12 +48,11 @@ $lock.dependencies['net10.0']['Lokad.qpdf'].resolved = '0.0.0-invalid'
 [System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
 Assert-Rejection 'wrong-artifact-version' 'Artifact identity/version must match'
 
-# A fresh cache must validate the approved external bytes even though the
-# local library hash is deliberately rebound to a rebuilt alpha artifact.
+# A changed dependency graph must not silently introduce a codec package.
 $lock = $seedText | ConvertFrom-Json -AsHashtable
-$lock.dependencies['net10.0']['SixLabors.ImageSharp'].contentHash = [Convert]::ToBase64String([byte[]]::new(64))
+$lock.dependencies['net10.0']['Unexpected.Codec'] = @{ type = 'Transitive'; resolved = '1.0.0'; contentHash = 'invalid' }
 [System.IO.File]::WriteAllText($testLockPath, ($lock | ConvertTo-Json -Depth 30) + "`n")
-Assert-Rejection 'external-hash-mismatch' 'NU1403'
+Assert-Rejection 'unexpected-consumer-dependency' 'Consumer must depend only on'
 
 if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash) {
     throw 'Negative verification changed the tracked consumer lock.'

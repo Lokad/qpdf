@@ -12,7 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ([string]::IsNullOrWhiteSpace($QpdfExe)) {
-  throw "QPDF_EXE is not set. Supply -QpdfExe <path> or set QPDF_EXE to the pinned qpdf 12.4.2 executable. Obtain it by building external/qpdf at commit 4eba95899886e851cc41d76886483b347612f2a8 (see docs/DEVELOPMENT.md) or downloading the exact 12.4.2 release binary. This is an explicit failure, not a skipped check."
+  throw "QPDF_EXE is not set. Supply -QpdfExe <path> or set QPDF_EXE to the pinned qpdf 12.4.2 executable. Obtain it by building external/qpdf at commit 4eba95899886e851cc41d76886483b347612f2a8 or downloading the exact 12.4.2 release binary (see docs/COMPATIBILITY.md). This is an explicit failure, not a skipped check."
 }
 
 $resolved = (Resolve-Path -LiteralPath $QpdfExe -ErrorAction Stop).Path

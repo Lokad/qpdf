@@ -82,5 +82,6 @@
     <None Include="../Fixtures/overlay-widget-1page.pdf" Link="Fixtures/overlay-widget-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dest-1page.pdf" Link="Fixtures/overlay-widget-dest-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/overlay-widget-dr-1page.pdf" Link="Fixtures/overlay-widget-dr-1page.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../tools/Lokad.Qpdf.ImageSharp/Lokad.Qpdf.ImageSharp.csproj" />
   </ItemGroup>
 </Project>

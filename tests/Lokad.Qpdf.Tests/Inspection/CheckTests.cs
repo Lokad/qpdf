@@ -1,3 +1,4 @@
+using Lokad.Qpdf.ImageSharp;
 using System.Text;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -17,14 +18,14 @@ public sealed class CheckTests
     private static async Task<InMemoryQpdfHost> HostWithFixture(string logical, string fixture)
     {
         byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), fixture));
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         host.AddInput(QpdfPath.From(logical), bytes, QpdfInputOwnership.Copy);
         return host;
     }
 
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)
     {
-        InMemoryQpdfHost host = new();
+        InMemoryQpdfHost host = new(QpdfLimits.Default, ImageSharpJpegCodec.Instance);
         host.AddInput(QpdfPath.From(name), bytes, QpdfInputOwnership.Copy);
         return host;
     }
