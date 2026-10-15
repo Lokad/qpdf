@@ -11,6 +11,46 @@ public sealed class BatchingSinkTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ShortNumberFieldsAndFallbacksPreserveBytesAcrossScratchReuse(bool synchronous)
+    {
+        WriterPart[][] fields =
+        [
+            [WriterPart.Number(0), WriterPart.Text(" 0 R\n")],
+            [WriterPart.Number(int.MaxValue), WriterPart.Text(" 0 obj\n")],
+            [WriterPart.ZeroPaddedNumber(9_999_999_999L, 10), WriterPart.Text(" 00000 n \n")],
+            [WriterPart.Number(long.MinValue), WriterPart.Text(" 0 R\n")],
+            [WriterPart.Number(long.MaxValue), WriterPart.Text(" 0 R\n")],
+            [WriterPart.RightPaddedNumber(12, 4), WriterPart.Text("Z\n")],
+        ];
+        const string cycle = "0 0 R\n2147483647 0 obj\n9999999999 00000 n \n"
+            + "-9223372036854775808 0 R\n9223372036854775807 0 R\n12  Z\n";
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        SynchronousSink destination = new(false) { CanAppendSynchronously = synchronous };
+        using (BatchingSink sink = BatchingSink.Create(destination, QpdfLimits.Default, governor, CancellationToken.None))
+        {
+            for (int iteration = 0; iteration < 32; iteration++)
+            {
+                foreach (WriterPart[] parts in fields)
+                {
+                    if (!sink.TryAppendFormatting(parts, QpdfLimits.Default, CancellationToken.None))
+                    {
+                        using WriterFormatting formatted = WriterFormatting.Create(parts, QpdfLimits.Default, governor, CancellationToken.None);
+                        await sink.AppendAsync(formatted.Data, CancellationToken.None);
+                    }
+                }
+            }
+            await sink.FlushAsync(CancellationToken.None);
+        }
+        string expected = string.Concat(Enumerable.Repeat(cycle, 32));
+        Assert.Equal(expected, Encoding.ASCII.GetString(destination.Bytes.ToArray()));
+        if (!synchronous)
+        { Assert.Equal(expected, Encoding.ASCII.GetString(destination.Retained.SelectMany(chunk => chunk.ToArray()).ToArray())); }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task FormattingAcrossBatchBoundaryReusesOnlySynchronousScratch(bool synchronous)
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);

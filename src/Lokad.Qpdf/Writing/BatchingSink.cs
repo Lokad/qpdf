@@ -95,6 +95,17 @@ internal sealed class BatchingSink : IByteSink, IOutputCapacityHint, IDisposable
 
     internal bool TryAppendFormatting(ReadOnlySpan<WriterPart> parts, QpdfLimits limits, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(limits);
+        if (parts.Length == 2 && limits.MaxOutputBytes >= WriterFormatting.ShortTokenBytes
+            && _maximum - _length >= WriterFormatting.ShortTokenBytes
+            && _capacity - Scratch.Length >= WriterFormatting.ShortTokenBytes
+            // Also leave room for a possible scratch allocation and growth copy.
+            && _governor.RemainingWorkUnits >= 2L * _capacity + WriterFormatting.ShortTokenWork)
+        {
+            Span<byte> bytes = stackalloc byte[WriterFormatting.ShortTokenBytes];
+            if (WriterFormatting.TryFillShort(parts, bytes, _governor, token, out int written))
+            { return TryAppendBytes(bytes.Slice(0, written), token); }
+        }
         long length = WriterFormatting.MeasureParts(parts, limits, _governor, token);
         if (!Fits(length, token)) { return false; }
         WriterFormatting.FillParts(parts, Scratch.AppendRegion((int)length, token), _governor, token, null);

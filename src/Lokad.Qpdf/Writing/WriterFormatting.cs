@@ -6,6 +6,8 @@ namespace Lokad.Qpdf.Writing;
 internal sealed class WriterFormatting : IDisposable
 {
     private const int VisitBytes = 8192;
+    internal const int ShortTokenBytes = 20;
+    internal const long ShortTokenWork = 80L;
     private ParserMemoryScope? _memory;
     private byte[]? _bytes;
 
@@ -112,6 +114,32 @@ internal sealed class WriterFormatting : IDisposable
         FillRepeated(target.Slice(used), (byte)' ', governor, token, observeFill);
     }
 
+    // Common object headers, references and classic xref rows fit in twenty
+    // bytes. Format once; the caller copies only the written prefix into scratch.
+    internal static bool TryFillShort(ReadOnlySpan<WriterPart> parts, Span<byte> target,
+        ResourceGovernor governor, CancellationToken token, out int written)
+    {
+        written = 0;
+        if (parts.Length != 2 || target.Length < ShortTokenBytes) { return false; }
+        ref readonly WriterPart number = ref parts[0];
+        ref readonly WriterPart suffix = ref parts[1];
+        if (suffix.Type != WriterPart.Kind.Text || suffix.Value is not string text || text.Length > 10
+            || number.Integer < 0L) { return false; }
+        if (number.Type == WriterPart.Kind.Number)
+        {
+            if (number.Integer > int.MaxValue) { return false; }
+        }
+        else if (number.Type != WriterPart.Kind.ZeroPaddedNumber || number.Width != 10
+            || number.Integer > 9_999_999_999L) { return false; }
+
+        CheckCancellation(governor, token);
+        governor.ChargeWork(4L); // Both field visits and the bounded shape checks.
+        Fill(in number, target, ref written, governor, token, null);
+        CheckCancellation(governor, token);
+        Fill(in suffix, target, ref written, governor, token, null);
+        return true;
+    }
+
     private static void Fill(in WriterPart part, Span<byte> target, ref int used, ResourceGovernor governor, CancellationToken token,
         Action? observeFill)
     {
@@ -119,6 +147,22 @@ internal sealed class WriterFormatting : IDisposable
         if (part.Type == WriterPart.Kind.Text)
         {
             string text = part.Value ?? throw new InvalidOperationException("Missing text field.");
+            ReadOnlySpan<byte> literal = text switch
+            {
+                " 0 R" => " 0 R"u8,
+                " 0 obj\n" => " 0 obj\n"u8,
+                " 00000 n \n" => " 00000 n \n"u8,
+                _ => default,
+            };
+            if (!literal.IsEmpty)
+            {
+                CheckCancellation(governor, token);
+                governor.ChargeWork(2L * literal.Length);
+                literal.CopyTo(target.Slice(used));
+                used += literal.Length;
+                observeFill?.Invoke();
+                return;
+            }
             for (int offset = 0; offset < text.Length;)
             {
                 CheckCancellation(governor, token);

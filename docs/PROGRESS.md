@@ -14,15 +14,18 @@ a different path cannot substitute a pass. All earlier observations remain.
 
 ## Current implementation
 
-Ten private parser helpers borrow readonly tokens; three copier loops read each
-dictionary-entry pair once. Grammar, lookahead, repair/offsets, ordering/null
-semantics, work and ownership remain, with no borrow across await or added storage.
-All 6,250 affected syntax/reader/writer/inventory checks pass in 69s. The 62s paired
-X100 medians 1.961 ->1.936 ms overlap, with unchanged allocation (537 KB/job);
-these structural removals carry no confirmed speedup/allocation-benefit claim.
-The insensitive work-charging JIT hint was restored (2.020 ->2.018 ms overlaps,
-allocation unchanged); its trial is preserved. Rebuilt binaries match the qualified
-source byte-for-byte, so its complete panel is retained without another rerun.
+Common short numeric headers, references and classic xref rows now format once
+into bounded synchronous scratch. Fixed suffixes use shared literal bytes. The
+existing path handles tight limits and unsupported fields; scratch never escapes
+or crosses an await. Limits, cancellation, immutable retained packets and offsets
+remain. All 2,119 writer/inventory checks pass in 45s, including buffer reuse and
+wide/negative-field fallbacks for synchronous and retaining sinks. The final paired
+X100 medians 1.922 ->1.888 ms overlap; no firm speedup or allocation benefit is
+claimed. Integration qualification follows; the complete panel above is unchanged.
+
+Qualified readonly parser tokens, single-entry copier reads, readonly writer
+fields and split async container state remain. The insensitive work-charging JIT
+hint stays restored, with its trial preserved.
 
 Bounded warmup keeps thirty fresh jobs/two seconds minimum, then waits for two
 seconds without JIT counter changes. Counters follow job timing/allocation capture;
@@ -46,11 +49,11 @@ observations from this final comparison remain.
 WSL build/semantics/file-panel/job phases take 32.71/36.15/416.74/29.98s;
 package/consumer takes 33.58s, visual 19.35s. Current WSL kernel is
 6.18.54.1; original memory-host evidence records 6.18.40.1. Previous batch
-`858d4af` passes [hosted CI](https://github.com/Lokad/qpdf/actions/runs/38687938181):
-Ubuntu 5m44s, Windows 6m54s, reference 5m38s; each platform passes 17,940 tests,
+`3789b11` passes [hosted CI](https://github.com/Lokad/qpdf/actions/runs/38691222840):
+Ubuntu 4m35s, Windows 6m28s, reference 6m49s; each platform passes 17,940 tests,
 reference passes 1,858 exact parser comparisons/442 rewrite trios. Release pack,
 inspection and fresh-consumer/rejection checks pass on both. One combined hosted
-qualification of the parser/copier batch follows; no component CI or timing gates.
+qualification of the formatting batch follows; no component CI or timing gates.
 
 ## Preserved scope
 
