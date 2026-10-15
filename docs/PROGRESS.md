@@ -42,10 +42,20 @@ wall. Fresh independently valid outputs match byte for byte. These paired ratios
 do not replace the last complete panel. The final combined source passes local qualification below; prior shared-ancestry
 qualification stays closed.
 
-Two bounded hash trials were restored after overlapping slower X100 results:
-raw syntax shortcuts 2.024 ->2.081 ms and bulk prefix hashing 2.190 ->2.259 ms.
-Both pass 631 focused checks, with identical validated outputs; patches, binaries
-and every observation remain. They do not change the accepted hash implementation.
+Incremental xref merging now reuses the guarded capacity hint after a newer
+section populated the destination. Parsed cardinality supplies the union bound;
+normal geometric growth avoids a premature small resize for disjoint sections.
+The existing headroom guards preserve tight-job fallback and admission.
+All 426 affected xref/recovery/selection/publication/cancellation checks pass in
+21s. A public disjoint-revision regression first detected extra backing in the
+simple prototype, then passed the correction; it compares with ordinary growth
+without fixing CLR sizes or a prime table.
+
+The corrected original-X100 pair allocates about 24 KB/job less (561 ->537 KB).
+Its median is higher, 1.915 ->1.985 ms, with overlapping ranges; no speedup is
+claimed. All 4,809 samples/24.56s and the initial 4,705-sample prototype remain,
+with byte-identical independently valid outputs. Final combined qualification
+follows this source commit; no component hosted run has been added.
 
 ## Preserved qualification and scope
 

@@ -3,14 +3,61 @@ using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class XrefCollectionTests
 {
+    [Fact]
+    public async Task PublicReaderKeepsDisjointRevisionGrowthWithinOrdinaryCapacity()
+    {
+        string original = Encoding.ASCII.GetString(Classic(86, false));
+        int previous = original.IndexOf("xref\n", StringComparison.Ordinal);
+        StringBuilder source = new(original);
+        List<int> offsets = new();
+        for (int number = 91; number < 171; number++)
+        {
+            offsets.Add(source.Length);
+            source.Append(number).Append(" 0 obj\nnull\nendobj\n");
+        }
+        int current = source.Length;
+        source.Append("xref\n91 80\n");
+        foreach (int offset in offsets)
+        { source.Append(offset.ToString("D10", CultureInfo.InvariantCulture)).Append(" 00000 n \n"); }
+        source.Append("trailer\n<< /Size 171 /Root 1 0 R /Prev ").Append(previous)
+            .Append(" >>\nstartxref\n").Append(current).Append("\n%%EOF\n");
+
+        // Compare with ordinary admitted growth, without pinning CLR object
+        // sizes or a particular prime table. A hint should not add a smaller
+        // resize followed by a larger backing for these disjoint sections.
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        Dictionary<int, XrefEntry> ordinary = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
+        for (int number = 0; number < 171; number++)
+        {
+            ParserContainers.EnsureEntryCapacity(memory, ordinary, 24L);
+            ordinary.Add(number, default);
+        }
+        InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("in.pdf");
+        host.AddInput(input, Encoding.ASCII.GetBytes(source.ToString()), QpdfInputOwnership.Copy);
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, input, CancellationToken.None))
+        {
+            Assert.Equal(1, document.PageCount);
+            Assert.Equal(171, document.Engine.XRefEntries.Count);
+            Assert.IsType<PdfNull>(document.GetObject(5));
+            Assert.IsType<PdfNull>(document.GetObject(170));
+            Dictionary<int, XrefEntry> actual = Assert.IsType<Dictionary<int, XrefEntry>>(document.Engine.XRefEntries);
+            Assert.InRange(actual.EnsureCapacity(0), actual.Count, ordinary.EnsureCapacity(0));
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     private static byte[] Classic(int count, bool broken)
         => TolerantObjectLoadingTests.Pdf(Enumerable.Repeat("null", count).ToArray(), broken);
 

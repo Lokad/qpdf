@@ -84,7 +84,7 @@ internal static class ParserContainers
     }
 
     // Default hints apply only to empty destinations. Validated cache fills
-    // may opt in after accepting a value; tight jobs retain normal growth.
+    // and parsed union lower bounds may opt in; tight jobs retain normal growth.
     internal static void HintEntryCapacity<TKey, TValue>(ParserMemoryScope memory,
         Dictionary<TKey, TValue> entries, int count, long valueBytes, ResourceGovernor governor) where TKey : notnull
         => HintEntryCapacity(memory, entries, count, valueBytes, governor, false);

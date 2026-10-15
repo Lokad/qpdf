@@ -373,7 +373,20 @@ internal sealed class XRefTable : IDisposable
         Dictionary<int, XrefEntry> merged, Dictionary<int, XrefEntry> entries, int effectiveSize, int dataLength, long offset,
         ResourceGovernor governor, ParserMemoryScope memory)
     {
-        ParserContainers.HintEntryCapacity(memory, merged, entries.Count, 24L, governor);
+        // Every section key is already merged or will be added. Its parsed
+        // count bounds the union below even after a newer section populated it.
+        int capacity = merged.EnsureCapacity(0);
+        int target = entries.Count;
+        if (capacity > 0 && target > capacity)
+        {
+            // Avoid a small resize followed immediately by geometric growth
+            // when the sections are largely disjoint. Their combined count
+            // bounds useful capacity without trusting the declared /Size.
+            long upper = (long)merged.Count + entries.Count;
+            target = (int)Math.Min(Array.MaxLength, Math.Min(upper, Math.Max(target, capacity * 2L)));
+        }
+        // The shared hint keeps tight jobs on ordinary admitted growth.
+        ParserContainers.HintEntryCapacity(memory, merged, target, 24L, governor, true);
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
             governor.ChargeWork(1L);
