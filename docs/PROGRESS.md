@@ -1,10 +1,11 @@
 # Progress
 
 Single-CPU warmed parity (<=1.0x) against pinned qpdf 12.4.2 remains open.
-Clean source `2215319` has 11/13 comparable file-backed medians at parity;
-sparse job JSON is 0.427x. Open cells are rewrite-X100 1.188x and rewrite-M500
-1.031x. No paired probe replaces these panel results. [Benchmarks](BENCHMARKS.md)
-keeps comparative figures, resources and reproduction commands in three tables.
+Clean source `1baab6e` has 11/13 comparable file-backed medians at parity;
+sparse job JSON is 0.395x. Open cells are rewrite-X100 1.117x and rewrite-ID-M500
+1.019x. Ordinary rewrite-M500 is 0.977x. No paired probe replaces a panel result.
+[Benchmarks](BENCHMARKS.md) keeps comparative figures, resources and commands in
+three tables. Separate panels establish no causal attribution.
 
 Original `bf03d9a` memory-host results remain end-to-end evidence: fresh complete
 acquisition/registration, staging, defensive public export and file writes.
@@ -38,8 +39,8 @@ bytes and replaced stream lengths. Paired original X100 records 2.105 ->2.043 ms
 M500 14.699 ->14.597 ms. Both ranges overlap and allocation is effectively
 unchanged; no confirmed speedup is claimed. All 5,368 observations remain, 48.53s
 wall. Fresh independently valid outputs match byte for byte. These paired ratios
-do not replace the last complete panel. The combined source is next for final
-qualification; prior shared-ancestry qualification stays closed.
+do not replace the last complete panel. The final combined source passes local qualification below; prior shared-ancestry
+qualification stays closed.
 
 Two bounded hash trials were restored after overlapping slower X100 results:
 raw syntax shortcuts 2.024 ->2.081 ms and bulk prefix hashing 2.190 ->2.259 ms.
@@ -52,12 +53,20 @@ Final source passes 26 fresh semantic outcomes/three negatives, seven visual
 cases/two negatives, locked Release restore/build/explicit pack, inspection,
 fresh consumer and rejection controls. The unchanged 2 MiB multisource ceiling
 passes. All thirteen output sets match the previous panel byte for byte;
-original fixtures and all 185 preceding archived run objects remain unchanged.
-All 191 runs include rejected trials and all 28,794 file/5,632 job observations.
+original fixtures and all 191 preceding archived run objects remain unchanged.
+All 195 runs retain every trial and all 28,903 file/5,894 job observations.
+Intermediate `5fb7a8c` local semantic/visual/package checks remain; no separate
+full panel or hosted run was added for that component.
 
-WSL build/semantics/file-panel/job phases take 37.37/29.93/216.47/18.81s;
-package/consumer takes 53.01s, visual 16.91s. Windows/Ubuntu/pinned-reference
-qualification, logs/TRX and reports are available through
+WSL build/semantics/file-panel/job phases take 21.18/25.36/220.82/17.67s;
+package/consumer takes 28.48s. The existing six-second X100 profile validates
+2,367 fresh jobs in 7.27s. Selected intervals show reading/parsing 38.7%, writing
+35.9% and copying 5.1%; runtime polling does not prove forced GC or retained heap.
+The trace remains diagnostic evidence, separate from benchmark timings. Its real
+dictionary-resize frames guide the next bounded xref merge inspection.
+
+Hosted qualification belongs to a combined push, without component/evidence-only
+runs; Windows/Ubuntu/pinned-reference logs and reports are available through
 [CI](https://github.com/Lokad/qpdf/actions/workflows/ci.yml).
 
 The [supported profile](SUPPORTED-PROFILE.md) remains delivered. CMYK/YCCK stays
