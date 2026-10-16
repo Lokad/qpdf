@@ -329,6 +329,8 @@ public sealed class QpdfDocument : IAsyncDisposable
         byte[]? bytes = null;
         ReadOnlyMemory<byte> data = default;
         long reservedInput = 0L;
+        bool hostInput = false;
+        IDisposable? snapshotBorrow = null;
         try
         {
             if (input.Length > limits.MaxInputBytes)
@@ -360,11 +362,14 @@ public sealed class QpdfDocument : IAsyncDisposable
             else
             {
                 long inputBytes = checked(input.Length + GovernedBufferStream.ArrayOverheadBytes);
-                governor.ReserveMemory(inputBytes);
+                bool snapshot = !valuesEscape && GovernedHost.TryReadInputSnapshot(input, cancellationToken,
+                    out data, out hostInput, out snapshotBorrow);
+                if (hostInput) { governor.ReserveHostMemory(inputBytes); }
+                else { governor.ReserveMemory(inputBytes); }
                 reservedInput = inputBytes;
                 // Public documents retain fresh reading; exclusive memory-host
                 // jobs retain their existing immutable snapshot path.
-                if (valuesEscape || !GovernedHost.TryReadInputSnapshot(input, cancellationToken, out data))
+                if (!snapshot)
                 {
                     bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
                     data = bytes;
@@ -376,7 +381,9 @@ public sealed class QpdfDocument : IAsyncDisposable
             if (engine is null)
             {
                 table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
-                engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape);
+                engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery,
+                    reservedInput, valuesEscape, hostInput, snapshotBorrow);
+                snapshotBorrow = null;
             }
             engine.BorrowImmutableStreamData = borrowInputStreams;
             table = null;
@@ -406,7 +413,9 @@ public sealed class QpdfDocument : IAsyncDisposable
             engine?.Dispose();
             selectiveInput?.Dispose();
             table?.Dispose();
-            governor.ReleaseMemory(reservedInput);
+            snapshotBorrow?.Dispose();
+            if (hostInput) { governor.ReleaseHostMemory(reservedInput); }
+            else { governor.ReleaseMemory(reservedInput); }
             if (!leaveInputOpen) { await input.DisposeAsync().ConfigureAwait(false); }
             if (retry) { throw new CompleteInputRequiredException(); }
             throw;

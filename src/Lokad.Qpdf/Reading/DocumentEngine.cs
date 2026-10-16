@@ -30,6 +30,7 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
     private bool _ownsTable;
     private bool _valuesEscape = true;
     private long _reservedInput;
+    private bool _hostInput;
     private bool _borrowedStreamData;
     private PdfParser? _idleParser;
     private PdfTokenizer? _idleTokenizer;
@@ -94,6 +95,12 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         QpdfRecoveryMode recovery,
         long reservedInput,
         bool valuesEscape)
+        => CreateOwned(data, table, limits, governor, diagnostics, recovery, reservedInput, valuesEscape, false, null);
+
+    internal static DocumentEngine CreateOwned(
+        ReadOnlyMemory<byte> data, XRefTable table, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, QpdfRecoveryMode recovery, long reservedInput, bool valuesEscape,
+        bool hostInput, IDisposable? snapshotBorrow)
     {
         table.CheckOwner(governor);
         if (reservedInput != checked(data.Length + GovernedBufferStream.ArrayOverheadBytes))
@@ -103,8 +110,11 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         DocumentEngine engine = new(data, table, limits, governor, diagnostics, recovery) { _valuesEscape = valuesEscape };
         try
         {
-            engine.Metadata.AdoptReserved(reservedInput);
+            if (snapshotBorrow is not null) { engine.Metadata.AdoptHostBorrow(snapshotBorrow); }
+            if (hostInput) { engine.Metadata.AdoptHostReserved(reservedInput); }
+            else { engine.Metadata.AdoptReserved(reservedInput); }
             engine._reservedInput = reservedInput;
+            engine._hostInput = hostInput;
             engine._ownsTable = true;
             return engine;
         }
@@ -197,8 +207,10 @@ internal sealed class DocumentEngine : IStreamRecoveryResolver, IDisposable
         Table.TransferExclusiveValuesTo(target);
         if (_borrowedStreamData && _reservedInput != 0L)
         {
-            Metadata.TransferTo(target, _reservedInput);
+            if (_hostInput) { Metadata.TransferHostTo(target, _reservedInput); }
+            else { Metadata.TransferTo(target, _reservedInput); }
             _reservedInput = 0L;
+            _hostInput = false;
         }
         target.AdoptReserved(_unborrowedBytes);
         _unborrowedBytes = 0L;

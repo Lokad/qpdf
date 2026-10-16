@@ -81,6 +81,7 @@ internal static class Program
     private static async Task RunAsync()
     {
         await VerifyMemoryContractAsync();
+        await VerifyHostMemoryContractAsync();
         await VerifyCodecContractAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
@@ -1035,6 +1036,35 @@ internal static class Program
         }
         Check(executionRoot.ReservedBytes == 0L, "invocation owner refunds without GC");
         Console.WriteLine("PASS cooperative memory contract, retained read ownership and shared refusal");
+    }
+
+    private static async Task VerifyHostMemoryContractAsync()
+    {
+        byte[] input = TwoPagePdf();
+        RecordingMemoryBudget root = new(16777216L);
+        using IMemoryScope storage = root.CreateScope();
+        IMemoryScope export = root.CreateScope();
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, null, storage);
+        if (!storage.TryReserve(input.LongLength + 256L, out IMemoryReservation? inputStorage))
+        { throw new InvalidOperationException("Input admission was refused."); }
+        host.AddInput(QpdfPath.From("input"), input, inputStorage);
+        Check(root.ReserveCalls == 1, "input and its existing reservation transfer together");
+        using (IMemoryScope invocation = root.CreateScope())
+        {
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryHostView(host, invocation),
+                new QpdfCommandInvocation(["input", "--stream-data=preserve", "output"]), CancellationToken.None);
+            Check(result.Status == QpdfExecutionStatus.Completed, "durable host and invocation admission");
+            Check(host.OpenLeaseCount == 0L, "governed host publication closes its leases");
+        }
+        Check(root.ReservedBytes > input.LongLength + 256L, "published output stays charged after invocation");
+        Check(host.TryGetOutput(QpdfPath.From("output"), export, out byte[] output), "export under caller owner");
+        host.Dispose();
+        Check(root.ReservedBytes == output.LongLength + 32L, "host disposal preserves independent exported bytes");
+        Check(output.AsSpan().StartsWith("%PDF-"u8), "export remains usable after host disposal");
+        output = [];
+        export.Dispose();
+        Check(root.ReservedBytes == 0L, "all storage admission refunds without GC");
+        Console.WriteLine("PASS durable host input/staging/publication, reservation handoff and independent export");
     }
 
     private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost

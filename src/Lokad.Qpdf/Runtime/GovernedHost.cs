@@ -15,6 +15,8 @@ internal interface ISynchronousOutputTransaction
 /// <summary>An immutable host snapshot borrowed only by private documents.</summary>
 internal interface IImmutableInputSnapshot
 {
+    bool MemoryAdmitted { get; }
+    IDisposable RetainStorage();
     ReadOnlyMemory<byte> ReadSnapshot(CancellationToken cancellationToken);
 }
 
@@ -40,10 +42,11 @@ internal static class GovernedHost
         governed.WriteSynchronously(data, token);
     }
 
-    internal static bool TryReadInputSnapshot(IQpdfInput input, CancellationToken token, out ReadOnlyMemory<byte> data)
+    internal static bool TryReadInputSnapshot(IQpdfInput input, CancellationToken token,
+        out ReadOnlyMemory<byte> data, out bool memoryAdmitted, out IDisposable? storageBorrow)
     {
-        if (input is GovernedInput governed) { return governed.TryReadSnapshot(token, out data); }
-        data = default; return false;
+        if (input is GovernedInput governed) { return governed.TryReadSnapshot(token, out data, out memoryAdmitted, out storageBorrow); }
+        data = default; memoryAdmitted = false; storageBorrow = null; return false;
     }
 
     internal static void PrepareOutputCapacity(IQpdfOutputTransaction transaction, long length,
@@ -117,15 +120,19 @@ internal static class GovernedHost
         public string Identity => Inner.Identity;
         public long Length => Inner.Length;
 
-        internal bool TryReadSnapshot(CancellationToken token, out ReadOnlyMemory<byte> data)
+        internal bool TryReadSnapshot(CancellationToken token, out ReadOnlyMemory<byte> data,
+            out bool memoryAdmitted, out IDisposable? storageBorrow)
         {
             IQpdfInput inner = Inner;
-            if (inner is not IImmutableInputSnapshot snapshot) { data = default; return false; }
+            if (inner is not IImmutableInputSnapshot snapshot)
+            { data = default; memoryAdmitted = false; storageBorrow = null; return false; }
             ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(GovernedInput));
             token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteHostOperation();
             data = snapshot.ReadSnapshot(token);
+            memoryAdmitted = snapshot.MemoryAdmitted;
             if (data.Length != inner.Length)
             { throw new QpdfHostException(inner.Path, QpdfHostFailureReason.NonProgressingRead); }
+            storageBorrow = memoryAdmitted ? snapshot.RetainStorage() : null;
             return true;
         }
 

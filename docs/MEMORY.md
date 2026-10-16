@@ -43,8 +43,38 @@ buffers retain both old and new charges during copying. Root charges include
 block slack; local job counters continue reporting the existing estimates.
 Returned storage remains beneath the supplied caller scope after the call ends.
 
-The migration is incomplete: the engine still uses its existing local value
-ledgers, and host-private retained input, staging and publication storage needs
-its own admission. Supplying the execution capability alone does not make an
-unmodified host's private storage governed. Retained graph ownership and host
-storage are being migrated to explicit coarse owners.
+`InMemoryQpdfHost(limits, codec, memoryBudget)` also admits its retained input,
+staging capacity and publication buffers under a durable caller owner. Existing
+constructors preserve local-only behavior. It refunds replaced inputs after their
+last lease closes and output storage after replacement or host disposal. Growth
+and commit copies admit their overlap before allocation; a complete staging array
+retains its charge when published. Refusal preserves a prior target. A private
+copy graph that outlives its reader retains one snapshot lease per source until
+its own phase finishes, so input replacement cannot refund borrowed bytes early.
+
+`AddInput(path, bytes, reservation)` accepts already admitted, exclusively
+transferred storage without another root charge. The host takes responsibility
+for reservation disposal on success. The reservation's scope stays unchanged and
+must outlive all host users; the estimate includes a 256-byte file-owner/container
+allowance, plus two bytes per path character beyond the first 64. Persisted keys
+are copied under the durable host owner. Ordinary copy/transfer registration makes
+its own admission.
+
+`TryGetOutput(path, budget, out bytes)` gives an exported copy a separate caller
+owner. The existing overload uses the host's supplied owner when present.
+Exported copies remain charged after host disposal. Use an owner that survives
+the host's storage scope, for example a sibling scope beneath the same root.
+`Dispose` drops host storage and requires all input and transaction leases to be
+closed and private snapshot borrowers finished first; it never disposes a supplied
+caller budget.
+
+The engine keeps host staging and already admitted private input snapshots in
+its local policy estimate, with shared charges owned by the host. Public document
+reads still make independently charged copies. Custom hosts must admit their
+private buffers themselves; the execution capability alone does not govern those
+buffers. Low-level input callers admit freshly returned bytes before reading;
+the budget-aware helper provides that boundary.
+
+The remaining migration concerns the engine's local value ledgers and explicit
+coarse graph/result owners. These existing ledgers are not the lifetime contract
+for the supplied caller scope.

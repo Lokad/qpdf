@@ -2,363 +2,204 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Hosting;
 
-/// <summary>
-/// No-filesystem host backed by caller-supplied memory. Suitable for the
-/// bounded in-memory preview use case and for tests. All inputs, outputs,
-/// and leases live in memory; no filesystem, process, or network access.
-/// </summary>
-public sealed class InMemoryQpdfHost : IQpdfHost, IQpdfJpegCodecHost
+/// <summary>A host whose registered inputs, staging and published outputs live in memory.</summary>
+/// <remarks>Not safe for concurrent mutation. Close its leases before disposing the host.</remarks>
+public sealed partial class InMemoryQpdfHost : IQpdfHost, IQpdfJpegCodecHost, IQpdfMemoryHost, IDisposable
 {
+    // Payload owner and approximate dictionary backing capacity, amortized per file.
+    internal const long StorageOverheadBytes = 256L;
     private readonly QpdfLimits _limits;
-    private readonly Dictionary<string, byte[]> _inputs = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, byte[]> _outputs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, StoredBytes> _inputs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, StoredBytes> _outputs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _openIdentities = new(StringComparer.Ordinal);
     private long _openLeases;
+    private long _snapshotBorrows;
+    private bool _disposed;
 
-    /// <summary>Creates a host with default budgets.</summary>
-    public InMemoryQpdfHost()
-        : this(QpdfLimits.Default)
+    /// <summary>Creates a host with default local limits.</summary>
+    public InMemoryQpdfHost() : this(QpdfLimits.Default) { }
+
+    /// <summary>Creates a host with explicit local limits.</summary>
+    public InMemoryQpdfHost(QpdfLimits limits) : this(limits, null) { }
+
+    /// <summary>Creates a host with local limits and an optional caller-supplied JPEG codec.</summary>
+    public InMemoryQpdfHost(QpdfLimits limits, IQpdfJpegCodec? jpegCodec) : this(limits, jpegCodec, null) { }
+
+    /// <summary>Creates a host with local limits, an optional codec and a borrowed durable memory owner.</summary>
+    /// <remarks>
+    /// The owner covers retained host storage and default invocation admission.
+    /// It must outlive this host, all leases and exported copies. A per-invocation
+    /// host view can supply a shorter execution owner sharing the same root.
+    /// Null preserves local limits without shared admission.
+    /// </remarks>
+    public InMemoryQpdfHost(QpdfLimits limits, IQpdfJpegCodec? jpegCodec, IMemoryBudget? memoryBudget)
     {
-    }
-
-    /// <summary>Creates a host with explicit budgets.</summary>
-    /// <exception cref="ArgumentNullException">The limits are null.</exception>
-    public InMemoryQpdfHost(QpdfLimits limits)
-        : this(limits, null)
-    {
-    }
-
-    /// <summary>Creates a host with explicit budgets and an optional caller-supplied JPEG codec.</summary>
-    public InMemoryQpdfHost(QpdfLimits limits, IQpdfJpegCodec? jpegCodec)
-    {
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
+        ArgumentNullException.ThrowIfNull(limits);
         limits.Validate();
         _limits = limits;
         JpegCodec = jpegCodec;
+        MemoryBudget = memoryBudget;
     }
 
-    /// <summary>Gets the JPEG codec supplied to this host, or null when JPEG processing is unavailable.</summary>
+    /// <summary>Gets the supplied JPEG codec, or null.</summary>
     public IQpdfJpegCodec? JpegCodec { get; }
 
+    /// <summary>Gets the borrowed durable memory owner, or null when only local limits apply.</summary>
+    public IMemoryBudget? MemoryBudget { get; }
+
     /// <summary>Gets the number of currently open input and staging leases.</summary>
+    /// <remarks>Private snapshot borrows retain storage independently of handle leases.</remarks>
     public long OpenLeaseCount => _openLeases;
 
-    /// <summary>
-    /// Registers an input. With <see cref="QpdfInputOwnership.Copy" /> the
-    /// bytes are cloned; with <see cref="QpdfInputOwnership.Transfer" /> the
-    /// array is referenced and the caller must not mutate it afterwards.
-    /// Reads always return fresh copies.
-    /// </summary>
-    /// <exception cref="ArgumentNullException">Content is null.</exception>
-    /// <exception cref="ArgumentException">Content exceeds the input budget.</exception>
+    /// <summary>Registers a copied input or takes exclusive ownership of a transferred array.</summary>
+    /// <remarks>
+    /// Shared admission precedes copying or accepting ownership. If the array
+    /// already has a reservation, use the reservation overload to hand it off
+    /// without a second charge. Public reads return fresh owned bytes; their
+    /// caller admits those copies, for example with the budget-aware read helper.
+    /// </remarks>
     public void AddInput(QpdfPath path, byte[] content, QpdfInputOwnership ownership)
     {
-        if (content is null)
+        ValidateInput(content);
+        IMemoryReservation? admission = ReserveStorage(content.Length, path);
+        try
         {
-            throw new ArgumentNullException(nameof(content));
+            byte[] bytes = ownership == QpdfInputOwnership.Copy ? (byte[])content.Clone() : content;
+            StoreInput(path, new StoredBytes(bytes, admission));
+            admission = null;
         }
-
-        if (content.Length > _limits.MaxInputBytes)
-        {
-            throw new ArgumentException($"Input exceeds MaxInputBytes ({content.Length} > {_limits.MaxInputBytes}).", nameof(content));
-        }
-
-        byte[] stored = ownership == QpdfInputOwnership.Copy ? (byte[])content.Clone() : content;
-        _inputs[path.Value] = stored;
+        finally { admission?.Dispose(); }
     }
 
-    /// <summary>
-    /// Tries to retrieve a copy of a committed output.
-    /// </summary>
-    public bool TryGetOutput(QpdfPath path, out byte[] content)
+    /// <summary>Registers an exclusively transferred array and its existing durable admission.</summary>
+    /// <remarks>
+    /// On success the host owns the reservation's disposal. Its original scope
+    /// is unchanged and must outlive host storage and leases. The estimate must
+    /// cover array length plus 256 bytes of owner/container allowance, adding
+    /// two bytes for every path character beyond the first 64.
+    /// Failure leaves the reservation owned by the caller.
+    /// </remarks>
+    public void AddInput(QpdfPath path, byte[] content, IMemoryReservation reservation)
     {
-        if (_outputs.TryGetValue(path.Value, out byte[]? stored) && stored is not null)
+        ValidateInput(content);
+        ArgumentNullException.ThrowIfNull(reservation);
+        if (reservation.Bytes < StorageBytes(content.Length, path))
+        { throw new ArgumentException("The reservation cannot cover input storage.", nameof(reservation)); }
+        StoreInput(path, new StoredBytes(content, reservation));
+    }
+
+    private void ValidateInput(byte[] content)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(content);
+        if (content.Length > _limits.MaxInputBytes)
+        { throw new ArgumentException($"Input exceeds MaxInputBytes ({content.Length} > {_limits.MaxInputBytes}).", nameof(content)); }
+    }
+
+    private void StoreInput(QpdfPath path, StoredBytes storage)
+    {
+        _inputs.TryGetValue(path.Value, out StoredBytes? previous);
+        string key = previous is null ? new string(path.Value.AsSpan()) : path.Value;
+        _inputs[key] = storage;
+        previous?.Retire();
+    }
+
+    /// <summary>Tries to export a fresh copy, charging the supplied host owner when present.</summary>
+    /// <remarks>The copy remains charged until that caller owner closes, including after host disposal.</remarks>
+    public bool TryGetOutput(QpdfPath path, out byte[] content) => Export(path, MemoryBudget, out content);
+
+    /// <summary>Tries to export a fresh copy under a separate borrowed caller owner.</summary>
+    /// <remarks>The caller keeps this owner alive until it drops the returned bytes and all aliases.</remarks>
+    public bool TryGetOutput(QpdfPath path, IMemoryBudget memoryBudget, out byte[] content)
+    {
+        ArgumentNullException.ThrowIfNull(memoryBudget);
+        return Export(path, memoryBudget, out content);
+    }
+
+    private bool Export(QpdfPath path, IMemoryBudget? budget, out byte[] content)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_outputs.TryGetValue(path.Value, out StoredBytes? storage)) { content = []; return false; }
+        byte[] bytes = storage.Bytes;
+        IMemoryReservation? admission = budget is null ? null
+            : MemoryAdmission.Reserve(budget, bytes.LongLength + GovernedBufferStream.ArrayOverheadBytes);
+        try
         {
-            content = (byte[])stored.Clone();
+            content = (byte[])bytes.Clone();
+            admission = null; // The caller scope now owns the copy's charge.
             return true;
         }
-
-        content = [];
-        return false;
+        finally { admission?.Dispose(); }
     }
 
-    /// <summary>Opens the staged input, charging an open handle against the host budget.</summary>
+    /// <summary>Opens a stable input lease under the local handle limit.</summary>
     public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
-        if (!_inputs.TryGetValue(path.Value, out byte[]? stored) || stored is null)
-        {
-            throw new QpdfHostException(path, QpdfHostFailureReason.NotFound);
-        }
-
-        if (_openLeases >= _limits.MaxOpenHandles)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxOpenHandles), _openLeases + 1L, _limits.MaxOpenHandles);
-        }
-
-        _openLeases += 1L;
+        if (!_inputs.TryGetValue(path.Value, out StoredBytes? storage))
+        { throw new QpdfHostException(path, QpdfHostFailureReason.NotFound); }
+        CheckHandle();
+        InMemoryInput input = new(this, path, storage);
         _openIdentities[path.Value] = _openIdentities.TryGetValue(path.Value, out int open) ? open + 1 : 1;
-        IQpdfInput input = new InMemoryInput(this, path, stored);
-        return ValueTask.FromResult(input);
+        storage.Acquire();
+        _openLeases++;
+        return ValueTask.FromResult<IQpdfInput>(input);
     }
 
-    /// <summary>Creates a staged output transaction, charging an open handle against the host budget.</summary>
+    /// <summary>Creates an output transaction under the local handle limit.</summary>
     public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
-        if (_openLeases >= _limits.MaxOpenHandles)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxOpenHandles), _openLeases + 1L, _limits.MaxOpenHandles);
-        }
-
-        _openLeases += 1L;
+        CheckHandle();
         IQpdfOutputTransaction transaction = new InMemoryTransaction(this, path);
+        _openLeases++;
         return ValueTask.FromResult(transaction);
+    }
+
+    private void CheckHandle()
+    {
+        if (_openLeases >= _limits.MaxOpenHandles)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxOpenHandles), _openLeases + 1L, _limits.MaxOpenHandles); }
     }
 
     private void ReleaseLease(string? identity)
     {
-        _openLeases = Math.Max(0L, _openLeases - 1L);
-        if (identity is not null)
+        _openLeases--;
+        if (identity is not null && _openIdentities.TryGetValue(identity, out int open))
         {
-            if (_openIdentities.TryGetValue(identity, out int open))
-            {
-                if (open <= 1)
-                {
-                    _openIdentities.Remove(identity);
-                }
-                else
-                {
-                    _openIdentities[identity] = open - 1;
-                }
-            }
+            if (open == 1) { _openIdentities.Remove(identity); }
+            else { _openIdentities[identity] = open - 1; }
         }
     }
 
-    private sealed class InMemoryInput : IQpdfInput, IImmutableInputSnapshot
+    private static long StorageBytes(int capacity, QpdfPath path)
+        => capacity + StorageOverheadBytes + 2L * Math.Max(0, path.Value.Length - 64);
+    private IMemoryReservation? ReserveStorage(int capacity, QpdfPath path)
+        => MemoryBudget is null ? null : MemoryAdmission.Reserve(MemoryBudget, StorageBytes(capacity, path));
+
+    private static void Copy(ReadOnlySpan<byte> source, Span<byte> target, CancellationToken token)
     {
-        private InMemoryQpdfHost? _host;
-        private byte[]? _snapshot;
-        private readonly long _length;
-        private bool _disposed;
-
-        internal InMemoryInput(InMemoryQpdfHost host, QpdfPath path, byte[] snapshot)
+        for (int offset = 0; offset < source.Length;)
         {
-            _host = host;
-            Path = path;
-            Identity = path.Value;
-            _snapshot = snapshot;
-            _length = snapshot.Length;
-        }
-
-        public QpdfPath Path { get; }
-
-        public string Identity { get; }
-
-        public long Length => _length;
-
-        ReadOnlyMemory<byte> IImmutableInputSnapshot.ReadSnapshot(CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return _snapshot ?? throw new ObjectDisposedException(nameof(IQpdfInput));
-        }
-
-        public ValueTask<ReadOnlyMemory<byte>> ReadAsync(long offset, int count, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(IQpdfInput));
-            }
-
-            byte[] snapshot = _snapshot ?? throw new ObjectDisposedException(nameof(IQpdfInput));
-            if (offset < 0 || count < 0 || count > snapshot.Length - offset)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
-            }
-
-            if (count == 0)
-            {
-                return ValueTask.FromResult(ReadOnlyMemory<byte>.Empty);
-            }
-
-            byte[] copy = new byte[count];
-            Buffer.BlockCopy(snapshot, (int)offset, copy, 0, count);
-            return ValueTask.FromResult((ReadOnlyMemory<byte>)copy);
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            if (!_disposed)
-            {
-                _disposed = true;
-                InMemoryQpdfHost? host = _host;
-                _host = null; _snapshot = null;
-                host?.ReleaseLease(Identity);
-            }
-
-            return ValueTask.CompletedTask;
+            token.ThrowIfCancellationRequested();
+            int count = Math.Min(8192, source.Length - offset);
+            source.Slice(offset, count).CopyTo(target.Slice(offset, count));
+            offset += count;
         }
     }
 
-    private sealed class InMemoryTransaction : IQpdfOutputTransaction, IOutputCapacityHint, ISynchronousOutputTransaction
+    /// <summary>Drops retained host storage; exported copies keep their caller-owned charges.</summary>
+    /// <exception cref="InvalidOperationException">Leases or private snapshot borrowers remain active.</exception>
+    public void Dispose()
     {
-        private readonly InMemoryQpdfHost _host;
-        private MemoryStream? _staging = new();
-        private bool _fixedCapacity;
-        private bool _settled;
-        private bool _disposed;
-
-        internal InMemoryTransaction(InMemoryQpdfHost host, QpdfPath path)
-        {
-            _host = host;
-            Path = path;
-        }
-
-        public QpdfPath Path { get; }
-
-        private MemoryStream Staging => _staging ?? throw new InvalidOperationException("Staging is already released.");
-
-        void IOutputCapacityHint.EnsureCapacity(long length, CancellationToken cancellationToken)
-        {
-            CheckUnsettled(cancellationToken);
-            if (length > _host._limits.MaxOutputBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _host._limits.MaxOutputBytes);
-            }
-            if (length <= Array.MaxLength && length > Staging.Capacity)
-            {
-                if (Staging.Length == 0L)
-                {
-                    // Counted fresh staging is filled by writes before publication.
-                    // Its unused capacity is private and must never be published.
-                    byte[] bytes = GC.AllocateUninitializedArray<byte>((int)length);
-                    MemoryStream next = new(bytes, 0, bytes.Length, true, true);
-                    next.SetLength(0L);
-                    Staging.Dispose();
-                    _staging = next;
-                    _fixedCapacity = true;
-                }
-                else if (_fixedCapacity) { MakeExpandable((int)length); }
-                else { Staging.Capacity = (int)length; }
-            }
-        }
-
-        private void MakeExpandable(int capacity)
-        {
-            MemoryStream next = new(capacity);
-            next.Write(Staging.GetBuffer().AsSpan(0, checked((int)Staging.Length)));
-            Staging.Dispose();
-            _staging = next;
-            _fixedCapacity = false;
-        }
-
-        private void CheckUnsettled(CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(IQpdfOutputTransaction));
-            }
-
-            if (_settled)
-            {
-                throw new InvalidOperationException("The transaction is already committed or discarded.");
-            }
-        }
-
-        public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
-        {
-            Write(data.Span, cancellationToken);
-            return ValueTask.CompletedTask;
-        }
-
-        public void Write(ReadOnlySpan<byte> data, CancellationToken cancellationToken)
-        {
-            CheckUnsettled(cancellationToken);
-
-            checked
-            {
-                long next = Staging.Length + data.Length;
-                if (next > _host._limits.MaxOutputBytes)
-                {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), next, _host._limits.MaxOutputBytes);
-                }
-                // A capacity hint is optional, not a ceiling. Preserve ordinary
-                // growth if a caller writes beyond the counted reservation.
-                if (_fixedCapacity && next > Staging.Capacity && next <= Array.MaxLength)
-                { MakeExpandable((int)next); }
-            }
-
-            // MemoryStream copies synchronously into private staging storage.
-            // An intermediate array adds no isolation after Write completes.
-            Staging.Write(data);
-        }
-
-        public ValueTask CommitAsync(CancellationToken cancellationToken)
-        {
-            CheckUnsettled(cancellationToken);
-
-            if (_host._openIdentities.ContainsKey(Path.Value))
-            {
-                throw new QpdfHostException(Path, QpdfHostFailureReason.Conflict);
-            }
-
-            // Staging is private and settled transactions cannot write again.
-            // Transfer only a complete backing; trim geometric spare capacity.
-            byte[] published = Staging.TryGetBuffer(out ArraySegment<byte> staged)
-                && staged.Offset == 0 && staged.Array is byte[] bytes && bytes.Length == staged.Count
-                ? bytes : Staging.ToArray();
-            _host._outputs[Path.Value] = published;
-            ReleaseStaging();
-            _settled = true;
-            _host.ReleaseLease(null);
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask DiscardAsync(CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(IQpdfOutputTransaction));
-            }
-
-            if (!_settled)
-            {
-                _settled = true;
-                _host.ReleaseLease(null);
-            }
-
-            ReleaseStaging();
-            return ValueTask.CompletedTask;
-        }
-
-        private void ReleaseStaging()
-        {
-            _staging?.Dispose();
-            _staging = null;
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            if (!_disposed)
-            {
-                _disposed = true;
-                if (!_settled)
-                {
-                    _settled = true;
-                    _host.ReleaseLease(null);
-                }
-
-                ReleaseStaging();
-            }
-
-            return ValueTask.CompletedTask;
-        }
+        if (_disposed) { return; }
+        if (_openLeases != 0L || _snapshotBorrows != 0L)
+        { throw new InvalidOperationException("Finish host leases and snapshot borrowers before disposing their storage."); }
+        _disposed = true;
+        foreach (StoredBytes storage in _inputs.Values) { storage.Retire(); }
+        foreach (StoredBytes storage in _outputs.Values) { storage.Retire(); }
+        _inputs.Clear(); _outputs.Clear(); _openIdentities.Clear();
     }
 }

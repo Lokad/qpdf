@@ -28,7 +28,9 @@ internal sealed class PublicationWorkReservation : IDisposable
             memory.Reserve(48L);
             if (units > 0L) { memory.Reserve(GovernedHost.OutputWrapperBytes); }
             // Sequential transactions reuse this admitted staging allowance.
-            memory.Reserve(stagingBytes);
+            // Local policy includes host staging. Shared admission for those
+            // physical buffers belongs to the host's durable storage owner.
+            memory.ReserveHostMemory(stagingBytes);
             PublicationWorkReservation reservation = new(governor, memory, units);
             governor.AttachPublicationWork(reservation);
             return reservation;

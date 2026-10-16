@@ -52,6 +52,12 @@ staged output transactions. Paths identify host resources; the library has no
 ambient filesystem, process or network access. The built-in host stores bytes in
 memory. Physical adapters belong to applications or development tools.
 
+The memory host can borrow a durable memory budget for retained input, staging
+and publication. Replaced input storage stays charged through its last lease;
+export copies have a caller owner that can outlive host disposal. Borrowed private
+input snapshots and host staging retain local policy estimates without duplicate
+engine admission at the shared root.
+
 Eligible page selections read bounded ranges from classic-xref inputs. If the
 selected ranges cannot support the operation, the reader retries the complete
 input on the same lease with the same recovery policy, before publishing output.

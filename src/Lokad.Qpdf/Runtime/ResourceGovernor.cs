@@ -13,6 +13,7 @@ internal sealed class ResourceGovernor
     private readonly CancellationToken _cancellationToken;
     private readonly SharedMemoryOwner? _sharedMemory;
     private long _liveMemoryBytes;
+    private long _hostMemoryBytes;
     private long _peakMemoryBytes;
     private long _totalWork;
     private long _totalDecodedBytes;
@@ -66,8 +67,8 @@ internal sealed class ResourceGovernor
         : this(limits, cancellationToken)
     {
         JpegCodec = (host as IQpdfJpegCodecHost)?.JpegCodec;
-        if (host is IQpdfMemoryHost memoryHost)
-        { _sharedMemory = new(memoryHost.MemoryBudget, limits.MaxMemoryBytes); }
+        if (host is IQpdfMemoryHost memoryHost && memoryHost.MemoryBudget is IMemoryBudget budget)
+        { _sharedMemory = new(budget, limits.MaxMemoryBytes); }
     }
 
     internal IQpdfJpegCodec? JpegCodec { get; init; }
@@ -95,6 +96,16 @@ internal sealed class ResourceGovernor
     }
 
     private void ReserveReconciledMemory(long bytes)
+        => ReserveReconciledMemory(bytes, false);
+
+    internal void ReserveHostMemory(long bytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(bytes);
+        ReconcileValueOwners();
+        ReserveReconciledMemory(bytes, true);
+    }
+
+    private void ReserveReconciledMemory(long bytes, bool hostStorage)
     {
         checked
         {
@@ -106,8 +117,10 @@ internal sealed class ResourceGovernor
 
             CheckPresentationBytes(_totalOutputBytes, _totalDecodedBytes, Math.Max(next, _peakMemoryBytes));
             long rawNext = _liveMemoryBytes + bytes;
-            _sharedMemory?.Ensure(next);
+            long hostNext = hostStorage ? _hostMemoryBytes + bytes : _hostMemoryBytes;
+            _sharedMemory?.Ensure(Math.Max(0L, next - hostNext));
             _liveMemoryBytes = rawNext;
+            _hostMemoryBytes = hostNext;
             if (next > _peakMemoryBytes)
             {
                 _peakMemoryBytes = next;
@@ -123,7 +136,15 @@ internal sealed class ResourceGovernor
         }
 
         _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + RetiredCarrierBytes, _liveMemoryBytes - bytes);
-        _sharedMemory?.ReleaseTo(LiveMemoryBytes);
+        _sharedMemory?.ReleaseTo(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
+    }
+
+    internal void ReleaseHostMemory(long bytes)
+    {
+        if (bytes < 0L || bytes > _hostMemoryBytes)
+        { throw new InvalidOperationException("Host storage release exceeds its local policy estimate."); }
+        _hostMemoryBytes -= bytes;
+        ReleaseMemory(bytes);
     }
 
     private void ReconcileValueOwners()

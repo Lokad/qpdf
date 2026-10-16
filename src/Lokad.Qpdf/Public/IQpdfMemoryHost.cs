@@ -9,6 +9,6 @@ namespace Lokad.Qpdf;
 /// </remarks>
 public interface IQpdfMemoryHost
 {
-    /// <summary>Gets the borrowed owner under which invocation storage is admitted.</summary>
-    IMemoryBudget MemoryBudget { get; }
+    /// <summary>Gets the borrowed invocation owner, or null to use local limits only.</summary>
+    IMemoryBudget? MemoryBudget { get; }
 }

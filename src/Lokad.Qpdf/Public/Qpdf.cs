@@ -2607,7 +2607,7 @@ public static partial class Qpdf
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), counted, limits.MaxOutputBytes);
         }
 
-        governor.ReserveMemory(counted);
+        governor.ReserveHostMemory(counted);
         try
         {
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
@@ -2655,7 +2655,7 @@ public static partial class Qpdf
             await sink.FlushAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
-        finally { governor.ReleaseMemory(counted); }
+        finally { governor.ReleaseHostMemory(counted); }
     }
 
     private static (int Major, int Minor, int Extension) ParseWriterVersion(string text, string option)
@@ -4879,7 +4879,7 @@ public static partial class Qpdf
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _maximumOutputBytes); }
             if (_staging is not null && length > _capacityCharge)
             {
-                _staging.Reserve(length - _capacityCharge);
+                _staging.ReserveHostMemory(length - _capacityCharge);
                 _capacityCharge = length;
             }
             GovernedHost.PrepareOutputCapacity(_transaction, length, cancellationToken);

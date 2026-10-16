@@ -171,7 +171,7 @@ public static partial class Qpdf
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, path, governor, token).ConfigureAwait(false);
-        // The publication batch admitted its largest sequential staging buffer.
+        // The batch checked local staging policy; the host admits actual storage.
         GovernedHost.PrepareOutputCapacity(transaction, output.Length, token);
         for (PreparedOutputSink.Segment? segment = output.First; segment is not null; segment = segment.Next)
         {
