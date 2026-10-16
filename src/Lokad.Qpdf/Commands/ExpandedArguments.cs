@@ -3,7 +3,7 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Commands;
 
-/// <summary>Owns an expansion vector; fresh strings follow their independent aliases.</summary>
+/// <summary>Owns an expansion vector and fresh text until execution cleanup.</summary>
 internal sealed class ExpandedArguments : IDisposable
 {
     private readonly ResourceGovernor _governor;
@@ -55,7 +55,7 @@ internal sealed class ExpandedArguments : IDisposable
         {
             // Substring(0, Length) borrows this same decoded string. Transfer
             // its existing charge rather than admitting the allocation twice.
-            _governor.RetainAllocation(text, content.StringReservation);
+            Memory.AdoptReserved(content.StringReservation);
             content.TransferToRetainedStorage(_governor);
             AddBorrowed(text);
         }

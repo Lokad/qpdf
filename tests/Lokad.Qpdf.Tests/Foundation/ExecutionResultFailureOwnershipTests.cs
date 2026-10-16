@@ -119,7 +119,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         await CollectAsync(governor);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Result")).IsAlive);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Counters")).IsAlive);
-        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
     }
 
@@ -213,10 +213,10 @@ public sealed class ExecutionResultFailureOwnershipTests
         Assert.Equal(kind == "result", Assert.IsType<WeakReference>(Field(alias, "Counters")).IsAlive);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Host")).IsAlive);
         if (kind == "result") { Assert.True(governor.Snapshot().LiveMemoryBytes >= 88L); }
-        else { Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes); }
+        else { Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); }
         SetValue(alias, null);
         await CollectAsync(governor);
-        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
     }
 
@@ -317,7 +317,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         alias.Value = null;
         await CollectAsync(alias.Governor);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
-        Assert.Equal(alias.Governor.CallerMetadataBytes, alias.Governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(alias.Governor.CallerMetadataBytes + alias.Governor.CallerStorageBytes, alias.Governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
     }
 

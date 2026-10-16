@@ -1360,6 +1360,7 @@ public static partial class Qpdf
             multiAcroForm = ClearNeedAppearances(multiAcroForm, governor);
         }
 
+        if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
         if (!splitPages.HasValue)
         {
             int modelCount = checked(pool.Count + 2);
@@ -1596,6 +1597,7 @@ public static partial class Qpdf
         foreach (string name in names)
         {
             ParserContainers.AddItem(selectionMemory, outputPaths, QpdfPath.From(name), IntPtr.Size);
+            if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(GovernedText.StringBytes(name.Length)); }
         }
         IReadOnlyList<QpdfPath> splitPaths = ResultCollectionStorage.Copy(selectionMemory, outputPaths, IntPtr.Size, governor, cancellationToken);
         governor.PrepareExecutionPresentation();
@@ -4096,11 +4098,13 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            List<string> wanted;
+            JsonInspectionOutcome result;
             using (ConfigurationText? textStorage = options.Objects.Count == 0 ? null : ConfigurationText.Create(governor))
-            { wanted = ValidateJsonObjects(options.Objects, 0L, textStorage); }
-            Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
-            JsonInspectionOutcome result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
+            {
+                List<string> wanted = ValidateJsonObjects(options.Objects, 0L, textStorage);
+                Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput);
+                result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, QpdfRecoveryMode.Strict, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
+            }
             QpdfJsonResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
@@ -4771,7 +4775,7 @@ public static partial class Qpdf
         using OwnedAllocationBatch resultStorage = OwnedAllocationBatch.Create(governor, 4, cancellationToken);
         IReadOnlyList<QpdfCheckOutcome> resultChecks = ResultCollectionStorage.Copy(resultStorage, checks, IntPtr.Size);
         IReadOnlyList<QpdfDiagnostic> resultDiagnostics = ResultCollectionStorage.Copy(resultStorage, diagnostics.Entries, IntPtr.Size);
-        resultStorage.RetainWithPrepaidRetirement();
+        resultStorage.RetainResult();
         return new TypedCheckOutcome(pageCount, version, resultChecks, resultDiagnostics);
     }
 

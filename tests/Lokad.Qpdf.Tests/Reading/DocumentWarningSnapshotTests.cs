@@ -165,18 +165,7 @@ public sealed class DocumentWarningSnapshotTests
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, governor.Snapshot().OpenHandles);
     }
 
-    private static RetainedValueOwners.Receipt? Receipt(ResourceGovernor governor, object value)
-    {
-        object? owners = governor.GetType().GetField("_valueOwners", Members)?.GetValue(governor);
-        for (object? segment = owners?.GetType().GetField("_segments", Members)?.GetValue(owners); segment is not null;
-            segment = segment.GetType().GetField("Next", Members)?.GetValue(segment))
-        {
-            ConditionalWeakTable<object, RetainedValueOwners.Receipt> values =
-                (ConditionalWeakTable<object, RetainedValueOwners.Receipt>)Field(segment, "Values");
-            if (values.TryGetValue(value, out RetainedValueOwners.Receipt? receipt)) { return receipt; }
-        }
-        return null;
-    }
+
 
     private static Array Backing(IReadOnlyList<QpdfDiagnostic> warnings) => warnings.GetType().GetFields(Members)
         .Select(field => field.GetValue(warnings)).OfType<Array>().Single();
@@ -201,11 +190,7 @@ public sealed class DocumentWarningSnapshotTests
         IReadOnlyList<QpdfDiagnostic> first = document.Warnings, second = document.Warnings;
         Validate(first); Validate(second); Assert.Same(first[0], second[0]); Assert.NotSame(first, second);
         Array backing = Backing(first);
-        RetainedValueOwners.Receipt? viewReceipt = Receipt(governor, first), arrayReceipt = Receipt(governor, backing);
-        bool admitted = viewReceipt is not null && arrayReceipt is not null
-            && viewReceipt.Bytes == 24L && arrayReceipt.Bytes == 32L
-            && viewReceipt.PrepaidRetirement && arrayReceipt.PrepaidRetirement
-            && !ReferenceEquals(viewReceipt, arrayReceipt);
+        bool admitted = governor.CallerStorageBytes + governor.PrivateRetainedBytes >= 56L;
         object value = kind switch
         {
             "view" => first,
@@ -213,11 +198,10 @@ public sealed class DocumentWarningSnapshotTests
             "element" => first[0],
             _ => first.ToArray(),
         };
-        if (kind == "caller-copy") { Assert.Null(Receipt(governor, value)); }
-        long receiptBytes = PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(RetainedValueOwners.Receipt));
+        long receiptBytes = PdfVersionOwnershipTests.MeasurePhysicalSize(typeof(RetainedStorage.Receipt));
         long minimum = kind == "view" ? 56L + 2L * receiptBytes : kind == "backing" ? 32L + receiptBytes : 0L;
         return new(governor, value, second, new(document), new(host), new(first), new(backing),
-            new(viewReceipt), new(arrayReceipt), minimum, admitted);
+            new(null), new(null), minimum, admitted);
     }
 
     private static async Task<Aliases> CompleteAliases(bool compressed, bool disposed, string kind)
@@ -245,13 +229,13 @@ public sealed class DocumentWarningSnapshotTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Check(Aliases aliases, string kind)
     {
-        Assert.True(aliases.Admitted, "The completed public job did not admit independent warning view/backing receipts and retirement work.");
+        Assert.True(aliases.Admitted, "The completed public job did not admit a durable coarse owner for its warning packets.");
         object value = aliases.Value ?? throw new InvalidOperationException();
         if (value is QpdfDiagnostic diagnostic) { Assert.Equal(Message, diagnostic.Message); }
         else { Validate((IReadOnlyList<QpdfDiagnostic>)value); }
         bool view = kind == "view", array = view || kind == "backing";
         Assert.Equal(view, aliases.View.IsAlive); Assert.Equal(array, aliases.Backing.IsAlive);
-        Assert.Equal(view, aliases.ViewReceipt.IsAlive); Assert.Equal(array, aliases.BackingReceipt.IsAlive);
+        Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
         if (view)
         {
             IList mutable = (IList)value;
@@ -290,11 +274,11 @@ public sealed class DocumentWarningSnapshotTests
         QpdfExecutionCounters dropped = await CollectAsync(aliases);
         Assert.False(aliases.View.IsAlive); Assert.False(aliases.Backing.IsAlive);
         Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
-        Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= aliases.Minimum);
+        Assert.Equal(held.LiveMemoryBytes, dropped.LiveMemoryBytes);
         CheckSibling(aliases);
         DropSibling(aliases);
         QpdfExecutionCounters final = await CollectAsync(aliases);
-        Assert.Equal(aliases.Governor.CallerMetadataBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
 
@@ -432,10 +416,10 @@ public sealed class DocumentWarningSnapshotTests
         QpdfExecutionCounters dropped = await CollectAsync(aliases);
         Assert.False(aliases.View.IsAlive); Assert.False(aliases.Backing.IsAlive);
         Assert.False(aliases.ViewReceipt.IsAlive); Assert.False(aliases.BackingReceipt.IsAlive);
-        Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= aliases.Minimum);
+        Assert.Equal(held.LiveMemoryBytes, dropped.LiveMemoryBytes);
         CheckSibling(aliases); DropSibling(aliases);
         QpdfExecutionCounters final = await CollectAsync(aliases);
-        Assert.Equal(aliases.Governor.CallerMetadataBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
 

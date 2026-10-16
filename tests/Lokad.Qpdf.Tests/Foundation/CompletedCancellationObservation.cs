@@ -24,7 +24,7 @@ internal static class CompletedCancellationObservation
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
             governor.ReserveMemory(0L);
         }
-        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         GC.KeepAlive(result);
     }

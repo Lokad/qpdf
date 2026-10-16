@@ -245,16 +245,6 @@ public sealed class RecoveryOwnershipTests
         return source.ToArray();
     }
 
-    private static long ValueOwnershipMetadata(ResourceGovernor governor)
-    {
-        object? ledger = typeof(ResourceGovernor).GetField("_valueOwners",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(governor);
-        if (ledger is null) { return 0L; }
-        ParserMemoryScope storage = Assert.IsType<ParserMemoryScope>(ledger.GetType().GetField("_storage",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(ledger));
-        return storage.ReservedBytes;
-    }
-
     [Fact]
     public void AcceptedXrefFragmentsReleaseEncodedAndDecodedData()
     {
@@ -263,12 +253,11 @@ public sealed class RecoveryOwnershipTests
         XRefTable raw = XRefTable.Parse(XrefFragment(false, ""), QpdfLimits.Default, rawGovernor, new DiagnosticBag(rawGovernor), QpdfRecoveryMode.Strict);
         XRefTable flate = XRefTable.Parse(XrefFragment(true, ""), QpdfLimits.Default, flateGovernor, new DiagnosticBag(flateGovernor), QpdfRecoveryMode.Strict);
         Assert.Equal(raw.Entries[1].First, flate.Entries[1].First);
-        // Both dictionaries use three-digit /Length tokens and have equal storage.
-        // Only the retained FlateDecode name differs (64 + 11 bytes). Its two
-        // carrier receipts also need metadata; separate that owned index from
-        // the parsed payload comparison without duplicating its pricing logic.
-        long rawPayload = rawGovernor.Snapshot().LiveMemoryBytes - ValueOwnershipMetadata(rawGovernor);
-        long flatePayload = flateGovernor.Snapshot().LiveMemoryBytes - ValueOwnershipMetadata(flateGovernor);
+        // Both fragments retain the same dictionary shape. Only the newly
+        // parsed FlateDecode name differs; encoded and decoded buffers retire
+        // at the parser boundary, independently of graph lifetime accounting.
+        long rawPayload = rawGovernor.Snapshot().LiveMemoryBytes;
+        long flatePayload = flateGovernor.Snapshot().LiveMemoryBytes;
         Assert.Equal(75L, flatePayload - rawPayload);
         Assert.Equal(6L, flateGovernor.Snapshot().TotalDecodedBytes);
         GC.KeepAlive(raw); GC.KeepAlive(flate);

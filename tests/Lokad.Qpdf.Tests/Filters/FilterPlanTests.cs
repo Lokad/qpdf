@@ -210,12 +210,12 @@ public sealed class FilterPlanTests
     }
 
     [Fact]
-    public void NonGenericStageBoxStaysFundedAfterEnumerationAndPlanRetire()
+    public void BoxingAStageDoesNotRetainThePrivatePlanBudget()
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         object stage = Box(governor);
         for (int round = 0; round < 3; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor.ReserveMemory(0L); }
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= 40L); Assert.Equal("FlateDecode", Assert.IsType<FilterStage>(stage).Name); GC.KeepAlive(stage);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal("FlateDecode", Assert.IsType<FilterStage>(stage).Name); GC.KeepAlive(stage);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

@@ -46,7 +46,7 @@ internal sealed class ResultWarningSnapshot : ExecutionPreparation, IDisposable
         if (source.Count == 0) { _warnings = Array.Empty<QpdfDiagnostic>(); return; }
         using OwnedAllocationBatch storage = OwnedAllocationBatch.Create(governor, 2, _token);
         IReadOnlyList<QpdfDiagnostic> warnings = ResultCollectionStorage.Copy(storage, source, IntPtr.Size);
-        storage.RetainWithPrepaidRetirement();
+        storage.RetainResult();
         _warnings = warnings;
     }
 

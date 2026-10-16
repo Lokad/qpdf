@@ -112,7 +112,8 @@ public sealed class InlineResourceRemovalTests
         WeakReference output = Capture(governor, source, borrowed);
         for (int round = 0; round < 4; round++)
         { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor.ReserveMemory(0L); }
-        Assert.False(output.IsAlive); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+        Assert.False(output.IsAlive); governor.CompletePrivateStorage();
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(514, source.Count); GC.KeepAlive(source); GC.KeepAlive(borrowed);
     }
 }

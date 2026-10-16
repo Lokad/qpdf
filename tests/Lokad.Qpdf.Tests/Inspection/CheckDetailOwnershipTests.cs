@@ -13,9 +13,7 @@ public sealed class CheckDetailOwnershipTests
 
     private static void Collect(ResourceGovernor governor)
     {
-        // A carrier's ephemeron value can make its receipt finalizable in a
-        // later collection. Drain every completed round before observing the
-        // surviving detail, rather than counting unrelated pending storage.
+        // Observe CLR references independently of coarse allowance ownership.
         for (int iteration = 0; iteration < 3; iteration++)
         {
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
@@ -89,9 +87,8 @@ public sealed class CheckDetailOwnershipTests
         Collect(governor);
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
         governor.ReserveMemory(0L);
-        // Version estimates follow the coarse caller owner, independent of
-        // collection of the graph/detail ledger still exercised by this fixture.
-        Assert.Equal(PdfVersion.StorageBytes, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, governor.Snapshot().OpenHandles);
         GC.KeepAlive(governor);
     }
@@ -100,19 +97,20 @@ public sealed class CheckDetailOwnershipTests
     {
         byte[] prepared = Fixture();
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
         for (int iteration = 0; iteration < 32; iteration++)
         {
+            ResourceGovernor governor = new(limits, CancellationToken.None);
             Alias alias = Capture(governor, limits, prepared, "detail");
             await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 3, 3, false, true);
             VerifyAndClear(alias, governor, "detail");
             await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 3, 3, false, true);
             Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
             governor.ReserveMemory(0L);
-            Assert.Equal((iteration + 1L) * PdfVersion.StorageBytes, governor.Snapshot().LiveMemoryBytes);
+            governor.CompletePrivateStorage();
+            Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(0L, governor.Snapshot().DiagnosticCount);
+            Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         }
-        Assert.Equal(0L, governor.Snapshot().DiagnosticCount);
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
     }
 
     [Fact]

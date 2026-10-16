@@ -8,6 +8,7 @@ internal sealed class SharedMemoryOwner(IMemoryBudget budget, long localCeiling)
     private IMemoryReservation? _reservation;
     private long _reserved;
     private bool _refused;
+    private bool _shrinkDeclined;
 
     internal long ReservedBytes => _reserved;
 
@@ -37,21 +38,38 @@ internal sealed class SharedMemoryOwner(IMemoryBudget budget, long localCeiling)
             _reservation = null;
             _reserved = 0L;
         }
-        else if (_reserved - liveBytes >= BlockBytes)
+        else if (!_shrinkDeclined && _reserved - liveBytes >= BlockBytes)
         {
             long target = Capacity(liveBytes);
-            MemoryAdmission.Resize(_reservation, target);
-            _reserved = target;
+            if (_reservation.TryResize(target)) { _reserved = target; }
+            else { _shrinkDeclined = true; }
         }
     }
 
-    // A returned graph/payload stays charged beneath the supplied caller scope.
-    // Closing local bookkeeping must not refund that caller-owned storage, and
-    // later counter snapshots/GC retirement must not mutate its admission.
-    internal void Complete()
+    internal void TrimTo(long liveBytes)
     {
-        _budget = null;
-        _reservation = null;
+        ArgumentOutOfRangeException.ThrowIfNegative(liveBytes);
+        if (_budget is null || _reservation is null || liveBytes >= _reserved) { return; }
+        if (liveBytes == 0L)
+        {
+            _reservation.Dispose(); _reservation = null; _reserved = 0L;
+        }
+        else if (!_shrinkDeclined)
+        {
+            if (_reservation.TryResize(liveBytes)) { _reserved = liveBytes; }
+            else { _shrinkDeclined = true; }
+        }
+        // A host may decline this optional shrink. The existing larger
+        // reservation still funds every caller alias; do not retry or fail
+        // after successful publication merely to recover block slack.
+    }
+
+    // Completion relinquishes bookkeeping, not the caller's retained charge.
+    // Trim unused growth capacity once, while the caller's owner is still live.
+    internal void Complete(long liveBytes)
+    {
+        try { TrimTo(liveBytes); }
+        finally { _budget = null; _reservation = null; }
     }
 
     private long Capacity(long liveBytes)

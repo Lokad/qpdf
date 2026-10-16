@@ -124,21 +124,6 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         return null;
     }
 
-    private static bool HasReceipt(ResourceGovernor governor, string value)
-    {
-        const BindingFlags fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        object? owner = typeof(ResourceGovernor).GetField("_valueOwners", fields)?.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", fields)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values
-                && values.TryGetValue(value, out RetainedValueOwners.Receipt? receipt))
-            { return receipt.Bytes >= PhysicalStringBytes(value.Length); }
-            segment = segment.GetType().GetField("Next", fields)?.GetValue(segment);
-        }
-        return false;
-    }
-
     private static async Task Seed(Host host)
     {
         host.Inner.AddInput(InputPath, await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
@@ -221,7 +206,10 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
             : [Assert.Single(plan.Labels).FirstPage, Assert.Single(plan.Labels).Prefix ?? throw new InvalidOperationException("Missing prefix."),
                 Assert.Single(plan.Rotations).Range ?? throw new InvalidOperationException("Missing range.")];
         Assert.Equal(profile == "json" ? new[] { "obj:1 0 R", "obj:2147483647 0 R" } : new[] { "r1", prefix, Range }, aliases);
-        List<string> missing = aliases.Where(value => !HasReceipt(governor, value)).Select(value => "input:" + value.Length).ToList();
+        long textBytes = aliases.Sum(value => PhysicalStringBytes(value.Length));
+        List<string> missing = governor.Snapshot().LiveMemoryBytes < textBytes ? ["active-text-batch:" + textBytes] : [];
+        // These observations belong to the test, beyond the private plan owner.
+        aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
         WeakReference planReference = new(plan);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
@@ -262,8 +250,8 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         {
             Assert.False(job.Plan.IsAlive);
             foreach (string missing in job.Missing) { defects.Add(job.Id + "|" + missing); }
-            foreach (string alias in job.Aliases)
-            { if (!HasReceipt(job.Governor, alias)) { defects.Add(job.Id + "|completed:" + alias.Length); } }
+            Assert.All(job.Aliases, alias => Assert.NotEmpty(alias));
+            Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
         }
         return defects;
     }
@@ -278,13 +266,13 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED COUNTER {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
+            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
         }
         Collect(jobs);
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED FINAL {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
         }
         Assert.True(defects.Count == 0, string.Join('\n', defects));
     }
@@ -328,7 +316,8 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
             ?? throw new InvalidOperationException("Missing typed JSON inspection.");
         List<string> aliases = [.. inspection.Objects];
         Assert.Equal(new[] { "obj:1 0 R", "obj:2147483647 0 R" }, aliases);
-        bool missing = aliases.Any(value => !HasReceipt(governor, value));
+        bool missing = governor.Snapshot().LiveMemoryBytes < aliases.Sum(value => PhysicalStringBytes(value.Length));
+        aliases = aliases.Select(value => new string(value.AsSpan())).ToList();
         WeakReference weak = new(inspection);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
@@ -376,7 +365,9 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (TypedCompleted job in jobs)
         {
             Assert.False(job.Inspection.IsAlive);
-            missing |= job.Missing || job.Aliases.Any(value => !HasReceipt(job.Governor, value));
+            missing |= job.Missing;
+            Assert.Equal(new[] { "obj:1 0 R", "obj:2147483647 0 R" }, job.Aliases);
+            Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
         }
         return missing;
     }
@@ -388,7 +379,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         bool missing = ObserveTyped(jobs);
         foreach (TypedCompleted job in jobs) { job.Aliases.Clear(); job.Result = null; job.Counters = null; }
         CollectTyped(jobs);
-        foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); }
-        Assert.False(missing, "Typed JSON canonical selectors lack independent physical storage receipts.");
+        foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
+        Assert.False(missing, "Typed JSON canonical selectors exceed their active storage allowance.");
     }
 }

@@ -29,7 +29,7 @@ internal static class PageLabelStorage
         if (hasStart) { Assign(graph, entries, "St"u8, Integer(graph, specification.Start.GetValueOrDefault())); }
         if (specification.Prefix is string prefix) { Assign(graph, entries, "P"u8, Prefix(graph, prefix)); }
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.RetainWithPrepaidRetirement(); return result;
+        graph.Retain(); return result;
     }
 
     internal static PdfDictionary Merged(QpdfObject? style, QpdfObject? prefix, long start,
@@ -41,7 +41,7 @@ internal static class PageLabelStorage
         if (prefix is not null) { Assign(graph, entries, "P"u8, prefix); }
         Assign(graph, entries, "St"u8, Integer(graph, start));
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.RetainWithPrepaidRetirement(); return result;
+        graph.Retain(); return result;
     }
 
     internal static PdfDictionary NumberTree(IReadOnlyList<(int Index, PdfDictionary Label)> items,
@@ -59,7 +59,7 @@ internal static class PageLabelStorage
         PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out int allocation);
         Assign(graph, entries, "Nums"u8, array);
         PdfDictionary result = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-        graph.RetainWithPrepaidRetirement(); return result;
+        graph.Retain(); return result;
     }
 
     private static void Assign(OwnedAllocationBatch graph, PdfNameTable<QpdfObject> entries, ReadOnlySpan<byte> key, QpdfObject value)

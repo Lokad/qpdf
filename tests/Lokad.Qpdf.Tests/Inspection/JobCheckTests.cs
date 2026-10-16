@@ -129,6 +129,7 @@ public sealed class JobCheckTests
             governor.ReserveMemory(0L);
         }
         Assert.False(plan.IsAlive);
+        governor.CompletePrivateStorage();
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

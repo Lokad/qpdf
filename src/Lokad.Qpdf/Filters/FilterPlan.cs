@@ -10,6 +10,7 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
     private ResourceGovernor? _governor;
     private CancellationToken _token;
     private FilterStage[]? _stages;
+    private long _nameBytes;
 
     private FilterPlan(ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     { _memory = memory; _governor = governor; _token = token; _stages = Array.Empty<FilterStage>(); }
@@ -56,9 +57,21 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
 
     internal void Set(int index, FilterStage stage) { Visit(); Stages[index] = stage; }
     public FilterStage this[int index] { get { Visit(); return Stages[index]; } }
-    internal void ReserveName(long bytes) => Memory.Reserve(bytes);
-    internal void ReleaseName(long bytes) => Memory.Release(bytes);
-    internal void RetainName(string value, long bytes) => Memory.RetainAllocation(value, bytes);
+    internal void ReserveName(long bytes)
+    {
+        long next = checked(_nameBytes + bytes);
+        Memory.Reserve(bytes); _nameBytes = next;
+    }
+    internal void ReleaseName(long bytes)
+    {
+        Memory.Release(bytes); _nameBytes -= bytes;
+    }
+    // Transfer the complete name batch without registering individual strings.
+    internal void RetainNames()
+    {
+        if (_nameBytes == 0L) { return; }
+        Memory.RetainCallerStorage(_nameBytes); _nameBytes = 0L;
+    }
 
     public Enumerator GetEnumerator() => new(this);
     IEnumerator<FilterStage> IEnumerable<FilterStage>.GetEnumerator() => BoxedEnumerator.Create(this);
@@ -101,7 +114,6 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
                 try
                 {
                     object boxed = stage;
-                    memory.RetainAllocation(boxed, boxBytes);
                     return boxed;
                 }
                 catch { memory.Release(boxBytes); throw; }
@@ -116,7 +128,7 @@ internal sealed class FilterPlan : IReadOnlyList<FilterStage>, IDisposable
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;
-        _stages = null; _memory = null; _governor = null; _token = CancellationToken.None;
+        _nameBytes = 0L; _stages = null; _memory = null; _governor = null; _token = CancellationToken.None;
         memory?.Dispose();
     }
 }

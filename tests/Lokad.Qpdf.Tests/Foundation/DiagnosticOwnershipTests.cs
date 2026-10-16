@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -36,22 +38,28 @@ public sealed class DiagnosticOwnershipTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void UnexposedDiagnosticsReleaseTheirWholeStorageAfterCollection(bool owned)
+    public void ClosedCallerScopesRefundRepeatedDiagnosticBatchesWithoutCollection(bool owned)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L, MaxDiagnosticBytes = 1048576L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        RecordingMemoryBudget root = new(limits.MaxMemoryBytes);
+        long diagnostics = 0L;
         for (int iteration = 0; iteration < 32; iteration++)
         {
+            using IMemoryScope caller = root.CreateScope();
+            using InMemoryQpdfHost host = new(limits, null, caller);
+            ResourceGovernor governor = new(limits, CancellationToken.None, host);
             WeakReference[] dropped = EmitAndDrop(governor, owned);
-            Assert.True(governor.Snapshot().LiveMemoryBytes >= 8192L);
+            Assert.True(root.ReservedBytes >= 8192L);
+            governor.CompletePrivateStorage();
+            Assert.True(root.ReservedBytes >= 8192L);
+            caller.Dispose();
+            Assert.Equal(0L, root.ReservedBytes);
             Collect();
             Assert.All(dropped, reference => Assert.False(reference.IsAlive));
-            governor.ReserveMemory(0L);
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            diagnostics += governor.Snapshot().DiagnosticCount;
+            Assert.InRange(governor.Snapshot().PeakMemoryBytes, 8192L, limits.MaxMemoryBytes);
         }
-        Assert.Equal(32L, governor.Snapshot().DiagnosticCount);
-        Assert.InRange(governor.Snapshot().PeakMemoryBytes, 8192L, limits.MaxMemoryBytes);
-        GC.KeepAlive(governor);
+        Assert.Equal(32L, diagnostics);
     }
 
     private sealed class Alias(object? value, WeakReference[] references, int messageLength)
@@ -96,13 +104,14 @@ public sealed class DiagnosticOwnershipTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         TextAlias alias = CaptureBeforeTransfer(governor);
+        governor.CompletePrivateStorage();
         Collect();
         governor.ReserveMemory(0L);
         ClearTextAlias(alias, governor);
         Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
         governor.ReserveMemory(0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor);
     }
 
@@ -129,14 +138,15 @@ public sealed class DiagnosticOwnershipTests
         Assert.False(alias.References[4].IsAlive);
         Assert.False(alias.References[5].IsAlive);
         long live = governor.Snapshot().LiveMemoryBytes;
-        if (kind == "none") { Assert.Equal(0L, live); }
+        if (kind == "none") { Assert.Equal(governor.CallerStorageBytes, live); }
         else
         {
             string message = alias.Value is QpdfDiagnostic diagnostic ? diagnostic.Message
                 : alias.Value as string ?? throw new InvalidOperationException("Expected a surviving message.");
             Assert.Equal(alias.MessageLength, message.Length);
             Assert.Contains(new string('A', 4096), message, StringComparison.Ordinal);
-            Assert.InRange(live, alias.MessageLength * 2L, 20000L);
+            Assert.True(live >= alias.MessageLength * 2L);
+            Assert.Equal(governor.CallerStorageBytes, live);
         }
         alias.Value = null;
     }
@@ -152,13 +162,14 @@ public sealed class DiagnosticOwnershipTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Alias alias = Capture(governor, owned, kind);
+        governor.CompletePrivateStorage();
         Collect();
         governor.ReserveMemory(0L);
         VerifyAndClearAlias(alias, governor, kind);
         Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
         governor.ReserveMemory(0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor);
     }
 
@@ -206,10 +217,11 @@ public sealed class DiagnosticOwnershipTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         WeakReference[] dropped = AddThroughEscapedList(governor, owned);
+        governor.CompletePrivateStorage();
         Collect();
         Assert.All(dropped, reference => Assert.False(reference.IsAlive));
         governor.ReserveMemory(0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(2L, governor.Snapshot().DiagnosticCount);
     }
 
@@ -244,13 +256,14 @@ public sealed class DiagnosticOwnershipTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Alias alias = Capture(governor, owned, "list");
+        governor.CompletePrivateStorage();
         Collect();
         governor.ReserveMemory(0L);
         VerifyAndClearList(alias, governor);
         Collect();
         Assert.All(alias.References, reference => Assert.False(reference.IsAlive));
         governor.ReserveMemory(0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]
@@ -328,10 +341,7 @@ public sealed class DiagnosticOwnershipTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         DiagnosticBag bag = new(governor);
         bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "prior");
-        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
-            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
-        Assert.True(retirement > 0L);
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - retirement);
+        governor.ChargeWork(governor.RemainingWorkUnits);
         Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() =>
             bag.Add(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, "next"));
@@ -382,26 +392,30 @@ public sealed class DiagnosticOwnershipTests
     }
 
     [Fact]
-    public void TheWeakMessageIndexRetiresWhileAnUnrelatedValueKeepsTheLedgerAlive()
+    public void PrivateMessageMemosCloseWithoutReleasingAnUnrelatedCallerScope()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L, MaxDiagnosticBytes = 1048576L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        RecordingMemoryBudget root = new(limits.MaxMemoryBytes);
+        using IMemoryScope valueOwner = root.CreateScope();
+        using IMemoryReservation valueCredit = MemoryAdmission.Reserve(valueOwner, 80L);
         PdfByteString value = new(new byte[1], false);
-        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
-        {
-            memory.Reserve(80L);
-            memory.Retain(value);
-        }
-        long baseline = governor.Snapshot().LiveMemoryBytes;
+        List<WeakReference[]> references = [];
         for (int iteration = 0; iteration < 32; iteration++)
         {
-            WeakReference[] dropped = EmitAndDrop(governor, false);
-            Collect();
-            Assert.All(dropped, reference => Assert.False(reference.IsAlive));
-            governor.ReserveMemory(0L);
-            Assert.InRange(governor.Snapshot().LiveMemoryBytes, baseline, baseline + 128L);
+            using IMemoryScope job = root.CreateScope();
+            using InMemoryQpdfHost host = new(limits, null, job);
+            ResourceGovernor governor = new(limits, CancellationToken.None, host);
+            references.Add(EmitAndDrop(governor, false));
+            Assert.Equal(1L, governor.DiagnosticWorkState.Messages);
+            governor.CompletePrivateStorage();
+            Assert.Equal(0L, governor.DiagnosticWorkState.Messages);
+            job.Dispose();
+            Assert.Equal(80L, root.ReservedBytes);
+            Assert.Equal(80L, valueCredit.Bytes);
         }
         Assert.Equal(new byte[1], value.Value);
+        Collect();
+        Assert.All(references.SelectMany(group => group), reference => Assert.False(reference.IsAlive));
         GC.KeepAlive(value);
     }
 }

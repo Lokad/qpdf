@@ -301,7 +301,7 @@ public sealed class CheckInspectionTests
             Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
             // The immutable snapshot can include independently owned names
             // awaiting natural collection; exact retirement is observed later.
-            Assert.InRange(result.Counters.LiveMemoryBytes, 256L, result.Counters.PeakMemoryBytes);
+            Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);
             Assert.Equal(0L, result.Counters.OpenHandles);
             Assert.DoesNotContain(result.Diagnostics, d => Listings.Contains(d.Code));
             Assert.Equal(0, host.OutputCreates);

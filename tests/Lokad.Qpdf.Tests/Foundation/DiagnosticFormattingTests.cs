@@ -224,14 +224,11 @@ public sealed class DiagnosticFormattingTests
         DiagnosticBag bag = new(governor);
         bag.AddParts(QpdfDiagnosticCode.RepairedObject, QpdfDiagnosticSeverity.Warning, ["accepted ", 7]);
         QpdfDiagnostic prior = Assert.Single(bag.Entries);
-        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
-            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
-        Assert.True(retirement > 0L);
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - retirement);
+        governor.ChargeWork(governor.RemainingWorkUnits);
         Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
         Assert.Same(prior, Assert.Single(bag.Entries));
         Assert.Equal("accepted 7", prior.Message);
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork + retirement);
+        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
     }
 
     private static string ThrowingField() => throw new InvalidOperationException("A later field failed.");

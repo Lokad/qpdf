@@ -54,7 +54,7 @@ public sealed class ContentArrayRebuildTests
         PdfDictionary page = shape == "missing" ? DecoderOwnershipFixtures.Dictionary() : DecoderOwnershipFixtures.Dictionary(("Contents", value), ("Keep", prepared.Original));
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096L }, CancellationToken.None);
         PdfDictionary result = Replace(page, prepared, governor);
-        if (shape is "missing" or "reference") { Assert.Same(page, result); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); }
+        if (shape is "missing" or "reference") { Assert.Same(page, result); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); }
         else if (shape == "single") { Assert.Same(prepared.Replacement, Contents(result)); Assert.Same(prepared.Original, Contents(page)); }
         else
         {
@@ -90,7 +90,7 @@ public sealed class ContentArrayRebuildTests
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 88L); Assert.Same(prepared.Replacement, array[3]);
         object? backing = array.AllocationCarrier; array = null; Collect(governor);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 64L); GC.KeepAlive(backing);
-        backing = null; Collect(governor); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        backing = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static PdfArray EscapeArray(Prepared prepared, ResourceGovernor governor)

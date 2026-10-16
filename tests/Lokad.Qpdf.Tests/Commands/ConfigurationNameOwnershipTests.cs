@@ -110,23 +110,6 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         return null;
     }
 
-    private static bool HasReceipt(ResourceGovernor governor, string value)
-    {
-        const BindingFlags fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        FieldInfo ownerField = typeof(ResourceGovernor).GetField("_valueOwners", fields)
-            ?? throw new InvalidOperationException("Missing retained-string observer.");
-        object? owner = ownerField.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", fields)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values
-                && values.TryGetValue(value, out RetainedValueOwners.Receipt? receipt))
-            { return receipt.Bytes >= GovernedText.StringBytes(value.Length); }
-            segment = segment.GetType().GetField("Next", fields)?.GetValue(segment);
-        }
-        return false;
-    }
-
     private static async Task Seed(Host host, QpdfPath pass)
     {
         host.Inner.AddInput(InputPath, await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
@@ -179,6 +162,11 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
             ?? throw new InvalidOperationException("Missing complete-job plan.");
         bool borrowed = ReferenceEquals(plan.LinearizePass1?.Value, pass.Value);
         Assert.Equal(route == "borrowed", borrowed);
+        if (!borrowed)
+        {
+            Assert.True(governor.Snapshot().LiveMemoryBytes >= GovernedText.StringBytes(pass.Value.Length),
+                route + "|" + outcome + " must fund its active pass name.");
+        }
         WeakReference planReference = new(plan);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
@@ -226,18 +214,16 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             Assert.False(job.Plan.IsAlive);
-            if (job.Host.PassName is string pass)
-            {
-                if (job.Borrowed) { Assert.False(HasReceipt(job.Governor, pass)); }
-                else if (!HasReceipt(job.Governor, pass) || job.Governor.Snapshot().LiveMemoryBytes < GovernedText.StringBytes(pass.Length))
-                { defects.Add(job.Route + "|" + job.Outcome + "|pass"); }
-            }
-            bool generatedInput = job.Route is "response" or "mixed" or "job" or "file" or "nested";
-            if (generatedInput && job.Host.InputName is string input && !HasReceipt(job.Governor, input))
+            // Host callbacks own any identifiers they retain after completion.
+            // Check their content and the private plan's collection separately
+            // from the running invocation admission asserted above.
+            if (job.Host.PassName is string pass && pass != new string(job.Route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf")
+            { defects.Add(job.Route + "|" + job.Outcome + "|pass"); }
+            if (job.Host.InputName is string input && input != InputPath.Value)
             { defects.Add(job.Route + "|" + job.Outcome + "|input"); }
             foreach (string name in job.Host.ConfigurationNames)
-            { if (!HasReceipt(job.Governor, name)) { defects.Add(job.Route + "|" + job.Outcome + "|include:" + name); } }
-            if (generatedInput && job.Host.OutputName is string output && !HasReceipt(job.Governor, output))
+            { if (name is not ("settings.json" or "child.json")) { defects.Add(job.Route + "|" + job.Outcome + "|include:" + name); } }
+            if (job.Host.OutputName is string output && output != OutputPath.Value)
             { defects.Add(job.Route + "|" + job.Outcome + "|output"); }
         }
         return defects;
@@ -257,12 +243,12 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         Collect(jobs);
         foreach (Completed job in jobs)
         {
-            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
         }
         Collect(jobs);
-        foreach (Completed job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); }
+        foreach (Completed job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }
 

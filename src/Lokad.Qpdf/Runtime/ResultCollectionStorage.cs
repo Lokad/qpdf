@@ -21,7 +21,9 @@ internal static class ResultCollectionStorage
         memory.CheckOwner(governor);
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         if (source.Count == 0) { return Array.Empty<T>(); }
-        return View(memory, CopyItems(memory, source, itemBytes, governor, token));
+        ReadOnlyCollection<T> result = View(memory, CopyItems(memory, source, itemBytes, governor, token));
+        if (governor.HasTypedResult) { memory.PrepareResultStorage(checked(ArrayBytes(source.Count, itemBytes) + 24L)); }
+        return result;
     }
 
     private static T[] CopyItems<T>(ParserMemoryScope memory, IReadOnlyList<T> source, long itemBytes,
@@ -47,7 +49,9 @@ internal static class ResultCollectionStorage
         token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         memory.Reserve(ArrayBytes(1, itemBytes));
         T[] entries = [value];
-        return View(memory, entries);
+        ReadOnlyCollection<T> result = View(memory, entries);
+        if (governor.HasTypedResult) { memory.PrepareResultStorage(checked(ArrayBytes(1, itemBytes) + 24L)); }
+        return result;
     }
 
     private static long ArrayBytes(int count, long itemBytes) => checked((24L + itemBytes * count + 7L) & ~7L);

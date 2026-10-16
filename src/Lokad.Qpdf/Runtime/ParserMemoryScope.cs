@@ -77,8 +77,8 @@ internal sealed class ParserMemoryScope : IDisposable
         _reservedBytes = 0L;
     }
 
-    // Transfer one independently escaping allocation while preserving this
-    // scope's remaining storage. The retained ledger admits its own metadata.
+    // Transfer an allocation that outlives this construction scope into the
+    // enclosing graph owner, preserving the scope's remaining storage.
     internal void RetainAllocation(object carrier, long bytes)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -90,17 +90,45 @@ internal sealed class ParserMemoryScope : IDisposable
         _governor.ReleaseMemory(bytes - retained);
     }
 
-    // An exclusive prepared owner needs the receipt to abandon an unexposed
-    // candidate immediately, without waiting for weak collection.
-    internal RetainedValueOwners.Receipt RetainAllocationReceipt(object carrier, long bytes)
+    // An exclusive prepared owner can abandon its candidate without releasing
+    // any other storage accepted by the same execution.
+    internal RetainedStorage.Receipt RetainAllocationReceipt(object carrier, long bytes)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(carrier);
         if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
         { throw new InvalidOperationException("Retained allocation exceeds its scope's ownership."); }
-        RetainedValueOwners.Receipt receipt = _governor.RetainAllocation(carrier, bytes);
+        RetainedStorage.Receipt receipt = _governor.RetainAllocation(carrier, bytes);
         _reservedBytes -= bytes;
         return receipt;
+    }
+
+    internal void RetainPrivateStorage(long bytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
+        { throw new InvalidOperationException("Private storage exceeds its construction owner."); }
+        if (bytes == 0L) { return; }
+        _governor.RetainPrivateStorage(bytes);
+        _reservedBytes -= bytes;
+    }
+
+    internal void RetainCallerStorage(long bytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
+        { throw new InvalidOperationException("Caller storage exceeds its construction owner."); }
+        _governor.RetainCallerStorage(bytes);
+        _reservedBytes -= bytes;
+    }
+
+    internal void PrepareResultStorage(long bytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (bytes < 0L || bytes > _reservedBytes - _hostBytes)
+        { throw new InvalidOperationException("Result storage exceeds its construction owner."); }
+        _governor.PrepareResultStorage(bytes);
+        _reservedBytes -= bytes;
     }
 
     internal void CheckOwner(ResourceGovernor governor)
@@ -119,8 +147,8 @@ internal sealed class ParserMemoryScope : IDisposable
         long bytes = allocations.Bytes;
         if (bytes > _reservedBytes - _hostBytes) { throw new InvalidOperationException("Allocation batch exceeds its scope's ownership."); }
         long retained = _governor.RetainAllocations(allocations, bytes);
-        // Acceptance has already preflighted every receipt; the accounting
-        // handoff cannot fail and leaves scratch funded until this scope closes.
+        // The aggregate handoff leaves construction scratch funded until this
+        // scope closes; borrowed values require no identity bookkeeping.
         _reservedBytes -= retained;
     }
 

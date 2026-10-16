@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.TestSupport;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Writing;
@@ -174,20 +176,27 @@ public sealed class DiagnosticStageTests
     }
 
     [Fact]
-    public void RepeatedStagesAndExportedStorageRetireAfterCollection()
+    public void RepeatedDiagnosticStagesRefundWhenTheirCallerScopesClose()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L, MaxDiagnosticBytes = 1048576L };
-        ResourceGovernor governor = new(limits, CancellationToken.None);
+        RecordingMemoryBudget root = new(limits.MaxMemoryBytes);
+        List<WeakReference[]> references = [];
+        long diagnostics = 0L;
         for (int iteration = 0; iteration < 32; iteration++)
         {
-            WeakReference[] dropped = Emit(governor);
-            Collect();
-            Assert.All(dropped, weak => Assert.False(weak.IsAlive));
-            governor.ReserveMemory(0L);
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            using IMemoryScope caller = root.CreateScope();
+            using InMemoryQpdfHost host = new(limits, null, caller);
+            ResourceGovernor governor = new(limits, CancellationToken.None, host);
+            references.Add(Emit(governor));
+            governor.CompletePrivateStorage();
+            diagnostics += governor.Snapshot().DiagnosticCount;
+            Assert.True(root.ReservedBytes > 0L);
+            caller.Dispose();
+            Assert.Equal(0L, root.ReservedBytes);
         }
-        Assert.Equal(32L, governor.Snapshot().DiagnosticCount);
-        GC.KeepAlive(governor);
+        Collect();
+        Assert.All(references.SelectMany(group => group), reference => Assert.False(reference.IsAlive));
+        Assert.Equal(32L, diagnostics);
     }
 
     [Fact]

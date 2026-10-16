@@ -15,10 +15,6 @@ public sealed class CompletedJobOwnershipTests
             ?? throw new InvalidOperationException("Missing ownership field: " + name);
 
     private static WeakReference[] Metadata(ResourceGovernor governor)
-    {
-        object ledger = Field(governor, "_valueOwners");
-        object segment = Field(ledger, "_segments");
-        return [new(governor), new(ledger), new(Field(ledger, "_storage")), new(Field(ledger, "_heads")),
-            new(Field(ledger, "_slots")), new(segment), new(Field(segment, "Values"))];
-    }
+        => [new(governor), new(Field(governor, "_valueOwners"))];
+
 }

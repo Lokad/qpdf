@@ -80,7 +80,7 @@ public sealed class CheckOutcomeFormattingTests
         DiagnosticPart[] parts = ["later ", new string('B', 4000)];
         using GovernedText detail = GovernedText.Create(governor, parts, DiagnosticMessage.Measure(governor, parts));
         string owned = detail.Value;
-        long filler = limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 40L;
+        long filler = limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 39L;
         governor.ReserveMemory(filler);
         long before = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => CheckOutcome.Create(governor, "later", QpdfCheckStatus.Failed, detail));
@@ -145,7 +145,7 @@ public sealed class CheckOutcomeFormattingTests
         Collect();
         Assert.False(record.IsAlive);
         governor.ReserveMemory(0L);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor);
     }
 }

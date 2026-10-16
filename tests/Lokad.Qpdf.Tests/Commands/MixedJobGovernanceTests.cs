@@ -141,9 +141,9 @@ public sealed class MixedJobGovernanceTests
 
     private static void AssertRetainedNames(QpdfExecutionResult result, TrackingHost host)
     {
-        // The tracking host deliberately keeps the generated names after close.
-        long names = host.Opens.Sum(path => GovernedText.StringBytes(path.Value.Length));
-        Assert.InRange(result.Counters.LiveMemoryBytes, 256L + names, result.Counters.PeakMemoryBytes);
+        // The host owns its retained identifiers after callbacks complete.
+        Assert.All(host.Opens, path => Assert.InRange(path.Value.Length, 1, QpdfPath.MaxLength));
+        Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);
     }
 
     private static async Task PriorAsync(InMemoryQpdfHost source)

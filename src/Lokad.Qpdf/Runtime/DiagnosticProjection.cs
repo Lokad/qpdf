@@ -5,7 +5,7 @@ namespace Lokad.Qpdf.Runtime;
 /// <summary>Owns a prepared projection and every fresh record/text allocation.</summary>
 internal sealed class DiagnosticProjection : IDisposable
 {
-    private readonly record struct Owned(object Carrier, RetainedValueOwners.Receipt Receipt);
+    private readonly record struct Owned(object Carrier, RetainedStorage.Receipt Receipt);
     private ResourceGovernor? _governor;
     private ParserMemoryScope? _memory;
     private Owned[]? _owned;
@@ -90,7 +90,7 @@ internal sealed class DiagnosticProjection : IDisposable
     private void OwnScoped(object carrier, long bytes)
     {
         Governor.ChargeWork(1L);
-        RetainedValueOwners.Receipt receipt = Memory.RetainAllocationReceipt(carrier, bytes);
+        RetainedStorage.Receipt receipt = Memory.RetainAllocationReceipt(carrier, bytes);
         (_owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection)))[_ownedCount++] = new(carrier, receipt);
     }
 
@@ -101,7 +101,7 @@ internal sealed class DiagnosticProjection : IDisposable
         Memory.Reserve(32L);
         QpdfDiagnostic diagnostic = new(code, QpdfDiagnosticSeverity.Info, text.Value);
         Governor.ChargeWork(1L);
-        RetainedValueOwners.Receipt receipt = Governor.RetainAllocation(text.Value, text.StringReservation);
+        RetainedStorage.Receipt receipt = Governor.RetainAllocation(text.Value, text.StringReservation);
         (_owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection)))[_ownedCount++] = new(text.Value, receipt);
         text.TransferToRetainedStorage(Governor);
         OwnScoped(diagnostic, 32L);
@@ -111,6 +111,8 @@ internal sealed class DiagnosticProjection : IDisposable
     internal IReadOnlyList<QpdfDiagnostic> Transfer()
     {
         ReadOnlyCollection<QpdfDiagnostic> result = _diagnostics ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
+        Owned[] ownedStorage = _owned ?? throw new ObjectDisposedException(nameof(DiagnosticProjection));
+        for (int index = 0; index < _ownedCount; index++) { Governor.PromoteAllocation(ownedStorage[index].Receipt); }
         _diagnostics = null;
         _governor = null;
         Owned[]? owned = _owned; _owned = null; _ownedCount = 0;

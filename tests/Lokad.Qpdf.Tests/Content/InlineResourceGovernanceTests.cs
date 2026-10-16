@@ -47,7 +47,8 @@ public sealed class InlineResourceGovernanceTests
         long baseline = governor.Snapshot().LiveMemoryBytes;
         WeakReference output = Capture(governor, resources, colors, borrowed);
         for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor.ReserveMemory(0L); }
-        Assert.False(output.IsAlive); Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
+        Assert.False(output.IsAlive); governor.CompletePrivateStorage();
+        Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(61L, prior.ReservedBytes);
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 62L, 32768L);
         GC.KeepAlive(resources); GC.KeepAlive(colors); GC.KeepAlive(borrowed);

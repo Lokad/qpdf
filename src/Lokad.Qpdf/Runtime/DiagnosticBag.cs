@@ -5,7 +5,7 @@ internal sealed class DiagnosticBag
 {
     private readonly ResourceGovernor _governor;
     private List<QpdfDiagnostic>? _entries;
-    private RetainedValueOwners.Receipt? _storage;
+    private RetainedStorage.Receipt? _storage;
     private DiagnosticStage? _stage;
 
     internal DiagnosticBag(ResourceGovernor governor)
@@ -24,6 +24,8 @@ internal sealed class DiagnosticBag
         get
         {
             _stage?.Flush();
+            if (_storage is not null && (!_governor.OwnsDocumentCounters || _governor.DocumentAccepted))
+            { _governor.PromoteAllocation(_storage); }
             return _entries is null ? Array.Empty<QpdfDiagnostic>() : _entries;
         }
     }
@@ -46,7 +48,7 @@ internal sealed class DiagnosticBag
     internal IReadOnlyList<QpdfDiagnostic> PromotedEntries
         => _entries is null ? Array.Empty<QpdfDiagnostic>() : _entries;
 
-    private RetainedValueOwners.Receipt Storage
+    private RetainedStorage.Receipt Storage
         => _storage ?? throw new InvalidOperationException("Diagnostic storage is unavailable.");
 
     // Reference arrays have two header words and an aligned length word;
@@ -61,7 +63,7 @@ internal sealed class DiagnosticBag
         try
         {
             List<QpdfDiagnostic> entries = new();
-            RetainedValueOwners.Receipt storage = _governor.RetainAllocation(entries, 32L);
+            RetainedStorage.Receipt storage = _governor.RetainAllocation(entries, 32L);
             _entries = entries;
             _storage = storage;
         }
@@ -78,13 +80,12 @@ internal sealed class DiagnosticBag
         if (capacity <= entries.Count) { throw new QpdfLimitException(nameof(QpdfLimits.MaxDiagnostics), entries.Count + 1L, entries.Count); }
         long previousBytes = ArrayBytes(entries.Capacity);
         long nextBytes = ArrayBytes(capacity);
-        long retained = checked(Storage.Bytes + nextBytes - previousBytes);
         _governor.ChargeWork(checked(entries.Count + (long)capacity));
         _governor.CheckCancellation();
         _governor.ReserveMemory(nextBytes);
         try { entries.Capacity = capacity; }
         catch { _governor.ReleaseMemory(nextBytes); throw; }
-        Storage.Bytes = retained;
+        _governor.GrowAllocation(Storage, nextBytes - previousBytes);
         _governor.ReleaseMemory(previousBytes);
     }
 
@@ -92,7 +93,7 @@ internal sealed class DiagnosticBag
     {
         if (existed || _entries is null) { return; }
         List<QpdfDiagnostic> entries = _entries;
-        RetainedValueOwners.Receipt storage = Storage;
+        RetainedStorage.Receipt storage = Storage;
         _entries = null;
         _storage = null;
         _governor.DropAllocation(entries, storage);
@@ -159,7 +160,7 @@ internal sealed class DiagnosticBag
             long payloadBytes = checked(32L + message.StringReservation);
             QpdfDiagnostic diagnostic = new(code, severity, message.Value);
             // A caller may already hold GovernedText.Value independently of
-            // this bag. Its record and string therefore need weak receipts now.
+            // this bag. Accept both estimates into the caller's diagnostic batch.
             Accept(diagnostic, payloadBytes, message.Utf8Bytes, false, 0, true);
             message.TransferToRetainedStorage(_governor);
             reserved = false;
@@ -257,7 +258,7 @@ internal sealed class DiagnosticBag
             : _governor.RetainDiagnostic(diagnostic, payloadBytes);
         // Before the first visible record, suppression can borrow the empty
         // failure history. Once a visible record arrives, sever the private
-        // warning references while keeping independent record/text receipts.
+        // warning references while keeping the caller's coarse batch charged.
         discardedWarnings?.Clear();
         // Count/byte preflight already passed and no intervening diagnostic can
         // enter this single-owner bag. The remaining handoff cannot allocate.

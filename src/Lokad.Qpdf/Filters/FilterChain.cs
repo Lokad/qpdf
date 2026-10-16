@@ -39,11 +39,7 @@ internal static class FilterChain
         {
             ReadFilters(streamDict, resolver, plan, token, observe);
             ReadParms(streamDict, resolver, plan, token, observe);
-            for (int index = 0; retainNames && index < plan.Count; index++)
-            {
-                string name = plan[index].Name;
-                if (!IsBorrowedName(name)) { plan.RetainName(name, GovernedText.StringBytes(name.Length)); }
-            }
+            if (retainNames) { plan.RetainNames(); }
             plan.Visit();
             return plan;
         }

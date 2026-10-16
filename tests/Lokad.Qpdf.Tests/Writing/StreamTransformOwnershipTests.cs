@@ -59,7 +59,7 @@ public sealed class StreamTransformOwnershipTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         Holder holder = Capture(governor, compress, alias); Collect(governor);
         Assert.True(governor.Snapshot().LiveMemoryBytes > 0);
-        holder.Value = null; Collect(governor); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(holder);
+        holder.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(holder);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Holder Completed(bool compress) => Capture(new(QpdfLimits.Default, CancellationToken.None), compress, "stream");

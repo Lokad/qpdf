@@ -25,7 +25,7 @@ public sealed class ParsedAllocationBatchTests
         while(iterator.MoveNext(governor,CancellationToken.None)){entries.Assign(graph.Memory,governor,iterator.Current.Key,iterator.Current.Value,CancellationToken.None);}
         PdfDictionary result=PdfDictionaryRebuild.Complete(graph,entries,allocation);
         long before=governor.Snapshot().LiveMemoryBytes;
-        governor.ChargeWork(1200L-governor.Snapshot().TotalWork-8L);
+        governor.ChargeWork(governor.RemainingWorkUnits);
         Assert.Throws<QpdfLimitException>(()=>graph.RetainParsed(parsed,source));
         Assert.Equal(sourceBytes,source.ReservedBytes);Assert.Equal(before,governor.Snapshot().LiveMemoryBytes);Assert.Equal(3,result.Count);Assert.Equal(3,parsed.Count);
     }

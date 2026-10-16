@@ -180,7 +180,7 @@ public sealed class OwnedPdfDictionaryStorageTests
         Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.Bytes);
         Assert.Equal(Enumerable.Range(0, count).Select(Key), alias.Keys);
         alias.Keys = null; Collect(governor);
-        Assert.False(alias.Table.IsAlive); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.False(alias.Table.IsAlive); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(governor); GC.KeepAlive(alias);
     }
 

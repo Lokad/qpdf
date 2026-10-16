@@ -77,7 +77,9 @@ internal static class JobJsonParser
                 throw new QpdfParseException("Job JSON must be an object.", 0L, null);
             }
 
-            return ParseProperties(EffectiveProperties(document.RootElement), false, limits, governor, textStorage);
+            JobPlan plan = ParseProperties(EffectiveProperties(document.RootElement), false, limits, governor, textStorage);
+            textStorage.RetainForExecution();
+            return plan;
         }
         }
         finally

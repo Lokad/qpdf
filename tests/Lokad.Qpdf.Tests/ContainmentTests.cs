@@ -17,7 +17,6 @@ public sealed class ContainmentTests
         "System.Text.Encoding.Extensions",
         "System.Text.Json",
         // Atomic finalizer notifications for per-job retained-value receipts.
-        "System.Threading",
     ];
 
     [Fact]

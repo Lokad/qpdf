@@ -43,7 +43,6 @@ internal sealed class GovernedText : IDisposable
         long bytes = StringBytes(length);
         memory.Reserve(bytes);
         string value = source.Substring(start, length);
-        memory.RetainAllocation(value, bytes);
         return value;
     }
 

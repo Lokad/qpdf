@@ -5,7 +5,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
-// String-alias retirement exercises the shared weak retained-value ledger.
+// Exposed name batches use caller ownership without retaining their plan.
 public sealed class OwnedFilterPlanTests
 {
     private sealed class Alias(FilterPlan plan, string value, WeakReference governor, WeakReference observer)
@@ -40,7 +40,7 @@ public sealed class OwnedFilterPlanTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Alias alias = Capture(governor);
         Collect(governor); VerifyAndClear(alias, governor);
-        Collect(governor); Assert.False(alias.Name.IsAlive); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias);
+        Collect(governor); Assert.False(alias.Name.IsAlive); Assert.Equal(governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

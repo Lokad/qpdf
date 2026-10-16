@@ -40,7 +40,10 @@ The engine batches its existing storage estimates into one reservation per
 invocation. Small allocations use already admitted capacity; growth normally
 adds 16 KiB blocks, with a smaller initial admission for tiny jobs. Replacement
 buffers retain both old and new charges during copying. Root charges include
-block slack; local job counters continue reporting the existing estimates.
+block slack during execution; completion attempts one trim to the retained
+estimate. A declined optional shrink keeps the existing charge and stops further
+trim attempts without failing an already completed publication. Local counters
+report the estimates.
 Returned storage remains beneath the supplied caller scope after the call ends.
 
 Results, counter snapshots and PDF versions use allocation-time capacity
@@ -82,6 +85,25 @@ private buffers themselves; the execution capability alone does not govern those
 buffers. Low-level input callers admit freshly returned bytes before reading;
 the budget-aware helper provides that boundary.
 
-The remaining migration concerns the engine's local graph/diagnostic ledgers and
-explicit coarse graph owners. These existing ledgers are not the lifetime
-contract for the supplied caller scope.
+Parser and transform construction scopes transfer their existing estimates to
+coarse graph owners. Retention does not walk object references or create weak
+tables and finalizer receipts. Private graph charges end with execution cleanup;
+private configuration and filter text end with their disposable component owners.
+Prepared typed result arrays transfer to the caller when the result is accepted,
+and refund with private cleanup when preparation fails.
+
+Public document values keep their graph estimates under the caller's owner after
+document disposal. Collection of an individual child or sibling does not refund
+part of that coarse estimate. Counter snapshots requested after disposal still
+need admission beneath that same live caller owner.
+Opening keeps its graph provisional until a document returns; failure refunds
+that unreturned graph after cleanup.
+
+Diagnostic messages share an invocation-local memo that is cleared during
+cleanup. Returned diagnostic records and text belong to a coarse result batch.
+An exclusive prepared buffer uses a small rollback receipt until it is exposed
+or abandoned; the receipt is never attached to a returned PDF object.
+
+Custom hosts own identifiers they retain after their callbacks complete. Copy or
+admit that private storage under the host's durable owner. The built-in memory
+host copies persisted keys and funds them with its retained storage.

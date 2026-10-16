@@ -30,10 +30,11 @@ public sealed class InlineImageStorageTests
     [InlineData("bytes")]
     [InlineData("keys")]
     [InlineData("stream")]
-    public void IndependentlyEscapingImageAliasesKeepFundingUntilCollection(string alias)
+    public void ImageAliasesRemainFundedUntilThePrivatePhaseEnds(string alias)
     {
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None); Holder holder=Capture(governor,alias); Collect(governor);
         Assert.True(governor.Snapshot().LiveMemoryBytes>=24L); holder.Value=null; Collect(governor);
+        governor.CompletePrivateStorage();
         Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(holder);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -65,7 +66,9 @@ public sealed class InlineImageStorageTests
     public void RawAndCompressedOutputRetainsOnlyEscapingStorage(bool compress)
     {
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None); Holder holder=Output(governor,compress);
-        Collect(governor);Assert.True(governor.Snapshot().LiveMemoryBytes>0); holder.Value=null;Collect(governor);Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);GC.KeepAlive(holder);
+        Collect(governor);Assert.True(governor.Snapshot().LiveMemoryBytes>0); holder.Value=null;
+        governor.CompletePrivateStorage();
+        Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);GC.KeepAlive(holder);
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static Holder Output(ResourceGovernor governor,bool compress)

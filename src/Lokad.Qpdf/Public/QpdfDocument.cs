@@ -102,7 +102,7 @@ public sealed class QpdfDocument : IAsyncDisposable
             if (warnings.Count == 0) { return Array.Empty<QpdfDiagnostic>(); }
             using OwnedAllocationBatch storage = OwnedAllocationBatch.Create(_governor, 2, _governor.CancellationToken);
             IReadOnlyList<QpdfDiagnostic> snapshot = ResultCollectionStorage.Copy(storage, warnings, IntPtr.Size);
-            storage.RetainWithPrepaidRetirement();
+            storage.RetainResult();
             return snapshot;
         }
     }
@@ -168,7 +168,13 @@ public sealed class QpdfDocument : IAsyncDisposable
         limits.Validate();
         ResourceGovernor governor = new(limits, cancellationToken, host) { OwnsDocumentCounters = true };
         DiagnosticBag diagnostics = new(governor);
-        return await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            QpdfDocument document = await OpenCore(host, path, limits, governor, diagnostics, QpdfRecoveryMode.Strict, cancellationToken).ConfigureAwait(false);
+            governor.AcceptDocument();
+            return document;
+        }
+        catch { governor.AbandonDocument(); throw; }
     }
 
     /// <summary>

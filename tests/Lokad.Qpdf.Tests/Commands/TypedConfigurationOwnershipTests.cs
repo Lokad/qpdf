@@ -390,12 +390,12 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         object? segment = owner?.GetType().GetField("_segments", Fields)?.GetValue(owner);
         while (segment is not null)
         {
-            if (segment.GetType().GetField("Values", Fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values)
+            if (segment.GetType().GetField("Values", Fields)?.GetValue(segment) is ConditionalWeakTable<object, RetainedStorage.Receipt> values)
             { foreach (var pair in values) { string name = pair.Key.GetType().Name; types[name] = types.GetValueOrDefault(name) + 1; } }
             segment = segment.GetType().GetField("Next", Fields)?.GetValue(segment);
         }
         long raw = (long)(typeof(ResourceGovernor).GetField("_liveMemoryBytes", Fields)?.GetValue(governor) ?? -1L);
-        long retired = owner is RetainedValueOwners ledger ? ledger.RetiredBytes : -1L;
+        long retired = owner is RetainedStorage ledger ? ledger.PrivateBytes : -1L;
         return "raw=" + raw + ";retired=" + retired + ";alive=" + System.Text.Json.JsonSerializer.Serialize(types);
     }
 
@@ -412,17 +412,17 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             long afterRounds = job.Governor.Snapshot().LiveMemoryBytes;
-            if (afterRounds > job.Governor.CallerMetadataBytes) { log.WriteLine("TYPED CONFIG BACKLOG {0} {1} {2}", job.Id, afterRounds, Remaining(job.Governor)); }
+            if (afterRounds > job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes) { log.WriteLine("TYPED CONFIG BACKLOG {0} {1} {2}", job.Id, afterRounds, Remaining(job.Governor)); }
             int maintenance = 0;
             // Keep the four original collection/maintenance rounds. Larger
             // graphs can leave funded ledger metadata after its bounded calls;
             // drain that queue under the same governor, without another GC.
-            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes && maintenance < 4096)
+            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes && maintenance < 4096)
             { job.Governor.ReserveMemory(0L); maintenance++; }
             log.WriteLine("TYPED CONFIG RETIRE {0} maintenance={1}", job.Id, maintenance);
             long remaining = job.Governor.Snapshot().LiveMemoryBytes;
             log.WriteLine("TYPED CONFIG FINAL {0} {1}", job.Id, remaining);
-            if (remaining != job.Governor.CallerMetadataBytes) { defects.Add(job.Id + "|final:" + remaining + ":" + Remaining(job.Governor)); }
+            if (remaining != job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes) { defects.Add(job.Id + "|final:" + remaining + ":" + Remaining(job.Governor)); }
             foreach (byte[] bytes in job.Output) { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
         }
         Assert.Equal(40, jobs.Count);

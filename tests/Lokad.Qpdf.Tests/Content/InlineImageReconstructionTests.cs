@@ -42,7 +42,8 @@ public sealed class InlineImageReconstructionTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(governor);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L); long baseline = governor.Snapshot().LiveMemoryBytes;
         object result = Run(governor, Content(source), null, 1024L, false, diagnostics, CancellationToken.None);
-        Assert.False(Assert.IsType<bool>(Property(result,"Changed"))); Collect(governor);
+        Assert.False(Assert.IsType<bool>(Property(result,"Changed")));
+        governor.CompletePrivateStorage();
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes); Assert.Equal(61L, prior.ReservedBytes); GC.KeepAlive(result);
     }
     [Theory]

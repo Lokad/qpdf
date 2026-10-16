@@ -11,7 +11,7 @@ internal sealed class PreparedJsonOutput : IDisposable
     private readonly ResourceGovernor _governor;
     private ParserMemoryScope? _memory;
     private string? _text;
-    private RetainedValueOwners.Receipt? _textReceipt;
+    private RetainedStorage.Receipt? _textReceipt;
     private bool _textEscaped;
     internal List<JsonPayload> Sidecars { get; }
     internal JsonPayload? Main { get; private set; }
@@ -107,6 +107,7 @@ internal sealed class PreparedJsonOutput : IDisposable
     internal string TransferText()
     {
         _ = Memory;
+        if (_textReceipt is not null && !_textEscaped) { _governor.PromoteAllocation(_textReceipt); }
         _textEscaped = true;
         return _text ?? string.Empty;
     }
@@ -133,7 +134,7 @@ internal sealed class PreparedJsonOutput : IDisposable
 internal sealed class JsonPayload : IDisposable
 {
     private readonly ResourceGovernor _governor;
-    private RetainedValueOwners.Receipt? _dataReceipt, _nameReceipt;
+    private RetainedStorage.Receipt? _dataReceipt, _nameReceipt;
     private bool _dataEscaped, _nameEscaped;
     internal string Name { get; private set; }
     internal byte[] Data { get; private set; }
@@ -160,8 +161,8 @@ internal sealed class JsonPayload : IDisposable
         catch { payload.Dispose(); throw; }
     }
 
-    internal void ExposeName() { _nameEscaped = true; }
-    internal void ExposeData() { _dataEscaped = true; }
+    internal void ExposeName() { if (_nameReceipt is not null && !_nameEscaped) { _governor.PromoteAllocation(_nameReceipt); } _nameEscaped = true; }
+    internal void ExposeData() { if (_dataReceipt is not null && !_dataEscaped) { _governor.PromoteAllocation(_dataReceipt); } _dataEscaped = true; }
 
     public void Dispose()
     {

@@ -4,7 +4,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Commands;
 
-/// <summary>Transfers admitted configuration strings to their independently escaping aliases.</summary>
+/// <summary>Owns copied configuration text through parsing and execution.</summary>
 internal sealed class ConfigurationText : IDisposable
 {
     private readonly ResourceGovernor _governor;
@@ -32,8 +32,8 @@ internal sealed class ConfigurationText : IDisposable
     // funds decoded copies, and the rest continues to fund encoded/DOM storage.
     // A nonempty JSON string needs at most two bytes per encoded byte plus its
     // header. Sixteen bytes per input byte covers both character storage and
-    // headers even for arrays of one-character strings. Copies leave this pool
-    // when accepted; independently escaping receipts keep that same admission.
+    // headers even for arrays of one-character strings. Accepted copies consume
+    // this pool and stay funded by their configuration or execution owner.
     internal static long JsonCopyBytes(long inputBytes) => checked(inputBytes * 16L + 2048L);
 
     internal void AdmitJsonCopies(long bytes)
@@ -54,7 +54,6 @@ internal sealed class ConfigurationText : IDisposable
         long bytes = GovernedText.StringBytes(value.Length);
         if (bytes > _jsonCopies)
         { throw new InvalidOperationException("Decoded configuration text exceeds its prepaid copy storage."); }
-        Memory.RetainAllocation(value, bytes);
         _jsonCopies -= bytes;
         return value;
     }
@@ -119,7 +118,6 @@ internal sealed class ConfigurationText : IDisposable
             offset += written;
             target[offset++] = ' '; target[offset] = 'R';
         });
-        owner?.Memory.RetainAllocation(value, bytes);
         return value;
     }
 
@@ -145,6 +143,12 @@ internal sealed class ConfigurationText : IDisposable
         public IEnumerator<string> GetEnumerator() => values.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
+
+    // The standalone parser returns a plan without a component owner. Preserve
+    // only its materialized text under the enclosing execution, not unused
+    // prepaid JSON capacity or the configuration controller itself.
+    internal void RetainForExecution()
+        => Memory.RetainPrivateStorage(checked(Memory.ReservedBytes - _jsonCopies - 64L));
 
     public void Dispose()
     {

@@ -89,7 +89,11 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
     {
         if (depth > 12 || current is string || !seen.Add(current)) { return null; }
         Type type = current.GetType();
-        if (type.FullName == "Lokad.Qpdf.Commands.ExpandedArguments") { return current; }
+        if (type.FullName == "Lokad.Qpdf.Commands.ExpandedArguments")
+        {
+            return type.GetField("_memory", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(current) is ParserMemoryScope
+                ? current : null;
+        }
         for (Type? next = type; next is not null; next = next.BaseType)
         foreach (FieldInfo field in next.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
         {
@@ -120,7 +124,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
     {
         InMemoryQpdfHost inner = new();
         CountingHost host = new(inner);
-        QpdfPath target = QpdfPath.From(new string(unicode ? '\u00e9' : 'o', 1024) + ".pdf");
+        QpdfPath target = QpdfPath.From(new string(unicode ? '\u00e9' : 'o', 2048) + ".pdf");
         inner.AddInput(QpdfPath.From("input.pdf"),
             await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf")), QpdfInputOwnership.Copy);
         inner.AddInput(First, Encoding.UTF8.GetBytes("input.pdf\n--\n" + target.Value + "\n"), QpdfInputOwnership.Copy);
@@ -287,54 +291,17 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void CheckAliases(PausedHost host, ResourceGovernor governor)
     {
-        long minimum = 256L + GovernedText.StringBytes((host.FirstName ?? "").Length) + GovernedText.StringBytes((host.NextName ?? "").Length);
-        if (host.GeneratedOutput) { minimum += GovernedText.StringBytes((host.OutputName ?? "").Length); }
-        if (host.GeneratedInput) { minimum += GovernedText.StringBytes((host.InputName ?? "").Length); }
-        Assert.True(governor.Snapshot().LiveMemoryBytes >= minimum, "Surviving generated host names require " + minimum + " funded bytes.");
-        CheckString(host.FirstName, governor); CheckString(host.NextName, governor);
-        if (host.GeneratedOutput) { CheckString(host.OutputName, governor); }
-        if (host.GeneratedInput) { CheckString(host.InputName, governor); }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void CheckString(string? text, ResourceGovernor governor)
-    {
-        if (text is null || text.Length == 0) { return; }
-        const BindingFlags members = BindingFlags.Instance | BindingFlags.NonPublic;
-        object? owner = typeof(ResourceGovernor).GetField("_valueOwners", members)?.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", members)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", members)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values
-                && values.TryGetValue(text, out RetainedValueOwners.Receipt? receipt))
-            { Assert.True(receipt.Bytes >= GovernedText.StringBytes(text.Length)); return; }
-            segment = segment.GetType().GetField("Next", members)?.GetValue(segment);
-        }
-        Assert.Fail("The independently surviving generated host name has no storage receipt.");
+        // Identifiers retained by callbacks belong to the host after completion.
+        Assert.Equal(First.Value, host.FirstName);
+        Assert.Equal(Next.Value, host.NextName);
+        if (host.InputName is string input) { Assert.Equal("input.pdf", input); }
+        if (host.OutputName is string output) { Assert.Equal(new string('o', 1024) + ".pdf", output); }
+        Assert.Equal(0L, governor.PrivateRetainedBytes);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void DropAliases(PausedHost host)
     { host.FirstName = null; host.NextName = null; host.InputName = null; host.OutputName = null; }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private void ReportRetained(ResourceGovernor governor)
-    {
-        const BindingFlags members = BindingFlags.Instance | BindingFlags.NonPublic;
-        object? owner = typeof(ResourceGovernor).GetField("_valueOwners", members)?.GetValue(governor);
-        object? segment = owner?.GetType().GetField("_segments", members)?.GetValue(owner);
-        while (segment is not null)
-        {
-            if (segment.GetType().GetField("Values", members)?.GetValue(segment) is ConditionalWeakTable<object, RetainedValueOwners.Receipt> values)
-            {
-                foreach (var row in values)
-                {
-                    if (row.Key is string text) { log.WriteLine("RETAINED TOKEN {0}: {1}", text.Length, text[..Math.Min(16, text.Length)]); }
-                }
-            }
-            segment = segment.GetType().GetField("Next", members)?.GetValue(segment);
-        }
-    }
 
     [Fact]
     public async Task CompleteExpansionJobsFundSurvivingAliasesAndRetirePrivateStorage()
@@ -389,8 +356,8 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         {
             var job = jobs[i];
             long live = job.Governor.Snapshot().LiveMemoryBytes;
-            if (live != job.Governor.CallerMetadataBytes) { ReportRetained(job.Governor); }
-            Assert.True(live == job.Governor.CallerMetadataBytes, "Job " + i + " retains " + live + " bytes after its host/result aliases drop.");
+            Assert.Equal(0L, job.Governor.PrivateRetainedBytes);
+            Assert.True(live == job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, "Job " + i + " retains " + live + " bytes after its host/result aliases drop.");
             Assert.Equal(0L, job.Governor.Snapshot().OpenHandles);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
@@ -400,7 +367,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
             foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
         }
-        foreach (var job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); }
+        foreach (var job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes + job.Governor.CallerStorageBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }
 }

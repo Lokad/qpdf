@@ -382,16 +382,19 @@ names, host exception text, or stack traces. `--parser-max-nesting=n` (within 49
 The memory limit bounds an estimated per-job working set, not exact CLR object
 sizes or process RSS. Significant buffers, decoded payloads, pixel planes and
 growth overlap receive admission; coarse allowances cover other graph/codec work.
-Live/peak snapshots remain immutable accounting estimates. Charge debt is not
-proof of actual retention. Exact small-object receipts, independent metadata-alias
-billing, fixed GC retirement and byte-precise self-accounting are internal details
-rather than public/release obligations. Validate the approximate target with the
+Live/peak snapshots remain immutable accounting estimates. Conservative charges
+can outlast individual CLR values. Coarse execution, graph and result owners
+refund storage at explicit lifetime boundaries without waiting for GC; callers
+keep their supplied scopes alive through returned storage and async cleanup.
+Exact small-object sizes and independent metadata-alias billing are not public
+obligations. Validate the approximate target with the
 small representative normal/adversarial workloads. Preserve meaningful size/work
 limits, cancellation, cleanup, immutable usable outputs and actual leak/growth
 regressions. Concurrent jobs, host buffers and caller outputs need host policy.
 Page/source result metadata keeps its material storage admission through the
-operation's publication and cleanup scope. Returned immutable collections remain
-usable afterward; individual metadata aliases need no separate accounting receipt.
+operation's publication and cleanup, then under the caller's owner while returned
+immutable collections remain usable. Individual metadata aliases need no separate
+accounting receipt.
 
 Canonical object inspection admits bounded character chunks, dictionary sort
 scratch and its immutable result before allocation. It borrows immutable key
@@ -405,9 +408,10 @@ component inputs/tables keep their caller funding. Returned values, trailer/key
 aliases and page counts remain usable. Accepted parser/cache values transfer
 significant storage admission through the applicable ownership scope. Immutable
 numeric text and dictionary key views remain usable after owner cleanup;
-process-lifetime atoms require no per-job receipts. Fine-grained alias billing
-and receipt-retirement timing are implementation details. Weak-ledger capacities
-and growth overlap are admitted, with bounded governed maintenance on the job thread.
+process-lifetime atoms require no per-job receipts. Construction estimates transfer
+to coarse graph owners without reference walks, weak tables or finalizer receipts.
+Public graph admission remains with the caller's scope after document disposal;
+private graph admission refunds with execution cleanup.
 Failed acceptance preserves prior aliases. Byte-string parsing transfers its
 fresh admitted buffer; public construction and returned copies still clone.
 JSON uses an exclusive reader through serialization and closes it before output
@@ -415,9 +419,9 @@ creation. Input-close faults preserve prior main/sidecar targets on all three
 routes; raw/decoded sidecar copies survive cleanup and fit one open handle.
 These cases do not establish every collision or group-publication contract.
 Diagnostic records/text/list growth and failure-history export use the shared
-governed machinery. Existing fine-grained receipt behavior is an implementation
-detail; practical whole-job estimates, meaningful limits and cleanup are validated
-by the representative workloads rather than a cold/native-state census.
+governed machinery. Returned diagnostics form a coarse caller-owned batch;
+the private message memo clears with execution cleanup. Practical whole-job
+estimates, meaningful limits and cleanup use representative workloads.
 
 Object-plan execution snapshots observed work/peaks after input cleanup, including failure
 and cancellation. Whole-job memory validation uses the representative workloads; the bounded
@@ -425,8 +429,8 @@ public CPU/codec controls do not establish universal cancellation latency.
 
 Parser attempts own their reservations separately from nested resolver/cache
 loads. Failed, aborted and canceled attempts release abandoned values and
-container storage; successful values retain admission for their actual carriers'
-lifetimes. Lists/dictionaries,
+container storage; successful values retain admission under their graph owner's
+lifetime. Lists/dictionaries,
 immutable container copies, references and overlapping stream copies are
 admitted before allocation. Working containers release after materialization.
 Recovery uses complete numeric headers rather than digit suffixes. Finite-memory argv/job JSON inspections with valid/rebuilt xrefs can load repeated repaired nulls
@@ -434,8 +438,8 @@ without accumulating abandoned reservations; strict failure and observed-work
 cancellation retain nested cached values and clean up attempt storage.
 Successful parses release overwritten values and incoming equal keys; recovery
 sanity checks release dropped orphans, while ordinary repair retains them under
-generated keys. Subtree receipts preserve independently loaded resolver/cache
-values. Finite-memory public bulk loads, retained aliases and post-overwrite
+generated keys. Separate parser scopes preserve independently loaded resolver/cache
+values without an ownership graph walk. Finite-memory public bulk loads, retained aliases and post-overwrite
 failure/cancellation have regressions; public dictionary construction still
 copies caller storage. Concrete failures justify targeted corrections; there is
 no additional exhaustive cache/alias/BCL-container audit.

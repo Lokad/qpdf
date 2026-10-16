@@ -169,6 +169,9 @@ public sealed class InlineImageDictionaryTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = maximum + 125L };
         ResourceGovernor governor = new(limits, CancellationToken.None); using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(61L);
         PdfByteString borrowed = new(new byte[8192], false); PdfDictionary raw = Dictionary(("W", borrowed), ("F", new PdfArray([PdfName.FromAscii("AHx"), PdfName.FromAscii("Fl")])));
+        raw = new PdfDictionary(raw.Keys.Select(key => new KeyValuePair<PdfName, QpdfObject>(key, Get(raw, key)))
+            .Concat(Enumerable.Range(0, 128).Select(index => new KeyValuePair<PdfName, QpdfObject>(PdfName.FromAscii("Other" + index), borrowed)))
+            .ToDictionary(entry => entry.Key, entry => entry.Value));
         long live = governor.Snapshot().LiveMemoryBytes;
         QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => ConvertWith(governor, raw, Dictionary(), CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName); Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
@@ -208,7 +211,7 @@ public sealed class InlineImageDictionaryTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaping value = Capture(governor, keys); Collect(governor);
         Assert.False(value.Source.IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes >= 96L); Verify(value, keys);
-        value.Value = null; Collect(governor); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(value); GC.KeepAlive(governor);
+        value.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(value); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -237,7 +240,7 @@ public sealed class InlineImageDictionaryTests
     {
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); Escaping alias = CaptureFilterAlias(governor, nameOnly);
         Collect(governor); Assert.False(alias.Source.IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes >= 24L); VerifyFilterAlias(alias, nameOnly);
-        alias.Value = null; Collect(governor); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
+        alias.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

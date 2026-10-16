@@ -334,10 +334,10 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         for (object? segment = ledger?.GetType().GetField("_segments", Members)?.GetValue(ledger);
             segment is not null; segment = segment.GetType().GetField("Next", Members)?.GetValue(segment))
         {
-            ConditionalWeakTable<object, RetainedValueOwners.Receipt> values =
-                (ConditionalWeakTable<object, RetainedValueOwners.Receipt>)Field(segment, "Values");
-            foreach (KeyValuePair<object, RetainedValueOwners.Receipt> pair in values)
-            { if (!pair.Value.PrepaidRetirement) { names.Add(pair.Key.GetType().FullName + ":" + pair.Value.Bytes); } }
+            ConditionalWeakTable<object, RetainedStorage.Receipt> values =
+                (ConditionalWeakTable<object, RetainedStorage.Receipt>)Field(segment, "Values");
+            foreach (KeyValuePair<object, RetainedStorage.Receipt> pair in values)
+            { if (!pair.Value.CallerOwned) { names.Add(pair.Key.GetType().FullName + ":" + pair.Value.Bytes); } }
         }
         return string.Join(", ", names);
     }
@@ -548,10 +548,10 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         aliases.Backing = null;
         QpdfExecutionCounters backingDead = Collect(aliases.Governor);
         Assert.False(aliases.BackingReference.IsAlive);
-        Assert.True(before - backingDead.LiveMemoryBytes >= 32L);
+        Assert.Equal(before, backingDead.LiveMemoryBytes);
         DropDiagnosticAliases(aliases);
         QpdfExecutionCounters completed = Collect(aliases.Governor);
-        Assert.Equal(aliases.Governor.CallerMetadataBytes, completed.LiveMemoryBytes);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes + aliases.Governor.CallerStorageBytes, completed.LiveMemoryBytes);
         Assert.Equal(0L, completed.OpenHandles);
         Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
         InMemoryQpdfHost validation = new();

@@ -165,33 +165,17 @@ internal sealed class DiagnosticStage : IDisposable
                 long chunks = length / ChunkLength + (length % ChunkLength == 0L ? 0L : 1L);
                 long text = characters + entries * chunks;
 
-                // Only nonempty strings enter the weak memo. Equal-length hash
+                // Only nonempty strings enter the invocation memo. Equal-length hash
                 // collisions may compare the whole message at every candidate.
                 long messages = state.Messages + nonempty;
                 long memo = messages * (nonempty + characters);
 
-                // One record per entry, at most one string per nonempty entry,
-                // plus the list. Each register can scan every indexed carrier,
-                // charge its insertion and two activation units, and reserve
-                // one future retirement unit without counting it as executed.
-                // Plain execution also needs its deferred failure carrier and
-                // independently owned warning-only history after the reader
-                // closes. Admit their registrations while accepting the stage.
+                // Presentation accepts records, memo links and a list into
+                // coarse owners. No graph indexing or GC retirement remains.
                 bool plainHistory = _governor.DeferredPlainHistory;
-                long carriers = entries + nonempty + 1L + (plainHistory ? 3L : 0L);
-                long index = carriers * (state.Carriers + carriers + 1L) + 3L * carriers + entries;
-                long slots = state.Slots + carriers;
-                long buckets = state.Buckets;
-                while (buckets < state.Carriers + carriers)
-                {
-                    // Rehash pre-admits rollback (slots + prior buckets) and
-                    // charges each slot once again while constructing links.
-                    index += 2L * slots + buckets;
-                    buckets = Math.Max(4L, buckets * 2L);
-                }
+                long acceptance = entries * 4L + 4L;
 
                 long capacity = _bag.EntryCapacity;
-                long growths = 0L;
                 long list = 0L;
                 while (capacity < _promoted + entries)
                 {
@@ -199,22 +183,11 @@ internal sealed class DiagnosticStage : IDisposable
                     if (next <= capacity) { throw new QpdfParseException("Diagnostic list exceeds supported capacity.", null, null); }
                     list += capacity + next;
                     capacity = next;
-                    growths++;
                 }
 
-                // Each entry has outer string/record/memo reservations; list
-                // growth and first list/ledger creation add these boundaries.
-                // Each boundary drains at most 64 receipts. Cached message
-                // nodes unlink with their string receipt, without a scan.
-                // New records remain rooted by the bag during the whole export;
-                // only existing carriers can retire or start memo maintenance.
-                long retirement = Math.Min(64L, state.Carriers);
-                // A failed pending-stack CAS requires a new finalizer publication;
-                // across the export there are at most the existing carrier count.
-                long maintenance = (3L * entries + growths + 2L + (plainHistory ? 8L : 0L)) * retirement + state.Carriers;
                 long suppression = _bag.SuppressWarningStorage && !_bag.HasNonWarningEntries
                     ? entries + _bag.PromotedEntries.Count : 0L;
-                return text + memo + index + list + maintenance + suppression + (plainHistory ? 8L + 4L * entries : 0L);
+                return text + memo + acceptance + list + suppression + (plainHistory ? 8L + 4L * entries : 0L);
             }
         }
         catch (OverflowException)

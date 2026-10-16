@@ -50,7 +50,7 @@ internal static class ArgvParser
             using ArgumentFiltering? filtering = governor is null ? null : ArgumentFiltering.Create(governor);
             argv = StripGlobalBlocks(argv, filtering);
             GlobalOptions globals = ExtractGlobalOptions(ref argv, filtering);
-            return ParseCore(argv, globals) with
+            JobPlan plan = ParseCore(argv, globals) with
             {
                 CompressionState = globals.CompressionState,
                 MaxStreamFilters = globals.MaxStreamFilters,
@@ -61,6 +61,8 @@ internal static class ArgvParser
                 NoDefaultLimits = globals.NoDefaultLimits,
                 CollationStorage = collationStorage,
             };
+            textStorage?.RetainForExecution();
+            return plan;
         }
         catch { collationStorage?.Dispose(); throw; }
     }

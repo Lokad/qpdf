@@ -129,7 +129,8 @@ public sealed class ContentHeaderRebuildTests
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
         ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
         Assert.Throws<OperationCanceledException>(() => Invoke(source, key, PdfNull.Instance, governor, strip));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, governor.Snapshot().TotalWork);
     }
 
     private sealed class Alias(object value, WeakReference[] metadata)
@@ -172,7 +173,8 @@ public sealed class ContentHeaderRebuildTests
         Assert.False(alias.Metadata[1].IsAlive); Assert.True(governor.Snapshot().LiveMemoryBytes > 0L);
         if (kind is "name" or "name-bytes") { Assert.False(alias.Metadata[2].IsAlive); Assert.False(alias.Metadata[3].IsAlive); }
         VerifyAlias(alias, kind); alias.Value = null; Collect(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

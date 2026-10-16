@@ -32,12 +32,9 @@ public sealed class DiagnosticWorkTests
         Assert.Equal("prior", Assert.Single(bag.Entries).Message);
         Assert.Equal(1L, governor.Snapshot().DiagnosticCount);
         Assert.InRange(governor.Snapshot().TotalWork, before + 1L, limits.MaxWork);
-        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
-            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
-        Assert.True(retirement > 0L);
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - retirement);
+        governor.ChargeWork(governor.RemainingWorkUnits);
         Assert.Throws<QpdfLimitException>(() => governor.ChargeWork(1L));
-        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork + retirement);
+        Assert.Equal(limits.MaxWork, governor.Snapshot().TotalWork);
         Assert.Equal("prior", Assert.Single(bag.Entries).Message);
     }
 

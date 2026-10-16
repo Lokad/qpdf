@@ -104,10 +104,11 @@ public sealed class ResourceRebuildOwnershipTests
         Assert.False(alias.Wrappers[0].IsAlive); Assert.False(alias.Wrappers[1].IsAlive);
         Assert.False(alias.Metadata[1].IsAlive); Assert.False(alias.Metadata[2].IsAlive);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.Minimum);
-        if (kind == "payload") { Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); }
+        if (kind == "payload") { governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); }
         if (kind is "name" or "name-bytes" or "payload") { Assert.False(alias.Wrappers[4].IsAlive); }
         Verify(alias, kind); alias.Value = null; Collect(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(governor); GC.KeepAlive(alias);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(governor); GC.KeepAlive(alias);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

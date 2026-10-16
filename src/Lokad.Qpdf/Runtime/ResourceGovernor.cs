@@ -24,7 +24,7 @@ internal sealed class ResourceGovernor
     private long _diagnosticCount;
     private long _diagnosticBytes;
     private long _operationsSinceCheck;
-    private RetainedValueOwners? _valueOwners;
+    private RetainedStorage? _valueOwners;
     private DiagnosticStage? _diagnosticStage;
     private PresentationCountReservation? _presentationCount;
     private ExecutionPreparation? _executionPresentation;
@@ -35,12 +35,12 @@ internal sealed class ResourceGovernor
     private bool _finishingDiagnosticFailure;
     private bool _returnsExecutionResult;
     private bool _finishingExecution;
-    private bool _executionFinished;
     private QpdfExecutionResult? _preparedExecutionResult;
     private bool _buildingExecutionResult;
     private QpdfExecutionCounters? _preparedTypedCounters;
     private long _preparedTypedResultBytes;
     internal bool OwnsDocumentCounters { get; set; }
+    internal bool DocumentAccepted { get; private set; }
     internal bool DeferredPlainHistory { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation as ExecutionPresentation;
 
@@ -70,11 +70,13 @@ internal sealed class ResourceGovernor
 
     internal long MaxNestingDepth => _limits.MaxNestingDepth;
 
-    private long LiveMemoryBytes => Math.Max(0L, _liveMemoryBytes - (_valueOwners?.RetiredBytes ?? 0L));
+    private long LiveMemoryBytes => _liveMemoryBytes;
 
     // Small escaping values share a coarse caller owner. This category stays
     // charged independently of private graph/cache cleanup and CLR collection.
     internal long CallerMetadataBytes => _callerMetadataBytes;
+    internal long CallerStorageBytes => _valueOwners?.CallerBytes ?? 0L;
+    internal long PrivateRetainedBytes => _valueOwners?.PrivateBytes ?? 0L;
 
     private void ReserveCallerMetadata(long bytes)
     {
@@ -100,7 +102,6 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Reservation must not be negative.");
         }
 
-        ReconcileValueOwners();
         ReserveReconciledMemory(bytes);
     }
 
@@ -110,7 +111,6 @@ internal sealed class ResourceGovernor
     internal void ReserveHostMemory(long bytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(bytes);
-        ReconcileValueOwners();
         ReserveReconciledMemory(bytes, true);
     }
 
@@ -144,7 +144,7 @@ internal sealed class ResourceGovernor
             throw new ArgumentOutOfRangeException(nameof(bytes), "Release must not be negative.");
         }
 
-        _liveMemoryBytes = Math.Max(_valueOwners?.RetiredBytes ?? 0L, _liveMemoryBytes - bytes);
+        _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - bytes);
         _sharedMemory?.ReleaseTo(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
 
@@ -156,90 +156,74 @@ internal sealed class ResourceGovernor
         ReleaseMemory(bytes);
     }
 
-    private void ReconcileValueOwners()
+    internal void CompletePrivateStorage()
     {
-        RetainedValueOwners? owners = _valueOwners;
-        if (owners is null || owners.Busy) { return; }
-        bool finishing = _finishingExecution;
-        if (_executionFinished) { _finishingExecution = true; }
-        try { owners.Drain(); DisposeEmptyValueOwners(owners); }
-        finally { _finishingExecution = finishing; ShrinkDiagnosticWork(); }
+        RetainedStorage? storage = _valueOwners;
+        storage?.Complete();
+        if (storage?.CallerBytes == 0L) { _valueOwners = null; }
     }
 
-    private void DisposeEmptyValueOwners(RetainedValueOwners owners)
-    {
-        if (owners.Busy) { return; }
-        owners.DisposeUnusedIndex();
-        if (!owners.Empty) { return; }
-        // Fold the atomic retirement total before detaching its storage. The
-        // detached ledger has no live carrier or future collection notification.
-        _liveMemoryBytes = Math.Max(0L, _liveMemoryBytes - owners.RetiredBytes);
-        _valueOwners = null;
-        owners.DisposeEmpty();
-    }
+    private RetainedStorage ValueOwners => _valueOwners ??= new(this);
+
+    internal void RetainPrivateStorage(long bytes) => ValueOwners.RetainPrivate(bytes);
+
+    internal void RetainCallerStorage(long bytes) => ValueOwners.RetainCaller(bytes);
+
+    internal void PrepareResultStorage(long bytes) => ValueOwners.RetainResult(bytes);
+    internal void PromoteAllocation(RetainedStorage.Receipt receipt) => ValueOwners.PromoteAllocation(receipt);
+    internal void GrowAllocation(RetainedStorage.Receipt receipt, long bytes) => ValueOwners.GrowAllocation(receipt, bytes);
 
     internal long RetainValue(QpdfObject value, long reservedBytes)
     {
         if (reservedBytes == 0L) { return 0L; }
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        RetainedStorage owners = ValueOwners;
         try { return owners.Retain(value, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
         finally { ShrinkDiagnosticWork(); }
     }
 
     internal long RetainValues(object wrapper, long wrapperBytes, IReadOnlyList<QpdfObject> roots, long reservedBytes)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        RetainedStorage owners = ValueOwners;
         try { return owners.Retain(wrapper, wrapperBytes, roots, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
         finally { ShrinkDiagnosticWork(); }
     }
 
     internal long RetainAllocations(OwnedAllocationBatch allocations, long reservedBytes)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
-        try { return owners.Retain(allocations, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
+        RetainedStorage owners = ValueOwners;
+        return owners.Retain(allocations, reservedBytes);
     }
 
     internal long RetainAllocations(OwnedAllocationBatch allocations, QpdfObject parsed, long reservedBytes)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
-        try { return owners.Retain(allocations, parsed, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
+        RetainedStorage owners = ValueOwners;
+        return owners.Retain(allocations, parsed, reservedBytes);
     }
 
-    internal RetainedValueOwners.Receipt RetainAllocation(object carrier, long reservedBytes)
+    internal RetainedStorage.Receipt RetainAllocation(object carrier, long reservedBytes)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        RetainedStorage owners = ValueOwners;
         try { return owners.RetainAllocation(carrier, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
         finally { ShrinkDiagnosticWork(); }
     }
 
-    internal void DropAllocation(object carrier, RetainedValueOwners.Receipt receipt)
+    internal void DropAllocation(object carrier, RetainedStorage.Receipt receipt)
     {
-        RetainedValueOwners owners = _valueOwners ?? throw new InvalidOperationException("Allocation owner is unavailable.");
-        long bytes = receipt.Bytes;
-        owners.DropAllocation(carrier, receipt);
-        ReleaseMemory(bytes);
-        DisposeEmptyValueOwners(owners);
-        ShrinkDiagnosticWork();
+        RetainedStorage owners = _valueOwners ?? throw new InvalidOperationException("Allocation owner is unavailable.");
+        ReleaseMemory(owners.DropAllocation(carrier, receipt));
     }
 
     internal long RetainDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        RetainedStorage owners = ValueOwners;
         try { return owners.RetainDiagnostic(diagnostic, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
         finally { ShrinkDiagnosticWork(); }
     }
 
     internal long RetainCheckOutcome(QpdfCheckOutcome outcome, long detailBytes, long reservedBytes)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        RetainedStorage owners = ValueOwners;
         try { return owners.RetainCheckOutcome(outcome, detailBytes, reservedBytes); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
         finally { ShrinkDiagnosticWork(); }
     }
 
@@ -251,9 +235,8 @@ internal sealed class ResourceGovernor
 
     internal long RetainCachedDiagnostic(QpdfDiagnostic diagnostic, long reservedBytes, int messageHash)
     {
-        RetainedValueOwners owners = _valueOwners ??= RetainedValueOwners.Create(this);
+        RetainedStorage owners = ValueOwners;
         try { return owners.RetainCachedDiagnostic(diagnostic, reservedBytes, messageHash); }
-        catch { DisposeEmptyValueOwners(owners); throw; }
         finally { ShrinkDiagnosticWork(); }
     }
 
@@ -287,9 +270,8 @@ internal sealed class ResourceGovernor
     {
         if (_diagnosticStage is null || _presentingDiagnostics || _diagnosticStage.Admitting) { return; }
         long needed = _diagnosticStage.PresentationWork(DiagnosticWorkState);
-        // Growth preflight funds an upper bound before any carrier activates.
-        // After commit/rollback/retirement, reconciliation only returns excess;
-        // it cannot fail after a successful ownership transfer.
+        // Memo growth preflights the future presentation bound. Shrinking this
+        // credit cannot fail after a successful ownership transfer.
         if (needed < _reservedWork) { _reservedWork = needed; }
     }
 
@@ -568,7 +550,7 @@ internal sealed class ResourceGovernor
     internal bool TryExpectExecutionResult()
     {
         try { ExpectExecutionResult(); return true; }
-        catch (QpdfMemoryAdmissionException) { _sharedMemory?.Complete(); return false; }
+        catch (QpdfMemoryAdmissionException) { _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes)); return false; }
     }
 
     // Counter and wrapper capacity is admitted together beneath the caller's
@@ -611,6 +593,7 @@ internal sealed class ResourceGovernor
         _buildingExecutionResult = true;
         try { ChargeExecutionResultWork(1L); }
         finally { _buildingExecutionResult = false; }
+        _valueOwners?.AcceptResults();
         _preparedTypedResultBytes = 0L;
     }
 
@@ -620,10 +603,10 @@ internal sealed class ResourceGovernor
         { throw new InvalidOperationException("Typed result storage has not transferred."); }
         QpdfExecutionCounters counters = _preparedTypedCounters
             ?? throw new InvalidOperationException("Missing admitted typed counters.");
+        CompletePrivateStorage();
         counters.CaptureBeforeReturn(CounterValues);
         _preparedTypedCounters = null;
-        _executionFinished = true;
-        _sharedMemory?.Complete();
+        _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
 
     internal void AbandonTypedCounters()
@@ -636,13 +619,31 @@ internal sealed class ResourceGovernor
             _reservedResultWork -= 1L;
         }
         _preparedTypedCounters = null;
-        _executionFinished = true;
-        _sharedMemory?.Complete();
+        CompletePrivateStorage();
+        _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
+    }
+
+    internal void AcceptDocument()
+    {
+        _valueOwners?.AcceptResults();
+        DocumentAccepted = true;
+    }
+
+    internal void AbandonDocument()
+    {
+        CompletePrivateStorage();
+        _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
 
     internal void FinishDocumentCounters()
     {
-        if (OwnsDocumentCounters) { _executionFinished = true; _sharedMemory?.Complete(); }
+        if (OwnsDocumentCounters)
+        {
+            CompletePrivateStorage();
+            _sharedMemory?.TrimTo(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
+            // Counter snapshots remain public after document disposal. Keep
+            // admission usable; no GC callback can refund earlier aliases.
+        }
     }
 
     // Small public metadata is covered by coarse caller-owned estimates;
@@ -700,39 +701,6 @@ internal sealed class ResourceGovernor
         NoteOperation();
     }
 
-    internal void ReserveAllocationRetirementWork(long units)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(units);
-        if (_presentingDiagnostics)
-        {
-            // Export already promised admission and retirement together. Move
-            // this capacity to the receipts without inventing executed work.
-            if (units > _reservedWork) { throw new InvalidOperationException("Diagnostic retirement exceeds its pre-admitted bound."); }
-            _reservedWork -= units;
-            _reservedResultWork = checked(_reservedResultWork + units);
-            return;
-        }
-        long held = checked(_reservedWork + (_publicationWork?.Remaining ?? 0L) + _reservedResultWork);
-        if (units > long.MaxValue - held)
-        { throw new QpdfLimitException(nameof(QpdfLimits.MaxWork), long.MaxValue, _limits.MaxWork); }
-        CheckWorkCapacity(held + units);
-        _reservedResultWork = checked(_reservedResultWork + units);
-    }
-
-    internal void ChargeAllocationRetirementWork()
-    {
-        bool building = _buildingExecutionResult;
-        _buildingExecutionResult = true;
-        try { ChargeExecutionResultWork(1L); }
-        finally { _buildingExecutionResult = building; }
-    }
-
-    internal void ReleaseAllocationRetirementWork()
-    {
-        if (_reservedResultWork < 1L) { throw new InvalidOperationException("Allocation retirement work is unavailable."); }
-        _reservedResultWork--;
-    }
-
     internal QpdfExecutionResult FinishExecutionResult(ExecutionOutcome outcome)
     {
         _finishingExecution = true;
@@ -743,11 +711,13 @@ internal sealed class ResourceGovernor
                 ?? throw new InvalidOperationException("Missing admitted execution result.");
             _preparedExecutionResult = null; _returnsExecutionResult = false;
             result.CompleteBeforeReturn(outcome);
+            _valueOwners?.AcceptResults();
+            CompletePrivateStorage();
             result.Counters.CaptureBeforeReturn(CounterValues);
             return result;
         }
         catch (QpdfMemoryAdmissionException) { return ExecutionResultAdmission.SharedMemoryFailure; }
-        finally { _finishingExecution = false; _executionFinished = true; _sharedMemory?.Complete(); }
+        finally { CompletePrivateStorage(); _finishingExecution = false; _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes)); }
     }
 
     internal PresentedDiagnostics? CompleteExecutionPresentation()

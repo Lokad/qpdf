@@ -26,11 +26,8 @@ public sealed class RetainedLedgerLifetimeTests
             ?? throw new InvalidOperationException("Missing retained ownership field: " + name);
 
     private static WeakReference[] Metadata(ResourceGovernor governor)
-    {
-        object ledger = Field(governor, "_valueOwners"), segment = Field(ledger, "_segments");
-        return [new(governor), new(ledger), new(Field(ledger, "_storage")), new(Field(ledger, "_heads")),
-            new(Field(ledger, "_slots")), new(segment), new(Field(segment, "Values"))];
-    }
+        => [new(governor), new(Field(governor, "_valueOwners"))];
+
 
     private static void Collect(ResourceGovernor? governor)
     { for (int round = 0; round < 4; round++) { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); governor?.ReserveMemory(0L); } }
@@ -108,18 +105,19 @@ public sealed class RetainedLedgerLifetimeTests
     [InlineData("byte-buffer")]
     [InlineData("array")]
     [InlineData("table")]
-    public void ActiveGovernorKeepsAdmissionUntilTheLastCarrierRetires(string kind)
+    public void AdmissionRemainsUntilTheCoarseOwnerEnds(string kind)
     {
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 32768L }, CancellationToken.None);
         Alias alias = Capture(governor, kind); Collect(governor);
         Assert.All(alias.Metadata, reference => Assert.True(reference.IsAlive));
         Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.MinimumBytes); Verify(alias, kind);
         alias.Value = null; Collect(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive)); GC.KeepAlive(governor);
+        governor.CompletePrivateStorage();
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Collect(governor); Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive)); GC.KeepAlive(governor);
     }
 
     [Fact]
-    public void FailedLedgerAdmissionPreservesScopeAndRetriesTheSameTransfer()
+    public void RetainingAdmittedStorageNeedsNoLedgerAdmission()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096L }; ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(97L);
@@ -127,15 +125,15 @@ public sealed class RetainedLedgerLifetimeTests
         long bytes = GovernedText.StringBytes(1024); memory.Reserve(bytes); string value = new('W', 1024);
         using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
         filler.Reserve(limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 1L); long before = governor.Snapshot().LiveMemoryBytes;
-        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => memory.RetainAllocation(value, bytes));
-        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName); Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
-        Assert.Equal(bytes, memory.ReservedBytes); Assert.Equal(97L, prior.ReservedBytes);
-        filler.Dispose(); memory.RetainAllocation(value, bytes); Assert.Equal(0L, memory.ReservedBytes);
+        memory.RetainAllocation(value, bytes);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(0L, memory.ReservedBytes); Assert.Equal(97L, prior.ReservedBytes);
+        filler.Dispose();
         memory.Dispose(); Collect(governor); Assert.True(governor.Snapshot().LiveMemoryBytes >= bytes + 97L); GC.KeepAlive(value);
     }
 
     [Fact]
-    public void FailedAdditionalTransferPreservesEarlierAliases()
+    public void AdditionalTransferPreservesEarlierAliasesAtTheMemoryCeiling()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L }; ResourceGovernor governor = new(limits, CancellationToken.None);
         Alias first = Capture(governor, "string"); Collect(governor);
@@ -143,9 +141,9 @@ public sealed class RetainedLedgerLifetimeTests
         long bytes = GovernedText.StringBytes(1024); memory.Reserve(bytes); string value = new('V', 1024);
         using ParserMemoryScope filler = ParserMemoryScope.Create(governor);
         filler.Reserve(limits.MaxMemoryBytes - governor.Snapshot().LiveMemoryBytes - 1L); long before = governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfLimitException>(() => memory.RetainAllocation(value, bytes));
-        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(bytes, memory.ReservedBytes); Verify(first, "string");
-        filler.Dispose(); memory.RetainAllocation(value, bytes); memory.Dispose(); Collect(governor);
+        memory.RetainAllocation(value, bytes);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, memory.ReservedBytes); Verify(first, "string");
+        filler.Dispose(); memory.Dispose(); Collect(governor);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= first.MinimumBytes + bytes); Verify(first, "string"); GC.KeepAlive(value); GC.KeepAlive(first);
     }
 
@@ -158,23 +156,21 @@ public sealed class RetainedLedgerLifetimeTests
     }
 
     [Fact]
-    public async Task CancellationAfterAcceptedRootVisitsRollsBackWithoutRetiringEarlierAliases()
+    public void RetentionDoesNotEnumerateBorrowedRoots()
     {
-        using CancellationTokenSource cancellation = new(); ResourceGovernor governor = new(QpdfLimits.Default, cancellation.Token);
-        Alias first = Capture(governor, "string"); Collect(governor);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(4096L);
-        QpdfObject[] values = Enumerable.Range(1, 64).Select(index => (QpdfObject)new PdfReference(index, 0)).ToArray(); object wrapper = new();
-        using ManualResetEventSlim reached = new(), resume = new(); long startWork = governor.Snapshot().TotalWork;
-        ObservedRoots roots = new(values, () => { reached.Set(); if (!resume.Wait(TimeSpan.FromSeconds(10))) { throw new TimeoutException("Ledger root observation did not resume."); } });
-        Task worker = Task.Factory.StartNew(() => memory.Retain(wrapper, 24L, roots), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        try
-        {
-            Assert.True(reached.Wait(TimeSpan.FromSeconds(10))); Assert.True(governor.Snapshot().TotalWork > startWork + 32L);
-            cancellation.Cancel(); resume.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.Equal(4096L, memory.ReservedBytes); Verify(first, "string");
-            memory.Dispose(); Collect(governor); Assert.True(governor.Snapshot().LiveMemoryBytes >= first.MinimumBytes); GC.KeepAlive(first);
-        }
-        finally { cancellation.Cancel(); resume.Set(); try { await worker.WaitAsync(TimeSpan.FromSeconds(10)); } catch (OperationCanceledException) { } }
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        Alias first = Capture(governor, "string");
+        QpdfObject[] borrowed = Enumerable.Range(1, 64).Select(index => (QpdfObject)new PdfReference(index, 0)).ToArray();
+        ObservedRoots roots = new(borrowed, () => throw new InvalidOperationException("Borrowed graphs must not be traversed for admission."));
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        memory.Reserve(32L);
+        object wrapper = new();
+        long work = governor.Snapshot().TotalWork;
+        memory.Retain(wrapper, 32L, roots);
+        Assert.Equal(work, governor.Snapshot().TotalWork);
+        Assert.Equal(0L, memory.ReservedBytes);
+        Verify(first, "string");
+        GC.KeepAlive(first); GC.KeepAlive(wrapper); GC.KeepAlive(borrowed);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -185,8 +181,8 @@ public sealed class RetainedLedgerLifetimeTests
         // Queue finalizer notifications while the governor is rooted, without
         // draining the job-thread index. The surviving first alias must not
         // keep that abandoned queue or the rest of its metadata alive later.
-        Collect(null); object ledger = Field(governor, "_valueOwners"); object pending = Field(ledger, "_pending");
-        return new(first.Value ?? throw new InvalidOperationException("Missing first alias."), [.. first.Metadata, new(pending)], first.MinimumBytes);
+        Collect(null);
+        return new(first.Value ?? throw new InvalidOperationException("Missing first alias."), first.Metadata, first.MinimumBytes);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -200,7 +196,7 @@ public sealed class RetainedLedgerLifetimeTests
     }
 
     [Fact]
-    public void QueuedRetirementsDoNotAnchorCompletedJobsThroughSurvivingCarriers()
+    public void SurvivingValuesDoNotAnchorCompletedCoarseOwners()
     {
         Alias alias = CompleteWithQueuedRetirements(); Collect(null);
         Assert.All(alias.Metadata, reference => Assert.False(reference.IsAlive)); Verify(alias, "string"); GC.KeepAlive(alias);
@@ -213,7 +209,7 @@ public sealed class RetainedLedgerLifetimeTests
         {
             Alias alias = Capture(governor, "string"); await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); Verify(alias, "string");
             Assert.True(governor.Snapshot().LiveMemoryBytes >= alias.MinimumBytes);
-            alias.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            alias.Value = null; await (_collection ?? throw new InvalidOperationException("Missing stress batch.")).CollectAsync(governor, 4, 4, false, true); governor.CompletePrivateStorage(); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             Assert.All(alias.Metadata.Skip(1), reference => Assert.False(reference.IsAlive));
         }
         GC.KeepAlive(governor);

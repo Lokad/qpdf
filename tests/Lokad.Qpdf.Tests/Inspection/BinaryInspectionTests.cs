@@ -375,7 +375,7 @@ public sealed class BinaryInspectionTests
             Assert.True(result.Counters.TotalWork > 0 && result.Counters.HostOperations > 0);
             // The immutable snapshot can include independently owned names
             // awaiting natural collection; exact retirement is observed later.
-            Assert.InRange(result.Counters.LiveMemoryBytes, 256L, result.Counters.PeakMemoryBytes);
+            Assert.InRange(result.Counters.LiveMemoryBytes, ExecutionResultAdmission.MemoryBytes, result.Counters.PeakMemoryBytes);
             Assert.Equal(0L, result.Counters.OpenHandles);
             AssertNoOutputBytes(result);
             Assert.Null(result.OutputText);

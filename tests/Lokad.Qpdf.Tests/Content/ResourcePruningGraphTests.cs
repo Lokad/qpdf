@@ -186,7 +186,7 @@ public sealed class ResourcePruningGraphTests
         Collect(governor); Assert.False(alias.Copier.IsAlive); Assert.False(alias.Page.IsAlive);
         Assert.True(governor.Snapshot().LiveMemoryBytes >= 96L);
         VerifyPublishedAlias(alias, keys);
-        alias.Value = null; Collect(governor); Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
+        alias.Value = null; Collect(governor); governor.CompletePrivateStorage(); Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes); GC.KeepAlive(alias); GC.KeepAlive(governor);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

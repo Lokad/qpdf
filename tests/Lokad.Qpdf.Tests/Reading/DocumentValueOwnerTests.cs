@@ -126,12 +126,12 @@ public sealed class DocumentValueOwnerTests
     }
 
     [Fact]
-    public void FailedRetentionRollsBackOnlyItsNewCarriersAndCanRepeat()
+    public void FailedLargeParsingReleasesItsAttemptAndCanRepeat()
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 32768L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         PdfParser parser = new(limits, governor, new DiagnosticBag(governor), null);
-        byte[] input = Encoding.ASCII.GetBytes("[ " + string.Concat(Enumerable.Repeat("(kept)", 128)) + " ]");
+        byte[] input = Encoding.ASCII.GetBytes("[ " + string.Concat(Enumerable.Repeat("(kept)", 4096)) + " ]");
         for (int attempt = 0; attempt < 10; attempt++)
         {
             QpdfLimitException error = Assert.Throws<QpdfLimitException>(() => parser.ParseValue(new PdfTokenizer(input), 0));
@@ -147,7 +147,7 @@ public sealed class DocumentValueOwnerTests
     [InlineData(64L)]
     [InlineData(160L)]
     [InlineData(184L)]
-    public void WorkFailureDuringIndexGrowthPreservesAcceptedValues(long remainingWork)
+    public void ExhaustedWorkPreventsNewParsingWithoutTouchingAcceptedValues(long length)
     {
         QpdfLimits limits = QpdfLimits.Default with { MaxWork = 1000000L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
@@ -155,15 +155,11 @@ public sealed class DocumentValueOwnerTests
         byte[] input = Encoding.ASCII.GetBytes("[ " + string.Concat(Enumerable.Repeat("(kept)", 31)) + " ]");
         PdfArray accepted = Assert.IsType<PdfArray>(parser.ParseValue(new PdfTokenizer(input), 0));
         long admitted = governor.Snapshot().LiveMemoryBytes;
-        // Simulate preceding job work. The next acceptance reaches a full
-        // ownership index with enough work for different growth boundaries.
-        long retirement = Assert.IsType<long>(typeof(ResourceGovernor).GetField("_reservedResultWork",
-            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(governor));
-        governor.ChargeWork(limits.MaxWork - governor.Snapshot().TotalWork - remainingWork - retirement);
+        governor.ChargeWork(governor.RemainingWorkUnits);
         QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
-            parser.ParseValue(new PdfTokenizer("(next)"u8.ToArray()), 0));
+            parser.ParseValue(new PdfTokenizer(Encoding.ASCII.GetBytes("(" + new string('N', checked((int)length * 1024)) + ")")), 0));
         Assert.Equal(nameof(QpdfLimits.MaxWork), error.LimitName);
-        Assert.Contains("RetainedValueOwners.EnsureBucketCapacity", error.StackTrace ?? string.Empty);
+        Assert.True(governor.Snapshot().TotalWork <= limits.MaxWork);
         Collect();
         Assert.Equal(admitted, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(31, accepted.Count);
@@ -178,7 +174,7 @@ public sealed class DocumentValueOwnerTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task CollectedDocumentValuesDoNotExhaustAReusableFiniteGovernor(bool broken)
+    public async Task ClosedPrivateDocumentPhasesReuseAFiniteGovernor(bool broken)
     {
         byte[] input = TolerantObjectLoadingTests.Pdf(["(unread)"], broken);
         InMemoryQpdfHost host = Host(input);
@@ -192,6 +188,7 @@ public sealed class DocumentValueOwnerTests
             roots.Add(Roots(document));
             await document.DisposeAsync();
             disposed.Add(document);
+            governor.CompletePrivateStorage();
             Collect();
             Assert.All(roots.SelectMany(group => group), owner => Assert.False(owner.IsAlive));
             Assert.Equal(0L, host.OpenLeaseCount);
@@ -211,7 +208,7 @@ public sealed class DocumentValueOwnerTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task AChildAliasDoesNotKeepDeadParentAndSiblingAdmission(bool broken)
+    public async Task AChildAliasDoesNotRootItsContainersWhileItsGraphOwnerRemainsCharged(bool broken)
     {
         byte[] input = TolerantObjectLoadingTests.Pdf(["[ (kept) (" + new string('A', 1048576) + ") ]"], broken);
         QpdfDocument document = await Open(Host(input), new ResourceGovernor(QpdfLimits.Default, CancellationToken.None), QpdfLimits.Default, broken);
@@ -221,7 +218,7 @@ public sealed class DocumentValueOwnerTests
         Assert.False(parent.IsAlive);
         Assert.False(sibling.IsAlive);
         Assert.Equal("kept"u8.ToArray(), child.Value);
-        Assert.InRange(document.Counters.LiveMemoryBytes, child.Value.Length, input.Length / 4L);
+        Assert.True(document.Counters.LiveMemoryBytes >= 1048576L);
         GC.KeepAlive(child); GC.KeepAlive(document);
     }
 
@@ -251,7 +248,7 @@ public sealed class DocumentValueOwnerTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task NumericTextFundingSurvivesItsWrapperAndRetiresWithTheString(bool broken)
+    public async Task NumericTextRemainsUsableUntilTheGraphOwnerEnds(bool broken)
     {
         string token = new string('0', 100000) + "123";
         byte[] input = TolerantObjectLoadingTests.Pdf([token], broken);
@@ -264,7 +261,9 @@ public sealed class DocumentValueOwnerTests
         Collect();
         Assert.False(alias.Backing.IsAlive);
         governor.ReserveMemory(0L);
-        Assert.True(document.Counters.LiveMemoryBytes < token.Length);
+        Assert.True(governor.Snapshot().LiveMemoryBytes >= token.Length * 2L);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(document);
     }
 
@@ -300,7 +299,7 @@ public sealed class DocumentValueOwnerTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public async Task KeyViewFundingSurvivesItsWrapperAndRetiresWithTheBacking(bool broken, bool populated)
+    public async Task KeyViewsRemainUsableUntilTheGraphOwnerEnds(bool broken, bool populated)
     {
         string body = populated ? "<< /A (" + new string('K', 1048576) + ") >>" : "<< >>";
         byte[] input = TolerantObjectLoadingTests.Pdf([body], broken);
@@ -313,7 +312,9 @@ public sealed class DocumentValueOwnerTests
         Collect();
         Assert.False(alias.Backing.IsAlive);
         governor.ReserveMemory(0L);
-        Assert.True(document.Counters.LiveMemoryBytes < before);
+        Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(document);
     }
 
@@ -346,7 +347,7 @@ public sealed class DocumentValueOwnerTests
         }
         else
         {
-            Assert.True(document.Counters.LiveMemoryBytes < input.Length / 4L);
+            Assert.True(document.Counters.LiveMemoryBytes >= 1048576L);
             if (alias is byte[] copy) { Assert.Equal((byte)'P', copy[100000]); }
             else { Assert.Equal(1, Assert.IsType<PdfDictionary>(alias).Count); }
         }
@@ -354,7 +355,7 @@ public sealed class DocumentValueOwnerTests
     }
 
     [Fact]
-    public async Task CopiedScalarAndKeyAliasesSurviveSourceContainersWithoutFundingTheirDeadSibling()
+    public async Task CopiedScalarsAndKeysRemainIndependentOfClrContainerLiveness()
     {
         byte[] input = TolerantObjectLoadingTests.Pdf(["<< /Number 123 /Discard (" + new string('D', 1048576) + ") >>"], false);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
@@ -366,7 +367,7 @@ public sealed class DocumentValueOwnerTests
         Assert.False(discarded.IsAlive);
         Assert.Equal("123", number.Text);
         Assert.Equal("Number"u8.ToArray(), key.RawBytes);
-        Assert.InRange(governor.Snapshot().LiveMemoryBytes, 1L, input.Length / 4L);
+        Assert.True(governor.PrivateRetainedBytes >= 1048576L);
         GC.KeepAlive(document); GC.KeepAlive(number); GC.KeepAlive(key);
     }
 

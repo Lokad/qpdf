@@ -611,19 +611,27 @@ internal static class Program
         string retainedToken = new string('0', 100000) + "123";
         byte[] valueOwnerInput = TwoPagePdfWithAuditObjects(["[ " + retainedToken + " (" + new string('A', 1048576) + ") ]"]);
         InMemoryQpdfHost valueOwnerHost = NewHost("inputs/value-owner.pdf", valueOwnerInput);
-        QpdfDocument valueOwnerDocument = await QpdfDocument.OpenAsync(valueOwnerHost, QpdfPath.From("inputs/value-owner.pdf"),
+        RecordingMemoryBudget valueOwnerRoot = new(16777216L);
+        IMemoryScope valueOwnerScope = valueOwnerRoot.CreateScope();
+        QpdfDocument valueOwnerDocument = await QpdfDocument.OpenAsync(new MemoryHostView(valueOwnerHost, valueOwnerScope), QpdfPath.From("inputs/value-owner.pdf"),
             QpdfLimits.Default, CancellationToken.None);
         RetainedText retainedText = CaptureNumericText(valueOwnerDocument);
         long valueOwnerBefore = valueOwnerDocument.Counters.LiveMemoryBytes;
         await valueOwnerDocument.DisposeAsync();
+        QpdfExecutionCounters valueOwnerAfter = valueOwnerDocument.Counters;
+        long graphCharge = valueOwnerRoot.ReservedBytes;
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
         Check(!retainedText.Wrapper.IsAlive && !retainedText.Sibling.IsAlive && retainedText.Text == retainedToken,
             "numeric text survives independently of its wrapper and discarded sibling");
-        Check(valueOwnerDocument.Counters.LiveMemoryBytes >= retainedText.Text.Length * 2L
-            && valueOwnerDocument.Counters.LiveMemoryBytes < valueOwnerBefore - 1048576L
-            && valueOwnerHost.OpenLeaseCount == 0L, "live text stays funded while dead input/sibling admission retires");
-        Console.WriteLine("PASS independent numeric text ownership after document disposal");
+        Check(valueOwnerAfter.LiveMemoryBytes >= retainedText.Text.Length * 2L + 1048576L
+            && valueOwnerBefore - valueOwnerAfter.LiveMemoryBytes >= valueOwnerInput.Length - 88L
+            && valueOwnerRoot.ReservedBytes == graphCharge
+            && valueOwnerHost.OpenLeaseCount == 0L, "coarse graph charge survives collection while private input admission retires");
         GC.KeepAlive(retainedText);
+        retainedText = retainedText with { Text = string.Empty };
+        valueOwnerScope.Dispose();
+        Check(valueOwnerRoot.ReservedBytes == 0L, "caller graph owner refunds without GC");
+        Console.WriteLine("PASS coarse numeric text ownership and explicit refund after document disposal");
         foreach (string route in new[] { "typed", "argv", "job" })
         {
             InMemoryQpdfHost closeSource = NewHost("inputs/close.pdf", input);

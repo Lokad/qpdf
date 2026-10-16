@@ -81,18 +81,7 @@ public sealed class TypedWarningOwnershipTests
         ?? throw new InvalidOperationException("Missing complete-job governor."));
     private static Array Backing(object view) => view as Array
         ?? view.GetType().GetFields(Members).Select(f => f.GetValue(view)).OfType<Array>().Single();
-    private static RetainedValueOwners.Receipt? Receipt(ResourceGovernor governor, object value)
-    {
-        object? owners = typeof(ResourceGovernor).GetField("_valueOwners", Members)?.GetValue(governor);
-        for (object? segment = owners?.GetType().GetField("_segments", Members)?.GetValue(owners); segment is not null;
-            segment = segment.GetType().GetField("Next", Members)?.GetValue(segment))
-        {
-            ConditionalWeakTable<object, RetainedValueOwners.Receipt> values =
-                (ConditionalWeakTable<object, RetainedValueOwners.Receipt>)Field(segment, "Values");
-            if (values.TryGetValue(value, out RetainedValueOwners.Receipt? receipt)) { return receipt; }
-        }
-        return null;
-    }
+
     private async Task<QpdfExecutionCounters> CollectAsync(ResourceGovernor governor)
     {
         if (_collection is not null) { await _collection.CollectAsync(governor, 4, 4, true, true); }
@@ -124,11 +113,8 @@ public sealed class TypedWarningOwnershipTests
         IReadOnlyList<QpdfDiagnostic> warnings = (IReadOnlyList<QpdfDiagnostic>)Read(result, "Warnings");
         Assert.NotEmpty(warnings);
         Array backing = Backing(warnings);
-        RetainedValueOwners.Receipt? viewReceipt = Receipt(governor, warnings), arrayReceipt = Receipt(governor, backing);
         long bytes = (24L + IntPtr.Size * warnings.Count + 7L) & ~7L;
-        bool admitted = viewReceipt is not null && arrayReceipt is not null && viewReceipt.Bytes == 24L
-            && arrayReceipt.Bytes == bytes && viewReceipt.PrepaidRetirement && arrayReceipt.PrepaidRetirement
-            && !ReferenceEquals(viewReceipt, arrayReceipt);
+        bool admitted = governor.CallerStorageBytes + governor.PrivateRetainedBytes >= 56L;
         QpdfDiagnostic[] elements = warnings.ToArray();
         object value = kind switch
         {
@@ -168,13 +154,13 @@ public sealed class TypedWarningOwnershipTests
     public async Task CompleteJobsFundWarningBackingIndependently(string route, bool compressed)
     {
         Aliases aliases = await Complete(route, compressed, "backing");
-        Assert.True(aliases.Admitted, "Public warning view and backing need independent prepaid receipts.");
+        Assert.True(aliases.Admitted, "Public warning view and backing need a durable coarse owner.");
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(aliases.Governor); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
         long before = aliases.Governor.Snapshot().LiveMemoryBytes;
         Validate(aliases); aliases.Value = null;
         long after = (await CollectAsync(aliases.Governor)).LiveMemoryBytes;
-        Assert.False(aliases.Storage.IsAlive); Assert.True(before - after >= aliases.Minimum);
+        Assert.False(aliases.Storage.IsAlive); Assert.Equal(before, after);
         Assert.All(aliases.Elements, x => Assert.False(string.IsNullOrEmpty(x.Message)));
         GC.KeepAlive(aliases.Elements); GC.KeepAlive(aliases.Output);
     }
@@ -193,7 +179,7 @@ public sealed class TypedWarningOwnershipTests
         await CollectAsync(aliases.Governor); Assert.All(aliases.Metadata, weak => Assert.False(weak.IsAlive));
         long before = aliases.Governor.Snapshot().LiveMemoryBytes; Validate(aliases); aliases.Value = null;
         long after = (await CollectAsync(aliases.Governor)).LiveMemoryBytes;
-        Assert.False(aliases.Storage.IsAlive); Assert.True(before - after >= 32L);
+        Assert.False(aliases.Storage.IsAlive); Assert.Equal(before, after);
         InMemoryQpdfHost validation = new(); validation.AddInput(Input, aliases.Output, QpdfInputOwnership.Copy);
         QpdfCheckResult check = await Qpdf.CheckAsync(validation, Input, CancellationToken.None);
         Assert.True(check.Passed); Assert.Equal(1, check.PageCount); Assert.Equal(0L, validation.OpenLeaseCount);
@@ -302,7 +288,7 @@ public sealed class TypedWarningOwnershipTests
             ResourceGovernor governor = Governor(task); Resume(host);
             object result = await task;
             IReadOnlyList<QpdfDiagnostic> warnings = (IReadOnlyList<QpdfDiagnostic>)Read(result, "Warnings");
-            Assert.Same(Array.Empty<QpdfDiagnostic>(), warnings); Assert.Null(Receipt(governor, warnings));
+            Assert.Same(Array.Empty<QpdfDiagnostic>(), warnings);
             Assert.Equal(0L, ((InMemoryQpdfHost)Read(host, "Inner")).OpenLeaseCount);
         }
         finally { Resume(host); await task; }
@@ -471,7 +457,7 @@ public sealed class TypedWarningOwnershipTests
             Assert.Equal(2, warnings.Count); Assert.Equal(QpdfDiagnosticCode.PageCountMismatch, warnings[0].Code);
             Assert.Equal("Late preparation warning.", warnings[1].Message);
             for (int i = 0; i < warnings.Count; i++) { Assert.Same(bag.Entries[i], warnings[i]); }
-            Assert.NotNull(Receipt(governor, warnings)); Assert.NotNull(Receipt(governor, Backing(warnings)));
+            Assert.True(governor.CallerStorageBytes + governor.PrivateRetainedBytes >= 24L + IntPtr.Size * warnings.Count);
             Assert.Equal(0L, ((InMemoryQpdfHost)Read(host, "Inner")).OpenLeaseCount);
         }
         finally { Resume(host); await task; }

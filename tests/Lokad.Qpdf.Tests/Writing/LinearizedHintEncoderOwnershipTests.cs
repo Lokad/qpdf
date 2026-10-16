@@ -42,12 +42,11 @@ public sealed class LinearizedHintEncoderOwnershipTests
         for (int cycle = 0; cycle < 64; cycle++)
         {
             Emit(governor, limits);
-            Collect();
+            governor.CompletePrivateStorage();
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
         }
-        Collect();
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 4096L);
-        // The unchanged external probe snapshots before maintenance. This extra
-        // control also exercises bounded job-thread retirement of its weak ledger.
+        // Explicit phase completion makes capacity reusable without collection.
         governor.ReserveMemory(0L);
         GC.KeepAlive(governor);
     }

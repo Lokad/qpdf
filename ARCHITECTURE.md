@@ -93,6 +93,9 @@ returned storage; host-private storage needs its own owner. See
 [memory admission](docs/MEMORY.md) for the contract and current migration boundary.
 Result wrappers, counter snapshots and versions use admitted capacity estimates
 without finalizer receipts; returned metadata never roots its completed job.
+Graph retention transfers construction estimates to coarse execution or caller
+owners without walking object identities. Private cleanup refunds execution
+storage; public document aliases remain charged to the caller's scope.
 
 Cancellation is cooperative across bounded CPU loops, host calls and codec APIs.
 Cleanup can finish bounded retirement after cancellation. Diagnostics remain

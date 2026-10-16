@@ -94,7 +94,8 @@ public sealed class LinearizationDataOwnershipTests
             GC.KeepAlive(document); GC.KeepAlive(owner);
         }
         finally { ((IDisposable)owner).Dispose(); }
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -118,7 +119,8 @@ public sealed class LinearizationDataOwnershipTests
                 cancellation.Cancel();
             }));
         Assert.True(observed);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.True(document.PageCount > 0);
     }
 
@@ -168,7 +170,8 @@ public sealed class LinearizationDataOwnershipTests
         Assert.Null(owner.GetType().GetField("_allocations", Fields)?.GetValue(owner));
         Collect();
         Assert.All(arrays, value => Assert.False(value.IsAlive));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.True(document.PageCount > 0);
         GC.KeepAlive(owner); GC.KeepAlive(scope); GC.KeepAlive(document);
     }
@@ -189,7 +192,8 @@ public sealed class LinearizationDataOwnershipTests
         {
             LinearizationInspection result = LinearizationCheck.Inspect(document.Engine, document.PageCount, limits, governor, CancellationToken.None);
             Assert.Equal(valid ? LinearizationStatus.Valid : LinearizationStatus.Invalid, result.Status);
-            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            governor.CompletePrivateStorage();
+            Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
         }
         Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         if (id == "compressed") { Assert.True(governor.Snapshot().TotalDecodedBytes > 0L); }
@@ -261,7 +265,8 @@ public sealed class LinearizationDataOwnershipTests
         Collect();
         governor.ReserveMemory(0L);
         Assert.False(child.IsAlive);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -299,6 +304,7 @@ public sealed class LinearizationDataOwnershipTests
         cancellation.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => ReadOwned(document, QpdfLimits.Default, governor,
             governorToken ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        governor.CompletePrivateStorage();
+        Assert.Equal(governor.CallerMetadataBytes + governor.CallerStorageBytes, governor.Snapshot().LiveMemoryBytes);
     }
 }
