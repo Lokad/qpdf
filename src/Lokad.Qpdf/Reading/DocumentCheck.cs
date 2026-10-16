@@ -162,7 +162,7 @@ internal static class DocumentCheck
                 AddFailure(failures, ref failureCount, ["object ", number, ": ", ex.Message]);
                 break;
             }
-            catch (QpdfException ex)
+            catch (QpdfException ex) when (ex is not QpdfMemoryAdmissionException)
             {
                 AddFailure(failures, ref failureCount, ["object ", number, ": ", ex.Message]);
                 if (failureCount >= MaxObjectFailures)
@@ -289,7 +289,7 @@ internal static class DocumentCheck
                 AddFailure(failures, ref failureCount, ["stream ", number, ": ", ex.Message]);
                 break;
             }
-            catch (QpdfException ex)
+            catch (QpdfException ex) when (ex is not QpdfMemoryAdmissionException)
             {
                 AddFailure(failures, ref failureCount, ["stream ", number, ": ", ex.Message]);
                 if (failureCount >= MaxStreamFailures)
@@ -459,7 +459,7 @@ internal static class DocumentCheck
                     TokenizeCheckStream(bytes, limits, governor, cancellationToken);
                     examined += 1;
                 }
-                catch (QpdfException ex) when (ex is not QpdfLimitException)
+                catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 {
                     AddFailure(failures, ref failureCount, ["Page ", DiagnosticPart.Invariant(pageNumber), " content: ", ex.Message]);
                     if (failureCount >= MaxStreamFailures)
@@ -860,7 +860,7 @@ internal static class DocumentCheck
         {
             stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, cancellationToken);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }
@@ -883,7 +883,7 @@ internal static class DocumentCheck
         {
             return FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }

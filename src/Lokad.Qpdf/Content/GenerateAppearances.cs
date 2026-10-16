@@ -902,7 +902,7 @@ internal static class GenerateAppearances
         {
             stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }
@@ -925,7 +925,7 @@ internal static class GenerateAppearances
         {
             return FilterChain.Decode(stream.Data, stages, limits, governor);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }
@@ -1028,7 +1028,7 @@ internal static class GenerateAppearances
 
             rebuilt = builder.ToString();
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
         }
 

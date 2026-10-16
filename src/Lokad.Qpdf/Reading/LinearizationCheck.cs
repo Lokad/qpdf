@@ -152,7 +152,7 @@ internal static class LinearizationCheck
                 shared,
                 string.Empty);
         }
-        catch (QpdfException ex)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return new LinearizationInspection(LinearizationStatus.Invalid, 0, ex.Message);
         }
@@ -204,7 +204,7 @@ internal static class LinearizationCheck
                     return (null, 0);
                 }
             }
-            catch (QpdfException)
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 try
                 {

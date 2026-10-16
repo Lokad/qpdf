@@ -188,7 +188,7 @@ internal sealed class XRefTable : IDisposable
         {
             return ParseStrict(data, limits, governor, diagnostics, valuesEscape);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             if (recovery == QpdfRecoveryMode.Strict)
             {

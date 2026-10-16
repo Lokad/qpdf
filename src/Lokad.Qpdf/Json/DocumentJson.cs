@@ -1544,11 +1544,11 @@ internal static class DocumentJson
         if (decodeLevel == "none") { return (raw, false); }
         FilterPlan stages;
         try { stages = FilterChain.ResolveScoped(stream.Dictionary, engine, governor, governor.CancellationToken); }
-        catch (QpdfException ex) when (ex is not QpdfLimitException) { return (raw, false); }
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }
         using FilterPlan stageOwner = stages;
         if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, decodeLevel)) { return (raw, false); }
         try { return (FilterChain.Decode(raw, stages, limits, governor, memory, governor.CancellationToken), true); }
-        catch (QpdfException ex) when (ex is not QpdfLimitException) { return (raw, false); }
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return (raw, false); }
     }
 
     private static void AppendJsonStream(DisplayBuffer builder, DocumentEngine engine, int number,

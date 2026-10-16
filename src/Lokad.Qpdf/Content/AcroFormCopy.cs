@@ -1424,7 +1424,7 @@ internal static class AcroFormCopy
 
             return new PdfByteString(rebuilt, appearance.Hex);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }

@@ -13,6 +13,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     private long _peak;
     private int _reserves;
     private int _resizes;
+    private int _growths;
     private readonly List<long> _requests = [];
 
     internal RecordingMemoryBudget(long limitBytes)
@@ -27,6 +28,8 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     internal long PeakBytes { get { lock (_gate) { return _peak; } } }
     internal int ReserveCalls { get { lock (_gate) { return _reserves; } } }
     internal int ResizeCalls { get { lock (_gate) { return _resizes; } } }
+    internal int GrowthCalls { get { lock (_gate) { return _growths; } } }
+    internal int RefuseOnGrowth { get; init; }
     internal long[] Requests { get { lock (_gate) { return _requests.ToArray(); } } }
 
     public IMemoryScope CreateScope() => _root.CreateScope();
@@ -37,6 +40,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     {
         _requests.Add(bytes);
         long delta = bytes - previous;
+        if (delta > 0L && ++_growths == RefuseOnGrowth) { return false; }
         if (delta > LimitBytes - _reserved) { return false; }
         _reserved += delta;
         _peak = Math.Max(_peak, _reserved);

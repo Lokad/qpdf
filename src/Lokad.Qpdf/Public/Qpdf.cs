@@ -3295,7 +3295,7 @@ public static partial class Qpdf
                     metadataRef = copier.AddIndirectObject(raw);
                 }
             }
-            catch (QpdfException)
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document metadata.");
                 metadataRef = null;
@@ -3312,7 +3312,7 @@ public static partial class Qpdf
                     infoRef = copier.AddIndirectObject(raw);
                 }
             }
-            catch (QpdfException)
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
                 infoRef = null;
@@ -3350,7 +3350,7 @@ public static partial class Qpdf
                     infoRef = copier.AddIndirectObject(reduced);
                 }
             }
-            catch (QpdfException)
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
                 infoRef = null;
@@ -3406,7 +3406,7 @@ public static partial class Qpdf
                         kept[attachment.Key] = link;
                     }
                 }
-                catch (QpdfException)
+                catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 {
                     diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
                 }
@@ -3577,7 +3577,7 @@ public static partial class Qpdf
                 {
                     link = copyCopier.AddIndirectObject(attachment.Spec);
                 }
-                catch (QpdfException)
+                catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 {
                     diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable attachment.");
                     continue;
@@ -4942,7 +4942,7 @@ public static partial class Qpdf
         options.Limits.Validate();
         if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(options.Limits, cancellationToken, host);
-        governor.ExpectExecutionResult();
+        if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
         DiagnosticBag diagnostics = new(governor);
         ExecutionOutcome result;
         ExpandedArguments? expanded = null;
@@ -5110,7 +5110,7 @@ public static partial class Qpdf
         options.Limits.Validate();
         if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(options.Limits, cancellationToken, host);
-        governor.ExpectExecutionResult();
+        if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
         DiagnosticBag diagnostics = new(governor);
         JobJsonLoader.LoadedJob loaded;
         try
@@ -5842,7 +5842,7 @@ public static partial class Qpdf
             return Failed(QpdfDiagnosticCode.UnsupportedCryptoOperation, ex.Message);
         }
 
-        if (ex is QpdfLimitException)
+        if (ex is QpdfLimitException or QpdfMemoryAdmissionException)
         {
             return Failed(QpdfDiagnosticCode.BudgetExceeded, ex.Message);
         }
@@ -5906,7 +5906,7 @@ public static partial class Qpdf
         limits.Validate();
         if (ExecutionResultAdmission.Reject(limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.ExpectExecutionResult();
+        if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
         ExecutionOutcome result;
         try
         {
@@ -6014,7 +6014,7 @@ public static partial class Qpdf
             return rejection;
         }
         ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.ExpectExecutionResult();
+        if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
         if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
         {
             return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibModeMessage, null, null)));

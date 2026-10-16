@@ -63,10 +63,9 @@ public sealed class LinearizationPhysicalScratchTests
         Assert.Equal(0L, warm.Snapshot().LiveMemoryBytes);
         QpdfLimits tight = limits with { MaxMemoryBytes = warm.Snapshot().PeakMemoryBytes - 1L };
         ResourceGovernor failed = new(tight, CancellationToken.None);
-        LinearizationInspection result = LinearizationCheck.Inspect(document.Engine, document.PageCount,
-            tight, failed, CancellationToken.None);
-        Assert.Equal(LinearizationStatus.Invalid, result.Status);
-        Assert.Contains(nameof(QpdfLimits.MaxMemoryBytes), result.ErrorMessage, StringComparison.Ordinal);
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => LinearizationCheck.Inspect(
+            document.Engine, document.PageCount, tight, failed, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
         Assert.Equal(0L, failed.Snapshot().LiveMemoryBytes);
         failed.ReserveMemory(1L);
         failed.ReleaseMemory(1L);
@@ -91,10 +90,9 @@ public sealed class LinearizationPhysicalScratchTests
             limits, warm, CancellationToken.None).Status);
         QpdfLimits tight = limits with { MaxWork = warm.Snapshot().TotalWork - 1L };
         ResourceGovernor failed = new(tight, CancellationToken.None);
-        LinearizationInspection result = LinearizationCheck.Inspect(document.Engine, document.PageCount,
-            tight, failed, CancellationToken.None);
-        Assert.Equal(LinearizationStatus.Invalid, result.Status);
-        Assert.Contains(nameof(QpdfLimits.MaxWork), result.ErrorMessage, StringComparison.Ordinal);
+        QpdfLimitException failure = Assert.Throws<QpdfLimitException>(() => LinearizationCheck.Inspect(
+            document.Engine, document.PageCount, tight, failed, CancellationToken.None));
+        Assert.Equal(nameof(QpdfLimits.MaxWork), failure.LimitName);
         Assert.Equal(0L, failed.Snapshot().LiveMemoryBytes);
         using CancellationTokenSource cancellation = new();
         ResourceGovernor canceled = new(limits, governorCancellation ? cancellation.Token : CancellationToken.None);

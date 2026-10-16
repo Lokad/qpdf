@@ -96,7 +96,7 @@ internal static class EmbeddedFiles
                     result.Add(attachment);
                 }
             }
-            catch (QpdfException ex) when (ex is not QpdfLimitException)
+            catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unlistable attachment.");
             }
@@ -147,7 +147,7 @@ internal static class EmbeddedFiles
             using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, (IIndirectResolver)engine, governor, governor.CancellationToken);
             return FilterChain.Decode(raw, stages, limits, governor);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Stream ", number, " extracted raw: decode unavailable."]);
             return raw;

@@ -121,7 +121,7 @@ public static partial class Qpdf
         {
             owner = LinearizationCheck.TryReadOwnedData(document.Engine, document.PageCount, limits, governor, cancellationToken);
         }
-        catch (QpdfException ex)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, [inputPath.Value, ": error encountered while checking linearization data: ", ex.Message]);
             return;
@@ -143,7 +143,7 @@ public static partial class Qpdf
                 graph = LinearizationReport.ClassifyDocument(document.Engine, data.LindictObject, data.HintObject,
                     classificationMemory, governor, cancellationToken);
             }
-            catch (QpdfException ex)
+            catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 diagnostics.Add(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ex.Message);
                 return;

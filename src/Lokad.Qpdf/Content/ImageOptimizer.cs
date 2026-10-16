@@ -321,7 +321,7 @@ internal static class ImageOptimizer
         {
             stages = FilterChain.Resolve(image.Dictionary, resolver, governor, governor.CancellationToken);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }

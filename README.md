@@ -50,9 +50,10 @@ storage. Implement `IQpdfHost` to connect other storage directly. Operations acc
 cancellation tokens and configurable limits for input/output size, estimated memory
 and work. Results include warnings and resource counters.
 
-The standalone owned-read helper also accepts a host's shared memory budget;
-see [cooperative memory admission](docs/MEMORY.md) for its ownership contract
-and current integration scope.
+Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
+owned-read helper also accepts that budget directly. See
+[cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
+current boundary between engine estimates and host-private storage.
 
 For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
 and `Qpdf.ExecuteJobAsync` accepts job JSON.

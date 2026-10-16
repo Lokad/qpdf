@@ -17,6 +17,8 @@ internal static class ExecutionResultAdmission
         "MaxMemoryBytes cannot admit the execution outcome.");
     private static readonly QpdfExecutionResult WorkFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
         "MaxWork cannot admit the execution outcome.");
+    internal static readonly QpdfExecutionResult SharedMemoryFailure = Failure(QpdfDiagnosticCode.BudgetExceeded,
+        "The host's shared memory allowance refused admission.");
     private static readonly QpdfExecutionResult Cancellation = new(QpdfExecutionStatus.Canceled,
         QpdfExitCode.Error, Array.Empty<QpdfDiagnostic>(), Zero, true);
 

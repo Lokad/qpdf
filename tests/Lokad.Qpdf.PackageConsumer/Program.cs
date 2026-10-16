@@ -1025,7 +1025,26 @@ internal static class Program
             Check(next.SequenceEqual(expected), "later read reuses released allowance");
         }
         Check(root.ReservedBytes == 0L, "read reservations have explicit owners");
+        RecordingMemoryBudget executionRoot = new(1048576L);
+        using (IMemoryScope invocation = executionRoot.CreateScope())
+        {
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(new MemoryHostView(host, invocation),
+                new QpdfCommandInvocation(["budgeted.pdf", "--show-npages"]), CancellationToken.None);
+            Check(result.Status == QpdfExecutionStatus.Completed, "shared-budget argv execution");
+            Check(executionRoot.ReservedBytes > 0L, "returned diagnostics keep caller admission");
+        }
+        Check(executionRoot.ReservedBytes == 0L, "invocation owner refunds without GC");
         Console.WriteLine("PASS cooperative memory contract, retained read ownership and shared refusal");
+    }
+
+    private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
+    {
+        public IMemoryBudget MemoryBudget => memoryBudget;
+        public IQpdfJpegCodec? JpegCodec => (inner as IQpdfJpegCodecHost)?.JpegCodec;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
+            => inner.OpenInputAsync(path, cancellationToken);
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
+            => inner.CreateOutputAsync(path, cancellationToken);
     }
 
     private static void Check(bool condition, string what)

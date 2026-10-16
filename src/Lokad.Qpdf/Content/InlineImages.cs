@@ -256,7 +256,7 @@ internal static class InlineImages
                 if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("EI"u8)) { inImage = false; }
             }
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             if (form && resources is not PdfNull) { throw; }
             if (resources is PdfNull) { return new(false, null, resources); }

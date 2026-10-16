@@ -80,6 +80,12 @@ RSS. Hosts must also account for their buffers, concurrent jobs and caller-retai
 outputs. Unreleased charges alone do not prove retained memory. The library never
 forces GC.
 
+The optional `IQpdfMemoryHost` capability forwards the active caller-owned memory
+budget to the resource governor. Shared admission batches the existing estimates
+into coarse growth blocks while local limits stay binding. Caller scopes outlive
+returned storage; host-private storage needs its own owner. See
+[memory admission](docs/MEMORY.md) for the contract and current migration boundary.
+
 Cancellation is cooperative across bounded CPU loops, host calls and codec APIs.
 Cleanup can finish bounded retirement after cancellation. Diagnostics remain
 structured, sanitized and independently limited.

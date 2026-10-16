@@ -32,14 +32,14 @@ internal sealed class AnalysisChunks : IDisposable
         _token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
         FilterPlan stages;
         try { stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, _token); }
-        catch (QpdfException exception) when (exception is not QpdfLimitException) { return false; }
+        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
         using FilterPlan stageOwner = stages;
         if (!FilterChain.AllStagesInLevel(stages, "specialized")) { return false; }
         // PdfStream's immutable storage is already funded by its graph owner.
         byte[] raw = stream.ArrayData(memory, governor, _token);
         byte[] decoded;
         try { decoded = stages.Count == 0 ? raw : FilterChain.Decode(raw, stages, limits, governor, memory, _token); }
-        catch (QpdfException exception) when (exception is not QpdfLimitException) { return false; }
+        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return false; }
         Append(decoded, stages.Count != 0); return true;
     }
 
@@ -81,11 +81,11 @@ internal sealed class AnalysisChunks : IDisposable
                 ? FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, token)
                 : FilterChain.Resolve(stream.Dictionary, resolver, governor, token);
         }
-        catch (QpdfException exception) when (exception is not QpdfLimitException) { return true; }
+        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { return true; }
         using FilterPlan stageOwner = stages;
         if (stages.Count == 0 || !FilterChain.AllStagesInLevel(stages, "specialized")) { return true; }
         try { bytes = FilterChain.Decode(raw, stages, limits, governor, memory, token); decoded = true; return true; }
-        catch (QpdfException exception) when (exception is not QpdfLimitException && rejectDecodeFailure) { return false; }
+        catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException) && rejectDecodeFailure) { return false; }
         catch (QpdfFilterException exception) when (exception.Reason == QpdfFilterFailureReason.UnsupportedFilter) { return true; }
     }
 

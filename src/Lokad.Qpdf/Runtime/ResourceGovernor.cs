@@ -11,6 +11,7 @@ internal sealed class ResourceGovernor
 {
     private readonly QpdfLimits _limits;
     private readonly CancellationToken _cancellationToken;
+    private readonly SharedMemoryOwner? _sharedMemory;
     private long _liveMemoryBytes;
     private long _peakMemoryBytes;
     private long _totalWork;
@@ -63,7 +64,11 @@ internal sealed class ResourceGovernor
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken, IQpdfHost host)
         : this(limits, cancellationToken)
-    { JpegCodec = (host as IQpdfJpegCodecHost)?.JpegCodec; }
+    {
+        JpegCodec = (host as IQpdfJpegCodecHost)?.JpegCodec;
+        if (host is IQpdfMemoryHost memoryHost)
+        { _sharedMemory = new(memoryHost.MemoryBudget, limits.MaxMemoryBytes); }
+    }
 
     internal IQpdfJpegCodec? JpegCodec { get; init; }
 
@@ -100,7 +105,9 @@ internal sealed class ResourceGovernor
             }
 
             CheckPresentationBytes(_totalOutputBytes, _totalDecodedBytes, Math.Max(next, _peakMemoryBytes));
-            _liveMemoryBytes += bytes;
+            long rawNext = _liveMemoryBytes + bytes;
+            _sharedMemory?.Ensure(next);
+            _liveMemoryBytes = rawNext;
             if (next > _peakMemoryBytes)
             {
                 _peakMemoryBytes = next;
@@ -116,6 +123,7 @@ internal sealed class ResourceGovernor
         }
 
         _liveMemoryBytes = Math.Max((_valueOwners?.RetiredBytes ?? 0L) + RetiredCarrierBytes, _liveMemoryBytes - bytes);
+        _sharedMemory?.ReleaseTo(LiveMemoryBytes);
     }
 
     private void ReconcileValueOwners()
@@ -529,6 +537,12 @@ internal sealed class ResourceGovernor
         _returnsExecutionResult = true;
     }
 
+    internal bool TryExpectExecutionResult()
+    {
+        try { ExpectExecutionResult(); return true; }
+        catch (QpdfMemoryAdmissionException) { _sharedMemory?.Complete(); return false; }
+    }
+
     // Private value outcomes do not allocate public result/counter carriers.
     // A typed facade owns one final counter and one prepaid result receipt.
     internal QpdfExecutionCounters TypedCounters => _preparedTypedCounters ?? ExecutionResultAdmission.EmptyCounters;
@@ -599,6 +613,7 @@ internal sealed class ResourceGovernor
         counters.CaptureBeforeReturn(CounterValues);
         _preparedTypedCounters = null;
         _executionFinished = true;
+        _sharedMemory?.Complete();
     }
 
     internal void AbandonTypedCounters()
@@ -612,11 +627,12 @@ internal sealed class ResourceGovernor
         }
         _preparedTypedCounters = null;
         _executionFinished = true;
+        _sharedMemory?.Complete();
     }
 
     internal void FinishDocumentCounters()
     {
-        if (OwnsDocumentCounters) { _executionFinished = true; }
+        if (OwnsDocumentCounters) { _executionFinished = true; _sharedMemory?.Complete(); }
     }
 
     // Versions borrow an already funded result link, or fund their own link.
@@ -836,7 +852,8 @@ internal sealed class ResourceGovernor
             result.Counters.CaptureBeforeReturn(CounterValues);
             return result;
         }
-        finally { _finishingExecution = false; _executionFinished = true; }
+        catch (QpdfMemoryAdmissionException) { return ExecutionResultAdmission.SharedMemoryFailure; }
+        finally { _finishingExecution = false; _executionFinished = true; _sharedMemory?.Complete(); }
     }
 
     internal PresentedDiagnostics? CompleteExecutionPresentation()

@@ -442,14 +442,14 @@ internal static class ContentTransforms
             try
             {
                 try { (data, decoded) = DecodeForContent(original, resolver, limits, governor, decodedMemory, token); }
-                catch (QpdfException exception) when (exception is not QpdfLimitException)
+                catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
                 { data = original.ArrayData(decodedMemory, governor, token); decoded = false; }
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, 4, token);
                 byte[]? normalized = null;
                 try
                 {
                     try { normalized = NormalizeContentBytesOwned(data, limits, governor, token, limits.MaxDecodedBytes, nameof(QpdfLimits.MaxDecodedBytes), graph.Memory); }
-                    catch (QpdfException exception) when (exception is not QpdfLimitException) { contentError = true; }
+                    catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { contentError = true; }
                     if (normalized is not null)
                     {
                         data = Array.Empty<byte>(); decodedMemory.Dispose(); AddContentBuffer(graph, normalized);
@@ -1369,7 +1369,7 @@ internal static class ContentTransforms
                 }
             }
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return false;
         }

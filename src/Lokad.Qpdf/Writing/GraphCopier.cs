@@ -382,7 +382,7 @@ internal sealed class GraphCopier
                 _copied[id] = copied;
                 preserved.Add(id);
             }
-            catch (QpdfException)
+            catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException))
             {
                 _mapping.Remove(number);
                 skipped += 1;

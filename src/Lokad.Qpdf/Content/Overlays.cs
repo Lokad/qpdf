@@ -522,7 +522,7 @@ internal static class Overlays
         {
             stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, governor.CancellationToken);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return stream.Data;
         }
@@ -537,7 +537,7 @@ internal static class Overlays
         {
             return FilterChain.Decode(stream.Data, stages, limits, governor, ownership, governor.CancellationToken);
         }
-        catch (QpdfException ex) when (ex is not QpdfLimitException)
+        catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             return null;
         }
