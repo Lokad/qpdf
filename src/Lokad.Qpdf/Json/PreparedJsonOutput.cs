@@ -130,12 +130,11 @@ internal sealed class PreparedJsonOutput : IDisposable
     }
 }
 
-/// <summary>Pre-admits an independently escaping host byte buffer and optional filename.</summary>
+/// <summary>Keeps a private publication candidate funded through host writes and cleanup.</summary>
 internal sealed class JsonPayload : IDisposable
 {
     private readonly ResourceGovernor _governor;
     private RetainedStorage.Receipt? _dataReceipt, _nameReceipt;
-    private bool _dataEscaped, _nameEscaped;
     internal string Name { get; private set; }
     internal byte[] Data { get; private set; }
 
@@ -161,13 +160,10 @@ internal sealed class JsonPayload : IDisposable
         catch { payload.Dispose(); throw; }
     }
 
-    internal void ExposeName() { if (_nameReceipt is not null && !_nameEscaped) { _governor.PromoteAllocation(_nameReceipt); } _nameEscaped = true; }
-    internal void ExposeData() { if (_dataReceipt is not null && !_dataEscaped) { _governor.PromoteAllocation(_dataReceipt); } _dataEscaped = true; }
-
     public void Dispose()
     {
-        if (!_dataEscaped && _dataReceipt is not null) { _governor.DropAllocation(Data, _dataReceipt); }
-        if (!_nameEscaped && _nameReceipt is not null) { _governor.DropAllocation(Name, _nameReceipt); }
+        if (_dataReceipt is not null) { _governor.DropAllocation(Data, _dataReceipt); }
+        if (_nameReceipt is not null) { _governor.DropAllocation(Name, _nameReceipt); }
         _dataReceipt = null; _nameReceipt = null; Data = Array.Empty<byte>(); Name = string.Empty;
     }
 }

@@ -10,11 +10,12 @@ public sealed class CompletedJobOwnershipCollection;
 // receipt minima and prescribed collection phases are no longer test obligations.
 public sealed class CompletedJobOwnershipTests
 {
-    private static object Field(object value, string name)
-        => value.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(value)
-            ?? throw new InvalidOperationException("Missing ownership field: " + name);
-
     private static WeakReference[] Metadata(ResourceGovernor governor)
-        => [new(governor), new(Field(governor, "_valueOwners"))];
+    {
+        FieldInfo owners = governor.GetType().GetField("_valueOwners", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Missing ownership field: _valueOwners");
+        object? retained = owners.GetValue(governor);
+        return retained is null ? [new(governor)] : [new(governor), new(retained)];
+    }
 
 }

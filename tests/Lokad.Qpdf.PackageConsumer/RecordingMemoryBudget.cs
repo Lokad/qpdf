@@ -54,6 +54,8 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     }
 
     public IMemoryScope CreateScope() => _root.CreateScope();
+    internal long ReservedWithin(IMemoryScope owner)
+        => owner is Scope scope ? scope.ReservedWithin(this) : throw new ArgumentException("Unknown scope.", nameof(owner));
     public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
         => _root.TryReserve(bytes, out reservation);
 
@@ -73,6 +75,20 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
         private readonly List<Scope> _children = [];
         private readonly HashSet<Reservation> _reservations = [];
         private bool _disposed;
+
+        internal long ReservedWithin(RecordingMemoryBudget expected)
+        {
+            if (!ReferenceEquals(root, expected)) { throw new ArgumentException("Scope belongs to another root.", nameof(expected)); }
+            lock (root._gate) { return Sum(); }
+        }
+
+        private long Sum()
+        {
+            long bytes = 0L;
+            foreach (Reservation reservation in _reservations) { bytes += reservation.Bytes; }
+            foreach (Scope child in _children) { bytes += child.Sum(); }
+            return bytes;
+        }
 
         public IMemoryScope CreateScope()
         {

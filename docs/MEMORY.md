@@ -117,6 +117,12 @@ private buffers themselves; the execution capability alone does not govern those
 buffers. Low-level input callers admit freshly returned bytes before reading;
 the budget-aware helper provides that boundary.
 
+Prepared JSON UTF-8 buffers and sidecar names stay under the private preparation
+owner through awaited publication and transaction cleanup. Host callbacks borrow
+that storage; persistent host copies and identifiers have a host owner. After
+cleanup, the library refunds its unreturned publication candidates. Returned JSON
+text retains its caller charge independently from published UTF-8 bytes.
+
 Parser and transform construction scopes transfer their existing estimates to
 coarse graph owners. Retention does not walk object references or create weak
 tables and finalizer receipts. Private graph charges end with execution cleanup;

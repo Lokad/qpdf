@@ -153,6 +153,7 @@ public sealed class JsonOutputOwnershipTests
             counters = execution.Counters; text = null;
         }
         Assert.Equal(0L, counters.OpenHandles); Assert.Equal(0L, inner.OpenLeaseCount);
+        Assert.Equal(text is null ? 0L : GovernedText.StringBytes(text.Length), governor.CallerStorageBytes);
         Assert.True(counters.PeakMemoryBytes <= limits.MaxMemoryBytes);
         Assert.True(inner.TryGetOutput(QpdfPath.From("output.json"), out byte[] main));
         using JsonDocument parsed = JsonDocument.Parse(main);
@@ -230,13 +231,14 @@ public sealed class JsonOutputOwnershipTests
     [Theory]
     [MemberData(nameof(PublicationJobs))]
     [Trait("Layer", "Contract")]
-    public async Task IndependentPublishedBytesRemainFundedAfterReaderAndResultRetire(string route, bool compressed, int version, string mode)
+    public async Task HostCopiesSurviveReaderAndResultRetirementWithoutPrivatePublicationCharges(string route, bool compressed, int version, string mode)
     {
         Observation observation = await CompletePublished(route, compressed, version, mode, "bytes");
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
-        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
+        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
+        Assert.NotEmpty(Assert.IsType<ReadOnlyMemory<byte>[]>(observation.Alias));
         GC.KeepAlive(observation.Alias);
     }
 
@@ -282,13 +284,13 @@ public sealed class JsonOutputOwnershipTests
     [Theory]
     [MemberData(nameof(SidecarJobs))]
     [Trait("Layer", "Contract")]
-    public async Task IndependentSidecarFilenameRemainsFunded(string route, bool compressed)
+    public async Task HostFilenameCopiesSurviveWithoutPrivatePublicationCharges(string route, bool compressed)
     {
         Observation observation = await CompletePublished(route, compressed, 2, "file", "name");
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
-        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
+        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
         Assert.Contains("side-4", Assert.IsType<string[]>(observation.Alias));
         GC.KeepAlive(observation.Alias);
     }
@@ -296,7 +298,7 @@ public sealed class JsonOutputOwnershipTests
     private static async Task<(object Alias, WeakReference[] Metadata)> CompleteWithoutGovernorRoot(string route, bool compressed)
     {
         Observation observation = await CompletePublished(route, compressed, 2, "file", "bytes");
-        Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum);
+        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
         WeakReference[] metadata = (WeakReference[])(typeof(CompletedJobOwnershipTests).GetMethod("Metadata", Members)?.Invoke(null,
             [observation.Governor]) ?? throw new InvalidOperationException("Missing existing metadata observation."));
         return (observation.Alias ?? throw new InvalidOperationException("Missing public buffer alias."), metadata);
@@ -521,8 +523,7 @@ public sealed class JsonOutputOwnershipTests
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
-        if (observation.Minimum == 0L) { Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes); }
-        else { Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum); }
+        Assert.Equal(observation.Governor.CallerMetadataBytes + observation.Governor.CallerStorageBytes, observation.Governor.Snapshot().LiveMemoryBytes);
         Assert.All(Assert.IsType<ReadOnlyMemory<byte>[]>(observation.Alias), bytes =>
         { using JsonDocument parsed = JsonDocument.Parse(bytes); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); });
         GC.KeepAlive(observation.Alias);
@@ -538,7 +539,7 @@ public sealed class JsonOutputOwnershipTests
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => host.OpenInputAsync(path, token);
         public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
         {
-            Names.Add(path.Value);
+            Names.Add(new string(path.Value.AsSpan()));
             if (Outcome == "create") { throw new QpdfHostException(path, QpdfHostFailureReason.WriteFailed); }
             return new Output(this, await host.CreateOutputAsync(path, token));
         }
@@ -547,7 +548,7 @@ public sealed class JsonOutputOwnershipTests
             public QpdfPath Path => transaction.Path;
             public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token)
             {
-                owner.Writes.Add(bytes);
+                owner.Writes.Add(bytes.ToArray());
                 if (owner.Outcome == "cancel-write") { owner.Cancellation?.Cancel(); token.ThrowIfCancellationRequested(); }
                 if (owner.Outcome == "write") { throw new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed); }
                 return transaction.WriteAsync(bytes, token);
@@ -570,10 +571,10 @@ public sealed class JsonOutputOwnershipTests
         => new (string, IEnumerable<object[]>)[]
         {
             (nameof(IndependentInlineTextAliasKeepsItsActualStorageFunded), InlineJobs()),
-            (nameof(IndependentPublishedBytesRemainFundedAfterReaderAndResultRetire), PublicationJobs()),
+            (nameof(HostCopiesSurviveReaderAndResultRetirementWithoutPrivatePublicationCharges), PublicationJobs()),
             (nameof(CompletedPublishedJobsRetireUnescapedSerializationStorage), PublicationJobs()),
             (nameof(IndependentTypedTextDoesNotRootItsPublishedBuffers), new object[][] { [false, "none"], [true, "none"], [false, "inline"], [true, "inline"], [false, "file"], [true, "file"] }),
-            (nameof(IndependentSidecarFilenameRemainsFunded), SidecarJobs()),
+            (nameof(HostFilenameCopiesSurviveWithoutPrivatePublicationCharges), SidecarJobs()),
             (nameof(EscapedHostBuffersDoNotRootTheCompletedGovernorOrIndex), SidecarJobs()),
             (nameof(FailedAndCanceledPublicJobsPreserveTargetsAndEscapedHostBytes), FailureJobs()),
         };
