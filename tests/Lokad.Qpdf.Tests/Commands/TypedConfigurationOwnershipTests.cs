@@ -412,17 +412,17 @@ public sealed class TypedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             long afterRounds = job.Governor.Snapshot().LiveMemoryBytes;
-            if (afterRounds > 0L) { log.WriteLine("TYPED CONFIG BACKLOG {0} {1} {2}", job.Id, afterRounds, Remaining(job.Governor)); }
+            if (afterRounds > job.Governor.CallerMetadataBytes) { log.WriteLine("TYPED CONFIG BACKLOG {0} {1} {2}", job.Id, afterRounds, Remaining(job.Governor)); }
             int maintenance = 0;
             // Keep the four original collection/maintenance rounds. Larger
             // graphs can leave funded ledger metadata after its bounded calls;
             // drain that queue under the same governor, without another GC.
-            while (job.Governor.Snapshot().LiveMemoryBytes > 0L && maintenance < 4096)
+            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes && maintenance < 4096)
             { job.Governor.ReserveMemory(0L); maintenance++; }
             log.WriteLine("TYPED CONFIG RETIRE {0} maintenance={1}", job.Id, maintenance);
             long remaining = job.Governor.Snapshot().LiveMemoryBytes;
             log.WriteLine("TYPED CONFIG FINAL {0} {1}", job.Id, remaining);
-            if (remaining != 0L) { defects.Add(job.Id + "|final:" + remaining + ":" + Remaining(job.Governor)); }
+            if (remaining != job.Governor.CallerMetadataBytes) { defects.Add(job.Id + "|final:" + remaining + ":" + Remaining(job.Governor)); }
             foreach (byte[] bytes in job.Output) { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
         }
         Assert.Equal(40, jobs.Count);

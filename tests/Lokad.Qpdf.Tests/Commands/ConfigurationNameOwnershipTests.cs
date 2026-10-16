@@ -257,12 +257,12 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         Collect(jobs);
         foreach (Completed job in jobs)
         {
-            Assert.Equal(144L, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
         }
         Collect(jobs);
-        foreach (Completed job in jobs) { Assert.Equal(0L, job.Governor.Snapshot().LiveMemoryBytes); }
+        foreach (Completed job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }
 

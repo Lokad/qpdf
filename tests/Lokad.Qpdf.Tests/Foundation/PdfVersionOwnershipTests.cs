@@ -187,7 +187,7 @@ public sealed class PdfVersionOwnershipTests
     }
 
     private sealed record WriterObservation(ResourceGovernor Governor, WeakReference Host, WeakReference Result,
-        int VersionsBeforePublication, long WorkBeforePublication);
+        long WorkBeforePublication);
 
     private static async Task<WriterObservation> CompleteWriter(string route, bool compressed, string profile, string boundary, string outcome)
     {
@@ -208,7 +208,6 @@ public sealed class PdfVersionOwnershipTests
             }
             ResourceGovernor governor = (ResourceGovernor)(typeof(ExecutionCounterTests).GetMethod("FindGovernor", Members)?.Invoke(null,
                 [running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)]) ?? throw new InvalidOperationException());
-            int versions = (int)(typeof(ResourceGovernor).GetField("_versionCarriers", Members)?.GetValue(governor) ?? 0);
             long work = governor.Snapshot().TotalWork;
             if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
             QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
@@ -230,7 +229,7 @@ public sealed class PdfVersionOwnershipTests
                 Assert.StartsWith("%PDF-" + expected, Encoding.ASCII.GetString(output.AsSpan(0, 8)));
             }
             if (profile != "empty") { Assert.True((long)Field(host, "ReadBytes") > 0L); }
-            return new(governor, new(host), new(result), versions, work);
+            return new(governor, new(host), new(result), work);
         }
         finally
         {

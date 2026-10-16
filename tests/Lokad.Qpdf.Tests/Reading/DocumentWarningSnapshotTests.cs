@@ -294,7 +294,7 @@ public sealed class DocumentWarningSnapshotTests
         CheckSibling(aliases);
         DropSibling(aliases);
         QpdfExecutionCounters final = await CollectAsync(aliases);
-        Assert.Equal(0L, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
 
@@ -435,7 +435,7 @@ public sealed class DocumentWarningSnapshotTests
         Assert.True(held.LiveMemoryBytes - dropped.LiveMemoryBytes >= aliases.Minimum);
         CheckSibling(aliases); DropSibling(aliases);
         QpdfExecutionCounters final = await CollectAsync(aliases);
-        Assert.Equal(0L, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes, final.LiveMemoryBytes); Assert.Equal(0L, final.OpenHandles);
         GC.KeepAlive(aliases);
     }
 

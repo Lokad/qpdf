@@ -43,6 +43,13 @@ buffers retain both old and new charges during copying. Root charges include
 block slack; local job counters continue reporting the existing estimates.
 Returned storage remains beneath the supplied caller scope after the call ends.
 
+Results, counter snapshots and PDF versions use allocation-time capacity
+estimates without finalizer receipts or references back to a job. Their estimates
+remain charged until the caller closes its owner, including when CLR collection
+has reclaimed individual values. Typed result/counter construction is funded
+before execution so publication cannot succeed and then fail to admit the result.
+Abandoning an unreturned typed result refunds that prepared capacity immediately.
+
 `InMemoryQpdfHost(limits, codec, memoryBudget)` also admits its retained input,
 staging capacity and publication buffers under a durable caller owner. Existing
 constructors preserve local-only behavior. It refunds replaced inputs after their
@@ -75,6 +82,6 @@ private buffers themselves; the execution capability alone does not govern those
 buffers. Low-level input callers admit freshly returned bytes before reading;
 the budget-aware helper provides that boundary.
 
-The remaining migration concerns the engine's local value ledgers and explicit
-coarse graph/result owners. These existing ledgers are not the lifetime contract
-for the supplied caller scope.
+The remaining migration concerns the engine's local graph/diagnostic ledgers and
+explicit coarse graph owners. These existing ledgers are not the lifetime
+contract for the supplied caller scope.

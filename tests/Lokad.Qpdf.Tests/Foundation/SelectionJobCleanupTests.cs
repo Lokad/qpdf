@@ -50,15 +50,13 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Aliases Keep(InMemoryQpdfHost host, PdfPageSelectionResult result)
+    private static Aliases Keep(InMemoryQpdfHost host, PdfPageSelectionResult result, ResourceGovernor governor)
     {
         Assert.Equal(1, result.PageCount); Assert.Single(result.Warnings);
         Assert.Equal(QpdfDiagnosticCode.PageCountMismatch, result.Warnings[0].Code);
         Assert.Equal("A /Pages /Count of 2 disagrees with traversal (1); traversal wins.", result.Warnings[0].Message);
         Assert.True(host.TryGetOutput(Output, out byte[] output));
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
-        WeakReference<ResourceGovernor> owner = (WeakReference<ResourceGovernor>)Field(Field(result, "_storage"), "_owner");
-        Assert.True(owner.TryGetTarget(out ResourceGovernor? governor));
         Array backing = result.Warnings as Array ?? result.Warnings.GetType().GetFields(Members)
             .Select(field => field.GetValue(result.Warnings)).OfType<Array>().Single();
         return new(governor ?? throw new InvalidOperationException(), backing, result.Warnings.ToArray(),
@@ -68,11 +66,18 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<Aliases> Complete(bool compressed)
     {
-        InMemoryQpdfHost host = new();
-        host.AddInput(Input, Fixture(compressed), QpdfInputOwnership.Copy);
-        PdfPageSelectionResult result = await Qpdf.SelectPageAsync(host, Input, Output,
-            new PdfPageSelectionOptions(1), QpdfLimits.Default, CancellationToken.None);
-        return Keep(host, result);
+        BoundaryHost host = new("read", Input, "success");
+        host.Inner.AddInput(Input, Fixture(compressed), QpdfInputOwnership.Copy);
+        Task<object> running = Start(host, "typed-page", QpdfLimits.Default, CancellationToken.None);
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            ResourceGovernor governor = RunningGovernor(running);
+            host.Resume();
+            PdfPageSelectionResult result = Assert.IsType<PdfPageSelectionResult>(await running);
+            return Keep(host.Inner, result, governor);
+        }
+        finally { host.Resume(); await running; }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -223,12 +228,10 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static CompletedAliases KeepAffected(InMemoryQpdfHost host, object result, string route)
+    private static CompletedAliases KeepAffected(InMemoryQpdfHost host, object result, string route, ResourceGovernor governor)
     {
         if (result is QpdfExecutionResult command) { Assert.Equal(QpdfExecutionStatus.Completed, command.Status); }
         QpdfExecutionCounters counters = (QpdfExecutionCounters)Read(result, "Counters");
-        WeakReference<ResourceGovernor> owner = (WeakReference<ResourceGovernor>)Field(Field(counters, "_storage"), "_owner");
-        Assert.True(owner.TryGetTarget(out ResourceGovernor? governor));
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, counters.OpenHandles);
         QpdfPath[] paths = route == "typed-split" ? [QpdfPath.From("output-1.pdf"), QpdfPath.From("output-2.pdf")] : [Output];
         byte[][] outputs = new byte[paths.Length][];
@@ -242,10 +245,18 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static async Task<CompletedAliases> CompleteAffected(string route, bool compressed)
     {
-        InMemoryQpdfHost host = new(); AddInputs(host, route, compressed);
-        using IDisposable capture = OwnershipBatch.CaptureWithoutCollection();
-        object result = await Start(host, route, QpdfLimits.Default, CancellationToken.None);
-        return KeepAffected(host, result, route);
+        BoundaryHost host = new("read", Input, "success");
+        AddInputs(host.Inner, route, compressed);
+        Task<object> running = Start(host, route, QpdfLimits.Default, CancellationToken.None);
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            ResourceGovernor governor = RunningGovernor(running);
+            host.Resume();
+            object result = await running;
+            return KeepAffected(host.Inner, result, route, governor);
+        }
+        finally { host.Resume(); await running; }
     }
 
     public static IEnumerable<object[]> CompleteJobs()
@@ -441,7 +452,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
             {
                 Assert.NotNull(result);
                 Assert.All(OutputPaths(route), path => Assert.Contains(path, host.Committed));
-                CompletedAliases completed = KeepAffected(host.Inner, result, route);
+                CompletedAliases completed = KeepAffected(host.Inner, result, route, governor);
                 completed.RetirementDetail = NonprepaidCarriers(governor);
                 return completed;
             }
@@ -540,7 +551,7 @@ public sealed class SelectionJobCleanupTests(ITestOutputHelper output)
         Assert.True(before - backingDead.LiveMemoryBytes >= 32L);
         DropDiagnosticAliases(aliases);
         QpdfExecutionCounters completed = Collect(aliases.Governor);
-        Assert.Equal(0L, completed.LiveMemoryBytes);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes, completed.LiveMemoryBytes);
         Assert.Equal(0L, completed.OpenHandles);
         Assert.Equal(0L, (long)Field(aliases.Governor, "_reservedWork"));
         InMemoryQpdfHost validation = new();

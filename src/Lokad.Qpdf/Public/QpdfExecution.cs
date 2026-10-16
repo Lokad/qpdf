@@ -42,7 +42,6 @@ public sealed record QpdfExecutionCounters
     private long _hostOperations;
     private long _openHandles;
     private long _diagnosticCount;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates a counter snapshot.</summary>
     public QpdfExecutionCounters(
@@ -87,13 +86,6 @@ public sealed record QpdfExecutionCounters
     /// <summary>Hashes the eight observed counter values.</summary>
     public override int GetHashCode() => HashCode.Combine(LiveMemoryBytes, PeakMemoryBytes,
         TotalWork, TotalDecodedBytes, TotalOutputBytes, HostOperations, OpenHandles, DiagnosticCount);
-
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Counter storage is already owned."); }
-        _storage = storage;
-    }
 
     /// <summary>Gets the estimated job-memory charge at snapshot time.</summary>
     /// <remarks>This immutable accounting value is not a live heap measurement.</remarks>
@@ -144,7 +136,6 @@ public sealed record QpdfExecutionResult
     private IReadOnlyList<QpdfDiagnostic> _diagnostics;
     private string? _outputText;
     private ReadOnlyMemory<byte>? _outputBytes;
-    private ExecutionResultMemory? _storage;
     /// <summary>Gets the execution status.</summary>
     public QpdfExecutionStatus Status => _status;
 
@@ -214,13 +205,6 @@ public sealed record QpdfExecutionResult
 
     /// <summary>Hashes the exposed outcome values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(Status, ExitCode, Diagnostics, Counters, OutputText, OutputBytes);
-
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 
     internal void CompleteBeforeReturn(ExecutionOutcome outcome)
     {

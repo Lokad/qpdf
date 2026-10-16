@@ -4424,7 +4424,7 @@ public static partial class Qpdf
             (MultiPageSelectionOutcome result, int attachmentCount) = await WholeFileCoreAsync(
                 host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             QpdfAttachmentEditResult edited = new(attachmentCount, result.Warnings, governor.TypedCounters, true);
-            edited.OwnStorage(governor.TakeTypedResultStorage());
+            governor.AcceptTypedResult();
             governor.FinishTypedCounters();
             return edited;
         }

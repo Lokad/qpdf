@@ -3,11 +3,10 @@ namespace Lokad.Qpdf.Runtime;
 /// <summary>Immutable rejection outcomes borrowed before any job is admitted.</summary>
 internal static class ExecutionResultAdmission
 {
-    // Result/counters are 80/88 bytes, their receipts 32 each, and the shared
-    // weak governor link 24. Two construction and two retirement units stay
-    // reserved until those exact operations execute.
-    internal const long MemoryBytes = 256L;
-    internal const long WorkUnits = 4L;
+    // Coarse capacity for the result and counters, admitted before processing.
+    // Both construction units remain available through failure presentation.
+    internal const long MemoryBytes = 168L;
+    internal const long WorkUnits = 2L;
     internal const string InvalidZlibModeMessage = "The zlib-flate mode is not supported.";
     internal const string InvalidZlibLevelMessage = "The zlib-flate compression level must be 1..9 while compressing.";
 

@@ -68,7 +68,6 @@ public sealed record QpdfCheckOptions
 public sealed record QpdfCheckResult
 {
     internal const long StorageBytes = 64L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates an inspection result.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -165,10 +164,4 @@ public sealed record QpdfCheckResult
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Version, Checks, Diagnostics, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }

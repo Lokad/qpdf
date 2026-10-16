@@ -19,18 +19,13 @@ public sealed class TypedResultOwnershipTests
         c.TotalDecodedBytes, c.TotalOutputBytes, c.HostOperations, c.OpenHandles, c.DiagnosticCount);
 
     private sealed class Alias(ResourceGovernor governor, object? value, WeakReference host, WeakReference result,
-        WeakReference counters, WeakReference receipt, WeakReference preparedReceipt, bool prepared,
-        long heldWork, Values? snapshot)
+        WeakReference counters, Values? snapshot)
     {
         internal readonly ResourceGovernor Governor = governor;
         internal object? Value = value;
         internal readonly WeakReference Host = host;
         internal readonly WeakReference Result = result;
         internal readonly WeakReference Counters = counters;
-        internal readonly WeakReference Receipt = receipt;
-        internal readonly WeakReference PreparedReceipt = preparedReceipt;
-        internal readonly bool Prepared = prepared;
-        internal readonly long HeldWork = heldWork;
         internal readonly Values? Snapshot = snapshot;
     }
 
@@ -95,16 +90,9 @@ public sealed class TypedResultOwnershipTests
         {
             await ((Task)Read(host, "Entered")).WaitAsync(TimeSpan.FromSeconds(10));
             ResourceGovernor governor = FindGovernor(running);
-            object? storage = Field(governor, "_preparedTypedResultStorage");
-            bool prepared = storage is not null;
-            WeakReference preparedReceipt = new(storage);
-            storage = null;
-            long held = (long)(Field(governor, "_reservedResultWork") ?? 0L);
-            // Observe wrapper credit independently of the versions created by
-            // this completed public job; each live version holds one retirement.
-            held -= (int)(Field(governor, "_versionCarriers") ?? 0);
-            // Selection arrays/mappings share the prepaid channel. They are
-            // separate owners from the wrapper/counter credits asserted here.
+            Assert.True((long)(Field(governor, "_preparedTypedResultBytes") ?? 0L) > 0L);
+            Assert.NotNull(Field(governor, "_preparedTypedCounters"));
+            Assert.True((long)(Field(governor, "_reservedResultWork") ?? 0L) >= 1L);
             if (outcome == "cancel") { cancellation.Cancel(); } else { Resume(host); }
             object? result = null;
             if (outcome == "cancel") { await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running); }
@@ -112,6 +100,8 @@ public sealed class TypedResultOwnershipTests
             else if (outcome == "budget") { await Assert.ThrowsAsync<QpdfLimitException>(() => running); }
             else { result = await running.WaitAsync(TimeSpan.FromSeconds(10)); }
             Assert.True((long)(Field(host, "ReadBytes") ?? 0L) > 0L);
+            Assert.Equal(0L, (long)(Field(governor, "_preparedTypedResultBytes") ?? 0L));
+            Assert.Null(Field(governor, "_preparedTypedCounters"));
             Assert.Equal(0L, inner.OpenLeaseCount);
             Assert.Equal(0L, governor.Snapshot().OpenHandles);
             Assert.True(governor.Snapshot().PeakMemoryBytes <= limits.MaxMemoryBytes);
@@ -139,8 +129,7 @@ public sealed class TypedResultOwnershipTests
                 { Assert.False(property.CanWrite); }
                 Assert.Same(counters, Read(value, "Counters"));
             }
-            return new(governor, value, new(host), new(result), new(counters), new(result is null ? null : Field(result, "_storage")),
-                preparedReceipt, prepared, held, counters is null ? null : State(counters));
+            return new(governor, value, new(host), new(result), new(counters), counters is null ? null : State(counters));
         }
         finally
         {

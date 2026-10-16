@@ -389,8 +389,8 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         {
             var job = jobs[i];
             long live = job.Governor.Snapshot().LiveMemoryBytes;
-            if (live != 144L) { ReportRetained(job.Governor); }
-            Assert.True(live == 144L, "Job " + i + " retains " + live + " bytes after its host/result aliases drop.");
+            if (live != job.Governor.CallerMetadataBytes) { ReportRetained(job.Governor); }
+            Assert.True(live == job.Governor.CallerMetadataBytes, "Job " + i + " retains " + live + " bytes after its host/result aliases drop.");
             Assert.Equal(0L, job.Governor.Snapshot().OpenHandles);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
             job.Counters = null;
@@ -400,7 +400,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
             foreach (var job in jobs) { job.Governor.ReserveMemory(0L); }
         }
-        foreach (var job in jobs) { Assert.Equal(0L, job.Governor.Snapshot().LiveMemoryBytes); }
+        foreach (var job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         GC.KeepAlive(jobs);
     }
 }

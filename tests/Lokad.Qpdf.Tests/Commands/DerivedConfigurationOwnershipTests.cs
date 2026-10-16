@@ -278,13 +278,13 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED COUNTER {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(144L, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
+            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); job.Counters = null;
         }
         Collect(jobs);
         foreach (Completed job in jobs)
         {
             log.WriteLine("DERIVED FINAL {0} {1}", job.Id, job.Governor.Snapshot().LiveMemoryBytes);
-            Assert.Equal(0L, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes);
         }
         Assert.True(defects.Count == 0, string.Join('\n', defects));
     }
@@ -388,7 +388,7 @@ public sealed class DerivedConfigurationOwnershipTests(ITestOutputHelper log)
         bool missing = ObserveTyped(jobs);
         foreach (TypedCompleted job in jobs) { job.Aliases.Clear(); job.Result = null; job.Counters = null; }
         CollectTyped(jobs);
-        foreach (TypedCompleted job in jobs) { Assert.Equal(0L, job.Governor.Snapshot().LiveMemoryBytes); }
+        foreach (TypedCompleted job in jobs) { Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes); }
         Assert.False(missing, "Typed JSON canonical selectors lack independent physical storage receipts.");
     }
 }

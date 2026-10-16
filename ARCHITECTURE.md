@@ -91,6 +91,8 @@ budget to the resource governor. Shared admission batches the existing estimates
 into coarse growth blocks while local limits stay binding. Caller scopes outlive
 returned storage; host-private storage needs its own owner. See
 [memory admission](docs/MEMORY.md) for the contract and current migration boundary.
+Result wrappers, counter snapshots and versions use admitted capacity estimates
+without finalizer receipts; returned metadata never roots its completed job.
 
 Cancellation is cooperative across bounded CPU loops, host calls and codec APIs.
 Cleanup can finish bounded retirement after cancellation. Diagnostics remain

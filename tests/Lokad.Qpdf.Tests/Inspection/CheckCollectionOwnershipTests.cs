@@ -293,7 +293,7 @@ public sealed class CheckCollectionOwnershipTests
         { Assert.Equal(0L, ((RetainedValueOwners)Field(aliases.Governor, "_valueOwners")).WorkState.Messages); }
         ValidateSibling(aliases, kind); aliases.Sibling = null; await CollectAsync(aliases.Governor);
         Assert.All(aliases.Storage, x => Assert.False(x.IsAlive));
-        Assert.Equal(0L, aliases.Governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(aliases.Governor.CallerMetadataBytes, aliases.Governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, aliases.Governor.Snapshot().OpenHandles);
     }
 
@@ -325,7 +325,7 @@ public sealed class CheckCollectionOwnershipTests
         await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
 
@@ -386,7 +386,7 @@ public sealed class CheckCollectionOwnershipTests
         await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
+        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
 
     private sealed class MetadataAlias(IReadOnlyList<QpdfCheckOutcome> value, WeakReference[] references)
@@ -463,7 +463,7 @@ public sealed class CheckCollectionOwnershipTests
         ResourceGovernor governor = await CompleteRoute(compressed, failed, route); await Task.Yield();
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
+        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes); Assert.Equal(0L, Field(governor, "_reservedResultWork"));
     }
 
     internal static async Task<object> MeasurePublicAdmission(bool compressed, bool failed)

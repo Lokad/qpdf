@@ -61,7 +61,6 @@ public sealed record QpdfAttachmentInfo
 public sealed record QpdfAttachmentExtraction
 {
     internal const long StorageBytes = 56L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates an extraction outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -116,12 +115,6 @@ public sealed record QpdfAttachmentExtraction
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, Key, ByteCount, Warnings, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }
 
 /// <summary>An attachment to embed from a host file.</summary>
@@ -196,7 +189,6 @@ public sealed record QpdfAttachmentCopy
 public sealed record QpdfAttachmentEditResult
 {
     internal const long StorageBytes = 48L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates an edit outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -243,10 +235,4 @@ public sealed record QpdfAttachmentEditResult
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, AttachmentCount, Warnings, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }

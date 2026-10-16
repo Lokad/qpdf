@@ -249,7 +249,7 @@ public sealed class JsonOutputOwnershipTests
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
-        Assert.Equal(0L, observation.Governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(observation.Governor.CallerMetadataBytes, observation.Governor.Snapshot().LiveMemoryBytes);
     }
 
     [Theory]
@@ -521,7 +521,7 @@ public sealed class JsonOutputOwnershipTests
         if (_collection is null) { return; } // Producer contract; lifetime phases run in the batch.
         await CollectAsync(observation.Governor);
         Assert.False(observation.Result.IsAlive); Assert.False(observation.Host.IsAlive);
-        if (observation.Minimum == 0L) { Assert.Equal(0L, observation.Governor.Snapshot().LiveMemoryBytes); }
+        if (observation.Minimum == 0L) { Assert.Equal(observation.Governor.CallerMetadataBytes, observation.Governor.Snapshot().LiveMemoryBytes); }
         else { Assert.True(observation.Governor.Snapshot().LiveMemoryBytes >= observation.Minimum); }
         Assert.All(Assert.IsType<ReadOnlyMemory<byte>[]>(observation.Alias), bytes =>
         { using JsonDocument parsed = JsonDocument.Parse(bytes); Assert.Equal(2, parsed.RootElement.GetProperty("version").GetInt32()); });

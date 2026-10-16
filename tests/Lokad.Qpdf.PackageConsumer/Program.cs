@@ -554,18 +554,19 @@ internal static class Program
         QpdfLimits cacheLimits = QpdfLimits.Default with { MaxMemoryBytes = cacheInput.Length + 450000L };
         QpdfDocument cacheDocument = await QpdfDocument.OpenAsync(cacheHost, QpdfPath.From("inputs/cache.pdf"), cacheLimits, CancellationToken.None);
         PdfByteString cacheAlias = (PdfByteString)cacheDocument.GetObject(8);
+        // Take this immutable snapshot before exhausting the allowance: a new
+        // counter snapshot also needs admission, even after another call refuses.
+        QpdfExecutionCounters cacheBeforeSnapshot = cacheDocument.Counters;
         bool cacheRejected = false;
         try { for (int number = 9; number < 2008; number++) { cacheDocument.GetObject(number); } }
         catch (QpdfLimitException ex) when (ex.LimitName == nameof(QpdfLimits.MaxMemoryBytes)) { cacheRejected = true; }
         Check(cacheRejected && ReferenceEquals(cacheAlias, cacheDocument.GetObject(8)), "cache admission rejects growth while preserving the first object");
-        QpdfExecutionCounters cacheBeforeSnapshot = cacheDocument.Counters;
-        long cacheBeforeDisposal = cacheBeforeSnapshot.LiveMemoryBytes;
         await cacheDocument.DisposeAsync();
         QpdfExecutionCounters cacheAfterSnapshot = cacheDocument.Counters;
         long cacheAfterDisposal = cacheAfterSnapshot.LiveMemoryBytes;
         await cacheDocument.DisposeAsync();
         QpdfExecutionCounters cacheRepeatSnapshot = cacheDocument.Counters;
-        Check(cacheAfterDisposal < cacheBeforeDisposal && cacheRepeatSnapshot.LiveMemoryBytes == cacheAfterDisposal + 120L
+        Check(cacheAfterDisposal < cacheAfterSnapshot.PeakMemoryBytes && cacheRepeatSnapshot.LiveMemoryBytes == cacheAfterDisposal + 88L
             && cacheRepeatSnapshot.TotalWork == cacheAfterSnapshot.TotalWork + 1L,
             "cache metadata is released once on disposal");
         Check(cacheAlias.Value.SequenceEqual(Encoding.ASCII.GetBytes(new string('A', 32))) && cacheHost.OpenLeaseCount == 0L,
@@ -601,7 +602,7 @@ internal static class Program
         await lifetimeDocument.DisposeAsync();
         QpdfExecutionCounters lifetimeRepeatSnapshot = lifetimeDocument.Counters;
         Check(lifetimeBefore - lifetimeAfter >= lifetimeInput.Length && lifetimeAfter < lifetimeInput.Length
-            && lifetimeRepeatSnapshot.LiveMemoryBytes == lifetimeAfter + 120L
+            && lifetimeRepeatSnapshot.LiveMemoryBytes == lifetimeAfter + 88L
             && lifetimeRepeatSnapshot.TotalWork == lifetimeAfterSnapshot.TotalWork + 1L, "exclusive document admission releases once");
         Check(lifetimeAlias.Value.SequenceEqual("kept"u8.ToArray()) && lifetimeDocument.PageCount == 2
             && lifetimeHost.OpenLeaseCount == 0L, "returned bytes and page count survive document disposal");

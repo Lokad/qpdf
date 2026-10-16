@@ -48,8 +48,8 @@ public sealed class ExecutionResultFailureOwnershipTests
         foreach (string route in Routes)
         foreach (bool canceled in new[] { false, true })
         {
-            foreach (long memory in new[] { 1L, 80L, 152L, 255L }) { yield return [route, "memory", memory, canceled]; }
-            foreach (long work in new[] { 1L, 2L, 3L }) { yield return [route, "work", work, canceled]; }
+            foreach (long memory in new[] { 1L, 80L, 152L, ExecutionResultAdmission.MemoryBytes - 1L }) { yield return [route, "memory", memory, canceled]; }
+            foreach (long work in Enumerable.Range(1, (int)ExecutionResultAdmission.WorkUnits - 1).Select(value => (long)value)) { yield return [route, "work", work, canceled]; }
         }
     }
 
@@ -119,7 +119,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         await CollectAsync(governor);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Result")).IsAlive);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Counters")).IsAlive);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
     }
 
@@ -202,7 +202,7 @@ public sealed class ExecutionResultFailureOwnershipTests
     [Theory]
     [MemberData(nameof(CopyCases))]
     [Trait("Layer", "Contract")]
-    public async Task CallerRecordCopiesPreserveValuesWithoutOwningOriginalReceipts(string kind, bool compressed, long work)
+    public async Task CallerRecordCopiesPreserveValuesUnderTheCallerOwner(string kind, bool compressed, long work)
     {
         object alias = await Copy(kind, compressed, work);
         await Task.Yield();
@@ -213,10 +213,10 @@ public sealed class ExecutionResultFailureOwnershipTests
         Assert.Equal(kind == "result", Assert.IsType<WeakReference>(Field(alias, "Counters")).IsAlive);
         Assert.False(Assert.IsType<WeakReference>(Field(alias, "Host")).IsAlive);
         if (kind == "result") { Assert.True(governor.Snapshot().LiveMemoryBytes >= 88L); }
-        else { Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes); }
+        else { Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes); }
         SetValue(alias, null);
         await CollectAsync(governor);
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(governor.CallerMetadataBytes, governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
     }
 
@@ -317,7 +317,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         alias.Value = null;
         await CollectAsync(alias.Governor);
         Assert.False(alias.Result.IsAlive); Assert.False(alias.Counters.IsAlive);
-        Assert.Equal(0L, alias.Governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(alias.Governor.CallerMetadataBytes, alias.Governor.Snapshot().LiveMemoryBytes);
         GC.KeepAlive(alias);
     }
 
@@ -452,8 +452,8 @@ public sealed class ExecutionResultFailureOwnershipTests
     {
         CountingHost host = await Host(route);
         QpdfLimits limits = QpdfLimits.Default with
-        { MaxMemoryBytes = bound is "memory" or "both" ? 256L : QpdfLimits.Default.MaxMemoryBytes,
-            MaxWork = bound is "work" or "both" ? 4L : QpdfLimits.Default.MaxWork };
+        { MaxMemoryBytes = bound is "memory" or "both" ? ExecutionResultAdmission.MemoryBytes : QpdfLimits.Default.MaxMemoryBytes,
+            MaxWork = bound is "work" or "both" ? ExecutionResultAdmission.WorkUnits : QpdfLimits.Default.MaxWork };
         QpdfExecutionResult result = await Request(host, route, limits, CancellationToken.None)();
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
@@ -473,8 +473,8 @@ public sealed class ExecutionResultFailureOwnershipTests
         {
             "memory" => QpdfLimits.Default with { MaxMemoryBytes = 1L },
             "work" => QpdfLimits.Default with { MaxWork = 1L },
-            "edge-memory" => QpdfLimits.Default with { MaxMemoryBytes = 256L },
-            "edge-work" => QpdfLimits.Default with { MaxWork = 4L },
+            "edge-memory" => QpdfLimits.Default with { MaxMemoryBytes = ExecutionResultAdmission.MemoryBytes },
+            "edge-work" => QpdfLimits.Default with { MaxWork = ExecutionResultAdmission.WorkUnits },
             _ => QpdfLimits.Default,
         };
         QpdfZlibFlateOptions options = invalid switch
@@ -499,7 +499,7 @@ public sealed class ExecutionResultFailureOwnershipTests
         {
             (nameof(OriginalBudgetFailuresFundIndependentResultAndCounterAliases), BudgetAliases()),
             (nameof(FailureAliasesDoNotRootCompletedJobMetadata), BudgetAliases()),
-            (nameof(CallerRecordCopiesPreserveValuesWithoutOwningOriginalReceipts), CopyCases()),
+            (nameof(CallerRecordCopiesPreserveValuesUnderTheCallerOwner), CopyCases()),
             (nameof(WorkFailuresKeepAcceptedWarningsAndIndependentOutcomeAliases), WarningFailures()),
         };
 

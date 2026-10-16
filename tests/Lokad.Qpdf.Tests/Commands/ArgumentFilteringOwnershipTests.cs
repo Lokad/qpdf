@@ -303,10 +303,10 @@ public sealed class ArgumentFilteringOwnershipTests(ITestOutputHelper log)
         foreach (Completed job in jobs)
         {
             int calls = 0;
-            while (job.Governor.Snapshot().LiveMemoryBytes > 0L && calls < 4096) { job.Governor.ReserveMemory(0L); calls++; }
+            while (job.Governor.Snapshot().LiveMemoryBytes > job.Governor.CallerMetadataBytes && calls < 4096) { job.Governor.ReserveMemory(0L); calls++; }
             long live = job.Governor.Snapshot().LiveMemoryBytes;
             log.WriteLine("FILTER FINAL {0} live={1} maintenance={2}", job.Id, live, calls);
-            Assert.Equal(0L, live);
+            Assert.Equal(job.Governor.CallerMetadataBytes, live);
             if (job.Output is byte[] bytes) { Assert.True(bytes.AsSpan().StartsWith("%PDF-"u8)); }
         }
         Assert.Equal(48, jobs.Count);

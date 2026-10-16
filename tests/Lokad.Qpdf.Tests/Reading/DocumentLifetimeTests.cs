@@ -103,7 +103,7 @@ public sealed class DocumentLifetimeTests
         long after = afterSnapshot.LiveMemoryBytes;
         await document.DisposeAsync();
         QpdfExecutionCounters repeatSnapshot = document.Counters;
-        Assert.Equal(after + 120L, repeatSnapshot.LiveMemoryBytes);
+        Assert.Equal(after + 88L, repeatSnapshot.LiveMemoryBytes);
         Assert.Equal(afterSnapshot.TotalWork + 1L, repeatSnapshot.TotalWork);
         Collect();
         Assert.All(storage, item => Assert.False(item.IsAlive));

@@ -200,7 +200,7 @@ public sealed class ResponseOwnershipTests(ITestOutputHelper output)
         }
         foreach (var job in jobs)
         {
-            Assert.Equal(256L, job.Governor.Snapshot().LiveMemoryBytes);
+            Assert.Equal(job.Governor.CallerMetadataBytes, job.Governor.Snapshot().LiveMemoryBytes);
             Assert.Equal(0L, job.Governor.Snapshot().OpenHandles);
             Assert.Equal(0L, job.Host.Inner.OpenLeaseCount);
         }

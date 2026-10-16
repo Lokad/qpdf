@@ -42,7 +42,6 @@ public sealed record PdfPageSelectionMapping
 public sealed record PdfMultiPageSelectionResult
 {
     internal const long StorageBytes = 72L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates a merge result.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -113,10 +112,4 @@ public sealed record PdfMultiPageSelectionResult
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Mapping, SourcePageCounts, OutputPaths, Warnings, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }

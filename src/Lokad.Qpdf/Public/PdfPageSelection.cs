@@ -160,7 +160,6 @@ public sealed record PdfPageSelectionOptions
 public sealed record PdfPageSelectionResult
 {
     internal const long StorageBytes = 56L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates a selection result.</summary>
     /// <exception cref="ArgumentNullException">Warnings or counters are null.</exception>
@@ -223,10 +222,4 @@ public sealed record PdfPageSelectionResult
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, SourcePageCount, SourcePages, PageCount, Warnings, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }

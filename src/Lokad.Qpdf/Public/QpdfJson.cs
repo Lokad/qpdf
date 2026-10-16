@@ -104,7 +104,6 @@ public sealed record QpdfJsonOptions
 public sealed record QpdfJsonResult
 {
     internal const long StorageBytes = 48L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates an inspection outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -151,18 +150,11 @@ public sealed record QpdfJsonResult
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, Json, Warnings, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }
 /// <summary>Outcome of a JSON import.</summary>
 public sealed record QpdfJsonImportResult
 {
     internal const long StorageBytes = 48L;
-    private ExecutionResultMemory? _storage;
 
     /// <summary>Creates an import outcome.</summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -209,10 +201,4 @@ public sealed record QpdfJsonImportResult
     /// <summary>Hashes exposed values and aliases.</summary>
     public override int GetHashCode() => HashCode.Combine(EqualityContract, PageCount, Warnings, Counters);
 
-    internal void OwnStorage(ExecutionResultMemory storage)
-    {
-        ArgumentNullException.ThrowIfNull(storage);
-        if (_storage is not null) { throw new InvalidOperationException("Result storage is already owned."); }
-        _storage = storage;
-    }
 }
