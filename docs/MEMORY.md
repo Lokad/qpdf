@@ -32,6 +32,17 @@ charge immediately without waiting for GC; it does not dispose actual storage
 or cancel work. Retaining the bytes requires retaining their caller scope.
 Do not dispose a scope while its reads, writes or descendants are active.
 
+`PdfStream.CopyData`, `PdfByteString.CopyValue` and `PdfName.CopyRawBytes` take
+a caller budget and cancellation token for independent byte copies. They admit
+the new array before allocating and refund unused admission on failure. A copy
+owner can be a sibling of the document owner, so the copy survives document and
+graph-owner closure. Empty copies reuse shared arrays without admission.
+`PdfArray.CopyItems` admits a shallow reference array: its referents still need
+their source graph owner. These explicit exports use one reservation per copy;
+the source PDF values carry no budget references or lifetime receipts.
+The existing copy properties and caller-created object constructors remain
+caller-managed; use the admitted methods or fund an aggregate caller batch.
+
 Hosts separately account for private storage and returned backing capacity
 beyond the requested read length. Borrowed inputs retain their existing charge;
 independent copies need additional admission. The allowance is an estimate of

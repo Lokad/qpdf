@@ -285,8 +285,21 @@ public sealed class PdfName : QpdfObject, IEquatable<PdfName>
     /// Gets a copy of the raw name bytes (without the leading slash).
     /// A zero byte in a repaired name represents an invalid hash escape;
     /// serialization preserves that hash and reopening requires syntax repair.
+    /// Use <see cref="CopyRawBytes" /> for caller-budget admission.
     /// </summary>
     public byte[] RawBytes => (byte[])_raw.Clone();
+
+    /// <summary>Copies the raw name bytes after admitting their capacity under a caller owner.</summary>
+    /// <remarks>
+    /// The borrowed budget must outlive the returned array. The independent copy
+    /// can outlive the source graph; its charge ends when the caller owner closes.
+    /// Failed or canceled copying refunds the unused admission.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The budget is null.</exception>
+    /// <exception cref="QpdfMemoryAdmissionException">The shared allowance refused admission.</exception>
+    /// <exception cref="OperationCanceledException">Copying was canceled.</exception>
+    public byte[] CopyRawBytes(IMemoryBudget memoryBudget, CancellationToken cancellationToken)
+        => CallerMemoryCopy.Copy<byte>(_raw, sizeof(byte), memoryBudget, cancellationToken);
 
     internal ReadOnlySpan<byte> RawSpan => _raw;
 
@@ -407,8 +420,20 @@ public sealed class PdfByteString : QpdfObject, IEquatable<PdfByteString>
     /// <summary>Gets whether hexadecimal syntax produced this string.</summary>
     public bool Hex { get; }
 
-    /// <summary>Gets a copy of the raw value bytes.</summary>
+    /// <summary>Gets a copy of the raw value bytes. Use <see cref="CopyValue" /> for caller-budget admission.</summary>
     public byte[] Value => (byte[])_value.Clone();
+
+    /// <summary>Copies the raw value bytes after admitting their capacity under a caller owner.</summary>
+    /// <remarks>
+    /// The borrowed budget must outlive the returned array. The independent copy
+    /// can outlive the source graph; its charge ends when the caller owner closes.
+    /// Failed or canceled copying refunds the unused admission.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The budget is null.</exception>
+    /// <exception cref="QpdfMemoryAdmissionException">The shared allowance refused admission.</exception>
+    /// <exception cref="OperationCanceledException">Copying was canceled.</exception>
+    public byte[] CopyValue(IMemoryBudget memoryBudget, CancellationToken cancellationToken)
+        => CallerMemoryCopy.Copy<byte>(_value, sizeof(byte), memoryBudget, cancellationToken);
 
     internal ReadOnlySpan<byte> ValueSpan => _value;
 
@@ -469,8 +494,20 @@ public sealed class PdfArray : QpdfObject, IEquatable<PdfArray>
     /// <summary>Gets the item at an index.</summary>
     public QpdfObject this[int index] => _items[index];
 
-    /// <summary>Gets a copy of the items.</summary>
+    /// <summary>Gets a copy of the items. Use <see cref="CopyItems" /> for caller-budget admission.</summary>
     public QpdfObject[] Items => [.. _items];
+
+    /// <summary>Copies the item references after admitting the array capacity under a caller owner.</summary>
+    /// <remarks>
+    /// This is a shallow copy: keep the source graph's owner alive while using
+    /// the referenced values. The borrowed budget owns only the new array and
+    /// must outlive it. Failed or canceled copying refunds the unused admission.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The budget is null.</exception>
+    /// <exception cref="QpdfMemoryAdmissionException">The shared allowance refused admission.</exception>
+    /// <exception cref="OperationCanceledException">Copying was canceled.</exception>
+    public QpdfObject[] CopyItems(IMemoryBudget memoryBudget, CancellationToken cancellationToken)
+        => CallerMemoryCopy.Copy<QpdfObject>(_items, IntPtr.Size, memoryBudget, cancellationToken);
 
     internal object AllocationCarrier => _items;
 
@@ -691,8 +728,20 @@ public sealed class PdfStream : QpdfObject, IEquatable<PdfStream>
     /// <summary>Gets the stream dictionary.</summary>
     public PdfDictionary Dictionary { get; }
 
-    /// <summary>Gets a copy of the raw stream bytes.</summary>
+    /// <summary>Gets a copy of the raw stream bytes. Use <see cref="CopyData" /> for caller-budget admission.</summary>
     public byte[] Data => _data.ToArray();
+
+    /// <summary>Copies the raw stream bytes after admitting their capacity under a caller owner.</summary>
+    /// <remarks>
+    /// The borrowed budget must outlive the returned array. The independent copy
+    /// can outlive the source graph; its charge ends when the caller owner closes.
+    /// Failed or canceled copying refunds the unused admission.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The budget is null.</exception>
+    /// <exception cref="QpdfMemoryAdmissionException">The shared allowance refused admission.</exception>
+    /// <exception cref="OperationCanceledException">Copying was canceled.</exception>
+    public byte[] CopyData(IMemoryBudget memoryBudget, CancellationToken cancellationToken)
+        => CallerMemoryCopy.Copy<byte>(_data.Span, sizeof(byte), memoryBudget, cancellationToken);
 
     internal ReadOnlyMemory<byte> RawMemory => _data;
 

@@ -82,6 +82,7 @@ internal static class Program
     {
         await VerifyMemoryContractAsync();
         await VerifyHostMemoryContractAsync();
+        await VerifyPublicCopyMemoryAsync();
         await VerifyCodecContractAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
@@ -1074,6 +1075,50 @@ internal static class Program
         export.Dispose();
         Check(root.ReservedBytes == 0L, "all storage admission refunds without GC");
         Console.WriteLine("PASS durable host input/staging/publication, reservation handoff and independent export");
+    }
+
+    private static async Task VerifyPublicCopyMemoryAsync()
+    {
+        RecordingMemoryBudget root = new(4194304L);
+        using IMemoryScope copyOwner = root.CreateScope();
+        byte[] nameCopy, stringCopy, streamCopy;
+        using (InMemoryQpdfHost host = NewHost("copy.pdf", TwoPagePdf("[/" + new string('N', 8192) + " (" + new string('A', 65536) + ")]")))
+        using (IMemoryScope graphOwner = root.CreateScope())
+        {
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(
+                new MemoryHostView(host, graphOwner), QpdfPath.From("copy.pdf"), CancellationToken.None);
+            PdfArray array = (PdfArray)document.GetObject(8);
+            using (IMemoryScope referenceOwner = graphOwner.CreateScope())
+            {
+                QpdfObject[] references = array.CopyItems(referenceOwner, CancellationToken.None);
+                Check(ReferenceEquals(references[0], array[0]), "item copy borrows its source graph");
+                references[0] = PdfNull.Instance;
+                Check(array[0] is PdfName, "item copy cannot mutate its source array");
+                references = [];
+            }
+            nameCopy = ((PdfName)array[0]).CopyRawBytes(copyOwner, CancellationToken.None);
+            stringCopy = ((PdfByteString)array[1]).CopyValue(copyOwner, CancellationToken.None);
+            PdfStream stream = (PdfStream)document.GetObject(5);
+            streamCopy = stream.CopyData(copyOwner, CancellationToken.None);
+            long before = root.ReservedBytes;
+            if (!root.TryReserve(root.LimitBytes - before, out IMemoryReservation? held))
+            { throw new InvalidOperationException("Parent admission was refused."); }
+            using (held)
+            {
+                bool refused = false;
+                try { stream.CopyData(copyOwner, CancellationToken.None); }
+                catch (QpdfMemoryAdmissionException) { refused = true; }
+                Check(refused && root.ReservedBytes == root.LimitBytes, "copy refusal preserves other owners");
+            }
+        }
+        Check(root.ReservedBytes == nameCopy.LongLength + stringCopy.LongLength + streamCopy.LongLength + 96L,
+            "independent copies survive document and graph-owner closure");
+        Check(nameCopy.All(value => value == (byte)'N') && stringCopy.All(value => value == (byte)'A')
+            && streamCopy.AsSpan().StartsWith("BT /F1"u8), "copies stay usable under their sibling caller owner");
+        nameCopy = []; stringCopy = []; streamCopy = [];
+        copyOwner.Dispose();
+        Check(root.ReservedBytes == 0L, "copy owner refunds without GC");
+        Console.WriteLine("PASS admitted public copies and independent caller ownership");
     }
 
     private sealed class MemoryHostView(IQpdfHost inner, IMemoryBudget memoryBudget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
