@@ -6,6 +6,14 @@ adapter forwards to the host's allowance; scopes introduce owners, not separate
 limits. Admission is immediate and thread-safe. Refusal leaves accounting
 unchanged and fails the operation with `QpdfMemoryAdmissionException`, distinct
 from cancellation, a local `QpdfLimitException` and an actual allocation failure.
+Parser collection growth makes one admission attempt for its chosen capacity;
+refusal preserves existing entries and does not trigger a smaller retry. JPEG
+codec boundaries preserve actual `OutOfMemoryException` failures while releasing
+their workspace, rather than translating them into invalid image data.
+Xref growth uses validated section/merge counts to cap geometric overshoot.
+Large capacities within the pinned [.NET 10 preferred-prime table](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Private.CoreLib/src/System/Collections/HashHelpers.cs)
+use a conservative 2x prime-capacity allowance, replacing the unnecessarily broad
+3x estimate there; smaller and out-of-table requests keep the broader allowance.
 
 The budget-aware `QpdfInputReader.ReadExactlyAsync` overload admits fresh input
 storage before reading. A complete owned array is reused; short or sliced reads

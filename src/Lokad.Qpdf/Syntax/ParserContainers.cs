@@ -184,19 +184,15 @@ internal static class ParserContainers
         // allocating for objects which an operation never reaches.
         int target = Math.Max(required, Math.Min(GrowthCapacity(previous, required), maximumCount));
         long upper = CollectionArrays(PrimeCapacityAllowance(target), slotBytes);
-        try { memory.Reserve(upper); }
-        catch (QpdfLimitException failure) when (target > required && failure.LimitName == nameof(QpdfLimits.MaxMemoryBytes))
-        {
-            // A denied reservation has not allocated or changed this owner.
-            // Preserve bounded callers that can fund the smaller growth step.
-            target = required;
-            upper = CollectionArrays(PrimeCapacityAllowance(target), slotBytes);
-            memory.Reserve(upper);
-        }
+        memory.Reserve(upper);
         return (target, upper);
     }
 
-    private static int PrimeCapacityAllowance(int required) => (int)Math.Min(Array.MaxLength, required * 3L);
+    // Large entries in the pinned .NET 10 preferred-prime table fit a 2x
+    // capacity allowance. Keep the broader bound for tiny capacities and
+    // requests beyond that table, where GetPrime searches instead.
+    private static int PrimeCapacityAllowance(int required)
+        => (int)Math.Min(Array.MaxLength, required * (required is >= 1024 and <= 7_199_369 ? 2L : 3L));
 
     // One pointer-width key slot also covers a padded int key before a 24-byte
     // xref value on the supported 64-bit runtimes. Wrappers/arrays include

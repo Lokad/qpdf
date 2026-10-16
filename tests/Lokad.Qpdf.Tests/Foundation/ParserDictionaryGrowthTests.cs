@@ -6,6 +6,44 @@ namespace Lokad.Qpdf.Tests.Foundation;
 public sealed class ParserDictionaryGrowthTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RefusedGrowthPreservesExistingEntriesWithoutTryingASmallerAllocation(bool set)
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = set ? 900L : 1200L };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            Dictionary<int, int>? dictionary = set ? null : ParserContainers.CreateDictionary<int, int>(memory);
+            HashSet<int>? items = set ? ParserContainers.CreateSet<int>(memory) : null;
+            for (int index = 0; index < 7; index++)
+            {
+                if (items is not null) { ParserContainers.AddSetItem(memory, items, index, sizeof(int)); }
+                if (dictionary is not null)
+                {
+                    ParserContainers.EnsureEntryCapacity(memory, dictionary, sizeof(int));
+                    dictionary.Add(index, index * 2);
+                }
+            }
+            long before = governor.Snapshot().LiveMemoryBytes;
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+            {
+                if (items is not null) { ParserContainers.AddSetItem(memory, items, 7, sizeof(int)); }
+                if (dictionary is not null) { ParserContainers.EnsureEntryCapacity(memory, dictionary, sizeof(int)); }
+            });
+            Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), error.LimitName);
+            Assert.Equal(before, governor.Snapshot().LiveMemoryBytes);
+            if (items is not null) { Assert.Equal(Enumerable.Range(0, 7), items.Order()); }
+            if (dictionary is not null)
+            {
+                Assert.Equal(7, dictionary.Count);
+                foreach ((int key, int value) in dictionary) { Assert.Equal(key * 2, value); }
+            }
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
     [InlineData("normal", false)]
     [InlineData("memory", false)]
     [InlineData("work", false)]

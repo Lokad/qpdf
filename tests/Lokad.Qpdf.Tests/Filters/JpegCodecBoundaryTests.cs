@@ -98,6 +98,26 @@ public sealed class JpegCodecBoundaryTests
         second[0] = 0; Assert.Equal(jpeg, first);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AllocationFailureEscapesCodecTranslationAndReleasesWorkspace(bool decode)
+    {
+        byte[] jpeg = DctDecodeTests.EncodeGrayJpeg(8, 8);
+        RecordingCodec codec = new(jpeg, 0, "oom", null);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None) { JpegCodec = codec };
+        // Inject the exception without exhausting the test process.
+        Assert.Throws<OutOfMemoryException>(() => decode
+            ? DctFilter.Decode(jpeg, QpdfLimits.Default, governor)
+            : JpegCodec.EncodeGray(new byte[64], 8, 8, 75, QpdfLimits.Default, governor));
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.NotNull(codec.Context);
+        Assert.Throws<ObjectDisposedException>(() => codec.Context.ReserveMemory(1L));
+        governor.ReserveMemory(4096L); codec.Reservation?.Dispose();
+        Assert.Equal(4096L, governor.Snapshot().LiveMemoryBytes);
+        governor.ReleaseMemory(4096L);
+    }
+
     [Fact]
     public void MismatchedEncoderFrameIsRejectedWithoutRetainingItsOutput()
     {
@@ -140,6 +160,7 @@ public sealed class JpegCodecBoundaryTests
         {
             Context = context; Reservation = context.ReserveMemory(65536L);
             if (failure == "exception") { throw new InvalidOperationException("private codec detail"); }
+            if (failure == "oom") { throw new OutOfMemoryException("injected allocation failure"); }
             if (failure == "work") { context.ChargeWork(1000L); }
             if (failure == "cancel") { cancellation?.Cancel(); context.CheckCancellation(); }
             // Deliberately leave the reservation outstanding to exercise scope cleanup.

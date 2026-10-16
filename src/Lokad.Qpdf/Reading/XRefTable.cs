@@ -387,6 +387,7 @@ internal sealed class XRefTable : IDisposable
         }
         // The shared hint keeps tight jobs on ordinary admitted growth.
         ParserContainers.HintEntryCapacity(memory, merged, target, 24L, governor, true);
+        int maximumCount = (int)Math.Min(Array.MaxLength, (long)merged.Count + entries.Count);
         foreach (KeyValuePair<int, XrefEntry> entry in entries)
         {
             governor.ChargeWork(1L);
@@ -403,7 +404,7 @@ internal sealed class XRefTable : IDisposable
 
             if (!merged.ContainsKey(entry.Key))
             {
-                ParserContainers.EnsureEntryCapacity(memory, merged, 24L);
+                ParserContainers.EnsureEntryCapacity(memory, merged, 24L, maximumCount);
                 merged[entry.Key] = entry.Value;
             }
         }
@@ -844,6 +845,9 @@ internal sealed class XRefTable : IDisposable
 
         long cursor = SkipSubsectionBreak(data, tokenizer, firstToken);
         ReadOnlySpan<byte> span = data.Span;
+        // This validated subsection bounds the entries added by this loop.
+        // Choose capped growth before admission rather than retrying on refusal.
+        int maximumCount = (int)Math.Min(Array.MaxLength, entries.Count + count);
         for (long number = first; number < first + count; number++)
         {
             XrefEntry entry = ReadEntry(span, ref cursor, firstToken.Offset, (int)number);
@@ -853,7 +857,7 @@ internal sealed class XRefTable : IDisposable
             }
 
             governor.ChargeWork(1L);
-            ParserContainers.EnsureEntryCapacity(memory, entries, 24L);
+            ParserContainers.EnsureEntryCapacity(memory, entries, 24L, maximumCount);
             entries[(int)number] = entry;
         }
 
