@@ -10,6 +10,15 @@
     <Description>Developer-only resource-counter and benchmark harness. Not part of the shipped package.</Description>
   </PropertyGroup>
 
+  <!-- Compile the same measurement driver against a preserved pre-hook build. -->
+  <PropertyGroup Condition="'$(QpdfMemoryBaseline)' == 'true'">
+    <DefineConstants>$(DefineConstants);QPDF_MEMORY_BASELINE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(QpdfMemoryBaseline)' != 'true'">
+    <Compile Include="../../tests/Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="RecordingMemoryBudget.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="SixLabors.ImageSharp" />

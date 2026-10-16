@@ -23,6 +23,10 @@ internal static class Program
             {
                 return CounterReport.Run(args[1..]);
             }
+            if (args[0] == "--memory-report")
+            {
+                return MemoryReport.Run(args[1..]);
+            }
 
             BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, BenchmarkDotNet.Configs.DefaultConfig.Instance);
             return 0;
@@ -42,6 +46,7 @@ internal static class Program
         Console.WriteLine("Usage:");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --help");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --counter-report [scenario names...]");
+        Console.WriteLine("  Lokad.Qpdf.Benchmarks --memory-report <disabled|enabled> <warmups> <samples> <batch-size> [scenario names...]");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --comparison-inputs <fresh-directory>");
         Console.WriteLine("  Lokad.Qpdf.Benchmarks --filter <BenchmarkDotNet filter>");
     }

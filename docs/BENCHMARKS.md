@@ -126,3 +126,46 @@ python3 tools/compare-warm-performance.py --repo "$PWD" \
 Use fresh work roots. Add `--workload select-sparse --job-selection` for equivalent
 job JSON, or `--workload rewrite-X100` for a narrow probe. Whole-process timings
 include startup for both engines; the tables report warmed jobs. No CI timing gates.
+
+## Cooperative memory admission
+
+The development harness also measures managed allocation and admission without
+external tools. Run each command in a dedicated process after a Release build:
+
+```sh
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --memory-report disabled 30 7 3
+dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --memory-report enabled 30 7 3
+```
+
+Arguments select the mode, minimum warmup jobs, samples and jobs per sample;
+optional scenario names narrow the run. Cases cover tiny inspection, sparse
+selection, object-heavy rewriting, merge/split, JSON, Flate, JPEG, linearization,
+large/dense configuration and scalar/dense/Unicode/escaped JSON import. Input
+generation and JSON reporting stay outside measurement. Jobs include fresh copied
+host registration, execution, publication and cleanup. Engine and input hashes
+identify the measured artifacts and identical prepared inputs.
+
+Enabled mode reuses one shared recording root across jobs and gives fresh owners
+to host storage and execution. Request history is disabled during measurement.
+The development budget's scope/reservation costs are included in enabled
+allocation totals; a production adapter's costs can differ. JSON lines retain
+every sample: elapsed time, cumulative managed bytes, collections, JIT activity,
+local estimates, root peak/residual, reserve/resize counts and peak live handles.
+Bytes and calls are totals per sample; divide by batch size for per-job values.
+Peak and residual values are maxima across jobs. Owner closure must refund to
+zero before the next job, without forced collection.
+
+Warmup runs for at least two seconds and until JIT counters have been quiet for
+one second, bounded by 15 seconds or one million jobs. `warmupReady` records
+whether those conditions held; measured JIT activity remains visible. To compare
+a pre-hook revision, copy `MemoryReport.cs`, `Program.cs` and the benchmark project
+file into an isolated checkout, build with `-p:QpdfMemoryBaseline=true` and run
+`baseline` mode. The conditional driver omits unavailable budget hooks while
+preserving inputs, transport and job measurement.
+
+Allocation, calls and ownership evidence remain useful on a busy host. Before
+interpreting small elapsed differences, compare the same warmed build against
+itself with interleaved A/A batches, then use the same protocol for the change.
+Retain all samples and report contention/JIT spread. A roughly 5% difference is
+an investigation trigger, not a timing gate; defer fine timing conclusions when
+the observed noise is comparable. Running in WSL does not isolate host load.

@@ -14,12 +14,18 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     private int _reserves;
     private int _resizes;
     private int _growths;
+    private int _liveReservations;
+    private int _peakReservations;
+    private readonly bool _recordRequests;
     private readonly List<long> _requests = [];
 
-    internal RecordingMemoryBudget(long limitBytes)
+    internal RecordingMemoryBudget(long limitBytes) : this(limitBytes, true) { }
+
+    internal RecordingMemoryBudget(long limitBytes, bool recordRequests)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(limitBytes);
         LimitBytes = limitBytes;
+        _recordRequests = recordRequests;
         _root = new(this, null);
     }
 
@@ -29,8 +35,23 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
     internal int ReserveCalls { get { lock (_gate) { return _reserves; } } }
     internal int ResizeCalls { get { lock (_gate) { return _resizes; } } }
     internal int GrowthCalls { get { lock (_gate) { return _growths; } } }
+    internal int PeakReservations { get { lock (_gate) { return _peakReservations; } } }
+    internal int LiveReservations { get { lock (_gate) { return _liveReservations; } } }
     internal int RefuseOnGrowth { get; init; }
     internal long[] Requests { get { lock (_gate) { return _requests.ToArray(); } } }
+
+    // Benchmark only: retain the shared root and clear observations between
+    // completed jobs. Never reset admission or a still-live owner's charges.
+    internal void ResetMetrics()
+    {
+        lock (_gate)
+        {
+            if (_reserved != 0L || _liveReservations != 0)
+            { throw new InvalidOperationException("Cannot reset metrics while reservations are live."); }
+            _peak = 0L; _reserves = 0; _resizes = 0; _growths = 0; _peakReservations = 0;
+            _requests.Clear();
+        }
+    }
 
     public IMemoryScope CreateScope() => _root.CreateScope();
     public bool TryReserve(long bytes, [NotNullWhen(true)] out IMemoryReservation? reservation)
@@ -38,7 +59,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
 
     private bool Admit(long bytes, long previous)
     {
-        _requests.Add(bytes);
+        if (_recordRequests) { _requests.Add(bytes); }
         long delta = bytes - previous;
         if (delta > 0L && ++_growths == RefuseOnGrowth) { return false; }
         if (delta > LimitBytes - _reserved) { return false; }
@@ -74,6 +95,8 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
                 if (!root.Admit(bytes, 0L)) { reservation = null; return false; }
                 Reservation admitted = new(root, this, bytes);
                 _reservations.Add(admitted);
+                root._liveReservations++;
+                root._peakReservations = Math.Max(root._peakReservations, root._liveReservations);
                 reservation = admitted;
                 return true;
             }
@@ -125,6 +148,7 @@ internal sealed class RecordingMemoryBudget : IMemoryBudget
         {
             if (_disposed) { return; }
             root._reserved -= _bytes;
+            root._liveReservations--;
             _bytes = 0L;
             _disposed = true;
         }
