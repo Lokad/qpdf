@@ -4694,11 +4694,12 @@ public static partial class Qpdf
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
 
-        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, cancellationToken).ConfigureAwait(false);
+        using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
+        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         using (parsed)
         {
-            Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, cancellationToken).ConfigureAwait(false);
-            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
+            Json.ImportedModel model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, importMemory, cancellationToken);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, null, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);
             return new JsonImportOutcome(renumbered.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
@@ -4732,11 +4733,12 @@ public static partial class Qpdf
         }
 
         await using QpdfDocument document = await QpdfDocument.OpenCore(host, inputPath, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
-        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, cancellationToken).ConfigureAwait(false);
+        using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
+        System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         using (parsed)
         {
-            Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, cancellationToken).ConfigureAwait(false);
-            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, cancellationToken);
+            Json.ImportedModel model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+            Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, importMemory, cancellationToken);
             byte[]? originalId1 = TryGetOriginalId(document.Engine);
             (PdfVersion effective, int extensionLevel) = NegotiateVersion(model.HeaderVersion, minVersion, forceVersion, governor);
             await PublishModelAsync(host, effective, extensionLevel, renumbered.Model, null, false, null, renumbered.InfoNumber, originalId1, staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, false, null, outputPath, limits, governor, cancellationToken).ConfigureAwait(false);

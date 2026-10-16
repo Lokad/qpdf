@@ -23,6 +23,7 @@ internal static class JsonImport
         QpdfPath jsonPath,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         if (host is null)
@@ -40,7 +41,8 @@ internal static class JsonImport
             throw new ArgumentNullException(nameof(governor));
         }
 
-        limits.Validate();
+        limits.Validate(); memory.CheckOwner(governor);
+        JsonDocument? parsed = null;
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, jsonPath, governor, cancellationToken).ConfigureAwait(false);
         try
         {
@@ -54,7 +56,7 @@ internal static class JsonImport
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
             }
 
-            governor.ReserveMemory(input.Length);
+            memory.Reserve(checked(input.Length + 32L));
             byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             JsonDocumentOptions options = new()
             {
@@ -64,7 +66,8 @@ internal static class JsonImport
             };
             try
             {
-                return JsonDocument.Parse(bytes, options);
+                JsonImportMemory.AdmitDocument(memory, bytes, governor, cancellationToken);
+                parsed = JsonDocument.Parse(bytes, options);
             }
             catch (JsonException ex)
             {
@@ -73,14 +76,17 @@ internal static class JsonImport
         }
         finally
         {
-            await input.DisposeAsync().ConfigureAwait(false);
+            try { await input.DisposeAsync().ConfigureAwait(false); }
+            catch { parsed?.Dispose(); throw; }
         }
+        return parsed ?? throw new InvalidOperationException("Missing parsed JSON document.");
     }
     internal static async ValueTask<ImportedModel> BuildCreateModelAsync(
         IQpdfHost host,
         JsonDocument document,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         if (host is null)
@@ -130,8 +136,10 @@ internal static class JsonImport
             throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
         }
 
+        memory.CheckOwner(governor);
+        JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
         PdfVersion header = ReadHeaderVersion(qpdf[0], true, governor);
-        Dictionary<int, QpdfObject> objects = new();
+        Dictionary<int, QpdfObject> objects = new(qpdf[1].GetPropertyCount());
         PdfDictionary? trailer = null;
         bool sawTrailer = false;
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
@@ -141,7 +149,7 @@ internal static class JsonImport
             if (property.Name == "trailer")
             {
                 sawTrailer = true;
-                trailer = ReadTrailer(property.Value);
+                trailer = ReadTrailer(property.Value, governor, cancellationToken);
                 continue;
             }
 
@@ -151,7 +159,7 @@ internal static class JsonImport
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
             }
 
-            objects[number] = await ReadObjectAsync(host, property.Value, true, false, null, limits, governor, cancellationToken).ConfigureAwait(false);
+            objects[number] = await ReadObjectAsync(host, property.Value, true, false, null, limits, governor, memory, cancellationToken).ConfigureAwait(false);
         }
 
         if (!sawTrailer)
@@ -168,6 +176,7 @@ internal static class JsonImport
         QpdfDocument pdf,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         if (host is null)
@@ -222,9 +231,12 @@ internal static class JsonImport
             throw new QpdfParseException("qpdf JSON qpdf[1] must be a dictionary.", 0L, null);
         }
 
+        memory.CheckOwner(governor);
+        JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
         PdfVersion? updateVersion = ReadUpdateMeta(qpdf[0], governor);
         DocumentEngine engine = pdf.Engine;
-        Dictionary<int, QpdfObject> merged = new();
+        memory.Reserve(checked(128L + 64L * engine.XRefEntries.Count));
+        Dictionary<int, QpdfObject> merged = new(engine.XRefEntries.Count);
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -244,7 +256,7 @@ internal static class JsonImport
             governor.ChargeWork(1L);
             if (property.Name == "trailer")
             {
-                trailer = ReadTrailer(property.Value);
+                trailer = ReadTrailer(property.Value, governor, cancellationToken);
                 continue;
             }
 
@@ -255,8 +267,8 @@ internal static class JsonImport
             }
 
             bool existingIsStream = merged.TryGetValue(number, out QpdfObject? existing) && existing is PdfStream;
-            byte[]? existingData = (existing as PdfStream)?.Data;
-            merged[number] = await ReadObjectAsync(host, property.Value, false, existingIsStream, existingData, limits, governor, cancellationToken).ConfigureAwait(false);
+            PdfStream? existingStream = existing as PdfStream;
+            merged[number] = await ReadObjectAsync(host, property.Value, false, existingIsStream, existingStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
         }
 
         return new ImportedModel(updateVersion ?? pdf.HeaderVersion, merged, trailer);
@@ -268,6 +280,7 @@ internal static class JsonImport
         bool sawJsonVersion = false;
         foreach (JsonProperty property in meta.EnumerateObject())
         {
+            governor.CheckCancellation(); governor.ChargeWork(1L);
             if (property.Name == "jsonversion")
             {
                 sawJsonVersion = true;
@@ -336,6 +349,7 @@ internal static class JsonImport
         PdfVersion? header = null;
         foreach (JsonProperty property in meta.EnumerateObject())
         {
+            governor.CheckCancellation(); governor.ChargeWork(1L);
             if (property.Name == "jsonversion")
             {
                 sawJsonVersion = true;
@@ -390,16 +404,12 @@ internal static class JsonImport
             throw new ArgumentNullException(nameof(text));
         }
 
-        string[] parts = text.Split((char)46);
-        if (parts.Length != 2)
-        {
-            throw new QpdfParseException("Invalid PDF version in qpdf JSON (must be x.y).", 0L, null);
-        }
-
-        if (!TryParseVersionPart(parts[0], out int major) || !TryParseVersionPart(parts[1], out int minor))
-        {
-            throw new QpdfParseException("Invalid PDF version in qpdf JSON (must be x.y).", 0L, null);
-        }
+        int separator = text.IndexOf('.');
+        if (separator < 0 || text.AsSpan(separator + 1).Contains('.'))
+        { throw new QpdfParseException("Invalid PDF version in qpdf JSON (must be x.y).", 0L, null); }
+        if (!TryParseVersionPart(text.AsSpan(0, separator), out int major)
+            || !TryParseVersionPart(text.AsSpan(separator + 1), out int minor))
+        { throw new QpdfParseException("Invalid PDF version in qpdf JSON (must be x.y).", 0L, null); }
 
         if ((major == 1 && minor > 7) || (major == 2 && minor != 0) || (major != 1 && major != 2))
         {
@@ -409,7 +419,7 @@ internal static class JsonImport
         return governor.OwnVersion(major, minor);
     }
 
-    private static bool TryParseVersionPart(string text, out int value)
+    private static bool TryParseVersionPart(ReadOnlySpan<char> text, out int value)
     {
         value = 0;
         if (text.Length == 0 || text.Length > 4)
@@ -441,64 +451,15 @@ internal static class JsonImport
             throw new QpdfParseException("qpdf JSON object key should be trailer or obj:n n R.", 0L, null);
         }
 
-        string rest = key.Substring(4);
-        if (rest.Length == 0 || rest[0] == (char)32 || rest[rest.Length - 1] == (char)32)
-        {
-            throw new QpdfParseException("qpdf JSON object key should be trailer or obj:n n R.", 0L, null);
-        }
-
-        string[] parts = rest.Split((char)32, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 3 || parts[2] != "R")
-        {
-            throw new QpdfParseException("qpdf JSON object key should be trailer or obj:n n R.", 0L, null);
-        }
-
-        if (!TryParseObjectId(parts[0], out int number) || number <= 0)
-        {
-            throw new QpdfParseException("qpdf JSON object key should be trailer or obj:n n R.", 0L, null);
-        }
-
-        if (!TryParseObjectId(parts[1], out int generation))
-        {
-            throw new QpdfParseException("qpdf JSON object key should be trailer or obj:n n R.", 0L, null);
-        }
-
+        if (!TryReadReference(key.AsSpan(4), out int number, out int generation))
+        { throw new QpdfParseException("qpdf JSON object key should be trailer or obj:n n R.", 0L, null); }
         if (generation != 0)
-        {
-            throw new QpdfParseException("qpdf JSON object generations other than 0 are outside the narrow profile.", 0L, null);
-        }
+        { throw new QpdfParseException("qpdf JSON object generations other than 0 are outside the narrow profile.", 0L, null); }
 
         return number;
     }
 
-    private static bool TryParseObjectId(string text, out int value)
-    {
-        value = 0;
-        if (text is null || text.Length == 0 || text.Length > 10)
-        {
-            return false;
-        }
-
-        long parsed = 0L;
-        foreach (char c in text)
-        {
-            if (c < (char)48 || c > (char)57)
-            {
-                return false;
-            }
-
-            parsed = checked(parsed * 10L + (c - (char)48));
-        }
-
-        if (parsed > (long)int.MaxValue)
-        {
-            return false;
-        }
-
-        value = (int)parsed;
-        return true;
-    }
-    private static PdfDictionary ReadTrailer(JsonElement value)
+    private static PdfDictionary ReadTrailer(JsonElement value, ResourceGovernor governor, CancellationToken token)
     {
         if (value.ValueKind != JsonValueKind.Object)
         {
@@ -510,10 +471,11 @@ internal static class JsonImport
         PdfDictionary trailer = new(new Dictionary<PdfName, QpdfObject>());
         foreach (JsonProperty property in value.EnumerateObject())
         {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             if (property.Name == "value")
             {
                 sawValue = true;
-                QpdfObject decoded = DecodeValue(property.Value, 0);
+                QpdfObject decoded = DecodeValue(property.Value, 0, governor, token);
                 if (decoded is not PdfDictionary dictionary)
                 {
                     throw new QpdfParseException("qpdf JSON trailer value must be a dictionary.", 0L, null);
@@ -543,9 +505,10 @@ internal static class JsonImport
         JsonElement value,
         bool requireComplete,
         bool existingIsStream,
-        byte[]? existingData,
+        PdfStream? existingStream,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         bool sawValue = false;
@@ -563,7 +526,7 @@ internal static class JsonImport
             if (property.Name == "value")
             {
                 sawValue = true;
-                QpdfObject decoded = DecodeValue(property.Value, 0);
+                QpdfObject decoded = DecodeValue(property.Value, 0, governor, cancellationToken);
                 if (decoded is PdfReference)
                 {
                     throw new QpdfParseException("qpdf JSON object value may not be an indirect object reference.", 0L, null);
@@ -587,7 +550,7 @@ internal static class JsonImport
                     governor.ChargeWork(1L);
                     if (inner.Name == "dict")
                     {
-                        QpdfObject decoded = DecodeValue(inner.Value, 0);
+                        QpdfObject decoded = DecodeValue(inner.Value, 0, governor, cancellationToken);
                         if (decoded is not PdfDictionary dictionary)
                         {
                             throw new QpdfParseException("qpdf JSON stream dict must be a dictionary.", 0L, null);
@@ -605,21 +568,10 @@ internal static class JsonImport
                             throw new QpdfParseException("qpdf JSON stream data must be a string.", 0L, null);
                         }
 
-                        // Admit the decoded payload before constructing it: base64
-                        // expands four source chars to at most three bytes, so the text
-                        // length bounds the allocation.
-                        governor.ReserveMemory(text.Length);
-
-                        try
-                        {
-                            inlineData = Convert.FromBase64String(text);
-                        }
+                        // Model admission covers decoded text and base64 overlap.
+                        try { inlineData = Convert.FromBase64String(text); }
                         catch (FormatException ex)
-                        {
-                            governor.ReleaseMemory(text.Length);
-                            throw new QpdfParseException("qpdf JSON stream data must be base64.", 0L, null, ex);
-                        }
-                        governor.ReleaseMemory(text.Length - inlineData.Length);
+                        { throw new QpdfParseException("qpdf JSON stream data must be base64.", 0L, null, ex); }
                         continue;
                     }
 
@@ -670,14 +622,16 @@ internal static class JsonImport
             }
             else if (sawDatafile)
             {
-                data = await ReadSidecarAsync(host, datafile!, limits, governor, cancellationToken).ConfigureAwait(false);
+                data = await ReadSidecarAsync(host, datafile ?? throw new QpdfParseException("qpdf JSON stream datafile must be a string containing a file name.", 0L, null), limits, governor, memory, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                data = existingData ?? [];
+                return existingStream is null
+                    ? PdfStream.FromOwnedData((PdfDictionary)streamDict, [])
+                    : existingStream.WithDictionary((PdfDictionary)streamDict);
             }
 
-            return new PdfStream((PdfDictionary)streamDict, data);
+            return PdfStream.FromOwnedData((PdfDictionary)streamDict, data);
         }
 
         return result ?? PdfNull.Instance;
@@ -688,6 +642,7 @@ internal static class JsonImport
         string name,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         if (name.Length == 0 || name.Length > QpdfPath.MaxLength || name.Contains((char)0))
@@ -709,7 +664,7 @@ internal static class JsonImport
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
             }
 
-            governor.ReserveMemory(input.Length);
+            memory.Reserve(checked(input.Length + 32L));
             byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             return bytes;
         }
@@ -718,12 +673,11 @@ internal static class JsonImport
             await input.DisposeAsync().ConfigureAwait(false);
         }
     }
-    internal static QpdfObject DecodeValue(JsonElement value, int depth)
+    private static QpdfObject DecodeValue(JsonElement value, int depth, ResourceGovernor governor, CancellationToken token)
     {
-        if (depth > 256)
-        {
-            throw new QpdfParseException("qpdf JSON exceeds nesting budget.", 0L, null);
-        }
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+        if (depth > governor.MaxNestingDepth)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth, governor.MaxNestingDepth); }
 
         switch (value.ValueKind)
         {
@@ -735,29 +689,24 @@ internal static class JsonImport
             case JsonValueKind.False:
                 return PdfBoolean.False;
             case JsonValueKind.Number:
-                return DecodeNumber(value);
+                return DecodeNumber(value, governor);
             case JsonValueKind.String:
-                return DecodeString(value.GetString() ?? string.Empty);
+                return DecodeString(value.GetString() ?? string.Empty, governor, token);
             case JsonValueKind.Array:
             {
-                List<QpdfObject> items = new();
+                QpdfObject[] items = new QpdfObject[value.GetArrayLength()];
+                int index = 0;
                 foreach (JsonElement item in value.EnumerateArray())
-                {
-                    items.Add(DecodeValue(item, depth + 1));
-                }
-
-                return new PdfArray(items);
+                { items[index++] = DecodeValue(item, depth + 1, governor, token); }
+                return PdfArray.FromOwnedItems(items);
             }
 
             case JsonValueKind.Object:
             {
-                Dictionary<PdfName, QpdfObject> entries = new();
+                Dictionary<PdfName, QpdfObject> entries = new(value.GetPropertyCount());
                 foreach (JsonProperty property in value.EnumerateObject())
-                {
-                    entries[DecodeName(property.Name)] = DecodeValue(property.Value, depth + 1);
-                }
-
-                return new PdfDictionary(entries);
+                { entries[DecodeName(property.Name, governor, token)] = DecodeValue(property.Value, depth + 1, governor, token); }
+                return PdfDictionary.FromOwnedEntries(entries);
             }
 
             default:
@@ -765,9 +714,10 @@ internal static class JsonImport
         }
     }
 
-    private static QpdfObject DecodeNumber(JsonElement value)
+    private static QpdfObject DecodeNumber(JsonElement value, ResourceGovernor governor)
     {
         string raw = value.GetRawText();
+        governor.ChargeWork(raw.Length);
         if (IsLongText(raw) && long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out long integer))
         {
             return new PdfInteger(raw, integer);
@@ -805,168 +755,115 @@ internal static class JsonImport
         return true;
     }
 
-    private static QpdfObject DecodeString(string text)
+    private static QpdfObject DecodeString(string text, ResourceGovernor governor, CancellationToken token)
     {
-        if (IsIndirectReference(text, out int number, out int generation))
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(text.Length);
+        if (IsIndirectReference(text, out int number, out int generation)) { return new PdfReference(number, generation); }
+        ReadOnlySpan<char> span = text.AsSpan();
+        if (span.StartsWith("u:", StringComparison.Ordinal))
+        { return PdfByteString.FromOwnedBytes(EncodeTextString(span[2..], governor, token), false); }
+        if (span.StartsWith("b:", StringComparison.Ordinal))
         {
-            return new PdfReference(number, generation);
-        }
-
-        if (text.StartsWith("u:", StringComparison.Ordinal))
-        {
-            return new PdfByteString(EncodeTextString(text.Substring(2)), false);
-        }
-
-        if (text.StartsWith("b:", StringComparison.Ordinal))
-        {
-            string hex = text.Substring(2);
+            ReadOnlySpan<char> hex = span[2..];
             if (hex.Length % 2 != 0)
-            {
-                throw new QpdfParseException("qpdf JSON binary string must have an even hex length.", 0L, null);
-            }
-
-            foreach (char c in hex)
-            {
-                if (!IsHexChar(c))
-                {
-                    throw new QpdfParseException("qpdf JSON binary string must be hexadecimal.", 0L, null);
-                }
-            }
-
+            { throw new QpdfParseException("qpdf JSON binary string must have an even hex length.", 0L, null); }
             byte[] bytes = new byte[hex.Length / 2];
-            for (int i = 0; i < bytes.Length; i++)
+            for (int index = 0; index < bytes.Length; index++)
             {
-                bytes[i] = (byte)((HexValue(hex[i * 2]) << 4) | HexValue(hex[i * 2 + 1]));
+                CheckTextChunk(index, bytes.Length, governor, token);
+                char high = hex[index * 2], low = hex[index * 2 + 1];
+                if (!IsHexChar(high) || !IsHexChar(low))
+                { throw new QpdfParseException("qpdf JSON binary string must be hexadecimal.", 0L, null); }
+                bytes[index] = (byte)((HexValue(high) << 4) | HexValue(low));
             }
-
-            return new PdfByteString(bytes, true);
+            return PdfByteString.FromOwnedBytes(bytes, true);
         }
-
-        if (text.StartsWith("/", StringComparison.Ordinal))
+        if (span.StartsWith("/", StringComparison.Ordinal))
+        { return PdfName.FromOwnedBytes(EncodeUtf8(span[1..], governor, token)); }
+        if (span.StartsWith("n:", StringComparison.Ordinal))
         {
-            return new PdfName(Encoding.UTF8.GetBytes(text.Substring(1)));
+            if (span.Length < 3 || span[2] != '/')
+            { throw new QpdfParseException("qpdf JSON unrecognized string value.", 0L, null); }
+            return PdfName.FromOwnedBytes(ResolveNameSyntax(span[3..], governor, token));
         }
-
-        if (text.StartsWith("n:", StringComparison.Ordinal))
-        {
-            string rest = text.Substring(2);
-            if (!rest.StartsWith("/", StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("qpdf JSON unrecognized string value.", 0L, null);
-            }
-
-            return new PdfName(ResolveNameSyntax(rest.Substring(1)));
-        }
-
         throw new QpdfParseException("qpdf JSON unrecognized string value.", 0L, null);
     }
 
-    private static PdfName DecodeName(string key)
+    private static PdfName DecodeName(string key, ResourceGovernor governor, CancellationToken token)
     {
-        if (key.StartsWith("n:", StringComparison.Ordinal))
+        ReadOnlySpan<char> span = key.AsSpan();
+        if (span.StartsWith("n:", StringComparison.Ordinal))
         {
-            string rest = key.Substring(2);
-            if (!rest.StartsWith("/", StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("qpdf JSON unrecognized name value.", 0L, null);
-            }
-
-            return new PdfName(ResolveNameSyntax(rest.Substring(1)));
+            if (span.Length < 3 || span[2] != '/')
+            { throw new QpdfParseException("qpdf JSON unrecognized name value.", 0L, null); }
+            return PdfName.FromOwnedBytes(ResolveNameSyntax(span[3..], governor, token));
         }
-
-        if (key.StartsWith("/", StringComparison.Ordinal))
-        {
-            return new PdfName(Encoding.UTF8.GetBytes(key.Substring(1)));
-        }
-
-        return new PdfName(Encoding.UTF8.GetBytes(key));
+        if (span.StartsWith("/", StringComparison.Ordinal)) { span = span[1..]; }
+        return PdfName.FromOwnedBytes(EncodeUtf8(span, governor, token));
     }
 
     internal static bool IsIndirectReference(string text, out int number, out int generation)
+        => TryReadReference(text.AsSpan(), out number, out generation);
+
+    private static bool TryReadReference(ReadOnlySpan<char> text, out int number, out int generation)
     {
-        number = 0;
-        generation = 0;
-        if (text is null)
-        {
-            return false;
-        }
-
-        string[] parts = text.Split((char)32, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 3 || parts[2] != "R")
-        {
-            return false;
-        }
-
-        if (text.Length == 0 || text[0] == (char)32 || text[text.Length - 1] == (char)32)
-        {
-            return false;
-        }
-
-        if (!TryParseDigits(parts[0], out number) || number <= 0)
-        {
-            return false;
-        }
-
-        if (!TryParseDigits(parts[1], out generation))
-        {
-            return false;
-        }
-
-        return true;
+        number = 0; generation = 0;
+        if (text.IsEmpty || text[0] == ' ' || text[^1] == ' ') { return false; }
+        int split = text.IndexOf(' ');
+        if (split <= 0 || !TryParseDigits(text[..split], out number) || number <= 0) { return false; }
+        ReadOnlySpan<char> rest = text[(split + 1)..].TrimStart(' ');
+        split = rest.IndexOf(' ');
+        return split > 0 && TryParseDigits(rest[..split], out generation)
+            && rest[(split + 1)..].TrimStart(' ').SequenceEqual("R");
     }
 
-    private static bool TryParseDigits(string text, out int value)
+    private static bool TryParseDigits(ReadOnlySpan<char> text, out int value)
     {
         value = 0;
-        if (text.Length == 0 || text.Length > 10)
-        {
-            return false;
-        }
-
+        if (text.IsEmpty || text.Length > 10) { return false; }
         long parsed = 0L;
-        foreach (char c in text)
+        foreach (char character in text)
         {
-            if (c < (char)48 || c > (char)57)
-            {
-                return false;
-            }
-
-            parsed = checked(parsed * 10L + (c - (char)48));
+            if (character < '0' || character > '9') { return false; }
+            parsed = parsed * 10L + character - '0';
         }
-
-        if (parsed > (long)int.MaxValue)
-        {
-            return false;
-        }
-
-        value = (int)parsed;
-        return true;
+        if (parsed > int.MaxValue) { return false; }
+        value = (int)parsed; return true;
     }
-    private static byte[] ResolveNameSyntax(string body)
+
+    private static byte[] EncodeUtf8(ReadOnlySpan<char> text, ResourceGovernor governor, CancellationToken token)
     {
-        byte[] source = Encoding.UTF8.GetBytes(body);
-        List<byte> resolved = new(source.Length);
-        int i = 0;
-        while (i < source.Length)
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(text.Length);
+        byte[] result = new byte[Encoding.UTF8.GetByteCount(text)];
+        Encoding.UTF8.GetBytes(text, result);
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        return result;
+    }
+
+    private static byte[] ResolveNameSyntax(ReadOnlySpan<char> body, ResourceGovernor governor, CancellationToken token)
+    {
+        byte[] source = EncodeUtf8(body, governor, token);
+        int written = 0;
+        for (int index = 0; index < source.Length; index++)
         {
-            if (source[i] == 35)
+            CheckTextChunk(written, source.Length, governor, token);
+            byte value = source[index];
+            if (value == '#')
             {
-                if (i + 2 >= source.Length || !IsHexChar((char)source[i + 1]) || !IsHexChar((char)source[i + 2]))
-                {
-                    throw new QpdfParseException("qpdf JSON name has an invalid escape.", 0L, null);
-                }
-
-                resolved.Add((byte)((HexValue((char)source[i + 1]) << 4) | HexValue((char)source[i + 2])));
-                i += 3;
+                if (index + 2 >= source.Length || !IsHexChar((char)source[index + 1]) || !IsHexChar((char)source[index + 2]))
+                { throw new QpdfParseException("qpdf JSON name has an invalid escape.", 0L, null); }
+                value = (byte)((HexValue((char)source[index + 1]) << 4) | HexValue((char)source[index + 2]));
+                index += 2;
             }
-            else
-            {
-                resolved.Add(source[i]);
-                i += 1;
-            }
+            source[written++] = value;
         }
+        return written == source.Length ? source : source.AsSpan(0, written).ToArray();
+    }
 
-        return [.. resolved];
+    private static void CheckTextChunk(int index, int length, ResourceGovernor governor, CancellationToken token)
+    {
+        if ((index & 255) != 0) { return; }
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(Math.Min(256, length - index));
     }
 
     private static bool IsHexChar(char c)
@@ -1001,35 +898,25 @@ internal static class JsonImport
         0xFFFD, 0x20AC,
     ];
 
-    internal static byte[] EncodeTextString(string text)
+    private static byte[] EncodeTextString(ReadOnlySpan<char> text, ResourceGovernor governor, CancellationToken token)
     {
-        if (text is null)
+        bool pdfDoc = true;
+        for (int index = 0; index < text.Length; index++)
         {
-            throw new ArgumentNullException(nameof(text));
+            CheckTextChunk(index, text.Length, governor, token);
+            int unit = char.IsHighSurrogate(text[index]) && index + 1 < text.Length
+                ? char.ConvertToUtf32(text[index], text[index + 1]) : text[index];
+            if (!TryEncodePdfDoc(unit, out _)) { pdfDoc = false; break; }
         }
-
-        List<byte> encoded = new(text.Length);
-        int i = 0;
-        while (i < text.Length)
+        byte[] result = new byte[pdfDoc ? text.Length : checked(text.Length * 2 + 2)];
+        if (!pdfDoc) { result[0] = 0xFE; result[1] = 0xFF; }
+        for (int index = 0; index < text.Length; index++)
         {
-            int unit = char.ConvertToUtf32(text, i);
-            i += char.IsSurrogatePair(text, i) ? 2 : 1;
-            if (!TryEncodePdfDoc(unit, out byte mapped))
-            {
-                List<byte> utf16 = new(text.Length * 2 + 2) { 0xFE, 0xFF };
-                for (int j = 0; j < text.Length; j++)
-                {
-                    utf16.Add((byte)(text[j] >> 8));
-                    utf16.Add((byte)(text[j] & 0xFF));
-                }
-
-                return [.. utf16];
-            }
-
-            encoded.Add(mapped);
+            CheckTextChunk(index, text.Length, governor, token);
+            if (pdfDoc) { TryEncodePdfDoc(text[index], out result[index]); }
+            else { result[index * 2 + 2] = (byte)(text[index] >> 8); result[index * 2 + 3] = (byte)text[index]; }
         }
-
-        return [.. encoded];
+        return result;
     }
 
     private static bool TryEncodePdfDoc(int unit, out byte mapped)
@@ -1070,6 +957,7 @@ internal static class JsonImport
         ImportedModel model,
         QpdfLimits limits,
         ResourceGovernor governor,
+        ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         if (model is null)
@@ -1103,7 +991,8 @@ internal static class JsonImport
             throw new QpdfParseException("Imported trailer must declare /Root.", 0L, null);
         }
 
-        Dictionary<int, QpdfObject> pool = new(model.Objects.Count + 1);
+        memory.CheckOwner(governor);
+        memory.Reserve(checked(512L + 192L * model.Objects.Count));
         int rootOld;
         PdfDictionary root;
         if (rootRaw is PdfDictionary directRoot)
@@ -1138,9 +1027,10 @@ internal static class JsonImport
             }
         }
 
-        rest.Sort();
+        GovernedCollections.SortNumbers(memory, governor, rest);
         for (int i = 0; i < rest.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             renumber[rest[i]] = i + 2;
         }
 
@@ -1174,12 +1064,12 @@ internal static class JsonImport
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.ChargeWork(1L);
-            mapped[renumber[entry.Key]] = RewriteReferences(entry.Value, renumber, governor, 0, limits);
+            mapped[renumber[entry.Key]] = Writing.ObjectRemap.RemapImported(entry.Value, renumber, memory, governor, cancellationToken);
         }
 
         if (infoDirect && infoDict is not null)
         {
-            mapped[renumber[-2]] = RewriteReferences(infoDict, renumber, governor, 0, limits);
+            mapped[renumber[-2]] = Writing.ObjectRemap.RemapImported(infoDict, renumber, memory, governor, cancellationToken);
         }
 
         int? infoNew = null;
@@ -1194,72 +1084,15 @@ internal static class JsonImport
 
         List<Writing.NumberedObject> ordered = new(mapped.Count);
         List<int> numbers = new(mapped.Keys);
-        numbers.Sort();
+        GovernedCollections.SortNumbers(memory, governor, numbers);
         foreach (int number in numbers)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
             ordered.Add(new Writing.NumberedObject(number, mapped[number]));
         }
 
         int pages = CountPages(mapped, governor, limits, cancellationToken);
         return new RenumberedModel(ordered, infoNew, pages);
-    }
-
-    private static QpdfObject RewriteReferences(
-        QpdfObject value,
-        Dictionary<int, int> renumber,
-        ResourceGovernor governor,
-        int depth,
-        QpdfLimits limits)
-    {
-        governor.ChargeWork(1L);
-        if (depth > limits.MaxNestingDepth)
-        {
-            throw new QpdfParseException("Imported object exceeds nesting budget.", 0L, null);
-        }
-
-        if (value is PdfReference reference)
-        {
-            if (renumber.TryGetValue(reference.ObjectNumber, out int mapped))
-            {
-                return new PdfReference(mapped, 0);
-            }
-
-            return PdfNull.Instance;
-        }
-
-        if (value is PdfArray array)
-        {
-            QpdfObject[] items = array.Items;
-            List<QpdfObject> rewritten = new(items.Length);
-            foreach (QpdfObject item in items)
-            {
-                rewritten.Add(RewriteReferences(item, renumber, governor, depth + 1, limits));
-            }
-
-            return new PdfArray(rewritten);
-        }
-
-        if (value is PdfDictionary dictionary)
-        {
-            Dictionary<PdfName, QpdfObject> entries = new();
-            foreach (PdfName key in dictionary.Keys)
-            {
-                if (dictionary.TryGet(key, out QpdfObject? found) && found is not null)
-                {
-                    entries[key] = RewriteReferences(found, renumber, governor, depth + 1, limits);
-                }
-            }
-
-            return new PdfDictionary(entries);
-        }
-
-        if (value is PdfStream stream)
-        {
-            QpdfObject rewrittenDict = RewriteReferences(stream.Dictionary, renumber, governor, depth + 1, limits);
-            return new PdfStream((PdfDictionary)rewrittenDict, stream.Data);
-        }
-
-        return value;
     }
 
     private static int CountPages(
@@ -1285,9 +1118,12 @@ internal static class JsonImport
         }
 
         int count = 0;
-        List<QpdfObject> stack = new() { pagesDict };
+        using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
+        List<QpdfObject> stack = Syntax.ParserContainers.CreateList<QpdfObject>(traversal);
+        Syntax.ParserContainers.AddItem(traversal, stack, pagesDict);
+        traversal.Reserve(96L);
         HashSet<QpdfObject> visited = new(ReferenceEqualityComparer.Instance);
-        visited.Add(pagesDict);
+        Syntax.ParserContainers.AddSetItem(traversal, visited, pagesDict, IntPtr.Size);
         int depth = 0;
         while (stack.Count > 0)
         {
@@ -1299,15 +1135,16 @@ internal static class JsonImport
             }
 
             depth += 1;
-            List<QpdfObject> next = new();
+            List<QpdfObject> next = Syntax.ParserContainers.CreateList<QpdfObject>(traversal);
             foreach (QpdfObject node in stack)
             {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
                 if (node is not PdfDictionary dictionary)
                 {
                     continue;
                 }
 
-                if (dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject? typeRaw) && typeRaw is PdfName type && type.DisplayText == "Page")
+                if (dictionary.TryGet(PdfName.FromAscii("Type"), out QpdfObject? typeRaw) && typeRaw is PdfName type && type.RawSpan.SequenceEqual("Page"u8))
                 {
                     count += 1;
                     continue;
@@ -1318,18 +1155,18 @@ internal static class JsonImport
                     QpdfObject kids = ResolvePool(kidsRaw, pool);
                     if (kids is PdfArray array)
                     {
-                        foreach (QpdfObject kid in array.Items)
+                        for (int index = 0; index < array.Count; index++)
                         {
-                            QpdfObject target = ResolvePool(kid, pool);
-                            if (target is PdfDictionary && visited.Add(target))
-                            {
-                                next.Add(target);
-                            }
+                            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.ChargeWork(1L);
+                            QpdfObject target = ResolvePool(array[index], pool);
+                            if (target is PdfDictionary && Syntax.ParserContainers.AddSetItem(traversal, visited, target, IntPtr.Size))
+                            { Syntax.ParserContainers.AddItem(traversal, next, target); }
                         }
                     }
                 }
             }
 
+            Syntax.ParserContainers.ReleaseList(traversal, stack);
             stack = next;
         }
 

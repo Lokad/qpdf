@@ -115,3 +115,12 @@ or abandoned; the receipt is never attached to a returned PDF object.
 Custom hosts own identifiers they retain after their callbacks complete. Copy or
 admit that private storage under the host's durable owner. The built-in memory
 host copies persisted keys and funds them with its retained storage.
+
+JSON import/update uses an operation owner through input cleanup, conversion,
+renumbering and publication. A bounded token scan admits DOM capacity before
+parsing; conversion admission combines token kinds with encoded string lengths.
+Dense containers and large scalar backing therefore receive different estimates.
+Converted arrays, dictionaries and byte strings adopt their fresh storage without
+extra defensive copies. Updates and reference remapping borrow immutable stream
+payloads while their source owner remains live. Remapping, sorting and page walks
+use the shared governed helpers; private import storage refunds on every outcome.

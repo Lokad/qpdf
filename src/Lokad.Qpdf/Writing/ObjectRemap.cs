@@ -11,6 +11,13 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal static class ObjectRemap
 {
+    internal static QpdfObject RemapImported(QpdfObject value, Dictionary<int, int> renumber,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.CheckOwner(governor);
+        return RemapIds(value, new NumberMap(renumber, null, null) { DiscardUnmapped = true }, memory, governor, token, 0L);
+    }
+
     internal static QpdfObject RemapIds(QpdfObject value, Dictionary<int, int> renumber, ResourceGovernor governor)
     {
         ArgumentNullException.ThrowIfNull(renumber);
@@ -62,6 +69,7 @@ internal static class ObjectRemap
     private readonly record struct NumberMap(Dictionary<int, int>? Plain, GovernedIntDictionary<int>? Governed,
         WriterIndex<int>? Writer)
     {
+        internal bool DiscardUnmapped { get; init; }
         internal bool TryGetValue(int number, out int mapped)
         {
             if (Writer is not null) { return Writer.TryGetValue(number, out mapped); }
@@ -95,6 +103,7 @@ internal static class ObjectRemap
         {
             if (!renumber.TryGetValue(reference.ObjectNumber, out int mapped))
             {
+                if (renumber.DiscardUnmapped) { return PdfNull.Instance; }
                 throw new QpdfException($"Publication reached unmapped object {reference.ObjectNumber}.");
             }
 
