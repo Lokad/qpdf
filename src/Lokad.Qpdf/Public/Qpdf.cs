@@ -4949,29 +4949,33 @@ public static partial class Qpdf
         if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(options.Limits, cancellationToken, host);
         if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
-        DiagnosticBag diagnostics = new(governor);
-        ExecutionOutcome result;
-        ExpandedArguments? expanded = null;
         try
         {
-            expanded = await ResponseFileExpander.ExpandAsync(host, invocation.Arguments, options.Limits, governor, cancellationToken).ConfigureAwait(false);
-            result = await RunExpandedInvocationAsync(host, expanded.Values, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        }
-        catch (QpdfException ex)
-        {
-            result = ToFailedResult(ex);
-        }
-        catch (OperationCanceledException)
-        {
-            result = ExecutionOutcome.Canceled([]);
-        }
-        finally
-        {
-            expanded?.Dispose();
-            expanded = null;
-        }
+            DiagnosticBag diagnostics = new(governor);
+            ExecutionOutcome result;
+            ExpandedArguments? expanded = null;
+            try
+            {
+                expanded = await ResponseFileExpander.ExpandAsync(host, invocation.Arguments, options.Limits, governor, cancellationToken).ConfigureAwait(false);
+                result = await RunExpandedInvocationAsync(host, expanded.Values, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+            }
+            catch (QpdfException ex)
+            {
+                result = ToFailedResult(ex);
+            }
+            catch (OperationCanceledException)
+            {
+                result = ExecutionOutcome.Canceled([]);
+            }
+            finally
+            {
+                expanded?.Dispose();
+                expanded = null;
+            }
 
-        return governor.FinishExecutionResult(result);
+            return governor.FinishExecutionResult(result);
+        }
+        finally { governor.AbandonExecutionResult(); }
     }
 
     private static async ValueTask<ExecutionOutcome> RunExpandedInvocationAsync(
@@ -5117,22 +5121,26 @@ public static partial class Qpdf
         if (ExecutionResultAdmission.Reject(options.Limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(options.Limits, cancellationToken, host);
         if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
-        DiagnosticBag diagnostics = new(governor);
-        JobJsonLoader.LoadedJob loaded;
         try
         {
-            loaded = await JobJsonLoader.ParseAsync(host, jobJson, options.Limits, governor, cancellationToken).ConfigureAwait(false);
+            DiagnosticBag diagnostics = new(governor);
+            JobJsonLoader.LoadedJob loaded;
+            try
+            {
+                loaded = await JobJsonLoader.ParseAsync(host, jobJson, options.Limits, governor, cancellationToken).ConfigureAwait(false);
+            }
+            catch (QpdfException ex)
+            {
+                ExecutionOutcome failure = ToFailedResult(ex);
+                return governor.FinishExecutionResult(failure);
+            }
+            catch (OperationCanceledException)
+            {
+                return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
+            }
+            return governor.FinishExecutionResult(await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false));
         }
-        catch (QpdfException ex)
-        {
-            ExecutionOutcome failure = ToFailedResult(ex);
-            return governor.FinishExecutionResult(failure);
-        }
-        catch (OperationCanceledException)
-        {
-            return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
-        }
-        return governor.FinishExecutionResult(await RunLoadedJobAsync(host, loaded, options, governor, diagnostics, cancellationToken).ConfigureAwait(false));
+        finally { governor.AbandonExecutionResult(); }
     }
 
     private static async ValueTask<ExecutionOutcome> RunLoadedJobAsync(
@@ -5913,55 +5921,60 @@ public static partial class Qpdf
         if (ExecutionResultAdmission.Reject(limits, cancellationToken) is QpdfExecutionResult rejection) { return rejection; }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
-        ExecutionOutcome result;
         try
         {
-            await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
-            byte[] bytes;
+            ExecutionOutcome result;
             try
             {
-                if (input.Length > limits.MaxInputBytes)
+                using ParserMemoryScope working = ParserMemoryScope.Create(governor);
+                await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
+                byte[] bytes;
+                try
                 {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                    if (input.Length > limits.MaxInputBytes)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                    }
+
+                    if (input.Length > int.MaxValue)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+                    }
+
+                    working.Reserve(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
+                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await input.DisposeAsync().ConfigureAwait(false);
                 }
 
-                if (input.Length > int.MaxValue)
+                await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
+                TransactionSink sink = new(transaction, governor);
+                try
                 {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+                    QdfRepair repair = QdfRepair.Create(governor, sink, working);
+                    await repair.RepairAsync(bytes, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OverflowException ex)
+                {
+                    throw new QpdfParseException("QDF repair met an unrepresentable offset.", null, null, ex);
                 }
 
-                governor.ReserveMemory(input.Length);
-                bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                result = ExecutionOutcome.Completed([]);
             }
-            finally
+            catch (QpdfException ex)
             {
-                await input.DisposeAsync().ConfigureAwait(false);
+                result = ToFailedResult(ex);
             }
-
-            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink sink = new(transaction, governor);
-            try
+            catch (OperationCanceledException)
             {
-                QdfRepair repair = new(governor, sink);
-                await repair.RepairAsync(bytes, cancellationToken).ConfigureAwait(false);
+                result = ExecutionOutcome.Canceled([]);
             }
-            catch (OverflowException ex)
-            {
-                throw new QpdfParseException("QDF repair met an unrepresentable offset.", null, null, ex);
-            }
-
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            result = ExecutionOutcome.Completed([]);
+            return governor.FinishExecutionResult(result);
         }
-        catch (QpdfException ex)
-        {
-            result = ToFailedResult(ex);
-        }
-        catch (OperationCanceledException)
-        {
-            result = ExecutionOutcome.Canceled([]);
-        }
-        return governor.FinishExecutionResult(result);
+        finally { governor.AbandonExecutionResult(); }
     }
 
     /// <summary>
@@ -6021,64 +6034,70 @@ public static partial class Qpdf
         }
         ResourceGovernor governor = new(limits, cancellationToken, host);
         if (!governor.TryExpectExecutionResult()) { return ExecutionResultAdmission.SharedMemoryFailure; }
-        if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
-        {
-            return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibModeMessage, null, null)));
-        }
-
-        if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
-        {
-            return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibLevelMessage, null, null)));
-        }
-
-        ExecutionOutcome result;
         try
         {
-            await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
-            byte[] bytes;
+            if (options.Mode != QpdfZlibFlateMode.Uncompress && options.Mode != QpdfZlibFlateMode.Compress)
+            {
+                return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibModeMessage, null, null)));
+            }
+
+            if (options.CompressionLevel.HasValue && (options.Mode != QpdfZlibFlateMode.Compress || options.CompressionLevel.Value < 1 || options.CompressionLevel.Value > 9))
+            {
+                return governor.FinishExecutionResult(ToFailedResult(new QpdfParseException(ExecutionResultAdmission.InvalidZlibLevelMessage, null, null)));
+            }
+
+            ExecutionOutcome result;
             try
             {
-                if (input.Length > limits.MaxInputBytes)
+                using ParserMemoryScope working = ParserMemoryScope.Create(governor);
+                await using IQpdfInput input = await GovernedHost.OpenInputAsync(host, inputPath, governor, cancellationToken).ConfigureAwait(false);
+                byte[] bytes;
+                try
                 {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                    if (input.Length > limits.MaxInputBytes)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                    }
+
+                    if (input.Length > int.MaxValue)
+                    {
+                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+                    }
+
+                    working.Reserve(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
+                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await input.DisposeAsync().ConfigureAwait(false);
                 }
 
-                if (input.Length > int.MaxValue)
+                byte[] output = options.Mode == QpdfZlibFlateMode.Compress
+                    ? FlateFilter.Encode(bytes, options.CompressionLevel, limits, governor)
+                    : DecodeZlibFlate(bytes, limits, governor);
+                working.AdoptReserved(output.Length == 0 ? 0L : checked(output.LongLength + GovernedBufferStream.ArrayOverheadBytes));
+                if (output.Length > limits.MaxOutputBytes)
                 {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output.Length, limits.MaxOutputBytes);
                 }
 
-                governor.ReserveMemory(input.Length);
-                bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
+                TransactionSink sink = new(transaction, governor);
+                await sink.AppendAsync(output, cancellationToken).ConfigureAwait(false);
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                result = ExecutionOutcome.Completed([]);
             }
-            finally
+            catch (QpdfException ex)
             {
-                await input.DisposeAsync().ConfigureAwait(false);
+                result = ToFailedResult(ex);
             }
-
-            byte[] output = options.Mode == QpdfZlibFlateMode.Compress
-                ? FlateFilter.Encode(bytes, options.CompressionLevel, limits, governor)
-                : DecodeZlibFlate(bytes, limits, governor);
-            if (output.Length > limits.MaxOutputBytes)
+            catch (OperationCanceledException)
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output.Length, limits.MaxOutputBytes);
+                result = ExecutionOutcome.Canceled([]);
             }
-
-            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink sink = new(transaction, governor);
-            await sink.AppendAsync(output, cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            result = ExecutionOutcome.Completed([]);
+            return governor.FinishExecutionResult(result);
         }
-        catch (QpdfException ex)
-        {
-            result = ToFailedResult(ex);
-        }
-        catch (OperationCanceledException)
-        {
-            result = ExecutionOutcome.Canceled([]);
-        }
-        return governor.FinishExecutionResult(result);
+        finally { governor.AbandonExecutionResult(); }
     }
 
     private static byte[] DecodeZlibFlate(byte[] bytes, QpdfLimits limits, ResourceGovernor governor)

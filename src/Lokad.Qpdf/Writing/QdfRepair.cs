@@ -86,10 +86,20 @@ internal sealed class QdfRepair
     private readonly List<int> _memberNumbers = new();
     private byte[]? _extendsReference;
 
-    internal QdfRepair(ResourceGovernor governor, IByteSink sink)
+    private readonly ParserMemoryScope _memory;
+
+    internal static QdfRepair Create(ResourceGovernor governor, IByteSink sink, ParserMemoryScope memory)
+    {
+        memory.CheckOwner(governor);
+        memory.Reserve(384L);
+        return new QdfRepair(governor, sink, memory);
+    }
+
+    private QdfRepair(ResourceGovernor governor, IByteSink sink, ParserMemoryScope memory)
     {
         _governor = governor ?? throw new ArgumentNullException(nameof(governor));
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
+        _memory = memory;
     }
 
     internal async ValueTask RepairAsync(byte[] input, CancellationToken cancellationToken)
@@ -211,8 +221,8 @@ internal sealed class QdfRepair
                 if (terminated && MatchesMember(start, length, out int member))
                 {
                     CheckObjectId(member, start, _outputLength);
-                    _memberNumbers.Add(member);
-                    _commentAt.Add(_memberLines.Count);
+                    GovernedCollections.AddItem(_memory, _governor, _memberNumbers, member, sizeof(int));
+                    GovernedCollections.AddItem(_memory, _governor, _commentAt, _memberLines.Count, sizeof(int));
                     BufferMemberLine(start, length);
                     _state = RepairState.InObjectStreamOuter;
                 }
@@ -236,8 +246,8 @@ internal sealed class QdfRepair
                     if (terminated && MatchesMember(start, length, out int next))
                     {
                         CheckObjectId(next, start, _outputLength);
-                        _memberNumbers.Add(next);
-                        _commentAt.Add(_memberLines.Count - 1);
+                        GovernedCollections.AddItem(_memory, _governor, _memberNumbers, next, sizeof(int));
+                        GovernedCollections.AddItem(_memory, _governor, _commentAt, _memberLines.Count - 1, sizeof(int));
                         _state = RepairState.InObjectStreamOuter;
                     }
                 }
@@ -319,6 +329,10 @@ internal sealed class QdfRepair
             throw new QpdfParseException("QDF repair found an object stream without members.", _outputLength, _lastObject);
         }
 
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(_governor);
+        // Numeric table formatting keeps offsets, builder capacity, a final
+        // string and encoded bytes live together. Admit that overlap once.
+        temporary.Reserve(checked(256L + 192L * _commentAt.Count));
         long headerFirst = _memberLines[_commentAt[0]].Length;
         List<long> offsets = new(_commentAt.Count);
         long prefix = 0L;
@@ -332,7 +346,7 @@ internal sealed class QdfRepair
             }
         }
 
-        System.Text.StringBuilder table = new();
+        System.Text.StringBuilder table = new(checked(32 * _commentAt.Count));
         for (int m = 0; m < _commentAt.Count; m++)
         {
             table.Append(FormatLong(checked((long)_containerId + 1L + m)));
@@ -358,14 +372,14 @@ internal sealed class QdfRepair
         long buffered = 0L;
         foreach (byte[] line in _memberLines)
         {
-            buffered = checked(buffered + line.Length);
+            buffered = checked(buffered + line.Length + 32L);
             await AppendBytesAsync(line, cancellationToken).ConfigureAwait(false);
         }
 
-        _governor.ReleaseMemory(buffered);
+        _memory.Release(buffered);
         if (_extendsReference is not null)
         {
-            _governor.ReleaseMemory(_extendsReference.Length);
+            _memory.Release(checked(32L + _extendsReference.Length));
             _extendsReference = null;
         }
 
@@ -524,7 +538,7 @@ internal sealed class QdfRepair
         }
 
         _lastObject = number;
-        _entries.Add(new XrefEntry(1, outputStart, 0L));
+        GovernedCollections.AddItem(_memory, _governor, _entries, new XrefEntry(1, outputStart, 0L), 24L);
     }
 
 
@@ -565,12 +579,12 @@ internal sealed class QdfRepair
             return;
         }
 
+        _memory.Reserve(checked(32L + count + 4L));
         byte[] reference = new byte[checked(count + 4)];
         Buffer.BlockCopy(_input, digits, reference, 0, checked(count + 4));
-        _governor.ReserveMemory(reference.Length);
         if (_extendsReference is not null)
         {
-            _governor.ReleaseMemory(_extendsReference.Length);
+            _memory.Release(checked(32L + _extendsReference.Length));
         }
 
         _extendsReference = reference;
@@ -578,9 +592,9 @@ internal sealed class QdfRepair
 
     private void BufferMemberLine(int start, int length)
     {
+        _memory.Reserve(checked(32L + length));
         byte[] copy = Slice(start, length);
-        _governor.ReserveMemory(copy.Length);
-        _memberLines.Add(copy);
+        GovernedCollections.AddItem(_memory, _governor, _memberLines, copy, IntPtr.Size);
     }
 
     private byte[] Slice(int start, int length)

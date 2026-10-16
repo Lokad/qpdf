@@ -688,7 +688,12 @@ internal sealed class ResourceGovernor
             ChargeExecutionResultWork(2L);
             _preparedExecutionResult = result;
         }
-        catch { ReleaseCallerMetadata(ExecutionResultAdmission.MemoryBytes); throw; }
+        catch
+        {
+            _returnsExecutionResult = false;
+            ReleaseCallerMetadata(ExecutionResultAdmission.MemoryBytes);
+            throw;
+        }
         finally { _buildingExecutionResult = false; }
         CheckCancellation();
     }
@@ -709,15 +714,30 @@ internal sealed class ResourceGovernor
             PrepareExecutionResult();
             QpdfExecutionResult result = _preparedExecutionResult
                 ?? throw new InvalidOperationException("Missing admitted execution result.");
-            _preparedExecutionResult = null; _returnsExecutionResult = false;
             result.CompleteBeforeReturn(outcome);
             _valueOwners?.AcceptResults();
             CompletePrivateStorage();
             result.Counters.CaptureBeforeReturn(CounterValues);
+            _preparedExecutionResult = null; _returnsExecutionResult = false;
             return result;
         }
         catch (QpdfMemoryAdmissionException) { return ExecutionResultAdmission.SharedMemoryFailure; }
-        finally { CompletePrivateStorage(); _finishingExecution = false; _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes)); }
+        finally { AbandonExecutionResult(); _finishingExecution = false; }
+    }
+
+    // Every command boundary invokes this after its component/async cleanup,
+    // including when an unexpected exception bypasses result construction.
+    internal void AbandonExecutionResult()
+    {
+        _preparedExecutionResult = null;
+        if (_returnsExecutionResult)
+        {
+            _returnsExecutionResult = false;
+            ReleaseCallerMetadata(ExecutionResultAdmission.MemoryBytes);
+        }
+        _reservedResultWork = 0L;
+        CompletePrivateStorage();
+        _sharedMemory?.Complete(Math.Max(0L, LiveMemoryBytes - _hostMemoryBytes));
     }
 
     internal PresentedDiagnostics? CompleteExecutionPresentation()

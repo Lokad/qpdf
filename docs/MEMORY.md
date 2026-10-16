@@ -60,6 +60,17 @@ remain charged until the caller closes its owner, including when CLR collection
 has reclaimed individual values. Typed result/counter construction is funded
 before execution so publication cannot succeed and then fail to admit the result.
 Abandoning an unreturned typed result refunds that prepared capacity immediately.
+Command boundaries also refund private graph storage and unreturned result
+preparation after unexpected exceptions, including failed asynchronous cleanup.
+They preserve charges belonging to earlier caller-owned results.
+
+QDF and zlib companions keep their input and codec buffers under one working
+owner through awaited publication and cleanup. QDF repair admits collection
+capacity, buffered member lines and numeric-table formatting overlap before
+allocation. Private working charges end before returning the command result.
+An output write borrows library storage through completion; a host retaining
+that backing afterward must keep it immutable and fund its retained capacity
+under its own storage owner.
 
 `InMemoryQpdfHost(limits, codec, memoryBudget)` also admits its retained input,
 staging capacity and publication buffers under a durable caller owner. Existing

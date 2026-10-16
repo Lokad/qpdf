@@ -28,6 +28,12 @@ public interface IQpdfOutputTransaction : IAsyncDisposable
     /// <see cref="QpdfHostException" /> on transport failure, and
     /// <see cref="OperationCanceledException" /> on cancellation.
     /// </summary>
+    /// <remarks>
+    /// Complete consumption or copying before this call completes. Any backing
+    /// retained as staging afterward belongs to the host: keep it immutable and
+    /// account for its full retained capacity under the host's storage owner.
+    /// The library keeps its borrow funded through this call and cleanup.
+    /// </remarks>
     ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
 
     /// <summary>
