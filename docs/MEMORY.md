@@ -124,6 +124,16 @@ private configuration and filter text end with their disposable component owners
 Loaded job configuration keeps decoded strings under its text owner through plan
 consumption and awaited cleanup. Parsing refunds unused copy capacity while
 preserving accepted strings until that loaded job closes.
+Job JSON of 16 KiB or more uses one bounded density scan before DOM construction,
+with aggregate metadata and decoded-string credit. Text input is scanned in place;
+file input admits its raw backing and bounded read-copy overlap first. This avoids
+charging a long scalar as though every byte introduced another small JSON value.
+Small settings keep the inexpensive blanket estimate. Escaped strings remain
+conservative, and admission still uses the existing coarse execution reservation.
+Mixed argv loading funds serialization scratch separately from retained documents
+and copied text. Long arguments use conservative escape/growth estimates; short
+arguments keep the cheap bound. Scratch credit refunds after all setters and
+child loads finish, while the loaded job retains its persistent configuration.
 Prepared typed result arrays transfer to the caller when the result is accepted,
 and refund with private cleanup when preparation fails.
 

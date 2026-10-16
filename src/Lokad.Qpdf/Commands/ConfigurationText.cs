@@ -28,8 +28,9 @@ internal sealed class ConfigurationText : IDisposable
 
     private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(ConfigurationText));
 
-    // The loader splits its already established document admission: this part
-    // funds decoded copies, and the rest continues to fund encoded/DOM storage.
+    // Small documents use a cheap blanket admission split: this part funds
+    // decoded copies, and the rest funds encoded/DOM storage. Large documents
+    // derive their aggregate copy credit from token/string density instead.
     // A nonempty JSON string needs at most two bytes per encoded byte plus its
     // header. Sixteen bytes per input byte covers both character storage and
     // headers even for arrays of one-character strings. Accepted copies consume

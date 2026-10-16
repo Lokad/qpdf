@@ -11,8 +11,6 @@ namespace Lokad.Qpdf.Jobs;
 /// </summary>
 internal static class JobJsonParser
 {
-    private const int MaxDepth = 32;
-
     internal static JobPlan Parse(string jobJson, QpdfLimits limits, ResourceGovernor governor)
     {
         if (jobJson is null)
@@ -42,45 +40,41 @@ internal static class JobJsonParser
 
         // Admit the transient document model before constructing it: the parsed
         // document retains roughly the input size plus object overhead.
-        long modelBudget = checked(byteCount * 2L + 1024L);
+        var admission = byteCount >= JobJsonMemory.DetailedThreshold
+            ? JobJsonMemory.Estimate(jobJson.AsSpan(), byteCount, governor)
+            : (Document: checked(byteCount * 2L + 1024L), Copies: ConfigurationText.JsonCopyBytes(byteCount));
+        long modelBudget = admission.Document;
         if (modelBudget > limits.MaxMemoryBytes)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxMemoryBytes), modelBudget, limits.MaxMemoryBytes);
         }
 
         using ConfigurationText textStorage = ConfigurationText.Create(governor);
-        textStorage.AdmitJsonCopies(ConfigurationText.JsonCopyBytes(byteCount));
+        textStorage.AdmitJsonCopies(admission.Copies);
         governor.ReserveMemory(modelBudget);
         JsonDocumentOptions options = new()
         {
-            MaxDepth = MaxDepth,
+            MaxDepth = JobJsonMemory.MaxDepth,
             AllowTrailingCommas = false,
             CommentHandling = JsonCommentHandling.Disallow,
         };
-        JsonDocument document;
         try
         {
-            document = JsonDocument.Parse(jobJson, options);
-        }
-        catch (JsonException ex)
-        {
-            governor.ReleaseMemory(modelBudget);
-            throw new QpdfParseException($"Invalid job JSON: {ex.Message}.", ex.BytePositionInLine, null, ex);
-        }
-
-        try
-        {
-        using (document)
-        {
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            JsonDocument document;
+            try { document = JsonDocument.Parse(jobJson, options); }
+            catch (JsonException ex)
+            { throw new QpdfParseException($"Invalid job JSON: {ex.Message}.", ex.BytePositionInLine, null, ex); }
+            using (document)
             {
-                throw new QpdfParseException("Job JSON must be an object.", 0L, null);
-            }
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    throw new QpdfParseException("Job JSON must be an object.", 0L, null);
+                }
 
-            JobPlan plan = ParseProperties(EffectiveProperties(document.RootElement), false, limits, governor, textStorage);
-            textStorage.RetainForExecution();
-            return plan;
-        }
+                JobPlan plan = ParseProperties(EffectiveProperties(document.RootElement), false, limits, governor, textStorage);
+                textStorage.RetainForExecution();
+                return plan;
+            }
         }
         finally
         {

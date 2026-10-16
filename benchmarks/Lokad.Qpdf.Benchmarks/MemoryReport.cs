@@ -37,7 +37,7 @@ internal static class MemoryReport
 #endif
         string[] names = args.Length == 4
             ? ["tiny", "select-sparse", "rewrite-objects", "merge", "split", "json", "flate", "photo", "linearize",
-                "config-text", "config-dense", "import-text", "import-dense", "import-unicode", "import-escaped"]
+                "config-text", "config-dense", "config-argv", "import-text", "import-dense", "import-unicode", "import-escaped"]
             : args[4..];
         foreach (string name in names)
         {
@@ -159,6 +159,12 @@ internal static class MemoryReport
 
     private static Scenario Create(string name)
     {
+        if (name == "config-argv")
+        {
+            return new(name, [PdfScenarioBuilder.BuildTextDocument(1), "{}"u8.ToArray()],
+                ["input0", "--job-json-file=input1", "--add-attachment", "input0",
+                    "--description=" + new string('x', 131072), "--", "--", "output"]);
+        }
         if (name is "config-text" or "config-dense")
         {
             string config = name == "config-text"

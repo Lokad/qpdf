@@ -140,7 +140,7 @@ dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmark
 Arguments select the mode, minimum warmup jobs, samples and jobs per sample;
 optional scenario names narrow the run. Cases cover tiny inspection, sparse
 selection, object-heavy rewriting, merge/split, JSON, Flate, JPEG, linearization,
-large/dense configuration and scalar/dense/Unicode/escaped JSON import. Input
+large/dense configuration, mixed argv serialization and scalar/dense/Unicode/escaped JSON import. Input
 generation and JSON reporting stay outside measurement. Jobs include fresh copied
 host registration, execution, publication and cleanup. Engine and input hashes
 identify the measured artifacts and identical prepared inputs.

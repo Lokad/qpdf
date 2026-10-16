@@ -99,6 +99,10 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         {
             object? value = field.GetValue(current);
             if (value is null || field.FieldType.IsPrimitive || field.FieldType.IsEnum) { continue; }
+            // Follow the suspended invocation's awaiters and state, rather
+            // than unrelated execution-context/continuation object graphs.
+            Type nested = value.GetType();
+            if (value is not Task && !nested.IsValueType && nested.FullName != "Lokad.Qpdf.Commands.ExpandedArguments") { continue; }
             object? found = FindExpansion(value, depth + 1, seen);
             if (found is not null) { return found; }
         }
@@ -217,6 +221,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(0L, host.Inner.OpenLeaseCount);
         Assert.Equal(caller, invocation.Arguments);
+        Assert.NotNull(owner);
         Assert.True(reserved >= minimum, "Expansion vector needs at least " + minimum + " bytes while its owner funds only " + reserved + ".");
         if (!response)
         {
@@ -241,8 +246,12 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static WeakReference SnapshotExpansion(Task running)
-        => new(FindExpansion(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)));
+    private static WeakReference SnapshotExpansion(Task running, out bool observed)
+    {
+        object? owner = FindExpansion(running, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
+        observed = owner is not null;
+        return new(owner);
+    }
 
     private static async Task<Completed> Complete(string outcome)
     {
@@ -266,10 +275,11 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
         Task<QpdfExecutionResult> running = Qpdf.ExecuteAsync(host, invocation, cancel.Token).AsTask();
         await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
         ResourceGovernor governor = FindGovernor(running);
-        WeakReference expansion = SnapshotExpansion(running);
+        WeakReference expansion = SnapshotExpansion(running, out bool observed);
         if (outcome == "cancel") { cancel.Cancel(); }
         host.Resume();
         QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(observed, "Missing live expansion owner observer.");
         Assert.Equal(caller, invocation.Arguments);
         for (int i = 0; i < caller.Length; i++) { Assert.Same(caller[i], invocation.Arguments[i]); }
         Assert.Equal(0L, host.Inner.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);

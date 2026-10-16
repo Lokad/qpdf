@@ -48,6 +48,7 @@ internal static class JobJsonLoader
             session.AdmitArguments(argv);
             await ArgvConfigurationReader.ReadAsync(argv, session.AddSetting,
                 name => session.LoadFileChainAsync(name, cancellationToken), governor, session.TextStorage).ConfigureAwait(false);
+            session.CompleteArguments();
             return new LoadedJob(session.ParsePlan(true), session);
         }
         catch { session.Dispose(); throw; }
@@ -79,6 +80,7 @@ internal static class JobJsonLoader
         private HashSet<string>? _identities;
         private long _bytes;
         private long _reserved;
+        private long _argumentScratch;
         private ConfigurationText? _textStorage;
 
         private Session(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor)
@@ -126,9 +128,20 @@ internal static class JobJsonLoader
             }
             // Funds the syntax adapter, temporary collections and escaped JSON
             // before constructing them. Each retained DOM gets its own admission.
-            long reservation = checked(bytes * 32L + argv.Count * 512L + 4096L);
-            _governor.ReserveMemory(reservation);
-            _reserved = checked(_reserved + reservation);
+            long scratch = JobJsonMemory.ArgumentScratch(argv, bytes, _governor);
+            long reservation = checked(scratch + argv.Count * 512L + 4096L);
+            ReserveDocument(reservation);
+            _argumentScratch = scratch;
+        }
+
+        internal void CompleteArguments()
+        {
+            // Every setter has finished serialization and all child loads have
+            // completed. Documents and copied text keep their separate owners.
+            long scratch = _argumentScratch;
+            _argumentScratch = 0L;
+            _reserved -= scratch;
+            _governor.ReleaseMemory(scratch);
         }
 
         internal void AddSetting(string name, object value)
@@ -149,7 +162,15 @@ internal static class JobJsonLoader
             }
             _governor.ChargeWork(text.Length + 1L);
             long bytes = Encoding.UTF8.GetByteCount(text);
-            AdmitDocument(bytes);
+            if (bytes < JobJsonMemory.DetailedThreshold) { AdmitDocument(bytes); }
+            else
+            {
+                long total = CheckedDocumentTotal(bytes);
+                var estimate = JobJsonMemory.Estimate(text.AsSpan(), bytes, _governor);
+                AdmitDetailedDocument(estimate.Document, estimate.Copies);
+                _bytes = total;
+                _governor.ChargeWork(bytes + 1L);
+            }
             AddDocument(() => JsonDocument.Parse(text, Options()));
         }
 
@@ -170,40 +191,78 @@ internal static class JobJsonLoader
             {
                 throw new QpdfParseException("Job JSON input has an invalid length.", 0L, null);
             }
-            AdmitDocument(input.Length);
+            bool detailed = input.Length >= JobJsonMemory.DetailedThreshold;
+            if (!detailed) { AdmitDocument(input.Length); }
+            else
+            {
+                long total = CheckedDocumentTotal(input.Length);
+                ReserveDocument(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
+                _bytes = total;
+                _governor.ChargeWork(input.Length + 1L);
+            }
             identities.Add(input.Identity);
             byte[] bytes = new byte[(int)input.Length];
-            for (int offset = 0; offset < bytes.Length;)
             {
-                _governor.CheckCancellation();
-                int count = Math.Min(65536, bytes.Length - offset);
-                byte[] chunk = await QpdfInputReader.ReadAdmittedAsync(input, offset, count, _governor, cancellationToken).ConfigureAwait(false);
-                chunk.CopyTo(bytes, offset);
-                offset += count;
+                using ParserMemoryScope? read = detailed ? ParserMemoryScope.Create(_governor) : null;
+                read?.Reserve(Math.Min(65536L, input.Length) + GovernedBufferStream.ArrayOverheadBytes);
+                for (int offset = 0; offset < bytes.Length;)
+                {
+                    _governor.CheckCancellation();
+                    int count = Math.Min(65536, bytes.Length - offset);
+                    byte[] chunk = await QpdfInputReader.ReadAdmittedAsync(input, offset, count, _governor, cancellationToken).ConfigureAwait(false);
+                    chunk.CopyTo(bytes, offset);
+                    offset += count;
+                }
+            }
+            if (detailed)
+            {
+                try
+                {
+                    var estimate = JobJsonMemory.Estimate(bytes, _governor);
+                    AdmitDetailedDocument(estimate.Document, estimate.Copies);
+                }
+                catch (JsonException ex) { throw new QpdfParseException("Invalid job JSON.", ex.BytePositionInLine, null, ex); }
             }
             AddDocument(() => JsonDocument.Parse(bytes, Options()));
         }
 
         private static JsonDocumentOptions Options() => new()
         {
-            MaxDepth = 32,
+            MaxDepth = JobJsonMemory.MaxDepth,
             AllowTrailingCommas = false,
             CommentHandling = JsonCommentHandling.Disallow,
         };
 
-        private void AdmitDocument(long bytes)
+        private long CheckedDocumentTotal(long bytes)
         {
             long total = checked(_bytes + bytes);
             if (total > _limits.MaxInputBytes || bytes > int.MaxValue)
             {
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), total, Math.Min(_limits.MaxInputBytes, int.MaxValue));
             }
+            return total;
+        }
+
+        private void ReserveDocument(long bytes)
+        {
+            _governor.ReserveMemory(bytes);
+            _reserved = checked(_reserved + bytes);
+        }
+
+        private void AdmitDetailedDocument(long document, long copies)
+        {
+            ReserveDocument(document);
+            TextStorage.AdmitJsonCopies(copies);
+        }
+
+        private void AdmitDocument(long bytes)
+        {
+            long total = CheckedDocumentTotal(bytes);
             // Covers encoded storage, DOM/token tables, names and property sorting
             // before allocation. BCL pool retention remains part of the A06 audit.
             long reservation = checked(bytes * 32L + 4096L);
             long copies = ConfigurationText.JsonCopyBytes(bytes);
-            _governor.ReserveMemory(reservation - copies);
-            _reserved = checked(_reserved + reservation - copies);
+            ReserveDocument(reservation - copies);
             TextStorage.AdmitJsonCopies(copies);
             _bytes = total;
             _governor.ChargeWork(bytes + 1L);
@@ -341,6 +400,7 @@ internal static class JobJsonLoader
             textStorage?.Dispose();
             _governor.ReleaseMemory(_reserved);
             _reserved = 0L;
+            _argumentScratch = 0L;
         }
     }
 }
