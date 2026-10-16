@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf;
 
@@ -37,10 +38,37 @@ public static class QpdfInputReader
     /// </summary>
     /// <exception cref="ArgumentNullException">The input is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The range is invalid.</exception>
-    public static async ValueTask<byte[]> ReadExactlyAsync(
+    public static ValueTask<byte[]> ReadExactlyAsync(
         IQpdfInput input,
         long offset,
         int count,
+        CancellationToken cancellationToken)
+        => ReadExactlyCoreAsync(input, offset, count, null, cancellationToken);
+
+    /// <summary>Reads owned bytes after admitting their capacity against a caller's memory owner.</summary>
+    /// <remarks>
+    /// The borrowed budget must outlive the returned bytes. Their charge remains
+    /// beneath that caller owner until its disposal; no collection is required.
+    /// Short or non-array reads admit assembly overlap before copying. Hosts
+    /// account separately for private buffers and excess returned backing capacity.
+    /// Refusal fails immediately without retrying. The input lease stays caller-owned.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">The input or budget is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The range is invalid.</exception>
+    /// <exception cref="QpdfMemoryAdmissionException">The shared allowance refused admission.</exception>
+    public static ValueTask<byte[]> ReadExactlyAsync(
+        IQpdfInput input,
+        long offset,
+        int count,
+        IMemoryBudget memoryBudget,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(memoryBudget);
+        return ReadExactlyCoreAsync(input, offset, count, memoryBudget, cancellationToken);
+    }
+
+    private static async ValueTask<byte[]> ReadExactlyCoreAsync(
+        IQpdfInput input, long offset, int count, IMemoryBudget? memoryBudget,
         CancellationToken cancellationToken)
     {
         if (input is null)
@@ -53,34 +81,64 @@ public static class QpdfInputReader
             throw new ArgumentOutOfRangeException(nameof(count), "Read range exceeds the stable input length.");
         }
 
-        byte[]? result = null;
-        int filled = 0;
-        while (filled < count)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (count == 0) { return Array.Empty<byte>(); }
+        IMemoryReservation? storage = memoryBudget is null ? null
+            : MemoryAdmission.Reserve(memoryBudget, count + GovernedBufferStream.ArrayOverheadBytes);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ReadOnlyMemory<byte> chunk = await input.ReadAsync(offset + filled, count - filled, cancellationToken).ConfigureAwait(false);
-            if (chunk.Length == 0)
+            byte[]? result = null;
+            bool assembled = false;
+            int filled = 0;
+            while (filled < count)
             {
-                throw new QpdfHostException(input.Path, QpdfHostFailureReason.NonProgressingRead);
+                cancellationToken.ThrowIfCancellationRequested();
+                ReadOnlyMemory<byte> chunk = await input.ReadAsync(offset + filled, count - filled, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (chunk.Length == 0)
+                {
+                    throw new QpdfHostException(input.Path, QpdfHostFailureReason.NonProgressingRead);
+                }
+
+                // Reuse a complete freshly owned array. Other reads assemble
+                // without retaining slices of unrelated backing storage.
+                if (filled == 0 && chunk.Length == count
+                    && MemoryMarshal.TryGetArray(chunk, out ArraySegment<byte> backing)
+                    && backing.Offset == 0 && backing.Array is byte[] owned && owned.Length == count)
+                {
+                    result = owned;
+                    break;
+                }
+
+                if (result is null)
+                {
+                    // The first read and its assembly copy coexist. Later
+                    // short reads reuse the same admitted overlap allowance.
+                    if (storage is not null)
+                    { MemoryAdmission.Resize(storage, 2L * (count + GovernedBufferStream.ArrayOverheadBytes)); }
+                    result = new byte[count];
+                    assembled = true;
+                }
+                int take = Math.Min(chunk.Length, count - filled);
+                for (int copied = 0; copied < take;)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    int batch = Math.Min(8192, take - copied);
+                    chunk.Slice(copied, batch).CopyTo(result.AsMemory(filled + copied, batch));
+                    copied += batch;
+                }
+                filled += take;
+                chunk = default;
             }
 
-            // Host reads already transfer fresh owned storage. Reuse a complete
-            // exact-sized array; slices and short/non-array reads still assemble
-            // into a private result without retaining unrelated backing bytes.
-            if (filled == 0 && chunk.Length == count
-                && MemoryMarshal.TryGetArray(chunk, out ArraySegment<byte> backing)
-                && backing.Offset == 0 && backing.Array is byte[] owned && owned.Length == count)
-            {
-                return owned;
-            }
-
-            result ??= new byte[count];
-            int take = Math.Min(chunk.Length, count - filled);
-            chunk.Slice(0, take).CopyTo(result.AsMemory(filled, take));
-            filled += take;
+            if (storage is not null && assembled)
+            { MemoryAdmission.Resize(storage, count + GovernedBufferStream.ArrayOverheadBytes); }
+            // Successful storage belongs to the supplied caller scope. Failure
+            // before escape instead disposes this reservation in the finally.
+            storage = null;
+            return result ?? Array.Empty<byte>();
         }
-
-        return result ?? Array.Empty<byte>();
+        finally { storage?.Dispose(); }
     }
 }
 

@@ -20,7 +20,7 @@ New-Item -ItemType Directory -Path $consumerDirectory, $toolDirectory | Out-Null
 foreach ($name in @('global.json', 'Directory.Build.props', 'Directory.Build.targets', 'Directory.Packages.props')) {
     Copy-Item -LiteralPath (Join-Path $repoRoot $name) -Destination $testRoot
 }
-foreach ($name in @('Lokad.Qpdf.PackageConsumer.csproj', 'Program.cs')) {
+foreach ($name in @('Lokad.Qpdf.PackageConsumer.csproj', 'Program.cs', 'RecordingMemoryBudget.cs')) {
     Copy-Item -LiteralPath (Join-Path $repoRoot ('tests/Lokad.Qpdf.PackageConsumer/' + $name)) -Destination $consumerDirectory
 }
 $seedPath = Join-Path $repoRoot 'tests/Lokad.Qpdf.PackageConsumer/packages.lock.json'

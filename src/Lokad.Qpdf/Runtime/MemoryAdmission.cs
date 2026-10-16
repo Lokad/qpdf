@@ -1,0 +1,16 @@
+namespace Lokad.Qpdf.Runtime;
+
+internal static class MemoryAdmission
+{
+    internal static IMemoryReservation Reserve(IMemoryBudget budget, long bytes)
+    {
+        if (!budget.TryReserve(bytes, out IMemoryReservation? reservation))
+        { throw new QpdfMemoryAdmissionException(bytes); }
+        return reservation;
+    }
+
+    internal static void Resize(IMemoryReservation reservation, long bytes)
+    {
+        if (!reservation.TryResize(bytes)) { throw new QpdfMemoryAdmissionException(bytes); }
+    }
+}

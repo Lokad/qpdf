@@ -3,6 +3,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="Support/RecordingMemoryBudget.cs" />
     <EmbeddedResource Include="Content/InlineImageNativeCases.json" />
     <EmbeddedResource Include="Writing/LinearizedHintNativeCases.json" />
     <EmbeddedResource Include="Writing/DocumentOpenHintCases.json" />

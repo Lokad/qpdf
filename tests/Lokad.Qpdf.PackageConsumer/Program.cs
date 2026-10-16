@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using Lokad.Qpdf;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.TestSupport;
 
 // Clean consumer smoke for the PACKED Lokad.qpdf package. Uses only the
 // public embedding surface with an in-memory host; no upstream checkout,
@@ -79,6 +80,7 @@ internal static class Program
 
     private static async Task RunAsync()
     {
+        await VerifyMemoryContractAsync();
         await VerifyCodecContractAsync();
         byte[] input = TwoPagePdf();
         InMemoryQpdfHost typedHost = NewHost("inputs/in.pdf", input);
@@ -993,6 +995,37 @@ internal static class Program
         {
             Check(ordered[i].Contains(markers[i], StringComparison.Ordinal), "multi output marker " + i.ToString());
         }
+    }
+
+    private static async Task VerifyMemoryContractAsync()
+    {
+        byte[] expected = TwoPagePdf();
+        InMemoryQpdfHost host = NewHost("budgeted.pdf", expected);
+        await using IQpdfInput input = await host.OpenInputAsync(QpdfPath.From("budgeted.pdf"), CancellationToken.None);
+        RecordingMemoryBudget root = new(expected.Length + 288L);
+        using IMemoryScope parent = root.CreateScope();
+        if (!parent.TryReserve(256L, out IMemoryReservation? held))
+        { throw new InvalidOperationException("Parent reservation was refused."); }
+        using (held)
+        {
+            IMemoryScope resultOwner = parent.CreateScope();
+            byte[] read = await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, resultOwner, CancellationToken.None);
+            Check(read.SequenceEqual(expected), "budgeted public read");
+            Check(root.ReservedBytes == root.LimitBytes, "parent and returned storage share allowance");
+            Check(!held.TryResize(root.LimitBytes + 1L) && held.Bytes == 256L, "refused resize preserves estimate");
+            bool refused = false;
+            using IMemoryScope second = parent.CreateScope();
+            try { await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, second, CancellationToken.None); }
+            catch (QpdfMemoryAdmissionException failure) { refused = failure.RequestedBytes == expected.Length + 32L; }
+            Check(refused, "independent read cannot copy remaining allowance");
+            read = [];
+            resultOwner.Dispose();
+            Check(root.ReservedBytes == 256L, "caller refunds returned storage without GC");
+            byte[] next = await QpdfInputReader.ReadExactlyAsync(input, 0L, expected.Length, second, CancellationToken.None);
+            Check(next.SequenceEqual(expected), "later read reuses released allowance");
+        }
+        Check(root.ReservedBytes == 0L, "read reservations have explicit owners");
+        Console.WriteLine("PASS cooperative memory contract, retained read ownership and shared refusal");
     }
 
     private static void Check(bool condition, string what)

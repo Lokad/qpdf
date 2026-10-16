@@ -79,6 +79,7 @@ $copiedLockHash = (Get-FileHash -LiteralPath $copiedLock -Algorithm SHA256).Hash
 $project = Join-Path $projectDirectory 'Consumer.csproj'
 Copy-Item -LiteralPath (Join-Path $consumerSource 'Lokad.Qpdf.PackageConsumer.csproj') -Destination $project
 Copy-Item -LiteralPath (Join-Path $consumerSource 'Program.cs') -Destination $projectDirectory
+Copy-Item -LiteralPath (Join-Path $consumerSource 'RecordingMemoryBudget.cs') -Destination $projectDirectory
 
 $configPath = Join-Path $runRoot 'nuget.config'
 $escapedFeed = [System.Security.SecurityElement]::Escape($feedDirectory)
