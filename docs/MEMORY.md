@@ -10,6 +10,8 @@ Parser collection growth makes one admission attempt for its chosen capacity;
 refusal preserves existing entries and does not trigger a smaller retry. JPEG
 codec boundaries preserve actual `OutOfMemoryException` failures while releasing
 their workspace, rather than translating them into invalid image data.
+Filter errors show at most 256 name characters plus an ellipsis; the exception
+keeps the full, already admitted name alias without duplicating it in the message.
 Xref growth uses validated section/merge counts to cap geometric overshoot.
 Large capacities within the pinned [.NET 10 preferred-prime table](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Private.CoreLib/src/System/Collections/HashHelpers.cs)
 use a conservative 2x prime-capacity allowance, replacing the unnecessarily broad

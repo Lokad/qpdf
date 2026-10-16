@@ -39,8 +39,11 @@ internal sealed class QpdfFilterException : QpdfException
 
     private static string Format(QpdfFilterFailureReason reason, string? filterName, string detail)
     {
+        // Dynamic names already have an owner. Do not duplicate an arbitrarily
+        // large name in an otherwise small error; keep the full alias below.
+        string? displayName = filterName is { Length: > 256 } ? filterName[..256] + "..." : filterName;
         return filterName is null
             ? $"Filter decode failed ({reason}): {detail}."
-            : $"Filter decode failed ({reason}) for '{filterName}': {detail}.";
+            : $"Filter decode failed ({reason}) for '{displayName}': {detail}.";
     }
 }
