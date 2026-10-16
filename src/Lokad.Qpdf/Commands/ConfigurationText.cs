@@ -43,6 +43,15 @@ internal sealed class ConfigurationText : IDisposable
         _jsonCopies = total;
     }
 
+    // Parsing has consumed the pool. Keep accepted strings under this same
+    // component owner; refund only unused prepaid capacity.
+    internal void CompleteJsonCopies()
+    {
+        long unused = _jsonCopies;
+        _jsonCopies = 0L;
+        Memory.Release(unused);
+    }
+
     internal string? ReadJsonString(JsonElement element)
     {
         _governor.CheckCancellation();

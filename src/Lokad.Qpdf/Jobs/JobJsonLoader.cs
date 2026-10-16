@@ -286,18 +286,12 @@ internal static class JobJsonLoader
         internal JobPlan ParsePlan(bool configurationLayers)
         {
             ConfigurationText textStorage = TextStorage;
-            try
-            {
-                return JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
-                    configurationLayers || Documents.Count > 1, _limits, _governor, textStorage);
-            }
-            finally
-            {
-                // Parsing is the last consumer of this copy pool. Accepted
-                // strings already have independent receipts for their aliases.
-                _textStorage = null;
-                textStorage.Dispose();
-            }
+            JobPlan plan = JobJsonParser.ParseProperties(_fields ?? throw new ObjectDisposedException(nameof(Session)),
+                configurationLayers || Documents.Count > 1, _limits, _governor, textStorage);
+            textStorage.CompleteJsonCopies();
+            // LoadedJob owns this session through plan consumption. Its copied
+            // text follows that boundary, alongside the retained JSON documents.
+            return plan;
         }
 
         internal void AppendChainFields(int first)

@@ -121,6 +121,9 @@ Parser and transform construction scopes transfer their existing estimates to
 coarse graph owners. Retention does not walk object references or create weak
 tables and finalizer receipts. Private graph charges end with execution cleanup;
 private configuration and filter text end with their disposable component owners.
+Loaded job configuration keeps decoded strings under its text owner through plan
+consumption and awaited cleanup. Parsing refunds unused copy capacity while
+preserving accepted strings until that loaded job closes.
 Prepared typed result arrays transfer to the caller when the result is accepted,
 and refund with private cleanup when preparation fails.
 
