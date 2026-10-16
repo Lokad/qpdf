@@ -13,6 +13,11 @@ admit the additional assembly capacity before copying. Failed or canceled reads
 refund their admission after outstanding input work finishes. The input lease
 remains caller-owned.
 
+Engine reads use the same reader with their destination already admitted. They
+reserve additional assembly overlap only when a short or non-array read actually
+needs a copy, and refund that temporary charge before returning. Selective input
+prefetch uses this boundary rather than keeping a second range-sized allowance.
+
 The caller supplies a scope that outlives the returned bytes, consumes those
 bytes and drops all aliases before disposing that scope. Disposal refunds the
 charge immediately without waiting for GC; it does not dispose actual storage

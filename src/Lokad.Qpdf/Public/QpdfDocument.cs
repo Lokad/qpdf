@@ -366,7 +366,7 @@ public sealed class QpdfDocument : IAsyncDisposable
                 // jobs retain their existing immutable snapshot path.
                 if (valuesEscape || !GovernedHost.TryReadInputSnapshot(input, cancellationToken, out data))
                 {
-                    bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
                     data = bytes;
                 }
             }

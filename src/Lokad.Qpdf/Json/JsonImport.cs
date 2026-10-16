@@ -55,7 +55,7 @@ internal static class JsonImport
             }
 
             governor.ReserveMemory(input.Length);
-            byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             JsonDocumentOptions options = new()
             {
                 MaxDepth = 128,
@@ -710,7 +710,7 @@ internal static class JsonImport
             }
 
             governor.ReserveMemory(input.Length);
-            byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             return bytes;
         }
         finally

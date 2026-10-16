@@ -39,15 +39,13 @@ internal sealed class SelectiveInputData : IDisposable
         try
         {
             using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-            // Short/non-array host reads can overlap their transferred chunk
-            // with the helper's assembly buffer. Admit that overlap up front.
-            scratch.Reserve(576L);
-            byte[] tail = await QpdfInputReader.ReadExactlyAsync(input, input.Length - 256L, 256, token).ConfigureAwait(false);
+            scratch.Reserve(288L);
+            byte[] tail = await QpdfInputReader.ReadAdmittedAsync(input, input.Length - 256L, 256, governor, token).ConfigureAwait(false);
             long xref = XRefTable.ReadTailOffset(tail);
             long metadataLength = input.Length - xref;
             if (xref < 8L || metadataLength <= 0L || metadataLength > MaximumMetadata) { return null; }
-            scratch.Reserve(checked(2L * (metadataLength + 32L)));
-            byte[] metadata = await QpdfInputReader.ReadExactlyAsync(input, xref, (int)metadataLength, token).ConfigureAwait(false);
+            scratch.Reserve(checked(metadataLength + 32L));
+            byte[] metadata = await QpdfInputReader.ReadAdmittedAsync(input, xref, (int)metadataLength, governor, token).ConfigureAwait(false);
             table = XRefTable.ReadClassicWindow(metadata, xref, (int)input.Length, limits, governor, diagnostics);
 
             List<int> offsets = ParserContainers.CreateList<int>(scratch);
@@ -88,14 +86,13 @@ internal sealed class SelectiveInputData : IDisposable
                 || limits.MaxHostOperations - governor.Snapshot().HostOperations < plans.Count + 16L)
             { return null; }
             memory = ParserMemoryScope.Create(governor);
-            memory.Reserve(checked(64L + 32L + plans.Count * 16L + 2L * (total + plans.Count * 32L)));
+            memory.Reserve(checked(64L + 32L + plans.Count * 16L + total + plans.Count * 32L));
             Range[] ranges = new Range[plans.Count];
             for (int index = 0; index < ranges.Length; index++)
             {
                 Plan plan = plans[index];
-                byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, plan.Start, plan.Length, token).ConfigureAwait(false);
+                byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, plan.Start, plan.Length, governor, token).ConfigureAwait(false);
                 ranges[index] = new Range(plan.Start, bytes);
-                memory.Release(checked(plan.Length + 32L));
             }
             SelectiveInputData result = new(ranges, table, memory, diagnostics, governor);
             transferred = true;

@@ -3678,7 +3678,7 @@ public static partial class Qpdf
             }
 
             ownership.Reserve(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
-            byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             return bytes;
         }
         finally
@@ -5925,7 +5925,7 @@ public static partial class Qpdf
                 }
 
                 governor.ReserveMemory(input.Length);
-                bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -6043,7 +6043,7 @@ public static partial class Qpdf
                 }
 
                 governor.ReserveMemory(input.Length);
-                bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+                bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             }
             finally
             {

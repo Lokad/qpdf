@@ -1,9 +1,49 @@
 using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 public sealed class CooperativeInputMemoryTests
 {
+    [Theory]
+    [InlineData(20000)]
+    [InlineData(17)]
+    public async Task EngineReadsChargeOnlyActualAssemblyOverlap(int chunkSize)
+    {
+        RecordingMemoryBudget root = new(65536L);
+        using IMemoryScope caller = root.CreateScope();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new BudgetHost(caller));
+        governor.ReserveMemory(20032L);
+        byte[] expected = Enumerable.Range(0, 20000).Select(value => (byte)value).ToArray();
+        byte[] read = await QpdfInputReader.ReadAdmittedAsync(new Input(expected, chunkSize), 0L,
+            expected.Length, governor, CancellationToken.None);
+        Assert.Equal(expected, read);
+        Assert.Equal(20032L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(chunkSize == expected.Length ? 20032L : 40064L, governor.Snapshot().PeakMemoryBytes);
+        Assert.InRange(root.ReservedBytes, 20032L, 20032L + SharedMemoryOwner.BlockBytes);
+        Assert.Equal(1, root.ReserveCalls);
+        Assert.InRange(root.ResizeCalls, 0, 2);
+        governor.ReleaseMemory(20032L);
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Fact]
+    public async Task EngineAssemblyRefusalPreservesThePreAdmittedDestination()
+    {
+        RecordingMemoryBudget root = new(32768L);
+        using IMemoryScope caller = root.CreateScope();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new BudgetHost(caller));
+        governor.ReserveMemory(20032L);
+        Input input = new(new byte[20000], 17);
+        await Assert.ThrowsAsync<QpdfMemoryAdmissionException>(() => QpdfInputReader.ReadAdmittedAsync(
+            input, 0L, 20000, governor, CancellationToken.None).AsTask());
+        Assert.Equal(1, input.Reads);
+        Assert.Equal(20032L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Equal(32768L, root.ReservedBytes);
+        governor.ReleaseMemory(20032L);
+        Assert.Equal(0L, root.ReservedBytes);
+    }
+
     [Fact]
     public async Task RefusalPrecedesTheFirstReadAndLeavesOtherChargesIntact()
     {
@@ -127,6 +167,15 @@ public sealed class CooperativeInputMemoryTests
         Assert.Empty(empty);
         Assert.Equal(0, input.Reads);
         Assert.Equal(0, root.ReserveCalls);
+    }
+
+    private sealed class BudgetHost(IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
+    {
+        public IMemoryBudget MemoryBudget => budget;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 
     private sealed class Input(byte[] data, int chunkSize) : IQpdfInput

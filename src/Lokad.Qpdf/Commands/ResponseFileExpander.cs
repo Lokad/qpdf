@@ -135,7 +135,7 @@ internal static class ResponseFileExpander
             // Keep the text's independent owner through input close and splitting.
             using ParserMemoryScope bytesOwner = ParserMemoryScope.Create(governor);
             bytesOwner.Reserve(checked(32L + input.Length));
-            byte[] bytes = await QpdfInputReader.ReadExactlyAsync(input, 0L, (int)input.Length, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
             try
             {
                 decoded = GovernedText.DecodeUtf8(governor, bytes);

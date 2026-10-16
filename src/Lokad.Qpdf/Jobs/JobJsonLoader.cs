@@ -177,7 +177,7 @@ internal static class JobJsonLoader
             {
                 _governor.CheckCancellation();
                 int count = Math.Min(65536, bytes.Length - offset);
-                byte[] chunk = await QpdfInputReader.ReadExactlyAsync(input, offset, count, cancellationToken).ConfigureAwait(false);
+                byte[] chunk = await QpdfInputReader.ReadAdmittedAsync(input, offset, count, _governor, cancellationToken).ConfigureAwait(false);
                 chunk.CopyTo(bytes, offset);
                 offset += count;
             }

@@ -43,7 +43,7 @@ public static class QpdfInputReader
         long offset,
         int count,
         CancellationToken cancellationToken)
-        => ReadExactlyCoreAsync(input, offset, count, null, cancellationToken);
+        => ReadExactlyCoreAsync(input, offset, count, null, null, cancellationToken);
 
     /// <summary>Reads owned bytes after admitting their capacity against a caller's memory owner.</summary>
     /// <remarks>
@@ -64,11 +64,17 @@ public static class QpdfInputReader
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(memoryBudget);
-        return ReadExactlyCoreAsync(input, offset, count, memoryBudget, cancellationToken);
+        return ReadExactlyCoreAsync(input, offset, count, memoryBudget, null, cancellationToken);
     }
 
+    // The engine already admits the returned array under its destination owner.
+    // This path adds only a temporary assembly/read overlap, when actually needed.
+    internal static ValueTask<byte[]> ReadAdmittedAsync(IQpdfInput input, long offset, int count,
+        ResourceGovernor governor, CancellationToken cancellationToken)
+        => ReadExactlyCoreAsync(input, offset, count, null, governor, cancellationToken);
+
     private static async ValueTask<byte[]> ReadExactlyCoreAsync(
-        IQpdfInput input, long offset, int count, IMemoryBudget? memoryBudget,
+        IQpdfInput input, long offset, int count, IMemoryBudget? memoryBudget, ResourceGovernor? governor,
         CancellationToken cancellationToken)
     {
         if (input is null)
@@ -85,6 +91,7 @@ public static class QpdfInputReader
         if (count == 0) { return Array.Empty<byte>(); }
         IMemoryReservation? storage = memoryBudget is null ? null
             : MemoryAdmission.Reserve(memoryBudget, count + GovernedBufferStream.ArrayOverheadBytes);
+        long overlap = 0L;
         try
         {
             byte[]? result = null;
@@ -116,6 +123,12 @@ public static class QpdfInputReader
                     // short reads reuse the same admitted overlap allowance.
                     if (storage is not null)
                     { MemoryAdmission.Resize(storage, 2L * (count + GovernedBufferStream.ArrayOverheadBytes)); }
+                    if (governor is not null)
+                    {
+                        long bytes = count + GovernedBufferStream.ArrayOverheadBytes;
+                        governor.ReserveMemory(bytes);
+                        overlap = bytes;
+                    }
                     result = new byte[count];
                     assembled = true;
                 }
@@ -138,7 +151,11 @@ public static class QpdfInputReader
             storage = null;
             return result ?? Array.Empty<byte>();
         }
-        finally { storage?.Dispose(); }
+        finally
+        {
+            storage?.Dispose();
+            if (overlap != 0L) { governor?.ReleaseMemory(overlap); }
+        }
     }
 }
 
